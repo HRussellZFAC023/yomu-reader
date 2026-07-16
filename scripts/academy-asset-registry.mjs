@@ -10,7 +10,11 @@ const OUTPUTS = [
     path.join(REPO_ROOT, 'public/academy/art/ACADEMY-ASSET-REGISTRY.json'),
     path.join(REPO_ROOT, 'docs/public/academy/art/ACADEMY-ASSET-REGISTRY.json'),
 ];
-const RUNTIME_LEDGER_PATH = path.join(REPO_ROOT, 'public/academy/art/ASSET-USAGE.json');
+const RUNTIME_LEDGER_OUTPUTS = [
+    path.join(REPO_ROOT, 'public/academy/art/ASSET-USAGE.json'),
+    path.join(REPO_ROOT, 'docs/public/academy/art/ASSET-USAGE.json'),
+];
+const RUNTIME_LEDGER_PATH = RUNTIME_LEDGER_OUTPUTS[0];
 const RECOVERY_LEDGER_PATH = path.join(REPO_ROOT, 'docs/academy/recovery/ASSET-CARRYOVER.json');
 const LISTENING_BINDINGS_PATH = path.join(REPO_ROOT, 'public/academy/content/listening/listening-task-bindings.v1.json');
 const SNAPSHOT_DATE = '2026-07-15';
@@ -387,7 +391,26 @@ async function buildFiles() {
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, serialized);
     }
+    updateRegistryLedgerHash(crypto.createHash('sha256').update(serialized).digest('hex'));
     console.log(`Built Academy asset registry: ${registry.counts.sourceMedia} source media, ${registry.counts.missingPurposefulAssets} explicit gaps.`);
+}
+
+function updateRegistryLedgerHash(registrySha256) {
+    for (const output of RUNTIME_LEDGER_OUTPUTS) {
+        const source = fs.readFileSync(output, 'utf8');
+        const entryStart = source.indexOf('"id": "academy-asset-registry-v1"');
+        const entryEnd = source.indexOf('\n    {', entryStart + 1);
+        if (entryStart < 0) throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry record.`);
+        const before = source.slice(0, entryStart);
+        const entry = source.slice(entryStart, entryEnd < 0 ? source.length : entryEnd);
+        const after = entryEnd < 0 ? '' : source.slice(entryEnd);
+        const updatedEntry = entry.replace(
+            /("path": "\/academy\/art\/ACADEMY-ASSET-REGISTRY\.json",\s*"sha256": ")[0-9a-f]{64}("\s*)/u,
+            `$1${registrySha256}$2`,
+        );
+        if (updatedEntry === entry) throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry delivery.`);
+        fs.writeFileSync(output, `${before}${updatedEntry}${after}`);
+    }
 }
 
 async function validateFiles() {

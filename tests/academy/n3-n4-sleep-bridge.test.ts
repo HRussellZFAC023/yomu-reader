@@ -101,7 +101,7 @@ describe('N3/N4 sleep bridge package', () => {
         }
         host.querySelector<HTMLFormElement>('form')?.requestSubmit();
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledOnce());
-        expect(host.querySelector('[data-source-transcript="after-attempt"]')).not.toBeNull();
+        await vi.waitFor(() => expect(host.querySelector('[data-source-transcript="after-attempt"]')).not.toBeNull());
         expect(host.textContent).toContain(N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS[0].text);
         expect(registered).toHaveLength(6);
         controller.dispose();

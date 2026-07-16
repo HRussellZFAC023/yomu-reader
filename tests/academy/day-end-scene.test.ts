@@ -4,7 +4,7 @@ import { renderDayEndScene } from '../../src/academy/ui/day-end-scene';
 afterEach(() => document.body.replaceChildren());
 
 describe('Academy day-end scene', () => {
-    it('uses the full-bleed Rie stage and one reversible action', () => {
+    it('uses the full-bleed Rie stage and one reversible action', async () => {
         const onReturn = vi.fn();
         const screen = renderDayEndScene({ language: 'en', onReturn });
         document.body.append(screen);
@@ -14,8 +14,10 @@ describe('Academy day-end scene', () => {
         expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src).toContain(ACADEMY_ASSETS.locations.classroom.wide);
         expect(screen.querySelector<HTMLImageElement>('[data-character="rie"] img')?.src).toContain(ACADEMY_ASSETS.rie);
         expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Rie-sensei');
-        expect(screen.querySelector('.academy-vn-japanese')?.textContent).toBe('今日はここまでにしましょう。またね。');
-        expect(screen.querySelector('.academy-vn-translation')?.textContent).toBe('Let’s stop here for today. See you.');
+        await vi.waitFor(() => {
+            expect(screen.querySelector('.academy-vn-japanese')?.textContent).toBe('今日はここまでにしましょう。またね。');
+            expect(screen.querySelector('.academy-vn-translation')?.textContent).toBe('Let’s stop here for today. See you.');
+        });
         expect(screen.querySelectorAll('button.academy-day-end-return')).toHaveLength(1);
 
         screen.querySelector<HTMLButtonElement>('.academy-day-end-return')?.click();

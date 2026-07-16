@@ -46,7 +46,7 @@
       "reviewHome": ["conformance:academy-asset-registry"],
       "deliveries": [{
         "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
-        "sha256": "16b4f9f61b1f7a1112090273dbe869e5d210c9a5e9f8b81b64cb5b4e99ece8f8"
+        "sha256": "7290171afc9709ab155f75d49355cdfe4dbe4d1679edebdb40c6e40898ff74e7"
       }],
       "status": "generated-mirrored-and-conformance-validated; not-runtime-bound"
     },

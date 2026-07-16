@@ -39,7 +39,7 @@
   "counts": {
     "lessons": 15,
     "worlds": 3,
-    "sourceMedia": 64,
+    "sourceMedia": 69,
     "activeRuntimeAssets": 14,
     "recoveredCandidates": 14,
     "missingPurposefulAssets": 0
@@ -1277,6 +1277,39 @@
             },
             "runtimeUse": "lesson-activity:l2-l13",
             "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-1.png",
+            "sha256": "0cb48f1ff679332f139f56a731402547539cc6c6cdd70dcc500a98541ccb0daa",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-2.png",
+            "sha256": "1f6e44b353c867935b7ffd9c7e74ad7c6e2c2ec63aae57f43097ba5f1c1eaf95",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l13/moodle-new-chapter-28-2-vocabulary-page-3.png",
+            "sha256": "8f62482f437edab0d66165c57daa9389c24c6987a3cd69cac4552ea49d2c9657",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/040-l2-l13.json"
+            },
+            "runtimeUse": null,
+            "orphanStatus": "unreferenced-delivery"
           }
         ],
         "packagedListening": [
@@ -1620,6 +1653,28 @@
           {
             "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-tearu-2-page-3.png",
             "sha256": "e44924a1d24809feaa577fb59c0ca90b64fded5743fba2d3ede3457a4b78529d",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-vocabulary-page-1.png",
+            "sha256": "1152918885025693d42f59d0844e315acf7aacf0fa1747ba5509aac317dd38e1",
+            "type": "source-visual",
+            "provenance": {
+              "family": "moodle-source-package",
+              "record": "public/academy/content/lessons/043-l2-l16.json"
+            },
+            "runtimeUse": "lesson-activity:l2-l16",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/lessons/l2-l16/moodle-chapter-30-1-vocabulary-page-2.png",
+            "sha256": "5bbae29bcf083f2b9f6c1843c1848b32bbe294b2079ed2528bff2ceea3c12754",
             "type": "source-visual",
             "provenance": {
               "family": "moodle-source-package",

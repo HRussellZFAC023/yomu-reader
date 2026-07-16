@@ -1,0 +1,56 @@
+{
+  "schema": "yomu-academy.n2-extensive-reading-package/v1",
+  "revision": "n2-extensive-reading-01/2026-07-16.1",
+  "package": {
+    "id": "n2-extensive-reading-01",
+    "band": "N2-to-N1",
+    "activityId": "activity:n2-extensive-reading:three-pass",
+    "activityKind": "academy-n2-extensive-reading",
+    "pedagogy": "instruction-before-untimed-extensive-reading",
+    "strategy": [
+      "preview-topic-and-ending",
+      "track-paragraph-pivots-and-roles",
+      "preserve-flow-before-lookup"
+    ],
+    "assessment": {
+      "sourceComprehension": 3,
+      "n1Transfer": 2,
+      "passScore": 1,
+      "answerVisibility": "after-attempt",
+      "reflection": "optional-ungraded"
+    }
+  },
+  "source": {
+    "scope": "soya-research",
+    "relativePath": "data/courses/jlpt_n2/mock_test_no1.js",
+    "payloadSha256": "4665de0aab5656717c930508ee9b92e60d11f71d5030482b86ea31b7a50b5aa5",
+    "itemId": "n2_m1_reading_long_2_1",
+    "itemSha256": "df8d08ef13029aa0c3196a7a1ca9571372f51b39aa9a53de69c84844b9a5da9f",
+    "passageSha256": "1820d6f2ad94ab991c0532825dfd06ebf1cc544d704243227336091ed37efc2a",
+    "locus": {
+      "kind": "exported-array-item",
+      "exportName": "n2_mock_no1_pool"
+    },
+    "permission": "user-permitted-local-educational-use",
+    "sourceTextDelivery": "exact-three-paragraph-item",
+    "sourceAnswersDelivery": "not-in-public-package"
+  },
+  "authorship": {
+    "sourcePassage": "exact-soya-source-item",
+    "strategyTeaching": "original-yomu",
+    "additionalComprehension": "original-yomu",
+    "n1Transfer": "original-yomu",
+    "reflection": "learner-authored-ungraded"
+  },
+  "projections": {
+    "readerSurfaces": 5,
+    "srsTargets": 5,
+    "miningRequests": 3
+  },
+  "dependencies": {
+    "network": 0,
+    "audio": 0,
+    "video": 0,
+    "externalMedia": 0
+  }
+}
