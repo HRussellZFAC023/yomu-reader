@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     arrayParam,
+    corsHeaders,
     gmRequestFetchBody,
     mockAnkiConnectResponse,
     mockJpdbParseFromVocabulary,
@@ -779,14 +780,6 @@ function textResponse(responseText, contentType, status = 200) {
         bytes: [...Buffer.from(responseText)],
         contentType,
         headers: corsHeaders(),
-    };
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
     };
 }
 

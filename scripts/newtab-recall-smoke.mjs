@@ -7,6 +7,7 @@ import {
     arrayParam,
     assert,
     assertBuiltArtifacts,
+    corsHeaders,
     createSmokePaths,
     DEFAULT_ANKI_CONNECT_URL,
     jsonHttpResponse,
@@ -451,7 +452,7 @@ async function handleMockedRoute(route, requests, scenario) {
     const request = route.request();
     const url = new URL(request.url());
     if (request.method() === 'OPTIONS' && isMockedOrigin(url)) {
-        await route.fulfill({ status: 204, headers: corsHeaders() });
+        await route.fulfill({ status: 204, headers: corsHeaders('authorization, content-type, accept') });
         return;
     }
     const mocked = mockedRequest({
@@ -466,7 +467,7 @@ async function handleMockedRoute(route, requests, scenario) {
     }
     await route.fulfill({
         status: mocked.status ?? 200,
-        headers: { ...corsHeaders(), ...(mocked.headers ?? {}) },
+        headers: { ...corsHeaders('authorization, content-type, accept'), ...(mocked.headers ?? {}) },
         contentType: mocked.contentType,
         body: mocked.responseText ?? mocked.body ?? '',
     });
@@ -709,14 +710,6 @@ function isMockedOrigin(url) {
         || url.origin === JITEN_API_ORIGIN
         || url.origin === BUNPRO_API_ORIGIN
         || url.origin === new URL(DEFAULT_ANKI_CONNECT_URL).origin;
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'authorization, content-type, accept',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
 }
 
 function assertApiAuth(request, prefix, expectedKey, label) {

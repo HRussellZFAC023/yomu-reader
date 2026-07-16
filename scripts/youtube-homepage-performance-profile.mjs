@@ -5,6 +5,8 @@ import { chromium, devices } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     arrayParam,
+    corsHeaders,
+    dismissConsent,
     gmRequestFetchBody,
     mockAnkiConnectResponse,
     mockJpdbParseFromVocabulary,
@@ -529,16 +531,6 @@ function audioResponse(url, requests) {
         contentType: 'audio/mpeg',
         headers: corsHeaders(),
     };
-}
-
-async function dismissConsent(page) {
-    for (const selector of ['button:has-text("Accept all")', 'button:has-text("すべてに同意")', 'form[action*="consent"] button']) {
-        const control = page.locator(selector).first();
-        if (await control.count().catch(() => 0)) {
-            await control.click({ timeout: 1500 }).catch(() => undefined);
-            await page.waitForTimeout(1000);
-        }
-    }
 }
 
 async function waitForThumbnailReadiness(page, timeoutMs) {
@@ -1110,14 +1102,6 @@ function textResponse(responseText, contentType, status = 200) {
         bytes: [...Buffer.from(String(responseText))],
         contentType,
         headers: corsHeaders(),
-    };
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
     };
 }
 

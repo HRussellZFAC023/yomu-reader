@@ -11,6 +11,7 @@ import {
     assertBuiltArtifacts,
     closeServer,
     createAnkiSmokeSettings,
+    createFixtureServer,
     createSmokePaths,
     DEFAULT_ANKI_CONNECT_URL,
     jsonHttpResponse,
@@ -23,7 +24,6 @@ import {
     resolveAnkiAction,
     routeMockedHttpRequests,
     serveFile,
-    startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
@@ -243,10 +243,6 @@ const FIXTURE_ROUTE_HANDLERS = [
     serveNewTabAsset,
 ];
 const NEWTAB_INDEX_PATHS = new Set(['/newtab/', '/newtab/index.html']);
-
-function createFixtureServer() {
-    return startLoopbackServer(handleFixtureRequest, 'Could not bind Anki smoke server');
-}
 
 function handleFixtureRequest(request, response) {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
@@ -1557,7 +1553,7 @@ function newTabAudioButtonDebugSnapshot(button) {
 async function main() {
     assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT);
     mkdirSync(ARTIFACTS, { recursive: true });
-    const { server, baseUrl } = await createFixtureServer();
+    const { server, baseUrl } = await createFixtureServer(handleFixtureRequest, 'Could not bind Anki smoke server');
     const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
     try {
         const reader = await runReaderMiningSmoke(browser, baseUrl);

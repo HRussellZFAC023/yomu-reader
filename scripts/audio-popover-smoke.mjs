@@ -12,6 +12,7 @@ import {
     mockJpdbParseFromVocabulary,
     readJsonBody,
     startLoopbackServer,
+    textResponse,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
@@ -711,15 +712,6 @@ function bridgeResponse(request) {
 
 function jsonResponse(value) {
     return textResponse(JSON.stringify(value), 'application/json; charset=utf-8');
-}
-
-function textResponse(responseText, contentType, status = 200) {
-    return {
-        status,
-        responseText,
-        bytes: [...Buffer.from(responseText, 'utf8')],
-        contentType,
-    };
 }
 
 function bytesResponse(buffer, contentType, status = 200) {

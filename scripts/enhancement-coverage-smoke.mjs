@@ -8,6 +8,7 @@ import {
     assertBuiltArtifacts,
     closeServer,
     createSmokePaths,
+    escapeHtml,
     jsonHttpResponse,
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
@@ -512,14 +513,6 @@ function pitchPatternHtml(reading, pattern) {
         const level = levels[index] === 'H' ? 'high' : 'low';
         return `<div style="background-image: linear-gradient(to top,var(--pitch-${level}-s),var(--pitch-${level}-e));"><div>${escapeHtml(character)}</div></div>`;
     }).join('');
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function serveFixture(request, response) {

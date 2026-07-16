@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import {
     assert,
     assertBuiltArtifacts,
+    corsHeaders,
     launchSmokeBrowser,
     serveFile,
     startLoopbackServer,
@@ -448,7 +449,7 @@ async function routeHostedSmokeRequests(page, requests) {
         });
         await route.fulfill({
             status: mocked.status ?? 200,
-            headers: mocked.noCors ? {} : corsHeaders(),
+            headers: mocked.noCors ? {} : corsHeaders('*', 'GET, HEAD, OPTIONS'),
             contentType: mocked.contentType,
             body: mocked.body,
         });
@@ -553,14 +554,6 @@ function jpdbVocabularyHtml() {
 
 function textResponse(body, contentType, status = 200) {
     return { body, contentType, status };
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': '*',
-        'access-control-allow-methods': 'GET, HEAD, OPTIONS',
-    };
 }
 
 async function waitForPlaybackSignalCount(page, count, message) {

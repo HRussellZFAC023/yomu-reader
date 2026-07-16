@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { chromium } from 'playwright';
 import { createYomuPaths } from './paths.mjs';
 
@@ -115,6 +116,10 @@ export async function startLoopbackServer(handler, bindErrorMessage = 'Could not
     };
 }
 
+export function createFixtureServer(handler, bindErrorMessage = 'Could not bind fixture server') {
+    return startLoopbackServer(handler, bindErrorMessage);
+}
+
 export function startHtmlFixtureServer(pagePath, html, bindErrorMessage) {
     return startLoopbackServer((request, response) => serveHtmlFixture(request, response, pagePath, html), bindErrorMessage);
 }
@@ -161,6 +166,16 @@ export async function newAutoClosingPage(browser, contextOptions) {
     const page = await context.newPage();
     closeContextAfterLastPage(page, context);
     return { context, page };
+}
+
+export async function dismissConsent(page) {
+    for (const selector of ['button:has-text("Accept all")', 'button:has-text("すべてに同意")', 'form[action*="consent"] button']) {
+        const control = page.locator(selector).first();
+        if (await control.count().catch(() => 0)) {
+            await control.click({ timeout: 1500 }).catch(() => undefined);
+            await page.waitForTimeout(1000);
+        }
+    }
 }
 
 function closeContextAfterLastPage(page, context) {
@@ -229,11 +244,23 @@ function mockedFulfillBody(mocked) {
     return mocked.responseText ?? '';
 }
 
-function corsHeaders() {
+export function corsHeaders(
+    allowHeaders = 'content-type, authorization',
+    allowMethods = 'GET, POST, OPTIONS',
+) {
     return {
         'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
+        'access-control-allow-headers': allowHeaders,
+        'access-control-allow-methods': allowMethods,
+    };
+}
+
+export function textResponse(responseText, contentType, status = 200) {
+    return {
+        status,
+        responseText,
+        bytes: [...Buffer.from(responseText, 'utf8')],
+        contentType,
     };
 }
 
@@ -245,6 +272,73 @@ export function jsonHttpResponse(value) {
         bytes: [...Buffer.from(responseText)],
         contentType: 'application/json; charset=utf-8',
     };
+}
+
+export function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+let pngCrcTable;
+
+function getPngCrcTable() {
+    if (pngCrcTable) return pngCrcTable;
+    const table = new Int32Array(256);
+    for (let index = 0; index < table.length; index += 1) {
+        let checksum = index;
+        for (let bit = 0; bit < 8; bit += 1) {
+            checksum = checksum & 1 ? 0xedb88320 ^ (checksum >>> 1) : checksum >>> 1;
+        }
+        table[index] = checksum;
+    }
+    pngCrcTable = table;
+    return pngCrcTable;
+}
+
+function pngCrc32(buffer) {
+    const table = getPngCrcTable();
+    let checksum = ~0;
+    for (const byte of buffer) checksum = table[(checksum ^ byte) & 0xff] ^ (checksum >>> 8);
+    return ~checksum >>> 0;
+}
+
+function pngChunk(type, data) {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const typedData = Buffer.concat([Buffer.from(type), data]);
+    const checksum = Buffer.alloc(4);
+    checksum.writeUInt32BE(pngCrc32(typedData));
+    return Buffer.concat([length, typedData, checksum]);
+}
+
+export function makePng(width = 200, height = 280, invert = false) {
+    const raw = Buffer.alloc((width * 4 + 1) * height);
+    let offset = 0;
+    for (let y = 0; y < height; y += 1) {
+        raw[offset++] = 0;
+        for (let x = 0; x < width; x += 1) {
+            let value = x % 40 < 22 && y % 50 < 30 ? 0 : (x + y) % 3 === 0 ? 96 : 255;
+            if (invert) value = 255 - value;
+            raw[offset++] = value;
+            raw[offset++] = value;
+            raw[offset++] = value;
+            raw[offset++] = 255;
+        }
+    }
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(width, 0);
+    ihdr.writeUInt32BE(height, 4);
+    ihdr[8] = 8;
+    ihdr[9] = 6;
+    return Buffer.concat([
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+        pngChunk('IHDR', ihdr),
+        pngChunk('IDAT', zlib.deflateSync(raw)),
+        pngChunk('IEND', Buffer.alloc(0)),
+    ]);
 }
 
 export function mockJpdbApiRequest(request, requestLog, vocabulary, options = {}) {

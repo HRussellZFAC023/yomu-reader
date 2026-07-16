@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { createYomuPaths } from './lib/paths.mjs';
-import { assert, closeServer, launchSmokeBrowser, serveFile, startLoopbackServer } from './lib/smoke-harness.mjs';
+import { assert, closeServer, createFixtureServer, launchSmokeBrowser, serveFile } from './lib/smoke-harness.mjs';
 import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
@@ -220,10 +220,6 @@ const FEEDBACK_FILE_ROUTES = new Map([
 
 function routeEntries(pathnames, route) {
     return pathnames.map(pathname => [pathname, route]);
-}
-
-function createFixtureServer() {
-    return startLoopbackServer(serveFeedbackFixtureRequest, 'Could not bind feedback smoke server');
 }
 
 function serveFeedbackFixtureRequest(request, response) {
@@ -1974,7 +1970,7 @@ function hostedPausePanelFitsViewport(pausePanel) {
     return Boolean(pausePanel.rect && pausePanel.rect.width >= 260 && pausePanel.rect.right <= pausePanel.viewport.width + 1);
 }
 
-const { server, baseUrl } = await createFixtureServer();
+const { server, baseUrl } = await createFixtureServer(serveFeedbackFixtureRequest, 'Could not bind feedback smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {

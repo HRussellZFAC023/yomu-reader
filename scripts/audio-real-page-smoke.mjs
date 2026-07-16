@@ -8,6 +8,7 @@ import {
     assertBuiltArtifacts,
     createSmokePaths,
     launchSmokeBrowser,
+    textResponse,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
@@ -378,15 +379,6 @@ async function bridgeResponse(request) {
 
 function textLikeResponse(contentType = '') {
     return /(?:text|json|xml|html|javascript)/i.test(contentType);
-}
-
-function textResponse(responseText, contentType, status = 200) {
-    return {
-        status,
-        responseText,
-        bytes: [...Buffer.from(responseText, 'utf8')],
-        contentType,
-    };
 }
 
 function bytesResponse(buffer, contentType, status = 200) {

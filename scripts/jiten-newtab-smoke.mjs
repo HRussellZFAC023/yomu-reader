@@ -8,6 +8,7 @@ import {
     assert,
     assertBuiltArtifacts,
     closeServer,
+    corsHeaders,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
@@ -146,7 +147,7 @@ async function handleMockedApiRoute(route, requests) {
     const request = route.request();
     const url = new URL(request.url());
     if (request.method() === 'OPTIONS' && isMockedApiUrl(url)) {
-        await route.fulfill({ status: 204, headers: corsHeaders() });
+        await route.fulfill({ status: 204, headers: corsHeaders('authorization, content-type, accept') });
         return;
     }
     const publicJpdb = publicJpdbResponse(url, request.method());
@@ -195,7 +196,7 @@ function mockedRouteResponse(mocked) {
 }
 
 function mockedRouteHeaders(mocked) {
-    return { ...corsHeaders(), ...(mocked.headers ?? {}) };
+    return { ...corsHeaders('authorization, content-type, accept'), ...(mocked.headers ?? {}) };
 }
 
 function mockedRouteBody(mocked) {
@@ -327,14 +328,6 @@ function immersionKitResponse(url, method, requests) {
             sound_url: 'https://media.example.test/immersion-tappuri.mp3',
         }],
     });
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'authorization, content-type, accept',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
 }
 
 function mockedApiRequest(request, requests) {

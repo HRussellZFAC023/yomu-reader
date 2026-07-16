@@ -6,6 +6,7 @@ import {
     addGmStorageBridgeInitScript,
     assertBuiltArtifacts,
     createSmokePaths,
+    dismissConsent,
     gmRequestFetchBody,
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
@@ -1262,16 +1263,6 @@ async function installConsentCookies(context) {
         { name: 'CONSENT', value: 'YES+cb.20240101-08-p0.ja+FX+667', domain: '.youtube.com', path: '/' },
         { name: 'SOCS', value: 'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA4X3AwGgJqYSACGgYIgJzqrQY', domain: '.youtube.com', path: '/' },
     ]).catch(() => undefined);
-}
-
-async function dismissConsent(page) {
-    for (const selector of ['button:has-text("Accept all")', 'button:has-text("すべてに同意")', 'form[action*="consent"] button']) {
-        const control = page.locator(selector).first();
-        if (await control.count().catch(() => 0)) {
-            await control.click({ timeout: 1500 }).catch(() => undefined);
-            await page.waitForTimeout(1000);
-        }
-    }
 }
 
 async function installFixtureRoutes(page, requestLog) {

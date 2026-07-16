@@ -7,6 +7,7 @@ import {
     assert,
     assertBuiltArtifacts,
     closeSmokeBrowserAndServer,
+    corsHeaders,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
@@ -892,12 +893,4 @@ function htmlResponse(responseText) {
 
 function textResponse(status, responseText) {
     return { status, responseText, contentType: 'text/plain; charset=utf-8' };
-}
-
-function corsHeaders() {
-    return {
-        'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type, authorization',
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-    };
 }

@@ -11,8 +11,7 @@
 //   D) a REAL page turn still re-OCRs the new page                          [guard]
 import { chromium, webkit, firefox } from 'playwright';
 import path from 'node:path';
-import zlib from 'node:zlib';
-import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
+import { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
@@ -21,10 +20,6 @@ const BRIDGE = '__yomuCty2Req';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/cty2-p1.png';
 const IMG_URL_2 = 'https://c.bookwalker.jp/scrambled/cty2-p2.png';
 
-const CRC = (() => { const t = new Int32Array(256); for (let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t[n]=c;} return t; })();
-const crc32 = b => { let c=~0; for (let i=0;i<b.length;i++) c=CRC[(c^b[i])&0xff]^(c>>>8); return ~c>>>0; };
-const chunk = (t,d)=>{const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const td=Buffer.concat([Buffer.from(t),d]);const cc=Buffer.alloc(4);cc.writeUInt32BE(crc32(td));return Buffer.concat([l,td,cc]);};
-function makePng(w=400,h=560,inv=false){const raw=Buffer.alloc((w*4+1)*h);let o=0;for(let y=0;y<h;y++){raw[o++]=0;for(let x=0;x<w;x++){let v=((x%40<22)&&(y%50<30))?0:((x+y)%3===0?96:255);if(inv)v=255-v;raw[o++]=v;raw[o++]=v;raw[o++]=v;raw[o++]=255;}}const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(w,0);ihdr.writeUInt32BE(h,4);ihdr[8]=8;ihdr[9]=6;return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',zlib.deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]);}
 const PAGE_PNG = makePng(400,560,false);
 const PAGE_PNG_2 = makePng(400,560,true);
 

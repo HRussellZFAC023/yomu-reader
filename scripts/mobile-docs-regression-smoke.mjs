@@ -7,13 +7,13 @@ import {
     assert,
     assertBuiltArtifacts,
     closeSmokeBrowserAndServer,
+    createFixtureServer,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     routeMockedHttpRequests,
     serveFile,
-    startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
@@ -119,7 +119,7 @@ const docsVocabulary = [
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
 
-const fixture = await createFixtureServer();
+const fixture = await createFixtureServer(handleFixtureRequest, 'Could not bind mobile/docs smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 try {
     const docs = await runDocsTryMeSmoke(browser, fixture);
@@ -130,10 +130,6 @@ try {
     console.log(JSON.stringify(report, null, 2));
 } finally {
     await closeSmokeBrowserAndServer(browser, fixture.server);
-}
-
-async function createFixtureServer() {
-    return startLoopbackServer(handleFixtureRequest, 'Could not bind mobile/docs smoke server');
 }
 
 function handleFixtureRequest(request, response) {

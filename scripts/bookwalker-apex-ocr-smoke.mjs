@@ -13,8 +13,7 @@
 // Requires `npm run build` first (OCR ships in the yomu-video companion).
 import { chromium, webkit, devices } from 'playwright';
 import path from 'node:path';
-import zlib from 'node:zlib';
-import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
+import { createSmokePaths, addGmStorageBridgeInitScript, makePng, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
@@ -23,15 +22,6 @@ const COMPANIONS = ['yomu-anki', 'yomu-kanji-study', 'yomu-settings-surface', 'y
 const BRIDGE = '__yomuApexOcrRequest';
 const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
 
-const CRC_TABLE = (() => { const t = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c; } return t; })();
-const crc32 = buf => { let c = ~0; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return ~c >>> 0; };
-const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const cc = Buffer.alloc(4); cc.writeUInt32BE(crc32(td)); return Buffer.concat([len, td, cc]); };
-function makePng(w = 200, h = 280, invert = false) {
-    const raw = Buffer.alloc((w * 4 + 1) * h); let o = 0;
-    for (let y = 0; y < h; y++) { raw[o++] = 0; for (let x = 0; x < w; x++) { let v = ((x % 40 < 22) && (y % 50 < 30)) ? 0 : ((x + y) % 3 === 0 ? 96 : 255); if (invert) v = 255 - v; raw[o++] = v; raw[o++] = v; raw[o++] = v; raw[o++] = 255; } }
-    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
-    return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
-}
 // Two visually-distinct page images so a turn to page 2 is a genuine content change
 // (re-OCR), and turning BACK to page 1 is the same content (cache hit — guards the
 // content-keyed OCR cache that stops re-OCRing a revisited page).

@@ -7,6 +7,8 @@ import {
     assert as smokeAssert,
     assertBuiltArtifacts,
     createSmokePaths,
+    dismissConsent,
+    escapeHtml,
     gmRequestFetchBody,
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
@@ -591,16 +593,6 @@ function capturePageDiagnostics(page, label) {
     });
 }
 
-async function dismissConsent(page) {
-    for (const selector of ['button:has-text("Accept all")', 'button:has-text("すべてに同意")', 'form[action*="consent"] button']) {
-        const control = page.locator(selector).first();
-        if (await control.count().catch(() => 0)) {
-            await control.click({ timeout: 1500 }).catch(() => undefined);
-            await page.waitForTimeout(1000);
-        }
-    }
-}
-
 async function waitForYomu(page, timeoutMs) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -1048,12 +1040,4 @@ function summarizeRequests(entries) {
         if (entry.kind === 'jpdb-parse') parseChars += entry.chars ?? 0;
     }
     return { total: entries.length, byKind, parseChars, samples: entries.slice(0, 20) };
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
