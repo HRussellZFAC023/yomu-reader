@@ -724,7 +724,7 @@ async function readPageState(page, client) {
                 const rect = word.getBoundingClientRect();
                 return rect.height <= 2 || getComputedStyle(word).color === 'rgba(0, 0, 0, 0)';
             }).length;
-            const concretePitchRe = /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u;
+            const concretePitchRe = /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka)/u;
             const concretePitchWords = words.filter(word => concretePitchRe.test(word.className));
             const unknownPitchWords = words.filter(word => /\bjpdb-pitch-unknown\b/u.test(word.className));
             const visibleConcretePitchWords = visibleWords.filter(word => concretePitchRe.test(word.className));
@@ -970,7 +970,7 @@ async function installInstrumentation(context) {
             if (perf.firstReaderWordAt === null && document.querySelector('.jpdb-reader-word')) perf.firstReaderWordAt = rounded(performance.now());
             if (perf.firstRubyAt === null && document.querySelector('.jpdb-reader-word rt,.jpdb-reader-word .jpdb-reader-furi')) perf.firstRubyAt = rounded(performance.now());
             if (perf.firstResolvedVocabularyAt === null && document.querySelector('.jpdb-reader-word[data-card-source="jpdb"]')) perf.firstResolvedVocabularyAt = rounded(performance.now());
-            if (perf.firstPitchAt === null && document.querySelector('.jpdb-reader-word:is(.jpdb-pitch-heiban,.jpdb-pitch-atamadaka,.jpdb-pitch-nakadaka,.jpdb-pitch-odaka,.jpdb-pitch-kifuku)')) perf.firstPitchAt = rounded(performance.now());
+            if (perf.firstPitchAt === null && document.querySelector('.jpdb-reader-word:is(.jpdb-pitch-heiban,.jpdb-pitch-atamadaka,.jpdb-pitch-nakadaka,.jpdb-pitch-odaka)')) perf.firstPitchAt = rounded(performance.now());
         }
 
         function readYomuSettings() {

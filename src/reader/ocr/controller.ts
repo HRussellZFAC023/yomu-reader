@@ -3901,7 +3901,7 @@ function ocrRenderedWordKey(word: HTMLElement): string {
 
 function ocrSafePitchClass(pitchClass: string | undefined): string {
     const normalized = pitchClass?.trim() ?? '';
-    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : '';
+    return /^(?:heiban|atamadaka|nakadaka|odaka)$/u.test(normalized) ? normalized : '';
 }
 
 function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLine): void {

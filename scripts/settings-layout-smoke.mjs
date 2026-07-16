@@ -276,7 +276,7 @@ async function waitForRealSettingsRubyAndPitch(page, panel, minimums, requests, 
         if (!root) return false;
         const rubyCount = root.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length;
         const pitchCount = [...root.querySelectorAll('.jpdb-reader-word')]
-            .filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length;
+            .filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)$/.test(className))).length;
         return rubyCount >= rubyMinimum && pitchCount >= pitchMinimum;
         }, { panelName: panel, rubyMinimum: minimums.ruby, pitchMinimum: minimums.pitch }, { timeout: 30_000 });
     } catch (error) {
@@ -309,7 +309,7 @@ async function settingsHydrationSnapshot(page, panel) {
             panels,
             fallbackCount: words.filter(word => word.getAttribute('data-card-source') === 'fallback').length,
             rubyCount: root?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
-            pitchCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
+            pitchCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)$/.test(className))).length,
             loadingKey: document.querySelector('.jpdb-reader-settings')?.getAttribute('data-jpdb-reader-parse-loading-key') ?? '',
             parseKey: document.querySelector('.jpdb-reader-settings')?.getAttribute('data-jpdb-reader-parse-key') ?? '',
             sampleWords: words.slice(0, 12).map(word => ({
@@ -418,7 +418,7 @@ async function settingsLayoutSnapshot(page, panel) {
             mediaFieldsetCount: visibleElements('.jpdb-reader-settings fieldset[data-settings-panel="media"]:not([hidden])').length,
             controlGridCount: grids.length,
             rubyCount: panelRoot?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
-            pitchWordCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
+            pitchWordCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)$/.test(className))).length,
             selectOptionMetaCount: selectOptionMeta.length,
             longSelectMirrorCount: longSelectMirrors.length,
             longSelectMirrors,

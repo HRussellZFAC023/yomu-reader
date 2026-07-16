@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.167] - 2026-07-16
+
+### Fixed
+
+- Remote parser fragments are now replaced only when an enabled local dictionary supplies an exact longer expression and reading across their boundary. This repairs evidence-backed splits such as `2時` + `間` without a `時間` exception, adjacent-kanji guessing, full rescans, or synthesized compound pitch.
+- Pitch accent now uses the four positional Tokyo classes—heiban, atamadaka, nakadaka, and odaka—consistently across reader words, popups, subtitles, and study. Malformed contours are treated as unknown, multiple sourced variants remain distinct, and the obsolete “Kifuku (variable)” fifth colour setting is removed while old settings payloads still load safely.
+
 ## [1.6.166] - 2026-07-16
 
 ### Fixed

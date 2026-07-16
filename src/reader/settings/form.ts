@@ -120,7 +120,6 @@ const PITCH_COLOR_FIELDS = [
     ['pitchColorAtamadaka', 'Atamadaka (head-high)'],
     ['pitchColorNakadaka', 'Nakadaka (middle-high)'],
     ['pitchColorOdaka', 'Odaka (tail-high)'],
-    ['pitchColorKifuku', 'Kifuku (variable)'],
     ['pitchColorUnknown', 'Unknown'],
 ] as const satisfies readonly ColorInputField[];
 // No ocrBackgroundColor field: the highlight background is derived from the
@@ -582,7 +581,7 @@ export function appearancePreviewContentHtml(): string {
 export function appearancePreviewHtml(): string {
     const word = (classes: string, base: string, furi: string, tail = ''): string =>
         `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word('jpdb-new anki-new jpdb-pitch-heiban', '新', 'あたら', 'しい')}${word('jpdb-learning anki-learning jpdb-pitch-atamadaka', '言葉', 'ことば')}を${word('jpdb-due anki-due jpdb-pitch-nakadaka', '毎日', 'まいにち')}${word('jpdb-failed anki-failed jpdb-pitch-odaka', '勉強', 'べんきょう')}して、${word('jpdb-known anki-known jpdb-pitch-kifuku', '日本語', 'にほんご')}が${word('jpdb-never-forget anki-known jpdb-pitch-heiban', '上手', 'じょうず')}になる。`;
+    return `${word('jpdb-new anki-new jpdb-pitch-heiban', '新', 'あたら', 'しい')}${word('jpdb-learning anki-learning jpdb-pitch-atamadaka', '言葉', 'ことば')}を${word('jpdb-due anki-due jpdb-pitch-nakadaka', '毎日', 'まいにち')}${word('jpdb-failed anki-failed jpdb-pitch-odaka', '勉強', 'べんきょう')}して、${word('jpdb-known anki-known jpdb-pitch-unknown', '日本語', 'にほんご')}が${word('jpdb-never-forget anki-known jpdb-pitch-heiban', '上手', 'じょうず')}になる。`;
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
@@ -1928,7 +1927,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
     'wordColorIgnored', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
-    'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
+    'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
     'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',

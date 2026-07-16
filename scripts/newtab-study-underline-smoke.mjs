@@ -229,7 +229,6 @@ async function seedHostedStudyCard(page, studyCard) {
             pitchColorHeiban: PITCH_COLOR,
             pitchColorNakadaka: PITCH_COLOR,
             pitchColorOdaka: PITCH_COLOR,
-            pitchColorKifuku: PITCH_COLOR,
             pitchColorUnknown: '#94a3b8',
         },
         cache: {

@@ -1580,7 +1580,7 @@ async function evaluateScenarioChecks(page, scenario, theme, expectedUrl) {
             const className = word.className || '';
             return [
                 /\bjpdb-(new|learning|known|due|failed|not-in-deck|never-forget|redundant|suspended)\b/,
-                /\bjpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)\b/,
+                /\bjpdb-pitch-(heiban|atamadaka|nakadaka|odaka)\b/,
             ].some(pattern => pattern.test(className));
         }
 

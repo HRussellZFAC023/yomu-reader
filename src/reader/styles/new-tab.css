@@ -1835,8 +1835,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
-  .jpdb-pitch-odaka,
-  .jpdb-pitch-kifuku
+  .jpdb-pitch-odaka
 ) {
   --jpdb-reader-word-decoration-source: var(
     --jpdb-reader-source-pitch-decoration,
@@ -4894,10 +4893,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 
 .jpdb-reader-newtab-listen-pos.jpdb-pitch-odaka {
   --jpdb-reader-listen-pitch-color: var(--jpdb-reader-pitch-odaka);
-}
-
-.jpdb-reader-newtab-listen-pos.jpdb-pitch-kifuku {
-  --jpdb-reader-listen-pitch-color: var(--jpdb-reader-pitch-kifuku);
 }
 
 .jpdb-reader-newtab-listen-pos.jpdb-pitch-unknown {

@@ -119,7 +119,7 @@ try {
             hasCat: words.some(word => word.dataset.expression === '猫'),
             hasDog: words.some(word => word.dataset.expression === '犬'),
             hasBird: words.some(word => word.dataset.expression === '鳥'),
-            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)\b/u.test(word.className)).length,
+            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
         };
     });
     const report = {

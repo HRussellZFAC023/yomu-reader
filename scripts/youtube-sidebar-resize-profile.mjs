@@ -948,7 +948,7 @@ async function snapshot(page) {
         }
 
         function wordMetrics(words) {
-            const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'];
+            const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka'];
             const hasPitch = word => Array.from(word.classList).some(className => className.startsWith('jpdb-pitch-'));
             const hasKnownPitch = word => pitchClasses.some(name => word.classList.contains(`jpdb-pitch-${name}`));
             const needsPitchClass = word => !word.classList.contains('jpdb-reader-particle');

@@ -2319,7 +2319,7 @@
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
   selectorPairs("control,toggle,player", ["class"]);
-  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -4082,7 +4082,6 @@
       pitchColorAtamadaka: "Atamadaka (head-high)",
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
       noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
@@ -5815,7 +5814,6 @@ pitchColorHeiban	平板
 pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
-pitchColorKifuku	起伏
 pitchColorUnknown	不明
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
@@ -6444,7 +6442,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       morae,
       pitchNumber,
       pattern: normalized,
-      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
     };
   }
   function pitchClassNameForPattern(pattern, reading) {
@@ -6459,31 +6457,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
     if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
     }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
+    return null;
   }
-  function looksLikeShortHeibanPattern(levels) {
+  function looksLikeCompactHeibanPattern(levels) {
     return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
   }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
   }
   function normalizePitchLevelsForReading(levels, reading) {
     const chars = Array.from(reading);
@@ -10967,7 +10954,7 @@ ${spelling}`);
   }
   function ocrSafePitchClass(pitchClass) {
     const normalized = pitchClass?.trim() ?? "";
-    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : "";
+    return /^(?:heiban|atamadaka|nakadaka|odaka)$/u.test(normalized) ? normalized : "";
   }
   function setOcrLinePosition(element, result, line) {
     element.style.left = `${100 * line.box.left / result.width}%`;

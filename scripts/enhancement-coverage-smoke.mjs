@@ -148,7 +148,7 @@ async function runCoveragePage(pagePath, name) {
             url: location.href,
             wordCount: words.length,
             rubyCount: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
-            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)\b/u.test(word.className)).length,
+            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
             surfaces: words.map(word => ({
                 text: word.dataset.expression || word.textContent?.trim() || '',
                 passive: word.dataset.jpdbReaderPassive === 'true',
@@ -240,7 +240,7 @@ async function runSettingsModalCoverage() {
             url: location.href,
             wordCount: words.length,
             rubyCount: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
-            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)\b/u.test(word.className)).length,
+            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
             surfaces: words.map(word => ({
                 text: word.dataset.expression || word.textContent?.trim() || '',
                 hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),

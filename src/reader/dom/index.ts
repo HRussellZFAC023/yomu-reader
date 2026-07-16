@@ -114,7 +114,7 @@ const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs('control,toggle,player', ['cla
 
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = `${BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
-const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka,kifuku'.split(','));
+const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka'.split(','));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
 const MINING_INSIGHT_MIN_CARD_COUNT = 3;

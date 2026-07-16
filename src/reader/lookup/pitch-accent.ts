@@ -2,7 +2,7 @@ const PITCH_LEVELS = new Set(['H', 'L']);
 const SMALL_KANA = new Set('ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ\u3099\u309A');
 const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
 
-export type PitchClassName = 'atamadaka' | 'odaka' | 'heiban' | 'nakadaka' | 'kifuku';
+export type PitchClassName = 'atamadaka' | 'odaka' | 'heiban' | 'nakadaka';
 
 interface PitchProfile {
     reading: string;
@@ -77,7 +77,7 @@ function pitchProfileForPattern(pattern: string, reading: string): PitchProfile 
         morae,
         pitchNumber,
         pattern: normalized,
-        className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber),
+        className: pitchClassNameFromProfile(morae.length, pitchNumber),
     };
 }
 
@@ -152,35 +152,25 @@ function pitchNumberFromPattern(pattern: string, reading: string): number | null
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
     if (!moraCount) return null;
-    if (levels.length < moraCount) {
-        return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    // Some existing sources expose a compact no-drop contour (LH, LHH, …)
+    // instead of repeating H for every mora. That shape still identifies
+    // heiban; a compact contour containing any other transition does not.
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+        const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+        if (levels.every((level, index) => expected[index] === level)) return position;
     }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === 'H' && level === 'L');
-    if (dropAt === -1) return levels[0] === 'L' ? 0 : null;
-    return dropAt;
+    return null;
 }
 
-function looksLikeShortHeibanPattern(levels: string[]): boolean {
+function looksLikeCompactHeibanPattern(levels: string[]): boolean {
     return levels.length >= 2 && levels[0] === 'L' && levels.slice(1).every(level => level === 'H');
 }
 
-function pitchClassNameFromProfile(pattern: string, moraCount: number, pitchNumber: number | null): PitchClassName | '' {
-    if (!moraCount) return '';
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find(rule => rule.matches(pitchNumber, moraCount))?.className ?? '';
-    return hasComplexPitchShape(pattern) ? 'kifuku' : '';
-}
-
-function hasComplexPitchShape(pattern: string): boolean {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, 'L', 'H') > 1 || countPitchTransitions(levels, 'H', 'L') > 1;
-}
-
-function countPitchTransitions(levels: string[], from: string, to: string): number {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-        if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
+function pitchClassNameFromProfile(moraCount: number, pitchNumber: number | null): PitchClassName | '' {
+    if (!moraCount || pitchNumber == null) return '';
+    return PITCH_CLASS_RULES.find(rule => rule.matches(pitchNumber, moraCount))?.className ?? '';
 }
 
 function normalizePitchLevelsForReading(levels: string[], reading: string): string[] {

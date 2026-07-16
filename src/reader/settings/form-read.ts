@@ -49,7 +49,6 @@ const ACCENT_COLOR_SETTING_NAMES = [
     'pitchColorAtamadaka',
     'pitchColorNakadaka',
     'pitchColorOdaka',
-    'pitchColorKifuku',
     'pitchColorUnknown',
 ] as const satisfies readonly (keyof ReaderSettings & string)[];
 type AccentColorSettingName = typeof ACCENT_COLOR_SETTING_NAMES[number];

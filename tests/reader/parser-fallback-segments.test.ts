@@ -125,6 +125,10 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('日本語を学ぶ')).toEqual(['日本語', 'を', '学ぶ']);
     });
 
+    it('records the current counter fallback split without hiding it behind a lexical override', () => {
+        expect(surfaces('2時間前')).toEqual(['時', '間', '前']);
+    });
+
     it('splits leading particles from Segmenter particle+noun compounds', () => {
         expect(surfaces('日本語の森')).toEqual(['日本語', 'の', '森']);
     });

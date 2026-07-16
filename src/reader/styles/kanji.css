@@ -1497,9 +1497,6 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-pitch .odaka {
   color: var(--jpdb-reader-pitch-odaka-readable);
 }
-.jpdb-reader-pitch .kifuku {
-  color: var(--jpdb-reader-pitch-kifuku-readable);
-}
 /* Expression cards: one labelled mini graph per component, never a single
    component's accent presented as the whole expression. */
 .jpdb-reader-pitch.jpdb-reader-pitch-components,

@@ -1032,7 +1032,7 @@ async function exerciseOcrOverlay(page) {
                 lineVisible: Boolean(line),
                 words: words.length,
                 rubyWords: words.filter(word => word.querySelector('.jpdb-ocr-furi, rt')).length,
-                pitchWords: words.filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u.test(word.className)).length,
+                pitchWords: words.filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka)/u.test(word.className)).length,
                 coloredWords: words.filter(word => /jpdb-(known|new|not-in-deck|learning|due|failed)|anki-/u.test(word.className)).length,
                 text: line?.textContent?.replace(/\s+/g, '') ?? '',
             };
@@ -1319,7 +1319,7 @@ async function readPageState(page) {
             ankiStateWords: document.querySelectorAll('.jpdb-reader-word[data-anki-state], .jpdb-reader-word[class*="anki-"]').length,
             ocrWords: document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length,
             ocrRubyWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => word.querySelector('.jpdb-ocr-furi, rt')).length,
-            ocrPitchWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u.test(word.className)).length,
+            ocrPitchWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka)/u.test(word.className)).length,
             panelOpen: Boolean(document.querySelector('.jpdb-subtitle-list') && !document.querySelector('.jpdb-subtitle-list')?.hidden),
             panelRows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
             panelEntering: document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-panel-entering') ?? false,

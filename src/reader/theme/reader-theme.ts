@@ -201,7 +201,6 @@ function readerPitchColors(settings: ReaderSettings): Record<string, { color: st
         atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
         nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
         odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
-        kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
         unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 },
     };
 }

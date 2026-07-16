@@ -1617,7 +1617,6 @@
       pitchColorAtamadaka: "Atamadaka (head-high)",
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorKifuku: "Kifuku (variable)",
       pitchColorUnknown: "Unknown",
       noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
@@ -3369,7 +3368,6 @@ pitchColorHeiban	平板
 pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
-pitchColorKifuku	起伏
 pitchColorUnknown	不明
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
@@ -4042,7 +4040,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     atamadaka: "#fe4b74",
     nakadaka: "#fba840",
     odaka: "#57ccb7",
-    kifuku: "#9050f6",
     unknown: "#94a3b8"
   };
   const LOOKUP_PILL_COLOR_TOKENS = {
@@ -7568,7 +7565,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown"
   ];
   const ANKI_TEMPLATE_MODES = ["context", "recognition"];
@@ -7629,7 +7625,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
     pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
     pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
-    pitchColorKifuku: DEFAULT_PITCH_COLORS.kifuku,
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
@@ -8830,7 +8825,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
   const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
-  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -23411,7 +23406,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       morae,
       pitchNumber,
       pattern: normalized,
-      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
     };
   }
   function pitchClassNameForPattern(pattern, reading) {
@@ -23453,31 +23448,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
     const moraCount = countMorae(reading);
     if (!moraCount) return null;
-    if (levels.length < moraCount) {
-      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
     }
-    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
-    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
-    return dropAt;
+    return null;
   }
-  function looksLikeShortHeibanPattern(levels) {
+  function looksLikeCompactHeibanPattern(levels) {
     return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
   }
-  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
-    if (!moraCount) return "";
-    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-    return hasComplexPitchShape(pattern) ? "kifuku" : "";
-  }
-  function hasComplexPitchShape(pattern) {
-    const levels = pitchLevels(pattern);
-    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
-  }
-  function countPitchTransitions(levels, from, to) {
-    let count = 0;
-    for (let index = 1; index < levels.length; index++) {
-      if (levels[index - 1] === from && levels[index] === to) count++;
-    }
-    return count;
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
   }
   function normalizePitchLevelsForReading(levels, reading) {
     const chars = Array.from(reading);
@@ -36430,6 +36414,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const LOCAL_ENRICHMENT_CONCURRENCY = 12;
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
+  const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
@@ -36458,6 +36444,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     localCardCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
+    localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
     localTermDictionaryAvailability;
     enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
@@ -36472,7 +36459,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, parsed);
+        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
         return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
       } finally {
         done();
@@ -36593,6 +36581,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.localCardCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
+      this.localBoundaryEvidenceCache.clear();
       this.localTermDictionaryAvailability = void 0;
     }
     localCardFromEntry(entry) {
@@ -36689,22 +36678,62 @@ ${spelling}`);
         log$m.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, async (match) => {
-        const card = this.localCardFromEntry(match.entry);
-        const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
-        const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
-        if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
-        const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
-        return {
-          card,
-          start: match.start,
-          end: match.end,
-          length: match.end - match.start,
-          rubies,
-          pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-          sentence: text2
-        };
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+    }
+    async localTokenFromMatch(text2, match, options) {
+      const card = this.localCardFromEntry(match.entry);
+      const reading = !match.deinflected && card.reading && card.reading !== match.surface ? card.reading : "";
+      const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
+      if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
+      const rubies = reading ? await this.enrichmentGate.run(() => this.localRubySegments(match.surface, reading, match.start, match.end)) : [];
+      return {
+        card,
+        start: match.start,
+        end: match.end,
+        length: match.end - match.start,
+        rubies,
+        pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
+        sentence: text2
+      };
+    }
+    async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
+      if (!this.canUseLocalDictionaryFallback()) return parsed;
+      const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
+      if (!candidates.some((items) => items.length)) return parsed;
+      if (!await this.hasLocalTermDictionaries(true)) return parsed;
+      const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+        const text2 = paragraphs[paragraphIndex] ?? "";
+        const replacements = await mapLimited(candidates[paragraphIndex], 4, async (candidate) => {
+          const relative = await this.exactLocalBoundaryMatch(candidate.surface);
+          if (!relative) return null;
+          const match = offsetTermMatch(relative, candidate.start);
+          if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
+          return this.localTokenFromMatch(text2, match, options);
+        });
+        return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
+      }));
+      return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
+    }
+    exactLocalBoundaryMatch(surface) {
+      const settings = this.dependencies.getSettings();
+      const key = localBoundaryEvidenceCacheKey(surface, settings);
+      const cached = this.localBoundaryEvidenceCache.get(key);
+      if (cached) return cached;
+      const promise = this.dependencies.dictionaries.findTermMatches(
+        surface,
+        LOCAL_BOUNDARY_MATCH_LIMIT,
+        settings.dictionaryPreferences
+      ).then((matches) => exactBoundaryMatch(surface, matches)).catch((error) => {
+        log$m.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+        return null;
       });
+      this.localBoundaryEvidenceCache.set(key, promise);
+      while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
+        const oldest = this.localBoundaryEvidenceCache.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.localBoundaryEvidenceCache.delete(oldest);
+      }
+      return promise;
     }
     // A store that cannot report availability still gets a chance in the
     // fallback path (it tolerates empty lookups), but local-first replaces
@@ -36961,6 +36990,77 @@ ${spelling}`);
     return JSON.stringify({
       spelling: card.spelling,
       reading: card.reading,
+      dictionaries: settings.dictionaryPreferences.map((preference) => ({
+        name: preference.name,
+        enabled: preference.enabled,
+        priority: preference.priority
+      }))
+    });
+  }
+  function boundaryEvidenceCandidates(text2, tokens) {
+    const sorted = [...tokens].sort(compareTokensByOffset);
+    const candidates = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let index = 1; index < sorted.length; index += 1) {
+      const first2 = sorted[index - 1];
+      const second = sorted[index];
+      if (first2.end !== second.start || !isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) continue;
+      const firstSurface = text2.slice(first2.start, first2.end);
+      const secondSurface = text2.slice(second.start, second.end);
+      const left = text2.slice(first2.end - 1, first2.end);
+      const right = text2.slice(second.start, second.start + 1);
+      if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) continue;
+      if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) continue;
+      const surface = text2.slice(first2.start, second.end);
+      const key = `${first2.start}:${second.end}:${surface}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({ surface, start: first2.start });
+    }
+    return candidates;
+  }
+  function isReconciliableParseToken(token) {
+    return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
+  }
+  function isSingleJapaneseCharacter(surface) {
+    const characters = Array.from(surface);
+    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+  }
+  function exactBoundaryMatch(surface, matches) {
+    return matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim())).sort((first2, second) => second.end - second.start - (first2.end - first2.start) || first2.start - second.start)[0] ?? null;
+  }
+  function offsetTermMatch(match, offset) {
+    return {
+      ...match,
+      start: match.start + offset,
+      end: match.end + offset
+    };
+  }
+  function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
+    const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
+    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
+    return overlapping.every((token) => {
+      const prefix = text2.slice(token.start, Math.min(token.end, match.start));
+      const suffix = text2.slice(Math.max(token.start, match.end), token.end);
+      return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
+    });
+  }
+  function replaceRemoteFragments(tokens, candidates) {
+    if (!candidates.length) return tokens;
+    const accepted = [];
+    for (const candidate of [...candidates].sort((first2, second) => second.length - first2.length || first2.start - second.start)) {
+      if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
+      accepted.push(candidate);
+    }
+    if (!accepted.length) return tokens;
+    return [
+      ...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
+      ...accepted
+    ].sort(compareTokensByOffset);
+  }
+  function localBoundaryEvidenceCacheKey(surface, settings) {
+    return JSON.stringify({
+      surface,
       dictionaries: settings.dictionaryPreferences.map((preference) => ({
         name: preference.name,
         enabled: preference.enabled,
@@ -40050,7 +40150,7 @@ ${spelling}`);
   }
   function ocrSafePitchClass(pitchClass) {
     const normalized = pitchClass?.trim() ?? "";
-    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : "";
+    return /^(?:heiban|atamadaka|nakadaka|odaka)$/u.test(normalized) ? normalized : "";
   }
   function setOcrLinePosition(element, result, line) {
     element.style.left = `${100 * line.box.left / result.width}%`;
@@ -42153,7 +42253,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.166".trim() ? "1.6.166".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.167".trim() ? "1.6.167".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42508,7 +42608,6 @@ ${spelling}`);
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown"
   ];
   const COLOR_SOURCE_SETTING_NAMES = [
@@ -44352,7 +44451,6 @@ ${spelling}`);
     ["pitchColorAtamadaka", "Atamadaka (head-high)"],
     ["pitchColorNakadaka", "Nakadaka (middle-high)"],
     ["pitchColorOdaka", "Odaka (tail-high)"],
-    ["pitchColorKifuku", "Kifuku (variable)"],
     ["pitchColorUnknown", "Unknown"]
   ];
   const OCR_COLOR_FIELDS = [
@@ -44755,7 +44853,7 @@ ${spelling}`);
   }
   function appearancePreviewHtml() {
     const word = (classes2, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes2}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
-    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-kifuku", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
+    return `${word("jpdb-new anki-new jpdb-pitch-heiban", "新", "あたら", "しい")}${word("jpdb-learning anki-learning jpdb-pitch-atamadaka", "言葉", "ことば")}を${word("jpdb-due anki-due jpdb-pitch-nakadaka", "毎日", "まいにち")}${word("jpdb-failed anki-failed jpdb-pitch-odaka", "勉強", "べんきょう")}して、${word("jpdb-known anki-known jpdb-pitch-unknown", "日本語", "にほんご")}が${word("jpdb-never-forget anki-known jpdb-pitch-heiban", "上手", "じょうず")}になる。`;
   }
   function renderPitchColorSettingsSubsection(settings) {
     return renderColorSettingsSubsection("Pitch accent colors", PITCH_COLOR_FIELDS, settings);
@@ -46034,7 +46132,6 @@ ${spelling}`);
     "pitchColorAtamadaka",
     "pitchColorNakadaka",
     "pitchColorOdaka",
-    "pitchColorKifuku",
     "pitchColorUnknown",
     "wordHighlightColorSource",
     "wordUnderlineColorSource",
@@ -78425,8 +78522,7 @@ ${options.version}`;
     heiban: "pitchClassHeiban",
     atamadaka: "pitchClassAtamadaka",
     nakadaka: "pitchClassNakadaka",
-    odaka: "pitchClassOdaka",
-    kifuku: "pitchClassNakadaka"
+    odaka: "pitchClassOdaka"
   };
   function pitchClassLabel(className, t) {
     return className ? t(PITCH_CLASS_LABEL_KEYS[className]) : "";
@@ -90252,8 +90348,7 @@ ${entry.url}`),
     "jpdb-pitch-heiban",
     "jpdb-pitch-atamadaka",
     "jpdb-pitch-nakadaka",
-    "jpdb-pitch-odaka",
-    "jpdb-pitch-kifuku"
+    "jpdb-pitch-odaka"
   ]);
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   function refreshReaderWordContrast(root = document) {
@@ -90640,7 +90735,6 @@ ${entry.url}`),
       atamadaka: { color: sanitizeAccentColor(settings.pitchColorAtamadaka), alpha: 0.14 },
       nakadaka: { color: sanitizeAccentColor(settings.pitchColorNakadaka), alpha: 0.16 },
       odaka: { color: sanitizeAccentColor(settings.pitchColorOdaka), alpha: 0.14 },
-      kifuku: { color: sanitizeAccentColor(settings.pitchColorKifuku), alpha: 0.14 },
       unknown: { color: sanitizeAccentColor(settings.pitchColorUnknown), alpha: 0 }
     };
   }
