@@ -372,10 +372,14 @@ async function assertInlineOcrResult(overlay, label) {
     await overlay.locator('img.overlay-backdrop').waitFor({ state: 'attached', timeout: 10_000 });
     await overlay.locator('.overlay-toolbar [data-action="overlay-recapture"]').waitFor({ timeout: 10_000 });
     // The recognized line is anchored in place and readable in full (no ellipsis truncation).
-    const horizontalLine = overlay.locator('[data-ocr-line]', { hasText: '冒険を始めよう' }).first();
+    const horizontalLine = overlay.locator('[data-ocr-line]:not([data-vertical="true"])').first();
     await horizontalLine.waitFor({ state: 'attached', timeout: 10_000 });
     const horizontalText = horizontalLine.locator('.overlay-inline-text');
-    const fullText = await horizontalText.textContent();
+    const fullText = await horizontalText.evaluate(node => {
+        const surface = node.cloneNode(true);
+        surface.querySelectorAll('rt, rp, .jpdb-reader-detached-furi').forEach(reading => reading.remove());
+        return surface.textContent || '';
+    });
     if (!fullText.includes('港へ行くよ')) {
         throw new Error(`Yomu Gaming ${label} truncated the recognized line in place: ${fullText}`);
     }
