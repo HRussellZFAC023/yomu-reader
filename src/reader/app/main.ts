@@ -337,6 +337,7 @@ import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
 import { setShadowReaderCss } from '../dom/shadow-styles';
+import { forEachScannedShadowRoot, setShadowRootScanHook } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -2121,6 +2122,7 @@ export class ReaderApp {
         window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
         window.clearTimeout(this.themeContrastRefreshTimer);
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+        setShadowRootScanHook(null);
         this.autoScanObserver?.disconnect();
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
@@ -2209,6 +2211,12 @@ export class ReaderApp {
                 this.scheduleJpdbPageEnhancements(500);
             }
         });
+        // New shadow roots discovered by the fragment walk join the same
+        // observer; a Lit/web-component re-render then schedules a rescan
+        // exactly like a light-DOM mutation would.
+        setShadowRootScanHook(root => {
+            if (!this.isDestroyed) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+        });
         this.observeAutoScanMutations();
         // capture: true — scroll does not bubble, so a bubble-phase window
         // listener only sees page scrolls. Bottom sheets and side panels
@@ -2254,6 +2262,9 @@ export class ReaderApp {
             return;
         }
         this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
+        // disconnect() (pause path) dropped every target — re-attach the
+        // registered shadow roots alongside document.body.
+        forEachScannedShadowRoot(root => this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS));
     }
 
     private shouldScanEmbeddedFrame(): boolean {

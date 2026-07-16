@@ -54,6 +54,7 @@ import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { ensureReaderStylesForHost } from './shadow-styles';
+import { noteScannedShadowRoot } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -974,6 +975,10 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // target could land ahead of an earlier-in-document light run.
     flushFragmentTextTarget(state);
     if (fragmentCollectionComplete(state)) return;
+    // Committed to descending: register the root so the app's auto-scan
+    // observer watches its re-renders (subtree observers never cross shadow
+    // boundaries, so without this a component re-render schedules no rescan).
+    noteScannedShadowRoot(shadowRoot);
     // A <slot> projects light-DOM children into the shadow tree, but those text
     // nodes are ALREADY walked in the light-DOM pass above (their real parent is
     // in light DOM). Walking shadowRoot.childNodes reaches a <slot>'s fallback
