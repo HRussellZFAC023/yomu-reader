@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-17905c1cc9d2';
+const VERSION = 'yomu-academy-shell-s1-7232b2bbc7ff';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -32,19 +32,15 @@ const AUDIO_PRECACHE = [
     '/academy/media/audio/media/audio/v1/shinday/camera.wav',
 ];
 const CAST_SPRITE_PRECACHE = [
-    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
     '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
     '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png',
     '/academy/art/ACADEMY-ASSET-REGISTRY.json',
     '/academy/art/ASSET-USAGE.json',
     '/academy/art/SPRITE-BATCH-MANIFEST.json',
-    '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
     '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
     '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
@@ -74,8 +70,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-17905c1cc9d2',
-    '/academy/style.css?v=s1-17905c1cc9d2',
+    '/academy/app.js?v=s1-7232b2bbc7ff',
+    '/academy/style.css?v=s1-7232b2bbc7ff',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',

@@ -116,25 +116,28 @@ const RASTER_COVERAGE: Partial<Record<
     Readonly<Partial<Record<SpriteAngle, Readonly<Partial<Record<SpriteExpression, RasterBackedCoverage>>>>>>
 >> = {
     rie: {
-        'left-three-quarter': {
-            determined: {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-glasses-left'].files.default,
-                approvedAssetId: 'character.rie.determined-glasses-left',
-            },
-        },
         'front-near-front': {
             neutral: {
                 status: 'approved',
                 assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].files.default,
                 approvedAssetId: 'character.rie.neutral-glasses',
             },
-            happy: { status: 'review-candidate', assetPath: '/academy/art/characters/rie/rie__happy__halfbody__v001.png' },
-            'encouraging-listening': { status: 'review-candidate', assetPath: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png' },
+            happy: {
+                status: 'approved',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.happy-glasses-front'].files.default,
+                approvedAssetId: 'character.rie.happy-glasses-front',
+            },
+        },
+        'left-three-quarter': {
+            determined: {
+                status: 'approved',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-glasses-left'].files.default,
+                approvedAssetId: 'character.rie.determined-glasses-left',
+            },
             'sad-vulnerable': {
                 status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-front'].files.default,
-                approvedAssetId: 'character.rie.sad-vulnerable-front',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-glasses-left'].files.default,
+                approvedAssetId: 'character.rie.sad-vulnerable-glasses-left',
             },
         },
         'right-three-quarter': {
@@ -145,8 +148,8 @@ const RASTER_COVERAGE: Partial<Record<
             },
             comedic: {
                 status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-right'].files.default,
-                approvedAssetId: 'character.rie.comedic-right',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-glasses-right'].files.default,
+                approvedAssetId: 'character.rie.comedic-glasses-right',
             },
         },
     },
@@ -242,24 +245,6 @@ const RASTER_COVERAGE: Partial<Record<
 
 const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly UnmappedSpriteRaster[]>> = {
     rie: [
-        {
-            label: 'superseded-neutral-without-glasses',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-            note: 'Superseded by the glasses-first neutral; retained only as compatibility evidence.',
-        },
-        {
-            label: 'superseded-determined-without-glasses',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-            note: 'Superseded by the glasses-first determined performance; retained only as compatibility evidence.',
-        },
-        {
-            label: 'repair',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
-            note: 'Repair is not one of the seven required expression labels and cannot satisfy a coverage cell without review.',
-        },
         {
             label: 'thinking',
             status: 'review-candidate',

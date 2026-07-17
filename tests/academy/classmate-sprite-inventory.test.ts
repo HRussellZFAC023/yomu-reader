@@ -76,7 +76,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
                 expect(fs.existsSync(path.resolve('public', missing.plannedPath.slice(1)))).toBe(false);
             }
         }
-        expect(inventory.summary).toMatchObject({ approved: 11, reviewCandidates: 13, missing: 606 });
+        expect(inventory.summary).toMatchObject({ approved: 12, reviewCandidates: 11, missing: 607 });
         expect(inventory.summary.approved + inventory.summary.reviewCandidates + inventory.summary.missing)
             .toBe(ACADEMY_CAST.length * 21);
     });
@@ -94,10 +94,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
         expect(new Set(registered).size).toBe(registered.length);
         expect(inventory.summary.currentPhysicalRasters).toBe(physical.length);
         expect(inventory.characters.flatMap(character => character.currentAssets)
-            .filter(asset => asset.decision === 'replace').map(asset => asset.path).sort()).toEqual([
-            '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-            '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-        ]);
+            .filter(asset => asset.decision === 'replace').map(asset => asset.path).sort()).toEqual([]);
         for (const asset of inventory.characters.flatMap(character => character.currentAssets)) {
             expect(asset.source).toBeTruthy();
             expect(asset.privacy).toBeTruthy();
@@ -147,7 +144,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
         const steve = inventory.characters.find(character => character.id === 'steve')!;
         const onke = inventory.characters.find(character => character.id === 'angel')!;
 
-        expect(rie.progress.approved).toBe(5);
+        expect(rie.progress.approved).toBe(6);
         expect(tom2.progress).toMatchObject({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(tom2.currentAssets.every(asset => asset.privacy.includes('not-shipped'))).toBe(true);
         expect(steve.progress).toMatchObject({ approved: 3, reviewCandidates: 0, missing: 18 });

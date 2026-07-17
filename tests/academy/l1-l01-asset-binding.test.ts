@@ -54,7 +54,7 @@ describe('l1-l01 approved asset binding', () => {
         expect(binding).toEqual({
             sceneAssetId: 'location.classroom',
             sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
-            approvedCastAssetIds: { rie: 'character.rie.neutral' },
+            approvedCastAssetIds: { rie: 'character.rie.neutral-glasses' },
             reviewOnlyCastCandidates: { aakash: 'character.aakash.neutral' },
             itemAssetIds: ['item.classroom-belongings'],
             sourceMedia: [{
@@ -74,7 +74,7 @@ describe('l1-l01 approved asset binding', () => {
             sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
             sourceSceneReferenceState: 'missing-source-reference-with-approved-registry-binding',
             approvedScene: { assetId: 'classroom-evening-lamplit', verdict: 'approved-runtime' },
-            approvedCast: { rie: { assetId: 'rie-neutral-halfbody-v001', verdict: 'approved-runtime' } },
+            approvedCast: { rie: { assetId: 'rie-neutral-glasses-front-near-front-halfbody-v001', verdict: 'approved-runtime' } },
             reviewOnlyCast: { aakash: { assetId: 'aakash-neutral-halfbody-v001', verdict: 'approved-runtime-preview' } },
             unboundNoApprovedAsset: ['henry', 'jenny', 'mika', 'stasi', 'tom'],
             items: [{ assetId: 'classroom-belongings-v001', verdict: 'approved-runtime' }],
@@ -101,8 +101,8 @@ describe('l1-l01 approved asset binding', () => {
 
     it('keeps typed runtime homes in lockstep with the public ledger', () => {
         const ledgerById = new Map(usage.assets.map(asset => [asset.id, asset]));
-        expect(ledgerById.get('rie-neutral-halfbody-v001')?.runtimeHome)
-            .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral'].runtimeHomes);
+        expect(ledgerById.get('rie-neutral-glasses-front-near-front-halfbody-v001')?.runtimeHome)
+            .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].runtimeHomes);
         expect(ledgerById.get('classroom-evening-lamplit')?.runtimeHome)
             .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['location.classroom'].runtimeHomes);
         expect(ledgerById.get('classroom-belongings-v001')?.runtimeHome)

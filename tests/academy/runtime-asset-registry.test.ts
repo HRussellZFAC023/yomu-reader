@@ -78,10 +78,11 @@ describe('Academy runtime asset registry', () => {
     it('wires only likeness-cleared Rie, Sophie, and Steve performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
             rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+            rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
             rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
             rieEncouraging: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
-            rieSadVulnerable: '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
-            rieComedic: '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
+            rieSadVulnerable: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+            rieComedic: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png',
             sophie: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
             sophieEncouraging: '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
             sophieDetermined: '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
@@ -95,16 +96,15 @@ describe('Academy runtime asset registry', () => {
             steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
         });
         for (const id of [
-            'character.rie.neutral',
-            'character.rie.determined-left',
-            'character.rie.sad-vulnerable-front',
-            'character.rie.comedic-right',
             'character.sophie.neutral-right',
             'character.sophie.encouraging-front',
             'character.sophie.determined-left',
             'character.rie.neutral-glasses',
+            'character.rie.happy-glasses-front',
             'character.rie.determined-glasses-left',
             'character.rie.encouraging-glasses-right',
+            'character.rie.sad-vulnerable-glasses-left',
+            'character.rie.comedic-glasses-right',
             'character.steve.neutral-front',
             'character.steve.happy-right',
             'character.steve.determined-left',

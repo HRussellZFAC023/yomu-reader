@@ -187,64 +187,45 @@ describe('Academy runtime asset ledger', () => {
         }
     });
 
-    it('keeps the three Rie expression previews release-blocked with exact prospective homes', () => {
+    it('authorizes the glasses-on Rie reactions and removes their deprecated runtime predecessors', () => {
         const expected = {
-            'rie-happy-halfbody-v001': {
-                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.happy'].files.default,
+            'rie-happy-glasses-front-near-front-halfbody-v001': {
+                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.happy-glasses-front'].files.default,
                 homes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'],
             },
-            'rie-encouraging-halfbody-v001': {
-                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.encouraging'].files.default,
-                homes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'],
+            'rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001': {
+                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-glasses-left'].files.default,
+                homes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'],
             },
-            'rie-repair-halfbody-v001': {
-                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.repair'].files.default,
-                homes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'journal:rie-expression-gallery'],
+            'rie-comedic-glasses-right-three-quarter-halfbody-v001': {
+                path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-glasses-right'].files.default,
+                homes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'],
             },
         } as const;
 
         for (const [id, expectation] of Object.entries(expected)) {
             const candidate = ledger.assets.find(asset => asset.id === id);
             expect(candidate).toMatchObject({
-                verdict: 'review-candidate/runtime-preview',
+                verdict: 'approved-runtime',
                 runtimeHome: expectation.homes,
-                status: 'release-blocked-pending-owner-approval',
+                orphan: 'active-runtime',
+                status: expect.stringContaining('mobile-framing-reviewed-2026-07-17'),
             });
             expect(candidate?.deliveries?.map(delivery => delivery.path)).toEqual([expectation.path]);
         }
-    });
-
-    it('retains the earlier three audited Rie angle and expression matches', () => {
-        const expected = {
-            'rie-determined-left-three-quarter-halfbody-v001': {
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-left'].files.default,
-                homes: ['dialogue:rie-decisive-guidance', 'journal:rie-expression-gallery'],
-            },
-            'rie-sad-vulnerable-front-near-front-halfbody-v001': {
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-front'].files.default,
-                homes: ['dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'],
-            },
-            'rie-comedic-right-three-quarter-halfbody-v001': {
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-right'].files.default,
-                homes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'],
-            },
-        } as const;
-
-        for (const [id, expectation] of Object.entries(expected)) {
-            expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
-                verdict: 'approved-runtime',
-                runtimeHome: expectation.homes,
-                deliveries: [{ path: expectation.assetPath }],
-                status: expect.stringContaining('reviewed-2026-07-15'),
-            });
+        for (const deprecatedId of ['rie-neutral-halfbody-v001', 'rie-happy-halfbody-v001', 'rie-repair-halfbody-v001']) {
+            expect(ledger.assets.find(asset => asset.id === deprecatedId)).toBeUndefined();
         }
     });
 
     it('records privacy, usage, and orphan state for the priority character upgrade', () => {
         const ids = [
             'rie-neutral-glasses-front-near-front-halfbody-v001',
+            'rie-happy-glasses-front-near-front-halfbody-v001',
             'rie-determined-glasses-left-three-quarter-halfbody-v001',
             'rie-encouraging-glasses-right-three-quarter-halfbody-v001',
+            'rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001',
+            'rie-comedic-glasses-right-three-quarter-halfbody-v001',
             'tom2-neutral-right-three-quarter-halfbody-v001',
             'tom2-encouraging-front-near-front-halfbody-v001',
             'tom2-surprised-left-three-quarter-halfbody-v001',

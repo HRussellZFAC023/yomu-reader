@@ -18,20 +18,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 71,
-    "currentRasterFilesAccountedFor": 71,
-    "active": 70,
+    "currentRasterFiles": 67,
+    "currentRasterFilesAccountedFor": 67,
+    "active": 66,
     "orphaned": 1,
-    "deprecated": 2,
+    "deprecated": 9,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 606,
+    "missingExpressionVariants": 607,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 11,
-    "reviewCandidateExpressionVariants": 13,
-    "deliveredMatrixExpressionVariants": 24,
-    "offMatrixDeliveredSprites": 2,
+    "approvedExpressionVariants": 12,
+    "reviewCandidateExpressionVariants": 11,
+    "deliveredMatrixExpressionVariants": 23,
+    "offMatrixDeliveredSprites": 1,
     "activeByKind": {
-      "character-sprite": 27,
+      "character-sprite": 23,
       "protagonist-portrait": 4,
       "scene-background": 30,
       "scene-event": 1,
@@ -41,7 +41,7 @@
       "character-sprite": 1
     },
     "deprecatedByKind": {
-      "character-sprite": 2
+      "character-sprite": 9
     }
   },
   "assets": {
@@ -168,10 +168,10 @@
         "ledgerStatus": "clean-alpha-review-preview; thoughtful gesture maps to the neutral performance cell; owner-approval-required-before-story-runtime"
       },
       {
-        "id": "rie-comedic-right-three-quarter-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
-        "sha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93",
-        "ledgerSha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93",
+        "id": "rie-comedic-glasses-right-three-quarter-halfbody-v001",
+        "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
+        "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9",
+        "ledgerSha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -183,25 +183,7 @@
         "reviewHomes": [],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-      },
-      {
-        "id": "rie-determined-left-three-quarter-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9",
-        "ledgerSha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "dialogue:rie-decisive-guidance",
-          "journal:rie-expression-gallery"
-        ],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
+        "ledgerStatus": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
       },
       {
         "id": "rie-determined-glasses-left-three-quarter-halfbody-v001",
@@ -220,25 +202,6 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "identity-glasses-pottery-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
-      },
-      {
-        "id": "rie-encouraging-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
-        "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411",
-        "ledgerSha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "lesson-feedback:attempt",
-          "dialogue:rie-listening",
-          "journal:rie-expression-gallery"
-        ],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "release-blocked-pending-owner-approval"
       },
       {
         "id": "rie-encouraging-glasses-right-three-quarter-halfbody-v001",
@@ -260,10 +223,10 @@
         "ledgerStatus": "identity-glasses-museum-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
       },
       {
-        "id": "rie-happy-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
-        "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75",
-        "ledgerSha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75",
+        "id": "rie-happy-glasses-front-near-front-halfbody-v001",
+        "path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+        "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720",
+        "ledgerSha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -275,33 +238,8 @@
         ],
         "reviewHomes": [],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "release-blocked-pending-owner-approval"
-      },
-      {
-        "id": "rie-neutral-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
-        "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae",
-        "ledgerSha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "onboarding:profile",
-          "unlock:rie",
-          "journal:rie",
-          "scene:arrival-bridge",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "lesson:l1-l01:host"
-        ],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "bound-and-browser-reviewed"
+        "ledgerStatus": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
       },
       {
         "id": "rie-neutral-glasses-front-near-front-halfbody-v001",
@@ -329,10 +267,10 @@
         "ledgerStatus": "identity-glasses-hands-alpha-and-cast-scale-reviewed-2026-07-17"
       },
       {
-        "id": "rie-repair-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
-        "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
-        "ledgerSha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
+        "id": "rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001",
+        "path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+        "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954",
+        "ledgerSha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -340,30 +278,13 @@
         "runtimeHomes": [
           "lesson-feedback:repair",
           "dialogue:rie-precise-hint",
-          "journal:rie-expression-gallery"
-        ],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "release-blocked-pending-owner-approval"
-      },
-      {
-        "id": "rie-sad-vulnerable-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
-        "sha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3",
-        "ledgerSha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
           "dialogue:rie-vulnerable-reflection",
           "journal:rie-expression-gallery"
         ],
         "reviewHomes": [],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
+        "ledgerStatus": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
       },
       {
         "id": "shaun-neutral-halfbody-v001",
@@ -1366,6 +1287,118 @@
     ],
     "deprecated": [
       {
+        "id": "rie-comedic-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-determined-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-encouraging-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-happy-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-neutral-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-repair-to-vulnerable-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "deprecated off-matrix repair raster removed; approved compassionate repair performance bound",
+        "noDeletionPerformedByAudit": true
+      },
+      {
+        "id": "rie-sad-vulnerable-to-glasses-primary",
+        "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
+        "sha256": null,
+        "kind": "character-sprite",
+        "state": "deprecated",
+        "present": false,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [],
+        "replacementPath": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+        "ledgerVerdict": "delete",
+        "ledgerStatus": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+        "noDeletionPerformedByAudit": true
+      },
+      {
         "id": "sophie-flat-v002-to-painted-v003",
         "path": "/academy/art/characters/sophie/sophie__neutral__halfbody__v002.png",
         "sha256": null,
@@ -1420,15 +1453,6 @@
       "totalSlots": 630
     },
     "offMatrixDelivered": [
-      {
-        "character": "rie",
-        "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
-        "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
       {
         "character": "rie",
         "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
@@ -4233,6 +4257,24 @@
       {
         "character": "rie",
         "angle": "front-near-front",
+        "expression": "encouraging-listening",
+        "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__front-near-front__halfbody__v001.png",
+        "state": "missing-expression-variant",
+        "present": false,
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
+      },
+      {
+        "character": "rie",
+        "angle": "front-near-front",
+        "expression": "sad-vulnerable",
+        "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
+        "state": "missing-expression-variant",
+        "present": false,
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
+      },
+      {
+        "character": "rie",
+        "angle": "front-near-front",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/rie/rie__surprised-shocked__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -4271,15 +4313,6 @@
         "angle": "left-three-quarter",
         "expression": "neutral",
         "plannedPath": "/academy/art/characters/rie/rie__neutral__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rie",
-        "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6930,12 +6963,12 @@
       },
       "approvedCast": {
         "rie": {
-          "assetId": "rie-neutral-halfbody-v001",
+          "assetId": "rie-neutral-glasses-front-near-front-halfbody-v001",
           "verdict": "approved-runtime",
           "deliveries": [
             {
-              "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
-              "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
+              "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+              "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282"
             }
           ]
         }

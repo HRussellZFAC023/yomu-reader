@@ -34,11 +34,11 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 11,
-    "reviewCandidates": 13,
-    "missing": 606,
-    "currentPhysicalRasters": 28,
-    "currentOffMatrixRasters": 2,
+    "approved": 12,
+    "reviewCandidates": 11,
+    "missing": 607,
+    "currentPhysicalRasters": 24,
+    "currentOffMatrixRasters": 1,
     "historicalUniqueRasters": 450,
     "historicalOccurrences": 1442,
     "charactersWithApprovedCoverage": 3,
@@ -59,8 +59,8 @@
       "character": "rie",
       "from": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
       "to": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
-      "decision": "replace",
-      "status": "glasses-primary-bound; prior approved raster retained as compatibility evidence",
+      "decision": "delete",
+      "status": "glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -68,8 +68,53 @@
       "character": "rie",
       "from": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
       "to": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
-      "decision": "replace",
-      "status": "glasses-primary-bound; prior approved raster retained as compatibility evidence",
+      "decision": "delete",
+      "status": "glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-happy-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+      "decision": "delete",
+      "status": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-encouraging-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+      "decision": "delete",
+      "status": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-repair-to-vulnerable-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+      "decision": "delete",
+      "status": "deprecated off-matrix repair raster removed; approved compassionate repair performance bound",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-sad-vulnerable-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+      "decision": "delete",
+      "status": "deprecated glasses-off raster removed; approved glasses-on performance bound",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-comedic-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
+      "decision": "delete",
+      "status": "deprecated glasses-off raster removed; approved glasses-on performance bound",
       "runtimeReferencesAfterMigration": []
     }
   ],
@@ -97,18 +142,18 @@
         "slots": 21
       },
       "progress": {
-        "approved": 5,
-        "reviewCandidates": 2,
-        "missing": 14,
-        "deliveredPercent": 33.33,
-        "approvedPercent": 23.81
+        "approved": 6,
+        "reviewCandidates": 0,
+        "missing": 15,
+        "deliveredPercent": 28.57,
+        "approvedPercent": 28.57
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
-          "sha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93",
-          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
-          "privacy": "no-private-source-recorded",
+          "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
+          "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9",
+          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-b68a88ac-e32f-4739-a933-9437ef250a45.png",
+          "privacy": "no-private-source",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -175,41 +220,6 @@
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9",
-          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
-          "privacy": "no-private-source-recorded",
-          "status": "approved",
-          "usage": {
-            "runtime": [
-              "dialogue:rie-decisive-guidance",
-              "journal:rie-expression-gallery"
-            ],
-            "review": []
-          },
-          "orphan": "active-runtime",
-          "styleVersion": "hand-painted-production-family",
-          "fileVersion": "v001",
-          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; left-three-quarter",
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "dialogue:rie-decisive-guidance",
-            "journal:rie-expression-gallery"
-          ],
-          "reviewUses": [],
-          "decision": "replace",
-          "migrationStatus": "superseded-by-glasses-primary-retained-for-runtime-compatibility",
-          "coverageStatus": "approved"
-        },
-        {
           "path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
           "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9",
           "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-f7af56ad-43e9-449a-8fd8-2ee8a68f94d9.png",
@@ -247,48 +257,11 @@
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
-          "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411",
-          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "lesson-feedback:attempt",
-              "dialogue:rie-listening",
-              "journal:rie-expression-gallery"
-            ],
-            "review": []
-          },
-          "orphan": "review-bound",
-          "styleVersion": "hand-painted-production-family",
-          "fileVersion": "v001",
-          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
-          "angle": "front-near-front",
-          "expression": "encouraging-listening",
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "lesson-feedback:attempt",
-            "dialogue:rie-listening",
-            "journal:rie-expression-gallery"
-          ],
-          "reviewUses": [],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
-          "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75",
-          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+          "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720",
+          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-6fec7bb6-691e-409b-8f72-a9264dde85bd.png",
+          "privacy": "no-private-source",
+          "status": "approved",
           "usage": {
             "runtime": [
               "lesson-feedback:correct-retry",
@@ -297,7 +270,7 @@
             ],
             "review": []
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
@@ -317,8 +290,8 @@
           ],
           "reviewUses": [],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
           "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
@@ -370,74 +343,26 @@
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
-          "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae",
-          "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
-          "privacy": "no-private-source-recorded",
+          "path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+          "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954",
+          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-c06afe11-6a20-43d6-8d24-9dfacd644fb1.png",
+          "privacy": "no-private-source",
           "status": "approved",
           "usage": {
             "runtime": [
-              "onboarding:profile",
-              "unlock:rie",
-              "journal:rie",
-              "scene:arrival-bridge",
-              "class:people",
-              "class:week-cast",
-              "lesson-overview:roster",
-              "world:person",
-              "lesson:l1-l01:host"
+              "lesson-feedback:repair",
+              "dialogue:rie-precise-hint",
+              "dialogue:rie-vulnerable-reflection",
+              "journal:rie-expression-gallery"
             ],
             "review": []
           },
           "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
-          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "onboarding:profile",
-            "unlock:rie",
-            "journal:rie",
-            "scene:arrival-bridge",
-            "class:people",
-            "class:week-cast",
-            "lesson-overview:roster",
-            "world:person",
-            "lesson:l1-l01:host"
-          ],
-          "reviewUses": [],
-          "decision": "replace",
-          "migrationStatus": "superseded-by-glasses-primary-retained-for-runtime-compatibility",
-          "coverageStatus": "approved"
-        },
-        {
-          "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
-          "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
-          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "lesson-feedback:repair",
-              "dialogue:rie-precise-hint",
-              "journal:rie-expression-gallery"
-            ],
-            "review": []
-          },
-          "orphan": "review-bound",
-          "styleVersion": "hand-painted-production-family",
-          "fileVersion": "v001",
-          "pose": "off-contract repair pose",
-          "angle": null,
-          "expression": null,
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -448,40 +373,6 @@
           "runtimeUses": [
             "lesson-feedback:repair",
             "dialogue:rie-precise-hint",
-            "journal:rie-expression-gallery"
-          ],
-          "reviewUses": [],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
-          "sha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3",
-          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
-          "privacy": "no-private-source-recorded",
-          "status": "approved",
-          "usage": {
-            "runtime": [
-              "dialogue:rie-vulnerable-reflection",
-              "journal:rie-expression-gallery"
-            ],
-            "review": []
-          },
-          "orphan": "active-runtime",
-          "styleVersion": "hand-painted-production-family",
-          "fileVersion": "v001",
-          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
-          "angle": "front-near-front",
-          "expression": "sad-vulnerable",
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
             "dialogue:rie-vulnerable-reflection",
             "journal:rie-expression-gallery"
           ],
@@ -558,9 +449,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
@@ -584,14 +474,15 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -603,8 +494,9 @@
         {
           "angle": "front-near-front",
           "expression": "sad-vulnerable",
-          "status": "approved",
-          "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -665,7 +557,7 @@
           "angle": "right-three-quarter",
           "expression": "comedic",
           "status": "approved",
-          "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png"
+          "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png"
         }
       ],
       "missingVariants": [
@@ -699,13 +591,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "comedic",
           "status": "missing",
           "path": null,
@@ -713,10 +598,24 @@
         },
         {
           "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rie/rie__surprised-shocked__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -8435,7 +8334,7 @@
     {
       "id": "tom2",
       "firstName": "Tom",
-      "category": "extended-member",
+      "category": "classmate",
       "basePose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture",
       "targetMatrix": {
         "angles": [
@@ -8843,7 +8742,7 @@
     {
       "id": "steve",
       "firstName": "Steve",
-      "category": "extended-member",
+      "category": "classmate",
       "basePose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up",
       "targetMatrix": {
         "angles": [

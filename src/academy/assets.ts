@@ -28,16 +28,12 @@ function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
  * separate: an archived file is not runtime-authorized until it appears here.
  */
 export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
-    'character.rie.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['onboarding:profile', 'unlock:rie', 'journal:rie', 'scene:arrival-bridge', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:host'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png' } }),
-    'character.rie.happy': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__happy__halfbody__v001.png' } }),
-    'character.rie.encouraging': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png' } }),
-    'character.rie.repair': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__repair__halfbody__v001.png' } }),
-    'character.rie.determined-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-decisive-guidance', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png' } }),
-    'character.rie.sad-vulnerable-front': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png' } }),
-    'character.rie.comedic-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png' } }),
     'character.rie.neutral-glasses': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['onboarding:profile', 'unlock:rie', 'journal:rie', 'scene:arrival-bridge', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:host'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png' } }),
+    'character.rie.happy-glasses-front': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png' } }),
     'character.rie.determined-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-decisive-guidance', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png' } }),
     'character.rie.encouraging-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png' } }),
+    'character.rie.sad-vulnerable-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png' } }),
+    'character.rie.comedic-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png' } }),
     'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:aakash'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png' } }),
     'character.felix.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-after-meeting', 'journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png' } }),
     'character.felix.happy-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png' } }),
@@ -137,7 +133,7 @@ export const ACADEMY_LESSON_ASSET_BINDINGS = {
     'l1-l01': {
         sceneAssetId: 'location.classroom',
         sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
-        approvedCastAssetIds: { rie: 'character.rie.neutral' },
+        approvedCastAssetIds: { rie: 'character.rie.neutral-glasses' },
         reviewOnlyCastCandidates: { aakash: 'character.aakash.neutral' },
         itemAssetIds: ['item.classroom-belongings'],
         sourceMedia: [{
@@ -229,10 +225,11 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     rie: assetFile('character.rie.neutral-glasses', 'default'),
+    rieHappy: assetFile('character.rie.happy-glasses-front', 'default'),
     rieDetermined: assetFile('character.rie.determined-glasses-left', 'default'),
     rieEncouraging: assetFile('character.rie.encouraging-glasses-right', 'default'),
-    rieSadVulnerable: assetFile('character.rie.sad-vulnerable-front', 'default'),
-    rieComedic: assetFile('character.rie.comedic-right', 'default'),
+    rieSadVulnerable: assetFile('character.rie.sad-vulnerable-glasses-left', 'default'),
+    rieComedic: assetFile('character.rie.comedic-glasses-right', 'default'),
     sophie: assetFile('character.sophie.neutral-right', 'default'),
     sophieEncouraging: assetFile('character.sophie.encouraging-front', 'default'),
     sophieDetermined: assetFile('character.sophie.determined-left', 'default'),
@@ -256,6 +253,7 @@ export const ACADEMY_APPROVED_CAST_SPRITES = {
 export const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     rie: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
+        happy: ACADEMY_APPROVED_CHARACTER_SPRITES.rieHappy,
         encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.rieEncouraging,
         determined: ACADEMY_APPROVED_CHARACTER_SPRITES.rieDetermined,
         'sad-vulnerable': ACADEMY_APPROVED_CHARACTER_SPRITES.rieSadVulnerable,
@@ -302,16 +300,12 @@ interface AcademyCastSpriteCoverageEntry {
  * home. This is the audit surface for card, journal, and worker precache use.
  */
 export const ACADEMY_CAST_SPRITE_COVERAGE = {
-    'character.rie.neutral': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'class:people' },
-    'character.rie.happy': { castId: 'rie', presentation: 'journal-review-preview', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.encouraging': { castId: 'rie', presentation: 'journal-review-preview', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.repair': { castId: 'rie', presentation: 'journal-review-preview', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.determined-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.sad-vulnerable-front': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.comedic-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.rie.neutral-glasses': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'class:people' },
+    'character.rie.happy-glasses-front': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.rie.determined-glasses-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.rie.encouraging-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
+    'character.rie.sad-vulnerable-glasses-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
+    'character.rie.comedic-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
     'character.aakash.neutral': { castId: 'aakash', presentation: 'journal-review-preview', primaryUse: 'journal:aakash' },
     'character.felix.neutral': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-after-meeting' },
     'character.felix.happy-left': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
@@ -341,8 +335,11 @@ export const ACADEMY_ASSETS = {
     characterSpriteGalleries: {
         rie: {
             'neutral:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.neutral,
+            'happy:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.happy,
             'determined:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.determined,
             'encouraging-listening:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging,
+            'sad-vulnerable:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie['sad-vulnerable'],
+            'comedic:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.comedic,
         },
         peter: {
             'left-three-quarter': assetFile('character.peter.thoughtful-left', 'default'),

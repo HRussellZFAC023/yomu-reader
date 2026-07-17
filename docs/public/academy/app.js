@@ -22624,16 +22624,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return record2;
   }
   const ACADEMY_RUNTIME_ASSET_REGISTRY = {
-    "character.rie.neutral": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__neutral__halfbody__v001.png" } }),
-    "character.rie.happy": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__happy__halfbody__v001.png" } }),
-    "character.rie.encouraging": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png" } }),
-    "character.rie.repair": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:repair", "dialogue:rie-precise-hint", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__repair__halfbody__v001.png" } }),
-    "character.rie.determined-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png" } }),
-    "character.rie.sad-vulnerable-front": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png" } }),
-    "character.rie.comedic-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png" } }),
     "character.rie.neutral-glasses": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png" } }),
+    "character.rie.happy-glasses-front": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png" } }),
     "character.rie.determined-glasses-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png" } }),
     "character.rie.encouraging-glasses-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png" } }),
+    "character.rie.sad-vulnerable-glasses-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png" } }),
+    "character.rie.comedic-glasses-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png" } }),
     "character.aakash.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:aakash"], provenance: "current-production", files: { default: "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png" } }),
     "character.felix.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-after-meeting", "journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__neutral__halfbody__v001.png" } }),
     "character.felix.happy-left": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png" } }),
@@ -22717,10 +22713,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     rie: assetFile("character.rie.neutral-glasses", "default"),
+    rieHappy: assetFile("character.rie.happy-glasses-front", "default"),
     rieDetermined: assetFile("character.rie.determined-glasses-left", "default"),
     rieEncouraging: assetFile("character.rie.encouraging-glasses-right", "default"),
-    rieSadVulnerable: assetFile("character.rie.sad-vulnerable-front", "default"),
-    rieComedic: assetFile("character.rie.comedic-right", "default"),
+    rieSadVulnerable: assetFile("character.rie.sad-vulnerable-glasses-left", "default"),
+    rieComedic: assetFile("character.rie.comedic-glasses-right", "default"),
     sophie: assetFile("character.sophie.neutral-right", "default"),
     sophieEncouraging: assetFile("character.sophie.encouraging-front", "default"),
     sophieDetermined: assetFile("character.sophie.determined-left", "default"),
@@ -22736,6 +22733,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     rie: {
       neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
+      happy: ACADEMY_APPROVED_CHARACTER_SPRITES.rieHappy,
       encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.rieEncouraging,
       determined: ACADEMY_APPROVED_CHARACTER_SPRITES.rieDetermined,
       "sad-vulnerable": ACADEMY_APPROVED_CHARACTER_SPRITES.rieSadVulnerable,
@@ -22772,8 +22770,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     characterSpriteGalleries: {
       rie: {
         "neutral:front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.neutral,
+        "happy:front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.happy,
         "determined:left-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.determined,
-        "encouraging-listening:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging
+        "encouraging-listening:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging,
+        "sad-vulnerable:left-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie["sad-vulnerable"],
+        "comedic:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.comedic
       },
       peter: {
         "left-three-quarter": assetFile("character.peter.thoughtful-left", "default"),

@@ -34,15 +34,15 @@ describe('Academy VN sprite performance contract', () => {
                 .status;
 
         expect(status('rie', 'neutral')).toBe('approved');
-        expect(status('rie', 'happy')).toBe('review-candidate');
-        expect(status('rie', 'encouraging-listening')).toBe('review-candidate');
+        expect(status('rie', 'happy')).toBe('approved');
+        expect(status('rie', 'encouraging-listening')).toBe('missing');
         for (const castId of ['aakash', 'peter', 'felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
         expect(Object.values(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions).map(cell => cell.status))
             .toEqual(Array(SPRITE_EXPRESSIONS.length).fill('missing'));
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions.determined.status).toBe('approved');
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[1].expressions['sad-vulnerable'].status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions['sad-vulnerable'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[2].expressions.comedic.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
@@ -55,9 +55,9 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 11,
-            reviewCandidates: 13,
-            missing: totalPerformanceCells - 24,
+            approved: 12,
+            reviewCandidates: 11,
+            missing: totalPerformanceCells - 23,
         });
     });
 
@@ -81,14 +81,9 @@ describe('Academy VN sprite performance contract', () => {
         }
     });
 
-    it('keeps off-contract Rie rasters visible without counting them as coverage', () => {
+    it('keeps the sole off-contract Rie review raster visible without counting it as coverage', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.map(asset => asset.label))
-            .toEqual([
-                'superseded-neutral-without-glasses',
-                'superseded-determined-without-glasses',
-                'repair',
-                'thinking',
-            ]);
+            .toEqual(['thinking']);
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.every(asset =>
             asset.status === 'review-candidate')).toBe(true);
     });

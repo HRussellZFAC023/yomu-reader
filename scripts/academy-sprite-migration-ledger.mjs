@@ -21,21 +21,11 @@ const EXPRESSIONS = [
     'comedic',
 ];
 
-const APPROVED_PATHS = new Set([
-    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
-    '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
-]);
+const APPROVED_PATHS = new Set(ASSET_USAGE.assets
+    .filter(asset => asset.verdict === 'approved-runtime')
+    .flatMap(asset => asset.deliveries ?? [])
+    .map(delivery => delivery.path)
+    .filter(deliveryPath => deliveryPath.startsWith('/academy/art/characters/')));
 
 const CURRENT_SLOT_OVERRIDES = new Map([
     ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'neutral']],
@@ -77,6 +67,7 @@ function normalizeCurrentSlot(publicPath) {
     const name = path.basename(publicPath, '.png');
     const angle = ANGLES.find(value => name.includes(`__${value}__`)) ?? 'front-near-front';
     let expression = name.split('__')[1] ?? '';
+    expression = expression.replace(/-glasses$/u, '');
     if (expression === 'encouraging') expression = 'encouraging-listening';
     if (expression === 'surprised') expression = 'surprised-shocked';
     return EXPRESSIONS.includes(expression) ? { angle, expression } : null;
@@ -271,16 +262,56 @@ const output = {
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
         to: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
-        decision: 'replace',
-        status: 'glasses-primary-bound; prior approved raster retained as compatibility evidence',
+        decision: 'delete',
+        status: 'glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan',
         runtimeReferencesAfterMigration: [],
     }, {
         id: 'rie-determined-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
         to: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
-        decision: 'replace',
-        status: 'glasses-primary-bound; prior approved raster retained as compatibility evidence',
+        decision: 'delete',
+        status: 'glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-happy-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
+        decision: 'delete',
+        status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-encouraging-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
+        decision: 'delete',
+        status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-repair-to-vulnerable-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+        decision: 'delete',
+        status: 'deprecated off-matrix repair raster removed; approved compassionate repair performance bound',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-sad-vulnerable-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+        decision: 'delete',
+        status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-comedic-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png',
+        decision: 'delete',
+        status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
         runtimeReferencesAfterMigration: [],
     }],
     characters,

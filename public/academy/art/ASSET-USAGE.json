@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 56,
-    "runtimeFiles": 70,
+    "runtimeAssetHomes": 52,
+    "runtimeFiles": 66,
     "nonRuntimeReviewFiles": 1,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4
@@ -29,7 +29,7 @@
       "packageId": "l1-l01",
       "sourceSceneReference": "academy/art/scenes/classroom-first-evening-wide.webp",
       "sceneAssetId": "classroom-evening-lamplit",
-      "approvedCastAssetIds": {"rie": "rie-neutral-halfbody-v001"},
+      "approvedCastAssetIds": {"rie": "rie-neutral-glasses-front-near-front-halfbody-v001"},
       "reviewOnlyCastCandidates": {"aakash": "aakash-neutral-halfbody-v001"},
       "itemAssetIds": ["classroom-belongings-v001"],
       "sourceMedia": [
@@ -50,7 +50,7 @@
       "runtimeHome": ["runtime:sprite-performance-contract", "production:sprite-generation-batches"],
       "deliveries": [{
         "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-        "sha256": "8c1cea4490e41d806ecd6cda083ecb32060e58647271c8f07941d51232fbeed1"
+        "sha256": "436e048faf38936f28c57225de77990b3baad97a31519e02de6a782d4905c703"
       }],
       "status": "bound-and-schema-validated"
     },
@@ -81,54 +81,6 @@
       "status": "generated-mirrored-and-conformance-validated; 30-character-630-slot-target; not-runtime-bound"
     },
     {
-      "id": "rie-neutral-halfbody-v001",
-      "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
-      "provenance": "direct-openai-image-generation",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
-        "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
-      }],
-      "status": "bound-and-browser-reviewed"
-    },
-    {
-      "id": "rie-happy-halfbody-v001",
-      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
-        "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75"
-      }],
-      "status": "release-blocked-pending-owner-approval"
-    },
-    {
-      "id": "rie-encouraging-halfbody-v001",
-      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
-        "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411"
-      }],
-      "status": "release-blocked-pending-owner-approval"
-    },
-    {
-      "id": "rie-repair-halfbody-v001",
-      "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
-      "provenance": "direct-openai-image-edit-from-approved-reference",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
-        "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb"
-      }],
-      "status": "release-blocked-pending-owner-approval"
-    },
-    {
       "id": "rie-thinking-halfbody-v001",
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
       "sourceSha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
@@ -141,45 +93,6 @@
         "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d"
       }],
       "status": "recovered-clean-alpha-review-evidence; not-runtime-bound; release-blocked-pending-owner-likeness-provenance-and-runtime-owner-approval"
-    },
-    {
-      "id": "rie-determined-left-three-quarter-halfbody-v001",
-      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
-      "sourceSha256": "3faa1f515a45c1e549ee554f539aa24bcdc4bf5e104c4722275ed1275a03468c",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-    },
-    {
-      "id": "rie-sad-vulnerable-front-near-front-halfbody-v001",
-      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
-      "sourceSha256": "213ef0df3a09497b38307a855a2e1982fa61589c4768e87ae59bc55636d76900",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
-        "sha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
-    },
-    {
-      "id": "rie-comedic-right-three-quarter-halfbody-v001",
-      "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
-      "sourceSha256": "edf8858e7867c877b1a7801a2dfb5700f89cd08be73172f3d09c75af58f4a8fa",
-      "provenance": "direct-openai-image-edit-from-approved-rie-references",
-      "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
-        "sha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93"
-      }],
-      "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-15; responsive-journal-and-vn-bound"
     },
     {
       "id": "aakash-neutral-halfbody-v001",
@@ -757,6 +670,18 @@
       "status": "identity-glasses-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
+      "id": "rie-happy-glasses-front-near-front-halfbody-v001",
+      "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-6fec7bb6-691e-409b-8f72-a9264dde85bd.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
+      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png", "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720"}],
+      "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
+    },
+    {
       "id": "rie-determined-glasses-left-three-quarter-halfbody-v001",
       "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-d34be164-7535-415d-bb30-13648da1a42e.png",
       "provenance": "direct-openai-image-edit-from-approved-reference",
@@ -779,6 +704,30 @@
       "orphan": "active-runtime",
       "deliveries": [{"path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9"}],
       "status": "identity-glasses-museum-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001",
+      "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-c06afe11-6a20-43d6-8d24-9dfacd644fb1.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"],
+      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png", "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954"}],
+      "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
+    },
+    {
+      "id": "rie-comedic-glasses-right-three-quarter-halfbody-v001",
+      "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-b68a88ac-e32f-4739-a933-9437ef250a45.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"],
+      "usage": {"runtime": ["vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png", "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9"}],
+      "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
     },
     {
       "id": "tom2-neutral-right-three-quarter-halfbody-v001",

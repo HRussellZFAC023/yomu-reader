@@ -80,17 +80,17 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain('70 active, 1 orphaned, 2 deprecated, 606 missing expression variants');
+            .toContain('66 active, 1 orphaned, 9 deprecated, 607 missing expression variants');
         expect(currentRasterHashes()).toEqual(before);
     });
 
     it('accounts for every current raster exactly once without conflating authorization and presence', () => {
         expect(inventory.counts).toMatchObject({
-            currentRasterFiles: 71,
-            currentRasterFilesAccountedFor: 71,
-            active: 70,
+            currentRasterFiles: 67,
+            currentRasterFilesAccountedFor: 67,
+            active: 66,
             orphaned: 1,
-            deprecated: 2,
+            deprecated: 9,
             deprecatedPresent: 0,
         });
         expect(inventory.assets.active.every(asset => asset.present && asset.runtimeAuthorized && asset.runtimeHomes.length > 0)).toBe(true);
@@ -100,10 +100,10 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             ...inventory.assets.active,
             ...inventory.assets.orphaned,
             ...inventory.assets.deprecated.filter(asset => asset.present),
-        ].map(asset => asset.path)).size).toBe(71);
+        ].map(asset => asset.path)).size).toBe(67);
     });
 
-    it('keeps the Rie thinking sprite orphaned and reports both off-matrix sprites honestly', () => {
+    it('keeps the Rie thinking sprite orphaned as the sole off-matrix delivery', () => {
         expect(inventory.assets.orphaned).toEqual([
             expect.objectContaining({
                 id: 'rie-thinking-halfbody-v001',
@@ -113,7 +113,6 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             }),
         ]);
         expect(inventory.expressionCoverage.offMatrixDelivered).toEqual([
-            expect.objectContaining({ path: '/academy/art/characters/rie/rie__repair__halfbody__v001.png', currentState: 'active', countsTowardExpressionMatrix: false }),
             expect.objectContaining({ path: '/academy/art/characters/rie/rie__thinking__halfbody__v001.png', currentState: 'orphaned', countsTowardExpressionMatrix: false }),
         ]);
     });
@@ -141,14 +140,14 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
             expressionMatrixSlots: 630,
-            approvedExpressionVariants: 11,
-            reviewCandidateExpressionVariants: 13,
-            deliveredMatrixExpressionVariants: 24,
-            missingExpressionVariants: 606,
-            offMatrixDeliveredSprites: 2,
+            approvedExpressionVariants: 12,
+            reviewCandidateExpressionVariants: 11,
+            deliveredMatrixExpressionVariants: 23,
+            missingExpressionVariants: 607,
+            offMatrixDeliveredSprites: 1,
         });
-        expect(inventory.expressionCoverage.missingVariants).toHaveLength(606);
-        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(606);
+        expect(inventory.expressionCoverage.missingVariants).toHaveLength(607);
+        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(607);
         expect(inventory.expressionCoverage.missingVariants).toContainEqual({
             character: 'xingyu',
             angle: 'front-near-front',
