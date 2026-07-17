@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.169] - 2026-07-17
+
+### Fixed
+
+- Immersion example audio now plays on strict-CSP hosts such as claude.ai and chatgpt.com: example playback goes through the shared audio player, whose Web Audio fallback decodes the pre-fetched audio bytes when the page refuses media-element URLs.
+
+### Changed
+
+- The kanji-study companion and the study new-tab app each shed ~69KB by moving an embedded grammar example table into the test suite; the table was only ever consumed by tests while real examples load from the remote grammar data.
+- Removed dead code and styles accumulated across releases: the unused gaming capture/lookup IPC surface, superseded CSS selector clusters, and no-op wrappers. A new automated check keeps translation copy keys from going orphaned, and restored regression tests re-pin two long-standing double-image protections.
+
 ## [1.6.168] - 2026-07-17
 
 ### Fixed

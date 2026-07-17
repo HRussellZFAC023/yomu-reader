@@ -1341,15 +1341,6 @@
   min-width: 0;
 }
 
-.jpdb-reader-newtab-search-inline-title {
-  margin: 2px 0 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
 .jpdb-reader-newtab-search-inline-kanji .jpdb-reader-newtab-kanji-details {
   width: 100%;
   margin: 0;
@@ -2525,16 +2516,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   gap: 6px 10px;
 }
 
-.jpdb-reader-newtab-kanji-front-meaning {
-  font-size: clamp(1.1rem, 3vw, 1.9rem);
-  font-weight: 800;
-}
-
-.jpdb-reader-newtab-kanji-front-sep {
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
-}
-
 .jpdb-reader-newtab-kanji-front-cloze {
   font-size: clamp(1.35rem, 3.7vw, 2.4rem);
   font-weight: 760;
@@ -3658,7 +3639,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-kanji-details > *,
-.jpdb-reader-newtab-kanji-details .jpdb-reader-newtab-kanji-sources,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-entry,
@@ -5514,39 +5494,14 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-weight: 650;
 }
 
-.jpdb-reader-newtab-listen-answer {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-}
-
 .jpdb-reader-newtab-listen-word {
   font-size: 22px;
   font-weight: 800;
 }
 
-.jpdb-reader-newtab-listen-reading {
-  color: var(--jpdb-reader-muted);
-  font-size: 14px;
-}
-
-.jpdb-reader-newtab-listen-class {
-  color: var(--jpdb-reader-accent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .jpdb-reader-newtab-listen-verdict {
   font-size: 15px;
   font-weight: 800;
-}
-
-.jpdb-reader-newtab-listen-verdict-correct {
-  color: var(--jpdb-reader-success);
-}
-
-.jpdb-reader-newtab-listen-verdict-wrong {
-  color: var(--jpdb-reader-danger, #d9534f);
 }
 
 .jpdb-reader-newtab-listen-feedback {
@@ -5570,40 +5525,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-listen-pos-wrong.jpdb-reader-newtab-listen-pos-selected {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 1px;
-}
-
-.jpdb-reader-newtab-listen-contrast {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-}
-
-.jpdb-reader-newtab-listen-contrast-pair {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 22px;
-}
-
-.jpdb-reader-newtab-listen-grades {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.jpdb-reader-newtab-listen-grade {
-  min-height: 40px;
-  padding: 0 20px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 10px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 700 14px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-}
-
-.jpdb-reader-newtab-listen-grade:hover {
-  border-color: var(--jpdb-reader-accent);
 }
 
 .jpdb-reader-newtab-listen-record {
@@ -9362,7 +9283,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
     .jpdb-reader-reading,
     .jpdb-reader-kanji-inline,
     .jpdb-reader-jpdb-compound-term,
-    .jpdb-reader-jpdb-compound-reading,
     .jpdb-reader-jpdb-used-in-term,
     .jpdb-reader-example-sentence,
     .jpdb-reader-kanji-char,
@@ -11110,17 +11030,12 @@ button.jpdb-reader-token-sentence-word {
   line-height: 1;
 }
 
-.jpdb-reader-jpdb-compound-reading,
 .jpdb-reader-jpdb-compounds small,
 .jpdb-reader-jpdb-used-in small,
 .jpdb-reader-jpdb-example .jpdb-reader-example-translation {
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   line-height: 1.25;
-}
-
-.jpdb-reader-jpdb-compound-reading {
-  white-space: nowrap;
 }
 
 .jpdb-reader-theme-light .jpdb-reader-jpdb-used-in-main small {
@@ -11133,10 +11048,6 @@ button.jpdb-reader-token-sentence-word {
     color: color-mix(in srgb, var(--jpdb-reader-text) 84%, var(--jpdb-reader-muted));
     font-weight: 500;
   }
-}
-
-.jpdb-reader-jpdb-compound:has(.jpdb-reader-word) .jpdb-reader-jpdb-compound-reading {
-  display: none;
 }
 
 .jpdb-reader-example-summary .jpdb-reader-example-count {
@@ -14262,16 +14173,10 @@ mark.jpdb-reader-example-target {
   color: var(--jpdb-reader-pitch-unknown-readable);
 }
 
-.jpdb-reader-similar-reading,
 .jpdb-reader-similar-meaning {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-}
-
-.jpdb-reader-similar-reading {
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
 }
 
 .jpdb-reader-similar-meaning {
@@ -16976,23 +16881,6 @@ html.jpdb-reader-doodle-active * {
   padding-inline: 14px;
 }
 
-.jpdb-reader-help-discord {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 42px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-accent) 12%);
-  font: 800 12px/1.2 var(--jpdb-reader-font);
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
   color: var(--jpdb-reader-muted);
@@ -18335,29 +18223,6 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
   font-size: .43em;
-}
-
-.jpdb-reader-shortcut-reference {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.jpdb-reader-shortcut-reference-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.jpdb-reader-shortcut-reference-row kbd {
-  flex: 0 0 7.5rem;
-  font: inherit;
-  font-size: 0.85em;
-  padding: 0.1rem 0.45rem;
-  border-radius: 6px;
-  border: 1px solid var(--jpdb-reader-border, rgba(125, 125, 125, 0.35));
-  background: var(--jpdb-reader-surface-2, rgba(125, 125, 125, 0.12));
-  text-align: center;
-  white-space: nowrap;
 }
 
 .jpdb-subtitle-player {
@@ -20326,17 +20191,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background-repeat: no-repeat;
   background-size: var(--jpdb-reader-word-highlight-size) 100%;
   outline: 1px solid var(--jpdb-reader-border);
-}
-
-.jpdb-subtitle-row-translation {
-  grid-column: 1;
-  min-width: 0;
-  margin-top: 3px;
-  color: var(--jpdb-reader-muted);
-  overflow-wrap: anywhere;
-  font-style: normal;
-  font-weight: 650;
-  line-height: 1.4;
 }
 
 .jpdb-subtitle-shadow-scroll {

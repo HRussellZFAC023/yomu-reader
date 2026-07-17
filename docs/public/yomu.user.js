@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.168
+// @version 1.6.169
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.168#sha256=rQARdW6lZh5m0Z6/DX1RZdDT4yP5EAiduW5xNRkCdrI=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.168#sha256=6UqWGU36ORH6/HPHrD4ZBgt6VXCZ5csGZKM6x0qV7uw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.168#sha256=vr2yNFI8C4KVw3QrgRI6KCsLRJ/oREzYZOasTw56yOQ=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.168#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.168#sha256=RvqpJOOzDxyVYPX7rqNuUa3zo9pm16A1e0x/w3UQvzM=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.168#sha256=l/tGRQ+RhdCun/2HMsQs2UhwTzr5HxFPRwkL3NWH/yQ=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.168#sha256=2mdEWGlcDyyuhZlE9RPQPGtwunAd9n1V+bH2oR4/ZSI=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.169#sha256=rQARdW6lZh5m0Z6/DX1RZdDT4yP5EAiduW5xNRkCdrI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.169#sha256=UMIo82XKD78svac6fvQ/jVzmL3H8YGfHcMjDnpxTZPE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.169#sha256=vr2yNFI8C4KVw3QrgRI6KCsLRJ/oREzYZOasTw56yOQ=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.169#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.169#sha256=Vdk1vOJZUNTfwzRDarbclrfn0iNNfsVpGoEgknKOcmI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.169#sha256=l/tGRQ+RhdCun/2HMsQs2UhwTzr5HxFPRwkL3NWH/yQ=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.169#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -11637,6 +11637,31 @@ class AudioPlayer {
   const audio = await this.createReadyAudio(playableUrl);
   return await this.playPreparedAudio(audio, requestId, () => true, { userGesture: true });
   }
+  async playMediaCandidates(urls, options = {}) {
+  const settings = this.getSettings();
+  this.ensureAudioEnabled(settings);
+  if (!canAttemptAudiblePlayback(true)) return false;
+  const isCurrent = options.isCurrent ?? (() => true);
+  const candidates = orderedMediaCandidates(urls);
+  if (!candidates.length) return false;
+  const requestId = ++this.playRequestId;
+  this.stopCurrent();
+  let lastError;
+  for (const url of candidates) {
+    if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+    try {
+      const playableUrl = await this.prepareDirectMediaUrl(url, settings);
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      const audio = await this.createReadyAudio(playableUrl);
+      if (options.playbackRate && Number.isFinite(options.playbackRate)) audio.playbackRate = options.playbackRate;
+      if (await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture: true })) return true;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  return false;
+  }
   async prepareDirectMediaUrl(audioUrl, settings) {
   if (!shouldFetchDirectMediaAsBlob(audioUrl)) return audioUrl;
   return await this.fetchAudioAsBlobUrl(audioUrl, audioUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
@@ -12177,6 +12202,17 @@ function implicitJitenTtsSource(settings) {
   voice: configured?.voice ?? "",
   enabled: true
   };
+}
+function orderedMediaCandidates(urls) {
+  const seen = new Set();
+  const candidates = [];
+  for (const value of urls) {
+  const url = value?.trim();
+  if (!url || seen.has(url)) continue;
+  seen.add(url);
+  candidates.push(url);
+  }
+  return candidates;
 }
 function audioErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -21256,7 +21292,7 @@ class ImmersionKitClient {
   const params = new URLSearchParams({
     q: query,
     limit: String(searchRequestLimit(options)),
-    sort: this.apiSort(settings)
+    sort: this.effectiveSort(settings)
   });
   if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
   if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
@@ -21264,10 +21300,6 @@ class ImmersionKitClient {
   }
   effectiveSort(settings) {
   return settings.immersionKitSort === "random" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-  }
-  apiSort(settings) {
-  const sort = this.effectiveSort(settings);
-  return sort;
   }
   minimumSentenceLength(settings) {
   return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
@@ -22538,10 +22570,6 @@ class ImmersionPopoverController {
   constructor(options) {
   this.options = options;
   }
-  audioElement;
-  audioKey = "";
-  audioLoadingKey = "";
-  audioRequestId = 0;
   hoverAudioPlayedKeys = new Set();
   activeMiningContext;
   contextByCardKey = new Map();
@@ -22831,8 +22859,7 @@ class ImmersionPopoverController {
   pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
   }
   stopAudio() {
-  this.audioRequestId++;
-  this.clearAudio();
+  this.options.audio.stop();
   }
   async fetchExamples(card, options) {
   const exactQuery = normalizeImmersionSearchQuery(card.spelling);
@@ -23187,51 +23214,20 @@ class ImmersionPopoverController {
   }
   const source = this.exampleAudioSource(example, quiet);
   if (!source) return;
-  let requestId = 0;
   try {
-    requestId = this.startExampleAudioRequest(source.key);
-    if (!requestId) return;
-    await this.playFetchedExampleAudio(source, requestId, isCurrent);
+    const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
+    if (!isCurrent()) return;
+    await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
+      playbackRate: settings.immersionKitPlaybackRate,
+      isCurrent
+    });
   } catch (error) {
-    this.handleExampleAudioError(example, quiet, requestId, error);
+    this.handleExampleAudioError(example, quiet, error);
   }
   }
-  async playFetchedExampleAudio(source, requestId, isCurrent) {
-  const settings = this.options.getSettings();
-  const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-  const candidates = uniqueExampleAudioCandidates([blobSrc, ...source.urls]);
-  let lastError;
-  for (const src of candidates) {
-    if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
-      this.clearAudioRequestIfCurrent(requestId, source.key);
-      return;
-    }
-    const audio = this.attachExampleAudio(src);
-    try {
-      await this.playAttachedExampleAudio(audio, isCurrent);
-      return;
-    } catch (error) {
-      lastError = error;
-      if (this.audioElement === audio) this.clearAudio();
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("No playable Immersion Kit audio candidate.");
-  }
-  async playAttachedExampleAudio(audio, isCurrent) {
-  if (!isCurrent()) {
-    this.clearAudio();
-    return;
-  }
-  await audio.play();
-  if (!isCurrent()) this.clearAudio();
-  }
-  handleExampleAudioError(example, quiet, requestId, error) {
-  if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
+  handleExampleAudioError(example, quiet, error) {
   log$b.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
   if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-  }
-  shouldClearAudioAfterExampleError(requestId) {
-  return !requestId || requestId === this.audioRequestId;
   }
   exampleAudioSource(example, quiet) {
   const urls = this.mediaUrls(example, "sound");
@@ -23240,48 +23236,9 @@ class ImmersionPopoverController {
   if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
   return null;
   }
-  startExampleAudioRequest(key) {
-  if (this.isAudioBusy(key)) return 0;
-  const requestId = ++this.audioRequestId;
-  this.clearAudio();
-  this.audioKey = key;
-  this.audioLoadingKey = key;
-  this.options.audio.stop();
-  return requestId;
-  }
-  isExampleAudioRequestCurrent(requestId, key, isCurrent) {
-  return requestId === this.audioRequestId && this.audioKey === key && isCurrent();
-  }
-  clearAudioRequestIfCurrent(requestId, key) {
-  if (requestId === this.audioRequestId && this.audioKey === key) this.clearAudio();
-  }
-  attachExampleAudio(src) {
-  const audio = new Audio(src);
-  audio.preload = "auto";
-  audio.playbackRate = this.options.getSettings().immersionKitPlaybackRate;
-  this.audioElement = audio;
-  this.audioLoadingKey = "";
-  const cleanup = () => {
-    if (this.audioElement !== audio) return;
-    this.clearAudio();
-  };
-  audio.addEventListener("ended", cleanup, { once: true });
-  audio.addEventListener("error", cleanup, { once: true });
-  return audio;
-  }
   mediaUrls(example, kind) {
   const client = this.options.client;
   return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
-  }
-  clearAudio() {
-  this.audioElement?.pause();
-  this.audioElement = void 0;
-  this.audioKey = "";
-  this.audioLoadingKey = "";
-  }
-  isAudioBusy(key) {
-  if (this.audioLoadingKey === key) return true;
-  return Boolean(this.audioElement && this.audioKey === key && !this.audioElement.ended);
   }
 }
 function immersionExampleSourceLabel(card, example, searchQuery, language) {
@@ -23396,17 +23353,6 @@ function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
   return `<div class="${classes2}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
   }
   return `<div class="${classes2}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-}
-function uniqueExampleAudioCandidates(values) {
-  const seen = new Set();
-  const candidates = [];
-  for (const value of values) {
-  const url = value.trim();
-  if (!url || seen.has(url)) continue;
-  seen.add(url);
-  candidates.push(url);
-  }
-  return candidates;
 }
 function shouldCacheParsedExampleSentenceTokens(tokens) {
   return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
@@ -36461,8 +36407,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.168"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.168"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.169"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.169"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36580,7 +36526,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.168"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.169"}`;
   } catch {
   return null;
   }
