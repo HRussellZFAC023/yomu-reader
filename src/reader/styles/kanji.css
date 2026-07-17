@@ -785,15 +785,10 @@
 .jpdb-reader-jiten-kanji-word-pitch {
   color: var(--jpdb-reader-pitch-unknown-readable);
 }
-.jpdb-reader-similar-reading,
 .jpdb-reader-similar-meaning {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-}
-.jpdb-reader-similar-reading {
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
 }
 .jpdb-reader-similar-meaning {
   -webkit-line-clamp: 2;

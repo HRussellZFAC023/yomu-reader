@@ -959,15 +959,6 @@
   min-width: 0;
 }
 
-.jpdb-reader-newtab-search-inline-title {
-  margin: 2px 0 0;
-  color: var(--jpdb-reader-muted);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
 .jpdb-reader-newtab-search-inline-kanji .jpdb-reader-newtab-kanji-details {
   width: 100%;
   margin: 0;
@@ -2137,14 +2128,6 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   flex-wrap: wrap;
   gap: 6px 10px;
 }
-.jpdb-reader-newtab-kanji-front-meaning {
-  font-size: clamp(1.1rem, 3vw, 1.9rem);
-  font-weight: 800;
-}
-.jpdb-reader-newtab-kanji-front-sep {
-  color: var(--jpdb-reader-muted);
-  font-weight: 600;
-}
 .jpdb-reader-newtab-kanji-front-cloze {
   font-size: clamp(1.35rem, 3.7vw, 2.4rem);
   font-weight: 760;
@@ -3258,7 +3241,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 }
 
 .jpdb-reader-newtab-kanji-details > *,
-.jpdb-reader-newtab-kanji-details .jpdb-reader-newtab-kanji-sources,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-source-card,
 .jpdb-reader-newtab-kanji-details .jpdb-reader-local-entry,
@@ -5058,33 +5040,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-size: 10px;
   font-weight: 650;
 }
-.jpdb-reader-newtab-listen-answer {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-}
 .jpdb-reader-newtab-listen-word {
   font-size: 22px;
   font-weight: 800;
 }
-.jpdb-reader-newtab-listen-reading {
-  color: var(--jpdb-reader-muted);
-  font-size: 14px;
-}
-.jpdb-reader-newtab-listen-class {
-  color: var(--jpdb-reader-accent);
-  font-size: 12px;
-  font-weight: 700;
-}
 .jpdb-reader-newtab-listen-verdict {
   font-size: 15px;
   font-weight: 800;
-}
-.jpdb-reader-newtab-listen-verdict-correct {
-  color: var(--jpdb-reader-success);
-}
-.jpdb-reader-newtab-listen-verdict-wrong {
-  color: var(--jpdb-reader-danger, #d9534f);
 }
 .jpdb-reader-newtab-listen-feedback {
   display: grid;
@@ -5103,35 +5065,6 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-listen-pos-wrong.jpdb-reader-newtab-listen-pos-selected {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 1px;
-}
-.jpdb-reader-newtab-listen-contrast {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-}
-.jpdb-reader-newtab-listen-contrast-pair {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 22px;
-}
-.jpdb-reader-newtab-listen-grades {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-.jpdb-reader-newtab-listen-grade {
-  min-height: 40px;
-  padding: 0 20px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 10px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 700 14px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-}
-.jpdb-reader-newtab-listen-grade:hover {
-  border-color: var(--jpdb-reader-accent);
 }
 .jpdb-reader-newtab-listen-record {
   display: flex;

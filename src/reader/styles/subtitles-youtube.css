@@ -1720,16 +1720,6 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   background-size: var(--jpdb-reader-word-highlight-size) 100%;
   outline: 1px solid var(--jpdb-reader-border);
 }
-.jpdb-subtitle-row-translation {
-  grid-column: 1;
-  min-width: 0;
-  margin-top: 3px;
-  color: var(--jpdb-reader-muted);
-  overflow-wrap: anywhere;
-  font-style: normal;
-  font-weight: 650;
-  line-height: 1.4;
-}
 .jpdb-subtitle-shadow-scroll {
   display: grid;
   align-content: start;

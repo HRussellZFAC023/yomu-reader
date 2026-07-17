@@ -1384,22 +1384,6 @@
   padding-inline: 14px;
 }
 
-.jpdb-reader-help-discord {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 42px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  color: var(--jpdb-reader-text);
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 88%, var(--jpdb-reader-accent) 12%);
-  font: 800 12px/1.2 var(--jpdb-reader-font);
-  text-align: center;
-  overflow-wrap: anywhere;
-}
 .jpdb-reader-dictionary-status {
   margin: 10px 0;
   color: var(--jpdb-reader-muted);
@@ -2674,27 +2658,4 @@
 .jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
   font-size: .43em;
-}
-
-.jpdb-reader-shortcut-reference {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.jpdb-reader-shortcut-reference-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.jpdb-reader-shortcut-reference-row kbd {
-  flex: 0 0 7.5rem;
-  font: inherit;
-  font-size: 0.85em;
-  padding: 0.1rem 0.45rem;
-  border-radius: 6px;
-  border: 1px solid var(--jpdb-reader-border, rgba(125, 125, 125, 0.35));
-  background: var(--jpdb-reader-surface-2, rgba(125, 125, 125, 0.12));
-  text-align: center;
-  white-space: nowrap;
 }
