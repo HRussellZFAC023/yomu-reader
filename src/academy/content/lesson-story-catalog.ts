@@ -277,9 +277,9 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
         completesThread: true,
     }),
     entry({
-        packageId: 'l1-l20', classWeekId: 'l1plus-l10', hostId: 'jodi', supportingIds: ['peter'],
+        packageId: 'l1-l20', classWeekId: 'l1plus-l10', hostId: 'tom2', supportingIds: ['jodi'],
         location: place('academy-cafe-window-schedule', 'Cafe window schedule cards', 'カフェの窓辺の予定札'),
-        setup: line('Jodi carries only the time-bound invitation to the window cards. Peter asks what is being counted before anyone compares a week, month, or year.', 'ジョディさんは時間を区切った誘いだけを窓辺の札に持っていきます。ピーターさんは、一週間、一か月、一年を比べる前に、何を数えているか聞きます。'),
+        setup: line('Tom quietly sorts the window cards by week, month, and year. Jodi catches the missing question: what exactly are they counting before they compare them?', 'トムさんは窓辺の札を、一週間、一か月、一年に静かに分けます。ジョディさんは、比べる前に「何を数えていますか」という足りない質問に気づきます。'),
         handoff: line('The first twenty lessons end on a reusable checking habit, not on an off-screen gathering or a new plot promise.', '最初の二十課は、画面の外で集まったことや新しい物語の約束ではなく、繰り返し使える確認の習慣で終わります。'),
         nPlusOne: step('separate frequency from duration', 'compare one count across a period'),
         callback: callback('callback:l1plus-frequency-lens', 'seed', 'A count is useful only when its unit is named before it is compared.', '数は、比べる前に何を数えるかを言って初めて役に立ちます。', 'The lens can be reused without creating a new commitment or plot event.', 'この見方は、新しい約束や物語の出来事を作らずに繰り返し使えます。'),

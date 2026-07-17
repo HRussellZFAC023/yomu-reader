@@ -476,7 +476,7 @@
       "generationPriority": {"tier": 2, "rank": 26, "rationale": "Shaun is story-only for now and needs neutral approval before broader performance work.", "blockedBy": ["Owner must approve likeness and equal-stage cast scale."]}
     },
     {
-      "id": "tom2", "firstName": "Tom", "category": "extended-member",
+      "id": "tom2", "firstName": "Tom", "category": "classmate",
       "basePose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture",
       "angles": ["left-three-quarter", "front-near-front", "right-three-quarter"],
       "expressionSet": ["neutral", "happy", "encouraging-listening", "surprised-shocked", "sad-vulnerable", "determined", "comedic"],
@@ -487,7 +487,7 @@
       "generationPriority": {"tier": 0, "rank": 2, "rationale": "Priority likeness reference has produced a controlled three-angle review set.", "blockedBy": ["Owner must approve the generated likeness before story or lesson runtime."]}
     },
     {
-      "id": "steve", "firstName": "Steve", "category": "extended-member",
+      "id": "steve", "firstName": "Steve", "category": "classmate",
       "basePose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up",
       "angles": ["left-three-quarter", "front-near-front", "right-three-quarter"],
       "expressionSet": ["neutral", "happy", "encouraging-listening", "surprised-shocked", "sad-vulnerable", "determined", "comedic"],
