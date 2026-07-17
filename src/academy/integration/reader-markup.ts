@@ -41,7 +41,16 @@ export function setAcademyReadingSurface(
         surface.setAttribute(STATE_ATTRIBUTE, state);
         return;
     }
-    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged && current === canonical) return;
+    // A Reader-rendered surface (mirror/ruby markup) never has textContent equal
+    // to its canonical source, so it must count as converged whenever nothing
+    // Academy-owned (state, source) changed. Rewriting it here wiped the
+    // Reader's text mirror with byte-identical text, which the Reader's
+    // per-host observer answers with a synchronous mirror replay, whose
+    // mutations re-fire the Academy annotation observers, which rewrote again —
+    // an unbounded microtask-chained cycle that froze the whole tab (Week-02
+    // lesson-note transitions, 4/5 runs).
+    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged
+        && (current === canonical || renderedByReader)) return;
 
     // Ruby textContent contains both base and <rt>; always restore the authored
     // source before changing visibility so toggling cannot duplicate readings.
