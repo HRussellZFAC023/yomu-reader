@@ -2682,6 +2682,15 @@
     background: #1d2723;
 }
 
+/* Belt: place-owned `display` rules (grid/flex/block) are author-stylesheet
+   declarations at the same specificity as the UA `[hidden] { display: none }`
+   default, so an unqualified `.foo { display: grid }` silently wins and
+   defeats the native hidden attribute. Guarantee hidden always wins inside
+   world screens; the JS-side state gate remains the primary control. */
+.academy-world-screen [hidden] {
+    display: none !important;
+}
+
 .academy-world-screen .academy-background { z-index: -2; }
 
 .academy-world-veil {

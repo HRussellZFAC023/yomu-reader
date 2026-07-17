@@ -179,6 +179,11 @@ function bookshopQuestion(options: BookshopWorldOptions): HTMLElement {
             answer.append(support);
         }
         answer.addEventListener('click', () => {
+            // The catalogue reveals this question by clearing `hidden` only once
+            // the correct shelf label is found. Gate on that state directly
+            // (not just the hidden attribute/CSS) so answering can never
+            // complete the puzzle without first browsing the catalogue.
+            if (question.hidden) return;
             transcript.hidden = false;
             if (complete) return;
             if (choice.id !== options.practice.correctChoiceId) {
@@ -200,6 +205,7 @@ function bookshopQuestion(options: BookshopWorldOptions): HTMLElement {
         answers.append(answer);
     });
     listen.addEventListener('click', () => {
+        if (question.hidden) return;
         transcript.hidden = false;
         void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then(played => {
             feedback.textContent = played

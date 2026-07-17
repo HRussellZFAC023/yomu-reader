@@ -1651,6 +1651,23 @@
     content: "";
 }
 
+/* Self-reported confidence is not a graded measurement: no fill, no percent,
+   a dashed outline standing in for the solid meter used by graded skills. */
+.academy-score-meter-hollow {
+    border: 1px dashed rgba(255, 255, 255, 0.38);
+    background: transparent;
+}
+
+.academy-score-meter-hollow::after {
+    display: none;
+}
+
+.academy-score-self-reported .academy-score-value {
+    color: var(--academy-ink-muted);
+    font-size: 0.78em;
+    font-style: italic;
+}
+
 .academy-recommendation {
     display: flex;
     align-items: center;

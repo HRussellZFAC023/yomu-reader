@@ -285,7 +285,7 @@ function safeLocalStorage(): Storage | null {
 
 function routeContextUpdate(update: AcademyCheckpointUpdate): Partial<AcademyRouteContextState> {
     const context: Partial<AcademyRouteContextState> = {};
-    const keys = ['selectedBand', 'selectedFork', 'placementOverride', 'lessonId', 'sectionId', 'activityId'] as const;
+    const keys = ['selectedBand', 'selectedFork', 'placementOverride', 'lessonId', 'sectionId', 'activityId', 'worldPlace'] as const;
     for (const key of keys) {
         if (Object.hasOwn(update, key)) Object.assign(context, { [key]: update[key] });
     }

@@ -296,15 +296,15 @@ export function renderPlacementResultScreen(options: PlacementResultOptions): HT
         body: 'mockBody',
     });
     const scores = element('dl', 'academy-score-grid');
-    const rows: readonly [AcademyCopyKey, number][] = [
-        ['mockKnowledge', options.result.scores['language-knowledge']],
-        ['mockReading', options.result.scores.reading],
-        ['mockListening', options.result.scores.listening],
-        ['mockSpeaking', options.result.scores['speaking-confidence']],
-        ['mockWriting', options.result.scores['writing-confidence']],
+    const rows: readonly [AcademyCopyKey, number, 'graded' | 'self-reported'][] = [
+        ['mockKnowledge', options.result.scores['language-knowledge'], 'graded'],
+        ['mockReading', options.result.scores.reading, 'graded'],
+        ['mockListening', options.result.scores.listening, 'graded'],
+        ['mockSpeaking', options.result.scores['speaking-confidence'], 'self-reported'],
+        ['mockWriting', options.result.scores['writing-confidence'], 'self-reported'],
     ];
-    rows.forEach(([key, value]) => {
-        scores.append(copyElement('dt', '', options.language, key), scoreBar(value, options.language));
+    rows.forEach(([key, value, kind]) => {
+        scores.append(copyElement('dt', '', options.language, key), scoreBar(value, options.language, kind));
     });
     const recommendation = element('div', 'academy-recommendation');
     recommendation.append(
@@ -385,12 +385,24 @@ function confidenceSelect(language: AcademyLanguage, key: AcademyCopyKey, name: 
     return { label, select };
 }
 
-function scoreBar(value: number, language: AcademyLanguage): HTMLElement {
-    const row = element('dd', 'academy-score');
-    const meter = element('span', 'academy-score-meter');
+/**
+ * The three graded skills are scored against answer keys; speaking/writing
+ * are the learner's own self-rating. Presenting both with an identical
+ * percentage meter overstates the confidence values as measured results, so
+ * self-reported entries get a plain, hollow, explicitly-labelled treatment
+ * instead of a percentage.
+ */
+function scoreBar(value: number, language: AcademyLanguage, kind: 'graded' | 'self-reported' = 'graded'): HTMLElement {
+    const row = element('dd', kind === 'self-reported' ? 'academy-score academy-score-self-reported' : 'academy-score');
+    const meter = element('span', kind === 'self-reported' ? 'academy-score-meter academy-score-meter-hollow' : 'academy-score-meter');
     meter.style.setProperty('--academy-score', String(value));
     const copy = element('span', 'academy-score-value');
-    copy.textContent = new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(value);
+    if (kind === 'self-reported') {
+        copy.textContent = language === 'ja' ? '自己申告' : 'Self-reported';
+        row.setAttribute('aria-label', language === 'ja' ? '自己申告（採点なし）' : 'Self-reported, not graded');
+    } else {
+        copy.textContent = new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(value);
+    }
     row.append(meter, copy);
     return row;
 }

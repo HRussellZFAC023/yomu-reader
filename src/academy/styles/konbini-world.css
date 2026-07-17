@@ -115,6 +115,32 @@
     background: rgba(4, 30, 30, 0.9);
 }
 
+/* Every other place scopes a base size/typography rule directly on the
+   shared `.academy-world-character-presence` caption; konbini only carried
+   the accent colours above, so on desktop the caption fell back to an
+   unconstrained figcaption block that washed over the exit list. Match the
+   compact, absolutely-positioned treatment used elsewhere (e.g. home).
+   Desktop-scoped: the max-width 760px rule below already pins the mobile
+   caption to the top corner of the silhouette. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='konbini'] .academy-world-character-presence {
+        position: absolute;
+        top: auto;
+        right: 8px;
+        bottom: 44px;
+        left: 8px;
+        z-index: 2;
+        width: auto;
+        max-width: 220px;
+        margin: 0 auto;
+        padding: 5px 9px;
+        font-size: 0.68rem;
+        line-height: 1.25;
+        text-align: center;
+        text-shadow: 0 1px 8px rgba(4, 20, 20, 0.85);
+    }
+}
+
 @media (min-width: 761px) {
     .academy-world-screen[data-current-place='konbini'] .academy-world-characters {
         inset: 232px auto 104px 6%;

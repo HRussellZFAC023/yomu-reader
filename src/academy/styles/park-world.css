@@ -21,21 +21,33 @@
         linear-gradient(0deg, rgba(8, 29, 21, 0.5), transparent 48%);
 }
 
+/* The canopy landmark reaches into the top-left corner where the place card
+   and first exit chip live. Those are plain in-flow (non-positioned) content,
+   so a positive z-index here always paints the scene marks over them
+   regardless of DOM order. A negative z-index keeps the canopy/ribbon/bench
+   layered correctly against the background and characters while letting the
+   card and exit chips paint over it, so the decorative scene never covers an
+   interactive control. */
 .academy-world-screen[data-current-place='park'] .academy-world-living-scene {
     display: block;
-    z-index: 2;
+    z-index: -1;
 }
 
+/* The canopy is scenery, not chrome. Keep it clear of the left column (place
+   card, exit chips) whose translucent paper would let a hard-edged bright
+   polygon wash through, and fade its silhouette out instead of cutting it
+   with a hard clip edge. */
 .academy-world-screen[data-current-place='park'] .academy-world-scene-mark[data-landmark='plane-trees'] {
     top: 0;
-    left: -6%;
-    width: 76%;
-    height: 38%;
-    border-bottom: 8px solid rgba(199, 220, 105, 0.42);
+    left: 24%;
+    width: 52%;
+    height: 30%;
     background:
         repeating-linear-gradient(118deg, transparent 0 54px, rgba(42, 92, 54, 0.64) 55px 61px, transparent 62px 104px),
         linear-gradient(165deg, rgba(160, 198, 76, 0.7), rgba(45, 108, 60, 0.2));
     clip-path: polygon(0 4%, 19% 0, 35% 13%, 51% 3%, 70% 15%, 87% 4%, 100% 16%, 95% 77%, 74% 67%, 55% 88%, 34% 69%, 12% 84%, 0 67%);
+    -webkit-mask-image: radial-gradient(ellipse 72% 88% at 50% 8%, #000 46%, transparent 82%);
+    mask-image: radial-gradient(ellipse 72% 88% at 50% 8%, #000 46%, transparent 82%);
     animation: academy-park-canopy-settle 620ms 70ms ease-out both;
 }
 
