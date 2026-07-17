@@ -6345,7 +6345,14 @@
       model2.payload.support.words,
       model2.payload.support.reading,
       model2.payload.exact.pronunciation
-    ].filter((value) => typeof value === "string").map(normalizeVocabularyJapaneseAnswer).filter(Boolean));
+    ].filter((value) => typeof value === "string").flatMap(expandJapaneseAnswerVariants).map(normalizeVocabularyJapaneseAnswer).filter(Boolean));
+  }
+  function expandJapaneseAnswerVariants(value) {
+    return value.split(/(?:\s*[/／;,]\s*|\r?\n)+/u).flatMap((variant) => {
+      const withoutOptional = variant.replace(/\([^)]*\)/gu, "");
+      const withOptional = variant.replace(/\(([^)]*)\)/gu, "$1");
+      return [variant, withoutOptional, withOptional];
+    });
   }
   function normalizeVocabularyJapaneseAnswer(value) {
     return normalizeJapaneseStudyAnswer(value.replace(/^\s*\*?review\s*/iu, "").replace(/^[\-\u2010-\u2015]+/u, ""));
@@ -9649,7 +9656,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
       }
       const answer2 = exactAnswerField(candidate2.answer, `${path}.answer`);
-      const displayedTiles = rotate(tiles, 1);
+      const displayedTiles = deterministicShuffle$1(tiles, `${packageId}:${id2}`);
       const exercise = {
         id: id2,
         kind: "exact",
@@ -9741,6 +9748,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function rotate(values, offset) {
     const split = offset % values.length;
     return [...values.slice(split), ...values.slice(0, split)];
+  }
+  function deterministicShuffle$1(values, seed) {
+    const shuffled2 = [...values];
+    let state = [...seed].reduce((hash2, character) => hash2 * 31 + character.codePointAt(0) >>> 0, 2166136261);
+    for (let index = shuffled2.length - 1; index > 0; index -= 1) {
+      state = state * 1664525 + 1013904223 >>> 0;
+      const swapIndex = state % (index + 1);
+      [shuffled2[index], shuffled2[swapIndex]] = [shuffled2[swapIndex], shuffled2[index]];
+    }
+    return shuffled2.every((value, index) => value === values[index]) ? rotate(shuffled2, 1) : shuffled2;
   }
   function optionalTextField(value, path) {
     return value === void 0 ? void 0 : textField(value, path);

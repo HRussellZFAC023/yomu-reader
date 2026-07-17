@@ -135,8 +135,17 @@ function acceptedJapaneseAnswers(model: SourceVocabularySheetModel): ReadonlySet
         model.payload.support.reading,
         model.payload.exact.pronunciation,
     ].filter((value): value is string => typeof value === 'string')
+        .flatMap(expandJapaneseAnswerVariants)
         .map(normalizeVocabularyJapaneseAnswer)
         .filter(Boolean));
+}
+
+function expandJapaneseAnswerVariants(value: string): readonly string[] {
+    return value.split(/(?:\s*[/／;,]\s*|\r?\n)+/u).flatMap(variant => {
+        const withoutOptional = variant.replace(/\([^)]*\)/gu, '');
+        const withOptional = variant.replace(/\(([^)]*)\)/gu, '$1');
+        return [variant, withoutOptional, withOptional];
+    });
 }
 
 function normalizeVocabularyJapaneseAnswer(value: string): string {

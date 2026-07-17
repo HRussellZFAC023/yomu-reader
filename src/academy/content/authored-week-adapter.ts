@@ -636,7 +636,7 @@ function adaptOrderingExercise(
             throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
         }
         const answer = exactAnswerField(candidate.answer, `${path}.answer`);
-        const displayedTiles = rotate(tiles, 1);
+        const displayedTiles = deterministicShuffle(tiles, `${packageId}:${id}`);
         const exercise: AuthoredExactExercise = {
             id,
             kind: 'exact',
@@ -745,6 +745,17 @@ function textArrayField(value: unknown, path: string): readonly string[] {
 function rotate<T>(values: readonly T[], offset: number): readonly T[] {
     const split = offset % values.length;
     return [...values.slice(split), ...values.slice(0, split)];
+}
+
+function deterministicShuffle<T>(values: readonly T[], seed: string): readonly T[] {
+    const shuffled = [...values];
+    let state = [...seed].reduce((hash, character) => ((hash * 31) + character.codePointAt(0)!) >>> 0, 2166136261);
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        state = ((state * 1664525) + 1013904223) >>> 0;
+        const swapIndex = state % (index + 1);
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    return shuffled.every((value, index) => value === values[index]) ? rotate(shuffled, 1) : shuffled;
 }
 
 function optionalTextField(value: unknown, path: string): string | undefined {

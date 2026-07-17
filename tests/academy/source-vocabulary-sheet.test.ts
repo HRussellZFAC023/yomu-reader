@@ -49,6 +49,11 @@ describe('source vocabulary sheet activity plugin', () => {
         expect(runtime.evaluate(model(), 'remembered').result.outcome).toBe('pass');
         expect(runtime.evaluate(modelWithMeaning('tedious, dull, boring'), 'boring').result.outcome).toBe('pass');
         expect(runtime.evaluate(sourceRomanizationModel(), 'o misete kudasai').result.outcome).toBe('pass');
+        const variants = japaneseVariantModel();
+        expect(runtime.evaluate(variants, 'じむしょ').result.outcome).toBe('pass');
+        expect(runtime.evaluate(variants, 'ofisu').result.outcome).toBe('pass');
+        expect(runtime.evaluate(optionalJapaneseModel(), 'みやげ').result.outcome).toBe('pass');
+        expect(runtime.evaluate(optionalJapaneseModel(), 'おみやげ').result.outcome).toBe('pass');
     });
 
     it('renders an objectively graded Japanese-to-English form without exposing the meaning', async () => {
@@ -244,6 +249,30 @@ function sourceRomanizationModel(): SourceVocabularySheetModel {
             ...base.payload,
             exact: { words: '〜を みせてください', pronunciation: '-o misete kudasai', meaning: 'please show me' },
             support: { words: '〜を みせてください', reading: '〜を みせてください', meaning: 'please show me' },
+        },
+    };
+}
+
+function japaneseVariantModel(): SourceVocabularySheetModel {
+    const base = japaneseProductionModel();
+    return {
+        ...base,
+        payload: {
+            ...base.payload,
+            exact: { words: 'じむしょ／オフィス', pronunciation: 'jimusho / ofisu', meaning: 'office' },
+            support: { words: 'じむしょ／オフィス', reading: 'じむしょ／オフィス', meaning: 'office' },
+        },
+    };
+}
+
+function optionalJapaneseModel(): SourceVocabularySheetModel {
+    const base = japaneseProductionModel();
+    return {
+        ...base,
+        payload: {
+            ...base.payload,
+            exact: { words: '(お)みやげ', pronunciation: '(o)miyage', meaning: 'souvenir' },
+            support: { words: '(お)みやげ', reading: '(お)みやげ', meaning: 'souvenir' },
         },
     };
 }
