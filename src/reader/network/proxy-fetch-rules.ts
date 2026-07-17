@@ -1,4 +1,5 @@
 import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
+import { isAppleTouchBrowser } from '../platform/browser';
 import { isPrivateOrLocalHostname } from './private-host';
 
 interface ProxyRuleOptions {
@@ -184,7 +185,38 @@ function isLocalHostedBrowserCorsTarget(target: URL, method: string): boolean {
         && target.pathname === '/search';
 }
 
-function isHostedGithubPagesApp(): boolean {
+// Single owner of jpdb.io API proxy-candidate preference. The JPDB private-API
+// client (jpdb-api.ts) must prefer the configured proxy AHEAD of the direct
+// jpdb.io request in three cases where the direct cross-origin POST is unreliable:
+// a page not served from jpdb.io itself, the hosted GitHub Pages app, and
+// Apple touch browsers (iOS/iPadOS Safari fails the direct authenticated POST).
+// This is intentionally distinct from shouldPreferProxyFirst, which governs the
+// generic public-proxy read path; JPDB-API POSTs are sensitive/authenticated and
+// never eligible for public proxies.
+export function shouldPreferConfiguredProxyForJpdbApi(targetUrl: string): boolean {
+    if (!isJpdbApiUrl(targetUrl)) return false;
+    return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
+}
+
+function isJpdbApiUrl(url: string): boolean {
+    try {
+        const target = new URL(url);
+        return target.hostname === 'jpdb.io' && target.pathname.startsWith('/api/v1/');
+    } catch {
+        return false;
+    }
+}
+
+function isCrossOriginJpdbApiPage(): boolean {
+    if (typeof location === 'undefined') return false;
+    try {
+        return new URL(location.href).origin !== 'https://jpdb.io';
+    } catch {
+        return false;
+    }
+}
+
+export function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
         const current = new URL(location.href);
