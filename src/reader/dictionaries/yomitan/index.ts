@@ -40,6 +40,7 @@ import {
     normalizeZipKanjiRow,
     normalizeZipTermMetaRow,
     normalizeZipTermRow,
+    yomitanDictionaryIdentity,
     yomitanZipDictionaryName,
     yomitanZipVersion,
     type YomitanZipIndex,
@@ -780,7 +781,7 @@ export class YomitanDictionaryStore {
             plural: bankCount === 1 ? '' : 's',
         })}`);
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryRemovingExisting')}...`);
-        await this.deleteDictionary(dictionary);
+        await this.deleteDictionariesWithSameIdentity(dictionary);
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: preparing storage...`);
         const db = await this.db();
         const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
@@ -1128,6 +1129,27 @@ export class YomitanDictionaryStore {
         } finally {
             done();
         }
+    }
+
+    // Delete every installed dictionary that is the SAME dictionary as the
+    // incoming one under revision-stripped identity (plus the exact title).
+    // Re-importing "Jitendex.org [2026-06-06]" must replace the installed
+    // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
+    // duplicate term rows double every lookup's index scans.
+    private async deleteDictionariesWithSameIdentity(dictionary: string): Promise<void> {
+        const identity = yomitanDictionaryIdentity(dictionary);
+        let stale: string[] = [];
+        try {
+            const db = await this.db();
+            const installed = await this.getAllDictionaryInfo(db);
+            stale = installed
+                .map(info => info.title)
+                .filter(title => title === dictionary || yomitanDictionaryIdentity(title) === identity);
+        } catch {
+            stale = [dictionary];
+        }
+        if (!stale.includes(dictionary)) stale.push(dictionary);
+        for (const title of stale) await this.deleteDictionary(title);
     }
 
     async deleteDictionary(dictionary: string): Promise<void> {
@@ -1502,11 +1524,49 @@ export class YomitanDictionaryStore {
     private async getAllDictionaryInfo(db: IDBDatabase): Promise<YomitanDictionaryInfo[]> {
         this.dictionaryInfoPromise ??= this.getAllFromStore<YomitanDictionaryInfo>(db, 'dictionaryInfo')
             .then(items => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title)))
+            .then(items => {
+                this.reconcileDuplicateDictionaryIdentities(items);
+                return items;
+            })
             .catch(error => {
                 this.dictionaryInfoPromise = undefined;
                 throw error;
             });
         return this.dictionaryInfoPromise;
+    }
+
+    // Installs from before identity-keyed replacement can hold two revisions
+    // of the same dictionary ("Jitendex.org [2026-05-05]" + "[2026-06-06]"),
+    // doubling term rows and every lookup's index scans. Sweep once per
+    // session: keep the newest import per identity, delete the rest in the
+    // background (lookups keep working off the current stores meanwhile).
+    private duplicateIdentitySweepDone = false;
+
+    private reconcileDuplicateDictionaryIdentities(items: YomitanDictionaryInfo[]): void {
+        if (this.duplicateIdentitySweepDone) return;
+        this.duplicateIdentitySweepDone = true;
+        const byIdentity = new Map<string, YomitanDictionaryInfo[]>();
+        for (const info of items) {
+            const identity = yomitanDictionaryIdentity(info.title);
+            byIdentity.set(identity, [...(byIdentity.get(identity) ?? []), info]);
+        }
+        const stale: string[] = [];
+        for (const group of byIdentity.values()) {
+            if (group.length < 2) continue;
+            const keep = [...group].sort((a, b) => (b.importDate ?? 0) - (a.importDate ?? 0))[0];
+            for (const info of group) if (info !== keep) stale.push(info.title);
+        }
+        if (!stale.length) return;
+        void (async () => {
+            for (const title of stale) {
+                try {
+                    await this.deleteDictionary(title);
+                    log.info('Removed duplicate dictionary revision', { title });
+                } catch (error) {
+                    log.warn('Duplicate dictionary revision cleanup failed', { title, error });
+                }
+            }
+        })();
     }
 
     private async getAllFromStore<T>(db: IDBDatabase, storeName: StoreName): Promise<T[]> {

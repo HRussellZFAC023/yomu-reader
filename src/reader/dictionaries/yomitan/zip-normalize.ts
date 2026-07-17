@@ -12,6 +12,20 @@ export function yomitanZipDictionaryName(index: YomitanZipIndex, filename: strin
     return index.title?.trim() || filename.replace(/\.zip$/i, '');
 }
 
+// Revisioned dictionaries embed their release in the display title
+// ("Jitendex.org [2026-05-05]"), so title-keyed replace misses the previous
+// revision on update and both copies coexist. The identity strips a trailing
+// digit-bearing bracketed/parenthesised suffix or bare date/version tail so
+// re-imports of a newer revision replace the old one.
+export function yomitanDictionaryIdentity(title: string): string {
+    return title
+        .replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, '')
+        .replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, '')
+        .replace(/\s+v\d+(?:\.\d+)*\s*$/u, '')
+        .trim()
+        .toLowerCase() || title.trim().toLowerCase();
+}
+
 export function yomitanZipVersion(index: YomitanZipIndex): number {
     return index.format ?? index.version ?? 3;
 }

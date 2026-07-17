@@ -51,6 +51,48 @@ describe('Yomitan ZIP import performance path', () => {
         expect(progress).toContain('Importing Multi Bank JMdict: terms 6 entries saved...');
     });
 
+    it('replaces the previous revision when re-importing a revisioned dictionary', async () => {
+        // Title-keyed replace missed the old copy on update: "Jitendex.org
+        // [2026-05-05]" and "[2026-06-06]" coexisted, doubling term rows and
+        // every lookup's index scans while the settings list showed the
+        // dictionary installed twice.
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Jitendex.org [2026-05-05]', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read (old)'], 1, '']],
+        })], 'jitendex-old.zip', { type: 'application/zip' }));
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Jitendex.org [2026-06-06]', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read (new)'], 1, '']],
+        })], 'jitendex-new.zip', { type: 'application/zip' }));
+
+        const summary = await store.summary();
+        const titles = summary.dictionaries.map(info => info.title);
+        expect(titles).toContain('Jitendex.org [2026-06-06]');
+        expect(titles).not.toContain('Jitendex.org [2026-05-05]');
+        const entries = await store.lookup('読む', 'よむ', 5);
+        expect(entries).toMatchObject([{ dictionary: 'Jitendex.org [2026-06-06]', glossary: ['to read (new)'] }]);
+    });
+
+    it('keeps distinct dictionaries with similar names apart on import', async () => {
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'JMdict [2026-01-01]', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, '']],
+        })], 'jmdict.zip', { type: 'application/zip' }));
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'JMnedict [2026-01-01]', format: 3 },
+            'term_bank_1.json': [['紫音', 'しおん', '', '', 10, ['Shion'], 1, '']],
+        })], 'jmnedict.zip', { type: 'application/zip' }));
+
+        const summary = await store.summary();
+        const titles = summary.dictionaries.map(info => info.title);
+        expect(titles).toContain('JMdict [2026-01-01]');
+        expect(titles).toContain('JMnedict [2026-01-01]');
+    });
+
     it('imports structured-content image assets from Yomitan ZIPs', async () => {
         const store = createStore();
         await store.clear();
