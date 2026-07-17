@@ -326,7 +326,7 @@ export class ImmersionKitClient {
         const params = new URLSearchParams({
             q: query,
             limit: String(searchRequestLimit(options)),
-            sort: this.apiSort(settings),
+            sort: this.effectiveSort(settings),
         });
         if (settings.immersionKitExactMatch) params.set('exactMatch', 'true');
         if (settings.immersionKitCategory !== 'all') params.set('category', settings.immersionKitCategory);
@@ -335,11 +335,6 @@ export class ImmersionKitClient {
 
     private effectiveSort(settings: ReaderSettings): string {
         return settings.immersionKitSort === 'random' ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-    }
-
-    private apiSort(settings: ReaderSettings): string {
-        const sort = this.effectiveSort(settings);
-        return sort;
     }
 
     private minimumSentenceLength(settings: ReaderSettings): number {

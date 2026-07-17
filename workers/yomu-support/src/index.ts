@@ -649,7 +649,7 @@ async function createDonationCheckout(request: Request, env: Env): Promise<Respo
     return fallbackUrl ? Response.redirect(fallbackUrl, 302) : donationUnavailableResponse();
   }
 
-  const amountMinor = donationAmountMinor(new URL(request.url), env);
+  const amountMinor = donationAmountMinor(new URL(request.url));
   const body = new URLSearchParams();
   body.set("mode", "payment");
   body.set("submit_type", "donate");
@@ -1017,14 +1017,13 @@ async function recordDonationEvent(db: D1Database, donation: StripeDonationEvent
   ).run();
 }
 
-function donationAmountMinor(url: URL, env: Env): number {
+function donationAmountMinor(url: URL): number {
   const raw = url.searchParams.get("amount_gbp") || url.searchParams.get("amount");
   const parsed = raw ? Number(raw) : DEFAULT_DONATION_GBP;
   const min = positiveNumberEnv(undefined, DEFAULT_MIN_DONATION_GBP);
   const max = positiveNumberEnv(undefined, DEFAULT_MAX_DONATION_GBP);
   const pounds = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : DEFAULT_DONATION_GBP;
-  const configuredGoal = buildGoal(env).monthlyGoalGBP;
-  return Math.round(Math.min(Math.max(pounds, min), Math.max(max, configuredGoal)) * 100);
+  return Math.round(pounds * 100);
 }
 
 function monthlyCostEstimate(env: Env, estimatedDailyCostGbp: number): number {
