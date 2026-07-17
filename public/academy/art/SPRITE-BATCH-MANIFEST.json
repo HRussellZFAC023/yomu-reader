@@ -141,6 +141,22 @@
       }
     ]
   },
+  "academyCharacterUpgrade20260717": {
+    "generationMode": "built-in-imagegen-chroma-to-alpha",
+    "privacyPolicy": "Private photos are ephemeral likeness references only; no original, crop, filesystem path, or EXIF metadata may enter a delivery.",
+    "style": "Persona-inspired living-paper visual-novel cutout; hand-painted anime realism; transparent RGBA; no text, logo, watermark, scenery, or cast shadow.",
+    "prompts": [
+      {"castId": "rie", "angle": "front-near-front", "expression": "neutral", "prompt": "Preserve approved Rie identity; add thin oval dark-bronze prescription glasses; front-near-front neutral pose with sketchbook; flat chroma delivery."},
+      {"castId": "rie", "angle": "left-three-quarter", "expression": "determined", "prompt": "Preserve approved Rie identity and glasses; left three-quarter focused pottery pose holding a small unglazed bowl; flat chroma delivery."},
+      {"castId": "rie", "angle": "right-three-quarter", "expression": "encouraging-listening", "prompt": "Preserve approved Rie identity and glasses; right three-quarter open listening gesture with blank folded museum guide; flat chroma delivery."},
+      {"castId": "tom2", "angle": "right-three-quarter", "expression": "neutral", "prompt": "Preserve the owner-supplied private likeness: tall White man, short dark-brown hair, slate-blue overshirt and black notebook; reserved mysterious neutral; flat chroma delivery."},
+      {"castId": "tom2", "angle": "front-near-front", "expression": "encouraging-listening", "prompt": "Preserve Tom 2 identity and wardrobe; front pose with open notebook and inviting palm; contained encouraging expression; flat chroma delivery."},
+      {"castId": "tom2", "angle": "left-three-quarter", "expression": "surprised-shocked", "prompt": "Preserve Tom 2 identity and wardrobe; left three-quarter with notebook half-open and contained surprise; flat chroma delivery."},
+      {"castId": "steve", "angle": "front-near-front", "expression": "neutral", "prompt": "Original older British learner with silver hair and beard, rectangular glasses, olive chore jacket and rust polo; smartphone and blank kana card; calm neutral; flat chroma delivery."},
+      {"castId": "steve", "angle": "right-three-quarter", "expression": "happy", "prompt": "Preserve Steve identity and wardrobe; right three-quarter with smartphone and easy family-chat thumbs-up; warm happy expression; flat chroma delivery."},
+      {"castId": "steve", "angle": "left-three-quarter", "expression": "determined", "prompt": "Preserve Steve identity and wardrobe; left three-quarter checking a blank practice card beside his phone; warm focused determination; flat chroma delivery."}
+    ]
+  },
   "characters": [
     {
       "id": "rie", "firstName": "Rie", "category": "teacher",
@@ -154,7 +170,7 @@
         {"id": "rie-dedicated-refs", "kind": "dedicated-likeness-reference", "locator": "preserved-reference:style-rie.webp + anime-ref-rie.webp", "use": "likeness", "gate": "approved"},
         {"id": "rie-asset-status", "kind": "asset-ledger", "locator": "/academy/art/ASSET-USAGE.json#rie-*", "use": "status-evidence", "gate": "reference-only"}
       ],
-      "currentAsset": {"status": "approved-performance-trio-with-unapproved-legacy-expression-candidates", "paths": ["/academy/art/characters/rie/rie__neutral__halfbody__v001.png", "/academy/art/characters/rie/rie__happy__halfbody__v001.png", "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png", "/academy/art/characters/rie/rie__repair__halfbody__v001.png", "/academy/art/characters/rie/rie__thinking__halfbody__v001.png", "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png", "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png", "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png"], "note": "Neutral plus the determined-left, sad-vulnerable-front, and comedic-right performance variants are approved runtime art. Happy, encouraging, repair, and thinking remain unapproved review candidates."},
+      "currentAsset": {"status": "approved-glasses-primary-trio-with-compatible-and-review-legacy", "paths": ["/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png", "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png", "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png", "/academy/art/characters/rie/rie__neutral__halfbody__v001.png", "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png", "/academy/art/characters/rie/rie__happy__halfbody__v001.png", "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png", "/academy/art/characters/rie/rie__repair__halfbody__v001.png", "/academy/art/characters/rie/rie__thinking__halfbody__v001.png"], "note": "The glasses-first neutral, determined-left, and encouraging-right trio is primary runtime art. Sad-vulnerable and comedic remain approved performances. Earlier neutral and determined files are compatibility evidence; happy, encouraging, repair, and thinking remain unapproved review candidates."},
       "generationPriority": {"tier": 0, "rank": 1, "rationale": "Approved neutral makes Rie the safest identity and style anchor for expression and angle production.", "blockedBy": ["Owner approval is still required for every newly generated angle or expression."]}
     },
     {
@@ -169,7 +185,7 @@
         {"id": "henry-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"}
       ],
       "currentAsset": {"status": "missing", "paths": [], "note": "No current Academy runtime or review-candidate sprite."},
-      "generationPriority": {"tier": 1, "rank": 4, "rationale": "Core learner-proxy classmate with strong group-photo evidence.", "blockedBy": ["Owner must select and confirm Henry's exact reference crops."]}
+      "generationPriority": {"tier": 1, "rank": 14, "rationale": "Core learner-proxy classmate with strong group-photo evidence.", "blockedBy": ["Owner must select and confirm Henry's exact reference crops."]}
     },
     {
       "id": "aakash", "firstName": "Aakash", "category": "classmate",
@@ -184,7 +200,7 @@
         {"id": "aakash-asset-status", "kind": "asset-ledger", "locator": "/academy/art/ASSET-USAGE.json#aakash-neutral-halfbody-v001", "use": "status-evidence", "gate": "reference-only"}
       ],
       "currentAsset": {"status": "unapproved-neutral-candidate", "paths": ["/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png"], "note": "Owner-requested preview only; release blocked pending likeness approval."},
-      "generationPriority": {"tier": 0, "rank": 3, "rationale": "High-use cast member with dedicated references and an existing neutral candidate.", "blockedBy": ["Approve or reject the neutral likeness before expanding angles or expressions."]}
+      "generationPriority": {"tier": 1, "rank": 16, "rationale": "High-use cast member with dedicated references and an existing neutral candidate.", "blockedBy": ["Approve or reject the neutral likeness before expanding angles or expressions."]}
     },
     {
       "id": "alex", "firstName": "Alex", "category": "classmate",
@@ -361,7 +377,7 @@
         {"id": "xingyu-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"}
       ],
       "currentAsset": {"status": "rejected-only-removed", "paths": [], "note": "No audited standalone candidate is defensible. The wrong-likeness neutral was owner-rejected on 2026-07-14 and removed; it is forbidden for binding and generation reference."},
-      "generationPriority": {"tier": 0, "rank": 2, "rationale": "Correcting a known identity failure is urgent, but generation cannot begin from the rejected output.", "blockedBy": ["No historical standalone Xingyu asset passed provenance and likeness review.", "Owner must verify Xingyu's exact class-photo crops before a clean neutral regeneration."]}
+      "generationPriority": {"tier": 1, "rank": 15, "rationale": "Correcting a known identity failure is urgent, but generation cannot begin from the rejected output.", "blockedBy": ["No historical standalone Xingyu asset passed provenance and likeness review.", "Owner must verify Xingyu's exact class-photo crops before a clean neutral regeneration."]}
     },
     {
       "id": "angel", "firstName": "Onke", "category": "classmate",
@@ -371,11 +387,10 @@
       "outfitConstraints": ["East or Southeast Asian adult woman with long straight dark hair", "Organised, warm presence in tidy ordinary clothes"],
       "propConstraints": ["Blank poster tube may cross the body without hiding the face", "No phone numbers, logos, screen text, or readable poster content"],
       "sourceReferences": [
-        {"id": "angel-dossier", "kind": "character-dossier", "locator": "docs/academy/discovery/CHARACTER-ASSET-DOSSIER.md#real-class-ensemble", "use": "written-identity-only", "gate": "reference-only"},
-        {"id": "angel-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"}
+        {"id": "onke-owner-name", "kind": "owner-written-brief", "locator": "owner-constraint:preferred-name-onke", "use": "written-identity-only", "gate": "approved"}
       ],
-      "currentAsset": {"status": "missing", "paths": [], "note": "No current Academy runtime or review-candidate sprite."},
-      "generationPriority": {"tier": 2, "rank": 23, "rationale": "Medium reference confidence and privacy constraints require owner-guided crop selection.", "blockedBy": ["Owner must confirm Onke's exact reference crops."]}
+      "currentAsset": {"status": "privacy-blocked", "paths": [], "note": "No identified Onke likeness reference was supplied; no face may be fabricated for a named real classmate."},
+      "generationPriority": {"tier": 0, "rank": 4, "rationale": "High priority but identity-gated.", "blockedBy": ["Owner must supply or identify an Onke likeness reference and authorize its private reference-only use."]}
     },
     {
       "id": "stasi", "firstName": "Stasi", "category": "classmate",
@@ -459,6 +474,28 @@
       ],
       "currentAsset": {"status": "unapproved-neutral-candidate", "paths": ["/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png"], "note": "Owner-requested preview; release blocked pending likeness and whole-cast scale approval."},
       "generationPriority": {"tier": 2, "rank": 26, "rationale": "Shaun is story-only for now and needs neutral approval before broader performance work.", "blockedBy": ["Owner must approve likeness and equal-stage cast scale."]}
+    },
+    {
+      "id": "tom2", "firstName": "Tom", "category": "extended-member",
+      "basePose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture",
+      "angles": ["left-three-quarter", "front-near-front", "right-three-quarter"],
+      "expressionSet": ["neutral", "happy", "encouraging-listening", "surprised-shocked", "sad-vulnerable", "determined", "comedic"],
+      "outfitConstraints": ["Tall White adult man with short dark-brown hair", "Slate-blue overshirt over a grey crew-neck shirt"],
+      "propConstraints": ["Plain black notebook with no readable writing", "No source-photo clothing, room, metadata, or other people"],
+      "sourceReferences": [{"id": "private-reference://owner-supplied/tom2-v1", "kind": "private-likeness-reference", "locator": "opaque-private-reference", "use": "likeness-only", "gate": "review-preview-only"}],
+      "currentAsset": {"status": "unapproved-performance-trio", "paths": ["/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png", "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png", "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png"], "note": "Private-reference-derived transparent sprites are journal review previews only; the private reference itself is not shipped."},
+      "generationPriority": {"tier": 0, "rank": 2, "rationale": "Priority likeness reference has produced a controlled three-angle review set.", "blockedBy": ["Owner must approve the generated likeness before story or lesson runtime."]}
+    },
+    {
+      "id": "steve", "firstName": "Steve", "category": "extended-member",
+      "basePose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up",
+      "angles": ["left-three-quarter", "front-near-front", "right-three-quarter"],
+      "expressionSet": ["neutral", "happy", "encouraging-listening", "surprised-shocked", "sad-vulnerable", "determined", "comedic"],
+      "outfitConstraints": ["Original older British learner with silver hair and short beard", "Rectangular glasses, olive chore jacket, rust polo"],
+      "propConstraints": ["Smartphone screen and practice card remain blank", "No family likenesses, message content, flags, or stereotypes"],
+      "sourceReferences": [{"id": "steve-owner-brief", "kind": "owner-written-brief", "locator": "src/academy/domain/cast-registry.ts#steve", "use": "written-identity-only", "gate": "approved"}],
+      "currentAsset": {"status": "approved-performance-trio", "paths": ["/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png", "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"], "note": "Original-description three-angle set is runtime-cleared and journal-bound."},
+      "generationPriority": {"tier": 0, "rank": 3, "rationale": "Priority original-description set is delivered and bound.", "blockedBy": []}
     },
     {
       "id": "nanako", "firstName": "Nanako", "category": "extended-member",

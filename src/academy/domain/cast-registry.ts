@@ -14,6 +14,7 @@ export interface CastEligibility {
 export interface AcademyCastMember {
     readonly id: string;
     readonly firstName: string;
+    readonly preferredName?: string;
     readonly category: CastCategory;
     readonly visualEvidence: VisualEvidenceStatus;
     readonly eligibility: CastEligibility;
@@ -53,6 +54,7 @@ const REAL_CLASS_NAMES = [
 const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => ({
     id,
     firstName,
+    ...(id === 'angel' ? { preferredName: 'Onke' } : {}),
     category: 'classmate' as const,
     visualEvidence: id === 'sophie' ? 'approved' as const : 'candidate-needs-owner' as const,
     eligibility: id === 'sophie'
@@ -89,8 +91,8 @@ export const ACADEMY_CAST = [
         id: 'steve',
         firstName: 'Steve',
         category: 'classmate',
-        visualEvidence: 'candidate-needs-owner',
-        eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
+        visualEvidence: 'approved',
+        eligibility: { story: true, lessons: true, likenessRuntime: true },
         nameEvidence: 'owner-named',
         visualBrief: 'Older man; married to a Japanese wife; learning to write naturally in family group chats with his bilingual children.',
     },
@@ -98,8 +100,8 @@ export const ACADEMY_CAST = [
         id: 'tom2',
         firstName: 'Tom',
         category: 'classmate',
-        visualEvidence: 'candidate-needs-owner',
-        eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
+        visualEvidence: 'reference-confirmed-neutral-pending',
+        eligibility: { story: true, lessons: true, likenessRuntime: false },
         nameEvidence: 'owner-named',
         visualBrief: 'Tall; average build; dark-brown hair; reserved and a little mysterious.',
     },
@@ -174,7 +176,7 @@ export function getAcademyCastMember(id: string): AcademyCastMember {
 export function displayAcademyCastName(id: string, language: 'en' | 'ja'): string {
     const member = getAcademyCastMember(id);
     if (member.category === 'teacher') return member.teacherSalutation?.[language] ?? member.firstName;
-    return `${member.firstName}-san`;
+    return `${member.preferredName ?? member.firstName}-san`;
 }
 
 export type AcademyCastPortraitUse = 'story-runtime' | 'journal-review-preview';

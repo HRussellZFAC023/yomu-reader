@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "snapshotDate": "2026-07-16",
+  "schemaVersion": 2,
+  "snapshotDate": "2026-07-17",
   "purpose": "Single machine-readable migration ledger for every canonical Academy cast sprite across current delivery and audited older worktrees.",
   "truthPolicy": {
     "matrixTarget": "Every character requires three angles by seven expressions. A file is never inferred from a brief.",
@@ -15,7 +15,7 @@
     "olderWorktrees": "docs/academy/recovery/ASSET-CARRYOVER.json"
   },
   "target": {
-    "characters": 28,
+    "characters": 30,
     "angles": [
       "left-three-quarter",
       "front-near-front",
@@ -31,18 +31,18 @@
       "comedic"
     ],
     "slotsPerCharacter": 21,
-    "totalSlots": 588
+    "totalSlots": 630
   },
   "summary": {
-    "approved": 7,
-    "reviewCandidates": 10,
-    "missing": 571,
-    "currentPhysicalRasters": 19,
+    "approved": 11,
+    "reviewCandidates": 13,
+    "missing": 606,
+    "currentPhysicalRasters": 28,
     "currentOffMatrixRasters": 2,
     "historicalUniqueRasters": 450,
     "historicalOccurrences": 1442,
-    "charactersWithApprovedCoverage": 2,
-    "charactersWithAnyCurrentCoverage": 6
+    "charactersWithApprovedCoverage": 3,
+    "charactersWithAnyCurrentCoverage": 8
   },
   "migrations": [
     {
@@ -52,6 +52,24 @@
       "to": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
       "decision": "delete",
       "status": "deprecated-file-removed-after-zero-runtime-reference-scan",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-neutral-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+      "decision": "replace",
+      "status": "glasses-primary-bound; prior approved raster retained as compatibility evidence",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "rie-determined-to-glasses-primary",
+      "character": "rie",
+      "from": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
+      "to": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+      "decision": "replace",
+      "status": "glasses-primary-bound; prior approved raster retained as compatibility evidence",
       "runtimeReferencesAfterMigration": []
     }
   ],
@@ -79,16 +97,27 @@
         "slots": 21
       },
       "progress": {
-        "approved": 4,
+        "approved": 5,
         "reviewCandidates": 2,
-        "missing": 15,
-        "deliveredPercent": 28.57,
-        "approvedPercent": 19.05
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 23.81
       },
       "currentAssets": [
         {
           "path": "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png",
           "sha256": "5d3ba5f39b5e6f8a73c9c238b8ddc4e06fee5f1c7d4edd4231e65580f4291e93",
+          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-9ff13712-6e24-4c37-97ce-b5b7cf03517c.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:rie-light-recovery",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; right-three-quarter",
@@ -111,8 +140,19 @@
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9",
+          "path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+          "sha256": "2127d47e5bea59317114ad612b28f4d9b888047afb83ef5577d05291a7a2c24e",
+          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-d34be164-7535-415d-bb30-13648da1a42e.png",
+          "privacy": "no-private-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:rie-decisive-guidance",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; left-three-quarter",
@@ -135,8 +175,92 @@
           "coverageStatus": "approved"
         },
         {
+          "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "f968e3471a02e95ac9b436da337f98ec6d946b9b301164156d92a8bc3e368ac9",
+          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-fe0015da-417f-42d8-bbf2-015e093acba0.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:rie-decisive-guidance",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "hand-painted-production-family",
+          "fileVersion": "v001",
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "dialogue:rie-decisive-guidance",
+            "journal:rie-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "replace",
+          "migrationStatus": "superseded-by-glasses-primary-retained-for-runtime-compatibility",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+          "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9",
+          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-f7af56ad-43e9-449a-8fd8-2ee8a68f94d9.png",
+          "privacy": "no-private-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "lesson-feedback:attempt",
+              "dialogue:rie-listening",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "hand-painted-production-family",
+          "fileVersion": "v001",
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "lesson-feedback:attempt",
+            "dialogue:rie-listening",
+            "journal:rie-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
           "path": "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png",
           "sha256": "b4aad2769b71d1a1c87adf92c44b98897b58303498f946c6f3f6c01e1288a411",
+          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-7a1c29c6-0dd3-456a-b51a-99ccbee53369.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "lesson-feedback:attempt",
+              "dialogue:rie-listening",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
@@ -162,6 +286,18 @@
         {
           "path": "/academy/art/characters/rie/rie__happy__halfbody__v001.png",
           "sha256": "7ff59189633c640618ed77a488a5eb857370b3e53a0ffe6eaf962f673d17ce75",
+          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-802cb03f-4121-48a6-a666-516df112eb45.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "lesson-feedback:correct-retry",
+              "dialogue:rie-positive",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
@@ -185,8 +321,26 @@
           "coverageStatus": "review-candidate"
         },
         {
-          "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
-          "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae",
+          "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+          "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282",
+          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-00093501-ba15-4504-9545-d24e1e1ca5cd.png",
+          "privacy": "no-private-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "onboarding:profile",
+              "unlock:rie",
+              "journal:rie",
+              "scene:arrival-bridge",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "lesson:l1-l01:host"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
@@ -207,7 +361,8 @@
             "class:people",
             "class:week-cast",
             "lesson-overview:roster",
-            "world:person"
+            "world:person",
+            "lesson:l1-l01:host"
           ],
           "reviewUses": [],
           "decision": "keep",
@@ -215,8 +370,69 @@
           "coverageStatus": "approved"
         },
         {
+          "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
+          "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae",
+          "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "onboarding:profile",
+              "unlock:rie",
+              "journal:rie",
+              "scene:arrival-bridge",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "lesson:l1-l01:host"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "hand-painted-production-family",
+          "fileVersion": "v001",
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "onboarding:profile",
+            "unlock:rie",
+            "journal:rie",
+            "scene:arrival-bridge",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "lesson:l1-l01:host"
+          ],
+          "reviewUses": [],
+          "decision": "replace",
+          "migrationStatus": "superseded-by-glasses-primary-retained-for-runtime-compatibility",
+          "coverageStatus": "approved"
+        },
+        {
           "path": "/academy/art/characters/rie/rie__repair__halfbody__v001.png",
           "sha256": "02badca02e00cc937aea0e60b794a09ca32d6aea74de3cac7fc82633995e0beb",
+          "source": "generated-image://019f58ec-080a-7a22-acaf-fc7e7b34c32c/exec-6532d571-7c22-408f-839b-b7e19206b65a.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "lesson-feedback:repair",
+              "dialogue:rie-precise-hint",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "off-contract repair pose",
@@ -242,6 +458,17 @@
         {
           "path": "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png",
           "sha256": "676264f831e7a9e21ea15cadb58d0a2902478c4237d2f6438e9cd55b4c3fcbc3",
+          "source": "generated-image://019f6361-4a5d-74b2-91c7-208919682e95/exec-df8133cf-8375-4e11-90d6-84635c90db6f.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:rie-vulnerable-reflection",
+              "journal:rie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
@@ -266,6 +493,17 @@
         {
           "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
           "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
+          "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [],
+            "review": [
+              "production:sprite-performance-contract",
+              "production:sprite-batch-manifest"
+            ]
+          },
+          "orphan": "review-bound",
           "styleVersion": "hand-painted-production-family",
           "fileVersion": "v001",
           "pose": "off-contract thinking pose",
@@ -328,7 +566,7 @@
           "angle": "left-three-quarter",
           "expression": "determined",
           "status": "approved",
-          "path": "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png"
+          "path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
@@ -341,7 +579,7 @@
           "angle": "front-near-front",
           "expression": "neutral",
           "status": "approved",
-          "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png"
+          "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -399,9 +637,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -508,13 +745,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rie/rie__happy__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -965,6 +1195,16 @@
         {
           "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
           "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f",
+          "source": "generated-image://019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:aakash"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
@@ -4854,6 +5094,21 @@
         {
           "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
           "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
+          "source": "current-production:approved-Sophie-painted-neutral",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "world:bookshop:sophie",
+              "journal:sophie",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "current-hand-painted-standard",
           "fileVersion": "v003",
           "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; right-three-quarter",
@@ -4882,6 +5137,17 @@
         {
           "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
           "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
+          "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-f9825ee1-bc15-492d-8aee-a78691204d08.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:sophie-research",
+              "journal:sophie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "current-hand-painted-standard",
           "fileVersion": "v003",
           "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; left-three-quarter",
@@ -4906,6 +5172,17 @@
         {
           "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
           "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
+          "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-d2a30f91-d841-4537-ba56-d3c59e1620b0.png",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:sophie-support",
+              "journal:sophie-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
           "styleVersion": "current-hand-painted-standard",
           "fileVersion": "v003",
           "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; front-near-front",
@@ -7006,6 +7283,16 @@
         {
           "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
           "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e",
+          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-49ce316c-f943-40c3-9891-ac93cabddbaf.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:peter-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; right-three-quarter",
@@ -7029,6 +7316,17 @@
         {
           "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
           "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480",
+          "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-4640771b-6435-4a84-b8b7-2b49f8e6509c.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:peter",
+              "journal:peter-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v002",
           "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; front-near-front",
@@ -7053,6 +7351,16 @@
         {
           "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
           "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a",
+          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3942d014-b952-47ff-8a92-45b5d0fad22a.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:peter-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; left-three-quarter",
@@ -7387,6 +7695,16 @@
         {
           "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
           "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582",
+          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-1af208f4-17d9-4aa3-8c7b-5b0bbea6dc4f.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; left-three-quarter",
@@ -7410,6 +7728,17 @@
         {
           "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
           "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4",
+          "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-c0e7b1b2-04a2-4062-a165-a57b00b1b5a8.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:felix-after-meeting",
+              "journal:felix-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; front-near-front",
@@ -7434,6 +7763,16 @@
         {
           "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
           "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e",
+          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3d878cc4-afc3-41dd-a7ed-a0bcc3e16be4.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; right-three-quarter",
@@ -7768,6 +8107,16 @@
         {
           "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
           "sha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1",
+          "source": "generated-image://019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shaun"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; front-near-front",
@@ -8082,6 +8431,822 @@
       "historicalAssetIds": [
         "sha256:fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1"
       ]
+    },
+    {
+      "id": "tom2",
+      "firstName": "Tom",
+      "category": "extended-member",
+      "basePose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture",
+      "targetMatrix": {
+        "angles": [
+          "left-three-quarter",
+          "front-near-front",
+          "right-three-quarter"
+        ],
+        "expressions": [
+          "neutral",
+          "happy",
+          "encouraging-listening",
+          "surprised-shocked",
+          "sad-vulnerable",
+          "determined",
+          "comedic"
+        ],
+        "slots": 21
+      },
+      "progress": {
+        "approved": 0,
+        "reviewCandidates": 3,
+        "missing": 18,
+        "deliveredPercent": 14.29,
+        "approvedPercent": 0
+      },
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635",
+          "source": "private-reference://owner-supplied/tom2-v1",
+          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tom2-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; front-near-front",
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "retained-review-candidate-not-approved",
+          "coverageStatus": "review-candidate"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
+          "sha256": "f6565d6eb7327305dfa1b4dccfae98317b147e39507c572a4118d6a71bcdd33e",
+          "source": "private-reference://owner-supplied/tom2-v1",
+          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tom2",
+              "journal:tom2-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2",
+            "journal:tom2-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "retained-review-candidate-not-approved",
+          "coverageStatus": "review-candidate"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
+          "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee",
+          "source": "private-reference://owner-supplied/tom2-v1",
+          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tom2-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "retained-review-candidate-not-approved",
+          "coverageStatus": "review-candidate"
+        }
+      ],
+      "requiredVariants": [
+        {
+          "angle": "left-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "review-candidate",
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "status": "review-candidate",
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "neutral",
+          "status": "review-candidate",
+          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__right-three-quarter__halfbody__v001.png"
+        }
+      ],
+      "missingVariants": [
+        {
+          "angle": "left-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__happy__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__determined__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__comedic__right-three-quarter__halfbody__v001.png"
+        }
+      ],
+      "historicalAssetIds": []
+    },
+    {
+      "id": "steve",
+      "firstName": "Steve",
+      "category": "extended-member",
+      "basePose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up",
+      "targetMatrix": {
+        "angles": [
+          "left-three-quarter",
+          "front-near-front",
+          "right-three-quarter"
+        ],
+        "expressions": [
+          "neutral",
+          "happy",
+          "encouraging-listening",
+          "surprised-shocked",
+          "sad-vulnerable",
+          "determined",
+          "comedic"
+        ],
+        "slots": 21
+      },
+      "progress": {
+        "approved": 3,
+        "reviewCandidates": 0,
+        "missing": 18,
+        "deliveredPercent": 14.29,
+        "approvedPercent": 14.29
+      },
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5",
+          "source": "owner-brief://academy/steve-v1",
+          "privacy": "written-description-only; no-private-likeness-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png",
+          "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07",
+          "source": "owner-brief://academy/steve-v1",
+          "privacy": "written-description-only; no-private-likeness-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
+          "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef",
+          "source": "owner-brief://academy/steve-v1",
+          "privacy": "written-description-only; no-private-likeness-source",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:steve",
+              "scene:steve-introduction"
+            ],
+            "review": []
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve",
+            "scene:steve-introduction"
+          ],
+          "reviewUses": [],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        }
+      ],
+      "requiredVariants": [
+        {
+          "angle": "left-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__neutral__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__happy__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__happy__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__determined__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__neutral__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "happy",
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__determined__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__right-three-quarter__halfbody__v001.png"
+        }
+      ],
+      "missingVariants": [
+        {
+          "angle": "left-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__neutral__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__happy__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "left-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__left-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__happy__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__determined__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "neutral",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__neutral__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "sad-vulnerable",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "determined",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__determined__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "comedic",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__comedic__right-three-quarter__halfbody__v001.png"
+        }
+      ],
+      "historicalAssetIds": []
     },
     {
       "id": "nanako",

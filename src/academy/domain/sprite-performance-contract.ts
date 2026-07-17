@@ -97,10 +97,10 @@ const SILHOUETTES = {
     ruparna: ['recipe notebook balanced on one palm', 'apron-front stance with pencil poised', 'spice tin lifted beside the recipe notebook'],
     rose: ['flower press hugged beneath one elbow', 'pressed leaf displayed between careful fingers', 'flower press opened into a wide layered shape'],
     peter: ['question cards fanned beneath a thoughtful lean', 'about-26 profile upright with one question card raised', 'light-haired head turn with cards tucked under arm'],
-    steve: ['phone held close while reading a family message', 'relaxed older posture with phone and pocket notebook', 'glasses lowered as he offers a careful reply'],
-    tom2: ['tall half-turn with one hand in a coat pocket', 'quiet centered stance holding a closed notebook', 'shoulder angled away while a small clue card is revealed'],
     felix: ['curly-haired lean following a paper cat trail', 'glasses adjusted above a paper cat held at chest', 'longer curls outlined over a crouched cat-counting pose'],
     shaun: ['jacket hooked from two fingers at the side', 'quiet stance with hands resting in jacket pockets', 'jacket swung over one shoulder in departure'],
+    tom2: ['notebook half-open beside a guarded turn', 'open notebook balanced beneath an inviting palm', 'black notebook held low in a reserved three-quarter stance'],
+    steve: ['practice card squared beside a focused phone check', 'smartphone and blank kana card held in a steady learning stance', 'phone lowered beneath an easy family-chat thumbs-up'],
     nanako: ['sketchbook opened across a low angled arm', 'pencil and sketchbook aligned at midline', 'sketchbook turned outward to reveal a draft'],
     mira: ['library book nested against a curved forearm', 'still reading posture with book held open', 'bookmark lifted while the book closes'],
     miller: ['appointment book held vertically at one hip', 'crisp centered stance with the book closed', 'appointment book opened beneath a measured pointing hand'],
@@ -119,15 +119,15 @@ const RASTER_COVERAGE: Partial<Record<
         'left-three-quarter': {
             determined: {
                 status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-left'].files.default,
-                approvedAssetId: 'character.rie.determined-left',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-glasses-left'].files.default,
+                approvedAssetId: 'character.rie.determined-glasses-left',
             },
         },
         'front-near-front': {
             neutral: {
                 status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral'].files.default,
-                approvedAssetId: 'character.rie.neutral',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].files.default,
+                approvedAssetId: 'character.rie.neutral-glasses',
             },
             happy: { status: 'review-candidate', assetPath: '/academy/art/characters/rie/rie__happy__halfbody__v001.png' },
             'encouraging-listening': { status: 'review-candidate', assetPath: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png' },
@@ -138,6 +138,11 @@ const RASTER_COVERAGE: Partial<Record<
             },
         },
         'right-three-quarter': {
+            'encouraging-listening': {
+                status: 'approved',
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.encouraging-glasses-right'].files.default,
+                approvedAssetId: 'character.rie.encouraging-glasses-right',
+            },
             comedic: {
                 status: 'approved',
                 assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-right'].files.default,
@@ -185,6 +190,37 @@ const RASTER_COVERAGE: Partial<Record<
             assetPath: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
         },
     } },
+    tom2: {
+        'left-three-quarter': { 'surprised-shocked': {
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png',
+        } },
+        'front-near-front': { 'encouraging-listening': {
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png',
+        } },
+        'right-three-quarter': { neutral: {
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png',
+        } },
+    },
+    steve: {
+        'left-three-quarter': { determined: {
+            status: 'approved',
+            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.determined-left'].files.default,
+            approvedAssetId: 'character.steve.determined-left',
+        } },
+        'front-near-front': { neutral: {
+            status: 'approved',
+            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.neutral-front'].files.default,
+            approvedAssetId: 'character.steve.neutral-front',
+        } },
+        'right-three-quarter': { happy: {
+            status: 'approved',
+            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.happy-right'].files.default,
+            approvedAssetId: 'character.steve.happy-right',
+        } },
+    },
     sophie: {
         'left-three-quarter': { determined: {
             status: 'approved',
@@ -206,6 +242,18 @@ const RASTER_COVERAGE: Partial<Record<
 
 const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly UnmappedSpriteRaster[]>> = {
     rie: [
+        {
+            label: 'superseded-neutral-without-glasses',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+            note: 'Superseded by the glasses-first neutral; retained only as compatibility evidence.',
+        },
+        {
+            label: 'superseded-determined-without-glasses',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
+            note: 'Superseded by the glasses-first determined performance; retained only as compatibility evidence.',
+        },
         {
             label: 'repair',
             status: 'review-candidate',

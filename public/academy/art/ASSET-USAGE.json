@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 47,
-    "runtimeFiles": 61,
+    "runtimeAssetHomes": 56,
+    "runtimeFiles": 70,
     "nonRuntimeReviewFiles": 1,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4
@@ -50,7 +50,7 @@
       "runtimeHome": ["runtime:sprite-performance-contract", "production:sprite-generation-batches"],
       "deliveries": [{
         "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-        "sha256": "9265c1448119cf33a7051328d09894eaf568135c38bc3521c3c676bc3733fc6f"
+        "sha256": "8c1cea4490e41d806ecd6cda083ecb32060e58647271c8f07941d51232fbeed1"
       }],
       "status": "bound-and-schema-validated"
     },
@@ -76,9 +76,9 @@
       "reviewHome": ["conformance:academy-cast-sprite-migration"],
       "deliveries": [{
         "path": "/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
-        "sha256": "8ff6951ef29c3c0126addc272aa507a122d559513f041b2f369fb47029e308ed"
+        "sha256": "00d088b71c27b730f7ea70c9fc97ad6699ea2db23fd935dfa7cab39f448cf452"
       }],
-      "status": "generated-mirrored-and-conformance-validated; 28-character-588-slot-target; not-runtime-bound"
+      "status": "generated-mirrored-and-conformance-validated; 30-character-630-slot-target; not-runtime-bound"
     },
     {
       "id": "rie-neutral-halfbody-v001",
@@ -743,6 +743,129 @@
         "sha256": "f2c1348655e3145eb8e2722ce0a9708330adf1b6124831ecee4dbc9d0e62a795"
       },
       "status": "manifest-hash-verified-purposeful-vn-candidate; not-runtime-bound; release-blocked-pending-human-visual-rights-and-runtime-owner-signoff"
+    },
+    {
+      "id": "rie-neutral-glasses-front-near-front-halfbody-v001",
+      "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-00093501-ba15-4504-9545-d24e1e1ca5cd.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"],
+      "usage": {"runtime": ["character-book", "lessons", "vn-scenes"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282"}],
+      "status": "identity-glasses-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "rie-determined-glasses-left-three-quarter-halfbody-v001",
+      "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-d34be164-7535-415d-bb30-13648da1a42e.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"],
+      "usage": {"runtime": ["vn-scenes", "character-book"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png", "sha256": "2127d47e5bea59317114ad612b28f4d9b888047afb83ef5577d05291a7a2c24e"}],
+      "status": "identity-glasses-pottery-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "rie-encouraging-glasses-right-three-quarter-halfbody-v001",
+      "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-f7af56ad-43e9-449a-8fd8-2ee8a68f94d9.png",
+      "provenance": "direct-openai-image-edit-from-approved-reference",
+      "privacy": "no-private-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"],
+      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9"}],
+      "status": "identity-glasses-museum-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "tom2-neutral-right-three-quarter-halfbody-v001",
+      "source": "private-reference://owner-supplied/tom2-v1",
+      "sourceSha256": "db33d705e991d5da63e92addd9a441ea81a4b19cd7f428914c00fb00cc9bbda4",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["journal:tom2", "journal:tom2-expression-gallery"],
+      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "orphan": "review-bound",
+      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png", "sha256": "f6565d6eb7327305dfa1b4dccfae98317b147e39507c572a4118d6a71bcdd33e"}],
+      "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
+    },
+    {
+      "id": "tom2-encouraging-front-near-front-halfbody-v001",
+      "source": "private-reference://owner-supplied/tom2-v1",
+      "sourceSha256": "db33d705e991d5da63e92addd9a441ea81a4b19cd7f428914c00fb00cc9bbda4",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["journal:tom2-expression-gallery"],
+      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "orphan": "review-bound",
+      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png", "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635"}],
+      "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
+    },
+    {
+      "id": "tom2-surprised-left-three-quarter-halfbody-v001",
+      "source": "private-reference://owner-supplied/tom2-v1",
+      "sourceSha256": "db33d705e991d5da63e92addd9a441ea81a4b19cd7f428914c00fb00cc9bbda4",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+      "verdict": "review-candidate/runtime-preview",
+      "runtimeHome": ["journal:tom2-expression-gallery"],
+      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "orphan": "review-bound",
+      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png", "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee"}],
+      "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
+    },
+    {
+      "id": "steve-neutral-front-near-front-halfbody-v001",
+      "source": "owner-brief://academy/steve-v1",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "written-description-only; no-private-likeness-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["journal:steve", "scene:steve-introduction"],
+      "usage": {"runtime": ["character-book", "vn-scenes"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef"}],
+      "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "steve-happy-right-three-quarter-halfbody-v001",
+      "source": "owner-brief://academy/steve-v1",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "written-description-only; no-private-likeness-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["journal:steve-expression-gallery"],
+      "usage": {"runtime": ["character-book"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png", "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07"}],
+      "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "steve-determined-left-three-quarter-halfbody-v001",
+      "source": "owner-brief://academy/steve-v1",
+      "provenance": "direct-openai-image-generation",
+      "privacy": "written-description-only; no-private-likeness-source",
+      "verdict": "approved-runtime",
+      "runtimeHome": ["journal:steve-expression-gallery"],
+      "usage": {"runtime": ["character-book"], "review": ["responsive-framing"]},
+      "orphan": "active-runtime",
+      "deliveries": [{"path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png", "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5"}],
+      "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
+    },
+    {
+      "id": "onke-private-reference-gate",
+      "source": "owner-brief://academy/onke-preferred-name",
+      "provenance": "owner-identified-private-reference",
+      "privacy": "no-identified-likeness-reference-received; generation-forbidden",
+      "verdict": "reference-only",
+      "runtimeHome": [],
+      "reviewHome": ["production:sprite-batch-manifest"],
+      "usage": {"runtime": [], "review": ["identity-gate"]},
+      "orphan": "blocked-no-delivery",
+      "status": "privacy-blocked-pending-owner-identified-reference"
     },
     {
       "id": "calibration-campus-ensemble",

@@ -12,6 +12,7 @@ export type SpriteBatchAssetStatus =
     | 'approved-runtime-neutral'
     | 'approved-neutral-with-unapproved-expression-candidates'
     | 'approved-performance-trio-with-unapproved-legacy-expression-candidates'
+    | 'approved-glasses-primary-trio-with-compatible-and-review-legacy'
     | 'unapproved-neutral-candidate'
     | 'unapproved-performance-candidates'
     | 'rejected-only-removed'
@@ -26,14 +27,15 @@ export type SpriteReferenceKind =
     | 'approved-sprite'
     | 'asset-ledger'
     | 'cast-registry'
+    | 'private-likeness-reference'
     | 'textbook-character-brief';
 
 export interface SpriteSourceReference {
     readonly id: string;
     readonly kind: SpriteReferenceKind;
     readonly locator: string;
-    readonly use: 'likeness' | 'style' | 'status-evidence' | 'written-identity-only';
-    readonly gate: 'approved' | 'owner-match-required' | 'owner-confirmation-required' | 'reference-only';
+    readonly use: 'likeness' | 'likeness-only' | 'style' | 'status-evidence' | 'written-identity-only';
+    readonly gate: 'approved' | 'owner-match-required' | 'owner-confirmation-required' | 'reference-only' | 'review-preview-only';
 }
 
 export interface SpriteGenerationPriority {
@@ -163,7 +165,9 @@ export function validateSpriteBatchManifest(manifest: SpriteBatchManifest): read
     const priorityRanks = new Set<number>();
     for (const character of manifest.characters) {
         const castMember = castById.get(character.id);
-        if (!castMember || castMember.firstName !== character.firstName || castMember.category !== character.category) {
+        const preferredName = castMember && 'preferredName' in castMember ? castMember.preferredName : undefined;
+        const allowedNames = castMember ? [castMember.firstName, preferredName].filter(Boolean) : [];
+        if (!castMember || !allowedNames.includes(character.firstName) || castMember.category !== character.category) {
             issues.push({ code: 'cast-identity', message: `${character.id} does not match the canonical cast registry.` });
         }
         if (!sameOrderedValues(character.angles, SPRITE_ANGLES)) {

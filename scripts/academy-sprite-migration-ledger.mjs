@@ -26,14 +26,28 @@ const APPROVED_PATHS = new Set([
     '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
     '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
     '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
+    '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
 ]);
 
 const CURRENT_SLOT_OVERRIDES = new Map([
     ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'neutral']],
     ['/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png', ['right-three-quarter', 'neutral']],
+    ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png', ['front-near-front', 'neutral']],
+    ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'determined']],
+    ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png', ['right-three-quarter', 'encouraging-listening']],
+]);
+
+const SUPERSEDED_PATHS = new Set([
+    '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
 ]);
 
 const ledgerByDelivery = new Map();
@@ -87,6 +101,16 @@ function currentAssetsFor(character) {
             return {
                 path: publicPath,
                 sha256: sha256(absolute),
+                source: ledger?.source ?? 'unregistered-current-delivery',
+                privacy: ledger?.privacy ?? 'no-private-source-recorded',
+                status,
+                usage: {
+                    runtime: ledger?.runtimeHome ?? [],
+                    review: ledger?.reviewHome ?? [],
+                },
+                orphan: (ledger?.runtimeHome?.length ?? 0) > 0
+                    ? status === 'approved' ? 'active-runtime' : 'review-bound'
+                    : (ledger?.reviewHome?.length ?? 0) > 0 ? 'review-bound' : 'unbound-review-candidate',
                 styleVersion: character.id === 'sophie'
                     ? 'current-hand-painted-standard'
                     : character.id === 'rie' ? 'hand-painted-production-family' : 'current-review-family',
@@ -97,9 +121,11 @@ function currentAssetsFor(character) {
                 dimensions: readPngHeader(absolute),
                 runtimeUses: ledger?.runtimeHome ?? [],
                 reviewUses: ledger?.reviewHome ?? [],
-                decision: 'keep',
+                decision: SUPERSEDED_PATHS.has(publicPath) ? 'replace' : 'keep',
                 migrationStatus: status === 'approved'
-                    ? 'approved-and-registered'
+                    ? SUPERSEDED_PATHS.has(publicPath)
+                        ? 'superseded-by-glasses-primary-retained-for-runtime-compatibility'
+                        : 'approved-and-registered'
                     : slot ? 'retained-review-candidate-not-approved' : 'retained-off-matrix-review-evidence',
                 coverageStatus: slot ? status : 'off-matrix',
             };
@@ -149,9 +175,13 @@ for (const asset of historicalAssets) {
 
 const characters = BATCH_MANIFEST.characters.map(character => {
     const currentAssets = currentAssetsFor(character);
-    const currentBySlot = new Map(currentAssets
-        .filter(asset => asset.angle && asset.expression)
-        .map(asset => [`${asset.angle}:${asset.expression}`, asset]));
+    const currentBySlot = new Map();
+    for (const asset of currentAssets.filter(asset => asset.angle && asset.expression)) {
+        const key = `${asset.angle}:${asset.expression}`;
+        const current = currentBySlot.get(key);
+        const assetIsPreferred = asset.path.includes('-glasses__') || (!current?.path.includes('-glasses__') && asset.fileVersion > current?.fileVersion);
+        if (!current || assetIsPreferred) currentBySlot.set(key, asset);
+    }
     const requiredVariants = ANGLES.flatMap(angle => EXPRESSIONS.map(expression => {
         const current = currentBySlot.get(`${angle}:${expression}`);
         return current ? {
@@ -197,8 +227,8 @@ const coverage = characters.reduce((total, character) => ({
 }), { approved: 0, reviewCandidates: 0, missing: 0 });
 
 const output = {
-    schemaVersion: 1,
-    snapshotDate: '2026-07-16',
+    schemaVersion: 2,
+    snapshotDate: '2026-07-17',
     purpose: 'Single machine-readable migration ledger for every canonical Academy cast sprite across current delivery and audited older worktrees.',
     truthPolicy: {
         matrixTarget: 'Every character requires three angles by seven expressions. A file is never inferred from a brief.',
@@ -235,6 +265,22 @@ const output = {
         to: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
         decision: 'delete',
         status: 'deprecated-file-removed-after-zero-runtime-reference-scan',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-neutral-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+        decision: 'replace',
+        status: 'glasses-primary-bound; prior approved raster retained as compatibility evidence',
+        runtimeReferencesAfterMigration: [],
+    }, {
+        id: 'rie-determined-to-glasses-primary',
+        character: 'rie',
+        from: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
+        decision: 'replace',
+        status: 'glasses-primary-bound; prior approved raster retained as compatibility evidence',
         runtimeReferencesAfterMigration: [],
     }],
     characters,
