@@ -791,6 +791,30 @@ function formatNewTabSupportGbp(value: number): string {
     return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
 }
 
+// Consolidated per-card study-step state (NB-41a). One entry per card key holds
+// every study step's in-progress answer and first-attempt outcome, replacing the
+// former parallel per-mode Maps (recallAnswers/recallOutcomes/pitchOutcomes/
+// typeAnswers/typeOutcomes/doodleOutcomes/doodleFirstAttempt/speakingOutcomes).
+// Cleared wholesale when the card pool rebuilds.
+interface StudyStepState {
+    // Recall cloze: the in-progress typed answer plus its graded outcome.
+    recall?: { answer?: string; outcome?: NewTabRecallOutcome };
+    // Type-word production: the in-progress typed answer plus the FIRST-attempt
+    // outcome (recall grades reused; 'skipped' when the learner skips). First
+    // attempt counts — a later retry never rewrites the recorded outcome.
+    type?: { answer?: string; outcome?: NewTabRecallOutcome | 'skipped' };
+    // Pitch-selection pick per card (the chosen downstep position + graded
+    // outcome), persisted so it survives step navigation and folds into reveal.
+    pitch?: { position: number; outcome: ListenOutcome };
+    // Speaking step first-attempt pass/fail, mirrored into the reveal summary.
+    speak?: 'correct' | 'wrong';
+    // Doodle: the card-level aggregate ("roughest draw wins" — any failed kanji
+    // marks the whole card wrong) plus a per-kanji first-attempt latch (a word
+    // can hold several kanji-doodle steps; each kanji latches on its FIRST draw
+    // so a redraw of the same character never launders its result).
+    doodle?: { outcome?: 'correct' | 'wrong'; firstAttempt?: Map<string, 'correct' | 'wrong'> };
+}
+
 export class NewTabController {
     private allWords: JPDBCard[] = [];
     private visibleWords: JPDBCard[] = [];
@@ -874,7 +898,7 @@ export class NewTabController {
     private searchHandwritingGeneration = 0;
     private searchHandwritingDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchHandwritingShapeCandidateCache = new Map<string, Promise<KanjiShapeCandidate | null>>();
-    private recallAnswers = new Map<string, string>();
+    private readonly studyStepStates = new Map<string, StudyStepState>();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     private readonly pitchSrs = new PitchSrsStore();
     private listenItem: PitchSrsItem | null = null;
@@ -894,31 +918,9 @@ export class NewTabController {
     private listenSpeakingScore: SpeakingPitchScore | null = null;
     private listenSpeakingScoring = false;
     private listenSpeakingScoreGeneration = 0;
-    private recallOutcomes = new Map<string, NewTabRecallOutcome>();
-    // Pitch-selection pick per card (the chosen downstep position), persisted like
-    // the recall answer so it survives step navigation and folds into the single
-    // reveal — the pitch step feeds the same per-step outcome tracking as recall.
-    private pitchOutcomes = new Map<string, { position: number; outcome: ListenOutcome }>();
-    // Type-word production: the in-progress typed answer, plus the FIRST-attempt
-    // outcome per card (recall grades reused; 'skipped' when the learner skips).
-    // First attempt counts — a later retry never rewrites the recorded outcome,
-    // matching the listen/pitch first-attempt convention.
-    private typeAnswers = new Map<string, string>();
-    private typeOutcomes = new Map<string, NewTabRecallOutcome | 'skipped'>();
     // Handwriting sub-mode progress: how many leading characters of the target
     // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
     private typeHandwritingProgress = new Map<string, number>();
-    // First-attempt pass/fail for the doodle and speaking steps, mirrored into the
-    // reveal summary. Neither step natively persisted a per-card outcome (doodle
-    // toggled a CSS class; speaking held a transient score), so these maps give
-    // the summary strip a stable, first-attempt source without re-deriving state.
-    private doodleOutcomes = new Map<string, 'correct' | 'wrong'>();
-    // First-attempt result per (card, kanji) — a word can hold several
-    // kanji-doodle steps, and each kanji's outcome must latch on its FIRST draw
-    // so a redraw of the same character never launders it. The card-level
-    // doodleOutcomes above is the "roughest draw wins" aggregate across kanji.
-    private doodleFirstAttempt = new Map<string, 'correct' | 'wrong'>();
-    private speakingOutcomes = new Map<string, 'correct' | 'wrong'>();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
@@ -1312,15 +1314,8 @@ export class NewTabController {
         this.studySentenceOverrides.clear();
         this.nPlusOneSentenceRequests.clear();
         this.doodlePreviewCache.clear();
-        this.recallAnswers.clear();
-        this.recallOutcomes.clear();
-        this.pitchOutcomes.clear();
-        this.typeAnswers.clear();
-        this.typeOutcomes.clear();
+        this.studyStepStates.clear();
         this.typeHandwritingProgress.clear();
-        this.doodleOutcomes.clear();
-        this.doodleFirstAttempt.clear();
-        this.speakingOutcomes.clear();
         this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
         this.statsSnapshot = emptyStatsDashboardSnapshot();
@@ -1537,7 +1532,10 @@ export class NewTabController {
                 : null;
             if (typeInput && root.contains(typeInput)) {
                 const card = this.visibleWords[this.index];
-                if (card) this.typeAnswers.set(cardKey(card), typeInput.value);
+                if (card) {
+                    const state = this.ensureStepState(cardKey(card));
+                    state.type = { ...state.type, answer: typeInput.value };
+                }
                 return;
             }
             const recallInput = event.target instanceof HTMLInputElement
@@ -5181,7 +5179,7 @@ export class NewTabController {
             // Restore a prior perceive pick so the pitch selection sticks when the
             // learner steps away and back within the same card (the pick is
             // persisted per card, feeding the single reveal like recall does).
-            const prior = this.state.listenSubMode === 'perceive' ? this.pitchOutcomes.get(cardKey(card)) ?? null : null;
+            const prior = this.state.listenSubMode === 'perceive' ? this.stepState(cardKey(card))?.pitch ?? null : null;
             this.listenSelectedPosition = prior ? prior.position : null;
             this.listenRevealed = this.state.listenSubMode === 'shadow' || Boolean(prior);
             this.listenOutcome = prior ? prior.outcome : null;
@@ -5302,7 +5300,7 @@ export class NewTabController {
         this.listenOutcome = correct ? 'correct' : 'wrong';
         // Persist the FIRST pick per card so it survives step navigation and feeds
         // the single reveal — the pitch step's outcome tracks exactly like recall.
-        if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
+        if (card) this.ensureStepState(cardKey(card)).pitch = { position, outcome: this.listenOutcome };
         this.rerenderActiveListen();
         void this.playListenModelAudio();
     }
@@ -5498,9 +5496,9 @@ export class NewTabController {
     }
 
     private recordSpeakingOutcome(card: JPDBCard, passed: boolean): void {
-        const key = cardKey(card);
-        if (this.speakingOutcomes.has(key)) return;
-        this.speakingOutcomes.set(key, passed ? 'correct' : 'wrong');
+        const state = this.ensureStepState(cardKey(card));
+        if (state.speak) return;
+        state.speak = passed ? 'correct' : 'wrong';
     }
 
     private clearListenSpeakingScore(): void {
@@ -6584,8 +6582,9 @@ export class NewTabController {
         if (!answer) return;
         delete answer.dataset.newtabAnswerDetailsRequest;
         const key = cardKey(card);
-        const value = this.recallAnswers.get(key) ?? '';
-        const outcome = this.recallOutcomes.get(key);
+        const recall = this.stepState(key)?.recall;
+        const value = recall?.answer ?? '';
+        const outcome = recall?.outcome;
         const evaluation = evaluateNewTabRecallAnswer(card, value, newTabCardReading(card));
         answer.dataset.recallOutcome = outcome ?? 'pending';
         replaceChildrenWith(answer,
@@ -6668,11 +6667,11 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return;
         const key = cardKey(card);
-        this.recallAnswers.set(key, value);
+        const state = this.ensureStepState(key);
         if (submitted) {
-            this.recallOutcomes.set(key, evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome);
+            state.recall = { answer: value, outcome: evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome };
         } else {
-            this.recallOutcomes.delete(key);
+            state.recall = { answer: value };
             root.querySelector<HTMLElement>('[data-newtab-recall-result]')?.remove();
             const answer = root.querySelector<HTMLElement>('[data-newtab-answer]');
             if (answer) answer.dataset.recallOutcome = 'pending';
@@ -6685,8 +6684,7 @@ export class NewTabController {
         if (!card || !input) return;
         input.value = convertRomajiToKana(input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
-        this.recallAnswers.set(cardKey(card), input.value);
-        this.recallOutcomes.set(cardKey(card), evaluation.outcome);
+        this.ensureStepState(cardKey(card)).recall = { answer: input.value, outcome: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
             this.renderWord(root, card);
             return;
@@ -6779,7 +6777,7 @@ export class NewTabController {
         if (!answer) return;
         delete answer.dataset.newtabAnswerDetailsRequest;
         const mode = this.typeWordInputMode();
-        const outcome = this.typeOutcomes.get(cardKey(card));
+        const outcome = this.stepState(cardKey(card))?.type?.outcome;
         answer.dataset.typeWordMode = mode;
         answer.dataset.typeWordOutcome = outcome ?? 'pending';
         replaceChildrenWith(answer,
@@ -6820,7 +6818,7 @@ export class NewTabController {
             el('input', {
                 class: 'jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input',
                 dataset: { newtabTypeInput: true },
-                value: this.typeAnswers.get(cardKey(card)) ?? '',
+                value: this.stepState(cardKey(card))?.type?.answer ?? '',
                 placeholder: this.text('typeWordPlaceholder'),
                 autocomplete: 'off',
                 autocapitalize: 'none',
@@ -6944,7 +6942,10 @@ export class NewTabController {
         if (!card || !input) return;
         input.value = convertRomajiToKana(input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
-        this.typeAnswers.set(cardKey(card), input.value);
+        {
+            const state = this.ensureStepState(cardKey(card));
+            state.type = { ...state.type, answer: input.value };
+        }
         if (evaluation.outcome === 'empty') {
             this.renderWord(root, card);
             return;
@@ -6966,9 +6967,9 @@ export class NewTabController {
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
     private recordTypeOutcome(card: JPDBCard, outcome: NewTabRecallOutcome | 'skipped'): void {
-        const key = cardKey(card);
-        if (this.typeOutcomes.has(key)) return;
-        this.typeOutcomes.set(key, outcome);
+        const state = this.ensureStepState(cardKey(card));
+        if (state.type?.outcome !== undefined) return;
+        state.type = { ...state.type, outcome };
     }
 
     private typeWordOutcomeLabel(outcome: NewTabRecallOutcome | 'skipped', card: JPDBCard): string {
@@ -7423,7 +7424,8 @@ export class NewTabController {
                 // answer, un-submitted typed text, or an open reveal all pin
                 // the displayed sentence — the override would otherwise be
                 // graded against a sentence the learner never saw.
-                if (this.recallAnswers.get(key) || this.typeAnswers.get(key) || this.state.revealAnswer) return;
+                const stepState = this.stepState(key);
+                if (stepState?.recall?.answer || stepState?.type?.answer || this.state.revealAnswer) return;
                 const typed = root!.querySelector<HTMLInputElement>('[data-newtab-type-input], [data-newtab-recall-input]');
                 if (typed?.value) return;
             }
@@ -8736,16 +8738,16 @@ export class NewTabController {
     }
 
     private recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void {
-        const key = cardKey(card);
+        const doodle = (this.ensureStepState(cardKey(card)).doodle ??= {});
         // Latch each kanji on its FIRST draw so clearing and redrawing the same
         // character can't relaunder its result (a first pass stays a pass).
-        const attemptKey = `${key} ${kanji}`;
-        if (this.doodleFirstAttempt.has(attemptKey)) return;
-        this.doodleFirstAttempt.set(attemptKey, passed ? 'correct' : 'wrong');
+        const firstAttempt = (doodle.firstAttempt ??= new Map<string, 'correct' | 'wrong'>());
+        if (firstAttempt.has(kanji)) return;
+        firstAttempt.set(kanji, passed ? 'correct' : 'wrong');
         // Aggregate across the word's kanji into one card-level outcome: the
         // roughest draw wins, so any failed kanji marks the whole card wrong.
-        if (this.doodleOutcomes.get(key) === 'wrong') return;
-        this.doodleOutcomes.set(key, passed ? 'correct' : 'wrong');
+        if (doodle.outcome === 'wrong') return;
+        doodle.outcome = passed ? 'correct' : 'wrong';
     }
 
     private autoSubmitDoodleAssessment(settings: ReaderSettings, passed: boolean, expectedCard: JPDBCard): void {
@@ -10377,22 +10379,38 @@ export class NewTabController {
         }
     }
 
+    // Read the consolidated per-card study-step state (NB-41a), or undefined when
+    // the card has no recorded step interaction yet.
+    private stepState(key: string): StudyStepState | undefined {
+        return this.studyStepStates.get(key);
+    }
+
+    // Read-or-create the consolidated per-card study-step state for mutation.
+    private ensureStepState(key: string): StudyStepState {
+        let state = this.studyStepStates.get(key);
+        if (!state) {
+            state = {};
+            this.studyStepStates.set(key, state);
+        }
+        return state;
+    }
+
     // Gather each study step's first-attempt mini-outcome for THIS card, drawing
     // from the same per-step maps the individual steps write. Steps with no
     // recorded result are omitted (undefined), so the summary + suggestion only
     // reflect what the learner actually did.
     private studyStepOutcomesForCard(card: JPDBCard): StudyStepOutcomes {
-        const key = cardKey(card);
+        const state = this.stepState(cardKey(card));
         const outcomes: StudyStepOutcomes = {};
-        const doodle = this.doodleOutcomes.get(key);
+        const doodle = state?.doodle?.outcome;
         if (doodle) outcomes['kanji-doodle'] = doodle;
-        const recall = this.recallOutcomes.get(key);
+        const recall = state?.recall?.outcome;
         if (recall) outcomes['recall-cloze'] = recallOutcomeToStepOutcome(recall);
-        const pitch = this.pitchOutcomes.get(key);
+        const pitch = state?.pitch;
         if (pitch) outcomes['listen-pitch'] = pitch.outcome === 'correct' ? 'correct' : 'wrong';
-        const speaking = this.speakingOutcomes.get(key);
+        const speaking = state?.speak;
         if (speaking) outcomes.speaking = speaking;
-        const type = this.typeOutcomes.get(key);
+        const type = state?.type?.outcome;
         if (type) outcomes['type-word'] = type === 'skipped' ? 'skipped' : recallOutcomeToStepOutcome(type);
         return outcomes;
     }

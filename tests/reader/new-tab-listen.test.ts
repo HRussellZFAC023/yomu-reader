@@ -287,15 +287,15 @@ describe('new-tab Listen mode', () => {
     it('records only the first attempt; later picks are exploration', () => {
         const { controller, internals } = listenController([pitchCard()], 'perceive');
         const root = listenRoot();
-        const outcomes = (internals as unknown as { pitchOutcomes: Map<string, { position: number; outcome: string }> }).pitchOutcomes;
+        const states = (internals as unknown as { studyStepStates: Map<string, { pitch?: { position: number; outcome: string } }> }).studyStepStates;
         try {
             internals.renderWord(root, internals.visibleWords[0]);
             internals.pickListenPosition(2); // wrong first attempt — this is what counts
-            const first = [...outcomes.values()][0];
+            const first = [...states.values()][0]?.pitch;
             expect(first).toEqual({ position: 2, outcome: 'wrong' });
             internals.pickListenPosition(1); // exploring the correct tile afterwards
-            expect([...outcomes.values()][0]).toEqual({ position: 2, outcome: 'wrong' });
-            expect(outcomes.size).toBe(1);
+            expect([...states.values()][0]?.pitch).toEqual({ position: 2, outcome: 'wrong' });
+            expect(states.size).toBe(1);
             // Visual selection follows the exploration pick; verdict stays wrong.
             expect(root.querySelector('[data-listen-pos="1"]')?.getAttribute('aria-pressed')).toBe('true');
             expect(root.querySelector('.jpdb-reader-newtab-listen-verdict')?.textContent).toBe('Not quite');

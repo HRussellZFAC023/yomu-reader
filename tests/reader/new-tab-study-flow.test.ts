@@ -57,8 +57,10 @@ interface StudyInternals {
     reviewCountMode: boolean;
     state: Record<string, unknown>;
     studyHintDepth: Map<string, number>;
-    pitchOutcomes: Map<string, { position: number; outcome: 'correct' | 'wrong' }>;
-    doodleOutcomes: Map<string, 'correct' | 'wrong'>;
+    studyStepStates: Map<string, {
+        pitch?: { position: number; outcome: 'correct' | 'wrong' };
+        doodle?: { outcome?: 'correct' | 'wrong'; firstAttempt?: Map<string, 'correct' | 'wrong'> };
+    }>;
     recordDoodleOutcome(card: JPDBCard, kanji: string, passed: boolean): void;
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
@@ -393,7 +395,7 @@ describe('study flow: pitch-selection outcome persistence', () => {
             internals.renderWord(root, card);
             // Pick a (wrong) downstep position; correctness stays hidden pre-reveal.
             internals.pickListenPosition(1);
-            expect(internals.pitchOutcomes.get(cardKey(card))).toMatchObject({ position: 1, outcome: 'wrong' });
+            expect(internals.studyStepStates.get(cardKey(card))?.pitch).toMatchObject({ position: 1, outcome: 'wrong' });
 
             // Leave to a different step (word) and come back to the pitch step.
             internals.state.mode = 'word';
@@ -542,16 +544,16 @@ describe('study flow: doodle first-attempt discipline', () => {
             // pass must latch — a redraw of the SAME kanji never launders it.
             internals.recordDoodleOutcome(card, '飲', true);
             internals.recordDoodleOutcome(card, '飲', false);
-            expect(internals.doodleOutcomes.get(key)).toBe('correct');
+            expect(internals.studyStepStates.get(key)?.doodle?.outcome).toBe('correct');
 
             // A DIFFERENT kanji failing must still fail the whole card (roughest
             // draw wins across the word's kanji-doodle steps).
             internals.recordDoodleOutcome(card, '物', false);
-            expect(internals.doodleOutcomes.get(key)).toBe('wrong');
+            expect(internals.studyStepStates.get(key)?.doodle?.outcome).toBe('wrong');
 
             // Once wrong, a later kanji passing can't launder the card back.
             internals.recordDoodleOutcome(card, '飲', true);
-            expect(internals.doodleOutcomes.get(key)).toBe('wrong');
+            expect(internals.studyStepStates.get(key)?.doodle?.outcome).toBe('wrong');
         } finally {
             controller.destroy();
         }

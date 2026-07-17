@@ -50,16 +50,21 @@ function studyRoot(): HTMLElement {
     return root;
 }
 
+interface StepState {
+    recall?: { answer?: string; outcome?: string };
+    type?: { answer?: string; outcome?: string };
+    pitch?: { position: number; outcome: 'correct' | 'wrong' };
+    speak?: 'correct' | 'wrong';
+    doodle?: { outcome?: 'correct' | 'wrong'; firstAttempt?: Map<string, 'correct' | 'wrong'> };
+}
+
 interface TypeWordInternals {
     allWords: JPDBCard[];
     visibleWords: JPDBCard[];
     index: number;
     reviewCountMode: boolean;
     state: Record<string, unknown>;
-    typeAnswers: Map<string, string>;
-    typeOutcomes: Map<string, string>;
-    recallOutcomes: Map<string, string>;
-    pitchOutcomes: Map<string, { position: number; outcome: 'correct' | 'wrong' }>;
+    studyStepStates: Map<string, StepState>;
     renderWord(root: HTMLElement, card: JPDBCard): void;
     bindRootEvents(root: HTMLElement): void;
     setStudyStepOverrideForCard(card: JPDBCard, id: string): void;
@@ -249,14 +254,14 @@ describe('type-word typed answers', () => {
             expect(input).not.toBeNull();
             input!.value = '飲み物';
             internals.submitTypeWordAnswer(root);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('correct');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
             expect(root.querySelector('[data-newtab-type-result]')?.getAttribute('data-newtab-type-result')).toBe('correct');
 
             // A later wrong answer never rewrites the recorded first attempt.
             const again = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             again!.value = 'まちがい';
             internals.submitTypeWordAnswer(root);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('correct');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
         } finally {
             controller.destroy();
         }
@@ -272,7 +277,7 @@ describe('type-word typed answers', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             input!.value = 'のみもの';
             internals.submitTypeWordAnswer(root);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('accepted');
         } finally {
             controller.destroy();
         }
@@ -288,7 +293,7 @@ describe('type-word typed answers', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             input!.value = 'nomimono';
             internals.submitTypeWordAnswer(root);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('accepted');
             expect(root.querySelector<HTMLInputElement>('[data-newtab-type-input]')?.value).toBe('のみもの');
         } finally {
             controller.destroy();
@@ -305,13 +310,13 @@ describe('type-word typed answers', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
             input.value = 'nomimono';
             input.dispatchEvent(new InputEvent('input', { bubbles: true }));
-            expect(internals.typeAnswers.get(cardKey(card))).toBe('nomimono');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.answer).toBe('nomimono');
 
             internals.renderWord(root, card);
             const rerendered = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
             expect(rerendered.value).toBe('nomimono');
             rerendered.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('accepted');
         } finally {
             controller.destroy();
         }
@@ -327,12 +332,12 @@ describe('type-word typed answers', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
             input.value = 'nomimono';
             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true }));
-            expect(internals.typeOutcomes.has(cardKey(card))).toBe(false);
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBeUndefined();
 
             const form = root.querySelector<HTMLFormElement>('[data-newtab-type-form]')!;
             const submit = new Event('submit', { bubbles: true, cancelable: true });
             expect(form.dispatchEvent(submit)).toBe(false);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('accepted');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('accepted');
         } finally {
             controller.destroy();
         }
@@ -382,7 +387,7 @@ describe('type-word typed answers', () => {
             const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]');
             input!.value = 'まちがい';
             internals.submitTypeWordAnswer(root);
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('incorrect');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('incorrect');
             expect(root.querySelector('[data-newtab-type-result]')?.getAttribute('data-newtab-type-result')).toBe('incorrect');
         } finally {
             controller.destroy();
@@ -397,7 +402,7 @@ describe('type-word typed answers', () => {
             internals.bindRootEvents(root);
             renderTypeWordStep(internals, root, card);
             root.querySelector<HTMLElement>('[data-newtab-action="type-word-skip"]')?.click();
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('skipped');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('skipped');
         } finally {
             controller.destroy();
         }
@@ -417,7 +422,7 @@ describe('type-word typed answers', () => {
             // Single-kanji target: one pass clears the whole word.
             (internals as unknown as { advanceTypeWordHandwriting(a: HTMLElement, c: JPDBCard, o: 'correct' | 'wrong'): void })
                 .advanceTypeWordHandwriting(root.querySelector('[data-newtab-reading]')!, card, 'correct');
-            expect(internals.typeOutcomes.get(cardKey(card))).toBe('correct');
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe('correct');
         } finally {
             controller.destroy();
         }
@@ -446,9 +451,11 @@ describe('final-reveal suggested grade', () => {
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
         try {
-            internals.recallOutcomes.set(cardKey(card), 'correct');
-            internals.pitchOutcomes.set(cardKey(card), { position: 3, outcome: 'correct' });
-            internals.typeOutcomes.set(cardKey(card), 'correct');
+            internals.studyStepStates.set(cardKey(card), {
+                recall: { outcome: 'correct' },
+                pitch: { position: 3, outcome: 'correct' },
+                type: { outcome: 'correct' },
+            });
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
             expect(root.querySelector('[data-newtab-study-summary]')).toBeNull();
@@ -464,8 +471,10 @@ describe('final-reveal suggested grade', () => {
         const { controller, internals } = typeWordController([card]);
         const root = studyRoot();
         try {
-            internals.pitchOutcomes.set(cardKey(card), { position: 1, outcome: 'wrong' });
-            internals.typeOutcomes.set(cardKey(card), 'correct');
+            internals.studyStepStates.set(cardKey(card), {
+                pitch: { position: 1, outcome: 'wrong' },
+                type: { outcome: 'correct' },
+            });
             internals.state.revealAnswer = true;
             internals.renderWord(root, card);
             const suggested = root.querySelector<HTMLElement>('[data-grade][data-suggested="true"]');
