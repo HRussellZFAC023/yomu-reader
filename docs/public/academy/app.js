@@ -1014,38 +1014,6 @@
   function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
-  class BrowserSpeechPronunciationService {
-    constructor(director) {
-      this.director = director;
-    }
-    async play(term, reading) {
-      if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
-        throw new Error("Japanese browser speech is unavailable.");
-      }
-      await this.director.unlock();
-      const releaseDuck = this.director.beginExternalLesson();
-      let disposed = false;
-      const utterance = new SpeechSynthesisUtterance(reading?.trim() || term.trim());
-      utterance.lang = "ja-JP";
-      utterance.rate = 0.84;
-      utterance.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
-      const release = () => {
-        if (disposed) return;
-        disposed = true;
-        releaseDuck();
-      };
-      utterance.addEventListener("end", release, { once: true });
-      utterance.addEventListener("error", release, { once: true });
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-      return {
-        dispose() {
-          if (!disposed) speechSynthesis.cancel();
-          release();
-        }
-      };
-    }
-  }
   class BrowserMediaBus {
     media;
     operation = 0;
@@ -2357,6 +2325,95 @@
       storage,
       releaseMode: true
     });
+  }
+  class BrowserSpeechPronunciationService {
+    constructor(director) {
+      this.director = director;
+    }
+    async play(term, reading) {
+      if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
+        throw new Error("Japanese browser speech is unavailable.");
+      }
+      await this.director.unlock();
+      const releaseDuck = this.director.beginExternalLesson();
+      let disposed = false;
+      const utterance = new SpeechSynthesisUtterance(reading?.trim() || term.trim());
+      utterance.lang = "ja-JP";
+      utterance.rate = 0.84;
+      utterance.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
+      const release = () => {
+        if (disposed) return;
+        disposed = true;
+        releaseDuck();
+      };
+      utterance.addEventListener("end", release, { once: true });
+      utterance.addEventListener("error", release, { once: true });
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+      return {
+        dispose() {
+          if (!disposed) speechSynthesis.cancel();
+          release();
+        }
+      };
+    }
+  }
+  const TTS_ENDPOINT = "https://audio.yomureader.com/audio/tts";
+  class WorkerTtsPronunciationService {
+    constructor(director, fallback = new BrowserSpeechPronunciationService(director)) {
+      this.director = director;
+      this.fallback = fallback;
+    }
+    fallback;
+    cache = /* @__PURE__ */ new Map();
+    audio = null;
+    async play(term, reading) {
+      const cacheKey = `${term.trim()}|${(reading ?? "").trim()}`;
+      let objectUrl = this.cache.get(cacheKey);
+      if (!objectUrl) {
+        const fetchedObjectUrl = await this.fetchObjectUrl(term, reading);
+        if (!fetchedObjectUrl) return this.fallback.play(term, reading);
+        objectUrl = fetchedObjectUrl;
+        this.cache.set(cacheKey, objectUrl);
+      }
+      await this.director.unlock();
+      const releaseDuck = this.director.beginExternalLesson();
+      let disposed = false;
+      const release = () => {
+        if (disposed) return;
+        disposed = true;
+        releaseDuck();
+      };
+      const element2 = this.audio ?? (this.audio = new Audio());
+      element2.pause();
+      element2.src = objectUrl;
+      element2.volume = this.director.settings.muted ? 0 : this.director.settings.volumes.lesson;
+      element2.addEventListener("ended", release, { once: true });
+      element2.addEventListener("error", release, { once: true });
+      try {
+        await element2.play();
+      } catch (error) {
+        release();
+        return this.fallback.play(term, reading);
+      }
+      return {
+        dispose() {
+          if (!disposed) element2.pause();
+          release();
+        }
+      };
+    }
+    async fetchObjectUrl(term, reading) {
+      const params = new URLSearchParams({ term, reading: reading ?? term });
+      try {
+        const response = await fetch(`${TTS_ENDPOINT}?${params.toString()}`);
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return URL.createObjectURL(blob);
+      } catch {
+        return null;
+      }
+    }
   }
   function canonicalStudyCardKey(expression, reading = "") {
     return canonicalStudyCardIdentity(expression, reading).key;
@@ -28828,6 +28885,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (className) node2.className = className;
     return node2;
   }
+  function choiceToken(index) {
+    return `option-${index}`;
+  }
   function setBusy(button2, busy, label) {
     button2.disabled = busy;
     button2.setAttribute("aria-busy", String(busy));
@@ -29217,7 +29277,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       surface.setAttribute(STATE_ATTRIBUTE, state);
       return;
     }
-    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged && current === canonical) return;
+    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged && (current === canonical || renderedByReader)) return;
     if (current !== canonical) surface.textContent = canonical;
     if (visible) {
       surface.removeAttribute("data-jpdb-reader-surface-ignore");
@@ -37028,14 +37088,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     const scores = element("dl", "academy-score-grid");
     const rows = [
-      ["mockKnowledge", options.result.scores["language-knowledge"]],
-      ["mockReading", options.result.scores.reading],
-      ["mockListening", options.result.scores.listening],
-      ["mockSpeaking", options.result.scores["speaking-confidence"]],
-      ["mockWriting", options.result.scores["writing-confidence"]]
+      ["mockKnowledge", options.result.scores["language-knowledge"], "graded"],
+      ["mockReading", options.result.scores.reading, "graded"],
+      ["mockListening", options.result.scores.listening, "graded"],
+      ["mockSpeaking", options.result.scores["speaking-confidence"], "self-reported"],
+      ["mockWriting", options.result.scores["writing-confidence"], "self-reported"]
     ];
-    rows.forEach(([key2, value]) => {
-      scores.append(copyElement("dt", "", options.language, key2), scoreBar(value, options.language));
+    rows.forEach(([key2, value, kind]) => {
+      scores.append(copyElement("dt", "", options.language, key2), scoreBar(value, options.language, kind));
     });
     const recommendation = element("div", "academy-recommendation");
     recommendation.append(
@@ -37103,12 +37163,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     label.append(select2);
     return { label, select: select2 };
   }
-  function scoreBar(value, language) {
-    const row = element("dd", "academy-score");
-    const meter = element("span", "academy-score-meter");
+  function scoreBar(value, language, kind = "graded") {
+    const row = element("dd", kind === "self-reported" ? "academy-score academy-score-self-reported" : "academy-score");
+    const meter = element("span", kind === "self-reported" ? "academy-score-meter academy-score-meter-hollow" : "academy-score-meter");
     meter.style.setProperty("--academy-score", String(value));
     const copy2 = element("span", "academy-score-value");
-    copy2.textContent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 0 }).format(value);
+    if (kind === "self-reported") {
+      copy2.textContent = language === "ja" ? "自己申告" : "Self-reported";
+      row.setAttribute("aria-label", language === "ja" ? "自己申告（採点なし）" : "Self-reported, not graded");
+    } else {
+      copy2.textContent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 0 }).format(value);
+    }
     row.append(meter, copy2);
     return row;
   }
@@ -213633,10 +213698,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let complete = false;
     const readingSample = bookshopReadingSample(options);
     readingSample.hidden = true;
-    options.practice.choices.forEach((choice2) => {
+    options.practice.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-bookshop-answer");
       answer2.type = "button";
-      answer2.dataset.choiceId = choice2.id;
+      answer2.dataset.choiceId = choiceToken(index);
       const japanese2 = element("span", "academy-bookshop-answer-ja");
       japanese2.lang = "ja";
       japanese2.textContent = choice2.label.ja;
@@ -213647,6 +213712,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         answer2.append(support2);
       }
       answer2.addEventListener("click", () => {
+        if (question2.hidden) return;
         transcript.hidden = false;
         if (complete) return;
         if (choice2.id !== options.practice.correctChoiceId) {
@@ -213668,6 +213734,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       answers.append(answer2);
     });
     listen.addEventListener("click", () => {
+      if (question2.hidden) return;
       transcript.hidden = false;
       void (options.onListen?.(options.practice.audioLine) ?? Promise.resolve(false)).then((played) => {
         feedback2.textContent = played ? options.language === "ja" ? "音声を再生しました。返事を選びましょう。" : "Playing the question. Choose the reply." : options.language === "ja" ? "音声を再生できません。文字を読んで続けましょう。" : "Speech is unavailable. Read the question and continue.";
@@ -213765,10 +213832,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     choices2.setAttribute("aria-labelledby", title2.id);
     const orderScene = cafeOrderScene(options);
     let complete = false;
-    options.practice.choices.forEach((choice2) => {
+    options.practice.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-cafe-order-option");
       answer2.type = "button";
-      answer2.dataset.choiceId = choice2.id;
+      answer2.dataset.choiceId = choiceToken(index);
       const japanese2 = element("span", "academy-cafe-order-option-ja academy-assessed-japanese");
       japanese2.setAttribute("data-jpdb-reader-surface-ignore", "");
       japanese2.lang = "ja";
@@ -213981,10 +214048,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       tags.append(button2);
     });
-    options.practice.choices.forEach((choice2) => {
+    options.practice.choices.forEach((choice2, index) => {
       const button2 = element("button", "academy-world-practice-option");
       button2.type = "button";
-      button2.dataset.choiceId = choice2.id;
+      button2.dataset.choiceId = choiceToken(index);
       const japanese2 = element("span", "academy-world-practice-choice-ja");
       japanese2.lang = "ja";
       japanese2.textContent = choice2.label.ja;
@@ -214648,10 +214715,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     choices2.setAttribute("role", "group");
     choices2.setAttribute("aria-label", language === "ja" ? "答えを選ぶ" : "Choose an answer");
     let completed = false;
-    practice2.choices.forEach((choice2) => {
+    practice2.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-world-practice-option");
       answer2.type = "button";
-      answer2.dataset.choiceId = choice2.id;
+      answer2.dataset.choiceId = choiceToken(index);
       const japanese2 = element("span", "academy-world-practice-choice-ja");
       japanese2.lang = "ja";
       japanese2.textContent = choice2.label.ja;
@@ -214768,7 +214835,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     practice2.choices.forEach((choice2, index) => {
       const answer2 = element("button", "academy-world-practice-option academy-tube-route-option");
       answer2.type = "button";
-      answer2.dataset.choiceId = choice2.id;
+      answer2.dataset.choiceId = choiceToken(index);
       const marker = element("span", "academy-tube-route-marker");
       marker.setAttribute("aria-hidden", "true");
       marker.textContent = String(index + 1).padStart(2, "0");
@@ -215181,10 +215248,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const mountChoices = () => {
       if (choicesMounted) return;
       choicesMounted = true;
-      practice2.choices.forEach((choice2) => {
+      practice2.choices.forEach((choice2, index) => {
         const answer2 = element("button", "academy-world-practice-option");
         answer2.type = "button";
-        answer2.dataset.choiceId = choice2.id;
+        answer2.dataset.choiceId = choiceToken(index);
         const japanese2 = element("span", "academy-world-practice-choice-ja");
         japanese2.lang = "ja";
         japanese2.textContent = choice2.label.ja;
@@ -216028,9 +216095,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onPracticeComplete: (_practiceId, stampId, evaluation) => {
           this.locationAudio.succeed(place2);
           if (evaluation) void this.options.evidence.recordWorldPractice?.(evaluation);
-          void context2.go(context2.checkpoint.route, {
-            seenIntroductions: markIntroductionSeen(context2.checkpoint.seenIntroductions, stampId)
-          });
+          setTimeout(() => {
+            void context2.go(context2.checkpoint.route, {
+              seenIntroductions: markIntroductionSeen(context2.checkpoint.seenIntroductions, stampId)
+            });
+          }, 1200);
         },
         // Route-flow harnesses and older embedded hosts may not mount an audio director.
         // The in-world radio remains optional in that case instead of blocking travel.
@@ -216486,7 +216555,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
       this.databaseName = options.databaseName;
       this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
-      this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
+      this.pronunciation = options.pronunciation ?? new WorkerTtsPronunciationService(this.audio);
       this.shell = createAcademyShell(host2, {
         language: this.language,
         onLanguage: () => this.toggleLanguage(),
@@ -216672,7 +216741,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function routeContextUpdate(update) {
     const context2 = {};
-    const keys = ["selectedBand", "selectedFork", "placementOverride", "lessonId", "sectionId", "activityId"];
+    const keys = ["selectedBand", "selectedFork", "placementOverride", "lessonId", "sectionId", "activityId", "worldPlace"];
     for (const key2 of keys) {
       if (Object.hasOwn(update, key2)) Object.assign(context2, { [key2]: update[key2] });
     }

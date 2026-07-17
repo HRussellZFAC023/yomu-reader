@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.175] - 2026-07-17
+
+### Fixed
+
+- Truncating labels that receive their clipping styles late (mobile YouTube renders its chrome in stages) are now re-examined once the page settles, so detached furigana can no longer sit inside a freshly clipped label and squeeze its text into an ellipsis, and readings anchored before a late layout shift no longer float away from their word.
+
 ## [1.6.174] - 2026-07-17
 
 ### Fixed

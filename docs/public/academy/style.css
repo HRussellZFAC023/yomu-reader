@@ -23930,6 +23930,23 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     content: "";
 }
 
+/* Self-reported confidence is not a graded measurement: no fill, no percent,
+   a dashed outline standing in for the solid meter used by graded skills. */
+.academy-score-meter-hollow {
+    border: 1px dashed rgba(255, 255, 255, 0.38);
+    background: transparent;
+}
+
+.academy-score-meter-hollow::after {
+    display: none;
+}
+
+.academy-score-self-reported .academy-score-value {
+    color: var(--academy-ink-muted);
+    font-size: 0.78em;
+    font-style: italic;
+}
+
 .academy-recommendation {
     display: flex;
     align-items: center;
@@ -28131,6 +28148,15 @@ html.jpdb-reader-doodle-active * {
     min-height: 100dvh;
     color: #fffdf5;
     background: #1d2723;
+}
+
+/* Belt: place-owned `display` rules (grid/flex/block) are author-stylesheet
+   declarations at the same specificity as the UA `[hidden] { display: none }`
+   default, so an unqualified `.foo { display: grid }` silently wins and
+   defeats the native hidden attribute. Guarantee hidden always wins inside
+   world screens; the JS-side state gate remains the primary control. */
+.academy-world-screen [hidden] {
+    display: none !important;
 }
 
 .academy-world-screen .academy-background { z-index: -2; }
@@ -38554,21 +38580,33 @@ html.jpdb-reader-doodle-active * {
         linear-gradient(0deg, rgba(8, 29, 21, 0.5), transparent 48%);
 }
 
+/* The canopy landmark reaches into the top-left corner where the place card
+   and first exit chip live. Those are plain in-flow (non-positioned) content,
+   so a positive z-index here always paints the scene marks over them
+   regardless of DOM order. A negative z-index keeps the canopy/ribbon/bench
+   layered correctly against the background and characters while letting the
+   card and exit chips paint over it, so the decorative scene never covers an
+   interactive control. */
 .academy-world-screen[data-current-place='park'] .academy-world-living-scene {
     display: block;
-    z-index: 2;
+    z-index: -1;
 }
 
+/* The canopy is scenery, not chrome. Keep it clear of the left column (place
+   card, exit chips) whose translucent paper would let a hard-edged bright
+   polygon wash through, and fade its silhouette out instead of cutting it
+   with a hard clip edge. */
 .academy-world-screen[data-current-place='park'] .academy-world-scene-mark[data-landmark='plane-trees'] {
     top: 0;
-    left: -6%;
-    width: 76%;
-    height: 38%;
-    border-bottom: 8px solid rgba(199, 220, 105, 0.42);
+    left: 24%;
+    width: 52%;
+    height: 30%;
     background:
         repeating-linear-gradient(118deg, transparent 0 54px, rgba(42, 92, 54, 0.64) 55px 61px, transparent 62px 104px),
         linear-gradient(165deg, rgba(160, 198, 76, 0.7), rgba(45, 108, 60, 0.2));
     clip-path: polygon(0 4%, 19% 0, 35% 13%, 51% 3%, 70% 15%, 87% 4%, 100% 16%, 95% 77%, 74% 67%, 55% 88%, 34% 69%, 12% 84%, 0 67%);
+    -webkit-mask-image: radial-gradient(ellipse 72% 88% at 50% 8%, #000 46%, transparent 82%);
+    mask-image: radial-gradient(ellipse 72% 88% at 50% 8%, #000 46%, transparent 82%);
     animation: academy-park-canopy-settle 620ms 70ms ease-out both;
 }
 
@@ -39132,6 +39170,32 @@ html.jpdb-reader-doodle-active * {
     border-left: 4px solid #e8624e;
     color: #f1fff6;
     background: rgba(4, 30, 30, 0.9);
+}
+
+/* Every other place scopes a base size/typography rule directly on the
+   shared `.academy-world-character-presence` caption; konbini only carried
+   the accent colours above, so on desktop the caption fell back to an
+   unconstrained figcaption block that washed over the exit list. Match the
+   compact, absolutely-positioned treatment used elsewhere (e.g. home).
+   Desktop-scoped: the max-width 760px rule below already pins the mobile
+   caption to the top corner of the silhouette. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='konbini'] .academy-world-character-presence {
+        position: absolute;
+        top: auto;
+        right: 8px;
+        bottom: 44px;
+        left: 8px;
+        z-index: 2;
+        width: auto;
+        max-width: 220px;
+        margin: 0 auto;
+        padding: 5px 9px;
+        font-size: 0.68rem;
+        line-height: 1.25;
+        text-align: center;
+        text-shadow: 0 1px 8px rgba(4, 20, 20, 0.85);
+    }
 }
 
 @media (min-width: 761px) {
@@ -44852,6 +44916,224 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
+}
+
+/* Cohesion pass (final layer): one visual grammar for recurring primitives
+   across every world location, so places differ by accent and scene — not by
+   component style. */
+
+/* 1. Speaker names use the same ink tag as the VN stage (dark tab, accent
+      inset, angled cut) everywhere; places keep their own layout/margins. */
+.academy-world-screen .academy-world-arrival-speaker,
+.academy-world-screen[data-current-place] .academy-world-arrival-speaker,
+.academy-world-screen[data-current-place] .academy-world-arrival-dialogue .academy-world-arrival-speaker,
+.academy-world-screen[data-scene-motif] .academy-world-arrival-speaker,
+.academy-world-screen .academy-world-action-speaker,
+.academy-world-screen[data-current-place] .academy-world-action-speaker,
+.academy-world-screen[data-current-place] .academy-world-action-dock[data-purpose-surface] .academy-world-action-speaker,
+.academy-world-screen[data-scene-motif] .academy-world-action-speaker {
+    position: relative;
+    width: fit-content;
+    min-width: 96px;
+    padding: 5px 22px 5px 14px;
+    color: #fff9ed;
+    background: #2b2823;
+    box-shadow: inset 4px 0 0 var(--world-accent, #5ea780);
+    clip-path: polygon(0 8%, 93% 0, 100% 70%, 94% 100%, 4% 94%);
+    font: 800 0.72rem/1.2 var(--academy-font);
+}
+
+/* 2. Object-card subtitles inherit their card's own ink so they stay readable
+      on dark accent cards (cafe radio) and paper cards alike. */
+.academy-world-screen .academy-world-object-detail,
+.academy-world-screen[data-current-place] .academy-world-object-detail,
+.academy-world-screen[data-scene-motif] .academy-world-object-detail {
+    color: inherit;
+    opacity: 0.82;
+}
+
+/* 3. Likeness-safe classmates render as one drawn paper-cutout figure (real
+      silhouette image via mask), tinted by the room accent, with a cut-paper
+      rim. Replaces the assorted per-place blob/polygon treatments. */
+.academy-world-screen .academy-world-character-silhouette,
+.academy-world-screen[data-current-place] .academy-world-character-silhouette,
+.academy-world-screen[data-scene-motif] .academy-world-character-silhouette {
+    border: 0;
+    border-radius: 0;
+    background:
+        radial-gradient(circle at 50% 11%, color-mix(in srgb, var(--world-accent, #6d7a6f) 34%, #43503f) 0 13%, transparent 14%),
+        linear-gradient(color-mix(in srgb, var(--world-accent, #58655a) 26%, #333f36) 0 24%, color-mix(in srgb, var(--world-accent, #43533f) 14%, #242d26) 24% 100%);
+    box-shadow: none;
+    clip-path: none;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%20300'%3E%3Cpath%20d='M60,11C71,11,79,19,79,31C79,40,75,47,69,51C69,54,70,56,73,58C85,63,94,70,97,82C100,93,100,104,99,116L96,160C95,175,95,190,96,205L98,258C98,273,97,287,95,300L25,300C23,287,22,273,22,258L24,205C25,190,25,175,24,160L21,116C20,104,20,93,23,82C26,70,35,63,47,58C50,56,51,54,51,51C45,47,41,40,41,31C41,19,49,11,60,11Z'/%3E%3C/svg%3E") center bottom / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%20300'%3E%3Cpath%20d='M60,11C71,11,79,19,79,31C79,40,75,47,69,51C69,54,70,56,73,58C85,63,94,70,97,82C100,93,100,104,99,116L96,160C95,175,95,190,96,205L98,258C98,273,97,287,95,300L25,300C23,287,22,273,22,258L24,205C25,190,25,175,24,160L21,116C20,104,20,93,23,82C26,70,35,63,47,58C50,56,51,54,51,51C45,47,41,40,41,31C41,19,49,11,60,11Z'/%3E%3C/svg%3E") center bottom / contain no-repeat;
+    filter: drop-shadow(0 0 1.5px rgba(241, 234, 215, 0.5)) drop-shadow(0 8px 16px rgba(6, 10, 9, 0.45));
+}
+
+/* 4. Desktop forces dialogue/action panels onto paper (rule above) — so their
+      text must use paper ink everywhere; per-place light "glass" text colors
+      (lab mint, ramen amber, park lime) are unreadable on paper. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place]:not([data-current-place='japan-centre']) :is(.academy-world-arrival-line, .academy-world-section-title, .academy-world-practice-prompt, .academy-world-transcript),
+    .academy-world-screen[data-current-place]:not([data-current-place='japan-centre']) .academy-world-action-dock[data-purpose-surface] :is(.academy-world-arrival-line, .academy-world-section-title, .academy-world-practice-prompt, .academy-world-transcript) {
+        color: #29271f;
+    }
+
+    .academy-world-screen[data-current-place]:not([data-current-place='japan-centre']) :is(.academy-world-arrival-support, .academy-world-activity-detail, .academy-world-curriculum, .academy-world-practice-support, .academy-world-practice-status),
+    .academy-world-screen[data-current-place]:not([data-current-place='japan-centre']) .academy-world-action-dock[data-purpose-surface] :is(.academy-world-arrival-support, .academy-world-activity-detail, .academy-world-curriculum, .academy-world-practice-support, .academy-world-practice-status) {
+        color: #5d564a;
+    }
+}
+
+/* 5. The current-place chip and the Back control share the same anchor
+      (top ~92px, right 286px); when Back is present, slide the chip left so
+      neither covers the other. */
+.academy-world-screen:has(.academy-world-back) .academy-world-map-current,
+.academy-world-screen[data-scene-motif]:has(.academy-world-back) .academy-world-map-current {
+    right: 384px;
+}
+
+/* 5b. On narrow phones the courtyard/classroom exit strip is a horizontally
+      scrollable route rail (overflow-x: auto) rather than a wrapped grid.
+      The next card already peeks in from the right edge, but with no visual
+      cue it reads as an abrupt crop rather than an intentional "swipe for
+      more" rail. Fade the trailing edge so the peek reads as a hint. */
+@media (max-width: 760px) {
+    .academy-world-screen[data-current-place='courtyard'] .academy-world-spatial-exits,
+    .academy-world-screen[data-current-place='classroom'] .academy-world-spatial-exits {
+        -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 30px), transparent 100%);
+        mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 30px), transparent 100%);
+    }
+}
+
+/* 7. A few recurring paper cards use a single uniform radius above the
+      3-15px asymmetric-corner ceiling, which reads as a generic rounded
+      card rather than folded paper (F174). Bring them into the grammar. */
+.academy-character-unlock-card,
+.academy-recommendation,
+.academy-journal-locked,
+.academy-doodle {
+    border-radius: 4px 12px 6px 9px;
+}
+
+/* 8. Cafeteria shares the cafe scene/photo but has no dedicated color pass
+      of its own, so its reward notice falls through to the generic
+      translucent --world-paper token and reads cool/grey blended over the
+      dark rainy window behind it (F073). Force it onto the same solid warm
+      paper the sibling cafe room already uses. */
+.academy-world-screen[data-current-place='cafeteria'] .academy-world-reward {
+    background: #f3e8c8 !important;
+}
+.academy-world-screen[data-current-place='cafeteria'] .academy-world-reward-label {
+    color: #231f20;
+}
+.academy-world-screen[data-current-place='cafeteria'] .academy-world-reward-use {
+    color: #5c625c;
+}
+
+/* 8. The mobile bottom exit rail (courtyard/classroom) tints its strip and
+      tiles with a raw navy-black rather than the world ink token, so it
+      reads as generic dark app-bar chrome instead of a posted route strip
+      (F026/F091). Shift both to the warm-charcoal + accent grammar and give
+      the tiles an asymmetric corner so they read as paper slips, not a
+      uniform tile wall (F025/F090). */
+@media (max-width: 760px) {
+    .academy-world-screen[data-current-place='courtyard'] .academy-world-spatial-exits,
+    .academy-world-screen[data-current-place='classroom'] .academy-world-spatial-exits {
+        background: color-mix(in srgb, var(--academy-night) 88%, var(--world-accent, #5ea780) 12%);
+        border-top-color: color-mix(in srgb, var(--world-accent, #5ea780) 55%, transparent);
+    }
+
+    .academy-world-screen[data-current-place='courtyard'] .academy-world-map-routes .academy-world-exit,
+    .academy-world-screen[data-current-place='classroom'] .academy-world-map-routes .academy-world-exit {
+        background: color-mix(in srgb, var(--academy-night) 90%, var(--world-accent, #5ea780) 10%);
+        border-radius: 3px 9px 4px 7px;
+    }
+}
+
+/* 9. The dialogue-slip advance action (`Read the notice` / `Read the board`
+      / etc.) is a flat 0-radius rectangle everywhere — it is the one
+      recurring primary action that never picked up the paper geometry
+      token. Give it the same asymmetric-corner + offset-shadow treatment as
+      other choice slips (F092), without touching per-place colour.
+      NOTE: the desktop override in world.css (`.academy-world-screen[data-
+      current-place] .academy-world-arrival-continue { border-radius: 0;
+      box-shadow: 2px 3px 0 rgba(4,9,10,.2); }`) has equal specificity and
+      was silently winning the tie by sitting later in world.css, so the
+      un-scoped selector above never actually rendered (verified live at
+      1440x900 — computed border-radius stayed 0px). Match that selector's
+      specificity here so this (loaded last) wins instead (F082). */
+.academy-world-arrival-continue,
+.academy-world-screen[data-current-place] .academy-world-arrival-continue {
+    border-radius: 3px 10px 4px 8px;
+    box-shadow: 2px 3px 0 rgba(10, 11, 9, 0.22);
+}
+
+/* 10. Lab and street base plates were pure blue-dominant navy (#071923,
+      #15212a), violating the "never cold navy" token rule (VISUAL-SYSTEM.md
+      line 9) and pulling their room accents (#75ded1 cyan, #9dc8dc blue) off
+      the sanctioned --academy-accent green (F027/F028). Rebase both onto a
+      warm-neutral mix of --academy-night/--academy-accent so the rooms keep
+      a distinct, cooler-lit identity without crossing into navy or
+      generic-electronic cyan. Same selectors/specificity as world.css so
+      this (loaded last) wins the cascade. Konbini/station/home still carry
+      the same pattern and want the identical treatment in a follow-up pass. */
+.academy-world-screen[data-current-place='lab'] {
+    --world-accent: color-mix(in srgb, var(--academy-accent) 58%, #6fd8c8 42%);
+    background: color-mix(in srgb, var(--academy-night) 76%, #2f6e64 24%);
+}
+
+.academy-world-screen[data-current-place='street'] {
+    --world-accent: color-mix(in srgb, var(--academy-accent) 55%, #9dc8dc 45%);
+    background: color-mix(in srgb, var(--academy-night) 80%, #35342a 20%);
+}
+
+/* 11. Access-gate CTAs inherit the shared .academy-button pill primitive
+      (border-radius: 999px, shell.css), which reads as generic app/SaaS
+      chrome rather than a living-paper choice slip (F075/F120). Give the
+      two gate actions the same asymmetric-corner + offset-shadow language
+      as the start-screen route choices, scoped to this screen only so the
+      shared .academy-button used everywhere else is untouched. */
+.academy-access-actions .academy-button {
+    border-radius: 3px;
+    clip-path: polygon(0 7%, 98% 0, 100% 82%, 97% 100%, 2% 96%);
+}
+
+/* 12. The desktop world-chrome pass (world.css, @media (min-width: 761px))
+      tints exit cards and the character/nameplate tag with rgba(8,17,19,*)
+      — a cold, blue-leaning navy, not the documented warm charcoal ink
+      (--academy-night #181b18 / rgb(24,27,24)). Against the courtyard's
+      night art this reads as "cold navy-black dominates" (F019/F176).
+      Rebase to the warm token at the same alpha; same selectors/specificity
+      as world.css so this (loaded last) wins the cascade. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place] .academy-world-character-action,
+    .academy-world-screen[data-current-place] .academy-world-character figcaption.academy-world-character-name {
+        background: rgba(24, 27, 24, 0.74) !important;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-exit {
+        background: rgba(24, 27, 24, 0.66) !important;
+    }
+}
+
+.academy-access-actions .academy-button-primary {
+    box-shadow: 3px 4px 0 color-mix(in srgb, var(--academy-accent) 28%, rgba(83, 69, 47, 0.18));
+}
+
+/* 13. The current-place pill (top-center room label, e.g. "教室") renders as
+      a flat 0-radius rectangle with no clip-path in every room's desktop
+      chrome (world.css @media (min-width: 761px), e.g. the classroom
+      override at .academy-world-screen[data-current-place='classroom']
+      .academy-world-map-current), while its neighbour the Back control
+      already carries an angled cut-paper shape — the two adjacent top-right
+      controls read as one posted slip next to one generic SaaS chip
+      (F085). Give the pill the same angled cut. Station already has its
+      own intentional clip-path (ticket-stub cut) — excluded so this does
+      not clobber it. Matches world.css's per-place selector specificity so
+      this (loaded last) wins the cascade tie, same technique as item 9. */
+.academy-world-screen[data-current-place]:not([data-current-place='station']) .academy-world-map-current {
+    clip-path: polygon(4% 0, 100% 7%, 96% 93%, 0 100%);
 }
 .academy-advanced-arrival-screen .academy-panel {
     max-width: min(72rem, calc(100vw - 2rem));
