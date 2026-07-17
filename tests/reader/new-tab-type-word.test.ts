@@ -6,7 +6,7 @@ import { createNewTabStudySession } from '../../src/reader/newtab/study-session'
 import { suggestedStudyGrade } from '../../src/reader/newtab/study-outcomes';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 
 function typeCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -72,8 +72,7 @@ function typeWordController(
     overrides: Partial<ConstructorParameters<typeof NewTabController>[0]> = {},
 ) {
     const mergedSettings: ReaderSettings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'en',
+        ...testEnSettings(),
         enableReviews: true,
         jpdbMiningEnabled: true,
         apiKey: 'jpdb-key',

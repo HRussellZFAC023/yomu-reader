@@ -15,10 +15,11 @@ import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../src/reader/settings/dialog-controller';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { testEnSettings } from './helpers/settings-fixture';
 
-// These tests assert English UI copy; pin the interface language since the
-// shipped default is now 'ja'.
-const DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' as const };
+// These tests assert English UI copy; pin the interface language for
+// deterministic string assertions regardless of the runtime default.
+const DEFAULT_SETTINGS = testEnSettings();
 
 function compositeOverWhiteHex(color: string): string {
     const foreground = cssColorToRgba(color);

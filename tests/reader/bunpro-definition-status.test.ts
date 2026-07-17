@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { searchWordDetailHtml } from '../../src/reader/newtab/search-view';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 type LoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
@@ -142,7 +143,7 @@ describe('Bunpro definition absence status', () => {
             jpdbVocabularyInfo: null,
             bunproDefinitionStatus: { state: 'no-match', reason: 'reading-mismatch' },
         }, {
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }),
+            getSettings: () => (testEnSettings()),
             text: key => key,
             sourceAttributes: () => '',
             dictionaryLabel: name => name,

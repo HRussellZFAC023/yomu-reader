@@ -15,6 +15,7 @@ import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT } from '../../src/reader/k
 import { assessKanjiStrokes, rankKanjiStrokeCandidates } from '../../src/reader/kanji/stroke-grader';
 import { createReaderPopover } from '../../src/reader/popup/shell';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 
 const WORD_ONLY_STUDY_DISABLED_STEPS: typeof BASE_DEFAULT_SETTINGS.newTabStudyDisabledSteps = [
     'kanji-doodle',
@@ -33,9 +34,8 @@ const REVIEW_SUITE_STUDY_STEP_ORDER: typeof BASE_DEFAULT_SETTINGS.newTabStudySte
 // These tests assert English UI copy and mostly cover the old review/front-card
 // behavior; pin language while dedicated study tests cover the new kanji-first
 // merged flow.
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = {
-    ...BASE_DEFAULT_SETTINGS,
-    interfaceLanguage: 'en',
+const DEFAULT_SETTINGS = {
+    ...testEnSettings(),
     newTabStudyStepOrder: REVIEW_SUITE_STUDY_STEP_ORDER,
     newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
 };

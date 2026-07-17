@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AnkiExistingNote } from '../../src/reader/anki/index';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import {
     existingAnkiNote,
@@ -186,8 +186,7 @@ function expectSafeRenderedAnkiFixture(section: ParentNode): void {
 
 function ankiRenderSettings(): ReaderSettings {
     return {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'en',
+        ...testEnSettings(),
         ankiEnabled: true,
         ankiSectionEnabled: true,
         enableReviews: false,

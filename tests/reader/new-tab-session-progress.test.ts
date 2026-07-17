@@ -5,11 +5,11 @@ import {
     sessionProgressSourcesForCard,
 } from '../../src/reader/newtab/session-progress';
 import { createStudySessionClock, formatStudySessionRemaining } from '../../src/reader/newtab/session-clock';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const DEFAULT_SETTINGS = testEnSettings();
 import type { JPDBCard } from '../../src/reader/app/types';
 
 function progressCard(overrides: Partial<JPDBCard> = {}): JPDBCard {

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import { withViewport } from './helpers/browser-fixtures';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const DEFAULT_SETTINGS = testEnSettings();
 import type { CardState, JPDBToken } from '../../src/reader/app/types';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 

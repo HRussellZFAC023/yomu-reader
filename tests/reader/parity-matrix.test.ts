@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { newTabDueSummary, shouldReplaceKanjiStudyCard } from '../../src/reader/newtab/card-selection';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../../src/reader/app/types';
 
 // One table-driven matrix over the cross-provider behaviors the backlog's
@@ -11,7 +11,7 @@ import type { JPDBCard, JPDBGrade, ReaderSettings } from '../../src/reader/app/t
 // holds for every provider rather than re-testing provider internals (those
 // live in their own suites).
 
-const DEFAULT_SETTINGS: ReaderSettings = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const DEFAULT_SETTINGS: ReaderSettings = testEnSettings();
 
 function matrixCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {

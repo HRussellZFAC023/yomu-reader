@@ -9,11 +9,11 @@ vi.mock('../../src/reader/dom/index', async () => {
     return { ...actual, makeRoomForRubyInCroppedRows: (root: ParentNode = document) => { rubyRoomSpy(root); return 0; } };
 });
 
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBToken } from '../../src/reader/app/types';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const DEFAULT_SETTINGS = testEnSettings();
 
 type Deps = ConstructorParameters<typeof VisiblePageScanner>[0];
 

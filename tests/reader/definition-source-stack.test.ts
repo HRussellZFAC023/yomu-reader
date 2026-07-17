@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
@@ -119,7 +120,7 @@ describe('definition source stack', () => {
             source: 'jpdb',
             spelling: '復習',
             reading: 'ふくしゅう',
-        }), { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }, undefined, null, [
+        }), testEnSettings(), undefined, null, [
             {
                 expression: '復習',
                 reading: 'ふくしゅう',

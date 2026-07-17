@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
-import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 import { localizeSettingsForm, renderSettingsForm } from '../../src/reader/settings/form';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
-const DEFAULT_SETTINGS: ReaderSettings = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+const DEFAULT_SETTINGS: ReaderSettings = testEnSettings();
 
 afterEach(() => {
     document.body.replaceChildren();

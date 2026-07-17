@@ -63,11 +63,12 @@ import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../src/reader/kanji/rtk';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
+import { DEFAULT_AUDIO_SOURCES, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 
-// These tests assert English UI copy; pin the interface language since the
-// shipped default is now 'ja'.
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
+// These tests assert English UI copy; pin the interface language for
+// deterministic string assertions regardless of the runtime default.
+const DEFAULT_SETTINGS = testEnSettings();
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings/form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/app/site-parsers';
 import { KANJI_STROKE_SOURCE_ID, KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';

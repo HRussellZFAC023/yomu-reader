@@ -7,6 +7,7 @@ import {
 } from '../../src/reader/newtab/controller-config';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard } from '../../src/reader/app/types';
+import { testEnSettings } from './helpers/settings-fixture';
 
 type NewTabControllerOptions = ConstructorParameters<typeof NewTabController>[0];
 type WarmInternals = {
@@ -17,10 +18,7 @@ type WarmInternals = {
     offlineWarmTotal: number;
 };
 
-const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = {
-    ...BASE_DEFAULT_SETTINGS,
-    interfaceLanguage: 'en',
-};
+const DEFAULT_SETTINGS = testEnSettings();
 
 function warmTestCard(index: number): JPDBCard {
     return {

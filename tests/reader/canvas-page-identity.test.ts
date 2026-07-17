@@ -28,7 +28,7 @@ import {
 } from '../../src/reader/ocr/canvas-page-identity';
 import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
 import { canvasMirrorTurnToken } from '../../src/reader/ocr/canvas-mirror';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { waitForExpect } from './test-utils';
 
@@ -131,8 +131,7 @@ function createController(
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
-            ...DEFAULT_SETTINGS,
-            interfaceLanguage: 'en',
+            ...testEnSettings(),
             ocrEnabled: true,
             ocrAutoScanImages: true,
             ocrMinImageArea: 1,

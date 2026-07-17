@@ -4,7 +4,7 @@ import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
 import { captureCanvasMirror as captureRealCanvasMirror, mirrorContentTokenForRecords } from '../../src/reader/ocr/canvas-mirror';
 import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { waitForExpect } from './test-utils';
@@ -63,8 +63,7 @@ function createController(
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
-            ...DEFAULT_SETTINGS,
-            interfaceLanguage: 'en',
+            ...testEnSettings(),
             ocrEnabled: true,
             ocrAutoScanImages: true,
             ocrMinImageArea: 1,

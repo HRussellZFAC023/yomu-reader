@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { testEnSettings } from './helpers/settings-fixture';
 import { isEditableEventContext, isEditableTarget } from '../../src/reader/ui/browser';
 
 interface ReaderShortcutInternals {
@@ -68,8 +69,7 @@ describe('reader shortcuts', () => {
         const toast = vi.fn();
 
         internals.settings = {
-            ...DEFAULT_SETTINGS,
-            interfaceLanguage: 'en',
+            ...testEnSettings(),
             subtitleOverlayVisible: false,
             shortcuts: {
                 ...DEFAULT_SETTINGS.shortcuts,

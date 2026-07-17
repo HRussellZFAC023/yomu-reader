@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 
 function recallCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -47,8 +47,7 @@ function recallRoot(): HTMLElement {
 
 function recallController(card: JPDBCard, settings: Partial<ReaderSettings> = {}, deps: Partial<NewTabController['dependencies']> = {}) {
     const mergedSettings: ReaderSettings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'en',
+        ...testEnSettings(),
         enableReviews: true,
         jpdbMiningEnabled: true,
         apiKey: 'jpdb-key',

@@ -7,6 +7,7 @@ import { pitchItemKey, type PitchSrsItem } from '../../src/reader/newtab/pitch-s
 import { renderListenCard, type ListenCardView } from '../../src/reader/newtab/listen-render';
 import { newTabText } from '../../src/reader/newtab/i18n';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { testEnSettings } from './helpers/settings-fixture';
 
 // 箸 = atamadaka (downstep 1) for the 2-mora reading はし.
 function pitchCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -64,8 +65,7 @@ interface ListenInternals {
 function listenController(cards: JPDBCard[], subMode: 'perceive' | 'recall' | 'shadow', settings: Partial<ReaderSettings> = {}, deps: Record<string, unknown> = {}) {
     const playWordAudio = vi.fn(async () => undefined);
     const mergedSettings: ReaderSettings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'en',
+        ...testEnSettings(),
         enableReviews: true,
         jpdbMiningEnabled: true,
         apiKey: 'jpdb-key',
