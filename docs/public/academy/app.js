@@ -242442,6 +242442,27 @@ ${options.version}`;
     requestIdleCallback.call(window, callback2, { timeout: timeoutMs });
     return true;
   }
+  class OperationTracker {
+    latest = /* @__PURE__ */ new Map();
+    begin(scope2) {
+      const previous = this.latest.get(scope2);
+      if (previous) previous.superseded = true;
+      const token = { superseded: false };
+      this.latest.set(scope2, token);
+      return token;
+    }
+  }
+  class BoundedMap extends Map {
+    constructor(maxSize) {
+      super();
+      this.maxSize = maxSize;
+    }
+    set(key2, value) {
+      super.set(key2, value);
+      pruneOldestCacheEntries(this, this.maxSize);
+      return this;
+    }
+  }
   function runningAsBrowserExtension() {
     const global = globalThis;
     try {
@@ -246960,6 +246981,12 @@ ${entry2.url}`),
   const QUEUE_REFRESH_GRADE_INTERVAL = 10;
   const QUEUE_REFRESH_MAX_AGE_MS = 6e4;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
+  const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
+  const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
+  const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
+  const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
+  const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
+  const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
   const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1e3;
   function orderedNewTabStatsProviderLabel(results) {
@@ -247181,19 +247208,21 @@ ${entry2.url}`),
     // n+1 sentence selection: once per card the example sentences from every
     // source are scored against the learner's known words and the best one
     // (all known + at most one new word) replaces the card's own sentence.
-    studySentenceOverrides = /* @__PURE__ */ new Map();
+    studySentenceOverrides = new BoundedMap(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     nPlusOneSentenceRequests = /* @__PURE__ */ new Set();
     // Set once the user chooses "Continue offline" in the connection-lost
     // dialog; later drops in the same outage queue silently. Cleared when the
     // browser reports it is back online so the next outage asks again.
     offlineReviewingAccepted = false;
-    uchisenDataCache = /* @__PURE__ */ new Map();
-    immersionCache = /* @__PURE__ */ new Map();
-    immersionExampleIndex = /* @__PURE__ */ new Map();
-    frontSentenceCache = /* @__PURE__ */ new Map();
+    uchisenDataCache = new BoundedMap(NEW_TAB_KANJI_DATA_CACHE_LIMIT);
+    immersionCache = new BoundedMap(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    // Rotation cursor into immersionCache's examples; bounded with the same limit
+    // so the two stay aligned (a dropped example set simply restarts at index 0).
+    immersionExampleIndex = new BoundedMap(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    frontSentenceCache = new BoundedMap(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     parsedSentenceCache = /* @__PURE__ */ new Map();
-    wordPitchCache = /* @__PURE__ */ new Map();
-    doodlePreviewCache = /* @__PURE__ */ new Map();
+    wordPitchCache = new BoundedMap(NEW_TAB_WORD_PITCH_CACHE_LIMIT);
+    doodlePreviewCache = new BoundedMap(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
     immersionPrefetchGeneration = 0;
     installPrompt = null;
     immersionAudioPlayer;
@@ -247210,8 +247239,11 @@ ${entry2.url}`),
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
     deckSelectorDecks;
+    // Latest-wins operation tracker (NB-41b). Migrated scopes: 'stats',
+    // 'sourceSwitch'. The remaining hand-maintained *Generation counters await
+    // the controller decomposition.
+    operations = new OperationTracker();
     loadGeneration = 0;
-    sourceSwitchGeneration = 0;
     searchGeneration = 0;
     searchDebounce;
     searchQuery = "";
@@ -247228,8 +247260,8 @@ ${entry2.url}`),
     searchHandwritingStrokes = [];
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
-    searchHandwritingShapeCandidateCache = /* @__PURE__ */ new Map();
-    recallAnswers = /* @__PURE__ */ new Map();
+    searchHandwritingShapeCandidateCache = new BoundedMap(NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT);
+    studyStepStates = /* @__PURE__ */ new Map();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     pitchSrs = new PitchSrsStore();
     listenItem = null;
@@ -247249,31 +247281,9 @@ ${entry2.url}`),
     listenSpeakingScore = null;
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
-    recallOutcomes = /* @__PURE__ */ new Map();
-    // Pitch-selection pick per card (the chosen downstep position), persisted like
-    // the recall answer so it survives step navigation and folds into the single
-    // reveal — the pitch step feeds the same per-step outcome tracking as recall.
-    pitchOutcomes = /* @__PURE__ */ new Map();
-    // Type-word production: the in-progress typed answer, plus the FIRST-attempt
-    // outcome per card (recall grades reused; 'skipped' when the learner skips).
-    // First attempt counts — a later retry never rewrites the recorded outcome,
-    // matching the listen/pitch first-attempt convention.
-    typeAnswers = /* @__PURE__ */ new Map();
-    typeOutcomes = /* @__PURE__ */ new Map();
     // Handwriting sub-mode progress: how many leading characters of the target
     // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
     typeHandwritingProgress = /* @__PURE__ */ new Map();
-    // First-attempt pass/fail for the doodle and speaking steps, mirrored into the
-    // reveal summary. Neither step natively persisted a per-card outcome (doodle
-    // toggled a CSS class; speaking held a transient score), so these maps give
-    // the summary strip a stable, first-attempt source without re-deriving state.
-    doodleOutcomes = /* @__PURE__ */ new Map();
-    // First-attempt result per (card, kanji) — a word can hold several
-    // kanji-doodle steps, and each kanji's outcome must latch on its FIRST draw
-    // so a redraw of the same character never launders it. The card-level
-    // doodleOutcomes above is the "roughest draw wins" aggregate across kanji.
-    doodleFirstAttempt = /* @__PURE__ */ new Map();
-    speakingOutcomes = /* @__PURE__ */ new Map();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     studyHintDepth = /* @__PURE__ */ new Map();
@@ -247361,7 +247371,6 @@ ${entry2.url}`),
     statsActivityMetric = "reviews";
     statsSelectedDate = "";
     statsStudyFilter = null;
-    statsGeneration = 0;
     statsLoaded = false;
     statsDeckPrefsLoaded = false;
     statsDisabledAnkiDecks = /* @__PURE__ */ new Set();
@@ -247600,21 +247609,14 @@ ${entry2.url}`),
       this.studySentenceOverrides.clear();
       this.nPlusOneSentenceRequests.clear();
       this.doodlePreviewCache.clear();
-      this.recallAnswers.clear();
-      this.recallOutcomes.clear();
-      this.pitchOutcomes.clear();
-      this.typeAnswers.clear();
-      this.typeOutcomes.clear();
+      this.studyStepStates.clear();
       this.typeHandwritingProgress.clear();
-      this.doodleOutcomes.clear();
-      this.doodleFirstAttempt.clear();
-      this.speakingOutcomes.clear();
       this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsSnapshot = emptyStatsDashboardSnapshot();
       this.statsLoaded = false;
       this.statsSelectedDate = "";
-      this.statsGeneration++;
+      this.operations.begin("stats");
     }
     renderEnabledContent() {
       const brand = resolveNewTabBrandAssets(location.href);
@@ -247835,7 +247837,10 @@ ${entry2.url}`),
         const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
         if (typeInput && root.contains(typeInput)) {
           const card = this.visibleWords[this.index];
-          if (card) this.typeAnswers.set(cardKey(card), typeInput.value);
+          if (card) {
+            const state = this.ensureStepState(cardKey(card));
+            state.type = { ...state.type, answer: typeInput.value };
+          }
           return;
         }
         const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
@@ -249143,7 +249148,7 @@ ${entry2.url}`),
       if (this.statsLoaded && !force) return;
       await this.loadStatsDeckPrefs();
       const settings = this.dependencies.getSettings();
-      const generation2 = ++this.statsGeneration;
+      const statsOp = this.operations.begin("stats");
       this.statsSnapshot = {
         jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource("jpdb", "JPDB", this.text("statsApiKeyMissing"), "setup"),
         jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource("jiten", "Jiten", this.text("statsApiKeyMissing"), "setup"),
@@ -249161,7 +249166,7 @@ ${entry2.url}`),
         this.loadSrsAdapterStatsSource("yomu-local"),
         this.loadAnkiStatsSource()
       ]);
-      if (generation2 !== this.statsGeneration || !root.isConnected) return;
+      if (statsOp.superseded || !root.isConnected) return;
       const jpdbWithHistory = applyJpdbReviewImport(jpdb, history2);
       const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
       this.statsSnapshot = {
@@ -250224,9 +250229,6 @@ ${entry2.url}`),
     isCurrentLoad(loadGeneration) {
       return this.loadGeneration === loadGeneration;
     }
-    isCurrentSourceSwitch(sourceSwitchGeneration) {
-      return this.sourceSwitchGeneration === sourceSwitchGeneration;
-    }
     persistSourceSettingChange(source2) {
       return Promise.resolve().then(() => this.dependencies.onSettingsChange()).catch((error) => {
         log$6.warn("New-tab source update failed", { source: source2 }, error);
@@ -250253,7 +250255,7 @@ ${entry2.url}`),
     }
     async switchReviewSource(root, source2) {
       if (source2 === this.state.source && this.isRenderedReviewSource(source2)) return;
-      const sourceSwitchGeneration = ++this.sourceSwitchGeneration;
+      const sourceSwitchOp = this.operations.begin("sourceSwitch");
       const loadGeneration = ++this.loadGeneration;
       this.dependencies.dismiss({ suppressHoverTarget: false });
       const settings = this.dependencies.getSettings();
@@ -250266,7 +250268,7 @@ ${entry2.url}`),
       const cached = this.cachedSourceResult(source2);
       if (cached && this.canUseCachedResultForSourceSwitch(cached, source2)) {
         void this.persistSourceSettingChange(source2);
-        if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+        if (sourceSwitchOp.superseded) return;
         await this.applyLoadedWords(root, false, loadGeneration, cached, false, false, this.navigationGeneration);
         return;
       }
@@ -250277,7 +250279,7 @@ ${entry2.url}`),
       this.index = 0;
       this.setStatus(root, this.text("loading"));
       await this.persistSourceSettingChange(source2);
-      if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+      if (sourceSwitchOp.superseded) return;
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
     canUseCachedResultForSourceSwitch(result, source2) {
@@ -250892,7 +250894,7 @@ ${entry2.url}`),
       if (isNewCard || isSubModeChange) {
         this.listenItem = item2;
         this.listenRenderedSubMode = this.state.listenSubMode;
-        const prior = this.state.listenSubMode === "perceive" ? this.pitchOutcomes.get(cardKey(card)) ?? null : null;
+        const prior = this.state.listenSubMode === "perceive" ? this.stepState(cardKey(card))?.pitch ?? null : null;
         this.listenSelectedPosition = prior ? prior.position : null;
         this.listenRevealed = this.state.listenSubMode === "shadow" || Boolean(prior);
         this.listenOutcome = prior ? prior.outcome : null;
@@ -250999,7 +251001,7 @@ ${entry2.url}`),
       const correct2 = this.listenValidPositions(card, this.listenItem).has(position);
       this.listenRevealed = true;
       this.listenOutcome = correct2 ? "correct" : "wrong";
-      if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
+      if (card) this.ensureStepState(cardKey(card)).pitch = { position, outcome: this.listenOutcome };
       this.rerenderActiveListen();
       void this.playListenModelAudio();
     }
@@ -251188,9 +251190,9 @@ ${entry2.url}`),
       this.listenRecorder = void 0;
     }
     recordSpeakingOutcome(card, passed) {
-      const key2 = cardKey(card);
-      if (this.speakingOutcomes.has(key2)) return;
-      this.speakingOutcomes.set(key2, passed ? "correct" : "wrong");
+      const state = this.ensureStepState(cardKey(card));
+      if (state.speak) return;
+      state.speak = passed ? "correct" : "wrong";
     }
     clearListenSpeakingScore() {
       this.listenSpeakingScoreGeneration += 1;
@@ -252100,8 +252102,9 @@ ${entry2.url}`),
       if (!answer2) return;
       delete answer2.dataset.newtabAnswerDetailsRequest;
       const key2 = cardKey(card);
-      const value = this.recallAnswers.get(key2) ?? "";
-      const outcome = this.recallOutcomes.get(key2);
+      const recall = this.stepState(key2)?.recall;
+      const value = recall?.answer ?? "";
+      const outcome = recall?.outcome;
       const evaluation = evaluateNewTabRecallAnswer(card, value, newTabCardReading(card));
       answer2.dataset.recallOutcome = outcome ?? "pending";
       replaceChildrenWith(
@@ -252182,11 +252185,11 @@ ${entry2.url}`),
       const card = this.visibleWords[this.index];
       if (!card) return;
       const key2 = cardKey(card);
-      this.recallAnswers.set(key2, value);
+      const state = this.ensureStepState(key2);
       if (submitted) {
-        this.recallOutcomes.set(key2, evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome);
+        state.recall = { answer: value, outcome: evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome };
       } else {
-        this.recallOutcomes.delete(key2);
+        state.recall = { answer: value };
         root.querySelector("[data-newtab-recall-result]")?.remove();
         const answer2 = root.querySelector("[data-newtab-answer]");
         if (answer2) answer2.dataset.recallOutcome = "pending";
@@ -252198,8 +252201,7 @@ ${entry2.url}`),
       if (!card || !input2) return;
       input2.value = convertRomajiToKana(input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
-      this.recallAnswers.set(cardKey(card), input2.value);
-      this.recallOutcomes.set(cardKey(card), evaluation.outcome);
+      this.ensureStepState(cardKey(card)).recall = { answer: input2.value, outcome: evaluation.outcome };
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
         return;
@@ -252280,7 +252282,7 @@ ${entry2.url}`),
       if (!answer2) return;
       delete answer2.dataset.newtabAnswerDetailsRequest;
       const mode = this.typeWordInputMode();
-      const outcome = this.typeOutcomes.get(cardKey(card));
+      const outcome = this.stepState(cardKey(card))?.type?.outcome;
       answer2.dataset.typeWordMode = mode;
       answer2.dataset.typeWordOutcome = outcome ?? "pending";
       replaceChildrenWith(
@@ -252325,7 +252327,7 @@ ${entry2.url}`),
         el("input", {
           class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
           dataset: { newtabTypeInput: true },
-          value: this.typeAnswers.get(cardKey(card)) ?? "",
+          value: this.stepState(cardKey(card))?.type?.answer ?? "",
           placeholder: this.text("typeWordPlaceholder"),
           autocomplete: "off",
           autocapitalize: "none",
@@ -252439,7 +252441,10 @@ ${entry2.url}`),
       if (!card || !input2) return;
       input2.value = convertRomajiToKana(input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
-      this.typeAnswers.set(cardKey(card), input2.value);
+      {
+        const state = this.ensureStepState(cardKey(card));
+        state.type = { ...state.type, answer: input2.value };
+      }
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
         return;
@@ -252456,9 +252461,9 @@ ${entry2.url}`),
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
     recordTypeOutcome(card, outcome) {
-      const key2 = cardKey(card);
-      if (this.typeOutcomes.has(key2)) return;
-      this.typeOutcomes.set(key2, outcome);
+      const state = this.ensureStepState(cardKey(card));
+      if (state.type?.outcome !== void 0) return;
+      state.type = { ...state.type, outcome };
     }
     typeWordOutcomeLabel(outcome, card) {
       if (outcome === "correct") return `${this.text("recallCorrect")} · ${this.typeWordTarget(card)}`;
@@ -252824,7 +252829,8 @@ ${entry2.url}`),
         const active = this.visibleWords[this.index];
         const isCurrent = Boolean(root && active && cardKey(active) === key2);
         if (isCurrent) {
-          if (this.recallAnswers.get(key2) || this.typeAnswers.get(key2) || this.state.revealAnswer) return;
+          const stepState = this.stepState(key2);
+          if (stepState?.recall?.answer || stepState?.type?.answer || this.state.revealAnswer) return;
           const typed2 = root.querySelector("[data-newtab-type-input], [data-newtab-recall-input]");
           if (typed2?.value) return;
         }
@@ -253886,12 +253892,12 @@ ${entry2.url}`),
       this.autoSubmitDoodleAssessment(settings, assessment.passed, card);
     }
     recordDoodleOutcome(card, kanji, passed) {
-      const key2 = cardKey(card);
-      const attemptKey = `${key2}\0${kanji}`;
-      if (this.doodleFirstAttempt.has(attemptKey)) return;
-      this.doodleFirstAttempt.set(attemptKey, passed ? "correct" : "wrong");
-      if (this.doodleOutcomes.get(key2) === "wrong") return;
-      this.doodleOutcomes.set(key2, passed ? "correct" : "wrong");
+      const doodle = this.ensureStepState(cardKey(card)).doodle ??= {};
+      const firstAttempt = doodle.firstAttempt ??= /* @__PURE__ */ new Map();
+      if (firstAttempt.has(kanji)) return;
+      firstAttempt.set(kanji, passed ? "correct" : "wrong");
+      if (doodle.outcome === "wrong") return;
+      doodle.outcome = passed ? "correct" : "wrong";
     }
     autoSubmitDoodleAssessment(settings, passed, expectedCard) {
       if (settings.enableReviews && settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
@@ -255358,22 +255364,36 @@ ${entry2.url}`),
         return;
       }
     }
+    // Read the consolidated per-card study-step state (NB-41a), or undefined when
+    // the card has no recorded step interaction yet.
+    stepState(key2) {
+      return this.studyStepStates.get(key2);
+    }
+    // Read-or-create the consolidated per-card study-step state for mutation.
+    ensureStepState(key2) {
+      let state = this.studyStepStates.get(key2);
+      if (!state) {
+        state = {};
+        this.studyStepStates.set(key2, state);
+      }
+      return state;
+    }
     // Gather each study step's first-attempt mini-outcome for THIS card, drawing
     // from the same per-step maps the individual steps write. Steps with no
     // recorded result are omitted (undefined), so the summary + suggestion only
     // reflect what the learner actually did.
     studyStepOutcomesForCard(card) {
-      const key2 = cardKey(card);
+      const state = this.stepState(cardKey(card));
       const outcomes2 = {};
-      const doodle = this.doodleOutcomes.get(key2);
+      const doodle = state?.doodle?.outcome;
       if (doodle) outcomes2["kanji-doodle"] = doodle;
-      const recall = this.recallOutcomes.get(key2);
+      const recall = state?.recall?.outcome;
       if (recall) outcomes2["recall-cloze"] = recallOutcomeToStepOutcome(recall);
-      const pitch = this.pitchOutcomes.get(key2);
+      const pitch = state?.pitch;
       if (pitch) outcomes2["listen-pitch"] = pitch.outcome === "correct" ? "correct" : "wrong";
-      const speaking = this.speakingOutcomes.get(key2);
+      const speaking = state?.speak;
       if (speaking) outcomes2.speaking = speaking;
-      const type = this.typeOutcomes.get(key2);
+      const type = state?.type?.outcome;
       if (type) outcomes2["type-word"] = type === "skipped" ? "skipped" : recallOutcomeToStepOutcome(type);
       return outcomes2;
     }

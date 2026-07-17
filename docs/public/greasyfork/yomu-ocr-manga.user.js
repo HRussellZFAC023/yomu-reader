@@ -2730,8 +2730,1725 @@
   function ocrRuntimeActive(settings) {
     return settings.ocrEnabled && !settings.annotationsPaused;
   }
+  function invertedCanvas(canvas) {
+    try {
+      const inverted = document.createElement("canvas");
+      inverted.width = canvas.width;
+      inverted.height = canvas.height;
+      const context = inverted.getContext("2d");
+      if (!context) return canvas;
+      context.filter = "invert(1)";
+      context.drawImage(canvas, 0, 0);
+      return inverted;
+    } catch {
+      return canvas;
+    }
+  }
+  const DARK_FIELD_SIZE = 48;
+  const DARK_LUMINANCE = 90;
+  const DARK_REGION_TRIGGER = 0.1;
+  const DARK_LINE_MEAN_LUMINANCE = 110;
+  function buildLuminanceField(image) {
+    try {
+      if (!image.naturalWidth || !image.naturalHeight) return null;
+      const size = DARK_FIELD_SIZE;
+      const sample = document.createElement("canvas");
+      sample.width = size;
+      sample.height = size;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      if (!context) return null;
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      const lum = new Uint8Array(size * size);
+      let opaque = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        if (data[i + 3] >= 8) opaque++;
+        lum[p] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
+      }
+      if (opaque < lum.length * 0.5) return null;
+      return { size, lum };
+    } catch {
+      return null;
+    }
+  }
+  function luminanceFieldDarkFraction(field) {
+    let dark = 0;
+    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
+    return dark / field.lum.length;
+  }
+  function regionMeanLuminance(field, box, width, height) {
+    if (width <= 0 || height <= 0) return 255;
+    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
+    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
+    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
+    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
+    let sum = 0;
+    let count = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        sum += field.lum[y * field.size + x];
+        count++;
+      }
+    }
+    return count ? sum / count : 255;
+  }
+  function darkAreaIsRead(field, normal) {
+    const size = field.size;
+    let darkTotal = 0;
+    let darkCovered = 0;
+    const lines = normal?.lines ?? [];
+    const width = normal?.width || 1;
+    const height = normal?.height || 1;
+    const cellRects = lines.map((line) => ({
+      x0: Math.floor(line.box.left / width * size),
+      x1: Math.ceil((line.box.left + line.box.width) / width * size),
+      y0: Math.floor(line.box.top / height * size),
+      y1: Math.ceil((line.box.top + line.box.height) / height * size)
+    }));
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (field.lum[y * size + x] >= DARK_LUMINANCE) continue;
+        darkTotal++;
+        if (cellRects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
+      }
+    }
+    if (!darkTotal) return true;
+    return darkCovered / darkTotal >= 0.5;
+  }
+  function boxesOverlapSignificantly(a, b) {
+    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+    const intersection = ix * iy;
+    if (intersection <= 0) return false;
+    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
+    return intersection / minArea >= 0.5;
+  }
+  function mergeDarkPassResult(normal, inverted, field) {
+    if (!inverted?.lines.length) return normal;
+    if (!normal) {
+      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
+      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
+    }
+    const lines = [...normal.lines];
+    for (const line of inverted.lines) {
+      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
+      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
+      lines.push(line);
+    }
+    return { width: normal.width, height: normal.height, lines };
+  }
+  function drawImageToCanvas(image, maxPixels) {
+    const size = loadedImageSize(image);
+    const canvas = scaledCanvas(size, maxPixels);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  async function splitImageIntoPageColumns(image) {
+    const size = loadedImageSize(image);
+    const mid = Math.round(size.width / 2);
+    return Promise.all([
+      cropOcrImageColumn(image, 0, mid, size),
+      cropOcrImageColumn(image, mid, size.width - mid, size)
+    ]);
+  }
+  async function cropOcrImageColumn(image, left, width, size) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, size.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
+    return {
+      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
+      left,
+      totalWidth: size.width,
+      totalHeight: size.height
+    };
+  }
+  function offsetOcrResult(result, left, top, width, height) {
+    return {
+      width,
+      height,
+      lines: result.lines.map((line) => ({
+        ...line,
+        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
+      }))
+    };
+  }
+  function mergeOcrResults(width, height, results) {
+    const lines = results.flatMap((result) => result?.lines ?? []);
+    return width && height && lines.length ? { width, height, lines } : null;
+  }
+  function loadedImageSize(image) {
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (!width || !height) throw new Error("Image is not loaded yet.");
+    return { width, height };
+  }
+  function scaledCanvas(size, maxPixels) {
+    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(size.width * scale));
+    canvas.height = Math.max(1, Math.round(size.height * scale));
+    return canvas;
+  }
+  function drawableCanvasContext(canvas) {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas unavailable.");
+    return context;
+  }
+  function assertCanvasReadable(canvas) {
+    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
+  }
+  function loadImage(url, timeout = 0) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      let timer = 0;
+      const settle = (fn) => {
+        if (timer) window.clearTimeout(timer);
+        fn();
+      };
+      image.onload = () => settle(() => resolve(image));
+      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
+      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
+      image.src = url;
+    });
+  }
+  function imageContentBox(image, rect, style) {
+    const scaleX = rectScale(rect.width, image.offsetWidth);
+    const scaleY = rectScale(rect.height, image.offsetHeight);
+    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
+    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
+    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
+    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
+    return {
+      left,
+      top,
+      width: Math.max(1, rect.width - left - right),
+      height: Math.max(1, rect.height - top - bottom)
+    };
+  }
+  function rectScale(rectSize, layoutSize) {
+    return layoutSize > 0 ? rectSize / layoutSize : 1;
+  }
+  function scaledBoxEdge(value, scale) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed * scale : 0;
+  }
+  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
+    const safeSourceWidth = Math.max(1, sourceWidth);
+    const safeSourceHeight = Math.max(1, sourceHeight);
+    const safeContentWidth = Math.max(1, contentWidth);
+    const safeContentHeight = Math.max(1, contentHeight);
+    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+    switch (objectFit) {
+      case "contain":
+        return contain();
+      case "cover":
+        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+      case "none":
+        return { width: safeSourceWidth, height: safeSourceHeight };
+      case "scale-down": {
+        const contained = contain();
+        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
+      }
+      case "fill":
+      default:
+        return { width: safeContentWidth, height: safeContentHeight };
+    }
+  }
+  function scaledObjectSize(width, height, scale) {
+    return {
+      width: Math.max(1, width * scale),
+      height: Math.max(1, height * scale)
+    };
+  }
+  function objectPositionOffset(value, freeX, freeY) {
+    const tokens = cssPositionTokens(value);
+    const axes = parseObjectPositionAxes(tokens);
+    return {
+      x: axisPositionOffset(axes.x, freeX),
+      y: axisPositionOffset(axes.y, freeY)
+    };
+  }
+  function cssPositionTokens(value) {
+    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
+  }
+  function parseObjectPositionAxes(tokens) {
+    const paired = parseKeywordPositionAxes(tokens);
+    if (paired) return paired;
+    const [first = "50%", second] = tokens;
+    if (isVerticalPositionKeyword(first)) return { x: positionAxis(second || "50%"), y: positionAxis(first) };
+    return { x: positionAxis(first), y: positionAxis(second || "50%") };
+  }
+  function parseKeywordPositionAxes(tokens) {
+    let x = null;
+    let y = null;
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (isHorizontalPositionKeyword(token)) {
+        x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+        continue;
+      }
+      if (isVerticalPositionKeyword(token)) {
+        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+      }
+    }
+    return x || y ? { x: x ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
+  }
+  function positionAxis(token) {
+    return positionKeyword(token) ? { keyword: token } : { token };
+  }
+  function positionOffsetToken(token) {
+    return token && !positionKeyword(token) ? token : void 0;
+  }
+  function axisPositionOffset(axis, freeSpace) {
+    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
+    const offset = cssLengthPx(axis.offset);
+    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
+    return base + offset;
+  }
+  function keywordPositionOffset(keyword, freeSpace) {
+    if (keyword === "right" || keyword === "bottom") return freeSpace;
+    if (keyword === "center") return freeSpace / 2;
+    return 0;
+  }
+  function tokenPositionOffset(token, freeSpace) {
+    if (!token) return freeSpace / 2;
+    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
+    return cssLengthPx(token);
+  }
+  function cssLengthPx(value) {
+    if (!value) return 0;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function positionKeyword(token) {
+    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
+  }
+  function isHorizontalPositionKeyword(token) {
+    return token === "left" || token === "right";
+  }
+  function isVerticalPositionKeyword(token) {
+    return token === "top" || token === "bottom";
+  }
   function isAbortError(error) {
     return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function userscriptRequestCandidates() {
+    const candidates = [];
+    const add = (request, thisArg) => {
+      candidates.push({ request, thisArg });
+    };
+    const direct = directUserscriptGlobals();
+    add(direct.GM_xmlhttpRequest, globalThis);
+    add(direct.GM?.xmlHttpRequest, direct.GM);
+    add(direct.GM?.xmlhttpRequest, direct.GM);
+    for (const source of userscriptRequestSources()) {
+      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
+      const gm = readSourceProperty(source, "GM");
+      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
+      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+    }
+    return candidates;
+  }
+  function asUserscriptRequest(value) {
+    return typeof value === "function" ? value : void 0;
+  }
+  function directUserscriptGlobals() {
+    return {
+      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+      GM: typeof GM === "object" && GM ? GM : void 0
+    };
+  }
+  function userscriptRequestSources() {
+    const sources = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (value) => {
+      if (!isRequestSource(value) || seen.has(value)) return;
+      seen.add(value);
+      sources.push(value);
+    };
+    for (const mounted of mountedMonkeyWindows()) add(mounted);
+    add(globalThis);
+    if (typeof window !== "undefined") add(window);
+    return sources;
+  }
+  function mountedMonkeyWindows() {
+    if (typeof document === "undefined") return [];
+    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+  }
+  function isRequestSource(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  }
+  function readSourceProperty(source, key) {
+    if (!isRequestSource(source)) return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+  const BRIDGE_TIMEOUT_MS = 3e4;
+  function getUserscriptHttpRequest() {
+    for (const candidate of userscriptRequestCandidates()) {
+      const request = asUserscriptRequest(candidate.request);
+      if (request) {
+        return request.bind(candidate.thisArg);
+      }
+    }
+    return userscriptHttpEventBridge();
+  }
+  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+  function userscriptHttpEventBridge() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
+      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        options.ontimeout?.();
+        reject(new Error("Request timed out."));
+      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+      let cleanupBridgeResponseListener = noop;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupBridgeResponseListener();
+      };
+      const onResponse = (event) => {
+        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+      };
+      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+    }));
+  }
+  function tagEventBridgeRequest(request) {
+    request[EVENT_BRIDGE_TAG] = true;
+    return request;
+  }
+  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+    const detail = bridgeResponseEventDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.kind === "load" && detail.response) {
+      options.onload?.(detail.response);
+      resolve(detail.response);
+      return;
+    }
+    rejectBridgeResponse(detail, options, reject);
+  }
+  function rejectBridgeResponse(detail, options, reject) {
+    const message = detail.message || "Request failed.";
+    if (detail.kind === "timeout") options.ontimeout?.();
+    else options.onerror?.(new Error(message));
+    reject(new Error(message));
+  }
+  function addBridgeEventListener(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget) {
+      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop() {
+  }
+  function pushJapaneseOcrLine(lines, text, box) {
+    if (!text || !box || !HAS_JAPANESE.test(text)) return;
+    lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
+  }
+  function isVerticalOcrBox(box, textLength) {
+    if (textLength <= 1) return false;
+    const aspect = box.height / Math.max(1, box.width);
+    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
+  }
+  function clampBox(box, width, height) {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function unionBoxes(boxes) {
+    if (!boxes.length) return null;
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.left + box.width));
+    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
+  function cleanOcrText(value) {
+    const text = typeof value === "string" ? value : String(value ?? "");
+    const collapsed = text.replace(/[ \t\r\n]+/g, " ").trim();
+    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
+    return normalized.replaceAll("．．．", "…");
+  }
+  function numberFrom(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+    for (const response of cloudVisionResponses(record)) {
+      appendCloudVisionPages(response, state2);
+      appendCloudVisionTextAnnotations(response, state2);
+    }
+    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
+  }
+  function cloudVisionResponses(record) {
+    if (Array.isArray(record.responses)) return record.responses;
+    return "fullTextAnnotation" in record ? [record] : [];
+  }
+  function appendCloudVisionPages(response, state2) {
+    const annotation = response?.fullTextAnnotation;
+    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+    for (const page of pages) appendCloudVisionPage(page, state2);
+  }
+  function appendCloudVisionPage(page, state2) {
+    state2.width = numberFrom(page.width) || state2.width;
+    state2.height = numberFrom(page.height) || state2.height;
+    for (const block of cloudVisionPageBlocks(page)) {
+      for (const paragraph of cloudVisionBlockParagraphs(block)) {
+        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
+      }
+    }
+  }
+  function cloudVisionPageBlocks(page) {
+    return Array.isArray(page.blocks) ? page.blocks : [];
+  }
+  function cloudVisionBlockParagraphs(block) {
+    const paragraphs = block?.paragraphs;
+    return Array.isArray(paragraphs) ? paragraphs : [];
+  }
+  function appendCloudVisionTextAnnotations(response, state2) {
+    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
+    if (state2.lines.length || annotations.length <= 1) return;
+    for (const annotationItem of annotations.slice(1)) {
+      const item = annotationItem;
+      const text = cleanOcrText(item.description);
+      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
+      pushJapaneseOcrLine(state2.lines, text, box);
+    }
+  }
+  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    const current = { text: "", boxes: [] };
+    for (const word of words) {
+      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
+    }
+    pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionWordSymbols(word) {
+    const symbols = word?.symbols;
+    return Array.isArray(symbols) ? symbols : [];
+  }
+  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
+    const symbolRecord = symbol;
+    current.text += String(symbolRecord.text ?? "");
+    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
+    if (box) current.boxes.push(box);
+    const breakType = cloudVisionSymbolBreakType(symbolRecord);
+    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
+    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionSymbolBreakType(symbol) {
+    return symbol.property?.detectedBreak?.type;
+  }
+  function cloudVisionBreakAddsSpace(breakType) {
+    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
+  }
+  function cloudVisionBreakEndsLine(breakType) {
+    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
+  }
+  function pushCloudVisionLine(lines, current) {
+    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
+    current.text = "";
+    current.boxes = [];
+  }
+  function normalizeCloudVisionVertices(value, width, height) {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
+    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+  }
+  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
+    ["n", "\n"],
+    ["r", "\r"],
+    ["t", "	"],
+    ["b", "\b"],
+    ["f", "\f"],
+    ["v", "\v"],
+    ["0", "\0"],
+    ["\n", ""]
+  ]);
+  function googleLensUploadCallbackLiteral(html, key) {
+    const marker = "AF_initDataCallback(";
+    let searchIndex = 0;
+    while (searchIndex < html.length) {
+      const markerIndex = html.indexOf(marker, searchIndex);
+      if (markerIndex < 0) return null;
+      const literalStart = markerIndex + marker.length;
+      const literal = readBalancedLiteral(html, literalStart);
+      if (literal && callbackLiteralHasKey(literal, key)) return literal;
+      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
+    }
+    return null;
+  }
+  function callbackLiteralHasKey(literal, key) {
+    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
+  }
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function readBalancedLiteral(source, startIndex) {
+    const index = balancedLiteralStart(source, startIndex);
+    if (index < 0) return null;
+    const end = balancedLiteralEnd(source, index);
+    return end >= 0 ? source.slice(index, end + 1) : null;
+  }
+  function balancedLiteralStart(source, startIndex) {
+    let index = startIndex;
+    while (/\s/.test(source[index] ?? "")) index += 1;
+    return source[index] === "{" ? index : -1;
+  }
+  function balancedLiteralEnd(source, startIndex) {
+    let depth = 0;
+    for (let current = startIndex; current < source.length; current += 1) {
+      const char = source[current];
+      if (isQuote(char)) {
+        current = quotedLiteralEnd(source, current, char);
+        if (current < 0) return -1;
+        continue;
+      }
+      depth += balancedDepthDelta(char);
+      if (depth === 0) return current;
+    }
+    return -1;
+  }
+  function quotedLiteralEnd(source, startIndex, quote) {
+    for (let current = startIndex + 1; current < source.length; current += 1) {
+      const char = source[current];
+      if (char === "\\") {
+        current += 1;
+      } else if (char === quote) {
+        return current;
+      }
+    }
+    return -1;
+  }
+  function isQuote(char) {
+    return char === '"' || char === "'";
+  }
+  function balancedDepthDelta(char) {
+    if (char === "{" || char === "[" || char === "(") return 1;
+    if (char === "}" || char === "]" || char === ")") return -1;
+    return 0;
+  }
+  function parseJsDataLiteral(source) {
+    let index = 0;
+    const value = parseValue();
+    skipWhitespace();
+    if (index !== source.length) throw new Error("Unexpected trailing data.");
+    return value;
+    function parseValue() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === "{") return parseObject();
+      if (char === "[") return parseArray();
+      if (char === '"' || char === "'") return parseString();
+      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+      return parseIdentifierValue();
+    }
+    function parseObject() {
+      const record = {};
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "}") {
+        const key = parseObjectKey();
+        skipWhitespace();
+        expect(":");
+        record[key] = parseValue();
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("}");
+      return record;
+    }
+    function parseObjectKey() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === '"' || char === "'") return parseString();
+      return parseIdentifier();
+    }
+    function parseArray() {
+      const values = [];
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "]") {
+        if (source[index] === ",") {
+          values.push(null);
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        values.push(parseValue());
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("]");
+      return values;
+    }
+    function parseString() {
+      const quote = source[index];
+      let value2 = "";
+      index += 1;
+      while (index < source.length) {
+        const char = source[index++];
+        if (char === quote) return value2;
+        if (char !== "\\") {
+          value2 += char;
+          continue;
+        }
+        value2 += parseEscapeSequence();
+      }
+      throw new Error("Unterminated string.");
+    }
+    function parseEscapeSequence() {
+      const escaped = source[index++];
+      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
+      if (typeof simpleEscape === "string") return simpleEscape;
+      if (escaped === "\r") return parseCarriageReturnEscape();
+      return parseNamedEscapeSequence(escaped);
+    }
+    function parseCarriageReturnEscape() {
+      if (source[index] === "\n") index += 1;
+      return "";
+    }
+    function parseNamedEscapeSequence(escaped) {
+      if (escaped === "x") return codePointEscape(2);
+      if (escaped === "u") return parseUnicodeEscape();
+      return escaped ?? "";
+    }
+    function parseUnicodeEscape() {
+      if (source[index] === "{") {
+        const end = source.indexOf("}", index + 1);
+        if (end < 0) throw new Error("Invalid unicode escape.");
+        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+        index = end + 1;
+        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+      }
+      return codePointEscape(4);
+    }
+    function codePointEscape(length) {
+      const hex = source.slice(index, index + length);
+      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+      index += length;
+      return String.fromCharCode(Number.parseInt(hex, 16));
+    }
+    function parseNumber() {
+      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+      if (!match) throw new Error("Invalid number.");
+      index += match[0].length;
+      return Number(match[0]);
+    }
+    function parseIdentifierValue() {
+      const identifier = parseIdentifier();
+      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+      if (identifier === "true") return true;
+      if (identifier === "false") return false;
+      if (identifier === "Infinity") return Infinity;
+      return identifier;
+    }
+    function parseIdentifier() {
+      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+      if (!match) throw new Error("Expected identifier.");
+      index += match[0].length;
+      return match[0];
+    }
+    function skipWhitespace() {
+      while (/\s/.test(source[index] ?? "")) index += 1;
+    }
+    function expect(char) {
+      if (source[index] !== char) throw new Error(`Expected ${char}.`);
+      index += 1;
+    }
+  }
+  const LENS_WRITING_TOP_TO_BOTTOM = 2;
+  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
+  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
+    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+    const lines = collectGenericOcrLines(record, width, height);
+    return japaneseOcrResult(width, height, lines);
+  }
+  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
+    const resolution = record.context_resolution;
+    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
+    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+    return { width, height };
+  }
+  function collectGenericOcrLines(record, width, height) {
+    const lines = [];
+    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+    return lines;
+  }
+  function genericRawLines(record) {
+    return Array.isArray(record.lines) ? record.lines : record.regions;
+  }
+  function appendGenericOcrLines(lines, value, width, height, normalize) {
+    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
+  }
+  function normalizeSimpleLines(values, width, height) {
+    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
+  }
+  function normalizeStructuredOcrResults(values, width, height) {
+    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
+  }
+  function normalizeOcrRegionResults(regions, width, height) {
+    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
+  }
+  function normalizeSingleOcrRegionResults(region, width, height) {
+    const regionRecord = asRecord(region);
+    if (!regionRecord) return [];
+    const regionBox = normalizeOcrRegion(regionRecord, width, height);
+    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
+    if (!Array.isArray(regionRecord.results)) return [];
+    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+    return offsetRegionLines(lines, regionBox, width, height);
+  }
+  function ocrRegionScale(regionBox, width, height) {
+    return {
+      scaleWidth: regionBox?.width ?? width,
+      scaleHeight: regionBox?.height ?? height
+    };
+  }
+  function offsetRegionLines(lines, regionBox, width, height) {
+    if (!regionBox) return lines;
+    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
+  }
+  function japaneseOcrResult(width, height, lines) {
+    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function cleanOcrLookupLines(lines, parsed) {
+    const cleaned = lines.map((line, index) => {
+      const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
+      return text === line.text ? line : { ...line, text };
+    });
+    return removeStandaloneFuriganaLines(cleaned);
+  }
+  function ocrLinesChanged(original, cleaned) {
+    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+  }
+  function cleanOcrLookupText(text, tokens) {
+    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+    let cleaned = text;
+    for (const { ruby } of rubies) {
+      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+    }
+    return cleanOcrText(cleaned);
+  }
+  function removeOcrReadingAroundRuby(text, reading, start, end) {
+    const cleanReading = cleanOcrText(reading);
+    if (!cleanReading) return text;
+    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+      return text.slice(0, start - cleanReading.length) + text.slice(start);
+    }
+    if (text.slice(end, end + cleanReading.length) === cleanReading) {
+      return text.slice(0, end) + text.slice(end + cleanReading.length);
+    }
+    return text;
+  }
+  function removeStandaloneFuriganaLines(lines) {
+    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+    return filtered.length ? filtered : lines;
+  }
+  function isStandaloneFuriganaLine(line, lines, index) {
+    const text = cleanOcrText(line.text).replace(/\s+/g, "");
+    if (!text || text.length > 10 || !OCR_KANA_ONLY_RE.test(text)) return false;
+    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+  }
+  function ocrLineLooksLikeFuriganaFor(furi, base) {
+    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+    const overlap = horizontalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+    const smaller = furi.box.height <= base.box.height * 0.75;
+    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+    return overlapRatio >= 0.32 && smaller && nearTop;
+  }
+  function horizontalOverlap(a, b) {
+    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+  }
+  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+    if (!furi.vertical || !base.vertical) return false;
+    const overlap = verticalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+    const smaller = furi.box.width <= base.box.width * 0.75;
+    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+    return overlapRatio >= 0.32 && smaller && nearSide;
+  }
+  function verticalOverlap(a, b) {
+    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+  }
+  function horizontalGap(a, b) {
+    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+    return 0;
+  }
+  function parseGoogleLensResponse(bytes, width, height) {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text ? protoFirstMessage(text, 1) : null;
+    if (!layout) return null;
+    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
+    return lines.length ? { width, height, lines } : null;
+  }
+  function googleLensParagraphLines(paragraph, width, height) {
+    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
+  }
+  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = googleLensWords(line, width, height);
+    const text = googleLensLineText(words, paragraphVertical);
+    if (!text || !HAS_JAPANESE.test(text)) return null;
+    const box = googleLensLineBox(lineBox, words, paragraphBox);
+    if (!box) return null;
+    return {
+      text,
+      box,
+      vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
+    };
+  }
+  function googleLensWords(line, width, height) {
+    return protoMessages(line, 1).map((word) => ({
+      text: protoString(word, 2),
+      separator: protoString(word, 3),
+      box: protoBox(protoFirstMessage(word, 4), width, height)
+    })).filter((word) => Boolean(word.text));
+  }
+  function googleLensLineText(words, paragraphVertical) {
+    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
+  }
+  function googleLensWordText(word, index, words) {
+    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
+  }
+  function googleLensLineBox(lineBox, words, paragraphBox) {
+    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+  }
+  function parseGoogleLensUploadHtml(html, width, height) {
+    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
+    if (!literal) return null;
+    try {
+      const callback = parseJsDataLiteral(literal);
+      const lines = [];
+      for (const item of googleLensUploadLineItems(callback.data)) {
+        const { text, box } = googleLensUploadLine(item, width, height);
+        pushJapaneseOcrLine(lines, text, box);
+      }
+      return lines.length ? { width, height, lines } : null;
+    } catch {
+      return null;
+    }
+  }
+  function googleLensUploadLineItems(data) {
+    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
+  }
+  function googleLensUploadBlocks(data) {
+    const blocks = data?.[2]?.[3]?.[0] ?? [];
+    return Array.isArray(blocks) ? blocks : [];
+  }
+  function googleLensUploadBlockLineItems(block) {
+    const blockData = Array.isArray(block) ? block : [];
+    const rawLines = blockData[2]?.[0]?.[5]?.[3];
+    const lineItems = rawLines?.[0];
+    return Array.isArray(lineItems) ? lineItems : [];
+  }
+  function googleLensUploadLine(item, width, height) {
+    const lineData = Array.isArray(item) ? item : [];
+    return {
+      text: googleLensUploadLineText(lineData[0]),
+      box: googleLensUploadLineBox(lineData[1], width, height)
+    };
+  }
+  function googleLensUploadLineText(value) {
+    const words = Array.isArray(value) ? value : [];
+    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
+  }
+  function googleLensUploadWordText(word) {
+    const wordData = Array.isArray(word) ? word : [];
+    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+  }
+  function googleLensUploadLineBox(value, width, height) {
+    const boxData = Array.isArray(value) ? value : [];
+    if (boxData.length < 4) return null;
+    return clampBox({
+      top: Number(boxData[0]) * height,
+      left: Number(boxData[1]) * width,
+      width: Number(boxData[2]) * width,
+      height: Number(boxData[3]) * height
+    }, width, height);
+  }
+  function normalizeSimpleLine(value, width, height) {
+    const record = asRecord(value);
+    if (!record) return null;
+    const text = simpleLineText(record);
+    const box = simpleLineBox(record, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: simpleLineIsVertical(record) };
+  }
+  function simpleLineText(record) {
+    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+  }
+  function simpleLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function simpleLineIsVertical(record) {
+    return Boolean(record.vertical ?? record.is_vertical);
+  }
+  function normalizeStructuredOcrResult(value, width, height) {
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    const textLines = structuredOcrTextLines(record);
+    const vertical = structuredOcrVertical(record);
+    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
+    if (lines.length) return lines;
+    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+  }
+  function structuredOcrTextLines(record) {
+    if (Array.isArray(record.text_lines)) return record.text_lines;
+    return Array.isArray(record.text) ? record.text : [];
+  }
+  function structuredOcrVertical(record) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical);
+  }
+  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
+    const lineRecord = asRecord(item);
+    if (!lineRecord) return null;
+    const text = structuredOcrLineText(lineRecord);
+    const box = structuredOcrLineBox(lineRecord, width, height);
+    if (!text || !box) return null;
+    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+  }
+  function structuredOcrLineText(record) {
+    return stringFrom(record.content ?? record.text ?? record.word);
+  }
+  function structuredOcrLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function structuredOcrLineVertical(record, inheritedVertical) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+  }
+  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+    const text = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
+    const box = normalizeBox(record.box, width, height);
+    return text && box ? [{ text, box, vertical }] : [];
+  }
+  function normalizeOcrRegion(record, width, height) {
+    const region = readOcrRegion(record);
+    if (!region) return null;
+    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+  }
+  function readOcrRegion(record) {
+    const position = record.position;
+    const size = record.size;
+    if (!position || !size) return null;
+    return completeOcrRegionParts({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(size.width),
+      height: numberFrom(size.height)
+    });
+  }
+  function completeOcrRegionParts(parts) {
+    if (parts.left === null) return null;
+    if (parts.top === null) return null;
+    if (parts.width === null) return null;
+    if (parts.height === null) return null;
+    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
+  }
+  function scaleOcrRegion(region, width, height) {
+    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+    return {
+      left: region.left / divisor * width,
+      top: region.top / divisor * height,
+      width: region.width / divisor * width,
+      height: region.height / divisor * height
+    };
+  }
+  function isFullImageOcrRegion(box, width, height) {
+    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+  }
+  function offsetLineToRegion(line, region, width, height) {
+    const box = clampBox({
+      left: region.left + line.box.left,
+      top: region.top + line.box.top,
+      width: line.box.width,
+      height: line.box.height
+    }, width, height);
+    return box ? { ...line, box } : null;
+  }
+  function normalizeBox(value, width, height) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+  }
+  function normalizePositionDimensionsBox(record, width, height) {
+    const position = asRecord(record.position);
+    const dimensions = asRecord(record.dimensions);
+    if (!position || !dimensions) return null;
+    return boxFromNumbers({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(dimensions.width),
+      height: numberFrom(dimensions.height)
+    }, width, height, "percent-100");
+  }
+  function normalizeDirectBox(record, width, height) {
+    const box = directBoxNumbers(record);
+    return boxFromNumbers(box, width, height, directBoxScale(box));
+  }
+  function directBoxNumbers(record) {
+    return {
+      left: numberFrom(record.left ?? record.x),
+      top: numberFrom(record.top ?? record.y),
+      width: numberFrom(record.width ?? record.w),
+      height: numberFrom(record.height ?? record.h)
+    };
+  }
+  function directBoxScale(box) {
+    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
+  }
+  function normalizePointBox(record, width, height) {
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+    if (points.length < 2) return null;
+    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
+    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
+    if (!xs.length || !ys.length) return null;
+    const percent = coordinatesAreFractional(xs, ys);
+    const scaledXs = scaleCoordinates(xs, width, percent);
+    const scaledYs = scaleCoordinates(ys, height, percent);
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+  }
+  function coordinatesAreFractional(xs, ys) {
+    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+  }
+  function isFractionalCoordinate(value) {
+    return value >= 0 && value <= 1;
+  }
+  function scaleCoordinates(values, scale, enabled) {
+    return enabled ? values.map((value) => value * scale) : values;
+  }
+  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
+    if (!hasCompleteBoxNumbers(box)) return null;
+    const scaleInfo = boxScaleInfo(scale);
+    return clampBox({
+      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
+    }, imageWidth, imageHeight);
+  }
+  function hasCompleteBoxNumbers(box) {
+    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+  }
+  function boxScaleInfo(scale) {
+    return {
+      fractional: scale !== "pixels",
+      factor: scale === "percent-100" ? 100 : 1
+    };
+  }
+  function scaleBoxNumber(value, dimension, scale) {
+    return scale.fractional ? value / scale.factor * dimension : value;
+  }
+  function decodeProtoMessage(bytes) {
+    const fields = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+      const [tag, nextOffset] = readVarint(bytes, offset);
+      offset = nextOffset;
+      const field = Number(tag >> 3n);
+      const wire = Number(tag & 7n);
+      if (!field) break;
+      if (wire === 0) {
+        const [value, afterValue] = readVarint(bytes, offset);
+        offset = afterValue;
+        fields.push({ field, wire, value });
+      } else if (wire === 1) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+        offset += 8;
+      } else if (wire === 2) {
+        const [length, afterLength] = readVarint(bytes, offset);
+        offset = afterLength;
+        const end = offset + Number(length);
+        fields.push({ field, wire, value: bytes.slice(offset, end) });
+        offset = end;
+      } else if (wire === 5) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+        offset += 4;
+      } else {
+        break;
+      }
+    }
+    return fields;
+  }
+  function readVarint(bytes, offset) {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+      const byte = bytes[offset++];
+      result |= BigInt(byte & 127) << shift;
+      if (!(byte & 128)) return [result, offset];
+      shift += 7n;
+    }
+    return [result, offset];
+  }
+  function protoMessages(fields, field) {
+    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+  }
+  function protoFirstMessage(fields, field) {
+    return protoMessages(fields, field)[0] ?? null;
+  }
+  function protoString(fields, field) {
+    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value) : "";
+  }
+  function protoNumber(fields, field) {
+    const item = fields.find((value) => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+  }
+  function protoBox(geometry, width, height) {
+    const dimensions = protoBoxDimensions(geometry);
+    if (!dimensions) return null;
+    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
+  }
+  function protoBoxDimensions(geometry) {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const dimensions = {
+      centerX: protoNumber(box, 1),
+      centerY: protoNumber(box, 2),
+      width: protoNumber(box, 3),
+      height: protoNumber(box, 4)
+    };
+    return dimensions.width && dimensions.height ? dimensions : null;
+  }
+  function protoBoxIsNormalized(box) {
+    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
+  }
+  function scaledProtoBox(box, normalized, width, height) {
+    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
+    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
+    return {
+      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
+      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
+      width: scaledWidth,
+      height: scaledHeight
+    };
+  }
+  function scaledProtoBoxValue(value, scale, normalized) {
+    return normalized ? value * scale : value;
+  }
+  function stringFrom(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+  }
+  function asRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  const LENS_PLATFORM_WEB = 3;
+  const LENS_SURFACE_CHROMIUM = 4;
+  const LENS_AUTO_FILTER = 7;
+  function createGoogleLensRequest(imageBytes, width, height, locale) {
+    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const requestId = protoMessage(
+      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
+      protoVarintField(2, 1),
+      protoVarintField(3, 1),
+      protoBytesField(4, randomBytes(16))
+    );
+    const localeContext = protoMessage(
+      protoStringField(1, language || "ja"),
+      protoStringField(2, region || "US"),
+      protoStringField(3, timeZone)
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+      protoVarintField(1, LENS_PLATFORM_WEB),
+      protoVarintField(2, LENS_SURFACE_CHROMIUM),
+      protoMessageField(4, localeContext),
+      protoMessageField(17, clientFilters)
+    );
+    const requestContext = protoMessage(
+      protoMessageField(3, requestId),
+      protoMessageField(4, clientContext)
+    );
+    const imageData = protoMessage(
+      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+      protoMessageField(1, requestContext),
+      protoMessageField(3, imageData)
+    )));
+  }
+  function protoMessage(...parts) {
+    return concatBytes(parts);
+  }
+  function protoMessageField(field, value) {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+  }
+  function protoBytesField(field, value) {
+    return protoMessageField(field, value);
+  }
+  function protoStringField(field, value) {
+    return protoBytesField(field, new TextEncoder().encode(value));
+  }
+  function protoVarintField(field, value) {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+  }
+  function protoTag(field, wire) {
+    return encodeVarint(field << 3 | wire);
+  }
+  function encodeVarint(value) {
+    let item = BigInt(value);
+    const bytes = [];
+    do {
+      let byte = Number(item & 0x7fn);
+      item >>= 7n;
+      if (item) byte |= 128;
+      bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+  }
+  function concatBytes(parts) {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  }
+  function randomBytes(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+  }
+  const log$1 = Logger.scope("OCR");
+  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
+  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
+  const OCR_RECOGNIZERS = {
+    "google-lens": recognizeViaGoogleLens,
+    "cloud-vision": recognizeViaCloudVision,
+    "local-service": recognizeViaLocalService
+  };
+  const OCR_PROVIDER_CONFIGURED = {
+    "google-lens": () => true,
+    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    "local-service": () => true
+  };
+  async function recognizeViaLocalService(image, settings, invert = false) {
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
+    const body = JSON.stringify({
+      id: imageCacheKey(image),
+      language_code: settings.ocrLanguage || "ja-JP",
+      language: {
+        bcp47_tag: settings.ocrLanguage || "ja-JP",
+        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
+      },
+      base64_image: payload.base64,
+      image: payload.base64,
+      image_bytes: payload.base64,
+      ocr_engine: engine,
+      ocr_adapter_name: engine,
+      detection_only: false
+    });
+    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaCloudVision(image, settings, invert = false) {
+    const apiKey = settings.ocrCloudVisionApiKey.trim();
+    if (!apiKey) return null;
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+    const body = JSON.stringify({
+      requests: [{
+        image: { content: payload.base64 },
+        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
+        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
+      }]
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
+    const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaGoogleLens(image, settings, invert = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
+    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
+    let protobufFailure;
+    const protobuf = await recognizeViaGoogleLensProtobuf(
+      blob,
+      canvas,
+      settings,
+      Math.max(1, remainingGoogleLensTimeout(deadline))
+    ).catch((error) => {
+      protobufFailure = error;
+      log$1.warn("Google Lens protobuf failed", error);
+      return void 0;
+    });
+    if (protobuf?.lines.length) return protobuf;
+    const uploadTimeout = remainingGoogleLensTimeout(deadline);
+    if (uploadTimeout <= 0) {
+      if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
+      return protobuf;
+    }
+    let uploadFailure;
+    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
+      uploadFailure = error;
+      log$1.warn("Google Lens upload failed", error);
+      return void 0;
+    });
+    if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
+      throw new Error("Google Lens OCR timed out.");
+    }
+    if (protobuf === void 0 && upload === void 0) {
+      if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
+        throw new Error("Google Lens OCR timed out.");
+      }
+      throw new Error("Google Lens OCR failed.");
+    }
+    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
+  }
+  function remainingGoogleLensTimeout(deadline) {
+    return Math.max(0, deadline - Date.now());
+  }
+  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
+    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+  }
+  function ocrRecognizer(settings) {
+    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
+    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
+  }
+  function isOcrProviderConfigured(settings) {
+    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
+  }
+  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
+    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
+    const canvas = await imageToCanvas(image, maxPixels, invertDark);
+    try {
+      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
+    } catch {
+      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
+      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
+    }
+  }
+  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
+    const data = new FormData();
+    data.append("encoded_image", blob, "image.jpg");
+    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
+      Origin: "https://lens.google.com",
+      Referer: "https://lens.google.com/"
+    });
+    return parseGoogleLensUploadHtml(response, width, height);
+  }
+  async function imageToCanvas(image, maxPixels, invert = false) {
+    try {
+      const canvas = drawImageToCanvas(image, maxPixels);
+      assertCanvasReadable(canvas);
+      return invert ? invertedCanvas(canvas) : canvas;
+    } catch {
+      return imageBlobToCanvas(image, maxPixels, invert);
+    }
+  }
+  async function imageBlobToCanvas(image, maxPixels, invert = false) {
+    const url = image.currentSrc || image.src;
+    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
+    const blob = await requestBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const loaded = await loadImage(objectUrl);
+      const canvas = drawImageToCanvas(loaded, maxPixels);
+      assertCanvasReadable(canvas);
+      return invert ? invertedCanvas(canvas) : canvas;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  function requestJson(url, data, timeout) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers: { "content-type": "application/json" },
+      data,
+      responseType: "json",
+      timeout
+    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  }
+  function fetchJsonWithTimeout(url, data, timeout) {
+    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
+  }
+  function requestArrayBuffer(url, data, timeout) {
+    const body = new Uint8Array(data);
+    const headers = {
+      "content-type": "application/x-protobuf",
+      "x-goog-api-key": GOOGLE_LENS_API_KEY,
+      accept: "*/*",
+      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+    };
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers,
+      data: body.buffer,
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchWithTimeout(url, {
+      method: "POST",
+      headers,
+      body: body.buffer
+    }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+  }
+  function requestTextForm(url, data, timeout, headers) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      ...headers ? { headers } : {},
+      data,
+      responseType: "text",
+      timeout
+    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchWithTimeout(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }
+  function fetchWithTimeout(url, init, timeout, timeoutMessage) {
+    if (!timeout) return fetch(url, init);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
+  }
+  function requestBlob(url, timeout = 0) {
+    const fallbackType = imageMimeTypeFromUrl(url);
+    const userscriptRequest = requestViaUserscript({
+      method: "GET",
+      url,
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
+    if (userscriptRequest) return userscriptRequest;
+    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
+  }
+  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      const copy = new Uint8Array(source.byteLength);
+      copy.set(source);
+      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
+    }
+    return new Blob([value], { type: fallbackType });
+  }
+  function imageMimeTypeFromUrl(url) {
+    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "png":
+        return "image/png";
+      case "gif":
+        return "image/gif";
+      case "webp":
+        return "image/webp";
+      case "avif":
+        return "image/avif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "image/jpeg";
+    }
+  }
+  function sniffImageMimeType(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
+    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
+    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
+    return void 0;
+  }
+  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (!userscriptRequest) {
+      log$1.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      return null;
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let requestHandle;
+      let timeoutId = 0;
+      const settle = (fn) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+        fn();
+      };
+      const onload = (response) => {
+        settle(() => {
+          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+          else reject(new Error(statusMessage(response.status)));
+        });
+      };
+      const fail = (error) => {
+        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
+      };
+      const timeout = Math.max(0, Math.round(options.timeout || 0));
+      if (timeout) {
+        timeoutId = window.setTimeout(() => {
+          try {
+            requestHandle?.abort?.();
+          } catch {
+          }
+          fail(new Error(timeoutMessage ?? "Request timed out."));
+        }, timeout);
+      }
+      try {
+        const result = userscriptRequest({
+          ...options,
+          onload,
+          onerror: fail,
+          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
+        });
+        if (result && typeof result.then === "function") {
+          result.then(onload, fail);
+        } else if (result) {
+          requestHandle = result;
+        }
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+  function isSuccessfulHttpStatus(status) {
+    return status >= 200 && status < 300;
+  }
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
+    });
   }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
@@ -3708,171 +5425,88 @@
     if (previousContent === nextContent) return false;
     return isCanvasMirrorEpochOrEmpty(previousContent) && isCanvasMirrorEpochOrEmpty(nextContent);
   }
-  function userscriptRequestCandidates() {
-    const candidates = [];
-    const add = (request, thisArg) => {
-      candidates.push({ request, thisArg });
-    };
-    const direct = directUserscriptGlobals();
-    add(direct.GM_xmlhttpRequest, globalThis);
-    add(direct.GM?.xmlHttpRequest, direct.GM);
-    add(direct.GM?.xmlhttpRequest, direct.GM);
-    for (const source of userscriptRequestSources()) {
-      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
-      const gm = readSourceProperty(source, "GM");
-      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
-      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+  function canvasSurfaceSnapshotKey(canvas) {
+    const surfaceId = canvasReaderSurfaceId(canvas);
+    if (isBookwalkerViewerHost()) {
+      return [
+        canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+        surfaceId
+      ].join("|");
     }
-    return candidates;
+    return [
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
+      canvas.width,
+      canvas.height,
+      canvasPageContentToken(canvas)
+    ].join("|");
   }
-  function asUserscriptRequest(value) {
-    return typeof value === "function" ? value : void 0;
+  function canvasStablePageContentToken(canvas) {
+    return stableContentIdentityForCanvas(canvas);
   }
-  function directUserscriptGlobals() {
-    return {
-      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
-      GM: typeof GM === "object" && GM ? GM : void 0
-    };
+  function canvasContentReadinessKey(canvas) {
+    const surfaceId = canvasReaderSurfaceId(canvas);
+    return [
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
+      canvas.width,
+      canvas.height,
+      canvasPageContentToken(canvas)
+    ].join("|");
   }
-  function userscriptRequestSources() {
-    const sources = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (value) => {
-      if (!isRequestSource(value) || seen.has(value)) return;
-      seen.add(value);
-      sources.push(value);
-    };
-    for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(globalThis);
-    if (typeof window !== "undefined") add(window);
-    return sources;
+  function isSameCanvasReaderPageLocation(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
   }
-  function mountedMonkeyWindows() {
-    if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+  function hasDifferentRecordedCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isRecordedCanvasReaderContent(previousParts.content) && isRecordedCanvasReaderContent(nextParts.content) && isRealContentChange(previousParts.content, nextParts.content);
   }
-  function isRequestSource(value) {
-    return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  function isRecordedCanvasReaderContent(content) {
+    const tokens = content.split(",").filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => token.startsWith("m:") || token.startsWith("o:"));
   }
-  function readSourceProperty(source, key) {
-    if (!isRequestSource(source)) return void 0;
+  function hasSameRealCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isSameRealContent(previousParts.content, nextParts.content);
+  }
+  function isCanvasMirrorEpochTransition(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isGlobalEpochTransition(previousParts.content, nextParts.content);
+  }
+  function hasSameStableCanvasReaderPageCounter(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
+  }
+  function shouldTrustStableBookwalkerPageCounter() {
+    if (!isBookwalkerViewerHost()) return false;
     try {
-      return source[key];
+      return new URL(location.href).searchParams.get("cty") !== "2";
     } catch {
-      return void 0;
-    }
-  }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
-  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS = 3e4;
-  function getUserscriptHttpRequest() {
-    for (const candidate of userscriptRequestCandidates()) {
-      const request = asUserscriptRequest(candidate.request);
-      if (request) {
-        return request.bind(candidate.thisArg);
-      }
-    }
-    return userscriptHttpEventBridge();
-  }
-  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
-  function userscriptHttpEventBridge() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
-      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        options.ontimeout?.();
-        reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-      let cleanupBridgeResponseListener = noop;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupBridgeResponseListener();
-      };
-      const onResponse = (event) => {
-        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-      };
-      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    }));
-  }
-  function tagEventBridgeRequest(request) {
-    request[EVENT_BRIDGE_TAG] = true;
-    return request;
-  }
-  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-    const detail = bridgeResponseEventDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.kind === "load" && detail.response) {
-      options.onload?.(detail.response);
-      resolve(detail.response);
-      return;
-    }
-    rejectBridgeResponse(detail, options, reject);
-  }
-  function rejectBridgeResponse(detail, options, reject) {
-    const message = detail.message || "Request failed.";
-    if (detail.kind === "timeout") options.ontimeout?.();
-    else options.onerror?.(new Error(message));
-    reject(new Error(message));
-  }
-  function addBridgeEventListener(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget) {
-      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
       return true;
-    } catch {
-      return false;
     }
   }
-  function callRemoveEventListener(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop() {
+  function splitCanvasReaderSignature(signature) {
+    const parts = signature.split("|");
+    if (parts.length < 5) return null;
+    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
+    return {
+      backgrounds: backgroundParts.join("|"),
+      content: content ?? "",
+      counter: counter ?? "",
+      scroll: scroll ?? "",
+      surfaces: surfaces ?? ""
+    };
   }
   const COPY = {
     en: {
@@ -6206,14 +7840,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
-  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
-      reader.readAsDataURL(blob);
-    });
-  }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
   const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
@@ -6310,836 +7936,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function getPitchClass(pitchAccent, reading) {
     const pattern = contextPitchPattern(pitchAccent, reading);
     return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  function pushJapaneseOcrLine(lines, text, box) {
-    if (!text || !box || !HAS_JAPANESE.test(text)) return;
-    lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
-  }
-  function isVerticalOcrBox(box, textLength) {
-    if (textLength <= 1) return false;
-    const aspect = box.height / Math.max(1, box.width);
-    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
-  }
-  function clampBox(box, width, height) {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 2 || bottom - top < 2) return null;
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function unionBoxes(boxes) {
-    if (!boxes.length) return null;
-    const left = Math.min(...boxes.map((box) => box.left));
-    const top = Math.min(...boxes.map((box) => box.top));
-    const right = Math.max(...boxes.map((box) => box.left + box.width));
-    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
-  function cleanOcrText(value) {
-    const text = typeof value === "string" ? value : String(value ?? "");
-    const collapsed = text.replace(/[ \t\r\n]+/g, " ").trim();
-    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
-    return normalized.replaceAll("．．．", "…");
-  }
-  function numberFrom(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
-    for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state2);
-      appendCloudVisionTextAnnotations(response, state2);
-    }
-    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
-  }
-  function cloudVisionResponses(record) {
-    if (Array.isArray(record.responses)) return record.responses;
-    return "fullTextAnnotation" in record ? [record] : [];
-  }
-  function appendCloudVisionPages(response, state2) {
-    const annotation = response?.fullTextAnnotation;
-    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state2);
-  }
-  function appendCloudVisionPage(page, state2) {
-    state2.width = numberFrom(page.width) || state2.width;
-    state2.height = numberFrom(page.height) || state2.height;
-    for (const block of cloudVisionPageBlocks(page)) {
-      for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
-      }
-    }
-  }
-  function cloudVisionPageBlocks(page) {
-    return Array.isArray(page.blocks) ? page.blocks : [];
-  }
-  function cloudVisionBlockParagraphs(block) {
-    const paragraphs = block?.paragraphs;
-    return Array.isArray(paragraphs) ? paragraphs : [];
-  }
-  function appendCloudVisionTextAnnotations(response, state2) {
-    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state2.lines.length || annotations.length <= 1) return;
-    for (const annotationItem of annotations.slice(1)) {
-      const item = annotationItem;
-      const text = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
-      pushJapaneseOcrLine(state2.lines, text, box);
-    }
-  }
-  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    const current = { text: "", boxes: [] };
-    for (const word of words) {
-      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
-    }
-    pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionWordSymbols(word) {
-    const symbols = word?.symbols;
-    return Array.isArray(symbols) ? symbols : [];
-  }
-  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
-    const symbolRecord = symbol;
-    current.text += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) current.boxes.push(box);
-    const breakType = cloudVisionSymbolBreakType(symbolRecord);
-    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
-    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionSymbolBreakType(symbol) {
-    return symbol.property?.detectedBreak?.type;
-  }
-  function cloudVisionBreakAddsSpace(breakType) {
-    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
-  }
-  function cloudVisionBreakEndsLine(breakType) {
-    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
-  }
-  function pushCloudVisionLine(lines, current) {
-    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
-    current.text = "";
-    current.boxes = [];
-  }
-  function normalizeCloudVisionVertices(value, width, height) {
-    if (!Array.isArray(value) || value.length < 2) return null;
-    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
-  }
-  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
-    ["n", "\n"],
-    ["r", "\r"],
-    ["t", "	"],
-    ["b", "\b"],
-    ["f", "\f"],
-    ["v", "\v"],
-    ["0", "\0"],
-    ["\n", ""]
-  ]);
-  function googleLensUploadCallbackLiteral(html, key) {
-    const marker = "AF_initDataCallback(";
-    let searchIndex = 0;
-    while (searchIndex < html.length) {
-      const markerIndex = html.indexOf(marker, searchIndex);
-      if (markerIndex < 0) return null;
-      const literalStart = markerIndex + marker.length;
-      const literal = readBalancedLiteral(html, literalStart);
-      if (literal && callbackLiteralHasKey(literal, key)) return literal;
-      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-    }
-    return null;
-  }
-  function callbackLiteralHasKey(literal, key) {
-    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
-  }
-  function escapeRegex(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function readBalancedLiteral(source, startIndex) {
-    const index = balancedLiteralStart(source, startIndex);
-    if (index < 0) return null;
-    const end = balancedLiteralEnd(source, index);
-    return end >= 0 ? source.slice(index, end + 1) : null;
-  }
-  function balancedLiteralStart(source, startIndex) {
-    let index = startIndex;
-    while (/\s/.test(source[index] ?? "")) index += 1;
-    return source[index] === "{" ? index : -1;
-  }
-  function balancedLiteralEnd(source, startIndex) {
-    let depth = 0;
-    for (let current = startIndex; current < source.length; current += 1) {
-      const char = source[current];
-      if (isQuote(char)) {
-        current = quotedLiteralEnd(source, current, char);
-        if (current < 0) return -1;
-        continue;
-      }
-      depth += balancedDepthDelta(char);
-      if (depth === 0) return current;
-    }
-    return -1;
-  }
-  function quotedLiteralEnd(source, startIndex, quote) {
-    for (let current = startIndex + 1; current < source.length; current += 1) {
-      const char = source[current];
-      if (char === "\\") {
-        current += 1;
-      } else if (char === quote) {
-        return current;
-      }
-    }
-    return -1;
-  }
-  function isQuote(char) {
-    return char === '"' || char === "'";
-  }
-  function balancedDepthDelta(char) {
-    if (char === "{" || char === "[" || char === "(") return 1;
-    if (char === "}" || char === "]" || char === ")") return -1;
-    return 0;
-  }
-  function parseJsDataLiteral(source) {
-    let index = 0;
-    const value = parseValue();
-    skipWhitespace();
-    if (index !== source.length) throw new Error("Unexpected trailing data.");
-    return value;
-    function parseValue() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === "{") return parseObject();
-      if (char === "[") return parseArray();
-      if (char === '"' || char === "'") return parseString();
-      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-      return parseIdentifierValue();
-    }
-    function parseObject() {
-      const record = {};
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "}") {
-        const key = parseObjectKey();
-        skipWhitespace();
-        expect(":");
-        record[key] = parseValue();
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("}");
-      return record;
-    }
-    function parseObjectKey() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === '"' || char === "'") return parseString();
-      return parseIdentifier();
-    }
-    function parseArray() {
-      const values = [];
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "]") {
-        if (source[index] === ",") {
-          values.push(null);
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        values.push(parseValue());
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("]");
-      return values;
-    }
-    function parseString() {
-      const quote = source[index];
-      let value2 = "";
-      index += 1;
-      while (index < source.length) {
-        const char = source[index++];
-        if (char === quote) return value2;
-        if (char !== "\\") {
-          value2 += char;
-          continue;
-        }
-        value2 += parseEscapeSequence();
-      }
-      throw new Error("Unterminated string.");
-    }
-    function parseEscapeSequence() {
-      const escaped = source[index++];
-      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-      if (typeof simpleEscape === "string") return simpleEscape;
-      if (escaped === "\r") return parseCarriageReturnEscape();
-      return parseNamedEscapeSequence(escaped);
-    }
-    function parseCarriageReturnEscape() {
-      if (source[index] === "\n") index += 1;
-      return "";
-    }
-    function parseNamedEscapeSequence(escaped) {
-      if (escaped === "x") return codePointEscape(2);
-      if (escaped === "u") return parseUnicodeEscape();
-      return escaped ?? "";
-    }
-    function parseUnicodeEscape() {
-      if (source[index] === "{") {
-        const end = source.indexOf("}", index + 1);
-        if (end < 0) throw new Error("Invalid unicode escape.");
-        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-        index = end + 1;
-        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-      }
-      return codePointEscape(4);
-    }
-    function codePointEscape(length) {
-      const hex = source.slice(index, index + length);
-      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-      index += length;
-      return String.fromCharCode(Number.parseInt(hex, 16));
-    }
-    function parseNumber() {
-      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-      if (!match) throw new Error("Invalid number.");
-      index += match[0].length;
-      return Number(match[0]);
-    }
-    function parseIdentifierValue() {
-      const identifier = parseIdentifier();
-      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-      if (identifier === "true") return true;
-      if (identifier === "false") return false;
-      if (identifier === "Infinity") return Infinity;
-      return identifier;
-    }
-    function parseIdentifier() {
-      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-      if (!match) throw new Error("Expected identifier.");
-      index += match[0].length;
-      return match[0];
-    }
-    function skipWhitespace() {
-      while (/\s/.test(source[index] ?? "")) index += 1;
-    }
-    function expect(char) {
-      if (source[index] !== char) throw new Error(`Expected ${char}.`);
-      index += 1;
-    }
-  }
-  const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-    const lines = collectGenericOcrLines(record, width, height);
-    return japaneseOcrResult(width, height, lines);
-  }
-  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-    return { width, height };
-  }
-  function collectGenericOcrLines(record, width, height) {
-    const lines = [];
-    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-    return lines;
-  }
-  function genericRawLines(record) {
-    return Array.isArray(record.lines) ? record.lines : record.regions;
-  }
-  function appendGenericOcrLines(lines, value, width, height, normalize) {
-    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
-  }
-  function normalizeSimpleLines(values, width, height) {
-    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
-  }
-  function normalizeStructuredOcrResults(values, width, height) {
-    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
-  }
-  function normalizeOcrRegionResults(regions, width, height) {
-    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
-  }
-  function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
-    if (!regionRecord) return [];
-    const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-    if (!Array.isArray(regionRecord.results)) return [];
-    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return offsetRegionLines(lines, regionBox, width, height);
-  }
-  function ocrRegionScale(regionBox, width, height) {
-    return {
-      scaleWidth: regionBox?.width ?? width,
-      scaleHeight: regionBox?.height ?? height
-    };
-  }
-  function offsetRegionLines(lines, regionBox, width, height) {
-    if (!regionBox) return lines;
-    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
-  }
-  function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function cleanOcrLookupLines(lines, parsed) {
-    const cleaned = lines.map((line, index) => {
-      const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
-      return text === line.text ? line : { ...line, text };
-    });
-    return removeStandaloneFuriganaLines(cleaned);
-  }
-  function ocrLinesChanged(original, cleaned) {
-    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
-  }
-  function cleanOcrLookupText(text, tokens) {
-    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-    let cleaned = text;
-    for (const { ruby } of rubies) {
-      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-    }
-    return cleanOcrText(cleaned);
-  }
-  function removeOcrReadingAroundRuby(text, reading, start, end) {
-    const cleanReading = cleanOcrText(reading);
-    if (!cleanReading) return text;
-    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-      return text.slice(0, start - cleanReading.length) + text.slice(start);
-    }
-    if (text.slice(end, end + cleanReading.length) === cleanReading) {
-      return text.slice(0, end) + text.slice(end + cleanReading.length);
-    }
-    return text;
-  }
-  function removeStandaloneFuriganaLines(lines) {
-    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-    return filtered.length ? filtered : lines;
-  }
-  function isStandaloneFuriganaLine(line, lines, index) {
-    const text = cleanOcrText(line.text).replace(/\s+/g, "");
-    if (!text || text.length > 10 || !OCR_KANA_ONLY_RE.test(text)) return false;
-    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
-  }
-  function ocrLineLooksLikeFuriganaFor(furi, base) {
-    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-    const overlap = horizontalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75;
-    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-    return overlapRatio >= 0.32 && smaller && nearTop;
-  }
-  function horizontalOverlap(a, b) {
-    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-  }
-  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-    if (!furi.vertical || !base.vertical) return false;
-    const overlap = verticalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75;
-    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-    return overlapRatio >= 0.32 && smaller && nearSide;
-  }
-  function verticalOverlap(a, b) {
-    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-  }
-  function horizontalGap(a, b) {
-    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-    return 0;
-  }
-  function parseGoogleLensResponse(bytes, width, height) {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text ? protoFirstMessage(text, 1) : null;
-    if (!layout) return null;
-    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-  }
-  function googleLensParagraphLines(paragraph, width, height) {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
-  }
-  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text = googleLensLineText(words, paragraphVertical);
-    if (!text || !HAS_JAPANESE.test(text)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    if (!box) return null;
-    return {
-      text,
-      box,
-      vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
-    };
-  }
-  function googleLensWords(line, width, height) {
-    return protoMessages(line, 1).map((word) => ({
-      text: protoString(word, 2),
-      separator: protoString(word, 3),
-      box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => Boolean(word.text));
-  }
-  function googleLensLineText(words, paragraphVertical) {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
-  }
-  function googleLensWordText(word, index, words) {
-    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
-  }
-  function googleLensLineBox(lineBox, words, paragraphBox) {
-    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-  }
-  function parseGoogleLensUploadHtml(html, width, height) {
-    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-    if (!literal) return null;
-    try {
-      const callback = parseJsDataLiteral(literal);
-      const lines = [];
-      for (const item of googleLensUploadLineItems(callback.data)) {
-        const { text, box } = googleLensUploadLine(item, width, height);
-        pushJapaneseOcrLine(lines, text, box);
-      }
-      return lines.length ? { width, height, lines } : null;
-    } catch {
-      return null;
-    }
-  }
-  function googleLensUploadLineItems(data) {
-    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-  }
-  function googleLensUploadBlocks(data) {
-    const blocks = data?.[2]?.[3]?.[0] ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-  }
-  function googleLensUploadBlockLineItems(block) {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    return Array.isArray(lineItems) ? lineItems : [];
-  }
-  function googleLensUploadLine(item, width, height) {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-      text: googleLensUploadLineText(lineData[0]),
-      box: googleLensUploadLineBox(lineData[1], width, height)
-    };
-  }
-  function googleLensUploadLineText(value) {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-  }
-  function googleLensUploadWordText(word) {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-  }
-  function googleLensUploadLineBox(value, width, height) {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-    }, width, height);
-  }
-  function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
-    if (!record) return null;
-    const text = simpleLineText(record);
-    const box = simpleLineBox(record, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: simpleLineIsVertical(record) };
-  }
-  function simpleLineText(record) {
-    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-  }
-  function simpleLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function simpleLineIsVertical(record) {
-    return Boolean(record.vertical ?? record.is_vertical);
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = structuredOcrTextLines(record);
-    const vertical = structuredOcrVertical(record);
-    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-    if (lines.length) return lines;
-    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
-  }
-  function structuredOcrTextLines(record) {
-    if (Array.isArray(record.text_lines)) return record.text_lines;
-    return Array.isArray(record.text) ? record.text : [];
-  }
-  function structuredOcrVertical(record) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical);
-  }
-  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
-    if (!lineRecord) return null;
-    const text = structuredOcrLineText(lineRecord);
-    const box = structuredOcrLineBox(lineRecord, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
-  }
-  function structuredOcrLineText(record) {
-    return stringFrom(record.content ?? record.text ?? record.word);
-  }
-  function structuredOcrLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function structuredOcrLineVertical(record, inheritedVertical) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
-  }
-  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-    const text = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
-    const box = normalizeBox(record.box, width, height);
-    return text && box ? [{ text, box, vertical }] : [];
-  }
-  function normalizeOcrRegion(record, width, height) {
-    const region = readOcrRegion(record);
-    if (!region) return null;
-    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
-  }
-  function readOcrRegion(record) {
-    const position = record.position;
-    const size = record.size;
-    if (!position || !size) return null;
-    return completeOcrRegionParts({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(size.width),
-      height: numberFrom(size.height)
-    });
-  }
-  function completeOcrRegionParts(parts) {
-    if (parts.left === null) return null;
-    if (parts.top === null) return null;
-    if (parts.width === null) return null;
-    if (parts.height === null) return null;
-    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
-  }
-  function scaleOcrRegion(region, width, height) {
-    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-    return {
-      left: region.left / divisor * width,
-      top: region.top / divisor * height,
-      width: region.width / divisor * width,
-      height: region.height / divisor * height
-    };
-  }
-  function isFullImageOcrRegion(box, width, height) {
-    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-  }
-  function offsetLineToRegion(line, region, width, height) {
-    const box = clampBox({
-      left: region.left + line.box.left,
-      top: region.top + line.box.top,
-      width: line.box.width,
-      height: line.box.height
-    }, width, height);
-    return box ? { ...line, box } : null;
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
-  }
-  function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
-    if (!position || !dimensions) return null;
-    return boxFromNumbers({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(dimensions.width),
-      height: numberFrom(dimensions.height)
-    }, width, height, "percent-100");
-  }
-  function normalizeDirectBox(record, width, height) {
-    const box = directBoxNumbers(record);
-    return boxFromNumbers(box, width, height, directBoxScale(box));
-  }
-  function directBoxNumbers(record) {
-    return {
-      left: numberFrom(record.left ?? record.x),
-      top: numberFrom(record.top ?? record.y),
-      width: numberFrom(record.width ?? record.w),
-      height: numberFrom(record.height ?? record.h)
-    };
-  }
-  function directBoxScale(box) {
-    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-  }
-  function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = coordinatesAreFractional(xs, ys);
-    const scaledXs = scaleCoordinates(xs, width, percent);
-    const scaledYs = scaleCoordinates(ys, height, percent);
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function coordinatesAreFractional(xs, ys) {
-    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
-  }
-  function isFractionalCoordinate(value) {
-    return value >= 0 && value <= 1;
-  }
-  function scaleCoordinates(values, scale, enabled) {
-    return enabled ? values.map((value) => value * scale) : values;
-  }
-  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-    if (!hasCompleteBoxNumbers(box)) return null;
-    const scaleInfo = boxScaleInfo(scale);
-    return clampBox({
-      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-    }, imageWidth, imageHeight);
-  }
-  function hasCompleteBoxNumbers(box) {
-    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
-  }
-  function boxScaleInfo(scale) {
-    return {
-      fractional: scale !== "pixels",
-      factor: scale === "percent-100" ? 100 : 1
-    };
-  }
-  function scaleBoxNumber(value, dimension, scale) {
-    return scale.fractional ? value / scale.factor * dimension : value;
-  }
-  function decodeProtoMessage(bytes) {
-    const fields = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-      const [tag, nextOffset] = readVarint(bytes, offset);
-      offset = nextOffset;
-      const field = Number(tag >> 3n);
-      const wire = Number(tag & 7n);
-      if (!field) break;
-      if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        offset = afterValue;
-        fields.push({ field, wire, value });
-      } else if (wire === 1) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-        offset += 8;
-      } else if (wire === 2) {
-        const [length, afterLength] = readVarint(bytes, offset);
-        offset = afterLength;
-        const end = offset + Number(length);
-        fields.push({ field, wire, value: bytes.slice(offset, end) });
-        offset = end;
-      } else if (wire === 5) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-        offset += 4;
-      } else {
-        break;
-      }
-    }
-    return fields;
-  }
-  function readVarint(bytes, offset) {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-      const byte = bytes[offset++];
-      result |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return [result, offset];
-      shift += 7n;
-    }
-    return [result, offset];
-  }
-  function protoMessages(fields, field) {
-    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
-  }
-  function protoFirstMessage(fields, field) {
-    return protoMessages(fields, field)[0] ?? null;
-  }
-  function protoString(fields, field) {
-    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value) : "";
-  }
-  function protoNumber(fields, field) {
-    const item = fields.find((value) => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
-  }
-  function protoBox(geometry, width, height) {
-    const dimensions = protoBoxDimensions(geometry);
-    if (!dimensions) return null;
-    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
-  }
-  function protoBoxDimensions(geometry) {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const dimensions = {
-      centerX: protoNumber(box, 1),
-      centerY: protoNumber(box, 2),
-      width: protoNumber(box, 3),
-      height: protoNumber(box, 4)
-    };
-    return dimensions.width && dimensions.height ? dimensions : null;
-  }
-  function protoBoxIsNormalized(box) {
-    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
-  }
-  function scaledProtoBox(box, normalized, width, height) {
-    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
-    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
-    return {
-      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
-      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
-      width: scaledWidth,
-      height: scaledHeight
-    };
-  }
-  function scaledProtoBoxValue(value, scale, normalized) {
-    return normalized ? value * scale : value;
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" ? value : null;
   }
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
@@ -7843,12 +8639,7 @@ ${candidate.depth}`;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
-  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  const LENS_PLATFORM_WEB = 3;
-  const LENS_SURFACE_CHROMIUM = 4;
-  const LENS_AUTO_FILTER = 7;
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
@@ -7857,16 +8648,6 @@ ${candidate.depth}`;
   const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
   const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
   let ocrLayerCounter = 0;
-  const OCR_RECOGNIZERS = {
-    "google-lens": recognizeViaGoogleLens,
-    "cloud-vision": recognizeViaCloudVision,
-    "local-service": recognizeViaLocalService
-  };
-  const OCR_PROVIDER_CONFIGURED = {
-    "google-lens": () => true,
-    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    "local-service": () => true
-  };
   const OCR_PROVIDER_LABELS = {
     "google-lens": () => "google-lens",
     "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
@@ -10861,124 +11642,6 @@ ${spelling}`);
     const value = values.find((candidate) => Boolean(candidate));
     return value === void 0 ? 1 : value;
   }
-  function imageContentBox(image, rect, style) {
-    const scaleX = rectScale(rect.width, image.offsetWidth);
-    const scaleY = rectScale(rect.height, image.offsetHeight);
-    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
-    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
-    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
-    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
-    return {
-      left,
-      top,
-      width: Math.max(1, rect.width - left - right),
-      height: Math.max(1, rect.height - top - bottom)
-    };
-  }
-  function rectScale(rectSize, layoutSize) {
-    return layoutSize > 0 ? rectSize / layoutSize : 1;
-  }
-  function scaledBoxEdge(value, scale) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed * scale : 0;
-  }
-  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
-    const safeSourceWidth = Math.max(1, sourceWidth);
-    const safeSourceHeight = Math.max(1, sourceHeight);
-    const safeContentWidth = Math.max(1, contentWidth);
-    const safeContentHeight = Math.max(1, contentHeight);
-    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-    switch (objectFit) {
-      case "contain":
-        return contain();
-      case "cover":
-        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-      case "none":
-        return { width: safeSourceWidth, height: safeSourceHeight };
-      case "scale-down": {
-        const contained = contain();
-        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
-      }
-      case "fill":
-      default:
-        return { width: safeContentWidth, height: safeContentHeight };
-    }
-  }
-  function scaledObjectSize(width, height, scale) {
-    return {
-      width: Math.max(1, width * scale),
-      height: Math.max(1, height * scale)
-    };
-  }
-  function objectPositionOffset(value, freeX, freeY) {
-    const tokens = cssPositionTokens(value);
-    const axes = parseObjectPositionAxes(tokens);
-    return {
-      x: axisPositionOffset(axes.x, freeX),
-      y: axisPositionOffset(axes.y, freeY)
-    };
-  }
-  function cssPositionTokens(value) {
-    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
-  }
-  function parseObjectPositionAxes(tokens) {
-    const paired = parseKeywordPositionAxes(tokens);
-    if (paired) return paired;
-    const [first = "50%", second] = tokens;
-    if (isVerticalPositionKeyword(first)) return { x: positionAxis(second || "50%"), y: positionAxis(first) };
-    return { x: positionAxis(first), y: positionAxis(second || "50%") };
-  }
-  function parseKeywordPositionAxes(tokens) {
-    let x = null;
-    let y = null;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isHorizontalPositionKeyword(token)) {
-        x = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-        continue;
-      }
-      if (isVerticalPositionKeyword(token)) {
-        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-      }
-    }
-    return x || y ? { x: x ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
-  }
-  function positionAxis(token) {
-    return positionKeyword(token) ? { keyword: token } : { token };
-  }
-  function positionOffsetToken(token) {
-    return token && !positionKeyword(token) ? token : void 0;
-  }
-  function axisPositionOffset(axis, freeSpace) {
-    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
-    const offset = cssLengthPx(axis.offset);
-    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
-    return base + offset;
-  }
-  function keywordPositionOffset(keyword, freeSpace) {
-    if (keyword === "right" || keyword === "bottom") return freeSpace;
-    if (keyword === "center") return freeSpace / 2;
-    return 0;
-  }
-  function tokenPositionOffset(token, freeSpace) {
-    if (!token) return freeSpace / 2;
-    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
-    return cssLengthPx(token);
-  }
-  function cssLengthPx(value) {
-    if (!value) return 0;
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function positionKeyword(token) {
-    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
-  }
-  function isHorizontalPositionKeyword(token) {
-    return token === "left" || token === "right";
-  }
-  function isVerticalPositionKeyword(token) {
-    return token === "top" || token === "bottom";
-  }
   function captureImageElement(image) {
     try {
       if (!image.naturalWidth || !image.naturalHeight) return void 0;
@@ -11031,341 +11694,6 @@ ${spelling}`);
   }
   function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
-  }
-  async function recognizeViaLocalService(image, settings, invert = false) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: settings.ocrLanguage || "ja-JP",
-      language: {
-        bcp47_tag: settings.ocrLanguage || "ja-JP",
-        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
-      },
-      base64_image: payload.base64,
-      image: payload.base64,
-      image_bytes: payload.base64,
-      ocr_engine: engine,
-      ocr_adapter_name: engine,
-      detection_only: false
-    });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaCloudVision(image, settings, invert = false) {
-    const apiKey = settings.ocrCloudVisionApiKey.trim();
-    if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const body = JSON.stringify({
-      requests: [{
-        image: { content: payload.base64 },
-        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
-        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
-      }]
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaGoogleLens(image, settings, invert = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
-    let protobufFailure;
-    const protobuf = await recognizeViaGoogleLensProtobuf(
-      blob,
-      canvas,
-      settings,
-      Math.max(1, remainingGoogleLensTimeout(deadline))
-    ).catch((error) => {
-      protobufFailure = error;
-      log.warn("Google Lens protobuf failed", error);
-      return void 0;
-    });
-    if (protobuf?.lines.length) return protobuf;
-    const uploadTimeout = remainingGoogleLensTimeout(deadline);
-    if (uploadTimeout <= 0) {
-      if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
-      return protobuf;
-    }
-    let uploadFailure;
-    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
-      uploadFailure = error;
-      log.warn("Google Lens upload failed", error);
-      return void 0;
-    });
-    if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
-      throw new Error("Google Lens OCR timed out.");
-    }
-    if (protobuf === void 0 && upload === void 0) {
-      if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
-        throw new Error("Google Lens OCR timed out.");
-      }
-      throw new Error("Google Lens OCR failed.");
-    }
-    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
-  }
-  function remainingGoogleLensTimeout(deadline) {
-    return Math.max(0, deadline - Date.now());
-  }
-  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
-    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-  }
-  function ocrRecognizer(settings) {
-    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
-    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
-  }
-  function isOcrProviderConfigured(settings) {
-    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
-  }
-  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
-    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
-  }
-  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
-    const canvas = await imageToCanvas(image, maxPixels, invertDark);
-    try {
-      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
-    } catch {
-      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
-      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
-    }
-  }
-  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    const data = new FormData();
-    data.append("encoded_image", blob, "image.jpg");
-    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
-      Origin: "https://lens.google.com",
-      Referer: "https://lens.google.com/"
-    });
-    return parseGoogleLensUploadHtml(response, width, height);
-  }
-  async function imageToCanvas(image, maxPixels, invert = false) {
-    try {
-      const canvas = drawImageToCanvas(image, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } catch {
-      return imageBlobToCanvas(image, maxPixels, invert);
-    }
-  }
-  async function imageBlobToCanvas(image, maxPixels, invert = false) {
-    const url = image.currentSrc || image.src;
-    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-    const blob = await requestBlob(url);
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const loaded = await loadImage(objectUrl);
-      const canvas = drawImageToCanvas(loaded, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  function invertedCanvas(canvas) {
-    try {
-      const inverted = document.createElement("canvas");
-      inverted.width = canvas.width;
-      inverted.height = canvas.height;
-      const context = inverted.getContext("2d");
-      if (!context) return canvas;
-      context.filter = "invert(1)";
-      context.drawImage(canvas, 0, 0);
-      return inverted;
-    } catch {
-      return canvas;
-    }
-  }
-  const DARK_FIELD_SIZE = 48;
-  const DARK_LUMINANCE = 90;
-  const DARK_REGION_TRIGGER = 0.1;
-  const DARK_LINE_MEAN_LUMINANCE = 110;
-  function buildLuminanceField(image) {
-    try {
-      if (!image.naturalWidth || !image.naturalHeight) return null;
-      const size = DARK_FIELD_SIZE;
-      const sample = document.createElement("canvas");
-      sample.width = size;
-      sample.height = size;
-      const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return null;
-      context.drawImage(image, 0, 0, size, size);
-      const { data } = context.getImageData(0, 0, size, size);
-      const lum = new Uint8Array(size * size);
-      let opaque = 0;
-      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-        if (data[i + 3] >= 8) opaque++;
-        lum[p] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
-      }
-      if (opaque < lum.length * 0.5) return null;
-      return { size, lum };
-    } catch {
-      return null;
-    }
-  }
-  function luminanceFieldDarkFraction(field) {
-    let dark = 0;
-    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
-    return dark / field.lum.length;
-  }
-  function regionMeanLuminance(field, box, width, height) {
-    if (width <= 0 || height <= 0) return 255;
-    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
-    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
-    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
-    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
-    let sum = 0;
-    let count = 0;
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0; x < x1; x++) {
-        sum += field.lum[y * field.size + x];
-        count++;
-      }
-    }
-    return count ? sum / count : 255;
-  }
-  function darkAreaIsRead(field, normal) {
-    const size = field.size;
-    let darkTotal = 0;
-    let darkCovered = 0;
-    const lines = normal?.lines ?? [];
-    const width = normal?.width || 1;
-    const height = normal?.height || 1;
-    const cellRects = lines.map((line) => ({
-      x0: Math.floor(line.box.left / width * size),
-      x1: Math.ceil((line.box.left + line.box.width) / width * size),
-      y0: Math.floor(line.box.top / height * size),
-      y1: Math.ceil((line.box.top + line.box.height) / height * size)
-    }));
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        if (field.lum[y * size + x] >= DARK_LUMINANCE) continue;
-        darkTotal++;
-        if (cellRects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
-      }
-    }
-    if (!darkTotal) return true;
-    return darkCovered / darkTotal >= 0.5;
-  }
-  function boxesOverlapSignificantly(a, b) {
-    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-    const intersection = ix * iy;
-    if (intersection <= 0) return false;
-    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
-    return intersection / minArea >= 0.5;
-  }
-  function mergeDarkPassResult(normal, inverted, field) {
-    if (!inverted?.lines.length) return normal;
-    if (!normal) {
-      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
-      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
-    }
-    const lines = [...normal.lines];
-    for (const line of inverted.lines) {
-      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
-      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
-      lines.push(line);
-    }
-    return { width: normal.width, height: normal.height, lines };
-  }
-  function drawImageToCanvas(image, maxPixels) {
-    const size = loadedImageSize(image);
-    const canvas = scaledCanvas(size, maxPixels);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-  async function splitImageIntoPageColumns(image) {
-    const size = loadedImageSize(image);
-    const mid = Math.round(size.width / 2);
-    return Promise.all([
-      cropOcrImageColumn(image, 0, mid, size),
-      cropOcrImageColumn(image, mid, size.width - mid, size)
-    ]);
-  }
-  async function cropOcrImageColumn(image, left, width, size) {
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, width);
-    canvas.height = Math.max(1, size.height);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
-    return {
-      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
-      left,
-      totalWidth: size.width,
-      totalHeight: size.height
-    };
-  }
-  function offsetOcrResult(result, left, top, width, height) {
-    return {
-      width,
-      height,
-      lines: result.lines.map((line) => ({
-        ...line,
-        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
-      }))
-    };
-  }
-  function mergeOcrResults(width, height, results) {
-    const lines = results.flatMap((result) => result?.lines ?? []);
-    return width && height && lines.length ? { width, height, lines } : null;
-  }
-  function loadedImageSize(image) {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-    if (!width || !height) throw new Error("Image is not loaded yet.");
-    return { width, height };
-  }
-  function scaledCanvas(size, maxPixels) {
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(size.width * scale));
-    canvas.height = Math.max(1, Math.round(size.height * scale));
-    return canvas;
-  }
-  function drawableCanvasContext(canvas) {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable.");
-    return context;
-  }
-  function assertCanvasReadable(canvas) {
-    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
-  }
-  function createGoogleLensRequest(imageBytes, width, height, locale) {
-    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const requestId = protoMessage(
-      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
-      protoVarintField(2, 1),
-      protoVarintField(3, 1),
-      protoBytesField(4, randomBytes(16))
-    );
-    const localeContext = protoMessage(
-      protoStringField(1, language || "ja"),
-      protoStringField(2, region || "US"),
-      protoStringField(3, timeZone)
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-      protoVarintField(1, LENS_PLATFORM_WEB),
-      protoVarintField(2, LENS_SURFACE_CHROMIUM),
-      protoMessageField(4, localeContext),
-      protoMessageField(17, clientFilters)
-    );
-    const requestContext = protoMessage(
-      protoMessageField(3, requestId),
-      protoMessageField(4, clientContext)
-    );
-    const imageData = protoMessage(
-      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-      protoMessageField(1, requestContext),
-      protoMessageField(3, imageData)
-    )));
   }
   function isCandidateImage(image, settings) {
     if (isIgnoredOcrImage(image)) return false;
@@ -12037,89 +12365,6 @@ ${spelling}`);
   function isWideBookwalkerSpreadCanvas(canvas) {
     return isBookwalkerViewerHost() && !isBookwalkerContinuousScrollCanvas(canvas) && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
   }
-  function canvasSurfaceSnapshotKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    if (isBookwalkerViewerHost()) {
-      return [
-        canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-        surfaceId
-      ].join("|");
-    }
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function canvasStablePageContentToken(canvas) {
-    return stableContentIdentityForCanvas(canvas);
-  }
-  function canvasContentReadinessKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function isSameCanvasReaderPageLocation(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
-  }
-  function hasDifferentRecordedCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isRecordedCanvasReaderContent(previousParts.content) && isRecordedCanvasReaderContent(nextParts.content) && isRealContentChange(previousParts.content, nextParts.content);
-  }
-  function isRecordedCanvasReaderContent(content) {
-    const tokens = content.split(",").filter(Boolean);
-    return tokens.length > 0 && tokens.every((token) => token.startsWith("m:") || token.startsWith("o:"));
-  }
-  function hasSameRealCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isSameRealContent(previousParts.content, nextParts.content);
-  }
-  function isCanvasMirrorEpochTransition(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isGlobalEpochTransition(previousParts.content, nextParts.content);
-  }
-  function hasSameStableCanvasReaderPageCounter(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
-  }
-  function shouldTrustStableBookwalkerPageCounter() {
-    if (!isBookwalkerViewerHost()) return false;
-    try {
-      return new URL(location.href).searchParams.get("cty") !== "2";
-    } catch {
-      return true;
-    }
-  }
-  function splitCanvasReaderSignature(signature) {
-    const parts = signature.split("|");
-    if (parts.length < 5) return null;
-    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
-    return {
-      backgrounds: backgroundParts.join("|"),
-      content: content ?? "",
-      counter: counter ?? "",
-      scroll: scroll ?? "",
-      surfaces: surfaces ?? ""
-    };
-  }
   function backgroundSurfaceCacheKey(surface) {
     const rect = surface.getBoundingClientRect();
     return [
@@ -12128,245 +12373,6 @@ ${spelling}`);
       Math.round(rect.width),
       Math.round(rect.height)
     ].join("|");
-  }
-  function protoMessage(...parts) {
-    return concatBytes(parts);
-  }
-  function protoMessageField(field, value) {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-  }
-  function protoBytesField(field, value) {
-    return protoMessageField(field, value);
-  }
-  function protoStringField(field, value) {
-    return protoBytesField(field, new TextEncoder().encode(value));
-  }
-  function protoVarintField(field, value) {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-  }
-  function protoTag(field, wire) {
-    return encodeVarint(field << 3 | wire);
-  }
-  function encodeVarint(value) {
-    let item = BigInt(value);
-    const bytes = [];
-    do {
-      let byte = Number(item & 0x7fn);
-      item >>= 7n;
-      if (item) byte |= 128;
-      bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-  }
-  function concatBytes(parts) {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-    return result;
-  }
-  function randomBytes(length) {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-  }
-  function requestJson(url, data, timeout) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers: { "content-type": "application/json" },
-      data,
-      responseType: "json",
-      timeout
-    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-  }
-  function fetchJsonWithTimeout(url, data, timeout) {
-    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestArrayBuffer(url, data, timeout) {
-    const body = new Uint8Array(data);
-    const headers = {
-      "content-type": "application/x-protobuf",
-      "x-goog-api-key": GOOGLE_LENS_API_KEY,
-      accept: "*/*",
-      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
-    };
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers,
-      data: body.buffer,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchWithTimeout(url, {
-      method: "POST",
-      headers,
-      body: body.buffer
-    }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-  }
-  function requestTextForm(url, data, timeout, headers) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      ...headers ? { headers } : {},
-      data,
-      responseType: "text",
-      timeout
-    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchWithTimeout(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
-  }
-  function fetchWithTimeout(url, init, timeout, timeoutMessage) {
-    if (!timeout) return fetch(url, init);
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestBlob(url, timeout = 0) {
-    const fallbackType = imageMimeTypeFromUrl(url);
-    const userscriptRequest = requestViaUserscript({
-      method: "GET",
-      url,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
-    if (userscriptRequest) return userscriptRequest;
-    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeout);
-    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
-  }
-  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
-    const value = response.response;
-    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
-    if (value instanceof ArrayBuffer) {
-      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
-      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
-    }
-    if (ArrayBuffer.isView(value)) {
-      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-      const copy = new Uint8Array(source.byteLength);
-      copy.set(source);
-      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
-    }
-    return new Blob([value], { type: fallbackType });
-  }
-  function imageMimeTypeFromUrl(url) {
-    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "png":
-        return "image/png";
-      case "gif":
-        return "image/gif";
-      case "webp":
-        return "image/webp";
-      case "avif":
-        return "image/avif";
-      case "bmp":
-        return "image/bmp";
-      default:
-        return "image/jpeg";
-    }
-  }
-  function sniffImageMimeType(bytes) {
-    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
-    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
-    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
-    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
-    return void 0;
-  }
-  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) {
-      log.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
-      return null;
-    }
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      let requestHandle;
-      let timeoutId = 0;
-      const settle = (fn) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId) window.clearTimeout(timeoutId);
-        fn();
-      };
-      const onload = (response) => {
-        settle(() => {
-          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-          else reject(new Error(statusMessage(response.status)));
-        });
-      };
-      const fail = (error) => {
-        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
-      };
-      const timeout = Math.max(0, Math.round(options.timeout || 0));
-      if (timeout) {
-        timeoutId = window.setTimeout(() => {
-          try {
-            requestHandle?.abort?.();
-          } catch {
-          }
-          fail(new Error(timeoutMessage ?? "Request timed out."));
-        }, timeout);
-      }
-      try {
-        const result = userscriptRequest({
-          ...options,
-          onload,
-          onerror: fail,
-          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
-        });
-        if (result && typeof result.then === "function") {
-          result.then(onload, fail);
-        } else if (result) {
-          requestHandle = result;
-        }
-      } catch (error) {
-        fail(error);
-      }
-    });
-  }
-  function isSuccessfulHttpStatus(status) {
-    return status >= 200 && status < 300;
-  }
-  function loadImage(url, timeout = 0) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      let timer = 0;
-      const settle = (fn) => {
-        if (timer) window.clearTimeout(timer);
-        fn();
-      };
-      image.onload = () => settle(() => resolve(image));
-      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
-      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
-      image.src = url;
-    });
   }
   const cleanMirrorImageCache = /* @__PURE__ */ new Map();
   async function loadCleanMirrorImage(url) {
@@ -12438,11 +12444,6 @@ ${spelling}`);
       if (!oldest) return;
       cleanMirrorImageCache.delete(oldest);
     }
-  }
-  function canvasToBlob(canvas, type, quality) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
-    });
   }
   function imageSummary(image) {
     return {

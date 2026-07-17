@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.173] - 2026-07-17
+
+### Changed
+
+- The OCR engine's supporting machinery (Google Lens request encoding, image preprocessing, overlay geometry, page signatures, and the recognizer transports) now lives in five focused modules instead of one 6,000-line file, with byte-identical behavior.
+- New-tab study bookkeeping was consolidated: the per-step answer and outcome state for each card lives in one structure instead of eight parallel maps, async staleness guards started migrating to a shared latest-wins helper, and eight session caches that previously grew without limit are now bounded (one of them was never cleared at all).
+
 ## [1.6.172] - 2026-07-17
 
 ### Changed

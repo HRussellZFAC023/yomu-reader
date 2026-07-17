@@ -7252,7 +7252,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$C = Logger.scope("Settings");
+  const log$D = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -8532,7 +8532,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
-      log$C.warn("Settings load failed", { error });
+      log$D.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -8558,13 +8558,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$C.warn("Skipped save during reset");
+      log$D.warn("Skipped save during reset");
       return;
     }
     try {
       await persistSettings(settings);
     } catch (error) {
-      log$C.warn("Settings save failed", { error });
+      log$D.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -12855,7 +12855,7 @@ ${item.sequence ?? ""}`;
     }
     return -1;
   }
-  const log$B = Logger.scope("Yomitan");
+  const log$C = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -12903,7 +12903,7 @@ ${item.sequence ?? ""}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$3(url, proxyUrl, onProgress, language = "en") {
-    const done = log$B.time("Dictionary download", { host: safeHost$3(url) });
+    const done = log$C.time("Dictionary download", { host: safeHost$3(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -12912,18 +12912,18 @@ ${item.sequence ?? ""}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$B.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
+          log$C.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$B.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
+          log$C.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$B.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
+        log$C.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -12940,19 +12940,19 @@ ${item.sequence ?? ""}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$B.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$C.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$B.warn("Dictionary download timed out", { host: safeHost$3(url) });
+          log$C.warn("Dictionary download timed out", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$B.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$C.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -12976,7 +12976,7 @@ ${item.sequence ?? ""}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$B.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
+    log$C.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -13008,17 +13008,17 @@ ${item.sequence ?? ""}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$B.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
+    log$C.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host = safeHost$3(url);
     if (isDictionaryCorsError(error)) {
-      log$B.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$C.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$B.warn("Dictionary download fetch failed", { host, error });
+    log$C.warn("Dictionary download fetch failed", { host, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -14514,7 +14514,7 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
-  const log$A = Logger.scope("YomitanSettingsImport");
+  const log$B = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -14524,11 +14524,11 @@ ${entry.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language = "en") {
-    const done = log$A.time("Yomitan settings export parse");
+    const done = log$B.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$A.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$B.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -14543,7 +14543,7 @@ ${entry.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$A.info("Yomitan settings import parsed", {
+    log$B.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -14782,14 +14782,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const log$z = Logger.scope("Yomitan");
+  const log$A = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$z.info("Persistent storage request", { granted });
+        log$A.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -14814,7 +14814,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$z.warn("Term search index preparation failed", { error });
+        log$A.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -14848,7 +14848,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$z.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$A.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries2 = await this.getTermLookupEntries(
@@ -14873,7 +14873,7 @@ ${entry.reading}`;
             });
             return selectTermLookupResults(ranked, expression, reading, limit);
           } catch (error) {
-            log$z.warn("Term lookup failed", { expression, reading, error });
+            log$A.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -14883,7 +14883,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$z.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$A.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -14902,7 +14902,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$z.warn("Term search failed", { query: normalizedQuery, error });
+        log$A.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -14912,7 +14912,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$z.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$A.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -14921,7 +14921,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$z.warn("Kanji lookup failed", { length: text2.length, error });
+            log$A.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -14932,14 +14932,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$z.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$A.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$z.warn("Kanji character list failed", { error });
+        log$A.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -14949,7 +14949,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$z.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$A.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -14957,7 +14957,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$z.warn("Term metadata lookup failed", { expression, error });
+            log$A.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -14969,7 +14969,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$z.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$A.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -14979,7 +14979,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$z.warn("Similar terms by kanji lookup failed", { character, error });
+            log$A.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -14988,7 +14988,7 @@ ${entry.reading}`;
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$z.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$A.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -15004,7 +15004,7 @@ ${entry.reading}`;
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$z.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$A.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -15059,7 +15059,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$z.time("Dictionary summary");
+      const done = log$A.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -15079,7 +15079,7 @@ ${entry.reading}`;
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$z.warn("Dictionary summary failed", { error });
+        log$A.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -15092,12 +15092,12 @@ ${entry.reading}`;
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$z.time("Dictionary presence check");
+      const done = log$A.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$z.warn("Dictionary presence check failed", { error });
+        log$A.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -15106,12 +15106,12 @@ ${entry.reading}`;
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
-      const done = log$z.time("Term dictionary presence check");
+      const done = log$A.time("Term dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
-        log$z.warn("Term dictionary presence check failed", { error });
+        log$A.warn("Term dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -15122,7 +15122,7 @@ ${entry.reading}`;
     // mode 'pitch', so sampling the head of each meta dictionary is enough.
     // fallow-ignore-next-line unused-class-member
     async hasPitchMetaDictionaries() {
-      const done = log$z.time("Pitch dictionary presence check");
+      const done = log$A.time("Pitch dictionary presence check");
       try {
         const db = await this.db();
         const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
@@ -15132,27 +15132,27 @@ ${entry.reading}`;
         }
         return false;
       } catch (error) {
-        log$z.warn("Pitch dictionary presence check failed", { error });
+        log$A.warn("Pitch dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$z.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$A.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$z.warn("Random term listing failed", { limit, error });
+        log$A.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$z.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$A.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -15169,7 +15169,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$z.warn("Random top term listing failed", { limit, error });
+        log$A.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -15251,27 +15251,27 @@ ${entry.reading}`;
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$z.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$A.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$z.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$A.info("Dictionary file import started", fileSummary(file, sourceUrl));
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$z.info("Dictionary file import completed", summary);
+        log$A.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$z.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$A.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$z.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
+      log$A.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$z.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
+      log$A.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -15356,7 +15356,7 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$z.info("ZIP dictionary import parsed", summary);
+      log$A.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -15384,7 +15384,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$z.info("JSON dictionary import parsed", summary);
+      log$A.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -15483,13 +15483,13 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$z.info("Dexie dictionary import parsed", summary);
+      log$A.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$z.time("Dictionary export");
+      const done = log$A.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -15499,7 +15499,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$z.info("Dictionary export prepared", {
+        log$A.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -15517,7 +15517,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$z.warn("Dictionary export failed", { error });
+        log$A.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -15536,26 +15536,26 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$z.warn("Dictionary stylesheet render failed", { error });
+        log$A.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$z.time("Dictionary store clear");
+      const done = log$A.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$z.info("Dictionary store cleared");
+        log$A.info("Dictionary store cleared");
       } catch (error) {
-        log$z.warn("Dictionary store clear failed", { error });
+        log$A.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$z.time("Dictionary database factory reset");
+      const done = log$A.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -15564,10 +15564,10 @@ ${entry.reading}`;
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$z.warn("Dictionary reset pre-clear failed", { error });
+          log$A.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$z.warn("Dictionary delete incomplete after clear", { error });
+        log$A.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -15581,12 +15581,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$z.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$A.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$z.time("Dictionary database delete");
+      const done = log$A.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -15612,12 +15612,12 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$z.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$A.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$z.info("Dictionary database deleted", { name: DB_NAME });
+        log$A.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$z.warn("Dictionary database delete failed", { error });
+        log$A.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -15642,18 +15642,18 @@ ${entry.reading}`;
       for (const title of stale) await this.deleteDictionary(title);
     }
     async deleteDictionary(dictionary) {
-      const done = log$z.time("Dictionary delete", { dictionary });
+      const done = log$A.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$z.info("Dictionary delete skipped; not installed", { dictionary });
+          log$A.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$z.info("Only installed dictionary cleared", { dictionary });
+          log$A.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -15669,9 +15669,9 @@ ${entry.reading}`;
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$z.info("Dictionary deleted", { dictionary });
+        log$A.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$z.warn("Dictionary delete failed", { dictionary, error });
+        log$A.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -15960,9 +15960,9 @@ ${entry.reading}`;
         for (const title of stale) {
           try {
             await this.deleteDictionary(title);
-            log$z.info("Removed duplicate dictionary revision", { title });
+            log$A.info("Removed duplicate dictionary revision", { title });
           } catch (error) {
-            log$z.warn("Duplicate dictionary revision cleanup failed", { title, error });
+            log$A.warn("Duplicate dictionary revision cleanup failed", { title, error });
           }
         }
       })();
@@ -16033,7 +16033,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$z.time("Term search index rebuild");
+      const done = log$A.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -16050,13 +16050,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$z.info("Term search index rebuilt", { terms: indexedTerms });
+        log$A.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$z.time("Term kanji index rebuild");
+      const done = log$A.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -16073,7 +16073,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$z.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$A.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -16160,7 +16160,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$z.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$A.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -16190,7 +16190,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$z.warn("Dictionary database open failed", { error: request.error });
+          log$A.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       });
@@ -16198,7 +16198,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$z.info("Dictionary DB version change; closing", {
+        log$A.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -17091,7 +17091,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$y = Logger.scope("Anki");
+  const log$z = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -17134,7 +17134,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$y.warn("Anki status save fell back", error);
+      log$z.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -17148,7 +17148,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$y.warn("Anki status metadata failed", error);
+      log$z.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -17677,7 +17677,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const ANKI_RENDERED_MEDIA_LIMIT = 12;
   const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
   const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
-  const log$x = Logger.scope("Anki");
+  const log$y = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -17783,7 +17783,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       } catch (error) {
-        log$x.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$y.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -17798,7 +17798,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$x.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$y.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -17981,7 +17981,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$x.warn("Exact Anki status lookup failed", error);
+        log$y.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache) {
@@ -18011,7 +18011,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!pending.length) return results;
       const batches = this.pendingLookupBatches(pending);
       try {
-        const done = log$x.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        const done = log$y.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -18020,7 +18020,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         done();
         return results;
       } catch (error) {
-        log$x.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        log$y.warn("Anki batch lookup failed", { terms: pending.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -18088,7 +18088,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$x.warn("Anki status load failed", error);
+        log$y.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -18107,7 +18107,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const keys = unique(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$x.warn("Anki status entry failed", error);
+        log$y.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -18140,7 +18140,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$x.warn("Anki status index refresh failed", error);
+        log$y.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -18186,7 +18186,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
         this.statusIndex = dirty;
         await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$x.warn("Anki edited-sweep dirty marker failed", error);
+          log$y.warn("Anki edited-sweep dirty marker failed", error);
         });
         return { handled: false, index: dirty };
       }
@@ -18262,7 +18262,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$x.warn("Queued Anki status index refresh failed", error);
+          log$y.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -18331,7 +18331,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$x.warn("Anki status rebuild fell back", error);
+        log$y.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -18578,7 +18578,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$x.warn("Anki status cache update failed", error);
+        log$y.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -18745,7 +18745,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$x.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$y.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -18771,7 +18771,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$x.info("Answering Anki card", { cardId, grade, ease });
+      log$y.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -18783,7 +18783,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
-      log$x.info("Setting Anki card suspension", { cardIds, suspended });
+      log$y.info("Setting Anki card suspension", { cardIds, suspended });
       await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -18794,7 +18794,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
-      log$x.info("Setting Anki note tag", { noteIds, tag, present });
+      log$y.info("Setting Anki note tag", { noteIds, tag, present });
       await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -18803,7 +18803,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$x.info("Opening Anki note browser", { noteId });
+      log$y.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -18930,7 +18930,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$x.info("Adding Anki note", {
+      log$y.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -18944,7 +18944,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$x.info("Anki note added", { term: card.spelling, noteId });
+      log$y.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
       return noteId;
@@ -18952,7 +18952,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError$1(error)) throw error;
-        log$x.warn("Anki duplicate preflight failed", error);
+        log$y.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
@@ -18990,7 +18990,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$x.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$y.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -19008,7 +19008,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$x.warn("Anki dirty marker failed", { reason }, error);
+          log$y.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -19022,12 +19022,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$x.warn("Anki dirty marker failed", { reason }, error);
+        log$y.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff$1(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$x.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$y.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -19059,7 +19059,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$x.info("Anki model created", { modelName });
+      log$y.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
@@ -19086,7 +19086,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       this.markAvailable();
       if (response.error) {
-        log$x.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$y.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -19098,11 +19098,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError$1(error)) {
-          log$x.warn("AnkiConnect multi failed; cooling down", error);
+          log$y.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$x.warn("AnkiConnect multi failed; retrying solo", error);
+        log$y.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -19160,7 +19160,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$x.warn("Active video frame capture failed", error);
+      log$y.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -20602,7 +20602,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$w = Logger.scope("Audio");
+  const log$x = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -20640,7 +20640,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$w.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$x.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
@@ -20695,14 +20695,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$w.warn("No audio sources configured", { term: card.spelling });
+      log$x.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$w.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$x.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
@@ -20901,7 +20901,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$w.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$x.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -20980,7 +20980,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio = fallbackAudio;
-          log$w.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+          log$x.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
         } else {
           errors.push(audioErrorMessage(error));
           if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -22805,7 +22805,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$v = Logger.scope("KanjiOrigin");
+  const log$w = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     // Called through the nullable kanji-study companion slot (app/main.ts).
@@ -22824,9 +22824,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$v.time("Kanji origin lookup", { kanji });
+      const done = log$w.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$v.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$w.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -22841,7 +22841,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$v.time("Fetch Kanji Map info", { kanji });
+    const done = log$w.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson$1(await requestText$6(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -23257,7 +23257,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$v.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+      log$w.warn("Kanji origin request failed", { host: safeHost$2(url), error });
       throw error;
     });
   }
@@ -25014,7 +25014,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$u = Logger.scope("JpdbKanji");
+  const log$v = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -25035,7 +25035,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$u.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$v.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$4(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -25048,7 +25048,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$4(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$u.warn("Kanji page request failed", { kanji }, error);
+        log$v.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -25541,7 +25541,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$t = Logger.scope("KanjiVG");
+  const log$u = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -25561,7 +25561,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$3(url).catch((error) => {
-        log$t.warn("Stroke-order request failed", { kanji }, error);
+        log$u.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -26826,7 +26826,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         </details>
     `;
   }
-  const log$s = Logger.scope("KanjiDoodle");
+  const log$t = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -26849,11 +26849,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$s.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$t.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$s.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$t.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -27483,7 +27483,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE$3 = /[\u3400-\u9fff]/u;
-  const log$r = Logger.scope("RTK");
+  const log$s = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -27500,7 +27500,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$r.warn("RTK request failed", { kanji }, error);
+        log$s.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -28182,7 +28182,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const uuid = globalThis.crypto?.randomUUID?.();
     return uuid ? `grammar-known:${uuid}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   }
-  const log$q = Logger.scope("StudyTools");
+  const log$r = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
@@ -28344,17 +28344,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$r.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson$2(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$r.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$q.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$r.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -29554,13 +29554,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ratio = Math.max(0, Math.min(1, height / viewportHeight));
     gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
   }
-  const log$p = Logger.scope("StudyRender");
+  const log$q = Logger.scope("StudyRender");
   async function renderStudyToolResult$1(button, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$p.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$q.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
@@ -29732,7 +29732,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$o = Logger.scope("MiningContext");
+  const log$p = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -29785,7 +29785,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     fetchImageDataUrl,
     fetchAudioDataUrl: fetchAudioDataUrl2
   }) {
-    const done = log$o.time("Resolve mining context", {
+    const done = log$p.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -29862,7 +29862,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$o.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$p.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -29877,7 +29877,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = parseStoredMiningContext(stored, normalized);
       return context;
     } catch (error) {
-      log$o.warn("Mining context load failed", { term: normalized, error });
+      log$p.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -30628,7 +30628,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
   }
-  const log$n = Logger.scope("StudySources");
+  const log$o = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
@@ -30716,7 +30716,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
       } catch (error) {
-        log$n.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+        log$o.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
       }
     }
     canRenderGrammar(popover, container) {
@@ -30805,7 +30805,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
     }
     renderTranslationError(sentence, container, error) {
-      log$n.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+      log$o.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
@@ -31792,8 +31792,1551 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function ocrRuntimeActive(settings) {
     return settings.ocrEnabled && !settings.annotationsPaused;
   }
+  function invertedCanvas(canvas) {
+    try {
+      const inverted = document.createElement("canvas");
+      inverted.width = canvas.width;
+      inverted.height = canvas.height;
+      const context = inverted.getContext("2d");
+      if (!context) return canvas;
+      context.filter = "invert(1)";
+      context.drawImage(canvas, 0, 0);
+      return inverted;
+    } catch {
+      return canvas;
+    }
+  }
+  const DARK_FIELD_SIZE = 48;
+  const DARK_LUMINANCE = 90;
+  const DARK_REGION_TRIGGER = 0.1;
+  const DARK_LINE_MEAN_LUMINANCE = 110;
+  function buildLuminanceField(image) {
+    try {
+      if (!image.naturalWidth || !image.naturalHeight) return null;
+      const size = DARK_FIELD_SIZE;
+      const sample = document.createElement("canvas");
+      sample.width = size;
+      sample.height = size;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      if (!context) return null;
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      const lum = new Uint8Array(size * size);
+      let opaque = 0;
+      for (let i2 = 0, p = 0; i2 < data.length; i2 += 4, p++) {
+        if (data[i2 + 3] >= 8) opaque++;
+        lum[p] = data[i2] * 0.299 + data[i2 + 1] * 0.587 + data[i2 + 2] * 0.114 | 0;
+      }
+      if (opaque < lum.length * 0.5) return null;
+      return { size, lum };
+    } catch {
+      return null;
+    }
+  }
+  function luminanceFieldDarkFraction(field) {
+    let dark = 0;
+    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
+    return dark / field.lum.length;
+  }
+  function regionMeanLuminance(field, box, width, height) {
+    if (width <= 0 || height <= 0) return 255;
+    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
+    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
+    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
+    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
+    let sum = 0;
+    let count = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x2 = x0; x2 < x1; x2++) {
+        sum += field.lum[y * field.size + x2];
+        count++;
+      }
+    }
+    return count ? sum / count : 255;
+  }
+  function darkAreaIsRead(field, normal) {
+    const size = field.size;
+    let darkTotal = 0;
+    let darkCovered = 0;
+    const lines = normal?.lines ?? [];
+    const width = normal?.width || 1;
+    const height = normal?.height || 1;
+    const cellRects = lines.map((line) => ({
+      x0: Math.floor(line.box.left / width * size),
+      x1: Math.ceil((line.box.left + line.box.width) / width * size),
+      y0: Math.floor(line.box.top / height * size),
+      y1: Math.ceil((line.box.top + line.box.height) / height * size)
+    }));
+    for (let y = 0; y < size; y++) {
+      for (let x2 = 0; x2 < size; x2++) {
+        if (field.lum[y * size + x2] >= DARK_LUMINANCE) continue;
+        darkTotal++;
+        if (cellRects.some((r) => x2 >= r.x0 && x2 < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
+      }
+    }
+    if (!darkTotal) return true;
+    return darkCovered / darkTotal >= 0.5;
+  }
+  function boxesOverlapSignificantly(a, b) {
+    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+    const intersection = ix * iy;
+    if (intersection <= 0) return false;
+    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
+    return intersection / minArea >= 0.5;
+  }
+  function mergeDarkPassResult(normal, inverted, field) {
+    if (!inverted?.lines.length) return normal;
+    if (!normal) {
+      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
+      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
+    }
+    const lines = [...normal.lines];
+    for (const line of inverted.lines) {
+      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
+      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
+      lines.push(line);
+    }
+    return { width: normal.width, height: normal.height, lines };
+  }
+  function drawImageToCanvas(image, maxPixels) {
+    const size = loadedImageSize(image);
+    const canvas = scaledCanvas(size, maxPixels);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+  async function splitImageIntoPageColumns(image) {
+    const size = loadedImageSize(image);
+    const mid = Math.round(size.width / 2);
+    return Promise.all([
+      cropOcrImageColumn(image, 0, mid, size),
+      cropOcrImageColumn(image, mid, size.width - mid, size)
+    ]);
+  }
+  async function cropOcrImageColumn(image, left, width, size) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, size.height);
+    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
+    return {
+      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
+      left,
+      totalWidth: size.width,
+      totalHeight: size.height
+    };
+  }
+  function offsetOcrResult(result, left, top, width, height) {
+    return {
+      width,
+      height,
+      lines: result.lines.map((line) => ({
+        ...line,
+        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
+      }))
+    };
+  }
+  function mergeOcrResults(width, height, results) {
+    const lines = results.flatMap((result) => result?.lines ?? []);
+    return width && height && lines.length ? { width, height, lines } : null;
+  }
+  function loadedImageSize(image) {
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (!width || !height) throw new Error("Image is not loaded yet.");
+    return { width, height };
+  }
+  function scaledCanvas(size, maxPixels) {
+    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(size.width * scale));
+    canvas.height = Math.max(1, Math.round(size.height * scale));
+    return canvas;
+  }
+  function drawableCanvasContext(canvas) {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas unavailable.");
+    return context;
+  }
+  function assertCanvasReadable(canvas) {
+    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
+  }
+  function loadImage(url, timeout = 0) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      let timer = 0;
+      const settle = (fn) => {
+        if (timer) window.clearTimeout(timer);
+        fn();
+      };
+      image.onload = () => settle(() => resolve(image));
+      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
+      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
+      image.src = url;
+    });
+  }
+  function imageContentBox(image, rect, style) {
+    const scaleX = rectScale(rect.width, image.offsetWidth);
+    const scaleY = rectScale(rect.height, image.offsetHeight);
+    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
+    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
+    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
+    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
+    return {
+      left,
+      top,
+      width: Math.max(1, rect.width - left - right),
+      height: Math.max(1, rect.height - top - bottom)
+    };
+  }
+  function rectScale(rectSize, layoutSize) {
+    return layoutSize > 0 ? rectSize / layoutSize : 1;
+  }
+  function scaledBoxEdge(value, scale) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed * scale : 0;
+  }
+  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
+    const safeSourceWidth = Math.max(1, sourceWidth);
+    const safeSourceHeight = Math.max(1, sourceHeight);
+    const safeContentWidth = Math.max(1, contentWidth);
+    const safeContentHeight = Math.max(1, contentHeight);
+    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+    switch (objectFit) {
+      case "contain":
+        return contain();
+      case "cover":
+        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
+      case "none":
+        return { width: safeSourceWidth, height: safeSourceHeight };
+      case "scale-down": {
+        const contained = contain();
+        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
+      }
+      case "fill":
+      default:
+        return { width: safeContentWidth, height: safeContentHeight };
+    }
+  }
+  function scaledObjectSize(width, height, scale) {
+    return {
+      width: Math.max(1, width * scale),
+      height: Math.max(1, height * scale)
+    };
+  }
+  function objectPositionOffset(value, freeX, freeY) {
+    const tokens = cssPositionTokens(value);
+    const axes = parseObjectPositionAxes(tokens);
+    return {
+      x: axisPositionOffset(axes.x, freeX),
+      y: axisPositionOffset(axes.y, freeY)
+    };
+  }
+  function cssPositionTokens(value) {
+    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
+  }
+  function parseObjectPositionAxes(tokens) {
+    const paired = parseKeywordPositionAxes(tokens);
+    if (paired) return paired;
+    const [first2 = "50%", second] = tokens;
+    if (isVerticalPositionKeyword(first2)) return { x: positionAxis(second || "50%"), y: positionAxis(first2) };
+    return { x: positionAxis(first2), y: positionAxis(second || "50%") };
+  }
+  function parseKeywordPositionAxes(tokens) {
+    let x2 = null;
+    let y = null;
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (isHorizontalPositionKeyword(token)) {
+        x2 = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+        continue;
+      }
+      if (isVerticalPositionKeyword(token)) {
+        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
+      }
+    }
+    return x2 || y ? { x: x2 ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
+  }
+  function positionAxis(token) {
+    return positionKeyword(token) ? { keyword: token } : { token };
+  }
+  function positionOffsetToken(token) {
+    return token && !positionKeyword(token) ? token : void 0;
+  }
+  function axisPositionOffset(axis, freeSpace) {
+    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
+    const offset = cssLengthPx(axis.offset);
+    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
+    return base + offset;
+  }
+  function keywordPositionOffset(keyword, freeSpace) {
+    if (keyword === "right" || keyword === "bottom") return freeSpace;
+    if (keyword === "center") return freeSpace / 2;
+    return 0;
+  }
+  function tokenPositionOffset(token, freeSpace) {
+    if (!token) return freeSpace / 2;
+    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
+    return cssLengthPx(token);
+  }
+  function cssLengthPx(value) {
+    if (!value) return 0;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function positionKeyword(token) {
+    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
+  }
+  function isHorizontalPositionKeyword(token) {
+    return token === "left" || token === "right";
+  }
+  function isVerticalPositionKeyword(token) {
+    return token === "top" || token === "bottom";
+  }
   function isAbortError(error) {
     return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  function pushJapaneseOcrLine(lines, text2, box) {
+    if (!text2 || !box || !HAS_JAPANESE.test(text2)) return;
+    lines.push({ text: text2, box, vertical: isVerticalOcrBox(box, text2.length) });
+  }
+  function isVerticalOcrBox(box, textLength) {
+    if (textLength <= 1) return false;
+    const aspect = box.height / Math.max(1, box.width);
+    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
+  }
+  function clampBox(box, width, height) {
+    const left = Math.max(0, Math.min(width, box.left));
+    const top = Math.max(0, Math.min(height, box.top));
+    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
+    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
+    if (right - left < 2 || bottom - top < 2) return null;
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  function unionBoxes(boxes) {
+    if (!boxes.length) return null;
+    const left = Math.min(...boxes.map((box) => box.left));
+    const top = Math.min(...boxes.map((box) => box.top));
+    const right = Math.max(...boxes.map((box) => box.left + box.width));
+    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+    return { left, top, width: right - left, height: bottom - top };
+  }
+  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
+  function cleanOcrText(value) {
+    const text2 = typeof value === "string" ? value : String(value ?? "");
+    const collapsed = text2.replace(/[ \t\r\n]+/g, " ").trim();
+    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
+    return normalized.replaceAll("．．．", "…");
+  }
+  function numberFrom(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+    for (const response of cloudVisionResponses(record)) {
+      appendCloudVisionPages(response, state2);
+      appendCloudVisionTextAnnotations(response, state2);
+    }
+    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
+  }
+  function cloudVisionResponses(record) {
+    if (Array.isArray(record.responses)) return record.responses;
+    return "fullTextAnnotation" in record ? [record] : [];
+  }
+  function appendCloudVisionPages(response, state2) {
+    const annotation = response?.fullTextAnnotation;
+    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
+    for (const page of pages) appendCloudVisionPage(page, state2);
+  }
+  function appendCloudVisionPage(page, state2) {
+    state2.width = numberFrom(page.width) || state2.width;
+    state2.height = numberFrom(page.height) || state2.height;
+    for (const block of cloudVisionPageBlocks(page)) {
+      for (const paragraph of cloudVisionBlockParagraphs(block)) {
+        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
+      }
+    }
+  }
+  function cloudVisionPageBlocks(page) {
+    return Array.isArray(page.blocks) ? page.blocks : [];
+  }
+  function cloudVisionBlockParagraphs(block) {
+    const paragraphs = block?.paragraphs;
+    return Array.isArray(paragraphs) ? paragraphs : [];
+  }
+  function appendCloudVisionTextAnnotations(response, state2) {
+    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
+    if (state2.lines.length || annotations.length <= 1) return;
+    for (const annotationItem of annotations.slice(1)) {
+      const item = annotationItem;
+      const text2 = cleanOcrText(item.description);
+      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
+      pushJapaneseOcrLine(state2.lines, text2, box);
+    }
+  }
+  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
+    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
+    const current = { text: "", boxes: [] };
+    for (const word of words) {
+      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
+    }
+    pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionWordSymbols(word) {
+    const symbols = word?.symbols;
+    return Array.isArray(symbols) ? symbols : [];
+  }
+  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
+    const symbolRecord = symbol;
+    current.text += String(symbolRecord.text ?? "");
+    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
+    if (box) current.boxes.push(box);
+    const breakType = cloudVisionSymbolBreakType(symbolRecord);
+    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
+    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
+  }
+  function cloudVisionSymbolBreakType(symbol) {
+    return symbol.property?.detectedBreak?.type;
+  }
+  function cloudVisionBreakAddsSpace(breakType) {
+    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
+  }
+  function cloudVisionBreakEndsLine(breakType) {
+    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
+  }
+  function pushCloudVisionLine(lines, current) {
+    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
+    current.text = "";
+    current.boxes = [];
+  }
+  function normalizeCloudVisionVertices(value, width, height) {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
+    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
+  }
+  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
+    ["n", "\n"],
+    ["r", "\r"],
+    ["t", "	"],
+    ["b", "\b"],
+    ["f", "\f"],
+    ["v", "\v"],
+    ["0", "\0"],
+    ["\n", ""]
+  ]);
+  function googleLensUploadCallbackLiteral(html, key) {
+    const marker = "AF_initDataCallback(";
+    let searchIndex = 0;
+    while (searchIndex < html.length) {
+      const markerIndex = html.indexOf(marker, searchIndex);
+      if (markerIndex < 0) return null;
+      const literalStart = markerIndex + marker.length;
+      const literal = readBalancedLiteral(html, literalStart);
+      if (literal && callbackLiteralHasKey(literal, key)) return literal;
+      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
+    }
+    return null;
+  }
+  function callbackLiteralHasKey(literal, key) {
+    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
+  }
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function readBalancedLiteral(source, startIndex) {
+    const index = balancedLiteralStart(source, startIndex);
+    if (index < 0) return null;
+    const end = balancedLiteralEnd(source, index);
+    return end >= 0 ? source.slice(index, end + 1) : null;
+  }
+  function balancedLiteralStart(source, startIndex) {
+    let index = startIndex;
+    while (/\s/.test(source[index] ?? "")) index += 1;
+    return source[index] === "{" ? index : -1;
+  }
+  function balancedLiteralEnd(source, startIndex) {
+    let depth = 0;
+    for (let current = startIndex; current < source.length; current += 1) {
+      const char = source[current];
+      if (isQuote(char)) {
+        current = quotedLiteralEnd(source, current, char);
+        if (current < 0) return -1;
+        continue;
+      }
+      depth += balancedDepthDelta(char);
+      if (depth === 0) return current;
+    }
+    return -1;
+  }
+  function quotedLiteralEnd(source, startIndex, quote) {
+    for (let current = startIndex + 1; current < source.length; current += 1) {
+      const char = source[current];
+      if (char === "\\") {
+        current += 1;
+      } else if (char === quote) {
+        return current;
+      }
+    }
+    return -1;
+  }
+  function isQuote(char) {
+    return char === '"' || char === "'";
+  }
+  function balancedDepthDelta(char) {
+    if (char === "{" || char === "[" || char === "(") return 1;
+    if (char === "}" || char === "]" || char === ")") return -1;
+    return 0;
+  }
+  function parseJsDataLiteral(source) {
+    let index = 0;
+    const value = parseValue();
+    skipWhitespace();
+    if (index !== source.length) throw new Error("Unexpected trailing data.");
+    return value;
+    function parseValue() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === "{") return parseObject();
+      if (char === "[") return parseArray();
+      if (char === '"' || char === "'") return parseString();
+      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+      return parseIdentifierValue();
+    }
+    function parseObject() {
+      const record = {};
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "}") {
+        const key = parseObjectKey();
+        skipWhitespace();
+        expect(":");
+        record[key] = parseValue();
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("}");
+      return record;
+    }
+    function parseObjectKey() {
+      skipWhitespace();
+      const char = source[index];
+      if (char === '"' || char === "'") return parseString();
+      return parseIdentifier();
+    }
+    function parseArray() {
+      const values = [];
+      index += 1;
+      skipWhitespace();
+      while (source[index] !== "]") {
+        if (source[index] === ",") {
+          values.push(null);
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        values.push(parseValue());
+        skipWhitespace();
+        if (source[index] === ",") {
+          index += 1;
+          skipWhitespace();
+          continue;
+        }
+        break;
+      }
+      expect("]");
+      return values;
+    }
+    function parseString() {
+      const quote = source[index];
+      let value2 = "";
+      index += 1;
+      while (index < source.length) {
+        const char = source[index++];
+        if (char === quote) return value2;
+        if (char !== "\\") {
+          value2 += char;
+          continue;
+        }
+        value2 += parseEscapeSequence();
+      }
+      throw new Error("Unterminated string.");
+    }
+    function parseEscapeSequence() {
+      const escaped = source[index++];
+      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
+      if (typeof simpleEscape === "string") return simpleEscape;
+      if (escaped === "\r") return parseCarriageReturnEscape();
+      return parseNamedEscapeSequence(escaped);
+    }
+    function parseCarriageReturnEscape() {
+      if (source[index] === "\n") index += 1;
+      return "";
+    }
+    function parseNamedEscapeSequence(escaped) {
+      if (escaped === "x") return codePointEscape(2);
+      if (escaped === "u") return parseUnicodeEscape();
+      return escaped ?? "";
+    }
+    function parseUnicodeEscape() {
+      if (source[index] === "{") {
+        const end = source.indexOf("}", index + 1);
+        if (end < 0) throw new Error("Invalid unicode escape.");
+        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+        index = end + 1;
+        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+      }
+      return codePointEscape(4);
+    }
+    function codePointEscape(length) {
+      const hex = source.slice(index, index + length);
+      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+      index += length;
+      return String.fromCharCode(Number.parseInt(hex, 16));
+    }
+    function parseNumber() {
+      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+      if (!match) throw new Error("Invalid number.");
+      index += match[0].length;
+      return Number(match[0]);
+    }
+    function parseIdentifierValue() {
+      const identifier = parseIdentifier();
+      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+      if (identifier === "true") return true;
+      if (identifier === "false") return false;
+      if (identifier === "Infinity") return Infinity;
+      return identifier;
+    }
+    function parseIdentifier() {
+      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+      if (!match) throw new Error("Expected identifier.");
+      index += match[0].length;
+      return match[0];
+    }
+    function skipWhitespace() {
+      while (/\s/.test(source[index] ?? "")) index += 1;
+    }
+    function expect(char) {
+      if (source[index] !== char) throw new Error(`Expected ${char}.`);
+      index += 1;
+    }
+  }
+  const LENS_WRITING_TOP_TO_BOTTOM = 2;
+  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
+  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+    if (cloudVision) return cloudVision;
+    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+    const lines = collectGenericOcrLines(record, width, height);
+    return japaneseOcrResult(width, height, lines);
+  }
+  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
+    const resolution = record.context_resolution;
+    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
+    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+    return { width, height };
+  }
+  function collectGenericOcrLines(record, width, height) {
+    const lines = [];
+    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+    return lines;
+  }
+  function genericRawLines(record) {
+    return Array.isArray(record.lines) ? record.lines : record.regions;
+  }
+  function appendGenericOcrLines(lines, value, width, height, normalize) {
+    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
+  }
+  function normalizeSimpleLines(values, width, height) {
+    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
+  }
+  function normalizeStructuredOcrResults(values, width, height) {
+    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
+  }
+  function normalizeOcrRegionResults(regions, width, height) {
+    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
+  }
+  function normalizeSingleOcrRegionResults(region, width, height) {
+    const regionRecord = asRecord(region);
+    if (!regionRecord) return [];
+    const regionBox = normalizeOcrRegion(regionRecord, width, height);
+    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
+    if (!Array.isArray(regionRecord.results)) return [];
+    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+    return offsetRegionLines(lines, regionBox, width, height);
+  }
+  function ocrRegionScale(regionBox, width, height) {
+    return {
+      scaleWidth: regionBox?.width ?? width,
+      scaleHeight: regionBox?.height ?? height
+    };
+  }
+  function offsetRegionLines(lines, regionBox, width, height) {
+    if (!regionBox) return lines;
+    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
+  }
+  function japaneseOcrResult(width, height, lines) {
+    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+  }
+  function cleanOcrLookupLines(lines, parsed) {
+    const cleaned = lines.map((line, index) => {
+      const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
+      return text2 === line.text ? line : { ...line, text: text2 };
+    });
+    return removeStandaloneFuriganaLines(cleaned);
+  }
+  function ocrLinesChanged(original, cleaned) {
+    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+  }
+  function cleanOcrLookupText(text2, tokens) {
+    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+    let cleaned = text2;
+    for (const { ruby } of rubies) {
+      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
+    }
+    return cleanOcrText(cleaned);
+  }
+  function removeOcrReadingAroundRuby(text2, reading, start, end) {
+    const cleanReading = cleanOcrText(reading);
+    if (!cleanReading) return text2;
+    if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+      return text2.slice(0, start - cleanReading.length) + text2.slice(start);
+    }
+    if (text2.slice(end, end + cleanReading.length) === cleanReading) {
+      return text2.slice(0, end) + text2.slice(end + cleanReading.length);
+    }
+    return text2;
+  }
+  function removeStandaloneFuriganaLines(lines) {
+    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+    return filtered.length ? filtered : lines;
+  }
+  function isStandaloneFuriganaLine(line, lines, index) {
+    const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
+    if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
+    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+  }
+  function ocrLineLooksLikeFuriganaFor(furi, base) {
+    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+    const overlap = horizontalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+    const smaller = furi.box.height <= base.box.height * 0.75;
+    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+    return overlapRatio >= 0.32 && smaller && nearTop;
+  }
+  function horizontalOverlap(a, b) {
+    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+  }
+  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+    if (!furi.vertical || !base.vertical) return false;
+    const overlap = verticalOverlap(furi.box, base.box);
+    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+    const smaller = furi.box.width <= base.box.width * 0.75;
+    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+    return overlapRatio >= 0.32 && smaller && nearSide;
+  }
+  function verticalOverlap(a, b) {
+    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+  }
+  function horizontalGap(a, b) {
+    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+    return 0;
+  }
+  function parseGoogleLensResponse(bytes, width, height) {
+    const root = decodeProtoMessage(bytes);
+    const objectsResponse = protoFirstMessage(root, 2);
+    const text2 = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+    const layout = text2 ? protoFirstMessage(text2, 1) : null;
+    if (!layout) return null;
+    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
+    return lines.length ? { width, height, lines } : null;
+  }
+  function googleLensParagraphLines(paragraph, width, height) {
+    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
+  }
+  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
+    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+    const words = googleLensWords(line, width, height);
+    const text2 = googleLensLineText(words, paragraphVertical);
+    if (!text2 || !HAS_JAPANESE.test(text2)) return null;
+    const box = googleLensLineBox(lineBox, words, paragraphBox);
+    if (!box) return null;
+    return {
+      text: text2,
+      box,
+      vertical: paragraphVertical || isVerticalOcrBox(box, text2.length)
+    };
+  }
+  function googleLensWords(line, width, height) {
+    return protoMessages(line, 1).map((word) => ({
+      text: protoString(word, 2),
+      separator: protoString(word, 3),
+      box: protoBox(protoFirstMessage(word, 4), width, height)
+    })).filter((word) => Boolean(word.text));
+  }
+  function googleLensLineText(words, paragraphVertical) {
+    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
+  }
+  function googleLensWordText(word, index, words) {
+    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
+  }
+  function googleLensLineBox(lineBox, words, paragraphBox) {
+    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+  }
+  function parseGoogleLensUploadHtml(html, width, height) {
+    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
+    if (!literal) return null;
+    try {
+      const callback = parseJsDataLiteral(literal);
+      const lines = [];
+      for (const item of googleLensUploadLineItems(callback.data)) {
+        const { text: text2, box } = googleLensUploadLine(item, width, height);
+        pushJapaneseOcrLine(lines, text2, box);
+      }
+      return lines.length ? { width, height, lines } : null;
+    } catch {
+      return null;
+    }
+  }
+  function googleLensUploadLineItems(data) {
+    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
+  }
+  function googleLensUploadBlocks(data) {
+    const blocks = data?.[2]?.[3]?.[0] ?? [];
+    return Array.isArray(blocks) ? blocks : [];
+  }
+  function googleLensUploadBlockLineItems(block) {
+    const blockData = Array.isArray(block) ? block : [];
+    const rawLines = blockData[2]?.[0]?.[5]?.[3];
+    const lineItems = rawLines?.[0];
+    return Array.isArray(lineItems) ? lineItems : [];
+  }
+  function googleLensUploadLine(item, width, height) {
+    const lineData = Array.isArray(item) ? item : [];
+    return {
+      text: googleLensUploadLineText(lineData[0]),
+      box: googleLensUploadLineBox(lineData[1], width, height)
+    };
+  }
+  function googleLensUploadLineText(value) {
+    const words = Array.isArray(value) ? value : [];
+    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
+  }
+  function googleLensUploadWordText(word) {
+    const wordData = Array.isArray(word) ? word : [];
+    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+  }
+  function googleLensUploadLineBox(value, width, height) {
+    const boxData = Array.isArray(value) ? value : [];
+    if (boxData.length < 4) return null;
+    return clampBox({
+      top: Number(boxData[0]) * height,
+      left: Number(boxData[1]) * width,
+      width: Number(boxData[2]) * width,
+      height: Number(boxData[3]) * height
+    }, width, height);
+  }
+  function normalizeSimpleLine(value, width, height) {
+    const record = asRecord(value);
+    if (!record) return null;
+    const text2 = simpleLineText(record);
+    const box = simpleLineBox(record, width, height);
+    if (!text2 || !box) return null;
+    return { text: text2, box, vertical: simpleLineIsVertical(record) };
+  }
+  function simpleLineText(record) {
+    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+  }
+  function simpleLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function simpleLineIsVertical(record) {
+    return Boolean(record.vertical ?? record.is_vertical);
+  }
+  function normalizeStructuredOcrResult(value, width, height) {
+    if (!value || typeof value !== "object") return [];
+    const record = value;
+    const textLines = structuredOcrTextLines(record);
+    const vertical = structuredOcrVertical(record);
+    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
+    if (lines.length) return lines;
+    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+  }
+  function structuredOcrTextLines(record) {
+    if (Array.isArray(record.text_lines)) return record.text_lines;
+    return Array.isArray(record.text) ? record.text : [];
+  }
+  function structuredOcrVertical(record) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical);
+  }
+  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
+    const lineRecord = asRecord(item);
+    if (!lineRecord) return null;
+    const text2 = structuredOcrLineText(lineRecord);
+    const box = structuredOcrLineBox(lineRecord, width, height);
+    if (!text2 || !box) return null;
+    return { text: text2, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+  }
+  function structuredOcrLineText(record) {
+    return stringFrom(record.content ?? record.text ?? record.word);
+  }
+  function structuredOcrLineBox(record, width, height) {
+    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+  }
+  function structuredOcrLineVertical(record, inheritedVertical) {
+    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+  }
+  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+    const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
+    const box = normalizeBox(record.box, width, height);
+    return text2 && box ? [{ text: text2, box, vertical }] : [];
+  }
+  function normalizeOcrRegion(record, width, height) {
+    const region = readOcrRegion(record);
+    if (!region) return null;
+    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+  }
+  function readOcrRegion(record) {
+    const position = record.position;
+    const size = record.size;
+    if (!position || !size) return null;
+    return completeOcrRegionParts({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(size.width),
+      height: numberFrom(size.height)
+    });
+  }
+  function completeOcrRegionParts(parts) {
+    if (parts.left === null) return null;
+    if (parts.top === null) return null;
+    if (parts.width === null) return null;
+    if (parts.height === null) return null;
+    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
+  }
+  function scaleOcrRegion(region, width, height) {
+    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+    return {
+      left: region.left / divisor * width,
+      top: region.top / divisor * height,
+      width: region.width / divisor * width,
+      height: region.height / divisor * height
+    };
+  }
+  function isFullImageOcrRegion(box, width, height) {
+    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+  }
+  function offsetLineToRegion(line, region, width, height) {
+    const box = clampBox({
+      left: region.left + line.box.left,
+      top: region.top + line.box.top,
+      width: line.box.width,
+      height: line.box.height
+    }, width, height);
+    return box ? { ...line, box } : null;
+  }
+  function normalizeBox(value, width, height) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+  }
+  function normalizePositionDimensionsBox(record, width, height) {
+    const position = asRecord(record.position);
+    const dimensions = asRecord(record.dimensions);
+    if (!position || !dimensions) return null;
+    return boxFromNumbers({
+      left: numberFrom(position.left),
+      top: numberFrom(position.top),
+      width: numberFrom(dimensions.width),
+      height: numberFrom(dimensions.height)
+    }, width, height, "percent-100");
+  }
+  function normalizeDirectBox(record, width, height) {
+    const box = directBoxNumbers(record);
+    return boxFromNumbers(box, width, height, directBoxScale(box));
+  }
+  function directBoxNumbers(record) {
+    return {
+      left: numberFrom(record.left ?? record.x),
+      top: numberFrom(record.top ?? record.y),
+      width: numberFrom(record.width ?? record.w),
+      height: numberFrom(record.height ?? record.h)
+    };
+  }
+  function directBoxScale(box) {
+    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
+  }
+  function normalizePointBox(record, width, height) {
+    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+    if (points.length < 2) return null;
+    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
+    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
+    if (!xs.length || !ys.length) return null;
+    const percent = coordinatesAreFractional(xs, ys);
+    const scaledXs = scaleCoordinates(xs, width, percent);
+    const scaledYs = scaleCoordinates(ys, height, percent);
+    const left = Math.min(...scaledXs);
+    const top = Math.min(...scaledYs);
+    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+  }
+  function coordinatesAreFractional(xs, ys) {
+    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+  }
+  function isFractionalCoordinate(value) {
+    return value >= 0 && value <= 1;
+  }
+  function scaleCoordinates(values, scale, enabled) {
+    return enabled ? values.map((value) => value * scale) : values;
+  }
+  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
+    if (!hasCompleteBoxNumbers(box)) return null;
+    const scaleInfo = boxScaleInfo(scale);
+    return clampBox({
+      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
+    }, imageWidth, imageHeight);
+  }
+  function hasCompleteBoxNumbers(box) {
+    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+  }
+  function boxScaleInfo(scale) {
+    return {
+      fractional: scale !== "pixels",
+      factor: scale === "percent-100" ? 100 : 1
+    };
+  }
+  function scaleBoxNumber(value, dimension, scale) {
+    return scale.fractional ? value / scale.factor * dimension : value;
+  }
+  function decodeProtoMessage(bytes) {
+    const fields = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+      const [tag, nextOffset] = readVarint(bytes, offset);
+      offset = nextOffset;
+      const field = Number(tag >> 3n);
+      const wire = Number(tag & 7n);
+      if (!field) break;
+      if (wire === 0) {
+        const [value, afterValue] = readVarint(bytes, offset);
+        offset = afterValue;
+        fields.push({ field, wire, value });
+      } else if (wire === 1) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+        offset += 8;
+      } else if (wire === 2) {
+        const [length, afterLength] = readVarint(bytes, offset);
+        offset = afterLength;
+        const end = offset + Number(length);
+        fields.push({ field, wire, value: bytes.slice(offset, end) });
+        offset = end;
+      } else if (wire === 5) {
+        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+        offset += 4;
+      } else {
+        break;
+      }
+    }
+    return fields;
+  }
+  function readVarint(bytes, offset) {
+    let shift = 0n;
+    let result = 0n;
+    while (offset < bytes.length) {
+      const byte = bytes[offset++];
+      result |= BigInt(byte & 127) << shift;
+      if (!(byte & 128)) return [result, offset];
+      shift += 7n;
+    }
+    return [result, offset];
+  }
+  function protoMessages(fields, field) {
+    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+  }
+  function protoFirstMessage(fields, field) {
+    return protoMessages(fields, field)[0] ?? null;
+  }
+  function protoString(fields, field) {
+    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+    return item ? new TextDecoder().decode(item.value) : "";
+  }
+  function protoNumber(fields, field) {
+    const item = fields.find((value) => value.field === field);
+    if (!item) return 0;
+    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+  }
+  function protoBox(geometry, width, height) {
+    const dimensions = protoBoxDimensions(geometry);
+    if (!dimensions) return null;
+    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
+  }
+  function protoBoxDimensions(geometry) {
+    const box = geometry ? protoFirstMessage(geometry, 1) : null;
+    if (!box) return null;
+    const dimensions = {
+      centerX: protoNumber(box, 1),
+      centerY: protoNumber(box, 2),
+      width: protoNumber(box, 3),
+      height: protoNumber(box, 4)
+    };
+    return dimensions.width && dimensions.height ? dimensions : null;
+  }
+  function protoBoxIsNormalized(box) {
+    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
+  }
+  function scaledProtoBox(box, normalized, width, height) {
+    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
+    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
+    return {
+      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
+      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
+      width: scaledWidth,
+      height: scaledHeight
+    };
+  }
+  function scaledProtoBoxValue(value, scale, normalized) {
+    return normalized ? value * scale : value;
+  }
+  function stringFrom(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+  }
+  function asRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  const LENS_PLATFORM_WEB = 3;
+  const LENS_SURFACE_CHROMIUM = 4;
+  const LENS_AUTO_FILTER = 7;
+  function createGoogleLensRequest(imageBytes, width, height, locale) {
+    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const requestId = protoMessage(
+      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
+      protoVarintField(2, 1),
+      protoVarintField(3, 1),
+      protoBytesField(4, randomBytes(16))
+    );
+    const localeContext = protoMessage(
+      protoStringField(1, language || "ja"),
+      protoStringField(2, region || "US"),
+      protoStringField(3, timeZone)
+    );
+    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+    const clientContext = protoMessage(
+      protoVarintField(1, LENS_PLATFORM_WEB),
+      protoVarintField(2, LENS_SURFACE_CHROMIUM),
+      protoMessageField(4, localeContext),
+      protoMessageField(17, clientFilters)
+    );
+    const requestContext = protoMessage(
+      protoMessageField(3, requestId),
+      protoMessageField(4, clientContext)
+    );
+    const imageData = protoMessage(
+      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
+    );
+    return protoMessage(protoMessageField(1, protoMessage(
+      protoMessageField(1, requestContext),
+      protoMessageField(3, imageData)
+    )));
+  }
+  function protoMessage(...parts) {
+    return concatBytes(parts);
+  }
+  function protoMessageField(field, value) {
+    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+  }
+  function protoBytesField(field, value) {
+    return protoMessageField(field, value);
+  }
+  function protoStringField(field, value) {
+    return protoBytesField(field, new TextEncoder().encode(value));
+  }
+  function protoVarintField(field, value) {
+    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+  }
+  function protoTag(field, wire) {
+    return encodeVarint(field << 3 | wire);
+  }
+  function encodeVarint(value) {
+    let item = BigInt(value);
+    const bytes = [];
+    do {
+      let byte = Number(item & 0x7fn);
+      item >>= 7n;
+      if (item) byte |= 128;
+      bytes.push(byte);
+    } while (item);
+    return new Uint8Array(bytes);
+  }
+  function concatBytes(parts) {
+    const length = parts.reduce((sum, part) => sum + part.length, 0);
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const part of parts) {
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  }
+  function randomBytes(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+  }
+  const log$n = Logger.scope("OCR");
+  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
+  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
+  const OCR_RECOGNIZERS = {
+    "google-lens": recognizeViaGoogleLens,
+    "cloud-vision": recognizeViaCloudVision,
+    "local-service": recognizeViaLocalService
+  };
+  const OCR_PROVIDER_CONFIGURED = {
+    "google-lens": () => true,
+    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
+    "local-service": () => true
+  };
+  async function recognizeViaLocalService(image, settings, invert = false) {
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
+    const body = JSON.stringify({
+      id: imageCacheKey(image),
+      language_code: settings.ocrLanguage || "ja-JP",
+      language: {
+        bcp47_tag: settings.ocrLanguage || "ja-JP",
+        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
+      },
+      base64_image: payload.base64,
+      image: payload.base64,
+      image_bytes: payload.base64,
+      ocr_engine: engine,
+      ocr_adapter_name: engine,
+      detection_only: false
+    });
+    const response = await requestJson$1(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaCloudVision(image, settings, invert = false) {
+    const apiKey = settings.ocrCloudVisionApiKey.trim();
+    if (!apiKey) return null;
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+    const body = JSON.stringify({
+      requests: [{
+        image: { content: payload.base64 },
+        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
+        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
+      }]
+    });
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
+    const response = await requestJson$1(url, body, ocrAttemptTimeoutMs(settings));
+    return normalizeOcrResult(response, payload.width, payload.height);
+  }
+  async function recognizeViaGoogleLens(image, settings, invert = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
+    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
+    let protobufFailure;
+    const protobuf = await recognizeViaGoogleLensProtobuf(
+      blob,
+      canvas,
+      settings,
+      Math.max(1, remainingGoogleLensTimeout(deadline))
+    ).catch((error) => {
+      protobufFailure = error;
+      log$n.warn("Google Lens protobuf failed", error);
+      return void 0;
+    });
+    if (protobuf?.lines.length) return protobuf;
+    const uploadTimeout = remainingGoogleLensTimeout(deadline);
+    if (uploadTimeout <= 0) {
+      if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
+      return protobuf;
+    }
+    let uploadFailure;
+    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
+      uploadFailure = error;
+      log$n.warn("Google Lens upload failed", error);
+      return void 0;
+    });
+    if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
+      throw new Error("Google Lens OCR timed out.");
+    }
+    if (protobuf === void 0 && upload === void 0) {
+      if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
+        throw new Error("Google Lens OCR timed out.");
+      }
+      throw new Error("Google Lens OCR failed.");
+    }
+    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
+  }
+  function remainingGoogleLensTimeout(deadline) {
+    return Math.max(0, deadline - Date.now());
+  }
+  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
+    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
+  }
+  function ocrRecognizer(settings) {
+    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
+    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
+  }
+  function isOcrProviderConfigured(settings) {
+    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
+  }
+  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
+    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
+  }
+  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
+    const canvas = await imageToCanvas(image, maxPixels, invertDark);
+    try {
+      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
+    } catch {
+      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
+      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
+    }
+  }
+  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
+    const data = new FormData();
+    data.append("encoded_image", blob, "image.jpg");
+    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
+      Origin: "https://lens.google.com",
+      Referer: "https://lens.google.com/"
+    });
+    return parseGoogleLensUploadHtml(response, width, height);
+  }
+  async function imageToCanvas(image, maxPixels, invert = false) {
+    try {
+      const canvas = drawImageToCanvas(image, maxPixels);
+      assertCanvasReadable(canvas);
+      return invert ? invertedCanvas(canvas) : canvas;
+    } catch {
+      return imageBlobToCanvas(image, maxPixels, invert);
+    }
+  }
+  async function imageBlobToCanvas(image, maxPixels, invert = false) {
+    const url = image.currentSrc || image.src;
+    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
+    const blob = await requestBlob$1(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const loaded = await loadImage(objectUrl);
+      const canvas = drawImageToCanvas(loaded, maxPixels);
+      assertCanvasReadable(canvas);
+      return invert ? invertedCanvas(canvas) : canvas;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  function requestJson$1(url, data, timeout) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers: { "content-type": "application/json" },
+      data,
+      responseType: "json",
+      timeout
+    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
+  }
+  function fetchJsonWithTimeout(url, data, timeout) {
+    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
+  }
+  function requestArrayBuffer(url, data, timeout) {
+    const body = new Uint8Array(data);
+    const headers = {
+      "content-type": "application/x-protobuf",
+      "x-goog-api-key": GOOGLE_LENS_API_KEY,
+      accept: "*/*",
+      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+    };
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      headers,
+      data: body.buffer,
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchWithTimeout$2(url, {
+      method: "POST",
+      headers,
+      body: body.buffer
+    }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
+  }
+  function requestTextForm(url, data, timeout, headers) {
+    const userscriptRequest = requestViaUserscript({
+      method: "POST",
+      url,
+      ...headers ? { headers } : {},
+      data,
+      responseType: "text",
+      timeout
+    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
+    if (userscriptRequest) return userscriptRequest;
+    return fetchWithTimeout$2(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
+  }
+  function fetchWithTimeout$2(url, init, timeout, timeoutMessage) {
+    if (!timeout) return fetch(url, init);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
+      if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
+      throw error;
+    }).finally(() => window.clearTimeout(timeoutId));
+  }
+  function requestBlob$1(url, timeout = 0) {
+    const fallbackType = imageMimeTypeFromUrl(url);
+    const userscriptRequest = requestViaUserscript({
+      method: "GET",
+      url,
+      responseType: "arraybuffer",
+      timeout
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
+    if (userscriptRequest) return userscriptRequest;
+    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
+  }
+  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      const copy = new Uint8Array(source.byteLength);
+      copy.set(source);
+      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
+    }
+    return new Blob([value], { type: fallbackType });
+  }
+  function imageMimeTypeFromUrl(url) {
+    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "png":
+        return "image/png";
+      case "gif":
+        return "image/gif";
+      case "webp":
+        return "image/webp";
+      case "avif":
+        return "image/avif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "image/jpeg";
+    }
+  }
+  function sniffImageMimeType(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
+    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
+    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
+    return void 0;
+  }
+  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (!userscriptRequest) {
+      log$n.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      return null;
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let requestHandle;
+      let timeoutId = 0;
+      const settle = (fn) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+        fn();
+      };
+      const onload = (response) => {
+        settle(() => {
+          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+          else reject(new Error(statusMessage(response.status)));
+        });
+      };
+      const fail = (error) => {
+        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
+      };
+      const timeout = Math.max(0, Math.round(options.timeout || 0));
+      if (timeout) {
+        timeoutId = window.setTimeout(() => {
+          try {
+            requestHandle?.abort?.();
+          } catch {
+          }
+          fail(new Error(timeoutMessage ?? "Request timed out."));
+        }, timeout);
+      }
+      try {
+        const result = userscriptRequest({
+          ...options,
+          onload,
+          onerror: fail,
+          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
+        });
+        if (result && typeof result.then === "function") {
+          result.then(onload, fail);
+        } else if (result) {
+          requestHandle = result;
+        }
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+  function isSuccessfulHttpStatus(status) {
+    return status >= 200 && status < 300;
+  }
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
+    });
   }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
@@ -32771,6 +34314,89 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (previousContent === nextContent) return false;
     return isCanvasMirrorEpochOrEmpty(previousContent) && isCanvasMirrorEpochOrEmpty(nextContent);
   }
+  function canvasSurfaceSnapshotKey(canvas) {
+    const surfaceId = canvasReaderSurfaceId(canvas);
+    if (isBookwalkerViewerHost()) {
+      return [
+        canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+        surfaceId
+      ].join("|");
+    }
+    return [
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
+      canvas.width,
+      canvas.height,
+      canvasPageContentToken(canvas)
+    ].join("|");
+  }
+  function canvasStablePageContentToken(canvas) {
+    return stableContentIdentityForCanvas(canvas);
+  }
+  function canvasContentReadinessKey(canvas) {
+    const surfaceId = canvasReaderSurfaceId(canvas);
+    return [
+      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
+      surfaceId,
+      canvas.width,
+      canvas.height,
+      canvasPageContentToken(canvas)
+    ].join("|");
+  }
+  function isSameCanvasReaderPageLocation(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
+  }
+  function hasDifferentRecordedCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isRecordedCanvasReaderContent(previousParts.content) && isRecordedCanvasReaderContent(nextParts.content) && isRealContentChange(previousParts.content, nextParts.content);
+  }
+  function isRecordedCanvasReaderContent(content) {
+    const tokens = content.split(",").filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => token.startsWith("m:") || token.startsWith("o:"));
+  }
+  function hasSameRealCanvasReaderContent(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isSameRealContent(previousParts.content, nextParts.content);
+  }
+  function isCanvasMirrorEpochTransition(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return isGlobalEpochTransition(previousParts.content, nextParts.content);
+  }
+  function hasSameStableCanvasReaderPageCounter(previous, next) {
+    const previousParts = splitCanvasReaderSignature(previous);
+    const nextParts = splitCanvasReaderSignature(next);
+    if (!previousParts || !nextParts) return false;
+    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
+  }
+  function shouldTrustStableBookwalkerPageCounter() {
+    if (!isBookwalkerViewerHost()) return false;
+    try {
+      return new URL(location.href).searchParams.get("cty") !== "2";
+    } catch {
+      return true;
+    }
+  }
+  function splitCanvasReaderSignature(signature) {
+    const parts = signature.split("|");
+    if (parts.length < 5) return null;
+    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
+    return {
+      backgrounds: backgroundParts.join("|"),
+      content: content ?? "",
+      counter: counter ?? "",
+      scroll: scroll ?? "",
+      surfaces: surfaces ?? ""
+    };
+  }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
     return new Promise((resolve) => {
@@ -32787,836 +34413,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function getPitchClass(pitchAccent, reading) {
     const pattern = contextPitchPattern(pitchAccent, reading);
     return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  function pushJapaneseOcrLine(lines, text2, box) {
-    if (!text2 || !box || !HAS_JAPANESE.test(text2)) return;
-    lines.push({ text: text2, box, vertical: isVerticalOcrBox(box, text2.length) });
-  }
-  function isVerticalOcrBox(box, textLength) {
-    if (textLength <= 1) return false;
-    const aspect = box.height / Math.max(1, box.width);
-    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
-  }
-  function clampBox(box, width, height) {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 2 || bottom - top < 2) return null;
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  function unionBoxes(boxes) {
-    if (!boxes.length) return null;
-    const left = Math.min(...boxes.map((box) => box.left));
-    const top = Math.min(...boxes.map((box) => box.top));
-    const right = Math.max(...boxes.map((box) => box.left + box.width));
-    const bottom = Math.max(...boxes.map((box) => box.top + box.height));
-    return { left, top, width: right - left, height: bottom - top };
-  }
-  const JAPANESE_INTERNAL_SPACE = /(?<=[、-〿぀-ヿ㐀-鿿！-｠])[ \t]+(?=[、-〿぀-ヿ㐀-鿿！-｠])/g;
-  function cleanOcrText(value) {
-    const text2 = typeof value === "string" ? value : String(value ?? "");
-    const collapsed = text2.replace(/[ \t\r\n]+/g, " ").trim();
-    const normalized = HAS_JAPANESE.test(collapsed) ? collapsed.replace(JAPANESE_INTERNAL_SPACE, "") : collapsed;
-    return normalized.replaceAll("．．．", "…");
-  }
-  function numberFrom(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-  function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
-    for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state2);
-      appendCloudVisionTextAnnotations(response, state2);
-    }
-    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
-  }
-  function cloudVisionResponses(record) {
-    if (Array.isArray(record.responses)) return record.responses;
-    return "fullTextAnnotation" in record ? [record] : [];
-  }
-  function appendCloudVisionPages(response, state2) {
-    const annotation = response?.fullTextAnnotation;
-    const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state2);
-  }
-  function appendCloudVisionPage(page, state2) {
-    state2.width = numberFrom(page.width) || state2.width;
-    state2.height = numberFrom(page.height) || state2.height;
-    for (const block of cloudVisionPageBlocks(page)) {
-      for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
-      }
-    }
-  }
-  function cloudVisionPageBlocks(page) {
-    return Array.isArray(page.blocks) ? page.blocks : [];
-  }
-  function cloudVisionBlockParagraphs(block) {
-    const paragraphs = block?.paragraphs;
-    return Array.isArray(paragraphs) ? paragraphs : [];
-  }
-  function appendCloudVisionTextAnnotations(response, state2) {
-    const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state2.lines.length || annotations.length <= 1) return;
-    for (const annotationItem of annotations.slice(1)) {
-      const item = annotationItem;
-      const text2 = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
-      pushJapaneseOcrLine(state2.lines, text2, box);
-    }
-  }
-  function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
-    const words = Array.isArray(paragraph.words) ? paragraph.words : [];
-    const current = { text: "", boxes: [] };
-    for (const word of words) {
-      cloudVisionWordSymbols(word).forEach((symbol) => appendCloudVisionSymbol(symbol, current, lines, width, height));
-    }
-    pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionWordSymbols(word) {
-    const symbols = word?.symbols;
-    return Array.isArray(symbols) ? symbols : [];
-  }
-  function appendCloudVisionSymbol(symbol, current, lines, width, height) {
-    const symbolRecord = symbol;
-    current.text += String(symbolRecord.text ?? "");
-    const box = normalizeCloudVisionVertices(symbolRecord.boundingBox?.vertices, width, height);
-    if (box) current.boxes.push(box);
-    const breakType = cloudVisionSymbolBreakType(symbolRecord);
-    if (cloudVisionBreakAddsSpace(breakType)) current.text += " ";
-    if (cloudVisionBreakEndsLine(breakType)) pushCloudVisionLine(lines, current);
-  }
-  function cloudVisionSymbolBreakType(symbol) {
-    return symbol.property?.detectedBreak?.type;
-  }
-  function cloudVisionBreakAddsSpace(breakType) {
-    return breakType === "SPACE" || breakType === "SURE_SPACE" || breakType === "UNKNOWN";
-  }
-  function cloudVisionBreakEndsLine(breakType) {
-    return breakType === "LINE_BREAK" || breakType === "EOL_SURE_SPACE" || breakType === "HYPHEN";
-  }
-  function pushCloudVisionLine(lines, current) {
-    pushJapaneseOcrLine(lines, cleanOcrText(current.text), unionBoxes(current.boxes));
-    current.text = "";
-    current.boxes = [];
-  }
-  function normalizeCloudVisionVertices(value, width, height) {
-    if (!Array.isArray(value) || value.length < 2) return null;
-    const xs = value.map((vertex) => numberFrom(vertex?.x) ?? 0);
-    const ys = value.map((vertex) => numberFrom(vertex?.y) ?? 0);
-    const left = Math.min(...xs);
-    const top = Math.min(...ys);
-    return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
-  }
-  const SIMPLE_JS_ESCAPE_SEQUENCES = /* @__PURE__ */ new Map([
-    ["n", "\n"],
-    ["r", "\r"],
-    ["t", "	"],
-    ["b", "\b"],
-    ["f", "\f"],
-    ["v", "\v"],
-    ["0", "\0"],
-    ["\n", ""]
-  ]);
-  function googleLensUploadCallbackLiteral(html, key) {
-    const marker = "AF_initDataCallback(";
-    let searchIndex = 0;
-    while (searchIndex < html.length) {
-      const markerIndex = html.indexOf(marker, searchIndex);
-      if (markerIndex < 0) return null;
-      const literalStart = markerIndex + marker.length;
-      const literal = readBalancedLiteral(html, literalStart);
-      if (literal && callbackLiteralHasKey(literal, key)) return literal;
-      searchIndex = literalStart + Math.max(1, literal?.length ?? 1);
-    }
-    return null;
-  }
-  function callbackLiteralHasKey(literal, key) {
-    return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
-  }
-  function escapeRegex(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function readBalancedLiteral(source, startIndex) {
-    const index = balancedLiteralStart(source, startIndex);
-    if (index < 0) return null;
-    const end = balancedLiteralEnd(source, index);
-    return end >= 0 ? source.slice(index, end + 1) : null;
-  }
-  function balancedLiteralStart(source, startIndex) {
-    let index = startIndex;
-    while (/\s/.test(source[index] ?? "")) index += 1;
-    return source[index] === "{" ? index : -1;
-  }
-  function balancedLiteralEnd(source, startIndex) {
-    let depth = 0;
-    for (let current = startIndex; current < source.length; current += 1) {
-      const char = source[current];
-      if (isQuote(char)) {
-        current = quotedLiteralEnd(source, current, char);
-        if (current < 0) return -1;
-        continue;
-      }
-      depth += balancedDepthDelta(char);
-      if (depth === 0) return current;
-    }
-    return -1;
-  }
-  function quotedLiteralEnd(source, startIndex, quote) {
-    for (let current = startIndex + 1; current < source.length; current += 1) {
-      const char = source[current];
-      if (char === "\\") {
-        current += 1;
-      } else if (char === quote) {
-        return current;
-      }
-    }
-    return -1;
-  }
-  function isQuote(char) {
-    return char === '"' || char === "'";
-  }
-  function balancedDepthDelta(char) {
-    if (char === "{" || char === "[" || char === "(") return 1;
-    if (char === "}" || char === "]" || char === ")") return -1;
-    return 0;
-  }
-  function parseJsDataLiteral(source) {
-    let index = 0;
-    const value = parseValue();
-    skipWhitespace();
-    if (index !== source.length) throw new Error("Unexpected trailing data.");
-    return value;
-    function parseValue() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === "{") return parseObject();
-      if (char === "[") return parseArray();
-      if (char === '"' || char === "'") return parseString();
-      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-      return parseIdentifierValue();
-    }
-    function parseObject() {
-      const record = {};
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "}") {
-        const key = parseObjectKey();
-        skipWhitespace();
-        expect(":");
-        record[key] = parseValue();
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("}");
-      return record;
-    }
-    function parseObjectKey() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === '"' || char === "'") return parseString();
-      return parseIdentifier();
-    }
-    function parseArray() {
-      const values = [];
-      index += 1;
-      skipWhitespace();
-      while (source[index] !== "]") {
-        if (source[index] === ",") {
-          values.push(null);
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        values.push(parseValue());
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("]");
-      return values;
-    }
-    function parseString() {
-      const quote = source[index];
-      let value2 = "";
-      index += 1;
-      while (index < source.length) {
-        const char = source[index++];
-        if (char === quote) return value2;
-        if (char !== "\\") {
-          value2 += char;
-          continue;
-        }
-        value2 += parseEscapeSequence();
-      }
-      throw new Error("Unterminated string.");
-    }
-    function parseEscapeSequence() {
-      const escaped = source[index++];
-      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-      if (typeof simpleEscape === "string") return simpleEscape;
-      if (escaped === "\r") return parseCarriageReturnEscape();
-      return parseNamedEscapeSequence(escaped);
-    }
-    function parseCarriageReturnEscape() {
-      if (source[index] === "\n") index += 1;
-      return "";
-    }
-    function parseNamedEscapeSequence(escaped) {
-      if (escaped === "x") return codePointEscape(2);
-      if (escaped === "u") return parseUnicodeEscape();
-      return escaped ?? "";
-    }
-    function parseUnicodeEscape() {
-      if (source[index] === "{") {
-        const end = source.indexOf("}", index + 1);
-        if (end < 0) throw new Error("Invalid unicode escape.");
-        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-        index = end + 1;
-        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-      }
-      return codePointEscape(4);
-    }
-    function codePointEscape(length) {
-      const hex = source.slice(index, index + length);
-      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-      index += length;
-      return String.fromCharCode(Number.parseInt(hex, 16));
-    }
-    function parseNumber() {
-      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-      if (!match) throw new Error("Invalid number.");
-      index += match[0].length;
-      return Number(match[0]);
-    }
-    function parseIdentifierValue() {
-      const identifier = parseIdentifier();
-      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-      if (identifier === "true") return true;
-      if (identifier === "false") return false;
-      if (identifier === "Infinity") return Infinity;
-      return identifier;
-    }
-    function parseIdentifier() {
-      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-      if (!match) throw new Error("Expected identifier.");
-      index += match[0].length;
-      return match[0];
-    }
-    function skipWhitespace() {
-      while (/\s/.test(source[index] ?? "")) index += 1;
-    }
-    function expect(char) {
-      if (source[index] !== char) throw new Error(`Expected ${char}.`);
-      index += 1;
-    }
-  }
-  const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-  const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-    const lines = collectGenericOcrLines(record, width, height);
-    return japaneseOcrResult(width, height, lines);
-  }
-  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-    return { width, height };
-  }
-  function collectGenericOcrLines(record, width, height) {
-    const lines = [];
-    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-    return lines;
-  }
-  function genericRawLines(record) {
-    return Array.isArray(record.lines) ? record.lines : record.regions;
-  }
-  function appendGenericOcrLines(lines, value, width, height, normalize) {
-    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
-  }
-  function normalizeSimpleLines(values, width, height) {
-    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
-  }
-  function normalizeStructuredOcrResults(values, width, height) {
-    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
-  }
-  function normalizeOcrRegionResults(regions, width, height) {
-    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
-  }
-  function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
-    if (!regionRecord) return [];
-    const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-    if (!Array.isArray(regionRecord.results)) return [];
-    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return offsetRegionLines(lines, regionBox, width, height);
-  }
-  function ocrRegionScale(regionBox, width, height) {
-    return {
-      scaleWidth: regionBox?.width ?? width,
-      scaleHeight: regionBox?.height ?? height
-    };
-  }
-  function offsetRegionLines(lines, regionBox, width, height) {
-    if (!regionBox) return lines;
-    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
-  }
-  function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && HAS_JAPANESE.test(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function cleanOcrLookupLines(lines, parsed) {
-    const cleaned = lines.map((line, index) => {
-      const text2 = cleanOcrLookupText(line.text, parsed[index] ?? []);
-      return text2 === line.text ? line : { ...line, text: text2 };
-    });
-    return removeStandaloneFuriganaLines(cleaned);
-  }
-  function ocrLinesChanged(original, cleaned) {
-    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
-  }
-  function cleanOcrLookupText(text2, tokens) {
-    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-    let cleaned = text2;
-    for (const { ruby } of rubies) {
-      if (!OCR_KANJI_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-    }
-    return cleanOcrText(cleaned);
-  }
-  function removeOcrReadingAroundRuby(text2, reading, start, end) {
-    const cleanReading = cleanOcrText(reading);
-    if (!cleanReading) return text2;
-    if (text2.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-      return text2.slice(0, start - cleanReading.length) + text2.slice(start);
-    }
-    if (text2.slice(end, end + cleanReading.length) === cleanReading) {
-      return text2.slice(0, end) + text2.slice(end + cleanReading.length);
-    }
-    return text2;
-  }
-  function removeStandaloneFuriganaLines(lines) {
-    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-    return filtered.length ? filtered : lines;
-  }
-  function isStandaloneFuriganaLine(line, lines, index) {
-    const text2 = cleanOcrText(line.text).replace(/\s+/g, "");
-    if (!text2 || text2.length > 10 || !OCR_KANA_ONLY_RE.test(text2)) return false;
-    return lines.some((other, otherIndex) => otherIndex !== index && OCR_KANJI_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
-  }
-  function ocrLineLooksLikeFuriganaFor(furi, base) {
-    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-    const overlap = horizontalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75;
-    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-    return overlapRatio >= 0.32 && smaller && nearTop;
-  }
-  function horizontalOverlap(a, b) {
-    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-  }
-  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-    if (!furi.vertical || !base.vertical) return false;
-    const overlap = verticalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75;
-    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-    return overlapRatio >= 0.32 && smaller && nearSide;
-  }
-  function verticalOverlap(a, b) {
-    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-  }
-  function horizontalGap(a, b) {
-    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-    return 0;
-  }
-  function parseGoogleLensResponse(bytes, width, height) {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text2 = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text2 ? protoFirstMessage(text2, 1) : null;
-    if (!layout) return null;
-    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-  }
-  function googleLensParagraphLines(paragraph, width, height) {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
-  }
-  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text2 = googleLensLineText(words, paragraphVertical);
-    if (!text2 || !HAS_JAPANESE.test(text2)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    if (!box) return null;
-    return {
-      text: text2,
-      box,
-      vertical: paragraphVertical || isVerticalOcrBox(box, text2.length)
-    };
-  }
-  function googleLensWords(line, width, height) {
-    return protoMessages(line, 1).map((word) => ({
-      text: protoString(word, 2),
-      separator: protoString(word, 3),
-      box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => Boolean(word.text));
-  }
-  function googleLensLineText(words, paragraphVertical) {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
-  }
-  function googleLensWordText(word, index, words) {
-    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
-  }
-  function googleLensLineBox(lineBox, words, paragraphBox) {
-    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-  }
-  function parseGoogleLensUploadHtml(html, width, height) {
-    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-    if (!literal) return null;
-    try {
-      const callback = parseJsDataLiteral(literal);
-      const lines = [];
-      for (const item of googleLensUploadLineItems(callback.data)) {
-        const { text: text2, box } = googleLensUploadLine(item, width, height);
-        pushJapaneseOcrLine(lines, text2, box);
-      }
-      return lines.length ? { width, height, lines } : null;
-    } catch {
-      return null;
-    }
-  }
-  function googleLensUploadLineItems(data) {
-    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-  }
-  function googleLensUploadBlocks(data) {
-    const blocks = data?.[2]?.[3]?.[0] ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-  }
-  function googleLensUploadBlockLineItems(block) {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    return Array.isArray(lineItems) ? lineItems : [];
-  }
-  function googleLensUploadLine(item, width, height) {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-      text: googleLensUploadLineText(lineData[0]),
-      box: googleLensUploadLineBox(lineData[1], width, height)
-    };
-  }
-  function googleLensUploadLineText(value) {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-  }
-  function googleLensUploadWordText(word) {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-  }
-  function googleLensUploadLineBox(value, width, height) {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-    }, width, height);
-  }
-  function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
-    if (!record) return null;
-    const text2 = simpleLineText(record);
-    const box = simpleLineBox(record, width, height);
-    if (!text2 || !box) return null;
-    return { text: text2, box, vertical: simpleLineIsVertical(record) };
-  }
-  function simpleLineText(record) {
-    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-  }
-  function simpleLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function simpleLineIsVertical(record) {
-    return Boolean(record.vertical ?? record.is_vertical);
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = structuredOcrTextLines(record);
-    const vertical = structuredOcrVertical(record);
-    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-    if (lines.length) return lines;
-    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
-  }
-  function structuredOcrTextLines(record) {
-    if (Array.isArray(record.text_lines)) return record.text_lines;
-    return Array.isArray(record.text) ? record.text : [];
-  }
-  function structuredOcrVertical(record) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical);
-  }
-  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
-    if (!lineRecord) return null;
-    const text2 = structuredOcrLineText(lineRecord);
-    const box = structuredOcrLineBox(lineRecord, width, height);
-    if (!text2 || !box) return null;
-    return { text: text2, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
-  }
-  function structuredOcrLineText(record) {
-    return stringFrom(record.content ?? record.text ?? record.word);
-  }
-  function structuredOcrLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function structuredOcrLineVertical(record, inheritedVertical) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
-  }
-  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-    const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
-    const box = normalizeBox(record.box, width, height);
-    return text2 && box ? [{ text: text2, box, vertical }] : [];
-  }
-  function normalizeOcrRegion(record, width, height) {
-    const region = readOcrRegion(record);
-    if (!region) return null;
-    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
-  }
-  function readOcrRegion(record) {
-    const position = record.position;
-    const size = record.size;
-    if (!position || !size) return null;
-    return completeOcrRegionParts({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(size.width),
-      height: numberFrom(size.height)
-    });
-  }
-  function completeOcrRegionParts(parts) {
-    if (parts.left === null) return null;
-    if (parts.top === null) return null;
-    if (parts.width === null) return null;
-    if (parts.height === null) return null;
-    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
-  }
-  function scaleOcrRegion(region, width, height) {
-    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-    return {
-      left: region.left / divisor * width,
-      top: region.top / divisor * height,
-      width: region.width / divisor * width,
-      height: region.height / divisor * height
-    };
-  }
-  function isFullImageOcrRegion(box, width, height) {
-    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-  }
-  function offsetLineToRegion(line, region, width, height) {
-    const box = clampBox({
-      left: region.left + line.box.left,
-      top: region.top + line.box.top,
-      width: line.box.width,
-      height: line.box.height
-    }, width, height);
-    return box ? { ...line, box } : null;
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
-  }
-  function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
-    if (!position || !dimensions) return null;
-    return boxFromNumbers({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(dimensions.width),
-      height: numberFrom(dimensions.height)
-    }, width, height, "percent-100");
-  }
-  function normalizeDirectBox(record, width, height) {
-    const box = directBoxNumbers(record);
-    return boxFromNumbers(box, width, height, directBoxScale(box));
-  }
-  function directBoxNumbers(record) {
-    return {
-      left: numberFrom(record.left ?? record.x),
-      top: numberFrom(record.top ?? record.y),
-      width: numberFrom(record.width ?? record.w),
-      height: numberFrom(record.height ?? record.h)
-    };
-  }
-  function directBoxScale(box) {
-    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-  }
-  function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = coordinatesAreFractional(xs, ys);
-    const scaledXs = scaleCoordinates(xs, width, percent);
-    const scaledYs = scaleCoordinates(ys, height, percent);
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function coordinatesAreFractional(xs, ys) {
-    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
-  }
-  function isFractionalCoordinate(value) {
-    return value >= 0 && value <= 1;
-  }
-  function scaleCoordinates(values, scale, enabled) {
-    return enabled ? values.map((value) => value * scale) : values;
-  }
-  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-    if (!hasCompleteBoxNumbers(box)) return null;
-    const scaleInfo = boxScaleInfo(scale);
-    return clampBox({
-      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-    }, imageWidth, imageHeight);
-  }
-  function hasCompleteBoxNumbers(box) {
-    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
-  }
-  function boxScaleInfo(scale) {
-    return {
-      fractional: scale !== "pixels",
-      factor: scale === "percent-100" ? 100 : 1
-    };
-  }
-  function scaleBoxNumber(value, dimension, scale) {
-    return scale.fractional ? value / scale.factor * dimension : value;
-  }
-  function decodeProtoMessage(bytes) {
-    const fields = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-      const [tag, nextOffset] = readVarint(bytes, offset);
-      offset = nextOffset;
-      const field = Number(tag >> 3n);
-      const wire = Number(tag & 7n);
-      if (!field) break;
-      if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        offset = afterValue;
-        fields.push({ field, wire, value });
-      } else if (wire === 1) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-        offset += 8;
-      } else if (wire === 2) {
-        const [length, afterLength] = readVarint(bytes, offset);
-        offset = afterLength;
-        const end = offset + Number(length);
-        fields.push({ field, wire, value: bytes.slice(offset, end) });
-        offset = end;
-      } else if (wire === 5) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-        offset += 4;
-      } else {
-        break;
-      }
-    }
-    return fields;
-  }
-  function readVarint(bytes, offset) {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-      const byte = bytes[offset++];
-      result |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return [result, offset];
-      shift += 7n;
-    }
-    return [result, offset];
-  }
-  function protoMessages(fields, field) {
-    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
-  }
-  function protoFirstMessage(fields, field) {
-    return protoMessages(fields, field)[0] ?? null;
-  }
-  function protoString(fields, field) {
-    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value) : "";
-  }
-  function protoNumber(fields, field) {
-    const item = fields.find((value) => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
-  }
-  function protoBox(geometry, width, height) {
-    const dimensions = protoBoxDimensions(geometry);
-    if (!dimensions) return null;
-    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
-  }
-  function protoBoxDimensions(geometry) {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const dimensions = {
-      centerX: protoNumber(box, 1),
-      centerY: protoNumber(box, 2),
-      width: protoNumber(box, 3),
-      height: protoNumber(box, 4)
-    };
-    return dimensions.width && dimensions.height ? dimensions : null;
-  }
-  function protoBoxIsNormalized(box) {
-    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
-  }
-  function scaledProtoBox(box, normalized, width, height) {
-    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
-    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
-    return {
-      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
-      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
-      width: scaledWidth,
-      height: scaledHeight
-    };
-  }
-  function scaledProtoBoxValue(value, scale, normalized) {
-    return normalized ? value * scale : value;
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" ? value : null;
   }
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
@@ -35089,12 +35885,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
-  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  const LENS_PLATFORM_WEB = 3;
-  const LENS_SURFACE_CHROMIUM = 4;
-  const LENS_AUTO_FILTER = 7;
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log$l = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
@@ -35103,16 +35894,6 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
   const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
   let ocrLayerCounter = 0;
-  const OCR_RECOGNIZERS = {
-    "google-lens": recognizeViaGoogleLens,
-    "cloud-vision": recognizeViaCloudVision,
-    "local-service": recognizeViaLocalService
-  };
-  const OCR_PROVIDER_CONFIGURED = {
-    "google-lens": () => true,
-    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    "local-service": () => true
-  };
   const OCR_PROVIDER_LABELS = {
     "google-lens": () => "google-lens",
     "cloud-vision": (settings) => settings.ocrCloudVisionApiKey.trim() ? "cloud-vision" : null,
@@ -38107,124 +38888,6 @@ ${spelling}`);
     const value = values.find((candidate) => Boolean(candidate));
     return value === void 0 ? 1 : value;
   }
-  function imageContentBox(image, rect, style) {
-    const scaleX = rectScale(rect.width, image.offsetWidth);
-    const scaleY = rectScale(rect.height, image.offsetHeight);
-    const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
-    const right = scaledBoxEdge(style.borderRightWidth, scaleX) + scaledBoxEdge(style.paddingRight, scaleX);
-    const top = scaledBoxEdge(style.borderTopWidth, scaleY) + scaledBoxEdge(style.paddingTop, scaleY);
-    const bottom = scaledBoxEdge(style.borderBottomWidth, scaleY) + scaledBoxEdge(style.paddingBottom, scaleY);
-    return {
-      left,
-      top,
-      width: Math.max(1, rect.width - left - right),
-      height: Math.max(1, rect.height - top - bottom)
-    };
-  }
-  function rectScale(rectSize, layoutSize) {
-    return layoutSize > 0 ? rectSize / layoutSize : 1;
-  }
-  function scaledBoxEdge(value, scale) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed * scale : 0;
-  }
-  function fittedObjectSize(objectFit, sourceWidth, sourceHeight, contentWidth, contentHeight) {
-    const safeSourceWidth = Math.max(1, sourceWidth);
-    const safeSourceHeight = Math.max(1, sourceHeight);
-    const safeContentWidth = Math.max(1, contentWidth);
-    const safeContentHeight = Math.max(1, contentHeight);
-    const contain = () => scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.min(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-    switch (objectFit) {
-      case "contain":
-        return contain();
-      case "cover":
-        return scaledObjectSize(safeSourceWidth, safeSourceHeight, Math.max(safeContentWidth / safeSourceWidth, safeContentHeight / safeSourceHeight));
-      case "none":
-        return { width: safeSourceWidth, height: safeSourceHeight };
-      case "scale-down": {
-        const contained = contain();
-        return contained.width < safeSourceWidth || contained.height < safeSourceHeight ? contained : { width: safeSourceWidth, height: safeSourceHeight };
-      }
-      case "fill":
-      default:
-        return { width: safeContentWidth, height: safeContentHeight };
-    }
-  }
-  function scaledObjectSize(width, height, scale) {
-    return {
-      width: Math.max(1, width * scale),
-      height: Math.max(1, height * scale)
-    };
-  }
-  function objectPositionOffset(value, freeX, freeY) {
-    const tokens = cssPositionTokens(value);
-    const axes = parseObjectPositionAxes(tokens);
-    return {
-      x: axisPositionOffset(axes.x, freeX),
-      y: axisPositionOffset(axes.y, freeY)
-    };
-  }
-  function cssPositionTokens(value) {
-    return value.trim().match(/(?:calc\([^)]*\)|[^\s]+)/g) ?? [];
-  }
-  function parseObjectPositionAxes(tokens) {
-    const paired = parseKeywordPositionAxes(tokens);
-    if (paired) return paired;
-    const [first2 = "50%", second] = tokens;
-    if (isVerticalPositionKeyword(first2)) return { x: positionAxis(second || "50%"), y: positionAxis(first2) };
-    return { x: positionAxis(first2), y: positionAxis(second || "50%") };
-  }
-  function parseKeywordPositionAxes(tokens) {
-    let x2 = null;
-    let y = null;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isHorizontalPositionKeyword(token)) {
-        x2 = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-        continue;
-      }
-      if (isVerticalPositionKeyword(token)) {
-        y = { keyword: token, offset: positionOffsetToken(tokens[index + 1]) };
-      }
-    }
-    return x2 || y ? { x: x2 ?? positionAxis("50%"), y: y ?? positionAxis("50%") } : null;
-  }
-  function positionAxis(token) {
-    return positionKeyword(token) ? { keyword: token } : { token };
-  }
-  function positionOffsetToken(token) {
-    return token && !positionKeyword(token) ? token : void 0;
-  }
-  function axisPositionOffset(axis, freeSpace) {
-    const base = axis.keyword ? keywordPositionOffset(axis.keyword, freeSpace) : tokenPositionOffset(axis.token, freeSpace);
-    const offset = cssLengthPx(axis.offset);
-    if (axis.keyword === "right" || axis.keyword === "bottom") return base - offset;
-    return base + offset;
-  }
-  function keywordPositionOffset(keyword, freeSpace) {
-    if (keyword === "right" || keyword === "bottom") return freeSpace;
-    if (keyword === "center") return freeSpace / 2;
-    return 0;
-  }
-  function tokenPositionOffset(token, freeSpace) {
-    if (!token) return freeSpace / 2;
-    if (token.endsWith("%")) return freeSpace * (Number.parseFloat(token) || 0) / 100;
-    return cssLengthPx(token);
-  }
-  function cssLengthPx(value) {
-    if (!value) return 0;
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function positionKeyword(token) {
-    return isHorizontalPositionKeyword(token) || isVerticalPositionKeyword(token) || token === "center";
-  }
-  function isHorizontalPositionKeyword(token) {
-    return token === "left" || token === "right";
-  }
-  function isVerticalPositionKeyword(token) {
-    return token === "top" || token === "bottom";
-  }
   function captureImageElement(image) {
     try {
       if (!image.naturalWidth || !image.naturalHeight) return void 0;
@@ -38277,341 +38940,6 @@ ${spelling}`);
   }
   function clampNumber$1(value, min, max2) {
     return Math.min(max2, Math.max(min, value));
-  }
-  async function recognizeViaLocalService(image, settings, invert = false) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: settings.ocrLanguage || "ja-JP",
-      language: {
-        bcp47_tag: settings.ocrLanguage || "ja-JP",
-        two_letter_code: (settings.ocrLanguage || "ja").slice(0, 2)
-      },
-      base64_image: payload.base64,
-      image: payload.base64,
-      image_bytes: payload.base64,
-      ocr_engine: engine,
-      ocr_adapter_name: engine,
-      detection_only: false
-    });
-    const response = await requestJson$1(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaCloudVision(image, settings, invert = false) {
-    const apiKey = settings.ocrCloudVisionApiKey.trim();
-    if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const body = JSON.stringify({
-      requests: [{
-        image: { content: payload.base64 },
-        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
-        imageContext: { languageHints: [(settings.ocrLanguage || "ja-JP").slice(0, 2)] }
-      }]
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
-    const response = await requestJson$1(url, body, ocrAttemptTimeoutMs(settings));
-    return normalizeOcrResult(response, payload.width, payload.height);
-  }
-  async function recognizeViaGoogleLens(image, settings, invert = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
-    const deadline = Date.now() + ocrAttemptTimeoutMs(settings);
-    let protobufFailure;
-    const protobuf = await recognizeViaGoogleLensProtobuf(
-      blob,
-      canvas,
-      settings,
-      Math.max(1, remainingGoogleLensTimeout(deadline))
-    ).catch((error) => {
-      protobufFailure = error;
-      log$l.warn("Google Lens protobuf failed", error);
-      return void 0;
-    });
-    if (protobuf?.lines.length) return protobuf;
-    const uploadTimeout = remainingGoogleLensTimeout(deadline);
-    if (uploadTimeout <= 0) {
-      if (protobuf === void 0) throw new Error("Google Lens OCR timed out.");
-      return protobuf;
-    }
-    let uploadFailure;
-    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
-      uploadFailure = error;
-      log$l.warn("Google Lens upload failed", error);
-      return void 0;
-    });
-    if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
-      throw new Error("Google Lens OCR timed out.");
-    }
-    if (protobuf === void 0 && upload === void 0) {
-      if (isOcrRequestTimeout(protobufFailure) || isOcrRequestTimeout(uploadFailure)) {
-        throw new Error("Google Lens OCR timed out.");
-      }
-      throw new Error("Google Lens OCR failed.");
-    }
-    return upload?.lines.length ? upload : upload ?? protobuf ?? null;
-  }
-  function remainingGoogleLensTimeout(deadline) {
-    return Math.max(0, deadline - Date.now());
-  }
-  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
-    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-  }
-  function ocrRecognizer(settings) {
-    const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
-    return recognizer && isOcrProviderConfigured(settings) ? recognizer : null;
-  }
-  function isOcrProviderConfigured(settings) {
-    return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
-  }
-  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
-    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
-    return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
-  }
-  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
-    const canvas = await imageToCanvas(image, maxPixels, invertDark);
-    try {
-      return { canvas, blob: await canvasToBlob(canvas, type, quality) };
-    } catch {
-      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
-      return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
-    }
-  }
-  async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
-    const data = new FormData();
-    data.append("encoded_image", blob, "image.jpg");
-    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
-      Origin: "https://lens.google.com",
-      Referer: "https://lens.google.com/"
-    });
-    return parseGoogleLensUploadHtml(response, width, height);
-  }
-  async function imageToCanvas(image, maxPixels, invert = false) {
-    try {
-      const canvas = drawImageToCanvas(image, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } catch {
-      return imageBlobToCanvas(image, maxPixels, invert);
-    }
-  }
-  async function imageBlobToCanvas(image, maxPixels, invert = false) {
-    const url = image.currentSrc || image.src;
-    if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
-    const blob = await requestBlob$1(url);
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const loaded = await loadImage(objectUrl);
-      const canvas = drawImageToCanvas(loaded, maxPixels);
-      assertCanvasReadable(canvas);
-      return invert ? invertedCanvas(canvas) : canvas;
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  function invertedCanvas(canvas) {
-    try {
-      const inverted = document.createElement("canvas");
-      inverted.width = canvas.width;
-      inverted.height = canvas.height;
-      const context = inverted.getContext("2d");
-      if (!context) return canvas;
-      context.filter = "invert(1)";
-      context.drawImage(canvas, 0, 0);
-      return inverted;
-    } catch {
-      return canvas;
-    }
-  }
-  const DARK_FIELD_SIZE = 48;
-  const DARK_LUMINANCE = 90;
-  const DARK_REGION_TRIGGER = 0.1;
-  const DARK_LINE_MEAN_LUMINANCE = 110;
-  function buildLuminanceField(image) {
-    try {
-      if (!image.naturalWidth || !image.naturalHeight) return null;
-      const size = DARK_FIELD_SIZE;
-      const sample = document.createElement("canvas");
-      sample.width = size;
-      sample.height = size;
-      const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return null;
-      context.drawImage(image, 0, 0, size, size);
-      const { data } = context.getImageData(0, 0, size, size);
-      const lum = new Uint8Array(size * size);
-      let opaque = 0;
-      for (let i2 = 0, p = 0; i2 < data.length; i2 += 4, p++) {
-        if (data[i2 + 3] >= 8) opaque++;
-        lum[p] = data[i2] * 0.299 + data[i2 + 1] * 0.587 + data[i2 + 2] * 0.114 | 0;
-      }
-      if (opaque < lum.length * 0.5) return null;
-      return { size, lum };
-    } catch {
-      return null;
-    }
-  }
-  function luminanceFieldDarkFraction(field) {
-    let dark = 0;
-    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
-    return dark / field.lum.length;
-  }
-  function regionMeanLuminance(field, box, width, height) {
-    if (width <= 0 || height <= 0) return 255;
-    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
-    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
-    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
-    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
-    let sum = 0;
-    let count = 0;
-    for (let y = y0; y < y1; y++) {
-      for (let x2 = x0; x2 < x1; x2++) {
-        sum += field.lum[y * field.size + x2];
-        count++;
-      }
-    }
-    return count ? sum / count : 255;
-  }
-  function darkAreaIsRead(field, normal) {
-    const size = field.size;
-    let darkTotal = 0;
-    let darkCovered = 0;
-    const lines = normal?.lines ?? [];
-    const width = normal?.width || 1;
-    const height = normal?.height || 1;
-    const cellRects = lines.map((line) => ({
-      x0: Math.floor(line.box.left / width * size),
-      x1: Math.ceil((line.box.left + line.box.width) / width * size),
-      y0: Math.floor(line.box.top / height * size),
-      y1: Math.ceil((line.box.top + line.box.height) / height * size)
-    }));
-    for (let y = 0; y < size; y++) {
-      for (let x2 = 0; x2 < size; x2++) {
-        if (field.lum[y * size + x2] >= DARK_LUMINANCE) continue;
-        darkTotal++;
-        if (cellRects.some((r) => x2 >= r.x0 && x2 < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
-      }
-    }
-    if (!darkTotal) return true;
-    return darkCovered / darkTotal >= 0.5;
-  }
-  function boxesOverlapSignificantly(a, b) {
-    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-    const intersection = ix * iy;
-    if (intersection <= 0) return false;
-    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
-    return intersection / minArea >= 0.5;
-  }
-  function mergeDarkPassResult(normal, inverted, field) {
-    if (!inverted?.lines.length) return normal;
-    if (!normal) {
-      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
-      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
-    }
-    const lines = [...normal.lines];
-    for (const line of inverted.lines) {
-      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
-      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
-      lines.push(line);
-    }
-    return { width: normal.width, height: normal.height, lines };
-  }
-  function drawImageToCanvas(image, maxPixels) {
-    const size = loadedImageSize(image);
-    const canvas = scaledCanvas(size, maxPixels);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas;
-  }
-  async function splitImageIntoPageColumns(image) {
-    const size = loadedImageSize(image);
-    const mid = Math.round(size.width / 2);
-    return Promise.all([
-      cropOcrImageColumn(image, 0, mid, size),
-      cropOcrImageColumn(image, mid, size.width - mid, size)
-    ]);
-  }
-  async function cropOcrImageColumn(image, left, width, size) {
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, width);
-    canvas.height = Math.max(1, size.height);
-    markCanvasMirrorSkip(drawableCanvasContext(canvas)).drawImage(image, left, 0, width, size.height, 0, 0, canvas.width, canvas.height);
-    return {
-      image: await loadImage(canvas.toDataURL("image/jpeg", 0.9)),
-      left,
-      totalWidth: size.width,
-      totalHeight: size.height
-    };
-  }
-  function offsetOcrResult(result, left, top, width, height) {
-    return {
-      width,
-      height,
-      lines: result.lines.map((line) => ({
-        ...line,
-        box: { ...line.box, left: line.box.left + left, top: line.box.top + top }
-      }))
-    };
-  }
-  function mergeOcrResults(width, height, results) {
-    const lines = results.flatMap((result) => result?.lines ?? []);
-    return width && height && lines.length ? { width, height, lines } : null;
-  }
-  function loadedImageSize(image) {
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-    if (!width || !height) throw new Error("Image is not loaded yet.");
-    return { width, height };
-  }
-  function scaledCanvas(size, maxPixels) {
-    const scale = Math.min(1, Math.sqrt(Math.max(16e4, maxPixels) / (size.width * size.height)));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(size.width * scale));
-    canvas.height = Math.max(1, Math.round(size.height * scale));
-    return canvas;
-  }
-  function drawableCanvasContext(canvas) {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas unavailable.");
-    return context;
-  }
-  function assertCanvasReadable(canvas) {
-    canvas.getContext("2d")?.getImageData(0, 0, 1, 1);
-  }
-  function createGoogleLensRequest(imageBytes, width, height, locale) {
-    const [language = "ja", region = "US"] = (locale || "ja-JP").split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const requestId = protoMessage(
-      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
-      protoVarintField(2, 1),
-      protoVarintField(3, 1),
-      protoBytesField(4, randomBytes(16))
-    );
-    const localeContext = protoMessage(
-      protoStringField(1, language || "ja"),
-      protoStringField(2, region || "US"),
-      protoStringField(3, timeZone)
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-      protoVarintField(1, LENS_PLATFORM_WEB),
-      protoVarintField(2, LENS_SURFACE_CHROMIUM),
-      protoMessageField(4, localeContext),
-      protoMessageField(17, clientFilters)
-    );
-    const requestContext = protoMessage(
-      protoMessageField(3, requestId),
-      protoMessageField(4, clientContext)
-    );
-    const imageData = protoMessage(
-      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-      protoMessageField(1, requestContext),
-      protoMessageField(3, imageData)
-    )));
   }
   function isCandidateImage(image, settings) {
     if (isIgnoredOcrImage(image)) return false;
@@ -39283,89 +39611,6 @@ ${spelling}`);
   function isWideBookwalkerSpreadCanvas(canvas) {
     return isBookwalkerViewerHost() && !isBookwalkerContinuousScrollCanvas(canvas) && canvas.width / Math.max(1, canvas.height) >= BOOKWALKER_SPREAD_MIN_ASPECT;
   }
-  function canvasSurfaceSnapshotKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    if (isBookwalkerViewerHost()) {
-      return [
-        canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-        surfaceId
-      ].join("|");
-    }
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function canvasStablePageContentToken(canvas) {
-    return stableContentIdentityForCanvas(canvas);
-  }
-  function canvasContentReadinessKey(canvas) {
-    const surfaceId = canvasReaderSurfaceId(canvas);
-    return [
-      canvasReaderHasStableSurface(canvas) ? "" : canvasReaderPageCounter(),
-      surfaceId,
-      canvas.width,
-      canvas.height,
-      canvasPageContentToken(canvas)
-    ].join("|");
-  }
-  function isSameCanvasReaderPageLocation(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter === nextParts.counter && previousParts.backgrounds === nextParts.backgrounds;
-  }
-  function hasDifferentRecordedCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isRecordedCanvasReaderContent(previousParts.content) && isRecordedCanvasReaderContent(nextParts.content) && isRealContentChange(previousParts.content, nextParts.content);
-  }
-  function isRecordedCanvasReaderContent(content) {
-    const tokens = content.split(",").filter(Boolean);
-    return tokens.length > 0 && tokens.every((token) => token.startsWith("m:") || token.startsWith("o:"));
-  }
-  function hasSameRealCanvasReaderContent(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isSameRealContent(previousParts.content, nextParts.content);
-  }
-  function isCanvasMirrorEpochTransition(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return isGlobalEpochTransition(previousParts.content, nextParts.content);
-  }
-  function hasSameStableCanvasReaderPageCounter(previous, next) {
-    const previousParts = splitCanvasReaderSignature(previous);
-    const nextParts = splitCanvasReaderSignature(next);
-    if (!previousParts || !nextParts) return false;
-    return previousParts.counter !== "" && previousParts.counter === nextParts.counter;
-  }
-  function shouldTrustStableBookwalkerPageCounter() {
-    if (!isBookwalkerViewerHost()) return false;
-    try {
-      return new URL(location.href).searchParams.get("cty") !== "2";
-    } catch {
-      return true;
-    }
-  }
-  function splitCanvasReaderSignature(signature) {
-    const parts = signature.split("|");
-    if (parts.length < 5) return null;
-    const [counter, scroll, surfaces, content, ...backgroundParts] = parts;
-    return {
-      backgrounds: backgroundParts.join("|"),
-      content: content ?? "",
-      counter: counter ?? "",
-      scroll: scroll ?? "",
-      surfaces: surfaces ?? ""
-    };
-  }
   function backgroundSurfaceCacheKey(surface) {
     const rect = surface.getBoundingClientRect();
     return [
@@ -39374,245 +39619,6 @@ ${spelling}`);
       Math.round(rect.width),
       Math.round(rect.height)
     ].join("|");
-  }
-  function protoMessage(...parts) {
-    return concatBytes(parts);
-  }
-  function protoMessageField(field, value) {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-  }
-  function protoBytesField(field, value) {
-    return protoMessageField(field, value);
-  }
-  function protoStringField(field, value) {
-    return protoBytesField(field, new TextEncoder().encode(value));
-  }
-  function protoVarintField(field, value) {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-  }
-  function protoTag(field, wire) {
-    return encodeVarint(field << 3 | wire);
-  }
-  function encodeVarint(value) {
-    let item = BigInt(value);
-    const bytes = [];
-    do {
-      let byte = Number(item & 0x7fn);
-      item >>= 7n;
-      if (item) byte |= 128;
-      bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-  }
-  function concatBytes(parts) {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-    return result;
-  }
-  function randomBytes(length) {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-  }
-  function requestJson$1(url, data, timeout) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers: { "content-type": "application/json" },
-      data,
-      responseType: "json",
-      timeout
-    }, (response) => response.response ?? (response.responseText ? JSON.parse(response.responseText) : null), (status) => `OCR endpoint returned ${status}.`, "OCR timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchJsonWithTimeout(url, data, timeout).then((response) => response.ok ? response.json() : Promise.reject(new Error(`OCR endpoint returned ${response.status}.`)));
-  }
-  function fetchJsonWithTimeout(url, data, timeout) {
-    if (!timeout) return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data });
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestArrayBuffer(url, data, timeout) {
-    const body = new Uint8Array(data);
-    const headers = {
-      "content-type": "application/x-protobuf",
-      "x-goog-api-key": GOOGLE_LENS_API_KEY,
-      accept: "*/*",
-      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
-    };
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      headers,
-      data: body.buffer,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => response.response, (status) => `Google Lens returned ${status}.`, "Google Lens timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchWithTimeout$2(url, {
-      method: "POST",
-      headers,
-      body: body.buffer
-    }, timeout, "Google Lens timed out.").then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
-  }
-  function requestTextForm(url, data, timeout, headers) {
-    const userscriptRequest = requestViaUserscript({
-      method: "POST",
-      url,
-      ...headers ? { headers } : {},
-      data,
-      responseType: "text",
-      timeout
-    }, (response) => String(response.responseText ?? response.response ?? ""), (status) => `Google Lens upload returned ${status}.`, "Google Lens upload timed out.");
-    if (userscriptRequest) return userscriptRequest;
-    return fetchWithTimeout$2(url, { method: "POST", body: data }, timeout, "Google Lens upload timed out.").then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
-  }
-  function fetchWithTimeout$2(url, init, timeout, timeoutMessage) {
-    if (!timeout) return fetch(url, init);
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeout);
-    return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
-      throw error;
-    }).finally(() => window.clearTimeout(timeoutId));
-  }
-  function requestBlob$1(url, timeout = 0) {
-    const fallbackType = imageMimeTypeFromUrl(url);
-    const userscriptRequest = requestViaUserscript({
-      method: "GET",
-      url,
-      responseType: "arraybuffer",
-      timeout
-    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`, timeout ? "Image fetch timed out." : void 0);
-    if (userscriptRequest) return userscriptRequest;
-    if (!timeout) return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeout);
-    return fetch(url, { signal: controller.signal }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`))).finally(() => window.clearTimeout(timer));
-  }
-  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
-    const value = response.response;
-    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
-    if (value instanceof ArrayBuffer) {
-      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
-      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
-    }
-    if (ArrayBuffer.isView(value)) {
-      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-      const copy = new Uint8Array(source.byteLength);
-      copy.set(source);
-      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
-    }
-    return new Blob([value], { type: fallbackType });
-  }
-  function imageMimeTypeFromUrl(url) {
-    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "png":
-        return "image/png";
-      case "gif":
-        return "image/gif";
-      case "webp":
-        return "image/webp";
-      case "avif":
-        return "image/avif";
-      case "bmp":
-        return "image/bmp";
-      default:
-        return "image/jpeg";
-    }
-  }
-  function sniffImageMimeType(bytes) {
-    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
-    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
-    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
-    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
-    return void 0;
-  }
-  function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) {
-      log$l.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
-      return null;
-    }
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      let requestHandle;
-      let timeoutId = 0;
-      const settle = (fn) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId) window.clearTimeout(timeoutId);
-        fn();
-      };
-      const onload = (response) => {
-        settle(() => {
-          if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-          else reject(new Error(statusMessage(response.status)));
-        });
-      };
-      const fail = (error) => {
-        settle(() => reject(error instanceof Error ? error : new Error(String(error || "Request failed."))));
-      };
-      const timeout = Math.max(0, Math.round(options.timeout || 0));
-      if (timeout) {
-        timeoutId = window.setTimeout(() => {
-          try {
-            requestHandle?.abort?.();
-          } catch {
-          }
-          fail(new Error(timeoutMessage ?? "Request timed out."));
-        }, timeout);
-      }
-      try {
-        const result = userscriptRequest({
-          ...options,
-          onload,
-          onerror: fail,
-          ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
-        });
-        if (result && typeof result.then === "function") {
-          result.then(onload, fail);
-        } else if (result) {
-          requestHandle = result;
-        }
-      } catch (error) {
-        fail(error);
-      }
-    });
-  }
-  function isSuccessfulHttpStatus(status) {
-    return status >= 200 && status < 300;
-  }
-  function loadImage(url, timeout = 0) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      let timer = 0;
-      const settle = (fn) => {
-        if (timer) window.clearTimeout(timer);
-        fn();
-      };
-      image.onload = () => settle(() => resolve(image));
-      image.onerror = () => settle(() => reject(new Error("Image decode failed.")));
-      if (timeout) timer = window.setTimeout(() => settle(() => reject(new Error("Image decode timed out."))), timeout);
-      image.src = url;
-    });
   }
   const cleanMirrorImageCache = /* @__PURE__ */ new Map();
   async function loadCleanMirrorImage(url) {
@@ -39684,11 +39690,6 @@ ${spelling}`);
       if (!oldest) return;
       cleanMirrorImageCache.delete(oldest);
     }
-  }
-  function canvasToBlob(canvas, type, quality) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
-    });
   }
   function imageSummary(image) {
     return {
@@ -40157,7 +40158,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.172".trim() ? "1.6.172".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.173".trim() ? "1.6.173".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74282,6 +74283,27 @@ ${options.version}`;
     }
     return null;
   }
+  class OperationTracker {
+    latest = /* @__PURE__ */ new Map();
+    begin(scope) {
+      const previous = this.latest.get(scope);
+      if (previous) previous.superseded = true;
+      const token = { superseded: false };
+      this.latest.set(scope, token);
+      return token;
+    }
+  }
+  class BoundedMap extends Map {
+    constructor(maxSize) {
+      super();
+      this.maxSize = maxSize;
+    }
+    set(key, value) {
+      super.set(key, value);
+      pruneOldestCacheEntries(this, this.maxSize);
+      return this;
+    }
+  }
   const CONTROL_POINTER_ACTIVATION_SELECTOR = [
     "button",
     "a[href]",
@@ -78238,6 +78260,12 @@ ${entry.url}`),
   const QUEUE_REFRESH_GRADE_INTERVAL = 10;
   const QUEUE_REFRESH_MAX_AGE_MS = 6e4;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
+  const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
+  const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
+  const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
+  const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
+  const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
+  const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
   const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1e3;
   function orderedNewTabStatsProviderLabel(results) {
@@ -78459,19 +78487,21 @@ ${entry.url}`),
     // n+1 sentence selection: once per card the example sentences from every
     // source are scored against the learner's known words and the best one
     // (all known + at most one new word) replaces the card's own sentence.
-    studySentenceOverrides = /* @__PURE__ */ new Map();
+    studySentenceOverrides = new BoundedMap(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     nPlusOneSentenceRequests = /* @__PURE__ */ new Set();
     // Set once the user chooses "Continue offline" in the connection-lost
     // dialog; later drops in the same outage queue silently. Cleared when the
     // browser reports it is back online so the next outage asks again.
     offlineReviewingAccepted = false;
-    uchisenDataCache = /* @__PURE__ */ new Map();
-    immersionCache = /* @__PURE__ */ new Map();
-    immersionExampleIndex = /* @__PURE__ */ new Map();
-    frontSentenceCache = /* @__PURE__ */ new Map();
+    uchisenDataCache = new BoundedMap(NEW_TAB_KANJI_DATA_CACHE_LIMIT);
+    immersionCache = new BoundedMap(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    // Rotation cursor into immersionCache's examples; bounded with the same limit
+    // so the two stay aligned (a dropped example set simply restarts at index 0).
+    immersionExampleIndex = new BoundedMap(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    frontSentenceCache = new BoundedMap(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     parsedSentenceCache = /* @__PURE__ */ new Map();
-    wordPitchCache = /* @__PURE__ */ new Map();
-    doodlePreviewCache = /* @__PURE__ */ new Map();
+    wordPitchCache = new BoundedMap(NEW_TAB_WORD_PITCH_CACHE_LIMIT);
+    doodlePreviewCache = new BoundedMap(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
     immersionPrefetchGeneration = 0;
     installPrompt = null;
     immersionAudioPlayer;
@@ -78488,8 +78518,11 @@ ${entry.url}`),
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
     deckSelectorDecks;
+    // Latest-wins operation tracker (NB-41b). Migrated scopes: 'stats',
+    // 'sourceSwitch'. The remaining hand-maintained *Generation counters await
+    // the controller decomposition.
+    operations = new OperationTracker();
     loadGeneration = 0;
-    sourceSwitchGeneration = 0;
     searchGeneration = 0;
     searchDebounce;
     searchQuery = "";
@@ -78506,8 +78539,8 @@ ${entry.url}`),
     searchHandwritingStrokes = [];
     searchHandwritingGeneration = 0;
     searchHandwritingDebounce;
-    searchHandwritingShapeCandidateCache = /* @__PURE__ */ new Map();
-    recallAnswers = /* @__PURE__ */ new Map();
+    searchHandwritingShapeCandidateCache = new BoundedMap(NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT);
+    studyStepStates = /* @__PURE__ */ new Map();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     pitchSrs = new PitchSrsStore();
     listenItem = null;
@@ -78527,31 +78560,9 @@ ${entry.url}`),
     listenSpeakingScore = null;
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
-    recallOutcomes = /* @__PURE__ */ new Map();
-    // Pitch-selection pick per card (the chosen downstep position), persisted like
-    // the recall answer so it survives step navigation and folds into the single
-    // reveal — the pitch step feeds the same per-step outcome tracking as recall.
-    pitchOutcomes = /* @__PURE__ */ new Map();
-    // Type-word production: the in-progress typed answer, plus the FIRST-attempt
-    // outcome per card (recall grades reused; 'skipped' when the learner skips).
-    // First attempt counts — a later retry never rewrites the recorded outcome,
-    // matching the listen/pitch first-attempt convention.
-    typeAnswers = /* @__PURE__ */ new Map();
-    typeOutcomes = /* @__PURE__ */ new Map();
     // Handwriting sub-mode progress: how many leading characters of the target
     // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
     typeHandwritingProgress = /* @__PURE__ */ new Map();
-    // First-attempt pass/fail for the doodle and speaking steps, mirrored into the
-    // reveal summary. Neither step natively persisted a per-card outcome (doodle
-    // toggled a CSS class; speaking held a transient score), so these maps give
-    // the summary strip a stable, first-attempt source without re-deriving state.
-    doodleOutcomes = /* @__PURE__ */ new Map();
-    // First-attempt result per (card, kanji) — a word can hold several
-    // kanji-doodle steps, and each kanji's outcome must latch on its FIRST draw
-    // so a redraw of the same character never launders it. The card-level
-    // doodleOutcomes above is the "roughest draw wins" aggregate across kanji.
-    doodleFirstAttempt = /* @__PURE__ */ new Map();
-    speakingOutcomes = /* @__PURE__ */ new Map();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     studyHintDepth = /* @__PURE__ */ new Map();
@@ -78639,7 +78650,6 @@ ${entry.url}`),
     statsActivityMetric = "reviews";
     statsSelectedDate = "";
     statsStudyFilter = null;
-    statsGeneration = 0;
     statsLoaded = false;
     statsDeckPrefsLoaded = false;
     statsDisabledAnkiDecks = /* @__PURE__ */ new Set();
@@ -78878,21 +78888,14 @@ ${entry.url}`),
       this.studySentenceOverrides.clear();
       this.nPlusOneSentenceRequests.clear();
       this.doodlePreviewCache.clear();
-      this.recallAnswers.clear();
-      this.recallOutcomes.clear();
-      this.pitchOutcomes.clear();
-      this.typeAnswers.clear();
-      this.typeOutcomes.clear();
+      this.studyStepStates.clear();
       this.typeHandwritingProgress.clear();
-      this.doodleOutcomes.clear();
-      this.doodleFirstAttempt.clear();
-      this.speakingOutcomes.clear();
       this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsSnapshot = emptyStatsDashboardSnapshot();
       this.statsLoaded = false;
       this.statsSelectedDate = "";
-      this.statsGeneration++;
+      this.operations.begin("stats");
     }
     renderEnabledContent() {
       const brand = resolveNewTabBrandAssets(location.href);
@@ -79113,7 +79116,10 @@ ${entry.url}`),
         const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
         if (typeInput && root.contains(typeInput)) {
           const card = this.visibleWords[this.index];
-          if (card) this.typeAnswers.set(cardKey(card), typeInput.value);
+          if (card) {
+            const state2 = this.ensureStepState(cardKey(card));
+            state2.type = { ...state2.type, answer: typeInput.value };
+          }
           return;
         }
         const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
@@ -80421,7 +80427,7 @@ ${entry.url}`),
       if (this.statsLoaded && !force) return;
       await this.loadStatsDeckPrefs();
       const settings = this.dependencies.getSettings();
-      const generation = ++this.statsGeneration;
+      const statsOp = this.operations.begin("stats");
       this.statsSnapshot = {
         jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource("jpdb", "JPDB", this.text("statsApiKeyMissing"), "setup"),
         jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource("jiten", "Jiten", this.text("statsApiKeyMissing"), "setup"),
@@ -80439,7 +80445,7 @@ ${entry.url}`),
         this.loadSrsAdapterStatsSource("yomu-local"),
         this.loadAnkiStatsSource()
       ]);
-      if (generation !== this.statsGeneration || !root.isConnected) return;
+      if (statsOp.superseded || !root.isConnected) return;
       const jpdbWithHistory = applyJpdbReviewImport(jpdb, history2);
       const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
       this.statsSnapshot = {
@@ -81502,9 +81508,6 @@ ${entry.url}`),
     isCurrentLoad(loadGeneration) {
       return this.loadGeneration === loadGeneration;
     }
-    isCurrentSourceSwitch(sourceSwitchGeneration) {
-      return this.sourceSwitchGeneration === sourceSwitchGeneration;
-    }
     persistSourceSettingChange(source) {
       return Promise.resolve().then(() => this.dependencies.onSettingsChange()).catch((error) => {
         log$2.warn("New-tab source update failed", { source }, error);
@@ -81531,7 +81534,7 @@ ${entry.url}`),
     }
     async switchReviewSource(root, source) {
       if (source === this.state.source && this.isRenderedReviewSource(source)) return;
-      const sourceSwitchGeneration = ++this.sourceSwitchGeneration;
+      const sourceSwitchOp = this.operations.begin("sourceSwitch");
       const loadGeneration = ++this.loadGeneration;
       this.dependencies.dismiss({ suppressHoverTarget: false });
       const settings = this.dependencies.getSettings();
@@ -81544,7 +81547,7 @@ ${entry.url}`),
       const cached = this.cachedSourceResult(source);
       if (cached && this.canUseCachedResultForSourceSwitch(cached, source)) {
         void this.persistSourceSettingChange(source);
-        if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+        if (sourceSwitchOp.superseded) return;
         await this.applyLoadedWords(root, false, loadGeneration, cached, false, false, this.navigationGeneration);
         return;
       }
@@ -81555,7 +81558,7 @@ ${entry.url}`),
       this.index = 0;
       this.setStatus(root, this.text("loading"));
       await this.persistSourceSettingChange(source);
-      if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+      if (sourceSwitchOp.superseded) return;
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
     canUseCachedResultForSourceSwitch(result, source) {
@@ -82170,7 +82173,7 @@ ${entry.url}`),
       if (isNewCard || isSubModeChange) {
         this.listenItem = item;
         this.listenRenderedSubMode = this.state.listenSubMode;
-        const prior = this.state.listenSubMode === "perceive" ? this.pitchOutcomes.get(cardKey(card)) ?? null : null;
+        const prior = this.state.listenSubMode === "perceive" ? this.stepState(cardKey(card))?.pitch ?? null : null;
         this.listenSelectedPosition = prior ? prior.position : null;
         this.listenRevealed = this.state.listenSubMode === "shadow" || Boolean(prior);
         this.listenOutcome = prior ? prior.outcome : null;
@@ -82277,7 +82280,7 @@ ${entry.url}`),
       const correct = this.listenValidPositions(card, this.listenItem).has(position);
       this.listenRevealed = true;
       this.listenOutcome = correct ? "correct" : "wrong";
-      if (card) this.pitchOutcomes.set(cardKey(card), { position, outcome: this.listenOutcome });
+      if (card) this.ensureStepState(cardKey(card)).pitch = { position, outcome: this.listenOutcome };
       this.rerenderActiveListen();
       void this.playListenModelAudio();
     }
@@ -82466,9 +82469,9 @@ ${entry.url}`),
       this.listenRecorder = void 0;
     }
     recordSpeakingOutcome(card, passed) {
-      const key = cardKey(card);
-      if (this.speakingOutcomes.has(key)) return;
-      this.speakingOutcomes.set(key, passed ? "correct" : "wrong");
+      const state2 = this.ensureStepState(cardKey(card));
+      if (state2.speak) return;
+      state2.speak = passed ? "correct" : "wrong";
     }
     clearListenSpeakingScore() {
       this.listenSpeakingScoreGeneration += 1;
@@ -83378,8 +83381,9 @@ ${entry.url}`),
       if (!answer) return;
       delete answer.dataset.newtabAnswerDetailsRequest;
       const key = cardKey(card);
-      const value = this.recallAnswers.get(key) ?? "";
-      const outcome = this.recallOutcomes.get(key);
+      const recall = this.stepState(key)?.recall;
+      const value = recall?.answer ?? "";
+      const outcome = recall?.outcome;
       const evaluation = evaluateNewTabRecallAnswer(card, value, newTabCardReading(card));
       answer.dataset.recallOutcome = outcome ?? "pending";
       replaceChildrenWith(
@@ -83460,11 +83464,11 @@ ${entry.url}`),
       const card = this.visibleWords[this.index];
       if (!card) return;
       const key = cardKey(card);
-      this.recallAnswers.set(key, value);
+      const state2 = this.ensureStepState(key);
       if (submitted) {
-        this.recallOutcomes.set(key, evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome);
+        state2.recall = { answer: value, outcome: evaluateNewTabRecallAnswer(card, value, newTabCardReading(card)).outcome };
       } else {
-        this.recallOutcomes.delete(key);
+        state2.recall = { answer: value };
         root.querySelector("[data-newtab-recall-result]")?.remove();
         const answer = root.querySelector("[data-newtab-answer]");
         if (answer) answer.dataset.recallOutcome = "pending";
@@ -83476,8 +83480,7 @@ ${entry.url}`),
       if (!card || !input2) return;
       input2.value = convertRomajiToKana(input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
-      this.recallAnswers.set(cardKey(card), input2.value);
-      this.recallOutcomes.set(cardKey(card), evaluation.outcome);
+      this.ensureStepState(cardKey(card)).recall = { answer: input2.value, outcome: evaluation.outcome };
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
         return;
@@ -83558,7 +83561,7 @@ ${entry.url}`),
       if (!answer) return;
       delete answer.dataset.newtabAnswerDetailsRequest;
       const mode = this.typeWordInputMode();
-      const outcome = this.typeOutcomes.get(cardKey(card));
+      const outcome = this.stepState(cardKey(card))?.type?.outcome;
       answer.dataset.typeWordMode = mode;
       answer.dataset.typeWordOutcome = outcome ?? "pending";
       replaceChildrenWith(
@@ -83603,7 +83606,7 @@ ${entry.url}`),
         el("input", {
           class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
           dataset: { newtabTypeInput: true },
-          value: this.typeAnswers.get(cardKey(card)) ?? "",
+          value: this.stepState(cardKey(card))?.type?.answer ?? "",
           placeholder: this.text("typeWordPlaceholder"),
           autocomplete: "off",
           autocapitalize: "none",
@@ -83717,7 +83720,10 @@ ${entry.url}`),
       if (!card || !input2) return;
       input2.value = convertRomajiToKana(input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
-      this.typeAnswers.set(cardKey(card), input2.value);
+      {
+        const state2 = this.ensureStepState(cardKey(card));
+        state2.type = { ...state2.type, answer: input2.value };
+      }
       if (evaluation.outcome === "empty") {
         this.renderWord(root, card);
         return;
@@ -83734,9 +83740,9 @@ ${entry.url}`),
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
     recordTypeOutcome(card, outcome) {
-      const key = cardKey(card);
-      if (this.typeOutcomes.has(key)) return;
-      this.typeOutcomes.set(key, outcome);
+      const state2 = this.ensureStepState(cardKey(card));
+      if (state2.type?.outcome !== void 0) return;
+      state2.type = { ...state2.type, outcome };
     }
     typeWordOutcomeLabel(outcome, card) {
       if (outcome === "correct") return `${this.text("recallCorrect")} · ${this.typeWordTarget(card)}`;
@@ -84102,7 +84108,8 @@ ${entry.url}`),
         const active = this.visibleWords[this.index];
         const isCurrent = Boolean(root && active && cardKey(active) === key);
         if (isCurrent) {
-          if (this.recallAnswers.get(key) || this.typeAnswers.get(key) || this.state.revealAnswer) return;
+          const stepState = this.stepState(key);
+          if (stepState?.recall?.answer || stepState?.type?.answer || this.state.revealAnswer) return;
           const typed = root.querySelector("[data-newtab-type-input], [data-newtab-recall-input]");
           if (typed?.value) return;
         }
@@ -85164,12 +85171,12 @@ ${entry.url}`),
       this.autoSubmitDoodleAssessment(settings, assessment.passed, card);
     }
     recordDoodleOutcome(card, kanji, passed) {
-      const key = cardKey(card);
-      const attemptKey = `${key}\0${kanji}`;
-      if (this.doodleFirstAttempt.has(attemptKey)) return;
-      this.doodleFirstAttempt.set(attemptKey, passed ? "correct" : "wrong");
-      if (this.doodleOutcomes.get(key) === "wrong") return;
-      this.doodleOutcomes.set(key, passed ? "correct" : "wrong");
+      const doodle = this.ensureStepState(cardKey(card)).doodle ??= {};
+      const firstAttempt = doodle.firstAttempt ??= /* @__PURE__ */ new Map();
+      if (firstAttempt.has(kanji)) return;
+      firstAttempt.set(kanji, passed ? "correct" : "wrong");
+      if (doodle.outcome === "wrong") return;
+      doodle.outcome = passed ? "correct" : "wrong";
     }
     autoSubmitDoodleAssessment(settings, passed, expectedCard) {
       if (settings.enableReviews && settings.newTabKanjiAutoSubmit && this.state.revealAnswer) {
@@ -86636,22 +86643,36 @@ ${entry.url}`),
         return;
       }
     }
+    // Read the consolidated per-card study-step state (NB-41a), or undefined when
+    // the card has no recorded step interaction yet.
+    stepState(key) {
+      return this.studyStepStates.get(key);
+    }
+    // Read-or-create the consolidated per-card study-step state for mutation.
+    ensureStepState(key) {
+      let state2 = this.studyStepStates.get(key);
+      if (!state2) {
+        state2 = {};
+        this.studyStepStates.set(key, state2);
+      }
+      return state2;
+    }
     // Gather each study step's first-attempt mini-outcome for THIS card, drawing
     // from the same per-step maps the individual steps write. Steps with no
     // recorded result are omitted (undefined), so the summary + suggestion only
     // reflect what the learner actually did.
     studyStepOutcomesForCard(card) {
-      const key = cardKey(card);
+      const state2 = this.stepState(cardKey(card));
       const outcomes = {};
-      const doodle = this.doodleOutcomes.get(key);
+      const doodle = state2?.doodle?.outcome;
       if (doodle) outcomes["kanji-doodle"] = doodle;
-      const recall = this.recallOutcomes.get(key);
+      const recall = state2?.recall?.outcome;
       if (recall) outcomes["recall-cloze"] = recallOutcomeToStepOutcome(recall);
-      const pitch = this.pitchOutcomes.get(key);
+      const pitch = state2?.pitch;
       if (pitch) outcomes["listen-pitch"] = pitch.outcome === "correct" ? "correct" : "wrong";
-      const speaking = this.speakingOutcomes.get(key);
+      const speaking = state2?.speak;
       if (speaking) outcomes.speaking = speaking;
-      const type = this.typeOutcomes.get(key);
+      const type = state2?.type?.outcome;
       if (type) outcomes["type-word"] = type === "skipped" ? "skipped" : recallOutcomeToStepOutcome(type);
       return outcomes;
     }
