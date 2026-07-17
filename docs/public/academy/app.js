@@ -34679,7 +34679,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       onboardingHoverShortcut: "Lookup hover modifier",
       manualPageScanShortcut: "Manual page scan shortcut",
       onboardingAddApiKey: "Add API key",
-      onboardingAddLocalDictionaries: "Add local dictionaries",
       onboardingUseWithoutApiKey: "Use without API key",
       closeOnboarding: "Close welcome",
       featureText: "Text",
@@ -34705,7 +34704,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       settingsSearch: "Search settings",
       settingsSearchPlaceholder: "Search settings",
       settingsSearchNoResults: "No matches.",
-      selectOptions: "Options",
       save: "Save",
       cancel: "Cancel",
       show: "Show",
@@ -34721,7 +34719,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       mining: "Mining",
       shortcuts: "Shortcuts",
       help: "Help",
-      interface: "Interface",
       reader: "Reader",
       kanji: "Kanji",
       audio: "Audio",
@@ -34745,14 +34742,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       bunproSettings: "Bunpro settings",
       jpdbApiKeyConfigured: "JPDB key set.",
       jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
-      jpdbApiKeyMissing: "No JPDB key.",
       jpdbConnected: "Connected to JPDB.",
       jpdbAndJitenConnected: "Connected to Jiten and JPDB.",
       jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
-      jitenApiKeyConfigured: "Jiten key set.",
-      jitenApiKeyMissing: "No Jiten key.",
-      statusEnabled: "enabled",
-      statusDisabled: "disabled",
       statusReady: "Ready",
       statusAttention: "Needs setup",
       statusError: "Error",
@@ -34779,7 +34771,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
       jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
       jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
-      jpdbPageEnhancementsHelp: "",
       fivePoint: "Five point: NOTHING to EASY",
       twoPoint: "Two point: FAIL / PASS",
       settingsLanguage: "Settings language",
@@ -34897,8 +34888,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       colorSourceAnki: "Anki status",
       colorSourcePitch: "Pitch accent",
       colorSourceNone: "None",
-      colorChannelsHelp: "",
-      interfaceHelp: "",
       popupLookup: "Popup lookup",
       popupLookupEnabled: "Show Yomu lookup popup",
       popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
@@ -34960,10 +34949,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       kanjiOriginGraphEnabled: "Show component graph",
       kanjiOriginRadicalImagesEnabled: "Show radical images",
       similarKanjiWordLimit: "Similar word limit",
-      loadingSimilarWords: "Loading words...",
-      openToLoadSimilarWords: "Open to load words.",
       noSimilarWords: "No additional words found.",
-      kanjiHelp: "",
       audioEnabled: "Enable term audio",
       autoPlayAudio: "Auto-play term audio",
       suppressAutoAudioOnVideo: "Disable lookup audio on video pages",
@@ -34987,7 +34973,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       audioAutoPlayHover: "Hover only",
       audioAutoPlayTap: "Tap/click only",
       automaticBrowserVoice: "Automatic browser voice",
-      savedVoice: "Saved voice",
       savedVoiceLabel: "Saved voice: {voice}",
       audioSourceOrder: "Audio source order",
       audioSourceNumber: "Audio source {number}",
@@ -35048,7 +35033,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       immersionKitExactMatch: "Prefer exact matches",
       immersionKitHelp: "Examples appear in popups. Nadeshiko needs a key.",
       loadingExamples: "Loading examples...",
-      noImmersionExamples: "No Immersion Kit examples found.",
       noImmersionExamplesCompact: "No examples",
       immersionKitRateLimited: "Immersion Kit rate-limited; retrying later.",
       immersionKitRequest: "Immersion Kit request",
@@ -35075,7 +35059,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       games: "Games",
       shortestFirst: "Shortest first",
       longestFirst: "Longest first",
-      randomOrder: "Random",
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized text areas",
@@ -35106,7 +35089,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
       ocrEndpointUrl: "Local OCR server URL",
-      ocrCustomLocalServer: "Local OCR server URL",
       ocrEngine: "Local OCR engine",
       ocrEngineMangaOcr: "MangaOCR (best for manga)",
       ocrEngineAppleVision: "Apple Vision (macOS)",
@@ -35152,8 +35134,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
       youtubeShowFilterNotice: "Show hidden-video notice",
       youtubeHelp: "Prefer Japanese UI and Japan-local content.",
-      youtubeFilterOn: "YouTube filter on",
-      youtubeFilterOff: "YouTube filter off",
       youtubeShowHiddenVideos: "Show hidden videos",
       youtubeHideHiddenVideos: "Hide hidden videos",
       youtubeHideNotice: "Hide notice",
@@ -35252,7 +35232,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       offlineDictionarySetupComplete: "Offline dictionaries installed.",
       offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
-      lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
       lookupUrlTemplate: "Lookup URL template",
       lookupUrlTemplateNumber: "Pill {number} URL",
@@ -35269,11 +35248,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       dictionaryGuide: "Guide",
       saveAfterInstall: "Save after install",
       download: "Download",
-      downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No term dictionary imported yet. Install JMdict, Jitendex, or WTY for definitions; pitch/frequency dictionaries only add accents or badges.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import JMdict, Jitendex, WTY, or another term dictionary for local definitions.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -35317,9 +35293,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
       dictionaryZipMissingIndex: "ZIP missing index.json.",
       yomitanSettingsInvalid: "Not a Yomitan settings export.",
-      localDictionaryText: "Dictionary text",
-      localSenseSingular: "meaning",
-      localSensePlural: "meanings",
       localWordSingular: "entry",
       localWordPlural: "entries",
       decksLoaded: "Decks are loaded from your JPDB account.",
@@ -35354,7 +35327,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       textToSpeechFailed: "Text-to-speech failed.",
       audioRequest: "Audio request",
       audioRequestTimedOut: "Audio request timed out.",
-      audioRequestReturnedNonAudio: "Audio request returned non-audio",
       audioRequestReturnedNonAudioWithType: "Audio request returned non-audio: {type}.",
       audioUnknownContentType: "an unknown content type",
       japanesePod101NoAudio: "JapanesePod101 has no audio for this term.",
@@ -35368,7 +35340,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
       jumpToCurrentSubtitle: "Jump to current subtitle",
-      playVideo: "Play video",
       pauseVideo: "Pause video",
       readVideoFrame: "Read video frame (OCR)",
       readVideoFrameStop: "Stop reading video frames (OCR)",
@@ -35379,12 +35350,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       closeSubtitlePanel: "Close subtitle panel",
       subtitleStyle: "Subtitle style",
       subtitleResetDefaults: "Reset defaults",
-      closeSubtitleDrawer: "Close subtitle drawer",
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
       subtitlePanelOptions: "Panel options",
       loadJapaneseSubtitles: "Load Japanese subtitles",
-      loadPrimarySubtitles: "Load primary subtitles",
       loadNativeSubtitles: "Load native subtitles",
       searchAnimeSubtitles: "Search anime subtitles",
       toggleNativeSubtitleBlur: "Toggle native subtitle blur",
@@ -35415,21 +35384,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       subtitleCurrentLineWillAppear: "Current line appears when captions load.",
       seekSubtitleLine: "Seek subtitle line",
       subtitleTracksHint: "Choose a primary track. Use Lines to jump.",
-      noAutoDetectedSubtitleTracks: "",
       autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
       autoDetectedOptionSingular: "1 subtitle option",
       autoDetectedOptions: "subtitle options",
       detected: "Detected",
-      japaneseOverlay: "Japanese overlay",
       primaryOverlay: "primary overlay",
       nativeOverlay: "native overlay",
-      unsetJapaneseSubtitles: "Unset Japanese",
       unsetPrimarySubtitles: "Unset primary",
-      japaneseSubtitles: "Japanese",
       primarySubtitles: "Primary",
       unsetNativeSubtitles: "Unset native",
       nativeSubtitles: "Native",
-      chooseJapaneseSubtitles: "Choose Japanese subtitles",
       choosePrimarySubtitles: "Choose primary subtitles",
       transcript: "Transcript",
       subtitleOptionSingular: "option",
@@ -35476,10 +35440,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ankiMappingConfidenceMedium: "fuzzy match",
       ankiMappingConfidenceLow: "unmapped",
       ankiMappingStaleField: "saved field missing",
-      ocrEnabledToast: "Image reading enabled.",
-      ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
-      ocrResumeVideo: "Resume video",
       ocrPausedFrameScanning: "Scanning...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
@@ -35527,11 +35488,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       github: "GitHub",
       word: "Word",
       search: "Search",
-      statsImportJpdbHistory: "Import JPDB review history",
-      openYomuSettings: `Open ${APP_NAME} settings`,
       newTabAddressCopied: "Study address copied.",
       loading: "Loading...",
-      refreshing: "Refreshing...",
       reveal: "Reveal",
       revealTranslation: "Reveal translation",
       immersionExampleControls: "Immersion Kit example controls",
@@ -35558,10 +35516,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       dict: "dict",
       filterStudy: "Study",
       filterAll: "All",
-      sourceAuto: "Auto",
-      sortRandom: "Random",
       sortFrequency: "Frequency",
-      sortState: "State",
       stateNew: "New",
       stateLearning: "Learning",
       stateYoung: "Young",
@@ -35610,7 +35565,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       issues: "Issues",
       donate: "Donate",
       discord: "Discord",
-      documentation: "Documentation",
       openOnJpdb: "Open on JPDB",
       openOnLookup: "Open on {label}",
       copyWord: "Copy",
@@ -35632,7 +35586,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       originMapLabel: "2D kanji origin and component map",
       originShowSubcomponents: "Subcomponents",
       originShowOutbound: "Outbounds",
-      kanjiMapData: "Kanji Map data",
       kanjiAlive: "Kanji Alive",
       wiktionary: "Wiktionary",
       radical: "Radical",
@@ -35646,16 +35599,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       heisigComment: "Heisig comment",
       koohiiStories: "Koohii stories",
       add: "Add",
-      addToMining: "Add to deck",
-      addToMiningHint: "Add to selected API SRS deck.",
       addToDeck: "Add to deck",
-      addToDeckHint: "Add without grading.",
       deck: "Deck",
       deckActions: "Deck actions",
       reviewAddsToDeck: "Reviewing will add new words to",
       reviewBlockedBlacklisted: "Blacklisted. Unlist before reviewing.",
       reviewBlockedNeverForget: "Never-forget. Remove before reviewing.",
-      reviewBlockedLocked: "Locked. Unlock before reviewing.",
       reviewBlockedRedundant: "JPDB marks this redundant.",
       ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
       ankiCardsUnsuspended: "Unsuspended in Anki.",
@@ -35663,17 +35612,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ankiNeverForgetTagRemoved: "Removed yomu-never-forget.",
       forget: "Forget",
       never: "Never forget",
-      neverHint: "Move to never-forget and count as known.",
-      forgetHint: "Remove from never-forget to mine/review.",
       unlist: "Unlist",
-      unlistHint: "Remove from blacklist to mine/review.",
       blacklist: "Blacklist",
-      blacklistHint: "Ignore this exact word.",
       vocabularyStatusUpdated: "Vocabulary status updated.",
       addToAnki: "Add to Anki",
-      checkingAnki: "Checking Anki...",
       sendToMobileAnki: "Send to {app}",
-      mobileAnkiActionHint: "Opens mobile Anki for a new note.",
       ankiAudioFileNotFound: "Anki audio file not found.",
       ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
       ankiAudioUnavailablePreview: "Audio not available in preview",
@@ -35685,7 +35628,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ankiMatches: "Anki matches",
       gradeAnkiCardTarget: "Grades Anki card: {target}",
       gradeJpdbCardTarget: "Grades API SRS card",
-      ankiMergeNeedsDesktop: "Merging needs desktop AnkiConnect.",
       ankiNoteNotFound: "Anki note not found.",
       mergeYomu: "Merge Yomu",
       mergeYomuTitle: "Update matching fields and add Yomu media to this note",
@@ -35716,7 +35658,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ankiConnectActionFailed: "AnkiConnect action failed.",
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
-      ankiConnectNeedsBridge: "AnkiConnect needs the userscript bridge.",
       mobileAnkiReady: "Anki offline. Handoff can create notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
       ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
@@ -35726,13 +35667,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ankiPartOfSpeechHeading: "Part of speech",
       ankiLinksHeading: "Links",
       ankiSourceHeading: "Source",
-      ankiTemplateContext: "Context",
-      ankiTemplateRecognition: "Recognition",
       ankiLocalDictionaryStatus: "local dictionary",
-      parsedFrom: "Parsed from",
       composedOf: "Composed of",
-      imageReadingEnabled: "Image reading enabled.",
-      imageReadingHidden: "Image reading hidden.",
       ocrModeAutoToast: "Image OCR automatic.",
       ocrModeManualToast: "Image OCR on tap or hover.",
       ocrModeOffToast: "Image OCR off.",
@@ -35754,8 +35690,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
       loadingDictionaryDetails: "Loading dictionary details...",
-      sourceSingular: "source",
-      sourcePlural: "sources",
       jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
@@ -35763,7 +35697,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       exampleSentencesUnavailable: "Example sentences unavailable",
       acceptedInputs: "Accepted inputs",
       playJpdbExampleAudio: "Play JPDB example audio",
-      wordsUsingKanji: "Words using {kanji}",
       contextVideo: "Video",
       contextImage: "Image",
       contextCurrentPage: "Current page",
@@ -35782,8 +35715,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       removeHeader: "Remove",
       definitionSource: "Definition source",
       kanjiSection: "Kanji section",
-      dictionaryDisplayName: "Dictionary display name",
-      sourcePriority: "{source} priority",
       dragToReorder: "Drag to reorder",
       moveUp: "Move up",
       moveDown: "Move down",
@@ -35841,33 +35772,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
       recommendedBccwj: "Frequency badges from BCCWJ.",
       recommendedJiten: "Frequency badges from Jiten.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
-      fallbackSetupTitle: "Public lookup",
-      fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
-      fallbackSetupDictionaries: "Add dictionaries",
-      fallbackSetupJpdb: "Add JPDB key",
-      getApp: `Get ${APP_NAME}`,
-      offlineCacheGradesDisabled: "Offline cache. Grades sync on reconnect.",
-      recognizing: "Recognizing...",
-      noHandwritingMatch: "No match yet. Type or paste kanji.",
-      yourKanjiDrawing: "Your kanji drawing",
-      jpdbKanjiActions: "JPDB kanji actions",
-      couldNotSearchLocalDictionaries: "Could not search local dictionaries.",
-      subtitlePanel: "Subtitles",
       lines: "Lines",
       tracks: "Tracks",
-      currentLineWillAppear: "The current line appears when captions are available.",
       native: "Native",
-      unsetJapanese: "Unset Japanese",
-      unsetNative: "Unset native",
       options: "options",
       option: "option",
       line: "line",
-      subtitleTrackDetected: "subtitle track detected",
       translation: "Translation",
       grammar: "Grammar",
       meaning: "Meaning",
-      japaneseLabel: "Japanese",
       readSentenceAloud: "Read sentence aloud",
       openSectionToTranslate: "Open this section to translate.",
       translationUnavailable: "Translation unavailable.",
@@ -35886,7 +35799,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       grammarKnownHidden: "known hidden",
       grammarGenericShort: "Grammar point: {name}",
       grammarGenericDetail: "Uses {name} in 「{match}」.",
-      grammarKindHanabira: "Hanabira grammar",
       grammarLevelCore: "Core"
     }
   };
@@ -35937,7 +35849,6 @@ offlineDictionarySetupComplete	オフライン辞書をインストールしま�
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
 onboardingAddApiKey	APIキーを追加
-onboardingAddLocalDictionaries	ローカル辞書を追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
@@ -35969,14 +35880,10 @@ back	裏面
 newTabPage	学習
 word	単語
 search	検索
-statsImportJpdbHistory	JPDB復習履歴を読み込む
 switchToLightTheme	ライトテーマに切り替え
 switchToDarkTheme	ダークテーマに切り替え
-openYomuSettings	{APP_NAME}の設定を開く
 newTabAddressCopied	学習ページのアドレスをコピーしました。
-getApp	{APP_NAME}を入手
 loading	読み込み中...
-refreshing	更新中...
 reveal	表示
 revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
@@ -36052,39 +35959,18 @@ scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
-noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	語句辞書は未追加です。定義にはJMdict、Jitendex、WTYなどを追加してください。ピッチ/頻度辞書だけでは定義文は増えません。
-kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
-fallbackSetupTitle	辞書から始める
-fallbackSetupCopy	JPDBキーなしで検索。辞書でオフライン対応。
-fallbackSetupDictionaries	辞書を追加
-fallbackSetupJpdb	JPDBキーを追加
-offlineCacheGradesDisabled	オフラインです。採点は再接続時に同期されます。
-recognizing	認識中...
-noHandwritingMatch	候補なし。漢字を入力/貼り付け。
-yourKanjiDrawing	あなたの手書き
-jpdbKanjiActions	JPDB漢字操作
-couldNotSearchLocalDictionaries	ローカル辞書を検索できませんでした。
-subtitlePanel	字幕
 lines	行
 tracks	トラック
-currentLineWillAppear	字幕が来ると現在行を表示。
 native	母語
-unsetJapanese	日本語を解除
-unsetNative	母語字幕を解除
 options	件
 option	件
 line	行
-subtitleTrackDetected	字幕トラックを検出
 filterStudy	学習
 filterAll	すべて
-sourceAuto	自動
-sortRandom	ランダム
 sortFrequency	頻度
-sortState	状態
 stateNew	新規
 stateLearning	学習中
 stateYoung	若い
@@ -36140,8 +36026,6 @@ factFrequency	頻度
 factMeaning	意味
 factGrade	学年
 factOldForms	旧字体
-loadingSimilarWords	単語を読み込み中...
-openToLoadSimilarWords	開くと単語を読み込みます。
 noSimilarWords	追加の単語は見つかりませんでした。
 loadingExamples	例文を読み込み中...
 immersionKitRateLimited	Immersion Kit制限中。あとで再試行。
@@ -36187,7 +36071,6 @@ textToSpeechUnavailable	読み上げを利用できません。
 textToSpeechFailed	読み上げに失敗しました。
 audioRequest	音声リクエスト
 audioRequestTimedOut	音声リクエストがタイムアウトしました。
-audioRequestReturnedNonAudio	音声ではない応答です
 audioRequestReturnedNonAudioWithType	音声ではない応答です: {type}。
 audioUnknownContentType	不明なコンテンツ種別
 japanesePod101NoAudio	JapanesePod101に音声なし。
@@ -36197,7 +36080,6 @@ couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
 jumpToCurrentSubtitle	現在の字幕へ移動
-playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
 readVideoFrameStop	動画フレームの読み取りを停止（OCR）
@@ -36208,12 +36090,10 @@ openSubtitlePanel	字幕パネルを開く
 closeSubtitlePanel	字幕パネルを閉じる
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
-closeSubtitleDrawer	字幕ドロワーを閉じる
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
 loadJapaneseSubtitles	日本語字幕を読み込む
-loadPrimarySubtitles	主字幕を読み込む
 loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
@@ -36244,21 +36124,16 @@ waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が来ると現在行を表示します。
 seekSubtitleLine	字幕行へ移動
 subtitleTracksHint	主字幕を選び、「行」で移動。
-noAutoDetectedSubtitleTracks	自動検出字幕はありません。
 autoDetectedTracksWillAppear	字幕トラックはここに出ます。
 autoDetectedOptionSingular	字幕オプション1件
 autoDetectedOptions	件の字幕オプション
 detected	検出済み
-japaneseOverlay	日本語オーバーレイ
 primaryOverlay	主字幕オーバーレイ
 nativeOverlay	母語オーバーレイ
-unsetJapaneseSubtitles	日本語を解除
 unsetPrimarySubtitles	主字幕を解除
-japaneseSubtitles	日本語
 primarySubtitles	主字幕
 unsetNativeSubtitles	母語を解除
 nativeSubtitles	母語
-chooseJapaneseSubtitles	日本語字幕を選択
 choosePrimarySubtitles	主字幕を選択
 transcript	文字起こし
 subtitleOptionSingular	件
@@ -36274,10 +36149,7 @@ trackKindLoadedFile	読み込んだファイル
 trackStatusLoading	読み込み中
 trackStatusWaiting	字幕待機中
 trackStatusFailed	失敗
-ocrEnabledToast	画像読み取りを有効にしました。
-ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
-ocrResumeVideo	動画を再開
 ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
@@ -36307,13 +36179,11 @@ heisigComment	Heisigコメント
 koohiiStories	Koohiiストーリー
 add	追加
 addToDeck	デッキに追加
-addToDeckHint	採点せずに追加します。
 deck	デッキ
 deckActions	デッキ操作
 reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
-reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長のためレビューできません。
 ankiCardsSuspended	Ankiで保留にしました。
 ankiCardsUnsuspended	Ankiの保留を解除しました。
@@ -36321,17 +36191,11 @@ ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
 ankiNeverForgetTagRemoved	Ankiのyomu-never-forgetタグを外しました。
 forget	忘れる
 never	忘れない
-neverHint	忘れないデッキへ移動します。
-forgetHint	忘れないデッキから外します。
 unlist	解除
-unlistHint	ブラックリストから外します。
 blacklist	ブラックリスト
-blacklistHint	この単語を無視します。
 vocabularyStatusUpdated	語彙状態を更新しました。
 addToAnki	Ankiに追加
-checkingAnki	Ankiを確認中...
 sendToMobileAnki	{app}へ送る
-mobileAnkiActionHint	モバイルAnkiで新規ノートを作成します。
 ankiAudioFileNotFound	Anki音声ファイルが見つかりません。
 ankiAudioPlaybackUnavailable	ここではAnki音声を再生できません。
 ankiAudioUnavailablePreview	プレビューで音声を利用できません
@@ -36341,13 +36205,11 @@ ankiCardDetailsPending	Ankiで一致。カード詳細を読み込み中...
 ankiCardDetailsUnavailable	Ankiで一致。キャッシュ状態を表示します。
 ankiNewCard	新規カード
 ankiMatches	Ankiの一致
-ankiMergeNeedsDesktop	ノート統合にはデスクトップAnkiConnectが必要です。
 ankiNoteNotFound	Ankiノートが見つかりません。
 ankiHandoffCancelled	Ankiへの受け渡しがキャンセルされました。
 ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
-ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
 ankiHostedCorsHint	webCorsOriginListに{origin}を追加してください。
 mobileAnkiReady	Anki未接続。受け渡しでカード作成できます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
@@ -36358,8 +36220,6 @@ ankiPitchHeading	ピッチ
 ankiPartOfSpeechHeading	品詞
 ankiLinksHeading	リンク
 ankiSourceHeading	出典
-ankiTemplateContext	文脈
-ankiTemplateRecognition	認識
 ankiLocalDictionaryStatus	ローカル辞書
 mergeYomu	Yomuを統合
 mergeYomuTitle	一致フィールドを更新し、Yomuメディアを追加
@@ -36386,10 +36246,7 @@ ankiMergeFieldPlural	フィールド
 ankiMergeAudio	音声
 ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
-parsedFrom	解析元
 composedOf	構成語
-imageReadingEnabled	画像読み取りを有効にしました。
-imageReadingHidden	画像読み取りを非表示にしました。
 ocrModeAutoToast	画像OCRを自動にしました。
 ocrModeManualToast	画像OCRをタップ/ホバーにしました。
 ocrModeOffToast	画像OCRをオフにしました。
@@ -36411,8 +36268,6 @@ addedToBunpro	Bunproに追加しました。
 addedToYomuLocal	Academyに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
 loadingDictionaryDetails	辞書詳細を読み込み中...
-sourceSingular	ソース
-sourcePlural	ソース
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
@@ -36420,7 +36275,6 @@ noExampleSentences	例文はありません
 exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
 playJpdbExampleAudio	JPDB例文音声を再生
-wordsUsingKanji	{kanji}を使う単語
 kanjiDictionaries	漢字辞書
 sourceNameWordsUsingKanji	関連語彙
 contextVideo	動画
@@ -36436,7 +36290,6 @@ immersionKit	イマージョンキット
 translation	翻訳
 grammar	文法
 meaning	意味
-japaneseLabel	日本語
 readSentenceAloud	文を読み上げ
 openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
@@ -36455,7 +36308,6 @@ grammarShown	件表示
 grammarKnownHidden	件の既知を非表示
 grammarGenericShort	文法項目: {name}
 grammarGenericDetail	「{match}」に「{name}」。
-grammarKindHanabira	Hanabira文法
 grammarLevelCore	基本
 `);
   const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
@@ -36464,7 +36316,6 @@ settingsSections	設定セクション
 settingsSearch	設定を検索
 settingsSearchPlaceholder	設定を検索
 settingsSearchNoResults	一致なし。
-selectOptions	選択肢
 save	保存
 cancel	キャンセル
 show	表示
@@ -36479,8 +36330,6 @@ media	メディア
 mining	採掘
 shortcuts	ショートカット
 help	ヘルプ
-interface	インターフェイス
-interfaceHelp	インターフェイス設定です。
 reader	リーダー
 images	画像テキスト (OCR)
 video	動画
@@ -36501,14 +36350,9 @@ jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 bunproSettings	Bunpro設定
 jpdbApiKeyConfigured	JPDBキーあり。
-jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
 jpdbConnectionFailed	JPDBキーが無効か接続不可です。
-jitenApiKeyConfigured	Jitenキーあり。
-jitenApiKeyMissing	Jitenキーなし。
-statusEnabled	有効
-statusDisabled	無効
 statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
@@ -36535,7 +36379,6 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-jpdbPageEnhancementsHelp	JPDBの単語・漢字ページによむの補助表示を追加します。
 fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -36648,8 +36491,6 @@ colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
-colorChannelsHelp	単語の状態やピッチを色で表示します。
-interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
 popupLookupHelp	他リーダーのポップアップ用。オフでも他機能は有効。
@@ -36712,7 +36553,6 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	漢字情報・語源・似た漢字を表示します。
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -36736,7 +36576,6 @@ audioAutoPlayAll	ホバーとタップ/クリック
 audioAutoPlayHover	ホバーのみ
 audioAutoPlayTap	タップ/クリックのみ
 automaticBrowserVoice	ブラウザの自動音声
-savedVoice	保存済み音声
 savedVoiceLabel	保存済み音声: {voice}
 audioSourceOrder	音声ソースの順序
 audioSourceNumber	音声ソース {number}
@@ -36801,7 +36640,6 @@ drama	ドラマ
 games	ゲーム
 shortestFirst	短い順
 longestFirst	長い順
-randomOrder	ランダム
 ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
@@ -36832,7 +36670,6 @@ ocrOutlineColor	画像テキストの縁取り
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
 ocrEndpointUrl	ローカルOCRサーバーURL
-ocrCustomLocalServer	ローカルOCRサーバーURL
 ocrEngine	ローカルOCRエンジン
 ocrEngineMangaOcr	MangaOCR（マンガに最適）
 ocrEngineAppleVision	Apple Vision（macOS）
@@ -36861,9 +36698,6 @@ subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
 moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
-jpdbPageEnhancementsHelp	
-colorChannelsHelp	
-kanjiHelp	
 noScannedFields	
 right	右
 left	左
@@ -36887,8 +36721,6 @@ preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
 youtubeHelp	日本語UIと日本向け内容を優先します。
-youtubeFilterOn	YouTubeフィルター: オン
-youtubeFilterOff	YouTubeフィルター: オフ
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -36982,7 +36814,6 @@ parserProviderAuto	自動（Jiten/JPDB）
 parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
-lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
 lookupUrlTemplate	検索URLテンプレート
 lookupUrlTemplateNumber	ピル{number} URL
@@ -36998,13 +36829,8 @@ installing	インストール中
 queued	待機中
 dictionaryGuide	ガイド
 download	ダウンロード
-downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	JPDBのみです。JMdict、Jitendex、WTYなどの語句辞書でローカル定義を追加してください。
-localDictionaryText	辞書テキスト
-localSenseSingular	意味
-localSensePlural	意味
 decksLoaded	JPDBアカウントからデッキを読み込みました。
 decksUnavailable	デッキを読み込めません。保存IDは保持します。
 addApiKeyChooseDecks	デッキを選ぶにはJPDB APIキーを追加してください。
@@ -37027,7 +36853,6 @@ playingAudioPreview	{APP_NAME}を再生中...
 audioPreviewFailed	音声プレビューに失敗しました。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
-playVideo	動画を再生
 pauseVideo	動画を一時停止
 readVideoFrame	動画フレームを読み取る（OCR）
 readVideoFrameStop	動画フレームの読み取りを停止（OCR）
@@ -37095,9 +36920,6 @@ factoryResetDeleteSettingsFailed	設定を削除できません。他のタブ�
 issues	Issue
 donate	寄付
 discord	Discord
-documentation	ドキュメント
-addToMining	デッキに追加
-addToMiningHint	選択中のAPI SRSデッキに追加します。
 enabledHeader	有効
 labelHeader	ラベル
 detailsHeader	詳細
@@ -37106,8 +36928,6 @@ orderHeader	順序
 removeHeader	削除
 definitionSource	定義ソース
 kanjiSection	漢字セクション
-dictionaryDisplayName	辞書表示名
-sourcePriority	{source}の優先度
 dragToReorder	ドラッグして並べ替え
 moveUp	上へ移動
 moveDown	下へ移動
@@ -37160,7 +36980,6 @@ recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	日本語で読む語句定義です。
 recommendedPixivLight	Pixiv用語辞書です。
 recommendedKanjidic	漢字情報です。
-recommendedMarvncMonolingual	日本語辞書集です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedKanjiumPitch	ピッチアクセント専用です。定義には語句辞書も追加してください。
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
@@ -226558,6 +226377,9 @@ ${scopedInner}
   function yomitanZipDictionaryName(index, filename) {
     return index.title?.trim() || filename.replace(/\.zip$/i, "");
   }
+  function yomitanDictionaryIdentity(title2) {
+    return title2.replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, "").replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, "").replace(/\s+v\d+(?:\.\d+)*\s*$/u, "").trim().toLowerCase() || title2.trim().toLowerCase();
+  }
   function yomitanZipVersion(index) {
     return index.format ?? index.version ?? 3;
   }
@@ -227650,7 +227472,7 @@ ${entry2.reading}`;
         plural: bankCount === 1 ? "" : "s"
       })}`);
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryRemovingExisting")}...`);
-      await this.deleteDictionary(dictionary);
+      await this.deleteDictionariesWithSameIdentity(dictionary);
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
       const db = await this.db();
       const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
@@ -227978,6 +227800,24 @@ ${entry2.reading}`;
         done();
       }
     }
+    // Delete every installed dictionary that is the SAME dictionary as the
+    // incoming one under revision-stripped identity (plus the exact title).
+    // Re-importing "Jitendex.org [2026-06-06]" must replace the installed
+    // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
+    // duplicate term rows double every lookup's index scans.
+    async deleteDictionariesWithSameIdentity(dictionary) {
+      const identity2 = yomitanDictionaryIdentity(dictionary);
+      let stale = [];
+      try {
+        const db = await this.db();
+        const installed = await this.getAllDictionaryInfo(db);
+        stale = installed.map((info) => info.title).filter((title2) => title2 === dictionary || yomitanDictionaryIdentity(title2) === identity2);
+      } catch {
+        stale = [dictionary];
+      }
+      if (!stale.includes(dictionary)) stale.push(dictionary);
+      for (const title2 of stale) await this.deleteDictionary(title2);
+    }
     async deleteDictionary(dictionary) {
       const done = log$k.time("Dictionary delete", { dictionary });
       try {
@@ -228263,11 +228103,46 @@ ${entry2.reading}`;
       });
     }
     async getAllDictionaryInfo(db) {
-      this.dictionaryInfoPromise ??= this.getAllFromStore(db, "dictionaryInfo").then((items) => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))).catch((error) => {
+      this.dictionaryInfoPromise ??= this.getAllFromStore(db, "dictionaryInfo").then((items) => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))).then((items) => {
+        this.reconcileDuplicateDictionaryIdentities(items);
+        return items;
+      }).catch((error) => {
         this.dictionaryInfoPromise = void 0;
         throw error;
       });
       return this.dictionaryInfoPromise;
+    }
+    // Installs from before identity-keyed replacement can hold two revisions
+    // of the same dictionary ("Jitendex.org [2026-05-05]" + "[2026-06-06]"),
+    // doubling term rows and every lookup's index scans. Sweep once per
+    // session: keep the newest import per identity, delete the rest in the
+    // background (lookups keep working off the current stores meanwhile).
+    duplicateIdentitySweepDone = false;
+    reconcileDuplicateDictionaryIdentities(items) {
+      if (this.duplicateIdentitySweepDone) return;
+      this.duplicateIdentitySweepDone = true;
+      const byIdentity = /* @__PURE__ */ new Map();
+      for (const info of items) {
+        const identity2 = yomitanDictionaryIdentity(info.title);
+        byIdentity.set(identity2, [...byIdentity.get(identity2) ?? [], info]);
+      }
+      const stale = [];
+      for (const group2 of byIdentity.values()) {
+        if (group2.length < 2) continue;
+        const keep = [...group2].sort((a, b) => (b.importDate ?? 0) - (a.importDate ?? 0))[0];
+        for (const info of group2) if (info !== keep) stale.push(info.title);
+      }
+      if (!stale.length) return;
+      void (async () => {
+        for (const title2 of stale) {
+          try {
+            await this.deleteDictionary(title2);
+            log$k.info("Removed duplicate dictionary revision", { title: title2 });
+          } catch (error) {
+            log$k.warn("Duplicate dictionary revision cleanup failed", { title: title2, error });
+          }
+        }
+      })();
     }
     async getAllFromStore(db, storeName) {
       return new Promise((resolve, reject) => {
@@ -233013,6 +232888,8 @@ ${component.reading}`;
     const first2 = Array.from(segment.surface)[0] ?? "";
     if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
     if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    const second = Array.from(segment.surface)[1] ?? "";
+    if (second === "間") return [segment];
     return [
       { surface: first2, start: segment.start, end: segment.start + first2.length },
       { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
@@ -234419,7 +234296,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     fetch(card, options) {
       const settings = this.settings();
-      const localEntries = this.loadLocalTermEntries(card);
+      const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+      const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
       const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
         if (localMeta.completed) {
           await this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local pitch accent", this.applyLocalPitchAccent(card, localMeta.entries), void 0);
@@ -234490,6 +234368,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
         bunproDefinitionInfo,
         bunproDefinitionStatus,
+        hydrateLocalEntries: () => localEntriesUncapped,
         hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result) => result.info),
         hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
         all
@@ -234498,13 +234377,20 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     withFallback(card, timeoutMs, detail, promise, fallback) {
       return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
     }
-    loadLocalTermEntries(card) {
+    // Uncapped lookup kept alongside the render-capped race: a slow local
+    // dictionary (cold IndexedDB, WebKit/iPad) must render LATE via the
+    // hydration pass, never NEVER — the capped race alone silently discarded
+    // the real result and the local source vanished from the popover.
+    loadLocalTermEntriesUncapped(card) {
       const settings = this.settings();
       if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-      return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.lookupLocalTermEntries(card, settings).catch((error) => {
+      return this.lookupLocalTermEntries(card, settings).catch((error) => {
         log$h.warn("Local term lookup failed", { term: card.spelling }, error);
         return [];
-      }), []);
+      });
+    }
+    loadLocalTermEntries(card, uncapped) {
+      return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", uncapped, []);
     }
     async lookupLocalTermEntries(card, settings) {
       const terms = card.source === "fallback" ? fallbackLookupTermsForCard(card) : [card.spelling];

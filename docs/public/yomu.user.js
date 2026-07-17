@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.167
+// @version 1.6.168
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.167#sha256=wPM35Gh5wYv5cRuBZQGl1E6QIiKAPNTYC+SCHyPRvlY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.167#sha256=qi06KyXy6DgbDN1c+jVinSgGcf67fGk3Pb3/oApWLNU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.167#sha256=cYVHkHCiHvoci7jkodI8+pptfR4edv9y5yLo7JOkEGU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.167#sha256=d6kQNirCH1Y0hCMXqnJsINsSozygL4mo0AcK8NYTLTM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.167#sha256=kpSZa9XqG70ogkdrfXZHbCX3DwYOvvDmffrcem5Lut8=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.167#sha256=C8mZAsA6Icmtr592mXtBihEwdugfiGroP52IwfxdO3E=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.167#sha256=58AvazhQslivlaRoumkeYDDBiItz0MBDsI+ENqwwDbk=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.168#sha256=rQARdW6lZh5m0Z6/DX1RZdDT4yP5EAiduW5xNRkCdrI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.168#sha256=6UqWGU36ORH6/HPHrD4ZBgt6VXCZ5csGZKM6x0qV7uw=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.168#sha256=vr2yNFI8C4KVw3QrgRI6KCsLRJ/oREzYZOasTw56yOQ=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.168#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.168#sha256=RvqpJOOzDxyVYPX7rqNuUa3zo9pm16A1e0x/w3UQvzM=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.168#sha256=l/tGRQ+RhdCun/2HMsQs2UhwTzr5HxFPRwkL3NWH/yQ=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.168#sha256=2mdEWGlcDyyuhZlE9RPQPGtwunAd9n1V+bH2oR4/ZSI=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -17729,6 +17729,8 @@ function splitNumericCounterPrefixSegment(segment, sourceText) {
   const first = Array.from(segment.surface)[0] ?? "";
   if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
   if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+  const second = Array.from(segment.surface)[1] ?? "";
+  if (second === "間") return [segment];
   return [
   { surface: first, start: segment.start, end: segment.start + first.length },
   { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end }
@@ -19163,7 +19165,8 @@ class CardRenderDataLoader {
   }
   fetch(card, options) {
   const settings = this.settings();
-  const localEntries = this.loadLocalTermEntries(card);
+  const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+  const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
   const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
     if (localMeta.completed) {
       await this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local pitch accent", this.applyLocalPitchAccent(card, localMeta.entries), void 0);
@@ -19234,6 +19237,7 @@ class CardRenderDataLoader {
     hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
     bunproDefinitionInfo,
     bunproDefinitionStatus,
+    hydrateLocalEntries: () => localEntriesUncapped,
     hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then((result) => result.info),
     hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
     all
@@ -19242,13 +19246,16 @@ class CardRenderDataLoader {
   withFallback(card, timeoutMs, detail, promise, fallback) {
   return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
   }
-  loadLocalTermEntries(card) {
+  loadLocalTermEntriesUncapped(card) {
   const settings = this.settings();
   if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-  return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", this.lookupLocalTermEntries(card, settings).catch((error) => {
+  return this.lookupLocalTermEntries(card, settings).catch((error) => {
     log$e.warn("Local term lookup failed", { term: card.spelling }, error);
     return [];
-  }), []);
+  });
+  }
+  loadLocalTermEntries(card, uncapped) {
+  return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local term dictionary", uncapped, []);
   }
   async lookupLocalTermEntries(card, settings) {
   const terms = card.source === "fallback" ? fallbackLookupTermsForCard(card) : [card.spelling];
@@ -36454,8 +36461,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.167"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.167"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.168"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.168"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36478,6 +36485,7 @@ const CRITICAL_READER_CSS = `
 :is(.jpdb-reader-popover,.jpdb-reader-settings) .jpdb-reader-icon-btn svg{display:block;width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .jpdb-reader-actions .jpdb-reader-mining-collapse{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:72px;height:30px;min-width:72px;min-height:30px;flex:none;border:0;border-radius:999px;background:#0000;color:var(--jpdb-reader-muted,#4f5968);cursor:pointer;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:#0000}
 .jpdb-reader-actions .jpdb-reader-mining-collapse::before{content:"";position:relative;z-index:1;display:block;width:42px;height:5px;border-radius:999px;background:var(--jpdb-reader-faint,#687384)}
+[data-jpdb-reader-root] :where(section,article,aside,main,header,footer,nav,pre,p,ul,ol,li,figure,blockquote,form,table){margin:revert;padding:revert}
 a[href] .jpdb-reader-word{-webkit-touch-callout:none}.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
@@ -36572,7 +36580,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.167"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.168"}`;
   } catch {
   return null;
   }
@@ -41685,6 +41693,7 @@ class ReaderApp {
     anchor
   };
   this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
+  this.renderHydratedCardLocalEntries(hydrationContext, renderData);
   this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
   this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
   this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
@@ -42041,6 +42050,15 @@ class ReaderApp {
     return;
   }
   hydrate();
+  }
+  renderHydratedCardLocalEntries(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+  if (state.data.localEntries.length || !renderData.hydrateLocalEntries) return;
+  void renderData.hydrateLocalEntries().then((entries2) => {
+    if (!entries2.length || state.data.localEntries.length || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    state.data = { ...state.data, localEntries: entries2 };
+    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+  }).catch((error) => log.debug("Popup local dictionary hydration failed", { term: card.spelling, error }));
   }
   renderHydratedCardJitenVocabulary(context, renderData) {
   const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;

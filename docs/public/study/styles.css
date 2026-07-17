@@ -326,8 +326,12 @@
   transition: none;
   width: auto;
 }
-[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6),
-[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) {
+/* Sectioning/flow elements carry ZERO user-agent margin, so hosts with a
+   Reboot-style author reset (Reddit: section/article/aside/main/pre all get
+   1rem block-end margin + list indents) inflate reader UI built from them
+   unless every such element is rolled back to UA values here. */
+[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, figcaption, form, table, th, td, hr, h1, h2, h3, h4, h5, h6, section, article, aside, main, header, footer, nav, hgroup, address, menu, pre, details, summary),
+[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, figcaption, form, table, th, td, hr, h1, h2, h3, h4, h5, h6, section, article, aside, main, header, footer, nav, hgroup, address, menu, pre, details, summary) {
   background: transparent;
   color: inherit;
   letter-spacing: normal;
@@ -11195,7 +11199,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   min-width: 0;
   max-width: 100%;
   white-space: normal;
-  line-height: var(--line-height);
+  line-height: var(--line-height, 1.45);
 }
 .jpdb-reader-local-glossary ruby {
   display: ruby;
@@ -11241,7 +11245,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-local-glossary .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-ol {
-  margin: 0.25em 0 0.25em var(--list-padding1);
+  margin: 0.25em 0 0.25em var(--list-padding1, 1.1em);
   padding: 0;
 }
 .jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content="glossary"],
@@ -11255,7 +11259,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
-  margin-left: var(--list-padding2);
+  margin-left: var(--list-padding2, 1.1em);
 }
 .jpdb-reader-local-glossary .gloss-sc-details {
   margin: 0.35em 0;

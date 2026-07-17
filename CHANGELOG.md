@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.168] - 2026-07-17
+
+### Fixed
+
+- Duration words stay whole after numbers on the keyless segmentation path: 3時間前 no longer shatters into per-character words with mismatched colours even when no local dictionary is installed (complementing the dictionary-evidence boundary repair, which needs an enabled dictionary), and 年間/分間/日間/月間 are covered by the same counter+間 class rule.
+- Yomu popovers and settings are no longer inflated on sites that ship global element resets (Reddit): the reader interface rolls host margins back on every sectioning element it builds from, including during the brief window before the full stylesheet loads.
+- Updating a revisioned local dictionary such as Jitendex now replaces the previous copy instead of installing a second one, and existing duplicate copies are cleaned up automatically, keeping the newest import. Duplicates doubled the stored entries and slowed every lookup.
+- A slow local dictionary lookup now fills its popover section late instead of never: the initial render stays fast, and the full result hydrates in when it arrives instead of being discarded at the render deadline.
+
 ## [1.6.167] - 2026-07-16
 
 ### Changed
