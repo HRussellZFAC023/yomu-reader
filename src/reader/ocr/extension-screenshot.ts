@@ -1,3 +1,4 @@
+import { isPromiseLike } from '../core/async-utils';
 const CAPTURE_VISIBLE_TAB_MESSAGE = 'yomu.captureVisibleTab';
 const SCREENSHOT_HIDE_STYLE_ID = 'yomu-extension-screenshot-hide-style';
 const SCREENSHOT_MESSAGE_TIMEOUT_MS = 6000;
@@ -238,6 +239,3 @@ function loadScreenshotImage(dataUrl: string): Promise<HTMLImageElement> {
     });
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-    return Boolean(value && typeof (value as PromiseLike<unknown>).then === 'function');
-}

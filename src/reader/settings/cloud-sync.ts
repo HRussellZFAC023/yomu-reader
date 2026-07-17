@@ -1,4 +1,5 @@
 import { exportManagedStoredValues } from '../app/storage';
+import { isPromiseLike } from '../core/async-utils';
 import type { ReaderSettings } from '../app/types';
 
 type ExtensionRuntimeApi = {
@@ -144,6 +145,3 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     });
 }
 
-function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
-    return Boolean(value && typeof (value as PromiseLike<T>).then === 'function');
-}

@@ -1,4 +1,5 @@
 import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
+import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
 import './managed-state-manifest';
@@ -669,9 +670,6 @@ function deleteIndexedDbDatabase(name: string): Promise<void> {
     });
 }
 
-function isPromiseLike(value: unknown): value is Promise<unknown> {
-    return Boolean(value) && typeof (value as Promise<unknown>).then === 'function';
-}
 
 function asyncGmGetValue(): GmGetValue | null {
     if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;

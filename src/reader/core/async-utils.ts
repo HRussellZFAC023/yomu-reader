@@ -2,6 +2,10 @@ export function delay(ms: number): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
+export function isPromiseLike<T = unknown>(value: unknown): value is Promise<T> {
+    return Boolean(value && typeof (value as PromiseLike<T>).then === 'function');
+}
+
 export function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
     let timeoutId = 0;
     const timeout = new Promise<never>((_resolve, reject) => {
