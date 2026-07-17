@@ -1,6 +1,11 @@
 import type {
     AuthoredChoiceEvaluation,
+    AuthoredWeekResponse,
+    LearnerAuthoredActivity,
+    LearnerAuthoredCloze,
     LearnerAuthoredChoice,
+    LearnerAuthoredMatching,
+    LearnerAuthoredOrdering,
     LearnerAuthoredWeek,
 } from '../../src/academy/content/authored-week-adapter';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activity-runtime';
@@ -177,6 +182,112 @@ describe('authored week learner screen', () => {
         openQuestion(screen.element);
         expect(screen.element.querySelector('.academy-authored-week-prompt')?.textContent).toContain('二つ目');
         expect(screen.element.querySelectorAll('.academy-authored-week-activity')).toHaveLength(1);
+    });
+
+    it('renders one multi-blank cloze and commits every field together by keyboard', async () => {
+        const activity = structuredCloze();
+        const seen: AuthoredWeekResponse[] = [];
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: structuredWeek(activity, response => {
+                seen.push(response);
+                return evaluation(typeof response !== 'string'
+                    && response.kind === 'cloze'
+                    && response.values.map(value => value.value).join('|') === 'は|の' ? 'pass' : 'lapse');
+            }),
+        });
+        document.body.append(screen.element);
+        openQuestion(screen.element);
+
+        const fields = [...screen.element.querySelectorAll<HTMLInputElement>('[data-cloze-blank-id]')];
+        const check = screen.element.querySelector<HTMLButtonElement>('.academy-authored-modality-check')!;
+        expect(fields.map(field => field.dataset.clozeBlankId)).toEqual(['b1', 'b2']);
+        expect(check.disabled).toBe(true);
+        expect(screen.element.innerHTML).not.toMatch(/data-(?:answer|correct)|modelAnswer/iu);
+        fields[0].value = 'は';
+        fields[0].dispatchEvent(new Event('input', { bubbles: true }));
+        fields[1].value = 'の';
+        fields[1].dispatchEvent(new Event('input', { bubbles: true }));
+        expect(check.disabled).toBe(false);
+        fields[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await flush();
+
+        expect(seen).toEqual([{
+            kind: 'cloze',
+            values: [{ blankId: 'b1', value: 'は' }, { blankId: 'b2', value: 'の' }],
+        }]);
+        expect(screen.element.querySelector('.academy-authored-week-activity')?.getAttribute('data-outcome')).toBe('pass');
+    });
+
+    it('renders one-to-one matching with mobile-native, keyboard-labelled selects', async () => {
+        const activity = structuredMatching();
+        const seen: AuthoredWeekResponse[] = [];
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: structuredWeek(activity, response => {
+                seen.push(response);
+                return evaluation(typeof response !== 'string'
+                    && response.kind === 'matching'
+                    && response.placements[0]?.targetId === 'target-1'
+                    && response.placements[1]?.targetId === 'target-2' ? 'pass' : 'lapse');
+            }),
+        });
+        document.body.append(screen.element);
+        openQuestion(screen.element);
+
+        const selects = [...screen.element.querySelectorAll<HTMLSelectElement>('[data-matching-item-id]')];
+        const check = screen.element.querySelector<HTMLButtonElement>('.academy-authored-modality-check')!;
+        expect(selects).toHaveLength(2);
+        expect(selects.map(select => select.getAttribute('aria-label'))).toEqual(['Match for item 1', 'Match for item 2']);
+        selects[0].value = 'target-1';
+        selects[0].dispatchEvent(new Event('change', { bubbles: true }));
+        expect([...selects[1].options].find(option => option.value === 'target-1')?.disabled).toBe(true);
+        selects[1].value = 'target-2';
+        selects[1].dispatchEvent(new Event('change', { bubbles: true }));
+        expect(check.disabled).toBe(false);
+        check.click();
+        await flush();
+
+        expect(seen[0]).toEqual({
+            kind: 'matching',
+            placements: [
+                { itemId: 'item-1', targetId: 'target-1' },
+                { itemId: 'item-2', targetId: 'target-2' },
+            ],
+        });
+    });
+
+    it('renders ordering as movable authored tiles with labelled button controls', async () => {
+        const activity = structuredOrdering();
+        const seen: AuthoredWeekResponse[] = [];
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: structuredWeek(activity, response => {
+                seen.push(response);
+                return evaluation(typeof response !== 'string'
+                    && response.kind === 'ordering'
+                    && response.sequences[0]?.itemIds.join('|') === 'a|b|c' ? 'pass' : 'lapse');
+            }),
+        });
+        document.body.append(screen.element);
+        openQuestion(screen.element);
+
+        const order = () => [...screen.element.querySelectorAll<HTMLElement>('[data-sequence-id]')]
+            .map(item => item.dataset.sequenceId);
+        expect(order()).toEqual(['b', 'c', 'a']);
+        const moveEarlier = () => screen.element
+            .querySelector<HTMLButtonElement>('[data-sequence-id="a"] .academy-sequence-move:first-child')!;
+        expect(moveEarlier().getAttribute('aria-label')).toBe('Move A earlier');
+        moveEarlier().click();
+        moveEarlier().click();
+        expect(order()).toEqual(['a', 'b', 'c']);
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-modality-check')!.click();
+        await flush();
+
+        expect(seen[0]).toEqual({
+            kind: 'ordering',
+            sequences: [{ sequenceId: 'sequence-1', itemIds: ['a', 'b', 'c'] }],
+        });
     });
 
     it('emits review seeds for every committed attempt and completes exactly once', async () => {
@@ -393,7 +504,7 @@ function openQuestion(root: ParentNode): void {
 }
 
 function weekFixture(
-    evaluateOverride?: (activityId: string, responseId: string) => AuthoredChoiceEvaluation,
+    evaluateOverride?: (activityId: string, response: AuthoredWeekResponse) => AuthoredChoiceEvaluation,
 ): LearnerAuthoredWeek {
     const activities = [
         activity('activity:one', { en: 'Which one is wa?', ja: 'は どれですか' }),
@@ -414,8 +525,8 @@ function weekFixture(
             packageId: 'l1-l01',
             packageProvenance: {},
         },
-        evaluate(activityId, responseId) {
-            return evaluateOverride?.(activityId, responseId) ?? evaluation(responseId === 'right' ? 'pass' : 'lapse');
+        evaluate(activityId, response) {
+            return evaluateOverride?.(activityId, response) ?? evaluation(response === 'right' ? 'pass' : 'lapse');
         },
     };
 }
@@ -438,6 +549,86 @@ function activity(id: string, prompt: { readonly en: string; readonly ja: string
             kind: 'context',
             title: { ja: 'この問題の前に', en: 'Before this question' },
             entries: [{ japanese: 'は', translation: 'wa' }],
+        },
+        provenance: { packageId: 'l1-l01', sourceQuestionId: `source:${id}` },
+    };
+}
+
+function structuredWeek(
+    activity: LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering,
+    evaluateResponse: (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation,
+): LearnerAuthoredWeek {
+    return {
+        id: 'l1-l01',
+        preAssessment: [],
+        activities: [activity],
+        media: [],
+        provenance: {
+            source: { path: '/fixture/structured.json', sha256: '0'.repeat(64) },
+            packageId: 'l1-l01',
+            packageProvenance: {},
+        },
+        evaluate(_activityId, response) { return evaluateResponse(response); },
+    };
+}
+
+function structuredCloze(): LearnerAuthoredCloze {
+    return {
+        ...structuredBase('cloze'),
+        kind: 'academy-authored-cloze',
+        responseKind: 'authored-cloze-fields',
+        payload: {
+            sentence: 'りえさん＿①＿ にほんご＿②＿ せんせいです。',
+            blanks: [
+                { id: 'b1', label: { en: 'Blank 1', ja: '1ばんの空欄' } },
+                { id: 'b2', label: { en: 'Blank 2', ja: '2ばんの空欄' } },
+            ],
+        },
+    };
+}
+
+function structuredMatching(): LearnerAuthoredMatching {
+    return {
+        ...structuredBase('matching'),
+        kind: 'academy-authored-matching',
+        responseKind: 'authored-one-to-one-matching',
+        payload: {
+            items: [{ id: 'item-1', label: '三人' }, { id: 'item-2', label: '五円' }],
+            targets: [{ id: 'target-2', label: 'five yen' }, { id: 'target-1', label: 'three people' }],
+        },
+    };
+}
+
+function structuredOrdering(): LearnerAuthoredOrdering {
+    return {
+        ...structuredBase('ordering'),
+        kind: 'academy-authored-ordering',
+        responseKind: 'authored-ordered-items',
+        payload: {
+            sequences: [{
+                id: 'sequence-1',
+                items: [{ id: 'b', label: 'B' }, { id: 'c', label: 'C' }, { id: 'a', label: 'A' }],
+            }],
+        },
+    };
+}
+
+function structuredBase(id: string): Pick<
+    Extract<LearnerAuthoredActivity, { kind: `academy-authored-${string}` }>,
+    'id' | 'sourceQuestionId' | 'conceptIds' | 'curriculumPhase' | 'prompt'
+    | 'answerSupport' | 'teachingSupport' | 'provenance'
+> {
+    return {
+        id: `activity:${id}`,
+        sourceQuestionId: `source:${id}`,
+        conceptIds: [`concept:${id}`],
+        curriculumPhase: 'guided-practice',
+        prompt: { en: `Complete the ${id}.`, ja: `${id}を しましょう。` },
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+        teachingSupport: {
+            kind: 'context',
+            title: { en: 'Before this activity', ja: 'この問題の前に' },
+            entries: [{ japanese: 'ゆっくり かくにんしましょう。', translation: 'Take it one step at a time.' }],
         },
         provenance: { packageId: 'l1-l01', sourceQuestionId: `source:${id}` },
     };

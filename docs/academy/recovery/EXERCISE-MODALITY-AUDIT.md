@@ -12,7 +12,7 @@ The shared Academy activity runtime has genuine, separately graded implementatio
 
 Speaking is not conformant as an assessed runtime modality. The world language lab provides speak-aloud rehearsal and an acknowledgement control, class simulation provides typed/choice conversation turns, and Lesson 0 authors a microphone-capture contract. No mounted `MediaRecorder` or speech-evaluation path currently turns a learner utterance into graded speaking evidence. The machine registry therefore marks speaking `guided-only`.
 
-The registered authored-week path remains much narrower than the shared runtime. Its learner model and screen expose generic `choice`, generic `text`, and source-vocabulary recall. Modern source `matching` is decomposed into choices; modern source `ordering` and `cloze` become text forms; legacy `match`, `order`, and `multi-choice` are omitted. These fallbacks are reported but are forbidden from satisfying native matching, ordering, or cloze conformance.
+The registered authored-week path now preserves modern source `cloze`, `matching`, and `ordering` as distinct answer-safe learner models. Multi-blank cloze commits every field together, matching commits a complete one-to-one relation, and ordering commits movable item sequences. Legacy `match`, `order`, and `multi-choice` remain omitted until their differing source contracts receive equally explicit adapters.
 
 ## Runtime matrix
 
@@ -55,32 +55,30 @@ The census covers all 59 `kind: 'authored-week'` registrations. It reads each re
 | --- | ---: | ---: | ---: | --- |
 | `choice` | 370 | 361 | 361 `choice` | Mixed preserved; nine donor-shaped choices do not adapt. |
 | `match` | 45 | 0 | 0 | Omitted legacy matching. |
-| `cloze` | 81 | 81 | 104 `text` | Generic text fallback; multi-blank sources are split. |
+| `cloze` | 81 | 81 | 81 `academy-authored-cloze` | Preserved multi-field cloze with one structured submission per source exercise. |
 | `order` | 4 | 0 | 0 | Omitted legacy ordering. |
 | `multi-choice` | 6 | 0 | 0 | Omitted multi-select. |
 | `exact` | 78 | 71 | 71 `text` | Mixed preserved free response. |
 | `writing` | 2 | 0 | 0 | Authored as ungraded production and omitted. |
 | `quarantined-listening-choice` | 16 | 9 | 9 `choice` | Mixed delivery; seven remain omitted. |
 | `drag-sort` | 2 | 0 | 0 | Omitted at this adapter boundary. |
-| `ordering` | 8 | 7 | 8 `text` | Generic text fallback; one source exercise is ungraded. |
+| `ordering` | 8 | 7 | 7 `academy-authored-ordering` | Mixed preserved; seven graded sources render movable sequences and one source remains ungraded. |
 | `class-simulation` | 11 | 0 | 0 | Authored as ungraded speaking/pair work and omitted. |
 | `image-fill-blank` | 1 | 0 | 0 | Authored as ungraded and omitted. |
-| `matching` | 1 | 1 | 4 `choice` | Generic choice fallback, not native matching. |
+| `matching` | 1 | 1 | 1 `academy-authored-matching` | Preserved complete one-to-one matching with keyboard/mobile-native controls. |
 | `character-doodle` | 2 | 0 | 0 | Authored as ungraded drawing and omitted. |
 
-The same adapted packages currently add 124 source-vocabulary rows, which use the native bidirectional recall plugin. Source exercise totals and runtime activity totals differ because one source cloze can produce several text activities and one source matching exercise can produce several choices.
+The same adapted packages currently add 124 source-vocabulary rows, which use the native bidirectional recall plugin. Structured authored activities retain stable package/exercise identity and keep answer keys inside private grading closures rather than learner-facing payloads.
 
-## Adapter decision
+## Remaining adapter work
 
-No authored-week behavior adapter was changed in this slice. The obvious source gaps are real, but an honest native fix is not a one-file alias conversion:
+The modern `cloze`, `matching`, and `ordering` contracts are native. The remaining source gaps require their own honest behavior rather than aliases:
 
-1. `match` and `matching` need a complete placement response, not one choice per pair.
-2. `order` and `ordering` need the sequence response model, not a typed final sentence.
-3. `multi-choice` needs a set-valued response and all-or-nothing or partial grading policy.
+1. Legacy `match` needs a source-specific complete placement response.
+2. Legacy `order` needs an explicit sequence model compatible with its older payload shape.
+3. `multi-choice` needs a set-valued response and an authored partial-credit policy.
 4. Speaking and character Doodle need mounted capture/rendering and evidence policies.
-5. The authored-week screen currently dispatches only generic choice/text plus source-vocabulary activities.
-
-Normalizing names in `lesson-content-registry.ts` would make more source records appear delivered while preserving the same modality collapse. That is not a valid narrow adapter repair. Recovery should add native authored activity variants and runtime dispatch in one coordinated change, then update the delivery census from `generic-fallback` or `omitted` to native.
+5. Ungraded image-fill and writing tasks need media/capture treatment before they can count as assessed delivery.
 
 ## Verification
 

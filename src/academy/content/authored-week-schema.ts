@@ -48,6 +48,73 @@ export interface AuthoredExactExercise {
     };
 }
 
+export interface AuthoredClozeBlank {
+    readonly id: string;
+    readonly answer: {
+        readonly primary: string;
+        readonly alternatives: readonly string[];
+    };
+}
+
+export interface AuthoredClozeExercise {
+    readonly id: string;
+    readonly kind: 'cloze';
+    readonly prompt: AuthoredLocalizedText;
+    readonly japanese: string;
+    readonly explanation: string;
+    readonly reviewTag?: string;
+    readonly phase?: AuthoredExercisePhase;
+    readonly autoGraded: true;
+    readonly blanks: readonly AuthoredClozeBlank[];
+}
+
+export interface AuthoredMatchingExercise {
+    readonly id: string;
+    readonly kind: 'matching';
+    readonly prompt: AuthoredLocalizedText;
+    readonly explanation: string;
+    readonly reviewTag?: string;
+    readonly phase?: AuthoredExercisePhase;
+    readonly autoGraded: true;
+    readonly pluginTarget: 'academy-drag-sort';
+    readonly sourceItemsExact: readonly string[];
+    readonly values: readonly string[];
+}
+
+export interface AuthoredTileOrderingExercise {
+    readonly id: string;
+    readonly kind: 'ordering';
+    readonly mode: 'tiles';
+    readonly prompt: AuthoredLocalizedText;
+    readonly explanation: string;
+    readonly reviewTag?: string;
+    readonly phase?: AuthoredExercisePhase;
+    readonly autoGraded: true;
+    readonly pluginTarget: 'academy-sequence';
+    readonly tiles: readonly string[];
+    readonly answer: {
+        readonly primary: string;
+        readonly alternatives: readonly string[];
+    };
+}
+
+export interface AuthoredCueOrderingExercise {
+    readonly id: string;
+    readonly kind: 'ordering';
+    readonly mode: 'cues';
+    readonly prompt: AuthoredLocalizedText;
+    readonly explanation: string;
+    readonly reviewTag?: string;
+    readonly phase?: AuthoredExercisePhase;
+    readonly autoGraded: true;
+    readonly pluginTarget: 'academy-sequence';
+    readonly sourceItemsExact: readonly string[];
+    readonly values: readonly string[];
+    readonly workedExampleExact?: string;
+}
+
+export type AuthoredOrderingExercise = AuthoredTileOrderingExercise | AuthoredCueOrderingExercise;
+
 export interface AuthoredAudio {
     readonly assetId: string;
     readonly locator: string;
@@ -504,6 +571,165 @@ export function parseExactExercise(value: unknown, path: string): AuthoredExactE
             alternatives,
         },
     };
+}
+
+export function parseClozeExercise(value: unknown, path: string): AuthoredClozeExercise | undefined {
+    const exercise = record(value, path);
+    if (exercise.kind !== 'cloze') return undefined;
+    if (exercise.autoGraded !== true) {
+        if (exercise.autoGraded === false) return undefined;
+        fail(`${path}.autoGraded`, 'must be true or false');
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const ids = new Set<string>();
+    const wrongAnswers = wrongAnswerTriggers(exercise.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
+    const blanks = array(exercise.blanks, `${path}.blanks`).map((candidate, index) => {
+        const blankPath = `${path}.blanks[${index}]`;
+        const blank = record(candidate, blankPath);
+        const id = text(blank.id, `${blankPath}.id`);
+        if (ids.has(id)) fail(`${blankPath}.id`, 'is a duplicate cloze blank id');
+        ids.add(id);
+        return { id, answer: parseExactAnswer(blank.answer, `${blankPath}.answer`, wrongAnswers) };
+    });
+    if (!blanks.length) fail(`${path}.blanks`, 'must contain at least one blank');
+    return {
+        ...exerciseIdentity(exercise, path),
+        kind: 'cloze',
+        japanese: text(exercise.japanese, `${path}.japanese`),
+        autoGraded: true,
+        blanks,
+    };
+}
+
+export function parseMatchingExercise(value: unknown, path: string): AuthoredMatchingExercise | undefined {
+    const exercise = record(value, path);
+    if (exercise.kind !== 'matching') return undefined;
+    if (exercise.autoGraded !== true) {
+        if (exercise.autoGraded === false) return undefined;
+        fail(`${path}.autoGraded`, 'must be true or false');
+    }
+    if (exercise.pluginTarget !== 'academy-drag-sort') {
+        fail(`${path}.pluginTarget`, 'must be academy-drag-sort');
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const sourceItemsExact = stringArray(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = record(exercise.answers, `${path}.answers`);
+    assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
+    const values = stringArray(answers.values, `${path}.answers.values`);
+    if (sourceItemsExact.length < 2 || sourceItemsExact.length !== values.length) {
+        fail(path, 'must have the same number of source items and matching values');
+    }
+    if (new Set(values).size !== values.length) {
+        fail(`${path}.answers.values`, 'must be unique for deterministic matching');
+    }
+    return {
+        ...exerciseIdentity(exercise, path),
+        kind: 'matching',
+        autoGraded: true,
+        pluginTarget: 'academy-drag-sort',
+        sourceItemsExact,
+        values,
+    };
+}
+
+export function parseOrderingExercise(value: unknown, path: string): AuthoredOrderingExercise | undefined {
+    const exercise = record(value, path);
+    if (exercise.kind !== 'ordering') return undefined;
+    if (exercise.autoGraded !== true) {
+        if (exercise.autoGraded === false) return undefined;
+        fail(`${path}.autoGraded`, 'must be true or false');
+    }
+    if (exercise.pluginTarget !== 'academy-sequence') {
+        fail(`${path}.pluginTarget`, 'must be academy-sequence');
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const identity = exerciseIdentity(exercise, path);
+    const hasTiles = exercise.tiles !== undefined || exercise.answer !== undefined;
+    const hasCues = exercise.sourceItemsExact !== undefined || exercise.answers !== undefined;
+    if (hasTiles === hasCues) fail(path, 'must define exactly one ordering source shape');
+    if (hasTiles) {
+        const tiles = stringArray(exercise.tiles, `${path}.tiles`);
+        if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
+            fail(`${path}.tiles`, 'must contain at least two unique tiles');
+        }
+        return {
+            ...identity,
+            kind: 'ordering',
+            mode: 'tiles',
+            autoGraded: true,
+            pluginTarget: 'academy-sequence',
+            tiles,
+            answer: parseExactAnswer(exercise.answer, `${path}.answer`),
+        };
+    }
+    const sourceItemsExact = stringArray(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = record(exercise.answers, `${path}.answers`);
+    assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
+    const values = stringArray(answers.values, `${path}.answers.values`);
+    if (!sourceItemsExact.length || sourceItemsExact.length !== values.length) {
+        fail(path, 'must have the same number of ordering cues and values');
+    }
+    return {
+        ...identity,
+        kind: 'ordering',
+        mode: 'cues',
+        autoGraded: true,
+        pluginTarget: 'academy-sequence',
+        sourceItemsExact,
+        values,
+        ...(exercise.workedExampleExact === undefined
+            ? {}
+            : { workedExampleExact: text(exercise.workedExampleExact, `${path}.workedExampleExact`) }),
+    };
+}
+
+function exerciseIdentity(
+    exercise: Readonly<Record<string, unknown>>,
+    path: string,
+): Pick<AuthoredClozeExercise, 'id' | 'prompt' | 'explanation' | 'reviewTag' | 'phase'> {
+    return {
+        id: text(exercise.id, `${path}.id`),
+        prompt: localized(exercise.prompt, `${path}.prompt`),
+        explanation: text(exercise.explanation, `${path}.explanation`),
+        ...(exercise.reviewTag === undefined ? {} : { reviewTag: text(exercise.reviewTag, `${path}.reviewTag`) }),
+        ...(exercise.phase === undefined ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }),
+    };
+}
+
+function parseExactAnswer(
+    value: unknown,
+    path: string,
+    rejected: ReadonlySet<string> = new Set(),
+): AuthoredExactExercise['answer'] {
+    const answer = record(value, path);
+    const primary = text(answer.primary, `${path}.primary`);
+    const alternatives = answer.alternatives === undefined
+        ? []
+        : stringArray(answer.alternatives, `${path}.alternatives`);
+    return {
+        primary,
+        alternatives: alternatives.filter(candidate => !rejected.has(normalizeAnswer(candidate))),
+    };
+}
+
+function wrongAnswerTriggers(value: unknown, path: string): ReadonlySet<string> {
+    if (value === undefined) return new Set();
+    return new Set(array(value, path).map((candidate, index) => {
+        const item = record(candidate, `${path}[${index}]`);
+        return normalizeAnswer(text(item.trigger, `${path}[${index}].trigger`));
+    }));
+}
+
+function normalizeAnswer(value: string): string {
+    return value.normalize('NFKC').replace(/[\s。、！？!?]/gu, '').toLocaleLowerCase('ja');
+}
+
+function stringArray(value: unknown, path: string): readonly string[] {
+    return array(value, path).map((candidate, index) => text(candidate, `${path}[${index}]`));
+}
+
+function assertAfterAttemptVisibility(value: unknown, path: string): void {
+    if (value !== undefined && value !== 'after-attempt') fail(path, 'must be after-attempt');
 }
 
 function isLocalized(value: unknown): boolean {

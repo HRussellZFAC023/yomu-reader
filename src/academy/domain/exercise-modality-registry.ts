@@ -153,17 +153,17 @@ export interface AuthoredExerciseDeliveryRegistration {
 export const AUTHORED_EXERCISE_DELIVERY_REGISTRY: readonly AuthoredExerciseDeliveryRegistration[] = Object.freeze([
     sourceDelivery('choice', 'multiple-choice', 'mixed-preserved', 370, 361, 361, ['choice']),
     sourceDelivery('match', 'matching', 'omitted', 45, 0, 0, []),
-    sourceDelivery('cloze', 'cloze', 'generic-fallback', 81, 81, 104, ['text']),
+    sourceDelivery('cloze', 'cloze', 'preserved', 81, 81, 81, ['academy-authored-cloze']),
     sourceDelivery('order', 'ordering', 'omitted', 4, 0, 0, []),
     sourceDelivery('multi-choice', 'multiple-choice', 'omitted', 6, 0, 0, []),
     sourceDelivery('exact', 'free-response', 'mixed-preserved', 78, 71, 71, ['text']),
     sourceDelivery('writing', 'free-response', 'ungraded', 2, 0, 0, []),
     sourceDelivery('quarantined-listening-choice', 'listening', 'mixed-preserved', 16, 9, 9, ['choice']),
     sourceDelivery('drag-sort', 'matching', 'omitted', 2, 0, 0, []),
-    sourceDelivery('ordering', 'ordering', 'generic-fallback', 8, 7, 8, ['text']),
+    sourceDelivery('ordering', 'ordering', 'mixed-preserved', 8, 7, 7, ['academy-authored-ordering']),
     sourceDelivery('class-simulation', 'speaking', 'ungraded', 11, 0, 0, []),
     sourceDelivery('image-fill-blank', 'cloze', 'ungraded', 1, 0, 0, []),
-    sourceDelivery('matching', 'matching', 'generic-fallback', 1, 1, 4, ['choice']),
+    sourceDelivery('matching', 'matching', 'preserved', 1, 1, 1, ['academy-authored-matching']),
     sourceDelivery('character-doodle', 'drawing', 'ungraded', 2, 0, 0, []),
 ]);
 

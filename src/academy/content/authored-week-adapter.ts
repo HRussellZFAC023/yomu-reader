@@ -1,6 +1,7 @@
 import {
     ACADEMY_ASSESSED_ANSWER_SUPPORT,
     createActivityRuntime,
+    type ActivityModel,
     type AnswerSupportContract,
     type GradeResult,
     type ReviewSeed,
@@ -8,11 +9,17 @@ import {
 import type { LocalizedText } from '../domain/source-library';
 import {
     parseAuthoredWeekPackage,
+    parseClozeExercise,
     parseChoiceExercise,
+    type AuthoredClozeExercise,
     type AuthoredChoiceExercise,
     type AuthoredExercisePhase,
     parseExactExercise,
     type AuthoredExactExercise,
+    parseMatchingExercise,
+    type AuthoredMatchingExercise,
+    parseOrderingExercise,
+    type AuthoredOrderingExercise,
     type AuthoredSourceVocabularySheet,
     type AuthoredWeekExposure,
 } from './authored-week-schema';
@@ -108,7 +115,7 @@ export interface LearnerAuthoredWeek {
         readonly packageId: AuthoredWeekId;
         readonly packageProvenance: Readonly<Record<string, unknown>>;
     };
-    evaluate(activityId: string, responseId: string): AuthoredChoiceEvaluation;
+    evaluate(activityId: string, response: AuthoredWeekResponse): AuthoredChoiceEvaluation;
 }
 
 export interface LearnerAuthoredChoice {
@@ -147,6 +154,64 @@ export interface LearnerAuthoredText {
     readonly provenance: LearnerAuthoredExerciseProvenance;
 }
 
+interface LearnerAuthoredStructuredBase extends ActivityModel {
+    readonly id: string;
+    readonly sourceQuestionId: string;
+    readonly conceptIds: readonly string[];
+    readonly curriculumPhase: LearnerAuthoredCurriculumPhase;
+    readonly prompt: LocalizedText;
+    readonly answerSupport: AnswerSupportContract;
+    readonly teachingSupport?: import('../domain/activity-runtime').ActivityTeachingSupport;
+    readonly provenance: LearnerAuthoredExerciseProvenance;
+}
+
+export interface LearnerAuthoredCloze extends LearnerAuthoredStructuredBase {
+    readonly kind: 'academy-authored-cloze';
+    readonly responseKind: 'authored-cloze-fields';
+    readonly payload: {
+        readonly sentence: string;
+        readonly blanks: readonly { readonly id: string; readonly label: LocalizedText }[];
+    };
+}
+
+export interface LearnerAuthoredMatching extends LearnerAuthoredStructuredBase {
+    readonly kind: 'academy-authored-matching';
+    readonly responseKind: 'authored-one-to-one-matching';
+    readonly payload: {
+        readonly items: readonly { readonly id: string; readonly label: string }[];
+        readonly targets: readonly { readonly id: string; readonly label: string }[];
+    };
+}
+
+export interface LearnerAuthoredOrdering extends LearnerAuthoredStructuredBase {
+    readonly kind: 'academy-authored-ordering';
+    readonly responseKind: 'authored-ordered-items';
+    readonly payload: {
+        readonly sequences: readonly {
+            readonly id: string;
+            readonly cue?: string;
+            readonly items: readonly { readonly id: string; readonly label: string }[];
+        }[];
+    };
+}
+
+export interface AuthoredClozeResponse {
+    readonly kind: 'cloze';
+    readonly values: readonly { readonly blankId: string; readonly value: string }[];
+}
+
+export interface AuthoredMatchingResponse {
+    readonly kind: 'matching';
+    readonly placements: readonly { readonly itemId: string; readonly targetId: string }[];
+}
+
+export interface AuthoredOrderingResponse {
+    readonly kind: 'ordering';
+    readonly sequences: readonly { readonly sequenceId: string; readonly itemIds: readonly string[] }[];
+}
+
+export type AuthoredWeekResponse = string | AuthoredClozeResponse | AuthoredMatchingResponse | AuthoredOrderingResponse;
+
 export interface LearnerAuthoredExerciseProvenance {
     readonly packageId: AuthoredWeekId;
     readonly sourceQuestionId: string;
@@ -160,7 +225,13 @@ export interface LearnerAuthoredExerciseProvenance {
     };
 }
 
-export type LearnerAuthoredActivity = LearnerAuthoredChoice | LearnerAuthoredText | SourceVocabularySheetModel;
+export type LearnerAuthoredActivity =
+    | LearnerAuthoredChoice
+    | LearnerAuthoredText
+    | LearnerAuthoredCloze
+    | LearnerAuthoredMatching
+    | LearnerAuthoredOrdering
+    | SourceVocabularySheetModel;
 
 export type LearnerAuthoredCurriculumPhase =
     | 'context'
@@ -188,6 +259,11 @@ interface AdaptedExercise {
     readonly mapping?: Overlay;
     readonly curriculumPhase?: LearnerAuthoredCurriculumPhase;
     readonly authoredSource?: NonNullable<LearnerAuthoredExerciseProvenance['authoredSource']>;
+}
+
+interface AdaptedStructuredExercise {
+    readonly activity: LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering;
+    readonly evaluate: (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation;
 }
 
 const overlays: Readonly<Record<string, Overlay>> = {
@@ -314,9 +390,7 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
     const activities: LearnerAuthoredActivity[] = [];
     const sourceVocabularyActivities = new Map<string, SourceVocabularySheetModel>();
     const sourceVocabularyRuntime = createActivityRuntime([sourceVocabularySheetPlugin]);
-    const answers = new Map<string,
-        | { kind: 'choice'; exercise: AuthoredChoiceExercise; mapping: Overlay }
-        | { kind: 'text'; exercise: AuthoredExactExercise; mapping: Overlay }>();
+    const evaluators = new Map<string, (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation>();
     for (const [componentIndex, component] of authored.components.entries()) {
         if (component.sourceVocabularySheet) {
             for (const activity of toSourceVocabularyActivities(id, component.sourceVocabularySheet)) {
@@ -335,12 +409,22 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
         for (const [exerciseIndex, value] of (component.exercises ?? []).entries()) {
             const path = `package.components[${componentIndex}].exercises[${exerciseIndex}]`;
             const normalized = normalizeLegacyChoice(id, value, path);
+            const structured = adaptStructuredSourceExercise(id, normalized, path, component.teachingSupport);
+            if (structured) {
+                if (seen.has(structured.activity.sourceQuestionId)) {
+                    throw new TypeError(`Duplicate exercise id ${structured.activity.sourceQuestionId}.`);
+                }
+                seen.add(structured.activity.sourceQuestionId);
+                activities.push(structured.activity);
+                evaluators.set(structured.activity.id, structured.evaluate);
+                continue;
+            }
             const packagedListening = parsePackagedListeningChoice(id, value, path);
             const choice = parseChoiceExercise(normalized, path) ?? packagedListening?.exercise;
             const exact = choice || !supportsGroundedExact ? undefined : parseExactExercise(normalized, path);
             const adapted: readonly AdaptedExercise[] = choice || exact
                 ? [{ exercise: choice ?? exact!, sourceQuestionId: `${id}/${(choice ?? exact)!.id}` }]
-                : adaptSupportedSourceExercise(id, normalized, path);
+                : [];
             for (const item of adapted) {
                 const { exercise, sourceQuestionId } = item;
                 if (seen.has(sourceQuestionId)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId}.`);
@@ -368,9 +452,7 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
                         item.authoredSource,
                     );
                 activities.push(activity);
-                answers.set(activity.id, { kind: exercise.kind === 'choice' ? 'choice' : 'text', exercise, mapping } as
-                    | { kind: 'choice'; exercise: AuthoredChoiceExercise; mapping: Overlay }
-                    | { kind: 'text'; exercise: AuthoredExactExercise; mapping: Overlay });
+                evaluators.set(activity.id, response => evaluateSimpleExercise(id, exercise, mapping, response));
             }
         }
     }
@@ -390,40 +472,19 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
         activities,
         media,
         provenance: { source: { ...source }, packageId: id, packageProvenance: authored.provenance },
-        evaluate(activityId, responseId) {
+        evaluate(activityId, response) {
             const sourceVocabulary = sourceVocabularyActivities.get(activityId);
             if (sourceVocabulary) {
-                const evaluation = sourceVocabularyRuntime.evaluate(sourceVocabulary, responseId);
+                const evaluation = sourceVocabularyRuntime.evaluate(sourceVocabulary, response);
                 return { result: evaluation.result, reviewSeeds: evaluation.reviewSeeds };
             }
-            const answer = answers.get(activityId);
-            if (!answer) throw new TypeError(`Unknown authored activity ${activityId}.`);
-            const passed = answer.kind === 'choice'
-                ? answer.exercise.options.find(candidate => candidate.id === responseId)?.correct
-                : acceptedExactAnswers(answer.exercise).has(normalizeExactAnswer(responseId));
-            if (passed === undefined) throw new TypeError(`Unknown choice response ${responseId}.`);
-            const result: GradeResult = {
-                outcome: passed ? 'pass' : 'lapse',
-                score: passed ? 1 : 0,
-                errorTags: passed ? [] : [`${answer.mapping.conceptId}:repair`],
-                feedback: {
-                    explanation: answer.mapping.feedback,
-                    ...(passed ? {} : { repairPrompt: answer.mapping.repair, nearbyExample: answer.mapping.example }),
-                },
-            };
-            return {
-                result,
-                reviewSeeds: [{
-                    id: `review:${answer.exercise.id}:${answer.mapping.conceptId}`,
-                    conceptId: answer.mapping.conceptId,
-                    reason: passed ? 'new-learning' : 'repair',
-                    sourceQuestionId: `${id}/${answer.exercise.id}`,
-                    content: answer.mapping.review,
-                }],
-            };
+            const evaluate = evaluators.get(activityId);
+            if (!evaluate) throw new TypeError(`Unknown authored activity ${activityId}.`);
+            return evaluate(response);
         },
     };
-    return assertAuthoredWeekPedagogy(week);
+    assertStructuredWeekPedagogy(week);
+    return week;
 }
 
 function toSourceVocabularyActivities(
@@ -498,238 +559,288 @@ function normalizeLegacyChoice(packageId: AuthoredWeekId, value: unknown, path: 
     return { ...exercise, options };
 }
 
-function adaptSupportedSourceExercise(
+function adaptStructuredSourceExercise(
     packageId: AuthoredWeekId,
     value: unknown,
     path: string,
-): readonly AdaptedExercise[] {
-    const candidate = recordField(value, path);
-    if (candidate.kind !== 'cloze' && candidate.kind !== 'matching' && candidate.kind !== 'ordering') return [];
-    if (candidate.autoGraded === false) return [];
-    if (candidate.autoGraded !== true) throw new TypeError(`${path}.autoGraded must be true or false.`);
-    switch (candidate.kind) {
-        case 'cloze':
-            return adaptClozeExercise(packageId, candidate, path);
-        case 'matching':
-            return adaptMatchingExercise(packageId, candidate, path);
-        case 'ordering':
-            return adaptOrderingExercise(packageId, candidate, path);
-    }
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+): AdaptedStructuredExercise | undefined {
+    const cloze = parseClozeExercise(value, path);
+    if (cloze) return adaptClozeExercise(packageId, cloze, value, path, teachingSupport);
+    const matching = parseMatchingExercise(value, path);
+    if (matching) return adaptMatchingExercise(packageId, matching, value, path, teachingSupport);
+    const ordering = parseOrderingExercise(value, path);
+    if (ordering) return adaptOrderingExercise(packageId, ordering, value, path, teachingSupport);
+    return undefined;
 }
 
 function adaptClozeExercise(
     packageId: AuthoredWeekId,
-    candidate: Readonly<Record<string, unknown>>,
+    exercise: AuthoredClozeExercise,
+    raw: unknown,
     path: string,
-): readonly AdaptedExercise[] {
-    const id = textField(candidate.id, `${path}.id`);
-    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Fill the gap.');
-    const japanese = textField(candidate.japanese, `${path}.japanese`);
-    const explanation = textField(candidate.explanation, `${path}.explanation`);
-    const reviewTag = optionalTextField(candidate.reviewTag, `${path}.reviewTag`);
-    const blanks = arrayField(candidate.blanks, `${path}.blanks`);
-    if (!blanks.length) throw new TypeError(`${path}.blanks must contain at least one blank.`);
-    const blankIds = new Set<string>();
-    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
-    const authoredSource = authoredSourceProvenance(candidate, id, path);
-    return blanks.map((value, index) => {
-        const blankPath = `${path}.blanks[${index}]`;
-        const blank = recordField(value, blankPath);
-        const blankId = textField(blank.id, `${blankPath}.id`);
-        if (blankIds.has(blankId)) throw new TypeError(`Duplicate cloze blank id ${packageId}/${id}/${blankId}.`);
-        blankIds.add(blankId);
-        const wrongAnswers = wrongAnswerTriggers(candidate.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
-        const answer = exactAnswerField(blank.answer, `${blankPath}.answer`, wrongAnswers);
-        const sourceQuestionId = `${packageId}/${id}${blanks.length === 1 ? '' : `:${blankId}`}`;
-        const exercisePrompt = sourcePrompt(
-            prompt,
-            safeClozeSource(japanese, answer.primary),
-            blanks.length === 1 ? undefined : {
-                en: `Blank ${index + 1} of ${blanks.length}`,
-                ja: `${index + 1} / ${blanks.length}`,
-            },
-        );
-        const exercise: AuthoredExactExercise = {
-            id: blanks.length === 1 ? id : `${id}:${blankId}`,
-            kind: 'exact',
-            prompt: exercisePrompt,
-            explanation,
-            ...(reviewTag ? { reviewTag } : {}),
-            autoGraded: true,
-            answer,
-        };
-        return {
-            exercise,
-            sourceQuestionId,
-            mapping: sourceExerciseOverlay(
-                packageId,
-                `${reviewTag ?? id}:${blankId}`,
-                answer.primary,
-                explanation,
-                explanation,
-            ),
-            curriculumPhase,
-            authoredSource,
-        };
-    });
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+): AdaptedStructuredExercise {
+    const sourceQuestionId = `${packageId}/${exercise.id}`;
+    const mappings = exercise.blanks.map(blank => sourceExerciseOverlay(
+        packageId,
+        `${exercise.reviewTag ?? exercise.id}:${blank.id}`,
+        blank.answer.primary,
+        exercise.explanation,
+        exercise.prompt.en,
+    ));
+    const activity: LearnerAuthoredCloze = {
+        ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId, mappings, teachingSupport),
+        kind: 'academy-authored-cloze',
+        responseKind: 'authored-cloze-fields',
+        payload: {
+            sentence: safeClozeSentence(exercise),
+            blanks: exercise.blanks.map((blank, index) => ({
+                id: blank.id,
+                label: { en: `Blank ${index + 1}`, ja: `${index + 1}ばんの空欄` },
+            })),
+        },
+    };
+    return {
+        activity,
+        evaluate: response => {
+            const values = clozeResponseValues(response, exercise.blanks.map(blank => blank.id));
+            const passed = exercise.blanks.map(blank => acceptedAnswers(blank.answer).has(normalizeExactAnswer(values.get(blank.id) ?? '')));
+            return structuredEvaluation(exercise.id, sourceQuestionId, mappings, passed);
+        },
+    };
 }
 
 function adaptMatchingExercise(
     packageId: AuthoredWeekId,
-    candidate: Readonly<Record<string, unknown>>,
+    exercise: AuthoredMatchingExercise,
+    raw: unknown,
     path: string,
-): readonly AdaptedExercise[] {
-    if (candidate.pluginTarget !== 'academy-drag-sort') {
-        throw new TypeError(`${path}.pluginTarget must be academy-drag-sort for an auto-graded matching exercise.`);
-    }
-    const id = textField(candidate.id, `${path}.id`);
-    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Match each item to its answer.');
-    const explanation = textField(candidate.explanation, `${path}.explanation`);
-    const sourceItems = textArrayField(candidate.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = recordField(candidate.answers, `${path}.answers`);
-    const values = textArrayField(answers.values, `${path}.answers.values`);
-    if (sourceItems.length < 2 || sourceItems.length !== values.length) {
-        throw new TypeError(`${path} must have the same number of source items and matching answers.`);
-    }
-    if (new Set(values).size !== values.length) {
-        throw new TypeError(`${path}.answers.values must be unique for deterministic matching.`);
-    }
-    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
-    const authoredSource = authoredSourceProvenance(candidate, id, path);
-    return sourceItems.map((sourceItem, itemIndex) => {
-        const exerciseId = `${id}:match-${itemIndex + 1}`;
-        const displayedAnswers = rotate(values, (itemIndex * 2) + 1);
-        const exercise: AuthoredChoiceExercise = {
-            id: exerciseId,
-            kind: 'choice',
-            prompt: sourcePrompt(prompt, sourceItem, {
-                en: `Item ${itemIndex + 1} of ${sourceItems.length}`,
-                ja: `${itemIndex + 1} / ${sourceItems.length}`,
-            }),
-            explanation,
-            autoGraded: true,
-            options: displayedAnswers.map((answer, optionIndex) => ({
-                id: `match-option-${optionIndex + 1}`,
-                label: { en: answer, ja: answer },
-                correct: answer === values[itemIndex],
-            })),
-        };
-        return {
-            exercise,
-            sourceQuestionId: `${packageId}/${exerciseId}`,
-            mapping: sourceExerciseOverlay(packageId, id, values[itemIndex], explanation, sourceItem),
-            curriculumPhase,
-            authoredSource,
-        };
-    });
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+): AdaptedStructuredExercise {
+    const sourceQuestionId = `${packageId}/${exercise.id}`;
+    const itemIds = exercise.sourceItemsExact.map((_, index) => `item-${index + 1}`);
+    const targetIds = exercise.values.map((_, index) => `target-${index + 1}`);
+    const mappings = exercise.values.map((value, index) => sourceExerciseOverlay(
+        packageId,
+        `${exercise.reviewTag ?? exercise.id}:match-${index + 1}`,
+        value,
+        exercise.explanation,
+        exercise.sourceItemsExact[index],
+    ));
+    const activity: LearnerAuthoredMatching = {
+        ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId, mappings, teachingSupport),
+        kind: 'academy-authored-matching',
+        responseKind: 'authored-one-to-one-matching',
+        payload: {
+            items: itemIds.map((id, index) => ({ id, label: exercise.sourceItemsExact[index] })),
+            targets: deterministicShuffle(
+                targetIds.map((id, index) => ({ id, label: exercise.values[index] })),
+                `${packageId}:${exercise.id}:targets`,
+            ),
+        },
+    };
+    return {
+        activity,
+        evaluate: response => {
+            const placements = matchingResponsePlacements(response, itemIds, targetIds);
+            const passed = itemIds.map((itemId, index) => placements.get(itemId) === targetIds[index]);
+            return structuredEvaluation(exercise.id, sourceQuestionId, mappings, passed);
+        },
+    };
 }
 
 function adaptOrderingExercise(
     packageId: AuthoredWeekId,
-    candidate: Readonly<Record<string, unknown>>,
+    exercise: AuthoredOrderingExercise,
+    raw: unknown,
     path: string,
-): readonly AdaptedExercise[] {
-    if (candidate.pluginTarget !== 'academy-sequence') {
-        throw new TypeError(`${path}.pluginTarget must be academy-sequence for an auto-graded ordering exercise.`);
-    }
-    const id = textField(candidate.id, `${path}.id`);
-    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Put the items in order.');
-    const explanation = textField(candidate.explanation, `${path}.explanation`);
-    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
-    const authoredSource = authoredSourceProvenance(candidate, id, path);
-    if (candidate.tiles !== undefined || candidate.answer !== undefined) {
-        const tiles = textArrayField(candidate.tiles, `${path}.tiles`);
-        if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
-            throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
-        }
-        const answer = exactAnswerField(candidate.answer, `${path}.answer`);
-        const displayedTiles = deterministicShuffle(tiles, `${packageId}:${id}`);
-        const exercise: AuthoredExactExercise = {
-            id,
-            kind: 'exact',
-            prompt: sourcePrompt(prompt, {
-                en: `Tiles: ${displayedTiles.join(' / ')}`,
-                ja: `カード: ${displayedTiles.join(' / ')}`,
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+): AdaptedStructuredExercise {
+    const sourceQuestionId = `${packageId}/${exercise.id}`;
+    const values = exercise.mode === 'tiles' ? [exercise.answer.primary] : exercise.values;
+    const cues = exercise.mode === 'tiles' ? [undefined] : exercise.sourceItemsExact;
+    const tokenGroups = exercise.mode === 'tiles' ? [exercise.tiles] : values.map(tokenizeJapaneseOrderingValue);
+    const expected = tokenGroups.map((tokens, sequenceIndex) =>
+        tokens.map((_, tokenIndex) => `sequence-${sequenceIndex + 1}-item-${tokenIndex + 1}`));
+    const mappings = values.map((value, index) => sourceExerciseOverlay(
+        packageId,
+        `${exercise.reviewTag ?? exercise.id}:sequence-${index + 1}`,
+        value,
+        exercise.explanation,
+        cues[index] ?? exercise.prompt.en,
+    ));
+    const activity: LearnerAuthoredOrdering = {
+        ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId, mappings, teachingSupport),
+        kind: 'academy-authored-ordering',
+        responseKind: 'authored-ordered-items',
+        payload: {
+            sequences: tokenGroups.map((tokens, sequenceIndex) => {
+                const items = tokens.map((label, tokenIndex) => ({
+                    id: expected[sequenceIndex][tokenIndex],
+                    label,
+                }));
+                return {
+                    id: `sequence-${sequenceIndex + 1}`,
+                    ...(cues[sequenceIndex] ? { cue: cues[sequenceIndex] } : {}),
+                    items: deterministicShuffle(items, `${packageId}:${exercise.id}:sequence-${sequenceIndex + 1}`),
+                };
             }),
-            explanation,
-            autoGraded: true,
-            answer,
-        };
-        return [{
-            exercise,
-            sourceQuestionId: `${packageId}/${id}`,
-            mapping: sourceExerciseOverlay(packageId, id, answer.primary, explanation, prompt.en),
-            curriculumPhase,
-            authoredSource,
-        }];
-    }
-
-    const sourceItems = textArrayField(candidate.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = recordField(candidate.answers, `${path}.answers`);
-    const values = textArrayField(answers.values, `${path}.answers.values`);
-    if (!sourceItems.length || sourceItems.length !== values.length) {
-        throw new TypeError(`${path} must have the same number of ordering cues and answers.`);
-    }
-    const workedExample = optionalTextField(candidate.workedExampleExact, `${path}.workedExampleExact`);
-    return sourceItems.map((sourceItem, index) => {
-        const exerciseId = `${id}:item-${index + 1}`;
-        const exercisePrompt = sourcePrompt(
-            prompt,
-            sourceItem,
-            workedExample ? { en: `Source example: ${workedExample}`, ja: `例: ${workedExample}` } : undefined,
-        );
-        const exercise: AuthoredExactExercise = {
-            id: exerciseId,
-            kind: 'exact',
-            prompt: exercisePrompt,
-            explanation,
-            autoGraded: true,
-            answer: { primary: values[index], alternatives: [] },
-        };
-        return {
-            exercise,
-            sourceQuestionId: `${packageId}/${exerciseId}`,
-            mapping: sourceExerciseOverlay(packageId, id, values[index], explanation, sourceItem),
-            curriculumPhase,
-            authoredSource,
-        };
-    });
-}
-
-function sourcePrompt(
-    prompt: LocalizedText,
-    source: string | LocalizedText,
-    scaffold?: LocalizedText,
-): LocalizedText {
-    const sourceText = typeof source === 'string' ? { en: source, ja: source } : source;
+        },
+    };
     return {
-        en: [prompt.en, sourceText.en, scaffold?.en].filter(Boolean).join('\n'),
-        ja: [prompt.ja, sourceText.ja, scaffold?.ja].filter(Boolean).join('\n'),
+        activity,
+        evaluate: response => {
+            const sequences = orderingResponseSequences(response, activity.payload.sequences);
+            const passed = expected.map((itemIds, index) => arraysEqual(sequences.get(`sequence-${index + 1}`), itemIds));
+            return structuredEvaluation(exercise.id, sourceQuestionId, mappings, passed);
+        },
     };
 }
 
-function exactAnswerField(
-    value: unknown,
+type StructuredExercise = AuthoredClozeExercise | AuthoredMatchingExercise | AuthoredOrderingExercise;
+
+function structuredActivityBase(
+    packageId: AuthoredWeekId,
+    exercise: StructuredExercise,
+    raw: unknown,
     path: string,
-    rejected: ReadonlySet<string> = new Set(),
-): AuthoredExactExercise['answer'] {
-    const answer = recordField(value, path);
-    const primary = textField(answer.primary, `${path}.primary`);
-    const alternatives = answer.alternatives === undefined
-        ? []
-        : textArrayField(answer.alternatives, `${path}.alternatives`);
+    sourceQuestionId: string,
+    mappings: readonly Overlay[],
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+) {
+    const candidate = recordField(raw, path);
+    const authoredSource = authoredSourceProvenance(candidate, exercise.id, path);
     return {
-        primary,
-        alternatives: alternatives.filter(candidate => !rejected.has(normalizeExactAnswer(candidate))),
+        id: `authored:${sourceQuestionId}`,
+        sourceQuestionId,
+        conceptIds: mappings.map(mapping => mapping.conceptId),
+        curriculumPhase: sourceCurriculumPhase(candidate, path, 'guided-practice'),
+        prompt: exercise.prompt,
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+        teachingSupport,
+        provenance: { packageId, sourceQuestionId, authoredSource },
     };
 }
 
-function wrongAnswerTriggers(value: unknown, path: string): ReadonlySet<string> {
-    if (value === undefined) return new Set();
-    return new Set(arrayField(value, path).map((candidate, index) => {
-        const item = recordField(candidate, `${path}[${index}]`);
-        return normalizeExactAnswer(textField(item.trigger, `${path}[${index}].trigger`));
-    }));
+function assertStructuredWeekPedagogy(week: LearnerAuthoredWeek): void {
+    const activities = week.activities.map(activity => isStructuredActivity(activity)
+        ? {
+            ...activity,
+            options: [{ id: 'pedagogy:lapse-probe', label: { en: 'Incomplete response', ja: '未回答' } }],
+        }
+        : activity);
+    assertAuthoredWeekPedagogy({ ...week, activities });
+}
+
+function isStructuredActivity(
+    activity: LearnerAuthoredActivity,
+): activity is LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering {
+    return activity.kind === 'academy-authored-cloze'
+        || activity.kind === 'academy-authored-matching'
+        || activity.kind === 'academy-authored-ordering';
+}
+
+function structuredEvaluation(
+    exerciseId: string,
+    sourceQuestionId: string,
+    mappings: readonly Overlay[],
+    passed: readonly boolean[],
+): AuthoredChoiceEvaluation {
+    if (!mappings.length || mappings.length !== passed.length) throw new TypeError('Structured grading targets are inconsistent.');
+    const correct = passed.filter(Boolean).length;
+    const outcome = correct === passed.length ? 'pass' : 'lapse';
+    const repair = mappings[passed.findIndex(value => !value)] ?? mappings[0];
+    return {
+        result: {
+            outcome,
+            score: correct / passed.length,
+            errorTags: mappings.flatMap((mapping, index) => passed[index] ? [] : [`${mapping.conceptId}:repair`]),
+            feedback: {
+                explanation: mappings[0].feedback,
+                ...(outcome === 'pass' ? {} : { repairPrompt: repair.repair, nearbyExample: repair.example }),
+            },
+        },
+        reviewSeeds: mappings.map((mapping, index) => ({
+            id: `review:${exerciseId}:${mapping.conceptId}`,
+            conceptId: mapping.conceptId,
+            reason: passed[index] ? 'new-learning' : 'repair',
+            sourceQuestionId,
+            content: mapping.review,
+        })),
+    };
+}
+
+function clozeResponseValues(response: AuthoredWeekResponse, blankIds: readonly string[]): ReadonlyMap<string, string> {
+    if (response === 'pedagogy:lapse-probe') return new Map();
+    if (typeof response === 'string' || response.kind !== 'cloze' || response.values.length !== blankIds.length) {
+        throw new TypeError('A cloze response must fill every authored blank once.');
+    }
+    const allowed = new Set(blankIds);
+    const values = new Map<string, string>();
+    for (const entry of response.values) {
+        if (!allowed.has(entry.blankId) || values.has(entry.blankId) || typeof entry.value !== 'string') {
+            throw new TypeError('A cloze response must fill every authored blank once.');
+        }
+        values.set(entry.blankId, entry.value);
+    }
+    return values;
+}
+
+function matchingResponsePlacements(
+    response: AuthoredWeekResponse,
+    itemIds: readonly string[],
+    targetIds: readonly string[],
+): ReadonlyMap<string, string> {
+    if (response === 'pedagogy:lapse-probe') return new Map();
+    if (typeof response === 'string' || response.kind !== 'matching' || response.placements.length !== itemIds.length) {
+        throw new TypeError('A matching response must place every authored item once.');
+    }
+    const allowedItems = new Set(itemIds);
+    const allowedTargets = new Set(targetIds);
+    const usedTargets = new Set<string>();
+    const placements = new Map<string, string>();
+    for (const placement of response.placements) {
+        if (!allowedItems.has(placement.itemId) || placements.has(placement.itemId)
+            || !allowedTargets.has(placement.targetId) || usedTargets.has(placement.targetId)) {
+            throw new TypeError('A matching response must use every authored item and target once.');
+        }
+        placements.set(placement.itemId, placement.targetId);
+        usedTargets.add(placement.targetId);
+    }
+    return placements;
+}
+
+function orderingResponseSequences(
+    response: AuthoredWeekResponse,
+    expected: LearnerAuthoredOrdering['payload']['sequences'],
+): ReadonlyMap<string, readonly string[]> {
+    if (response === 'pedagogy:lapse-probe') return new Map();
+    if (typeof response === 'string' || response.kind !== 'ordering' || response.sequences.length !== expected.length) {
+        throw new TypeError('An ordering response must order every authored sequence once.');
+    }
+    const sequences = new Map<string, readonly string[]>();
+    for (const entry of response.sequences) {
+        const model = expected.find(sequence => sequence.id === entry.sequenceId);
+        const allowed = new Set(model?.items.map(item => item.id) ?? []);
+        if (!model || sequences.has(entry.sequenceId) || entry.itemIds.length !== model.items.length
+            || new Set(entry.itemIds).size !== entry.itemIds.length || entry.itemIds.some(id => !allowed.has(id))) {
+            throw new TypeError('An ordering response must use every authored item once.');
+        }
+        sequences.set(entry.sequenceId, [...entry.itemIds]);
+    }
+    return sequences;
+}
+
+function acceptedAnswers(answer: AuthoredExactExercise['answer']): ReadonlySet<string> {
+    return new Set([answer.primary, ...answer.alternatives].map(normalizeExactAnswer));
+}
+
+function safeClozeSentence(exercise: AuthoredClozeExercise): string {
+    return exercise.blanks.reduce(
+        (sentence, blank) => safeClozeSource(sentence, blank.answer.primary),
+        exercise.japanese,
+    );
 }
 
 function safeClozeSource(source: string, primary: string): string {
@@ -745,13 +856,28 @@ function safeClozeSource(source: string, primary: string): string {
     return source;
 }
 
-function textArrayField(value: unknown, path: string): readonly string[] {
-    return arrayField(value, path).map((candidate, index) => textField(candidate, `${path}[${index}]`));
-}
-
 function rotate<T>(values: readonly T[], offset: number): readonly T[] {
     const split = offset % values.length;
     return [...values.slice(split), ...values.slice(0, split)];
+}
+
+function tokenizeJapaneseOrderingValue(value: string): readonly string[] {
+    const segments = [...new Intl.Segmenter('ja', { granularity: 'word' }).segment(value)]
+        .map(segment => segment.segment)
+        .filter(segment => segment.trim());
+    const tokens: string[] = [];
+    for (const segment of segments) {
+        if (/^[。、！？!?]$/u.test(segment) && tokens.length) tokens[tokens.length - 1] += segment;
+        else tokens.push(segment);
+    }
+    if (tokens.length >= 2) return tokens;
+    const characters = [...value].filter(character => character.trim());
+    if (characters.length < 2) throw new TypeError('An authored ordering value needs at least two movable units.');
+    return characters;
+}
+
+function arraysEqual(left: readonly string[] | undefined, right: readonly string[]): boolean {
+    return Boolean(left && left.length === right.length && left.every((value, index) => value === right[index]));
 }
 
 function deterministicShuffle<T>(values: readonly T[], seed: string): readonly T[] {
@@ -1017,6 +1143,37 @@ function derivedOverlay(packageId: AuthoredWeekId, exercise: AuthoredChoiceExerc
 
 function isLegacyAuthoredWeek(packageId: AuthoredWeekId): boolean {
     return packageId.startsWith('l1-l') && Number(packageId.match(/\d+$/u)?.[0] ?? 0) <= 10;
+}
+
+function evaluateSimpleExercise(
+    packageId: AuthoredWeekId,
+    exercise: AuthoredChoiceExercise | AuthoredExactExercise,
+    mapping: Overlay,
+    response: AuthoredWeekResponse,
+): AuthoredChoiceEvaluation {
+    if (typeof response !== 'string') throw new TypeError(`Activity ${exercise.id} expects a text response id.`);
+    const passed = exercise.kind === 'choice'
+        ? exercise.options.find(candidate => candidate.id === response)?.correct
+        : acceptedExactAnswers(exercise).has(normalizeExactAnswer(response));
+    if (passed === undefined) throw new TypeError(`Unknown choice response ${response}.`);
+    return {
+        result: {
+            outcome: passed ? 'pass' : 'lapse',
+            score: passed ? 1 : 0,
+            errorTags: passed ? [] : [`${mapping.conceptId}:repair`],
+            feedback: {
+                explanation: mapping.feedback,
+                ...(passed ? {} : { repairPrompt: mapping.repair, nearbyExample: mapping.example }),
+            },
+        },
+        reviewSeeds: [{
+            id: `review:${exercise.id}:${mapping.conceptId}`,
+            conceptId: mapping.conceptId,
+            reason: passed ? 'new-learning' : 'repair',
+            sourceQuestionId: `${packageId}/${exercise.id}`,
+            content: mapping.review,
+        }],
+    };
 }
 
 function acceptedExactAnswers(exercise: AuthoredExactExercise): ReadonlySet<string> {

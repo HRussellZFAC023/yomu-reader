@@ -1,9 +1,13 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type {
     AuthoredChoiceEvaluation,
+    AuthoredWeekResponse,
     LearnerAuthoredWeek,
     LearnerAuthoredActivity,
+    LearnerAuthoredCloze,
     LearnerAuthoredChoice,
+    LearnerAuthoredMatching,
+    LearnerAuthoredOrdering,
     LearnerAuthoredText,
     LearnerListeningSource,
 } from '../content/authored-week-adapter';
@@ -14,6 +18,7 @@ import { createAcademyActivityRuntime } from '../minigames';
 import { ACADEMY_ASSETS } from '../assets';
 import type { AcademyPlateId } from '../assets';
 import { academyBackgroundPicture, backButton, element } from './dom';
+import { setAcademyTooltip } from './tooltip';
 import type { LessonActivityExtension } from './lesson-activity-chapter';
 import {
     appendProgressiveFeedback,
@@ -272,7 +277,9 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             },
         }));
         languageSupport.refresh();
-        if (focus) focusInPanel(questionHost.querySelector<HTMLElement>('.academy-choice-option, .academy-authored-text-input'));
+        if (focus) focusInPanel(questionHost.querySelector<HTMLElement>(
+            '.academy-choice-option, .academy-authored-text-input, [data-authored-modality-control]',
+        ));
     };
 
     const renderExtension = (): void => {
@@ -430,7 +437,7 @@ function authoredTeachingSupport(activity: LearnerAuthoredActivity): import('../
 interface ActivityActions {
     readonly language: AcademyLanguage;
     readonly signal: AbortSignal;
-    readonly evaluate: (responseId: string) => AuthoredChoiceEvaluation;
+    readonly evaluate: (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation;
     readonly onEvaluation: (evaluation: AuthoredChoiceEvaluation) => Promise<void>;
     readonly onRetry: () => void;
     readonly onAdvance: () => void;
@@ -440,7 +447,7 @@ interface ActivityActions {
 }
 
 function renderActivity(
-    activity: LearnerAuthoredChoice | LearnerAuthoredText,
+    activity: LearnerAuthoredChoice | LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering,
     index: number,
     total: number,
     actions: ActivityActions,
@@ -455,7 +462,7 @@ function renderActivity(
     const heading = element('h1', 'academy-authored-week-prompt');
     heading.id = `academy-authored-prompt-${index}`;
     heading.append(japanese(activity.prompt.ja), support(activity.prompt.en));
-    const choices = element('div', activity.kind === 'choice' ? 'academy-choice-options' : 'academy-text-response');
+    const choices = element('div', activity.kind === 'choice' ? 'academy-choice-options' : modalityClass(activity));
     choices.setAttribute('role', 'group');
     choices.setAttribute('aria-labelledby', heading.id);
     const feedback = element('div', 'academy-activity-feedback');
@@ -463,6 +470,13 @@ function renderActivity(
     feedback.setAttribute('aria-live', 'polite');
     let committed = false;
     const listening = activity.kind === 'choice' ? activity.listening : undefined;
+
+    const submit = (response: AuthoredWeekResponse, control: HTMLButtonElement): void => {
+        if (committed) return;
+        committed = true;
+        setActivityControlsDisabled(choices, true);
+        void commitResponse(response, control);
+    };
 
     if (activity.kind === 'text') {
         const input = element('input', 'academy-input academy-authored-text-input');
@@ -476,10 +490,7 @@ function renderActivity(
         commit.textContent = actions.language === 'ja' ? '答えを確認' : 'Check answer';
         const evaluateText = (): void => {
             if (committed || !input.value.trim()) return;
-            committed = true;
-            input.disabled = true;
-            commit.disabled = true;
-            void commitResponse(input.value, commit);
+            submit(input.value, commit);
         };
         commit.addEventListener('click', evaluateText, { signal: actions.signal });
         input.addEventListener('keydown', event => {
@@ -489,7 +500,7 @@ function renderActivity(
             }
         }, { signal: actions.signal });
         choices.append(input, commit);
-    } else for (const option of activity.options) {
+    } else if (activity.kind === 'choice') for (const option of activity.options) {
         const row = element('div', 'academy-choice-row');
         const button = element('button', 'academy-choice-option');
         button.type = 'button';
@@ -498,21 +509,25 @@ function renderActivity(
         button.append(assessedJapanese(option.label.ja));
         button.addEventListener('click', () => {
             if (committed) return;
-            committed = true;
-            setChoicesDisabled(choices, true);
-            void commitResponse(option.id, button);
+            submit(option.id, button);
         }, { signal: actions.signal });
         row.append(button);
         choices.append(row);
+    } else if (activity.kind === 'academy-authored-cloze') {
+        appendClozeControls(choices, activity, heading.id, actions, submit);
+    } else if (activity.kind === 'academy-authored-matching') {
+        appendMatchingControls(choices, activity, heading.id, actions, submit);
+    } else {
+        appendOrderingControls(choices, activity, heading.id, actions, submit);
     }
 
-    async function commitResponse(response: string, control: HTMLButtonElement): Promise<void> {
+    async function commitResponse(response: AuthoredWeekResponse, control: HTMLButtonElement): Promise<void> {
             let evaluation: AuthoredChoiceEvaluation;
             try {
                 evaluation = actions.evaluate(response);
             } catch {
                 committed = false;
-                setChoicesDisabled(choices, false);
+                setActivityControlsDisabled(choices, false);
                 feedback.replaceChildren(bilingualParagraph(COPY.evaluationError, 'academy-field-error'));
                 feedback.setAttribute('role', 'alert');
                 control.focus();
@@ -563,6 +578,224 @@ function renderActivity(
     if (listening) root.append(listeningPlayer(listening, actions));
     root.append(choices, feedback);
     return root;
+}
+
+function modalityClass(
+    activity: LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering,
+): string {
+    switch (activity.kind) {
+        case 'text': return 'academy-text-response';
+        case 'academy-authored-cloze': return 'academy-text-response academy-authored-cloze';
+        case 'academy-authored-matching': return 'academy-drag-workspace academy-authored-matching';
+        case 'academy-authored-ordering': return 'academy-authored-ordering';
+    }
+}
+
+type StructuredSubmit = (response: AuthoredWeekResponse, control: HTMLButtonElement) => void;
+
+function appendClozeControls(
+    root: HTMLElement,
+    activity: LearnerAuthoredCloze,
+    headingId: string,
+    actions: ActivityActions,
+    submit: StructuredSubmit,
+): void {
+    const sentence = element('p', 'academy-authored-cloze-sentence');
+    sentence.lang = 'ja';
+    sentence.dataset.jpdbReaderSurfaceIgnore = '';
+    const inputs = new Map<string, HTMLInputElement>();
+    const matches = [...activity.payload.sentence.matchAll(/[＿_]{1,}(?:[①-⑳])?[＿_]*/gu)];
+    let cursor = 0;
+    activity.payload.blanks.forEach((blank, index) => {
+        const match = matches[index];
+        if (match) {
+            sentence.append(document.createTextNode(activity.payload.sentence.slice(cursor, match.index)));
+            cursor = (match.index ?? cursor) + match[0].length;
+        } else if (index === 0) {
+            sentence.append(document.createTextNode(activity.payload.sentence));
+        }
+        const input = element('input', 'academy-input academy-authored-text-input academy-authored-cloze-input');
+        input.type = 'text';
+        input.lang = 'ja';
+        input.autocomplete = 'off';
+        input.inputMode = 'text';
+        input.size = 6;
+        input.dataset.authoredModalityControl = '';
+        input.dataset.clozeBlankId = blank.id;
+        input.dataset.jpdbReaderSurfaceIgnore = '';
+        input.setAttribute('aria-label', localized(blank.label, actions.language));
+        input.setAttribute('aria-describedby', headingId);
+        inputs.set(blank.id, input);
+        sentence.append(input);
+    });
+    if (matches.length) sentence.append(document.createTextNode(activity.payload.sentence.slice(cursor)));
+    const check = checkButton(actions.language, 'Check the gaps', '空欄を確認');
+    const ready = (): boolean => activity.payload.blanks.every(blank => inputs.get(blank.id)?.value.trim());
+    const update = (): void => { check.disabled = !ready(); };
+    const commit = (): void => {
+        if (!ready()) return;
+        submit({
+            kind: 'cloze',
+            values: activity.payload.blanks.map(blank => ({
+                blankId: blank.id,
+                value: inputs.get(blank.id)?.value ?? '',
+            })),
+        }, check);
+    };
+    inputs.forEach(input => {
+        input.addEventListener('input', update, { signal: actions.signal });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && ready()) {
+                event.preventDefault();
+                commit();
+            }
+        }, { signal: actions.signal });
+    });
+    check.addEventListener('click', commit, { signal: actions.signal });
+    update();
+    root.append(sentence, check);
+}
+
+function appendMatchingControls(
+    root: HTMLElement,
+    activity: LearnerAuthoredMatching,
+    headingId: string,
+    actions: ActivityActions,
+    submit: StructuredSubmit,
+): void {
+    const rows = element('div', 'academy-authored-matching-rows');
+    const selects = new Map<string, HTMLSelectElement>();
+    activity.payload.items.forEach((item, index) => {
+        const row = element('label', 'academy-drag-zone academy-authored-matching-row');
+        const source = assessedJapanese(item.label);
+        const select = document.createElement('select');
+        select.className = 'academy-input academy-authored-matching-select';
+        select.dataset.authoredModalityControl = '';
+        select.dataset.matchingItemId = item.id;
+        select.setAttribute('aria-label', actions.language === 'ja'
+            ? `${index + 1}番に合う答え`
+            : `Match for item ${index + 1}`);
+        select.setAttribute('aria-describedby', headingId);
+        select.append(selectOption('', actions.language === 'ja' ? '答えを選ぶ' : 'Choose a match'));
+        activity.payload.targets.forEach(target => select.append(selectOption(target.id, target.label)));
+        selects.set(item.id, select);
+        row.append(source, select);
+        rows.append(row);
+    });
+    const check = checkButton(actions.language, 'Check matches', '組み合わせを確認');
+    const update = (): void => {
+        const selected = [...selects.values()].map(select => select.value).filter(Boolean);
+        for (const select of selects.values()) {
+            for (const option of [...select.options].slice(1)) {
+                option.disabled = option.value !== select.value && selected.includes(option.value);
+            }
+        }
+        check.disabled = selected.length !== selects.size || new Set(selected).size !== selected.length;
+    };
+    selects.forEach(select => select.addEventListener('change', update, { signal: actions.signal }));
+    check.addEventListener('click', () => {
+        if (check.disabled) return;
+        submit({
+            kind: 'matching',
+            placements: activity.payload.items.map(item => ({
+                itemId: item.id,
+                targetId: selects.get(item.id)?.value ?? '',
+            })),
+        }, check);
+    }, { signal: actions.signal });
+    update();
+    root.append(rows, check);
+}
+
+function appendOrderingControls(
+    root: HTMLElement,
+    activity: LearnerAuthoredOrdering,
+    headingId: string,
+    actions: ActivityActions,
+    submit: StructuredSubmit,
+): void {
+    const orders = new Map(activity.payload.sequences.map(sequence => [
+        sequence.id,
+        sequence.items.map(item => item.id),
+    ]));
+    const sequenceRoots = new Map<string, HTMLOListElement>();
+    const renderSequence = (sequence: LearnerAuthoredOrdering['payload']['sequences'][number], focusId?: string): void => {
+        const list = sequenceRoots.get(sequence.id)!;
+        const order = orders.get(sequence.id)!;
+        list.replaceChildren(...order.map((itemId, index) => {
+            const item = sequence.items.find(candidate => candidate.id === itemId)!;
+            const row = element('li', 'academy-sequence-item');
+            row.dataset.sequenceId = item.id;
+            const controls = element('div', 'academy-sequence-controls');
+            const earlier = moveButton('↑', actions.language === 'ja' ? `${item.label}を前へ` : `Move ${item.label} earlier`, index === 0);
+            const later = moveButton('↓', actions.language === 'ja' ? `${item.label}を後へ` : `Move ${item.label} later`, index === order.length - 1);
+            earlier.addEventListener('click', () => move(index, index - 1, item.id), { signal: actions.signal });
+            later.addEventListener('click', () => move(index, index + 1, item.id), { signal: actions.signal });
+            controls.append(earlier, later);
+            row.append(assessedJapanese(item.label), controls);
+            return row;
+        }));
+        if (focusId) queueMicrotask(() => list.querySelector<HTMLButtonElement>(`[data-sequence-id="${focusId}"] button:not(:disabled)`)?.focus());
+
+        function move(from: number, to: number, itemId: string): void {
+            if (to < 0 || to >= order.length) return;
+            order.splice(from, 1);
+            order.splice(to, 0, itemId);
+            renderSequence(sequence, itemId);
+        }
+    };
+    activity.payload.sequences.forEach((sequence, index) => {
+        const section = element('section', 'academy-authored-ordering-sequence');
+        if (sequence.cue) {
+            const cue = element('p', 'academy-authored-ordering-cue');
+            cue.append(assessedJapanese(sequence.cue));
+            section.append(cue);
+        }
+        const list = document.createElement('ol');
+        list.className = 'academy-sequence-list';
+        list.dataset.orderingSequenceId = sequence.id;
+        list.setAttribute('aria-label', actions.language === 'ja' ? `${index + 1}番の並べ替え` : `Sequence ${index + 1}`);
+        list.setAttribute('aria-describedby', headingId);
+        sequenceRoots.set(sequence.id, list);
+        section.append(list);
+        root.append(section);
+        renderSequence(sequence);
+    });
+    const check = checkButton(actions.language, 'Check order', '順番を確認');
+    check.addEventListener('click', () => submit({
+        kind: 'ordering',
+        sequences: activity.payload.sequences.map(sequence => ({
+            sequenceId: sequence.id,
+            itemIds: [...orders.get(sequence.id)!],
+        })),
+    }, check), { signal: actions.signal });
+    root.append(check);
+}
+
+function checkButton(language: AcademyLanguage, en: string, ja: string): HTMLButtonElement {
+    const button = element('button', 'academy-button academy-button-primary academy-authored-modality-check');
+    button.type = 'button';
+    button.dataset.authoredModalityControl = '';
+    button.textContent = language === 'ja' ? ja : en;
+    return button;
+}
+
+function selectOption(value: string, label: string): HTMLOptionElement {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    return option;
+}
+
+function moveButton(symbol: string, label: string, disabled: boolean): HTMLButtonElement {
+    const button = element('button', 'academy-sequence-move');
+    button.type = 'button';
+    button.dataset.authoredModalityControl = '';
+    button.textContent = symbol;
+    button.disabled = disabled;
+    button.setAttribute('aria-label', label);
+    setAcademyTooltip(button, label);
+    return button;
 }
 
 function listeningPlayer(listening: LearnerListeningSource, actions: ActivityActions): HTMLElement {
@@ -680,8 +913,9 @@ function moveChoiceFocus(event: KeyboardEvent, root: HTMLElement): void {
     buttons[next]?.focus();
 }
 
-function setChoicesDisabled(root: HTMLElement, disabled: boolean): void {
-    root.querySelectorAll<HTMLButtonElement>('.academy-choice-option').forEach(button => { button.disabled = disabled; });
+function setActivityControlsDisabled(root: HTMLElement, disabled: boolean): void {
+    root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select')
+        .forEach(control => { control.disabled = disabled; });
 }
 
 function bilingualParagraph(value: LocalizedText, className: string): HTMLParagraphElement {

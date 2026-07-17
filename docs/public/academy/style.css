@@ -41804,6 +41804,10 @@ details.academy-code-section > summary {
     min-height: 72px;
 }
 
+.academy-vn-dialogue[data-text-revealing] .academy-vn-line-body {
+    cursor: pointer;
+}
+
 .academy-vn-dialogue-content {
     min-width: 0;
     min-height: 0;
@@ -42137,6 +42141,15 @@ details.academy-code-section > summary {
         bottom: clamp(164px, 24vh, 222px);
         width: min(74vw, 390px);
         height: min(64vh, 590px);
+        filter: none;
+        transition:
+            opacity 180ms ease,
+            transform 280ms cubic-bezier(0.2, 0.75, 0.2, 1),
+            translate var(--academy-vn-pose-duration, 220ms) cubic-bezier(0.2, 0.75, 0.2, 1);
+    }
+
+    .academy-vn-sprite-slot[data-performance-presence="active"] {
+        filter: none;
     }
 
     .academy-vn-sprite-slot[data-position="left"] {

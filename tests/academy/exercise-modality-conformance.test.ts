@@ -186,11 +186,9 @@ describe('Academy exercise modality conformance', () => {
 
         for (const sourceKind of ['cloze', 'ordering', 'matching']) {
             const registration = authoredExerciseDelivery(sourceKind);
-            expect(registration.delivery).toBe('generic-fallback');
-            expect(registration.expectedRuntimeKinds.every(kind => kind === 'choice' || kind === 'text')).toBe(true);
-            expect(registration.expectedRuntimeKinds).not.toContain(
-                academyExerciseModality(registration.modality).runtimeKinds[0],
-            );
+            expect(registration.delivery).toMatch(/preserved/u);
+            expect(registration.expectedRuntimeKinds).toEqual([`academy-authored-${sourceKind}`]);
+            expect(registration.expectedRuntimeKinds).not.toEqual(expect.arrayContaining(['choice', 'text']));
         }
     });
 

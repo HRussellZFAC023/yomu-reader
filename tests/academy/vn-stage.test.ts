@@ -467,6 +467,82 @@ describe('Academy VN stage', () => {
         expect(text.textContent).toBe('はい。次です。');
     });
 
+    it('closes quoted sentences before pausing between them', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:quoted-cadence',
+            japanese: '「はい。」次です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        vi.advanceTimersByTime(210);
+        expect(text.textContent).toBe('「はい。」');
+        vi.advanceTimersByTime(300);
+        expect(text.textContent).toBe('「はい。」');
+        vi.runAllTimers();
+        expect(text.textContent).toBe('「はい。」次です。');
+    });
+
+    it('reveals Japanese grapheme clusters atomically and appends into one text node', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:graphemes',
+            japanese: 'か\u3099く。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        const revealText = text.firstChild;
+        expect(text.textContent).toBe('か\u3099');
+        vi.advanceTimersByTime(240);
+        expect(text.firstChild).toBe(revealText);
+        expect(text.textContent).toContain('か\u3099く');
+        vi.runAllTimers();
+        expect(text.textContent).toBe('か\u3099く。');
+    });
+
+    it('completes an active reveal from the full dialogue line surface', () => {
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:click-complete',
+            japanese: 'ここを押すと、文が全部見えます。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        const lineBody = stage.element.querySelector<HTMLElement>('.academy-vn-line-body')!;
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        expect(dialogue.dataset.textRevealing).toBe('');
+        expect(dialogue.getAttribute('aria-busy')).toBe('true');
+
+        lineBody.click();
+
+        expect(text.textContent).toBe('ここを押すと、文が全部見えます。');
+        expect(text.dataset.performanceText).toBeUndefined();
+        expect(dialogue.dataset.textRevealing).toBeUndefined();
+        expect(dialogue.hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('clears the speaking state when an unfinished line is removed', () => {
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:interrupted',
+            japanese: 'まだ話している途中です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        expect(dialogue.dataset.textRevealing).toBe('');
+
+        stage.setLine(null);
+
+        expect(dialogue.dataset.textRevealing).toBeUndefined();
+        expect(dialogue.hasAttribute('aria-busy')).toBe(false);
+    });
+
     it('keeps contracted kana together instead of revealing them at a mechanical pace', () => {
         vi.useFakeTimers();
         const stage = createAcademyVnStage({ reducedMotion: false });
@@ -582,6 +658,8 @@ describe('Academy VN stage', () => {
         expect(phoneCss).toContain('--academy-vn-slot-x: 12vw');
         expect(phoneCss).toContain('--academy-vn-slot-x: -20vw');
         expect(phoneCss).toContain('--academy-vn-slot-x: 20vw');
+        expect(phoneCss).toMatch(/\.academy-vn-sprite-slot\s*\{[^}]*filter:\s*none;[^}]*transition:\s*opacity 180ms ease,[^}]*transform 280ms[^}]*translate var\(--academy-vn-pose-duration/s);
+        expect(phoneCss).toMatch(/\.academy-vn-sprite-slot\[data-performance-presence="active"\]\s*\{[^}]*filter:\s*none;/s);
         expect(phoneCss).toMatch(/--academy-vn-mobile-dialogue-height:\s*min\(48dvh, 390px\);/);
         expect(phoneCss).toMatch(/\.academy-vn-object-slot\s*\{[^}]*bottom:\s*calc\([\s\S]*--academy-vn-mobile-dialogue-height[\s\S]*--academy-vn-mobile-object-clearance/s);
         expect(phoneCss).toMatch(/\.academy-vn-dialogue\s*\{[^}]*bottom:\s*var\(--academy-vn-mobile-dialogue-bottom\);[^}]*max-height:\s*var\(--academy-vn-mobile-dialogue-height\);/s);
@@ -593,6 +671,7 @@ describe('Academy VN stage', () => {
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none;/);
         expect(css).toMatch(/\.academy-vn-stage\[data-reduced-motion\][\s\S]*transition:\s*none;/);
         expect(css).toMatch(/\.academy-vn-portrait-outgoing\s*\{[^}]*animation:\s*academy-vn-portrait-swap-out var\(--academy-vn-pose-duration, 220ms\)/s);
+        expect(css).toMatch(/\.academy-vn-dialogue\[data-text-revealing\] \.academy-vn-line-body\s*\{[^}]*cursor:\s*pointer;/s);
         expect(css).not.toContain('.academy-panel');
     });
 });

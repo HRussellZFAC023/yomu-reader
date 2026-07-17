@@ -235,7 +235,11 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     root.addEventListener('pointerdown', markUserInteraction, { capture: true, signal: lifecycle.signal });
     root.addEventListener('keydown', markUserInteraction, { capture: true, signal: lifecycle.signal });
     back.addEventListener('click', () => backControl?.onBack(), { signal: lifecycle.signal });
-    japanese.addEventListener('click', () => skipTextReveal(), { signal: lifecycle.signal });
+    lineBody.addEventListener('click', event => {
+        if (japanese.dataset.performanceText !== 'revealing') return;
+        event.preventDefault();
+        skipTextReveal();
+    }, { signal: lifecycle.signal });
 
     const closeLog = (): void => {
         if (logPanel.hidden) return;
@@ -323,17 +327,20 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
     function startTextReveal(lineId: string): void {
         clearTextRevealTimer();
         if (!currentLine || currentLine.id !== lineId) return;
-        const characters = [...currentLine.japanese];
-        if (characters.length <= 1) {
+        const units = textRevealUnits(currentLine.japanese);
+        if (units.length <= 1) {
             performance.completeTextReveal(lineId);
             return;
         }
         activeTextRevealLineId = lineId;
         const token = activeTextRevealToken;
-        let visibleCharacters = 1;
+        let visibleUnits = 1;
+        const revealText = document.createTextNode(units[0] ?? '');
         japanese.dataset.performanceText = 'revealing';
-        japanese.textContent = characters[0] ?? '';
-        const baseDelayMs = Math.max(38, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+        dialogue.dataset.textRevealing = '';
+        dialogue.setAttribute('aria-busy', 'true');
+        japanese.replaceChildren(revealText);
+        const baseDelayMs = Math.max(38, Math.round(textRevealDuration(units.length) / units.length));
         const revealNext = (): void => {
             if (typeof window === 'undefined') {
                 textRevealTimer = undefined;
@@ -345,25 +352,21 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
                 || activeTextRevealLineId !== lineId
                 || currentLine?.id !== lineId
             ) return;
-            visibleCharacters += 1;
-            japanese.textContent = characters.slice(0, visibleCharacters).join('');
-            if (visibleCharacters >= characters.length) {
+            revealText.appendData(units[visibleUnits] ?? '');
+            visibleUnits += 1;
+            if (visibleUnits >= units.length) {
                 textRevealTimer = undefined;
                 performance.completeTextReveal(lineId);
                 return;
             }
             textRevealTimer = window.setTimeout(
                 revealNext,
-                textRevealCharacterDelay(
-                    characters[visibleCharacters - 1] ?? '',
-                    characters[visibleCharacters] ?? '',
-                    baseDelayMs,
-                ),
+                textRevealCharacterDelay(units, visibleUnits - 1, baseDelayMs),
             );
         };
         textRevealTimer = window.setTimeout(
             revealNext,
-            90 + textRevealCharacterDelay(characters[0] ?? '', characters[1] ?? '', baseDelayMs),
+            90 + textRevealCharacterDelay(units, 0, baseDelayMs),
         );
     }
 
@@ -371,9 +374,11 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         if (activeTextRevealLineId === lineId) {
             clearTextRevealTimer();
             activeTextRevealLineId = undefined;
+            delete japanese.dataset.performanceText;
+            delete dialogue.dataset.textRevealing;
+            dialogue.removeAttribute('aria-busy');
         }
         if (!currentLine || currentLine.id !== lineId) return;
-        delete japanese.dataset.performanceText;
         applyReadingState(readingVisible, false);
     }
 
@@ -758,23 +763,51 @@ function setSceneInert(
     if (!inert) snapshots.clear();
 }
 
-function textRevealDuration(text: string): number {
-    return Math.max(280, Math.min(1600, [...text].length * 42));
+function textRevealDuration(unitCount: number): number {
+    return Math.max(280, Math.min(1600, unitCount * 42));
 }
 
-function textRevealCharacterDelay(character: string, nextCharacter: string, baseDelayMs: number): number {
-    // Cadence follows spoken Japanese: punctuation breathes, while contracted
-    // sounds such as きょ and long vowels remain visually joined.
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 420;
+function textRevealUnits(text: string): string[] {
+    if (typeof Intl.Segmenter !== 'function') return [...text];
+    return [...new Intl.Segmenter('ja', { granularity: 'grapheme' }).segment(text)]
+        .map(segment => segment.segment);
+}
+
+function textRevealCharacterDelay(units: readonly string[], index: number, baseDelayMs: number): number {
+    const character = units[index] ?? '';
+    const nextCharacter = units[index + 1] ?? '';
+    const clusterDelayMs = Math.max(16, Math.round(baseDelayMs * 0.42));
+    // Keep sentence punctuation attached to its closing quote, then breathe
+    // after the complete written sentence rather than before the quote appears.
+    if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
+    if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 420;
+    if (isSentenceEnd(character)) return baseDelayMs + 420;
     if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
     if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
     if (/[…―—]/u.test(character)) return baseDelayMs + 190;
     if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[「『（【]/u.test(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
-        return Math.max(16, Math.round(baseDelayMs * 0.42));
+        return clusterDelayMs;
     }
     if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
     return baseDelayMs;
+}
+
+function isSentenceEnd(character: string): boolean {
+    return /[。！？!?]/u.test(character);
+}
+
+function isClosingPunctuation(character: string): boolean {
+    return /[」』）】〉》〕］｝”’]/u.test(character);
+}
+
+function closesSentence(units: readonly string[], closingIndex: number): boolean {
+    let index = closingIndex - 1;
+    while (index >= 0 && isClosingPunctuation(units[index] ?? '')) index -= 1;
+    return isSentenceEnd(units[index] ?? '');
 }
 
 function prefersReducedMotion(): boolean {

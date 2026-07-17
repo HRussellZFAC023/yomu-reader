@@ -10,21 +10,21 @@ import { parseChoiceExercise } from '../../src/academy/content/authored-week-sch
 import { auditAuthoredActivityContracts } from '../../src/academy/content/cold-production-audit';
 
 const FIXTURES = [
-    ['002-l1-l01.json', 'l1-l01', 12, 1],
-    ['003-l1-l02.json', 'l1-l02', 13, 1],
+    ['002-l1-l01.json', 'l1-l01', 11, 1],
+    ['003-l1-l02.json', 'l1-l02', 12, 1],
     ['004-l1-l03.json', 'l1-l03', 14, 1],
     ['005-l1-l04.json', 'l1-l04', 10, 1],
-    ['006-l1-l05.json', 'l1-l05', 12, 1],
-    ['007-l1-l06.json', 'l1-l06', 17, 1],
-    ['008-l1-l07.json', 'l1-l07', 12, 1],
-    ['009-l1-l08.json', 'l1-l08', 29, 1],
-    ['010-l1-l09.json', 'l1-l09', 27, 1],
-    ['011-l1-l10.json', 'l1-l10', 13, 1],
+    ['006-l1-l05.json', 'l1-l05', 11, 1],
+    ['007-l1-l06.json', 'l1-l06', 14, 1],
+    ['008-l1-l07.json', 'l1-l07', 11, 1],
+    ['009-l1-l08.json', 'l1-l08', 28, 1],
+    ['010-l1-l09.json', 'l1-l09', 26, 1],
+    ['011-l1-l10.json', 'l1-l10', 12, 1],
     ['012-l1-l11.json', 'l1-l11', 13, 0],
     ['013-l1-l12.json', 'l1-l12', 14, 0],
     ['014-l1-l13.json', 'l1-l13', 13, 0],
     ['015-l1-l14.json', 'l1-l14', 12, 0],
-    ['016-l1-l15.json', 'l1-l15', 13, 1],
+    ['016-l1-l15.json', 'l1-l15', 11, 1],
     ['017-l1-l16.json', 'l1-l16', 34, 1],
     ['018-l1-l17.json', 'l1-l17', 22, 1],
     ['019-l1-l18.json', 'l1-l18', 12, 1],
@@ -123,6 +123,9 @@ describe('authored week recovery adapter', () => {
             expect(week.activities.every(activity => (
                 activity.kind === 'choice'
                 || activity.kind === 'text'
+                || activity.kind === 'academy-authored-cloze'
+                || activity.kind === 'academy-authored-matching'
+                || activity.kind === 'academy-authored-ordering'
                 || activity.kind === 'academy-source-vocabulary-sheet'
             ))).toBe(true);
             expect(week.activities.filter(activity => activity.kind === 'choice' || activity.kind === 'text')
@@ -142,7 +145,7 @@ describe('authored week recovery adapter', () => {
         expect(week.evaluate(activity.id, 'コーヒーがすきです').result.outcome).toBe('lapse');
     });
 
-    it('projects every authored cloze blank as an answer-hidden text activity', () => {
+    it('keeps every authored cloze blank in one answer-hidden structured activity', () => {
         const loaded = fixture('002-l1-l01.json', 'l1-l01');
         const source = loaded.json as {
             components: Array<{ exercises?: Array<{
@@ -156,29 +159,35 @@ describe('authored week recovery adapter', () => {
         const cloze = source.components.flatMap(component => component.exercises ?? [])
             .find(exercise => exercise.id === 'ex-grammar-no' && exercise.kind === 'cloze')!;
         const week = adaptAuthoredWeek(loaded.json, { ...loaded.source, sha256: loaded.expectedHash });
-        const activities = cloze.blanks.map(blank => week.activities.find(activity =>
-            activity.sourceQuestionId === `l1-l01/${cloze.id}:${blank.id}`)!);
+        const activity = week.activities.find(candidate => candidate.sourceQuestionId === `l1-l01/${cloze.id}`)!;
 
-        expect(activities).toHaveLength(2);
-        activities.forEach((activity, index) => {
-            expect(activity).toMatchObject({
-                kind: 'text',
-                curriculumPhase: 'guided-practice',
-                provenance: {
-                    packageId: 'l1-l01',
-                    authoredSource: { exerciseId: cloze.id },
-                },
-            });
-            expect(activity.prompt.en).toContain(cloze.prompt.en);
-            expect(activity.prompt.ja).toContain(cloze.prompt.ja);
-            expect(activity.prompt.ja).toContain(cloze.japanese);
-            expect(JSON.stringify(activity)).not.toMatch(/"correct"|"answer"|"modelAnswer"/i);
-            expect(week.evaluate(activity.id, cloze.blanks[index].answer.primary).result.outcome).toBe('pass');
-            expect(week.evaluate(activity.id, 'ちがいます').result.outcome).toBe('lapse');
+        expect(activity).toMatchObject({
+            kind: 'academy-authored-cloze',
+            responseKind: 'authored-cloze-fields',
+            curriculumPhase: 'guided-practice',
+            payload: { blanks: cloze.blanks.map(blank => ({ id: blank.id })) },
+            provenance: {
+                packageId: 'l1-l01',
+                authoredSource: { exerciseId: cloze.id },
+            },
         });
+        expect(activity.prompt).toEqual(cloze.prompt);
+        expect(activity.kind === 'academy-authored-cloze' && activity.payload.sentence).toBe(cloze.japanese);
+        expect(JSON.stringify(activity)).not.toMatch(/"correct"|"answer"|"modelAnswer"/i);
+        expect(week.evaluate(activity.id, {
+            kind: 'cloze',
+            values: cloze.blanks.map(blank => ({ blankId: blank.id, value: blank.answer.primary })),
+        }).result).toMatchObject({ outcome: 'pass', score: 1 });
+        expect(week.evaluate(activity.id, {
+            kind: 'cloze',
+            values: cloze.blanks.map((blank, index) => ({
+                blankId: blank.id,
+                value: index === 0 ? blank.answer.primary : 'ちがいます',
+            })),
+        }).result).toMatchObject({ outcome: 'lapse', score: 0.5 });
     });
 
-    it('maps source matching and ordering through existing choice and text grading contracts', () => {
+    it('preserves source matching and ordering as answer-safe structured contracts', () => {
         const loaded = fixture('021-l1-l20.json', 'l1-l20');
         const source = loaded.json as {
             components: Array<{ exercises?: Array<{
@@ -201,11 +210,11 @@ describe('authored week recovery adapter', () => {
         const cueOrdering = exercises.find(exercise => exercise.id === 'ex-l20-hw-review-4')!;
         const week = adaptAuthoredWeek(loaded.json, { ...loaded.source, sha256: loaded.expectedHash });
 
-        const matches = week.activities.filter(activity =>
-            activity.sourceQuestionId.startsWith('l1-l20/ex-l20-hw-review-2:match-'));
-        expect(matches).toHaveLength(matching.sourceItemsExact!.length);
-        expect(matches[0]).toMatchObject({
-            kind: 'choice',
+        const match = week.activities.find(activity =>
+            activity.sourceQuestionId === 'l1-l20/ex-l20-hw-review-2')!;
+        expect(match).toMatchObject({
+            kind: 'academy-authored-matching',
+            responseKind: 'authored-one-to-one-matching',
             curriculumPhase: 'guided-practice',
             provenance: {
                 authoredSource: {
@@ -216,40 +225,59 @@ describe('authored week recovery adapter', () => {
                 },
             },
         });
-        expect(matches[0].prompt.en).toContain(matching.prompt.en);
-        expect(matches[0].prompt.ja).toContain(matching.sourceItemsExact![0]);
-        const displayedAnswers = matches[0].kind === 'choice'
-            ? matches[0].options.map(option => option.label.ja)
-            : [];
-        expect([...displayedAnswers].sort()).toEqual([...matching.answers!.values].sort());
-        expect(displayedAnswers).not.toEqual(matching.answers!.values);
-        const correctOption = matches[0].kind === 'choice'
-            ? matches[0].options.find(option => option.label.ja === matching.answers!.values[0])!
-            : undefined;
-        const wrongOption = matches[0].kind === 'choice'
-            ? matches[0].options.find(option => option.label.ja !== matching.answers!.values[0])!
-            : undefined;
-        expect(week.evaluate(matches[0].id, correctOption!.id).result.outcome).toBe('pass');
-        expect(week.evaluate(matches[0].id, wrongOption!.id).result.outcome).toBe('lapse');
+        if (match.kind !== 'academy-authored-matching') throw new TypeError('Expected native matching.');
+        expect(match.payload.items.map(item => item.label)).toEqual(matching.sourceItemsExact);
+        expect(match.payload.targets.map(target => target.label).sort()).toEqual([...matching.answers!.values].sort());
+        expect(match.payload.targets.map(target => target.label)).not.toEqual(matching.answers!.values);
+        const targetIdFor = (value: string) => match.payload.targets.find(target => target.label === value)!.id;
+        expect(week.evaluate(match.id, {
+            kind: 'matching',
+            placements: match.payload.items.map((item, index) => ({
+                itemId: item.id,
+                targetId: targetIdFor(matching.answers!.values[index]),
+            })),
+        }).result.outcome).toBe('pass');
+        expect(week.evaluate(match.id, {
+            kind: 'matching',
+            placements: match.payload.items.map((item, index) => ({
+                itemId: item.id,
+                targetId: targetIdFor(matching.answers!.values[(index + 1) % matching.answers!.values.length]),
+            })),
+        }).result.outcome).toBe('lapse');
 
         const sequence = week.activities.find(activity =>
             activity.sourceQuestionId === `l1-l20/${tileOrdering.id}`)!;
         expect(sequence).toMatchObject({
-            kind: 'text',
+            kind: 'academy-authored-ordering',
+            responseKind: 'authored-ordered-items',
             curriculumPhase: 'guided-practice',
             provenance: { authoredSource: { sourceQuestionId: tileOrdering.sourceQuestionId } },
         });
-        tileOrdering.tiles!.forEach(tile => expect(sequence.prompt.ja).toContain(tile));
-        expect(sequence.prompt.ja).not.toContain(tileOrdering.tiles!.join(' / '));
+        if (sequence.kind !== 'academy-authored-ordering') throw new TypeError('Expected native ordering.');
+        expect(sequence.payload.sequences).toHaveLength(1);
+        expect(sequence.payload.sequences[0].items.map(item => item.label).sort()).toEqual([...tileOrdering.tiles!].sort());
+        expect(sequence.payload.sequences[0].items.map(item => item.label)).not.toEqual(tileOrdering.tiles);
         expect(JSON.stringify(sequence)).not.toContain(tileOrdering.answer!.primary);
-        expect(week.evaluate(sequence.id, tileOrdering.answer!.primary).result.outcome).toBe('pass');
+        expect(week.evaluate(sequence.id, {
+            kind: 'ordering',
+            sequences: [{
+                sequenceId: 'sequence-1',
+                itemIds: tileOrdering.tiles!.map((_, index) => `sequence-1-item-${index + 1}`),
+            }],
+        }).result.outcome).toBe('pass');
 
-        const orderedCues = week.activities.filter(activity =>
-            activity.sourceQuestionId.startsWith(`l1-l20/${cueOrdering.id}:item-`));
-        expect(orderedCues).toHaveLength(cueOrdering.sourceItemsExact!.length);
-        expect(orderedCues[0].prompt.ja).toContain(cueOrdering.sourceItemsExact![0]);
-        expect(orderedCues[0].prompt.ja).toContain(cueOrdering.workedExampleExact!);
-        expect(week.evaluate(orderedCues[0].id, cueOrdering.answers!.values[0]).result.outcome).toBe('pass');
+        const orderedCues = week.activities.find(activity =>
+            activity.sourceQuestionId === `l1-l20/${cueOrdering.id}`)!;
+        expect(orderedCues).toMatchObject({
+            kind: 'academy-authored-ordering',
+            payload: {
+                sequences: cueOrdering.sourceItemsExact!.map((cue, index) => ({
+                    id: `sequence-${index + 1}`,
+                    cue,
+                })),
+            },
+        });
+        expect(JSON.stringify(orderedCues)).not.toContain(cueOrdering.answers!.values[0]);
         expect(week.activities.some(activity => activity.sourceQuestionId.includes('ex-l20-sensei-short-dialogue')))
             .toBe(false);
     });
@@ -262,16 +290,23 @@ describe('authored week recovery adapter', () => {
         const copiedSentence = week.activities.find(activity =>
             activity.sourceQuestionId === 'l1-l19/ex-l1plus-l09-grammar-build')!;
 
-        expect(week.evaluate(particle.id, 'に').result.outcome).toBe('pass');
-        expect(week.evaluate(particle.id, 'を').result.outcome).toBe('lapse');
-        expect(copiedSentence.prompt.ja).not.toContain('毎日 一時間 日本語を べんきょうします。');
-        expect(copiedSentence.prompt.ja).toContain('＿＿＿');
+        expect(week.evaluate(particle.id, {
+            kind: 'cloze', values: [{ blankId: 'b1', value: 'に' }],
+        }).result.outcome).toBe('pass');
+        expect(week.evaluate(particle.id, {
+            kind: 'cloze', values: [{ blankId: 'b1', value: 'を' }],
+        }).result.outcome).toBe('lapse');
+        if (copiedSentence.kind !== 'academy-authored-cloze') throw new TypeError('Expected native cloze.');
+        expect(copiedSentence.payload.sentence).not.toContain('毎日 一時間 日本語を べんきょうします。');
+        expect(copiedSentence.payload.sentence).toContain('＿＿＿');
     });
 
     it('does not redact short answers embedded inside legitimate cloze clues', () => {
         const loaded = fixture('006-l1-l05.json', 'l1-l05');
         const week = adaptAuthoredWeek(loaded.json, loaded.source);
-        const rendered = week.activities.map(activity => activity.prompt.ja).join('\n');
+        const rendered = week.activities.flatMap(activity => activity.kind === 'academy-authored-cloze'
+            ? [activity.prompt.ja, activity.payload.sentence]
+            : [activity.prompt.ja]).join('\n');
 
         expect(rendered).toContain('かいしゃいん');
         expect(rendered).not.toContain('＿＿＿いしゃいん');
@@ -304,11 +339,7 @@ describe('authored week recovery adapter', () => {
                     || (exercise.kind === 'ordering' && exercise.pluginTarget === 'academy-sequence')
                 ));
             if (!supported.length) continue;
-            const expectedActivities = supported.reduce((count, exercise) => count + (
-                exercise.kind === 'cloze' ? exercise.blanks!.length
-                    : exercise.kind === 'matching' ? exercise.sourceItemsExact!.length
-                        : exercise.tiles ? 1 : exercise.sourceItemsExact!.length
-            ), 0);
+            const expectedActivities = supported.length;
             const week = adaptAuthoredWeek(source, {
                 path: fixturePath,
                 sha256: createHash('sha256').update(bytes).digest('hex'),
@@ -327,7 +358,7 @@ describe('authored week recovery adapter', () => {
 
         expect({ sourceExerciseCount, projectedActivityCount }).toEqual({
             sourceExerciseCount: 89,
-            projectedActivityCount: 116,
+            projectedActivityCount: 89,
         });
     });
 

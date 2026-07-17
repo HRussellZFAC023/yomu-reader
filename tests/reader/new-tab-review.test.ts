@@ -21,6 +21,7 @@ const WORD_ONLY_STUDY_DISABLED_STEPS: typeof BASE_DEFAULT_SETTINGS.newTabStudyDi
     'recall-cloze',
     'listen-pitch',
     'speaking',
+    'type-word',
 ];
 const REVIEW_SUITE_STUDY_STEP_ORDER: typeof BASE_DEFAULT_SETTINGS.newTabStudyStepOrder = [
     'word',

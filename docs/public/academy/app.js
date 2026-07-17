@@ -3177,6 +3177,145 @@
       }
     };
   }
+  function parseClozeExercise(value, path) {
+    const exercise = record$16(value, path);
+    if (exercise.kind !== "cloze") return void 0;
+    if (exercise.autoGraded !== true) {
+      if (exercise.autoGraded === false) return void 0;
+      fail$3(`${path}.autoGraded`, "must be true or false");
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const ids2 = /* @__PURE__ */ new Set();
+    const wrongAnswers = wrongAnswerTriggers(exercise.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
+    const blanks = array$15(exercise.blanks, `${path}.blanks`).map((candidate2, index) => {
+      const blankPath = `${path}.blanks[${index}]`;
+      const blank = record$16(candidate2, blankPath);
+      const id2 = text$k(blank.id, `${blankPath}.id`);
+      if (ids2.has(id2)) fail$3(`${blankPath}.id`, "is a duplicate cloze blank id");
+      ids2.add(id2);
+      return { id: id2, answer: parseExactAnswer(blank.answer, `${blankPath}.answer`, wrongAnswers) };
+    });
+    if (!blanks.length) fail$3(`${path}.blanks`, "must contain at least one blank");
+    return {
+      ...exerciseIdentity(exercise, path),
+      kind: "cloze",
+      japanese: text$k(exercise.japanese, `${path}.japanese`),
+      autoGraded: true,
+      blanks
+    };
+  }
+  function parseMatchingExercise(value, path) {
+    const exercise = record$16(value, path);
+    if (exercise.kind !== "matching") return void 0;
+    if (exercise.autoGraded !== true) {
+      if (exercise.autoGraded === false) return void 0;
+      fail$3(`${path}.autoGraded`, "must be true or false");
+    }
+    if (exercise.pluginTarget !== "academy-drag-sort") {
+      fail$3(`${path}.pluginTarget`, "must be academy-drag-sort");
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const sourceItemsExact = stringArray$4(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = record$16(exercise.answers, `${path}.answers`);
+    assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
+    const values = stringArray$4(answers.values, `${path}.answers.values`);
+    if (sourceItemsExact.length < 2 || sourceItemsExact.length !== values.length) {
+      fail$3(path, "must have the same number of source items and matching values");
+    }
+    if (new Set(values).size !== values.length) {
+      fail$3(`${path}.answers.values`, "must be unique for deterministic matching");
+    }
+    return {
+      ...exerciseIdentity(exercise, path),
+      kind: "matching",
+      autoGraded: true,
+      pluginTarget: "academy-drag-sort",
+      sourceItemsExact,
+      values
+    };
+  }
+  function parseOrderingExercise(value, path) {
+    const exercise = record$16(value, path);
+    if (exercise.kind !== "ordering") return void 0;
+    if (exercise.autoGraded !== true) {
+      if (exercise.autoGraded === false) return void 0;
+      fail$3(`${path}.autoGraded`, "must be true or false");
+    }
+    if (exercise.pluginTarget !== "academy-sequence") {
+      fail$3(`${path}.pluginTarget`, "must be academy-sequence");
+    }
+    assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
+    const identity2 = exerciseIdentity(exercise, path);
+    const hasTiles = exercise.tiles !== void 0 || exercise.answer !== void 0;
+    const hasCues = exercise.sourceItemsExact !== void 0 || exercise.answers !== void 0;
+    if (hasTiles === hasCues) fail$3(path, "must define exactly one ordering source shape");
+    if (hasTiles) {
+      const tiles = stringArray$4(exercise.tiles, `${path}.tiles`);
+      if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
+        fail$3(`${path}.tiles`, "must contain at least two unique tiles");
+      }
+      return {
+        ...identity2,
+        kind: "ordering",
+        mode: "tiles",
+        autoGraded: true,
+        pluginTarget: "academy-sequence",
+        tiles,
+        answer: parseExactAnswer(exercise.answer, `${path}.answer`)
+      };
+    }
+    const sourceItemsExact = stringArray$4(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = record$16(exercise.answers, `${path}.answers`);
+    assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
+    const values = stringArray$4(answers.values, `${path}.answers.values`);
+    if (!sourceItemsExact.length || sourceItemsExact.length !== values.length) {
+      fail$3(path, "must have the same number of ordering cues and values");
+    }
+    return {
+      ...identity2,
+      kind: "ordering",
+      mode: "cues",
+      autoGraded: true,
+      pluginTarget: "academy-sequence",
+      sourceItemsExact,
+      values,
+      ...exercise.workedExampleExact === void 0 ? {} : { workedExampleExact: text$k(exercise.workedExampleExact, `${path}.workedExampleExact`) }
+    };
+  }
+  function exerciseIdentity(exercise, path) {
+    return {
+      id: text$k(exercise.id, `${path}.id`),
+      prompt: localized$h(exercise.prompt, `${path}.prompt`),
+      explanation: text$k(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }
+    };
+  }
+  function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
+    const answer2 = record$16(value, path);
+    const primary = text$k(answer2.primary, `${path}.primary`);
+    const alternatives = answer2.alternatives === void 0 ? [] : stringArray$4(answer2.alternatives, `${path}.alternatives`);
+    return {
+      primary,
+      alternatives: alternatives.filter((candidate2) => !rejected.has(normalizeAnswer(candidate2)))
+    };
+  }
+  function wrongAnswerTriggers(value, path) {
+    if (value === void 0) return /* @__PURE__ */ new Set();
+    return new Set(array$15(value, path).map((candidate2, index) => {
+      const item2 = record$16(candidate2, `${path}[${index}]`);
+      return normalizeAnswer(text$k(item2.trigger, `${path}[${index}].trigger`));
+    }));
+  }
+  function normalizeAnswer(value) {
+    return value.normalize("NFKC").replace(/[\s。、！？!?]/gu, "").toLocaleLowerCase("ja");
+  }
+  function stringArray$4(value, path) {
+    return array$15(value, path).map((candidate2, index) => text$k(candidate2, `${path}[${index}]`));
+  }
+  function assertAfterAttemptVisibility(value, path) {
+    if (value !== void 0 && value !== "after-attempt") fail$3(path, "must be after-attempt");
+  }
   function isLocalized(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const item2 = value;
@@ -9492,7 +9631,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const activities = [];
     const sourceVocabularyActivities = /* @__PURE__ */ new Map();
     const sourceVocabularyRuntime = createActivityRuntime([sourceVocabularySheetPlugin]);
-    const answers = /* @__PURE__ */ new Map();
+    const evaluators = /* @__PURE__ */ new Map();
     for (const [componentIndex, component] of authored.components.entries()) {
       if (component.sourceVocabularySheet) {
         for (const activity2 of toSourceVocabularyActivities(id2, component.sourceVocabularySheet)) {
@@ -9511,10 +9650,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       for (const [exerciseIndex, value] of (component.exercises ?? []).entries()) {
         const path = `package.components[${componentIndex}].exercises[${exerciseIndex}]`;
         const normalized2 = normalizeLegacyChoice(id2, value, path);
+        const structured = adaptStructuredSourceExercise(id2, normalized2, path, component.teachingSupport);
+        if (structured) {
+          if (seen.has(structured.activity.sourceQuestionId)) {
+            throw new TypeError(`Duplicate exercise id ${structured.activity.sourceQuestionId}.`);
+          }
+          seen.add(structured.activity.sourceQuestionId);
+          activities.push(structured.activity);
+          evaluators.set(structured.activity.id, structured.evaluate);
+          continue;
+        }
         const packagedListening = parsePackagedListeningChoice(id2, value, path);
         const choice2 = parseChoiceExercise(normalized2, path) ?? packagedListening?.exercise;
         const exact2 = choice2 || !supportsGroundedExact ? void 0 : parseExactExercise(normalized2, path);
-        const adapted = choice2 || exact2 ? [{ exercise: choice2 ?? exact2, sourceQuestionId: `${id2}/${(choice2 ?? exact2).id}` }] : adaptSupportedSourceExercise(id2, normalized2, path);
+        const adapted = choice2 || exact2 ? [{ exercise: choice2 ?? exact2, sourceQuestionId: `${id2}/${(choice2 ?? exact2).id}` }] : [];
         for (const item2 of adapted) {
           const { exercise, sourceQuestionId: sourceQuestionId2 } = item2;
           if (seen.has(sourceQuestionId2)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId2}.`);
@@ -9540,7 +9689,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             item2.authoredSource
           );
           activities.push(activity2);
-          answers.set(activity2.id, { kind: exercise.kind === "choice" ? "choice" : "text", exercise, mapping: mapping2 });
+          evaluators.set(activity2.id, (response) => evaluateSimpleExercise(id2, exercise, mapping2, response));
         }
       }
     }
@@ -9560,38 +9709,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       activities,
       media,
       provenance: { source: { ...source2 }, packageId: id2, packageProvenance: authored.provenance },
-      evaluate(activityId, responseId) {
+      evaluate(activityId, response) {
         const sourceVocabulary = sourceVocabularyActivities.get(activityId);
         if (sourceVocabulary) {
-          const evaluation = sourceVocabularyRuntime.evaluate(sourceVocabulary, responseId);
+          const evaluation = sourceVocabularyRuntime.evaluate(sourceVocabulary, response);
           return { result: evaluation.result, reviewSeeds: evaluation.reviewSeeds };
         }
-        const answer2 = answers.get(activityId);
-        if (!answer2) throw new TypeError(`Unknown authored activity ${activityId}.`);
-        const passed = answer2.kind === "choice" ? answer2.exercise.options.find((candidate2) => candidate2.id === responseId)?.correct : acceptedExactAnswers(answer2.exercise).has(normalizeExactAnswer(responseId));
-        if (passed === void 0) throw new TypeError(`Unknown choice response ${responseId}.`);
-        const result = {
-          outcome: passed ? "pass" : "lapse",
-          score: passed ? 1 : 0,
-          errorTags: passed ? [] : [`${answer2.mapping.conceptId}:repair`],
-          feedback: {
-            explanation: answer2.mapping.feedback,
-            ...passed ? {} : { repairPrompt: answer2.mapping.repair, nearbyExample: answer2.mapping.example }
-          }
-        };
-        return {
-          result,
-          reviewSeeds: [{
-            id: `review:${answer2.exercise.id}:${answer2.mapping.conceptId}`,
-            conceptId: answer2.mapping.conceptId,
-            reason: passed ? "new-learning" : "repair",
-            sourceQuestionId: `${id2}/${answer2.exercise.id}`,
-            content: answer2.mapping.review
-          }]
-        };
+        const evaluate = evaluators.get(activityId);
+        if (!evaluate) throw new TypeError(`Unknown authored activity ${activityId}.`);
+        return evaluate(response);
       }
     };
-    return assertAuthoredWeekPedagogy(week);
+    assertStructuredWeekPedagogy(week);
+    return week;
   }
   function toSourceVocabularyActivities(packageId, sheet2) {
     return sheet2.items.map((item2) => {
@@ -9655,205 +9785,222 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
     return { ...exercise, options };
   }
-  function adaptSupportedSourceExercise(packageId, value, path) {
-    const candidate2 = recordField$1(value, path);
-    if (candidate2.kind !== "cloze" && candidate2.kind !== "matching" && candidate2.kind !== "ordering") return [];
-    if (candidate2.autoGraded === false) return [];
-    if (candidate2.autoGraded !== true) throw new TypeError(`${path}.autoGraded must be true or false.`);
-    switch (candidate2.kind) {
-      case "cloze":
-        return adaptClozeExercise(packageId, candidate2, path);
-      case "matching":
-        return adaptMatchingExercise(packageId, candidate2, path);
-      case "ordering":
-        return adaptOrderingExercise(packageId, candidate2, path);
-    }
+  function adaptStructuredSourceExercise(packageId, value, path, teachingSupport) {
+    const cloze = parseClozeExercise(value, path);
+    if (cloze) return adaptClozeExercise(packageId, cloze, value, path, teachingSupport);
+    const matching = parseMatchingExercise(value, path);
+    if (matching) return adaptMatchingExercise(packageId, matching, value, path, teachingSupport);
+    const ordering = parseOrderingExercise(value, path);
+    if (ordering) return adaptOrderingExercise(packageId, ordering, value, path, teachingSupport);
+    return void 0;
   }
-  function adaptClozeExercise(packageId, candidate2, path) {
-    const id2 = textField(candidate2.id, `${path}.id`);
-    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Fill the gap.");
-    const japanese2 = textField(candidate2.japanese, `${path}.japanese`);
-    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
-    const reviewTag = optionalTextField(candidate2.reviewTag, `${path}.reviewTag`);
-    const blanks = arrayField(candidate2.blanks, `${path}.blanks`);
-    if (!blanks.length) throw new TypeError(`${path}.blanks must contain at least one blank.`);
-    const blankIds = /* @__PURE__ */ new Set();
-    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
-    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
-    return blanks.map((value, index) => {
-      const blankPath = `${path}.blanks[${index}]`;
-      const blank = recordField$1(value, blankPath);
-      const blankId = textField(blank.id, `${blankPath}.id`);
-      if (blankIds.has(blankId)) throw new TypeError(`Duplicate cloze blank id ${packageId}/${id2}/${blankId}.`);
-      blankIds.add(blankId);
-      const wrongAnswers = wrongAnswerTriggers(candidate2.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
-      const answer2 = exactAnswerField(blank.answer, `${blankPath}.answer`, wrongAnswers);
-      const sourceQuestionId2 = `${packageId}/${id2}${blanks.length === 1 ? "" : `:${blankId}`}`;
-      const exercisePrompt = sourcePrompt(
-        prompt2,
-        safeClozeSource(japanese2, answer2.primary),
-        blanks.length === 1 ? void 0 : {
-          en: `Blank ${index + 1} of ${blanks.length}`,
-          ja: `${index + 1} / ${blanks.length}`
-        }
-      );
-      const exercise = {
-        id: blanks.length === 1 ? id2 : `${id2}:${blankId}`,
-        kind: "exact",
-        prompt: exercisePrompt,
-        explanation: explanation2,
-        ...reviewTag ? { reviewTag } : {},
-        autoGraded: true,
-        answer: answer2
-      };
-      return {
-        exercise,
-        sourceQuestionId: sourceQuestionId2,
-        mapping: sourceExerciseOverlay(
-          packageId,
-          `${reviewTag ?? id2}:${blankId}`,
-          answer2.primary,
-          explanation2,
-          explanation2
-        ),
-        curriculumPhase,
-        authoredSource
-      };
-    });
-  }
-  function adaptMatchingExercise(packageId, candidate2, path) {
-    if (candidate2.pluginTarget !== "academy-drag-sort") {
-      throw new TypeError(`${path}.pluginTarget must be academy-drag-sort for an auto-graded matching exercise.`);
-    }
-    const id2 = textField(candidate2.id, `${path}.id`);
-    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Match each item to its answer.");
-    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
-    const sourceItems = textArrayField(candidate2.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = recordField$1(candidate2.answers, `${path}.answers`);
-    const values = textArrayField(answers.values, `${path}.answers.values`);
-    if (sourceItems.length < 2 || sourceItems.length !== values.length) {
-      throw new TypeError(`${path} must have the same number of source items and matching answers.`);
-    }
-    if (new Set(values).size !== values.length) {
-      throw new TypeError(`${path}.answers.values must be unique for deterministic matching.`);
-    }
-    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
-    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
-    return sourceItems.map((sourceItem, itemIndex) => {
-      const exerciseId = `${id2}:match-${itemIndex + 1}`;
-      const displayedAnswers = rotate(values, itemIndex * 2 + 1);
-      const exercise = {
-        id: exerciseId,
-        kind: "choice",
-        prompt: sourcePrompt(prompt2, sourceItem, {
-          en: `Item ${itemIndex + 1} of ${sourceItems.length}`,
-          ja: `${itemIndex + 1} / ${sourceItems.length}`
-        }),
-        explanation: explanation2,
-        autoGraded: true,
-        options: displayedAnswers.map((answer2, optionIndex) => ({
-          id: `match-option-${optionIndex + 1}`,
-          label: { en: answer2, ja: answer2 },
-          correct: answer2 === values[itemIndex]
+  function adaptClozeExercise(packageId, exercise, raw, path, teachingSupport) {
+    const sourceQuestionId2 = `${packageId}/${exercise.id}`;
+    const mappings = exercise.blanks.map((blank) => sourceExerciseOverlay(
+      packageId,
+      `${exercise.reviewTag ?? exercise.id}:${blank.id}`,
+      blank.answer.primary,
+      exercise.explanation,
+      exercise.prompt.en
+    ));
+    const activity2 = {
+      ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId2, mappings, teachingSupport),
+      kind: "academy-authored-cloze",
+      responseKind: "authored-cloze-fields",
+      payload: {
+        sentence: safeClozeSentence(exercise),
+        blanks: exercise.blanks.map((blank, index) => ({
+          id: blank.id,
+          label: { en: `Blank ${index + 1}`, ja: `${index + 1}ばんの空欄` }
         }))
-      };
-      return {
-        exercise,
-        sourceQuestionId: `${packageId}/${exerciseId}`,
-        mapping: sourceExerciseOverlay(packageId, id2, values[itemIndex], explanation2, sourceItem),
-        curriculumPhase,
-        authoredSource
-      };
-    });
-  }
-  function adaptOrderingExercise(packageId, candidate2, path) {
-    if (candidate2.pluginTarget !== "academy-sequence") {
-      throw new TypeError(`${path}.pluginTarget must be academy-sequence for an auto-graded ordering exercise.`);
-    }
-    const id2 = textField(candidate2.id, `${path}.id`);
-    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Put the items in order.");
-    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
-    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
-    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
-    if (candidate2.tiles !== void 0 || candidate2.answer !== void 0) {
-      const tiles = textArrayField(candidate2.tiles, `${path}.tiles`);
-      if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
-        throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
       }
-      const answer2 = exactAnswerField(candidate2.answer, `${path}.answer`);
-      const displayedTiles = deterministicShuffle$1(tiles, `${packageId}:${id2}`);
-      const exercise = {
-        id: id2,
-        kind: "exact",
-        prompt: sourcePrompt(prompt2, {
-          en: `Tiles: ${displayedTiles.join(" / ")}`,
-          ja: `カード: ${displayedTiles.join(" / ")}`
-        }),
-        explanation: explanation2,
-        autoGraded: true,
-        answer: answer2
-      };
-      return [{
-        exercise,
-        sourceQuestionId: `${packageId}/${id2}`,
-        mapping: sourceExerciseOverlay(packageId, id2, answer2.primary, explanation2, prompt2.en),
-        curriculumPhase,
-        authoredSource
-      }];
-    }
-    const sourceItems = textArrayField(candidate2.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = recordField$1(candidate2.answers, `${path}.answers`);
-    const values = textArrayField(answers.values, `${path}.answers.values`);
-    if (!sourceItems.length || sourceItems.length !== values.length) {
-      throw new TypeError(`${path} must have the same number of ordering cues and answers.`);
-    }
-    const workedExample = optionalTextField(candidate2.workedExampleExact, `${path}.workedExampleExact`);
-    return sourceItems.map((sourceItem, index) => {
-      const exerciseId = `${id2}:item-${index + 1}`;
-      const exercisePrompt = sourcePrompt(
-        prompt2,
-        sourceItem,
-        workedExample ? { en: `Source example: ${workedExample}`, ja: `例: ${workedExample}` } : void 0
-      );
-      const exercise = {
-        id: exerciseId,
-        kind: "exact",
-        prompt: exercisePrompt,
-        explanation: explanation2,
-        autoGraded: true,
-        answer: { primary: values[index], alternatives: [] }
-      };
-      return {
-        exercise,
-        sourceQuestionId: `${packageId}/${exerciseId}`,
-        mapping: sourceExerciseOverlay(packageId, id2, values[index], explanation2, sourceItem),
-        curriculumPhase,
-        authoredSource
-      };
-    });
-  }
-  function sourcePrompt(prompt2, source2, scaffold) {
-    const sourceText = typeof source2 === "string" ? { en: source2, ja: source2 } : source2;
+    };
     return {
-      en: [prompt2.en, sourceText.en, scaffold?.en].filter(Boolean).join("\n"),
-      ja: [prompt2.ja, sourceText.ja, scaffold?.ja].filter(Boolean).join("\n")
+      activity: activity2,
+      evaluate: (response) => {
+        const values = clozeResponseValues(response, exercise.blanks.map((blank) => blank.id));
+        const passed = exercise.blanks.map((blank) => acceptedAnswers(blank.answer).has(normalizeExactAnswer(values.get(blank.id) ?? "")));
+        return structuredEvaluation(exercise.id, sourceQuestionId2, mappings, passed);
+      }
     };
   }
-  function exactAnswerField(value, path, rejected = /* @__PURE__ */ new Set()) {
-    const answer2 = recordField$1(value, path);
-    const primary = textField(answer2.primary, `${path}.primary`);
-    const alternatives = answer2.alternatives === void 0 ? [] : textArrayField(answer2.alternatives, `${path}.alternatives`);
+  function adaptMatchingExercise(packageId, exercise, raw, path, teachingSupport) {
+    const sourceQuestionId2 = `${packageId}/${exercise.id}`;
+    const itemIds = exercise.sourceItemsExact.map((_, index) => `item-${index + 1}`);
+    const targetIds = exercise.values.map((_, index) => `target-${index + 1}`);
+    const mappings = exercise.values.map((value, index) => sourceExerciseOverlay(
+      packageId,
+      `${exercise.reviewTag ?? exercise.id}:match-${index + 1}`,
+      value,
+      exercise.explanation,
+      exercise.sourceItemsExact[index]
+    ));
+    const activity2 = {
+      ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId2, mappings, teachingSupport),
+      kind: "academy-authored-matching",
+      responseKind: "authored-one-to-one-matching",
+      payload: {
+        items: itemIds.map((id2, index) => ({ id: id2, label: exercise.sourceItemsExact[index] })),
+        targets: deterministicShuffle$1(
+          targetIds.map((id2, index) => ({ id: id2, label: exercise.values[index] })),
+          `${packageId}:${exercise.id}:targets`
+        )
+      }
+    };
     return {
-      primary,
-      alternatives: alternatives.filter((candidate2) => !rejected.has(normalizeExactAnswer(candidate2)))
+      activity: activity2,
+      evaluate: (response) => {
+        const placements = matchingResponsePlacements(response, itemIds, targetIds);
+        const passed = itemIds.map((itemId, index) => placements.get(itemId) === targetIds[index]);
+        return structuredEvaluation(exercise.id, sourceQuestionId2, mappings, passed);
+      }
     };
   }
-  function wrongAnswerTriggers(value, path) {
-    if (value === void 0) return /* @__PURE__ */ new Set();
-    return new Set(arrayField(value, path).map((candidate2, index) => {
-      const item2 = recordField$1(candidate2, `${path}[${index}]`);
-      return normalizeExactAnswer(textField(item2.trigger, `${path}[${index}].trigger`));
-    }));
+  function adaptOrderingExercise(packageId, exercise, raw, path, teachingSupport) {
+    const sourceQuestionId2 = `${packageId}/${exercise.id}`;
+    const values = exercise.mode === "tiles" ? [exercise.answer.primary] : exercise.values;
+    const cues = exercise.mode === "tiles" ? [void 0] : exercise.sourceItemsExact;
+    const tokenGroups = exercise.mode === "tiles" ? [exercise.tiles] : values.map(tokenizeJapaneseOrderingValue);
+    const expected = tokenGroups.map((tokens, sequenceIndex) => tokens.map((_, tokenIndex) => `sequence-${sequenceIndex + 1}-item-${tokenIndex + 1}`));
+    const mappings = values.map((value, index) => sourceExerciseOverlay(
+      packageId,
+      `${exercise.reviewTag ?? exercise.id}:sequence-${index + 1}`,
+      value,
+      exercise.explanation,
+      cues[index] ?? exercise.prompt.en
+    ));
+    const activity2 = {
+      ...structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId2, mappings, teachingSupport),
+      kind: "academy-authored-ordering",
+      responseKind: "authored-ordered-items",
+      payload: {
+        sequences: tokenGroups.map((tokens, sequenceIndex) => {
+          const items = tokens.map((label, tokenIndex) => ({
+            id: expected[sequenceIndex][tokenIndex],
+            label
+          }));
+          return {
+            id: `sequence-${sequenceIndex + 1}`,
+            ...cues[sequenceIndex] ? { cue: cues[sequenceIndex] } : {},
+            items: deterministicShuffle$1(items, `${packageId}:${exercise.id}:sequence-${sequenceIndex + 1}`)
+          };
+        })
+      }
+    };
+    return {
+      activity: activity2,
+      evaluate: (response) => {
+        const sequences = orderingResponseSequences(response, activity2.payload.sequences);
+        const passed = expected.map((itemIds, index) => arraysEqual(sequences.get(`sequence-${index + 1}`), itemIds));
+        return structuredEvaluation(exercise.id, sourceQuestionId2, mappings, passed);
+      }
+    };
+  }
+  function structuredActivityBase(packageId, exercise, raw, path, sourceQuestionId2, mappings, teachingSupport) {
+    const candidate2 = recordField$1(raw, path);
+    const authoredSource = authoredSourceProvenance(candidate2, exercise.id, path);
+    return {
+      id: `authored:${sourceQuestionId2}`,
+      sourceQuestionId: sourceQuestionId2,
+      conceptIds: mappings.map((mapping2) => mapping2.conceptId),
+      curriculumPhase: sourceCurriculumPhase(candidate2, path, "guided-practice"),
+      prompt: exercise.prompt,
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      teachingSupport,
+      provenance: { packageId, sourceQuestionId: sourceQuestionId2, authoredSource }
+    };
+  }
+  function assertStructuredWeekPedagogy(week) {
+    const activities = week.activities.map((activity2) => isStructuredActivity(activity2) ? {
+      ...activity2,
+      options: [{ id: "pedagogy:lapse-probe", label: { en: "Incomplete response", ja: "未回答" } }]
+    } : activity2);
+    assertAuthoredWeekPedagogy({ ...week, activities });
+  }
+  function isStructuredActivity(activity2) {
+    return activity2.kind === "academy-authored-cloze" || activity2.kind === "academy-authored-matching" || activity2.kind === "academy-authored-ordering";
+  }
+  function structuredEvaluation(exerciseId, sourceQuestionId2, mappings, passed) {
+    if (!mappings.length || mappings.length !== passed.length) throw new TypeError("Structured grading targets are inconsistent.");
+    const correct2 = passed.filter(Boolean).length;
+    const outcome = correct2 === passed.length ? "pass" : "lapse";
+    const repair = mappings[passed.findIndex((value) => !value)] ?? mappings[0];
+    return {
+      result: {
+        outcome,
+        score: correct2 / passed.length,
+        errorTags: mappings.flatMap((mapping2, index) => passed[index] ? [] : [`${mapping2.conceptId}:repair`]),
+        feedback: {
+          explanation: mappings[0].feedback,
+          ...outcome === "pass" ? {} : { repairPrompt: repair.repair, nearbyExample: repair.example }
+        }
+      },
+      reviewSeeds: mappings.map((mapping2, index) => ({
+        id: `review:${exerciseId}:${mapping2.conceptId}`,
+        conceptId: mapping2.conceptId,
+        reason: passed[index] ? "new-learning" : "repair",
+        sourceQuestionId: sourceQuestionId2,
+        content: mapping2.review
+      }))
+    };
+  }
+  function clozeResponseValues(response, blankIds) {
+    if (response === "pedagogy:lapse-probe") return /* @__PURE__ */ new Map();
+    if (typeof response === "string" || response.kind !== "cloze" || response.values.length !== blankIds.length) {
+      throw new TypeError("A cloze response must fill every authored blank once.");
+    }
+    const allowed = new Set(blankIds);
+    const values = /* @__PURE__ */ new Map();
+    for (const entry2 of response.values) {
+      if (!allowed.has(entry2.blankId) || values.has(entry2.blankId) || typeof entry2.value !== "string") {
+        throw new TypeError("A cloze response must fill every authored blank once.");
+      }
+      values.set(entry2.blankId, entry2.value);
+    }
+    return values;
+  }
+  function matchingResponsePlacements(response, itemIds, targetIds) {
+    if (response === "pedagogy:lapse-probe") return /* @__PURE__ */ new Map();
+    if (typeof response === "string" || response.kind !== "matching" || response.placements.length !== itemIds.length) {
+      throw new TypeError("A matching response must place every authored item once.");
+    }
+    const allowedItems = new Set(itemIds);
+    const allowedTargets = new Set(targetIds);
+    const usedTargets = /* @__PURE__ */ new Set();
+    const placements = /* @__PURE__ */ new Map();
+    for (const placement of response.placements) {
+      if (!allowedItems.has(placement.itemId) || placements.has(placement.itemId) || !allowedTargets.has(placement.targetId) || usedTargets.has(placement.targetId)) {
+        throw new TypeError("A matching response must use every authored item and target once.");
+      }
+      placements.set(placement.itemId, placement.targetId);
+      usedTargets.add(placement.targetId);
+    }
+    return placements;
+  }
+  function orderingResponseSequences(response, expected) {
+    if (response === "pedagogy:lapse-probe") return /* @__PURE__ */ new Map();
+    if (typeof response === "string" || response.kind !== "ordering" || response.sequences.length !== expected.length) {
+      throw new TypeError("An ordering response must order every authored sequence once.");
+    }
+    const sequences = /* @__PURE__ */ new Map();
+    for (const entry2 of response.sequences) {
+      const model2 = expected.find((sequence) => sequence.id === entry2.sequenceId);
+      const allowed = new Set(model2?.items.map((item2) => item2.id) ?? []);
+      if (!model2 || sequences.has(entry2.sequenceId) || entry2.itemIds.length !== model2.items.length || new Set(entry2.itemIds).size !== entry2.itemIds.length || entry2.itemIds.some((id2) => !allowed.has(id2))) {
+        throw new TypeError("An ordering response must use every authored item once.");
+      }
+      sequences.set(entry2.sequenceId, [...entry2.itemIds]);
+    }
+    return sequences;
+  }
+  function acceptedAnswers(answer2) {
+    return new Set([answer2.primary, ...answer2.alternatives].map(normalizeExactAnswer));
+  }
+  function safeClozeSentence(exercise) {
+    return exercise.blanks.reduce(
+      (sentence, blank) => safeClozeSource(sentence, blank.answer.primary),
+      exercise.japanese
+    );
   }
   function safeClozeSource(source2, primary) {
     const normalizedPrimary = normalizeExactAnswer(primary);
@@ -9867,12 +10014,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return source2;
   }
-  function textArrayField(value, path) {
-    return arrayField(value, path).map((candidate2, index) => textField(candidate2, `${path}[${index}]`));
-  }
   function rotate(values, offset) {
     const split = offset % values.length;
     return [...values.slice(split), ...values.slice(0, split)];
+  }
+  function tokenizeJapaneseOrderingValue(value) {
+    const segments = [...new Intl.Segmenter("ja", { granularity: "word" }).segment(value)].map((segment) => segment.segment).filter((segment) => segment.trim());
+    const tokens = [];
+    for (const segment of segments) {
+      if (/^[。、！？!?]$/u.test(segment) && tokens.length) tokens[tokens.length - 1] += segment;
+      else tokens.push(segment);
+    }
+    if (tokens.length >= 2) return tokens;
+    const characters = [...value].filter((character) => character.trim());
+    if (characters.length < 2) throw new TypeError("An authored ordering value needs at least two movable units.");
+    return characters;
+  }
+  function arraysEqual(left, right) {
+    return Boolean(left && left.length === right.length && left.every((value, index) => value === right[index]));
   }
   function deterministicShuffle$1(values, seed) {
     const shuffled2 = [...values];
@@ -10077,6 +10236,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isLegacyAuthoredWeek(packageId) {
     return packageId.startsWith("l1-l") && Number(packageId.match(/\d+$/u)?.[0] ?? 0) <= 10;
+  }
+  function evaluateSimpleExercise(packageId, exercise, mapping2, response) {
+    if (typeof response !== "string") throw new TypeError(`Activity ${exercise.id} expects a text response id.`);
+    const passed = exercise.kind === "choice" ? exercise.options.find((candidate2) => candidate2.id === response)?.correct : acceptedExactAnswers(exercise).has(normalizeExactAnswer(response));
+    if (passed === void 0) throw new TypeError(`Unknown choice response ${response}.`);
+    return {
+      result: {
+        outcome: passed ? "pass" : "lapse",
+        score: passed ? 1 : 0,
+        errorTags: passed ? [] : [`${mapping2.conceptId}:repair`],
+        feedback: {
+          explanation: mapping2.feedback,
+          ...passed ? {} : { repairPrompt: mapping2.repair, nearbyExample: mapping2.example }
+        }
+      },
+      reviewSeeds: [{
+        id: `review:${exercise.id}:${mapping2.conceptId}`,
+        conceptId: mapping2.conceptId,
+        reason: passed ? "new-learning" : "repair",
+        sourceQuestionId: `${packageId}/${exercise.id}`,
+        content: mapping2.review
+      }]
+    };
   }
   function acceptedExactAnswers(exercise) {
     return new Set([exercise.answer.primary, ...exercise.answer.alternatives].map(normalizeExactAnswer));
@@ -10639,12 +10821,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const assessment = proofs.assessment.evidence;
     registry.resolve(assessment.grader, assessment.method === "deterministic" ? "deterministic-grader" : "rubric-grader");
     const definitions = assessment.method === "deterministic" ? assessment.answerSets.map((ref) => registry.resolve(ref, "answer-set")) : assessment.rubrics.map((ref) => registry.resolve(ref, "rubric"));
-    const acceptedAnswers = uniqueText$3(definitions.flatMap((definition2) => namedTextValues(definition2.value, ["acceptedAnswer", "acceptedAnswers"])));
+    const acceptedAnswers2 = uniqueText$3(definitions.flatMap((definition2) => namedTextValues(definition2.value, ["acceptedAnswer", "acceptedAnswers"])));
     const modelAnswers = uniqueText$3(definitions.flatMap((definition2) => namedTextValues(definition2.value, ["modelAnswer", "modelAnswers"])));
-    if (assessment.method === "deterministic" && !acceptedAnswers.length) {
+    if (assessment.method === "deterministic" && !acceptedAnswers2.length) {
       throw new TypeError("Deterministic answer definitions expose no auditable accepted answers.");
     }
-    return { acceptedAnswers, modelAnswers };
+    return { acceptedAnswers: acceptedAnswers2, modelAnswers };
   }
   function namedTextValues(value, names) {
     if (Array.isArray(value)) return value.flatMap((item2) => namedTextValues(item2, names));
@@ -33139,7 +33321,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     root.addEventListener("pointerdown", markUserInteraction, { capture: true, signal: lifecycle.signal });
     root.addEventListener("keydown", markUserInteraction, { capture: true, signal: lifecycle.signal });
     back.addEventListener("click", () => backControl?.onBack(), { signal: lifecycle.signal });
-    japanese2.addEventListener("click", () => skipTextReveal(), { signal: lifecycle.signal });
+    lineBody.addEventListener("click", (event) => {
+      if (japanese2.dataset.performanceText !== "revealing") return;
+      event.preventDefault();
+      skipTextReveal();
+    }, { signal: lifecycle.signal });
     const closeLog = () => {
       if (logPanel.hidden) return;
       dialogueHeader.append(lineTools);
@@ -33221,51 +33407,52 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     function startTextReveal(lineId) {
       clearTextRevealTimer();
       if (!currentLine || currentLine.id !== lineId) return;
-      const characters = [...currentLine.japanese];
-      if (characters.length <= 1) {
+      const units = textRevealUnits(currentLine.japanese);
+      if (units.length <= 1) {
         performance2.completeTextReveal(lineId);
         return;
       }
       activeTextRevealLineId = lineId;
       const token = activeTextRevealToken;
-      let visibleCharacters = 1;
+      let visibleUnits = 1;
+      const revealText = document.createTextNode(units[0] ?? "");
       japanese2.dataset.performanceText = "revealing";
-      japanese2.textContent = characters[0] ?? "";
-      const baseDelayMs = Math.max(38, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+      dialogue2.dataset.textRevealing = "";
+      dialogue2.setAttribute("aria-busy", "true");
+      japanese2.replaceChildren(revealText);
+      const baseDelayMs = Math.max(38, Math.round(textRevealDuration(units.length) / units.length));
       const revealNext = () => {
         if (typeof window === "undefined") {
           textRevealTimer = void 0;
           return;
         }
         if (disposed || token !== activeTextRevealToken || activeTextRevealLineId !== lineId || currentLine?.id !== lineId) return;
-        visibleCharacters += 1;
-        japanese2.textContent = characters.slice(0, visibleCharacters).join("");
-        if (visibleCharacters >= characters.length) {
+        revealText.appendData(units[visibleUnits] ?? "");
+        visibleUnits += 1;
+        if (visibleUnits >= units.length) {
           textRevealTimer = void 0;
           performance2.completeTextReveal(lineId);
           return;
         }
         textRevealTimer = window.setTimeout(
           revealNext,
-          textRevealCharacterDelay(
-            characters[visibleCharacters - 1] ?? "",
-            characters[visibleCharacters] ?? "",
-            baseDelayMs
-          )
+          textRevealCharacterDelay(units, visibleUnits - 1, baseDelayMs)
         );
       };
       textRevealTimer = window.setTimeout(
         revealNext,
-        90 + textRevealCharacterDelay(characters[0] ?? "", characters[1] ?? "", baseDelayMs)
+        90 + textRevealCharacterDelay(units, 0, baseDelayMs)
       );
     }
     function finishTextReveal(lineId) {
       if (activeTextRevealLineId === lineId) {
         clearTextRevealTimer();
         activeTextRevealLineId = void 0;
+        delete japanese2.dataset.performanceText;
+        delete dialogue2.dataset.textRevealing;
+        dialogue2.removeAttribute("aria-busy");
       }
       if (!currentLine || currentLine.id !== lineId) return;
-      delete japanese2.dataset.performanceText;
       applyReadingState(readingVisible, false);
     }
     readingToggle.addEventListener("click", () => {
@@ -33605,20 +33792,43 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     if (!inert) snapshots.clear();
   }
-  function textRevealDuration(text2) {
-    return Math.max(280, Math.min(1600, [...text2].length * 42));
+  function textRevealDuration(unitCount) {
+    return Math.max(280, Math.min(1600, unitCount * 42));
   }
-  function textRevealCharacterDelay(character, nextCharacter, baseDelayMs) {
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 420;
+  function textRevealUnits(text2) {
+    if (typeof Intl.Segmenter !== "function") return [...text2];
+    return [...new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(text2)].map((segment) => segment.segment);
+  }
+  function textRevealCharacterDelay(units, index, baseDelayMs) {
+    const character = units[index] ?? "";
+    const nextCharacter = units[index + 1] ?? "";
+    const clusterDelayMs = Math.max(16, Math.round(baseDelayMs * 0.42));
+    if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
+    if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 420;
+    if (isSentenceEnd(character)) return baseDelayMs + 420;
     if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
     if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
     if (/[…―—]/u.test(character)) return baseDelayMs + 190;
     if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[「『（【]/u.test(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
-      return Math.max(16, Math.round(baseDelayMs * 0.42));
+      return clusterDelayMs;
     }
     if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
     return baseDelayMs;
+  }
+  function isSentenceEnd(character) {
+    return /[。！？!?]/u.test(character);
+  }
+  function isClosingPunctuation(character) {
+    return /[」』）】〉》〕］｝”’]/u.test(character);
+  }
+  function closesSentence(units, closingIndex) {
+    let index = closingIndex - 1;
+    while (index >= 0 && isClosingPunctuation(units[index] ?? "")) index -= 1;
+    return isSentenceEnd(units[index] ?? "");
   }
   function prefersReducedMotion() {
     return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -57616,13 +57826,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$s(sourceOrder, id2, sourcePrompt2, contextJa, contextEn, correctPositionId, answerSentence) {
+  function round$s(sourceOrder, id2, sourcePrompt, contextJa, contextEn, correctPositionId, answerSentence) {
     const pronoun = correctPositionId === "speaker" ? "これ" : correctPositionId === "listener" ? "それ" : "あれ";
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l04:lesson-2-workbook-2:slot-${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       context: { ja: contextJa, en: contextEn },
       correctPositionId,
       pronoun,
@@ -61255,15 +61465,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$r(sourceOrder, id2, sourcePrompt2, correctA, correctB, acceptedAnswers, meaning) {
+  function round$r(sourceOrder, id2, sourcePrompt, correctA, correctB, acceptedAnswers2, meaning) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l05:lesson-1-workbook-4:slot-${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       correctA,
       correctB,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       meaning,
       conceptId: `concept:l1-l05:no-phrase:${id2}`,
       errorTag: `l1-l05-no-phrase-${id2}`
@@ -61325,7 +61535,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const config = record$Z(exactTask.config, "l1-l05 Genki task config");
     const info = exactText$4(config.info, "l1-l05 Genki source instruction");
     const quizlet = exactText$4(config.quizlet, "l1-l05 Genki quizlet");
-    const acceptedAnswers = [
+    const acceptedAnswers2 = [
       "にほんじんのがくせい",
       "日本人の学生",
       "日本人のがくせい",
@@ -61347,7 +61557,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "みちこさんのせんこう",
       "みちこさんの専攻"
     ];
-    if (source2.payloadSha256 !== GENKI_PAYLOAD_SHA256$2 || source2.scriptSha256 !== GENKI_SCRIPT_SHA256$j || exactTask.engine !== "Genki.generateQuiz" || exactTask.exerciseOrderPreserved !== true || config.type !== "fill" || !info.includes("AのB") || !info.includes("order in which the two nouns appear may be different") || !quizlet.includes("Japanese student") || !quizlet.includes("Takeshi's telephone number") || !quizlet.includes("My friend") || !quizlet.includes("English-language teacher") || !quizlet.includes("Michiko's major") || !acceptedAnswers.every((answer2) => quizlet.includes(answer2))) {
+    if (source2.payloadSha256 !== GENKI_PAYLOAD_SHA256$2 || source2.scriptSha256 !== GENKI_SCRIPT_SHA256$j || exactTask.engine !== "Genki.generateQuiz" || exactTask.exerciseOrderPreserved !== true || config.type !== "fill" || !info.includes("AのB") || !info.includes("order in which the two nouns appear may be different") || !quizlet.includes("Japanese student") || !quizlet.includes("Takeshi's telephone number") || !quizlet.includes("My friend") || !quizlet.includes("English-language teacher") || !quizlet.includes("Michiko's major") || !acceptedAnswers2.every((answer2) => quizlet.includes(answer2))) {
       throw new TypeError("Unexpected l1-l05 Genki source task.");
     }
   }
@@ -65642,32 +65852,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function locationRound(sourceOrder, id2, sourcePrompt2, context2, correctPositionId, acceptedAnswers) {
+  function locationRound(sourceOrder, id2, sourcePrompt, context2, correctPositionId, acceptedAnswers2) {
     return Object.freeze({
       mode: "location-choice",
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId(sourceOrder),
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       context: context2,
       correctPositionId,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
-      answerSentence: acceptedAnswers[0],
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
+      answerSentence: acceptedAnswers2[0],
       conceptId: `concept:l1-l06:place-owner:${id2}`,
       errorTag: `l1-l06-place-owner-${id2}`
     });
   }
-  function ownerRound(sourceOrder, id2, sourcePrompt2, context2, correctPointer, correctItem, acceptedAnswers, sourceReply) {
+  function ownerRound(sourceOrder, id2, sourcePrompt, context2, correctPointer, correctItem, acceptedAnswers2, sourceReply) {
     return Object.freeze({
       mode: "owner-phrase",
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId(sourceOrder),
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       context: context2,
       correctPointer,
       correctItem,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       sourceReply,
       conceptId: `concept:l1-l06:place-owner:${id2}`,
       errorTag: `l1-l06-place-owner-${id2}`
@@ -71898,15 +72108,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTag: `l1-l08-source-time-${id2}`
     };
   }
-  function typedRound$2(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression) {
+  function typedRound$2(sourceOrder, id2, sourcePrompt, acceptedAnswers2, answerExpression) {
     const slot = sourceOrder - 3;
     return {
       mode: "typed-clock",
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l08:lesson-1-workbook-2:slot-${slot}`,
-      sourcePrompt: sourcePrompt2,
-      acceptedAnswers,
+      sourcePrompt,
+      acceptedAnswers: acceptedAnswers2,
       answerExpression,
       conceptId: `concept:l1-l08:source-time:${id2}`,
       errorTag: `l1-l08-source-time-${id2}`
@@ -75502,10 +75712,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function weekday(id2, ja, en) {
     return Object.freeze({ id: id2, ja, en });
   }
-  function genkiProblem(slot, prompt2, cue, acceptedAnswers) {
-    return Object.freeze({ slot, prompt: prompt2, cue, acceptedAnswers: Object.freeze(acceptedAnswers) });
+  function genkiProblem(slot, prompt2, cue, acceptedAnswers2) {
+    return Object.freeze({ slot, prompt: prompt2, cue, acceptedAnswers: Object.freeze(acceptedAnswers2) });
   }
-  function pairRound(sourceOrder, id2, sourcePrompt2, correctTomorrowId, correctYesterdayId) {
+  function pairRound(sourceOrder, id2, sourcePrompt, correctTomorrowId, correctYesterdayId) {
     const tomorrow = requiredWeekday(correctTomorrowId);
     const yesterday = requiredWeekday(correctYesterdayId);
     return Object.freeze({
@@ -75513,7 +75723,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:${MOODLE_SHA256$2}:p1:section-1:item-${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options: WEEKDAYS,
       correctTomorrowId,
       correctYesterdayId,
@@ -75528,7 +75738,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     });
   }
-  function choiceRound(sourceOrder, id2, sourcePrompt2, correctPolarity, correctDayId, copula) {
+  function choiceRound(sourceOrder, id2, sourcePrompt, correctPolarity, correctDayId, copula) {
     const day = requiredWeekday(correctDayId);
     const prefix = correctPolarity === "hai" ? "はい、" : correctPolarity === "iie" ? "いいえ、" : "";
     return Object.freeze({
@@ -75536,7 +75746,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:${MOODLE_SHA256$2}:p2:section-2:item-${sourceOrder - 2}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       correctPolarity,
       dayOptions: WEEKDAYS,
       correctDayId,
@@ -75553,14 +75763,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function typedRound$1(problem2) {
-    const sourcePrompt2 = problem2.cue ? `${problem2.prompt}
+    const sourcePrompt = problem2.cue ? `${problem2.prompt}
 (${problem2.cue})` : problem2.prompt;
     return Object.freeze({
       mode: "typed-past",
       id: `genki-${problem2.slot}`,
       sourceOrder: problem2.slot + 7,
       sourceQuestionId: `${GENKI_TASK_ID$6}:slot-${problem2.slot}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       acceptedAnswers: problem2.acceptedAnswers,
       answerExpression: problem2.acceptedAnswers[0],
       conceptId: `concept:l1-l09:weekly-plan:genki-${problem2.slot}`,
@@ -79311,14 +79521,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: createLessonTenDailyRoutineWorkbookModel()
     });
   }
-  function tenseRound(sourceOrder, id2, sourcePrompt2, labels, correctLabel, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function tenseRound(sourceOrder, id2, sourcePrompt, labels, correctLabel, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     const options = labels.map((label, index) => option$o(`option-${index + 1}`, label));
     return roundBase(
       sourceOrder,
       id2,
       `moodle-worksheet:${GRAMMAR_CHECK_SHA256}:p1:section-2:item-${sourceOrder}`,
       "Moodle · HW Chapter 4 Grammar check · page 1, section 2",
-      sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       hintJa,
       hintEn,
@@ -79331,28 +79541,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     );
   }
-  function shortRound(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function shortRound(sourceOrder, id2, sourcePrompt, acceptedAnswers2, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `moodle-worksheet:${GRAMMAR_CHECK_SHA256}:p2:section-3:item-${sourceOrder - 5}`,
       "Moodle · HW Chapter 4 Grammar check · page 2, section 3",
-      sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       hintJa,
       hintEn,
       exampleJa,
       exampleEn,
-      { mode: "short-answer", acceptedAnswers }
+      { mode: "short-answer", acceptedAnswers: acceptedAnswers2 }
     );
   }
-  function timeRound(sourceOrder, id2, sourcePrompt2, question2, answerSuffix, correctOptionId, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function timeRound(sourceOrder, id2, sourcePrompt, question2, answerSuffix, correctOptionId, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `minna-no-nihongo:${MINNA_SHA256$9}:pdf-p55:printed-p35:practice-b-5:item-${sourceOrder - 9}`,
       "Minna no Nihongo I · Lesson 4 · Practice B 5",
-      sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       hintJa,
       hintEn,
@@ -79361,28 +79571,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { mode: "routine-time", question: question2, answerSuffix, options: TIME_OPTIONS, correctOptionId }
     );
   }
-  function sentenceRound(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function sentenceRound(sourceOrder, id2, sourcePrompt, acceptedAnswers2, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `japanese-genki-interactive:${GENKI_SHA256$t}:workbook-5:item-${sourceOrder - 13}`,
       "Genki Study Resources 2e · Lesson 3 workbook 5",
-      sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       hintJa,
       hintEn,
       exampleJa,
       exampleEn,
-      { mode: "sentence", acceptedAnswers }
+      { mode: "sentence", acceptedAnswers: acceptedAnswers2 }
     );
   }
-  function roundBase(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, hintJa, hintEn, exampleJa, exampleEn, modeFields) {
+  function roundBase(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, hintJa, hintEn, exampleJa, exampleEn, modeFields) {
     return {
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId2,
       sourceLabel: sourceLabel2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       conceptId: `concept:l1-l10:daily-routine:${id2}`,
       errorTag: `l1-l10-daily-routine-${id2}`,
@@ -84045,11 +84255,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFourteenReasonWorkbookBeat() {
     return Object.freeze({ id: "reason-workbook", narrative: { ja: "リエが理由カードを並べ、トムが「どうして」と「から」でつなげます。", en: "Rie lays out reason cards while Tom links them with why and because." }, activity: createLessonFourteenReasonWorkbookModel() });
   }
-  function choice$6(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, mode, labels) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, mode, options: labels.map((label, index) => option$l(index === 0 ? "answer" : `distractor-${index}`, label)), correctOptionId: "answer", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c(mode) });
+  function choice$6(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, mode, labels) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, mode, options: labels.map((label, index) => option$l(index === 0 ? "answer" : `distractor-${index}`, label)), correctOptionId: "answer", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c(mode) });
   }
-  function typed$4(sourceOrder, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$2}:slot-${sourceOrder - 8}`, sourceLabel: "Genki I - Lesson 6 - workbook 7", sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers, mode: "typed", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c("typed") });
+  function typed$4(sourceOrder, id2, sourcePrompt, answerExpression, acceptedAnswers2) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$2}:slot-${sourceOrder - 8}`, sourceLabel: "Genki I - Lesson 6 - workbook 7", sourcePrompt, answerExpression, acceptedAnswers: acceptedAnswers2, mode: "typed", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c("typed") });
   }
   function option$l(id2, label) {
     return Object.freeze({ id: id2, label });
@@ -84114,11 +84324,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonSixteenExistenceLocationWorkbookBeat() {
     return Object.freeze({ id: "existence-location-workbook", narrative: { ja: "アーカーシュとジェニーが、場所カードと人・物カードを分けて文にします。", en: "Aakash and Jenny sort place cards with people and things before making sentences." }, activity: createLessonSixteenExistenceLocationWorkbookModel() });
   }
-  function classify(sourceOrder, id2, sourcePrompt2, answerExpression, nounClass) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `moodle:5881257:b2143f1f:p2:q3:${sourceOrder}`, sourceLabel: "Moodle - Chapter 10-1: Existence of people and things - page 2", sourcePrompt: sourcePrompt2, answerExpression, mode: "classify", nounClass, verb: nounClass === "animate" ? "います" : "あります", conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(nounClass) });
+  function classify(sourceOrder, id2, sourcePrompt, answerExpression, nounClass) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `moodle:5881257:b2143f1f:p2:q3:${sourceOrder}`, sourceLabel: "Moodle - Chapter 10-1: Existence of people and things - page 2", sourcePrompt, answerExpression, mode: "classify", nounClass, verb: nounClass === "animate" ? "います" : "あります", conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(nounClass) });
   }
-  function typed$3(sourceOrder, slot, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$1}:slot-${slot}`, sourceLabel: "Genki I - Lesson 4 - workbook 1", sourcePrompt: sourcePrompt2, answerExpression, mode: "typed", acceptedAnswers, conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(slot === 4 ? "animate" : "inanimate") });
+  function typed$3(sourceOrder, slot, id2, sourcePrompt, answerExpression, acceptedAnswers2) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$1}:slot-${slot}`, sourceLabel: "Genki I - Lesson 4 - workbook 1", sourcePrompt, answerExpression, mode: "typed", acceptedAnswers: acceptedAnswers2, conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(slot === 4 ? "animate" : "inanimate") });
   }
   function teaching$3(sourceQuestionId2, sourceLabel2, pattern, en, ja, example) {
     return Object.freeze({ sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, pattern, explanation: { en, ja }, example });
@@ -84240,13 +84450,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: createLessonSeventeenMuseumLocationWorkbookModel()
     });
   }
-  function frame(sourceOrder, id2, sourcePrompt2, answerExpression, position, verb) {
+  function frame(sourceOrder, id2, sourcePrompt, answerExpression, position, verb) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:5489600:b7ab822e:p1:q1:${sourceOrder}`,
       sourceLabel: "Moodle - Chapter 10-2: positions - page 1",
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       mode: "frame-choice",
       position,
@@ -84256,29 +84466,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hint: positionHints(position, verb)
     });
   }
-  function reply(sourceOrder, id2, sourcePrompt2, answerExpression) {
+  function reply(sourceOrder, id2, sourcePrompt, answerExpression) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:5489600:b7ab822e:p3:q4:${sourceOrder - 4}`,
       sourceLabel: "Moodle - Chapter 10-2: positions - page 3",
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       mode: "reply-choice",
       conceptId: `concept:l1-l17:location:${sourceOrder}`,
       errorTag: `l1-l17-location-${sourceOrder}`,
-      hint: replyHints(sourcePrompt2)
+      hint: replyHints(sourcePrompt)
     });
   }
-  function typed$2(sourceOrder, slot, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
+  function typed$2(sourceOrder, slot, id2, sourcePrompt, answerExpression, acceptedAnswers2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${GENKI_TASK_ID}:slot-${slot}`,
       sourceLabel: "Genki I - Lesson 4 - workbook 2",
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       answerExpression,
-      acceptedAnswers,
+      acceptedAnswers: acceptedAnswers2,
       mode: "typed",
       conceptId: `concept:l1-l17:location:${sourceOrder}`,
       errorTag: `l1-l17-location-${sourceOrder}`,
@@ -84309,8 +84519,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { en: verb === "います" ? "The target is living, so use います." : "The target is a thing, so use あります.", ja: verb === "います" ? "対象は生き物なので「います」を使います。" : "対象は物なので「あります」を使います。" }
     ]);
   }
-  function replyHints(sourcePrompt2) {
-    const asksWho = sourcePrompt2.endsWith("だれ");
+  function replyHints(sourcePrompt) {
+    const asksWho = sourcePrompt.endsWith("だれ");
     return Object.freeze([
       { en: "Keep the location from the prompt in mind.", ja: "問題の位置を確認します。" },
       { en: asksWho ? "だれ asks for a person." : "なに asks for a thing.", ja: asksWho ? "「だれ」は人をたずねます。" : "「なに」は物をたずねます。" },
@@ -84376,18 +84586,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonEighteenFridgeInventoryWorkbookBeat() {
     return Object.freeze({ id: "fridge-inventory-workbook", narrative: { ja: "シンとピーターが、二つの冷蔵庫メモを見せずに読みます。Moodleの質問を一つずつ聞き、数を報告します。", en: "Shin and Peter read two fridge notes without showing them. They ask the Moodle questions one at a time, then report each quantity." }, activity: createLessonEighteenFridgeInventoryWorkbookModel() });
   }
-  function choice$5(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, options, mode, concept) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers: [answerExpression], options, mode, conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a(mode, sourcePrompt2) });
+  function choice$5(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, options, mode, concept) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers: [answerExpression], options, mode, conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a(mode, sourcePrompt) });
   }
-  function typed$1(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, acceptedAnswers, concept) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers, mode: "report-typed", conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a("report-typed", sourcePrompt2) });
+  function typed$1(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers2, concept) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers: acceptedAnswers2, mode: "report-typed", conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a("report-typed", sourcePrompt) });
   }
   function teaching$1(sourceQuestionId2, sourceLabel2, pattern, en, ja, example) {
     return Object.freeze({ sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, pattern, explanation: { en, ja }, example });
   }
-  function hints$a(mode, sourcePrompt2) {
-    const fish = sourcePrompt2.includes("さかな");
-    const beer = sourcePrompt2.includes("ビール");
+  function hints$a(mode, sourcePrompt) {
+    const fish = sourcePrompt.includes("さかな");
+    const beer = sourcePrompt.includes("ビール");
     return Object.freeze([
       { en: "Read the noun and its question word before choosing the ending.", ja: "答えの前に、名詞と質問の言葉を読みます。" },
       { en: mode === "existence-choice" ? "Decide whether the source fridge has the item." : fish ? "Fish use 匹, so listen for びき here." : beer ? "Beer bottles use 本, so listen for ぼん here." : "General food and drink use the つ count in this source exchange.", ja: mode === "existence-choice" ? "元の冷蔵庫に、その物があるかを決めます。" : fish ? "さかなは「匹」なので、ここでは「びき」です。" : beer ? "ビールは「本」なので、ここでは「ぼん」です。" : "このやり取りの普通の食べ物・飲み物は「つ」で数えます。" },
@@ -107881,7 +108091,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$q(id2, sourceOrder, interaction, payloadSha256, sourcePrompt2, answerExpression, options, hints2) {
+  function round$q(id2, sourceOrder, interaction, payloadSha256, sourcePrompt, answerExpression, options, hints2) {
     const sourceTask = payloadSha256 === DESHOU_SHA256 ? "grammar" : "review";
     const sourceItem = sourceItemFor(sourceOrder);
     return Object.freeze({
@@ -107892,7 +108102,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceItem,
       sourcePage: 1,
       sourceQuestionId: `moodle:${MODULE_ID$H}:${payloadSha256}:pdf-p1:example-${sourceItem}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -129458,14 +129668,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function task$5(id2, sourceOrder, prompt2, answer2, acceptedAnswers, reviewExpression) {
+  function task$5(id2, sourceOrder, prompt2, answer2, acceptedAnswers2, reviewExpression) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$g}:item-${sourceOrder}`,
       prompt: prompt2,
       answer: answer2,
-      acceptedAnswers: Object.freeze(acceptedAnswers),
+      acceptedAnswers: Object.freeze(acceptedAnswers2),
       conceptId: `concept:l2-l05:minna069-${id2}`,
       errorTag: `l2-l05-minna069-${id2}`,
       reviewExpression
@@ -132467,12 +132677,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$n(id2, sourceOrder, sourcePrompt2, answerExpression, hints2) {
+  function round$n(id2, sourceOrder, sourcePrompt, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$f}:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       answerExpression,
       acceptedAnswers: [answerExpression],
       conceptId: `concept:l2-l06:opinion-transformation:${sourceOrder}`,
@@ -132631,14 +132841,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function task$4(id2, sourceOrder, prompt2, answer2, acceptedAnswers, reviewExpression) {
+  function task$4(id2, sourceOrder, prompt2, answer2, acceptedAnswers2, reviewExpression) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$e}:item-${sourceOrder}`,
       prompt: prompt2,
       answer: answer2,
-      acceptedAnswers: Object.freeze(acceptedAnswers),
+      acceptedAnswers: Object.freeze(acceptedAnswers2),
       conceptId: `concept:l2-l06:minna072-${id2}`,
       errorTag: `l2-l06-minna072-${id2}`,
       reviewExpression
@@ -132815,12 +133025,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$m(id2, sourceOrder, sourcePrompt2, correctOptionId, answerExpression, options, hints2) {
+  function round$m(id2, sourceOrder, sourcePrompt, correctOptionId, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$d}:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       correctOptionId,
       answerExpression,
@@ -135241,12 +135451,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$l(id2, sourceOrder, sourcePrompt2, noun, options, correctOptionId, answerExpression, hints2) {
+  function round$l(id2, sourceOrder, sourcePrompt, noun, options, correctOptionId, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$c}:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       noun,
       options,
       correctOptionId,
@@ -138289,7 +138499,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$k(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt2, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
+  function round$k(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
     const sourceTask = sourcePage === 1 ? 1 : 4;
     return Object.freeze({
       id: id2,
@@ -138298,7 +138508,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$b}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       phraseTail,
       options,
       correctOptionId,
@@ -138505,14 +138715,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function task$3(id2, sourceOrder, prompt2, answer2, acceptedAnswers, reviewExpression) {
+  function task$3(id2, sourceOrder, prompt2, answer2, acceptedAnswers2, reviewExpression) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$a}:item-${sourceOrder}`,
       prompt: prompt2,
       answer: answer2,
-      acceptedAnswers: Object.freeze(acceptedAnswers),
+      acceptedAnswers: Object.freeze(acceptedAnswers2),
       conceptId: `concept:l2-l09:minna075-${id2}`,
       errorTag: `l2-l09-minna075-${id2}`,
       reviewExpression
@@ -141752,7 +141962,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$j(id2, sourceOrder, sourcePrompt2, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
+  function round$j(id2, sourceOrder, sourcePrompt, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -141760,7 +141970,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: 7,
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$9}:pdf-p5:task-7:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       beforeForm,
       afterForm,
       correctTiming,
@@ -144946,7 +145156,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$i(id2, sourceOrder, sourcePrompt2, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
+  function round$i(id2, sourceOrder, sourcePrompt, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -144954,7 +145164,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: "1-1",
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$7}:pdf-p1:task-1-1:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       affirmativeClause,
       negativeClause,
       mainClause,
@@ -148233,7 +148443,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$h(id2, sourceOrder, interaction, sourcePrompt2, answerExpression, options, hints2) {
+  function round$h(id2, sourceOrder, interaction, sourcePrompt, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -148242,7 +148452,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: 2,
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$6}:pdf-p1:task-2:q${sourceOrder}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -148408,7 +148618,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function field(id2, sourceOrder, before, after, answer2, acceptedAnswers = [answer2]) {
+  function field(id2, sourceOrder, before, after, answer2, acceptedAnswers2 = [answer2]) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -148416,7 +148626,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       before,
       after,
       answer: answer2,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       conceptId: `concept:l2-l12:track78-blank-${sourceOrder}`,
       errorTag: `l2-l12-track78-blank-${sourceOrder}`
     });
@@ -148564,7 +148774,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function task$1(id2, sourceOrder, beneficiaryDirection, arrow, answer2, acceptedAnswers) {
+  function task$1(id2, sourceOrder, beneficiaryDirection, arrow, answer2, acceptedAnswers2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -148572,7 +148782,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       beneficiaryDirection,
       arrow,
       answer: answer2,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       conceptId: `concept:l2-l12:track79-beneficiary-${sourceOrder}`,
       errorTag: `l2-l12-track79-item-${sourceOrder}`
     });
@@ -151983,7 +152193,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$g(id2, sourcePage, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
+  function round$g(id2, sourcePage, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourcePage === 1 ? sourceItem : sourceItem + 4;
     return Object.freeze({
       id: id2,
@@ -151993,7 +152203,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: sourcePage,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$3}:pdf-p${sourcePage}:task-${sourcePage}:q${sourceItem}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -152147,10 +152357,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function choice$4(id2, sourceOrder, prompt2, options, answer2) {
     return task(id2, sourceOrder, prompt2, "choice", answer2, [answer2], options);
   }
-  function typed(id2, sourceOrder, prompt2, answer2, acceptedAnswers = [answer2]) {
-    return task(id2, sourceOrder, prompt2, "text", answer2, acceptedAnswers);
+  function typed(id2, sourceOrder, prompt2, answer2, acceptedAnswers2 = [answer2]) {
+    return task(id2, sourceOrder, prompt2, "text", answer2, acceptedAnswers2);
   }
-  function task(id2, sourceOrder, prompt2, kind, answer2, acceptedAnswers, options) {
+  function task(id2, sourceOrder, prompt2, kind, answer2, acceptedAnswers2, options) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -152159,7 +152369,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       kind,
       ...options ? { options: Object.freeze([...options]) } : {},
       answer: answer2,
-      acceptedAnswers: Object.freeze([...acceptedAnswers]),
+      acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       conceptId: `concept:l2-l13:a11-meal-survey-${sourceOrder}`,
       errorTag: `l2-l13-a11-item-${sourceOrder}`
     });
@@ -154979,7 +155189,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$f(id2, sourceTask, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
+  function round$f(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor$1(sourceTask, sourceItem);
     const sourcePage = sourceTask === 5 ? 3 : 2;
     return Object.freeze({
@@ -154990,7 +155200,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$1}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -157346,7 +157556,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$e(id2, sourceTask, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
+  function round$e(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor(sourceTask, sourceItem);
     const sourcePage = sourceTask === 1 ? 1 : sourceTask === 3 ? 2 : 3;
     return Object.freeze({
@@ -157357,7 +157567,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -159745,7 +159955,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$d(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, hints2) {
+  function round$d(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -159754,7 +159964,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -162953,7 +163163,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$c(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$c(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -162962,7 +163172,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -165370,7 +165580,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints, alternatives = []) {
+  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -165379,7 +165589,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -167294,8 +167504,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
-    return Object.freeze({ id: id2, interaction, sourceOrder, sourcePage, sourceTask, sourceItem, sourceQuestionId: sourceQuestionId2, sourcePrompt: sourcePrompt2, options, answerValue: answerExpression, answerExpression, acceptedAnswers: [answerExpression], conceptId: `concept:l2-l19:volitional:${sourceOrder}`, errorTag: `l2-l19-volitional-${sourceOrder}`, hints: roundHints });
+  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+    return Object.freeze({ id: id2, interaction, sourceOrder, sourcePage, sourceTask, sourceItem, sourceQuestionId: sourceQuestionId2, sourcePrompt, options, answerValue: answerExpression, answerExpression, acceptedAnswers: [answerExpression], conceptId: `concept:l2-l19:volitional:${sourceOrder}`, errorTag: `l2-l19-volitional-${sourceOrder}`, hints: roundHints });
   }
   function question$3(payloadSha256, page, task2, item2) {
     return `moodle:${MODULE_ID$c}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
@@ -169591,7 +169801,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$9(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$9(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -169600,7 +169810,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -172432,7 +172642,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -172441,7 +172651,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -174376,7 +174586,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$7(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints, alternatives = []) {
+  function round$7(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -174385,7 +174595,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -176353,7 +176563,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -176362,7 +176572,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -178134,7 +178344,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -178143,7 +178353,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -179921,7 +180131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -179930,7 +180140,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -181645,7 +181855,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt2, answerExpression, options, roundHints) {
+  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -181654,7 +181864,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `moodle:${MODULE_ID$5}:${HOMEWORK_SHA256}:pdf-p${sourcePage}:${locus}`,
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -182967,7 +183177,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt2, answerExpression, options = []) {
+  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -182976,14 +183186,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestion(sourcePage, locus),
-      sourcePrompt: sourcePrompt2,
+      sourcePrompt,
       options,
       answerValue: answerExpression,
       answerExpression,
       acceptedAnswers: [answerExpression],
       conceptId: `concept:l2-l34:reading:${sourceOrder}`,
       errorTag: `l2-l34-reading-${sourceOrder}`,
-      hints: readingHints(sourcePrompt2, answerExpression)
+      hints: readingHints(sourcePrompt, answerExpression)
     });
   }
   function sourceQuestion(page, locus) {
@@ -182995,11 +183205,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       label: Object.freeze({ ja: value, en: value })
     });
   }
-  function readingHints(sourcePrompt2, answer2) {
+  function readingHints(sourcePrompt, answer2) {
     return [
       Object.freeze({
-        ja: `先生の原本で「${sourcePrompt2}」を探します。`,
-        en: `Find ${sourcePrompt2} on Sensei’s original page.`
+        ja: `先生の原本で「${sourcePrompt}」を探します。`,
+        en: `Find ${sourcePrompt} on Sensei’s original page.`
       }),
       Object.freeze({
         ja: "「読み方」か「読める」の欄を見ます。",
@@ -192751,8 +192961,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!activity2 || !activity2.sourceQuestionIds.includes(question2.id)) {
       throw new Error("Lesson 0 repair activity is not bound to classroom-expression 09.");
     }
-    const acceptedAnswers = activity2.expectedEvidence.values;
-    if (!acceptedAnswers?.length) throw new Error("Lesson 0 repair activity has no authored accepted responses.");
+    const acceptedAnswers2 = activity2.expectedEvidence.values;
+    if (!acceptedAnswers2?.length) throw new Error("Lesson 0 repair activity has no authored accepted responses.");
     return {
       id: activity2.id,
       kind: "constructed-japanese",
@@ -192764,7 +192974,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ja: "りえ先生：「わかりますか？」次の教室のことばで答えてください。"
       },
       payload: {
-        acceptedAnswers,
+        acceptedAnswers: acceptedAnswers2,
         passFeedback: {
           en: "(very) good. Fine",
           ja: "１０）（とても）いいです。"
@@ -194509,8 +194719,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const label = assessedJapanese$2(item2.label);
         const controls = document.createElement("div");
         controls.className = "academy-sequence-controls";
-        const up = moveButton("↑", host2.language === "ja" ? `${item2.label}を前へ` : `Move ${item2.label} earlier`, index === 0);
-        const down = moveButton("↓", host2.language === "ja" ? `${item2.label}を後へ` : `Move ${item2.label} later`, index === order2.length - 1);
+        const up = moveButton$1("↑", host2.language === "ja" ? `${item2.label}を前へ` : `Move ${item2.label} earlier`, index === 0);
+        const down = moveButton$1("↓", host2.language === "ja" ? `${item2.label}を後へ` : `Move ${item2.label} later`, index === order2.length - 1);
         up.addEventListener("click", () => moveItem(index, index - 1, id2), { signal: lifecycle.signal });
         down.addEventListener("click", () => moveItem(index, index + 1, id2), { signal: lifecycle.signal });
         controls.append(up, down);
@@ -194569,7 +194779,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return response.order;
   }
-  function moveButton(symbol, label, disabled) {
+  function moveButton$1(symbol, label, disabled) {
     const button2 = document.createElement("button");
     button2.type = "button";
     button2.className = "academy-sequence-move";
@@ -210645,7 +210855,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
       }));
       languageSupport.refresh();
-      if (focus) focusInPanel(questionHost.querySelector(".academy-choice-option, .academy-authored-text-input"));
+      if (focus) focusInPanel(questionHost.querySelector(
+        ".academy-choice-option, .academy-authored-text-input, [data-authored-modality-control]"
+      ));
     };
     const renderExtension = () => {
       resetPanelScroll();
@@ -210802,7 +211014,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const heading = element("h1", "academy-authored-week-prompt");
     heading.id = `academy-authored-prompt-${index}`;
     heading.append(japanese(activity2.prompt.ja), support(activity2.prompt.en));
-    const choices2 = element("div", activity2.kind === "choice" ? "academy-choice-options" : "academy-text-response");
+    const choices2 = element("div", activity2.kind === "choice" ? "academy-choice-options" : modalityClass(activity2));
     choices2.setAttribute("role", "group");
     choices2.setAttribute("aria-labelledby", heading.id);
     const feedback2 = element("div", "academy-activity-feedback");
@@ -210810,6 +211022,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     feedback2.setAttribute("aria-live", "polite");
     let committed = false;
     const listening = activity2.kind === "choice" ? activity2.listening : void 0;
+    const submit = (response, control2) => {
+      if (committed) return;
+      committed = true;
+      setActivityControlsDisabled(choices2, true);
+      void commitResponse(response, control2);
+    };
     if (activity2.kind === "text") {
       const input2 = element("input", "academy-input academy-authored-text-input");
       input2.type = "text";
@@ -210822,10 +211040,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       commit.textContent = actions.language === "ja" ? "答えを確認" : "Check answer";
       const evaluateText = () => {
         if (committed || !input2.value.trim()) return;
-        committed = true;
-        input2.disabled = true;
-        commit.disabled = true;
-        void commitResponse(input2.value, commit);
+        submit(input2.value, commit);
       };
       commit.addEventListener("click", evaluateText, { signal: actions.signal });
       input2.addEventListener("keydown", (event) => {
@@ -210835,7 +211050,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
       }, { signal: actions.signal });
       choices2.append(input2, commit);
-    } else for (const option2 of activity2.options) {
+    } else if (activity2.kind === "choice") for (const option2 of activity2.options) {
       const row = element("div", "academy-choice-row");
       const button2 = element("button", "academy-choice-option");
       button2.type = "button";
@@ -210844,12 +211059,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       button2.append(assessedJapanese(option2.label.ja));
       button2.addEventListener("click", () => {
         if (committed) return;
-        committed = true;
-        setChoicesDisabled(choices2, true);
-        void commitResponse(option2.id, button2);
+        submit(option2.id, button2);
       }, { signal: actions.signal });
       row.append(button2);
       choices2.append(row);
+    }
+    else if (activity2.kind === "academy-authored-cloze") {
+      appendClozeControls(choices2, activity2, heading.id, actions, submit);
+    } else if (activity2.kind === "academy-authored-matching") {
+      appendMatchingControls(choices2, activity2, heading.id, actions, submit);
+    } else {
+      appendOrderingControls(choices2, activity2, heading.id, actions, submit);
     }
     async function commitResponse(response, control2) {
       let evaluation;
@@ -210857,7 +211077,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         evaluation = actions.evaluate(response);
       } catch {
         committed = false;
-        setChoicesDisabled(choices2, false);
+        setActivityControlsDisabled(choices2, false);
         feedback2.replaceChildren(bilingualParagraph(COPY.evaluationError, "academy-field-error"));
         feedback2.setAttribute("role", "alert");
         control2.focus();
@@ -210906,6 +211126,198 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (listening) root.append(listeningPlayer(listening, actions));
     root.append(choices2, feedback2);
     return root;
+  }
+  function modalityClass(activity2) {
+    switch (activity2.kind) {
+      case "text":
+        return "academy-text-response";
+      case "academy-authored-cloze":
+        return "academy-text-response academy-authored-cloze";
+      case "academy-authored-matching":
+        return "academy-drag-workspace academy-authored-matching";
+      case "academy-authored-ordering":
+        return "academy-authored-ordering";
+    }
+  }
+  function appendClozeControls(root, activity2, headingId, actions, submit) {
+    const sentence = element("p", "academy-authored-cloze-sentence");
+    sentence.lang = "ja";
+    sentence.dataset.jpdbReaderSurfaceIgnore = "";
+    const inputs = /* @__PURE__ */ new Map();
+    const matches = [...activity2.payload.sentence.matchAll(/[＿_]{1,}(?:[①-⑳])?[＿_]*/gu)];
+    let cursor = 0;
+    activity2.payload.blanks.forEach((blank, index) => {
+      const match = matches[index];
+      if (match) {
+        sentence.append(document.createTextNode(activity2.payload.sentence.slice(cursor, match.index)));
+        cursor = (match.index ?? cursor) + match[0].length;
+      } else if (index === 0) {
+        sentence.append(document.createTextNode(activity2.payload.sentence));
+      }
+      const input2 = element("input", "academy-input academy-authored-text-input academy-authored-cloze-input");
+      input2.type = "text";
+      input2.lang = "ja";
+      input2.autocomplete = "off";
+      input2.inputMode = "text";
+      input2.size = 6;
+      input2.dataset.authoredModalityControl = "";
+      input2.dataset.clozeBlankId = blank.id;
+      input2.dataset.jpdbReaderSurfaceIgnore = "";
+      input2.setAttribute("aria-label", localized(blank.label, actions.language));
+      input2.setAttribute("aria-describedby", headingId);
+      inputs.set(blank.id, input2);
+      sentence.append(input2);
+    });
+    if (matches.length) sentence.append(document.createTextNode(activity2.payload.sentence.slice(cursor)));
+    const check = checkButton(actions.language, "Check the gaps", "空欄を確認");
+    const ready2 = () => activity2.payload.blanks.every((blank) => inputs.get(blank.id)?.value.trim());
+    const update = () => {
+      check.disabled = !ready2();
+    };
+    const commit = () => {
+      if (!ready2()) return;
+      submit({
+        kind: "cloze",
+        values: activity2.payload.blanks.map((blank) => ({
+          blankId: blank.id,
+          value: inputs.get(blank.id)?.value ?? ""
+        }))
+      }, check);
+    };
+    inputs.forEach((input2) => {
+      input2.addEventListener("input", update, { signal: actions.signal });
+      input2.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && ready2()) {
+          event.preventDefault();
+          commit();
+        }
+      }, { signal: actions.signal });
+    });
+    check.addEventListener("click", commit, { signal: actions.signal });
+    update();
+    root.append(sentence, check);
+  }
+  function appendMatchingControls(root, activity2, headingId, actions, submit) {
+    const rows = element("div", "academy-authored-matching-rows");
+    const selects = /* @__PURE__ */ new Map();
+    activity2.payload.items.forEach((item2, index) => {
+      const row = element("label", "academy-drag-zone academy-authored-matching-row");
+      const source2 = assessedJapanese(item2.label);
+      const select2 = document.createElement("select");
+      select2.className = "academy-input academy-authored-matching-select";
+      select2.dataset.authoredModalityControl = "";
+      select2.dataset.matchingItemId = item2.id;
+      select2.setAttribute("aria-label", actions.language === "ja" ? `${index + 1}番に合う答え` : `Match for item ${index + 1}`);
+      select2.setAttribute("aria-describedby", headingId);
+      select2.append(selectOption("", actions.language === "ja" ? "答えを選ぶ" : "Choose a match"));
+      activity2.payload.targets.forEach((target) => select2.append(selectOption(target.id, target.label)));
+      selects.set(item2.id, select2);
+      row.append(source2, select2);
+      rows.append(row);
+    });
+    const check = checkButton(actions.language, "Check matches", "組み合わせを確認");
+    const update = () => {
+      const selected2 = [...selects.values()].map((select2) => select2.value).filter(Boolean);
+      for (const select2 of selects.values()) {
+        for (const option2 of [...select2.options].slice(1)) {
+          option2.disabled = option2.value !== select2.value && selected2.includes(option2.value);
+        }
+      }
+      check.disabled = selected2.length !== selects.size || new Set(selected2).size !== selected2.length;
+    };
+    selects.forEach((select2) => select2.addEventListener("change", update, { signal: actions.signal }));
+    check.addEventListener("click", () => {
+      if (check.disabled) return;
+      submit({
+        kind: "matching",
+        placements: activity2.payload.items.map((item2) => ({
+          itemId: item2.id,
+          targetId: selects.get(item2.id)?.value ?? ""
+        }))
+      }, check);
+    }, { signal: actions.signal });
+    update();
+    root.append(rows, check);
+  }
+  function appendOrderingControls(root, activity2, headingId, actions, submit) {
+    const orders = new Map(activity2.payload.sequences.map((sequence) => [
+      sequence.id,
+      sequence.items.map((item2) => item2.id)
+    ]));
+    const sequenceRoots = /* @__PURE__ */ new Map();
+    const renderSequence = (sequence, focusId) => {
+      const list2 = sequenceRoots.get(sequence.id);
+      const order2 = orders.get(sequence.id);
+      list2.replaceChildren(...order2.map((itemId, index) => {
+        const item2 = sequence.items.find((candidate2) => candidate2.id === itemId);
+        const row = element("li", "academy-sequence-item");
+        row.dataset.sequenceId = item2.id;
+        const controls = element("div", "academy-sequence-controls");
+        const earlier = moveButton("↑", actions.language === "ja" ? `${item2.label}を前へ` : `Move ${item2.label} earlier`, index === 0);
+        const later = moveButton("↓", actions.language === "ja" ? `${item2.label}を後へ` : `Move ${item2.label} later`, index === order2.length - 1);
+        earlier.addEventListener("click", () => move(index, index - 1, item2.id), { signal: actions.signal });
+        later.addEventListener("click", () => move(index, index + 1, item2.id), { signal: actions.signal });
+        controls.append(earlier, later);
+        row.append(assessedJapanese(item2.label), controls);
+        return row;
+      }));
+      if (focusId) queueMicrotask(() => list2.querySelector(`[data-sequence-id="${focusId}"] button:not(:disabled)`)?.focus());
+      function move(from, to, itemId) {
+        if (to < 0 || to >= order2.length) return;
+        order2.splice(from, 1);
+        order2.splice(to, 0, itemId);
+        renderSequence(sequence, itemId);
+      }
+    };
+    activity2.payload.sequences.forEach((sequence, index) => {
+      const section = element("section", "academy-authored-ordering-sequence");
+      if (sequence.cue) {
+        const cue = element("p", "academy-authored-ordering-cue");
+        cue.append(assessedJapanese(sequence.cue));
+        section.append(cue);
+      }
+      const list2 = document.createElement("ol");
+      list2.className = "academy-sequence-list";
+      list2.dataset.orderingSequenceId = sequence.id;
+      list2.setAttribute("aria-label", actions.language === "ja" ? `${index + 1}番の並べ替え` : `Sequence ${index + 1}`);
+      list2.setAttribute("aria-describedby", headingId);
+      sequenceRoots.set(sequence.id, list2);
+      section.append(list2);
+      root.append(section);
+      renderSequence(sequence);
+    });
+    const check = checkButton(actions.language, "Check order", "順番を確認");
+    check.addEventListener("click", () => submit({
+      kind: "ordering",
+      sequences: activity2.payload.sequences.map((sequence) => ({
+        sequenceId: sequence.id,
+        itemIds: [...orders.get(sequence.id)]
+      }))
+    }, check), { signal: actions.signal });
+    root.append(check);
+  }
+  function checkButton(language, en, ja) {
+    const button2 = element("button", "academy-button academy-button-primary academy-authored-modality-check");
+    button2.type = "button";
+    button2.dataset.authoredModalityControl = "";
+    button2.textContent = language === "ja" ? ja : en;
+    return button2;
+  }
+  function selectOption(value, label) {
+    const option2 = document.createElement("option");
+    option2.value = value;
+    option2.textContent = label;
+    return option2;
+  }
+  function moveButton(symbol, label, disabled) {
+    const button2 = element("button", "academy-sequence-move");
+    button2.type = "button";
+    button2.dataset.authoredModalityControl = "";
+    button2.textContent = symbol;
+    button2.disabled = disabled;
+    button2.setAttribute("aria-label", label);
+    setAcademyTooltip(button2, label);
+    return button2;
   }
   function listeningPlayer(listening, actions) {
     const root = element("div", "academy-authored-week-listening-player");
@@ -210994,9 +211406,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : event.key === "ArrowDown" || event.key === "ArrowRight" ? (current + 1) % buttons.length : (current - 1 + buttons.length) % buttons.length;
     buttons[next]?.focus();
   }
-  function setChoicesDisabled(root, disabled) {
-    root.querySelectorAll(".academy-choice-option").forEach((button2) => {
-      button2.disabled = disabled;
+  function setActivityControlsDisabled(root, disabled) {
+    root.querySelectorAll("input, button, select").forEach((control2) => {
+      control2.disabled = disabled;
     });
   }
   function bilingualParagraph(value, className) {
@@ -245926,13 +246338,13 @@ ${options.version}`;
   }
   function newTabRecallAnswerCandidates(card, reading = card.reading) {
     const primaryAnswers = uniqueRecallAnswers(splitRecallAnswers(card.spelling));
-    const acceptedAnswers = uniqueRecallAnswers([
+    const acceptedAnswers2 = uniqueRecallAnswers([
       ...splitRecallAnswers(reading),
       ...(card.fallbackLookupTerms ?? []).flatMap(splitRecallAnswers)
     ]).filter((candidate2) => !sameRecallAnswer(candidate2, card.spelling));
     return {
       primaryAnswers,
-      acceptedAnswers,
+      acceptedAnswers: acceptedAnswers2,
       canonicalAnswer: primaryAnswers[0] ?? card.spelling.trim()
     };
   }
