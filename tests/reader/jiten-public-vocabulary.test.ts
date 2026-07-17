@@ -1,6 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { JitenPublicVocabularyClient, resetJitenPublicVocabularyBackoffForTests } from '../../src/reader/dictionaries/jiten-public-vocabulary';
+import {
+    JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
+    JitenPublicVocabularyClient,
+    parsedCardHydrationKey,
+    resetJitenPublicVocabularyBackoffForTests,
+} from '../../src/reader/dictionaries/jiten-public-vocabulary';
+import type { JPDBCard } from '../../src/reader/app/types';
 import type { ReaderHttpOptions } from '../../src/reader/network/http';
+
+function parsedJitenCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    // Shape produced by the public /parse pass: the SURFACE is the spelling,
+    // the reading is empty — hydration is what fills reading/pitch/meanings.
+    return {
+        vid: 1381470, sid: 0, rid: 0,
+        spelling: '青空', reading: '',
+        frequencyRank: null, partOfSpeech: [], meanings: [],
+        cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null,
+        source: 'jiten', jitenWordId: 1381470, jitenReadingIndex: 0,
+        ...overrides,
+    } as unknown as JPDBCard;
+}
 
 describe('JitenPublicVocabularyClient', () => {
     afterEach(() => {
@@ -328,5 +347,90 @@ describe('JitenPublicVocabularyClient', () => {
         expect(cards.get('見る')).toMatchObject({ spelling: '見る', reading: 'みる', source: 'jiten' });
         expect(cards.has('未登録語')).toBe(false);
         expect(requestJson.mock.calls.some(([url]) => String(url).includes('/vocabulary/0/0/info'))).toBe(false);
+    });
+
+    it('keys hydrateCards results by the exported hydration key so callers can re-key against cardKey', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/1381470/0/info')) {
+                return {
+                    wordId: 1381470,
+                    mainReading: { text: '青[あお]空[ぞら]', frequencyRank: 6924 },
+                    definitions: [{ meanings: ['blue sky'] }],
+                    pitchAccents: [3],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const parsed = parsedJitenCard();
+
+        const cards = await client.hydrateCards([parsed]);
+
+        // The map key is vid:sid — deliberately NOT cardKey (which embeds the
+        // surface spelling and the empty parse-time reading). The reader's
+        // grouped hydration used to look results up by cardKey and silently
+        // dropped EVERY hydrated card, leaving budget-deferred page words
+        // without readings (the homepage furigana starvation).
+        expect(parsedCardHydrationKey(parsed)).toBe('1381470:0');
+        expect(cards.get(parsedCardHydrationKey(parsed))).toMatchObject({ spelling: '青空', reading: 'あおぞら' });
+        expect(cards.size).toBe(1);
+    });
+
+    it('hydrates background details with the relaxed background timeout', async () => {
+        const timeouts: Array<number | undefined> = [];
+        const requestJson = vi.fn(async (url: string, options?: ReaderHttpOptions) => {
+            if (url.includes('/info')) timeouts.push(options?.timeoutMs);
+            return {
+                wordId: 1381470,
+                mainReading: { text: '青[あお]空[ぞら]' },
+                definitions: [{ meanings: ['blue sky'] }],
+            };
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        await client.hydrateCards([parsedJitenCard()]);
+
+        // Background reading/pitch hydration is not popover-latency-bound; over
+        // slow userscript-manager bridges a healthy /info takes >1.5s and the
+        // old interactive timeout turned most of a page's readings into nulls.
+        expect(timeouts).toEqual([JITEN_BACKGROUND_DETAIL_TIMEOUT_MS]);
+    });
+
+    it('retries a detail lookup that failed transiently instead of caching the null for the full TTL', async () => {
+        vi.useFakeTimers();
+        try {
+            let failFirst = true;
+            const requestJson = vi.fn(async (url: string) => {
+                if (!url.includes('/vocabulary/1381470/0/info')) throw new Error(`Unexpected URL: ${url}`);
+                if (failFirst) {
+                    failFirst = false;
+                    throw new Error('Jiten timeout.');
+                }
+                return {
+                    wordId: 1381470,
+                    mainReading: { text: '青[あお]空[ぞら]' },
+                    definitions: [{ meanings: ['blue sky'] }],
+                };
+            });
+            const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+            const parsed = parsedJitenCard();
+
+            const first = await client.hydrateCards([parsed]);
+            expect(first.size).toBe(0);
+
+            // Within the transient window the null is served from cache …
+            await vi.advanceTimersByTimeAsync(1_000);
+            const cachedNull = await client.hydrateCards([parsed]);
+            expect(cachedNull.size).toBe(0);
+            expect(requestJson).toHaveBeenCalledTimes(1);
+
+            // … but once it expires the retry goes back to the network and heals.
+            await vi.advanceTimersByTimeAsync(6_000);
+            const healed = await client.hydrateCards([parsed]);
+            expect(healed.get(parsedCardHydrationKey(parsed))).toMatchObject({ reading: 'あおぞら' });
+            expect(requestJson).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

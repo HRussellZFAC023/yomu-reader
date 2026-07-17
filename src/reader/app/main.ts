@@ -59,7 +59,7 @@ import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
-import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
+import { JitenPublicVocabularyClient, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, parsedCardHydrationKey, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
 import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
@@ -173,6 +173,9 @@ import {
     TERM_AUDIO_PRELOAD_LIMIT,
     TWO_BUTTON_REVIEW_SHORTCUTS,
     UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
+    UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS,
+    PUBLIC_VOCABULARY_MISS_RETRY_LIMIT,
+    DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS,
     allowsFrequentVisibleAutoScan,
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
@@ -932,7 +935,13 @@ export class ReaderApp {
     private pitchEnrichmentLocalCache = new Map<string, Promise<LocalPitchResolution>>();
     private localPitchDictionaryAvailability?: Promise<boolean>;
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
-    private unresolvedFallbackVocabularyCache = new Set<string>();
+    // key -> retry-after timestamp. Misses EXPIRE (instead of persisting for
+    // the page's whole lifetime) because a miss can be transient — a timed-out
+    // /info over a slow userscript bridge, or a lookup issued during endpoint
+    // backoff — and a permanent mark left most of a text-heavy page without
+    // readings/pitch forever (the yomureader.com homepage was the canary).
+    private unresolvedFallbackVocabularyCache = new Map<string, number>();
+    private publicVocabularyMissRetries = new Map<string, number>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
@@ -1369,6 +1378,7 @@ export class ReaderApp {
         this.jitenPublicVocabulary.clear();
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
+        this.publicVocabularyMissRetries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
@@ -1557,6 +1567,7 @@ export class ReaderApp {
         this.nestedParseContentCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
+        this.publicVocabularyMissRetries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -2131,6 +2142,7 @@ export class ReaderApp {
         this.localPitchDictionaryAvailability = undefined;
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
+        this.publicVocabularyMissRetries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.subtitleRebakeTimer);
@@ -4635,7 +4647,7 @@ export class ReaderApp {
         return publicLookupFallbackCards(cards, {
             jitenApiActive: () => this.isJitenApiActive(),
             parse: terms => this.jiten.parse(terms),
-            lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, lookupOptions),
+            lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS }),
             publicSpellingCard: term => this.publicLookupSpellingCard(term),
         }, {
             concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
@@ -7804,7 +7816,7 @@ export class ReaderApp {
         for (const token of tokens) {
             if (token.card.source === 'fallback') {
                 const key = cardKey(token.card);
-                if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+                if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
                 const group = fallbackGroups.get(key) ?? { card: token.card, tokens: [] };
                 group.tokens.push(token);
                 fallbackGroups.set(key, group);
@@ -7812,7 +7824,7 @@ export class ReaderApp {
             }
             if (isHydratablePublicJitenCard(token.card)) {
                 const key = cardKey(token.card);
-                if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+                if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
                 const group = jitenGroups.get(key) ?? { card: token.card, tokens: [] };
                 group.tokens.push(token);
                 jitenGroups.set(key, group);
@@ -7835,13 +7847,22 @@ export class ReaderApp {
                 : Promise.resolve(new Map<string, JPDBCard>()),
         ]);
         fallbackCards.forEach((card, key) => resolved.set(key, card));
-        jitenCards.forEach((card, key) => resolved.set(key, card));
+        // hydrateCards keys its results by its own vid:sid hydration key, NOT
+        // by cardKey (vid:sid:spelling:reading) — re-key against each group's
+        // own card so the hydrated readings actually reach their tokens. The
+        // raw forEach silently missed EVERY group (parsed cards carry the
+        // surface as spelling and an empty reading, so the two keys never
+        // match) and left all budget-deferred page words reading-less.
+        for (const [key, group] of jitenGroups) {
+            const card = jitenCards.get(parsedCardHydrationKey(group.card));
+            if (card) resolved.set(key, card);
+        }
         const cardsToCache: JPDBCard[] = [];
         const localOnlyTokens: JPDBToken[] = [];
         for (const [key, group] of [...fallbackGroups, ...jitenGroups]) {
             const card = resolved.get(key);
             if (!card || card.source === 'fallback') {
-                this.rememberUnresolvedFallbackVocabulary(key);
+                this.noteFallbackVocabularyMiss(key, group.tokens);
                 // A vocabulary miss must not suppress pitch hydration. The
                 // urgent click path still reaches the direct JPDB pitch client,
                 // which made these same spans appear only after interaction.
@@ -7899,6 +7920,7 @@ export class ReaderApp {
         this.backgroundPublicPitchLookupBudgetHref = location.href;
         this.backgroundPublicPitchLookupBudgetUsed = 0;
         this.deferredPublicPitchEnqueuedForUrl = 0;
+        this.publicVocabularyMissRetries.clear();
     }
 
     private queueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
@@ -7934,6 +7956,17 @@ export class ReaderApp {
             await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
             if (this.shouldPauseBackgroundPublicPitchLookup({})) {
                 await wait(DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS);
+                continue;
+            }
+            // Consuming queue entries while the shared public-jiten backoff is
+            // active turns every one of them into a guaranteed miss; sleep the
+            // backoff out in bounded slices instead (only when the next chunk
+            // actually needs the public jiten endpoint).
+            const backoffMs = publicJitenBackoffRemainingMs();
+            if (backoffMs > 0 && this.deferredPublicPitchQueue
+                .slice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE)
+                .some(token => token.card.source === 'fallback' || isHydratablePublicJitenCard(token.card))) {
+                await wait(Math.min(backoffMs, DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS));
                 continue;
             }
             const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
@@ -8224,10 +8257,10 @@ export class ReaderApp {
     private async resolveRenderedFallbackVocabulary(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
         if (card.source !== 'fallback') return undefined;
         const key = cardKey(card);
-        if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) return undefined;
+        if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) return undefined;
         const publicCard = await this.lookupFallbackApiCard(card, options);
         if (!publicCard) {
-            this.rememberUnresolvedFallbackVocabulary(key);
+            this.noteFallbackVocabularyMiss(key, []);
             return undefined;
         }
         if (!publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
@@ -8250,8 +8283,49 @@ export class ReaderApp {
 
     private rememberUnresolvedFallbackVocabulary(key: string): void {
         this.unresolvedFallbackVocabularyCache.delete(key);
-        this.unresolvedFallbackVocabularyCache.add(key);
+        this.unresolvedFallbackVocabularyCache.set(key, Date.now() + UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS);
         evictOldestStringKeysWhileOverLimit(this.unresolvedFallbackVocabularyCache, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
+    }
+
+    private hasUnresolvedFallbackVocabulary(key: string): boolean {
+        const retryAfter = this.unresolvedFallbackVocabularyCache.get(key);
+        if (retryAfter === undefined) return false;
+        if (retryAfter > Date.now()) return true;
+        this.unresolvedFallbackVocabularyCache.delete(key);
+        return false;
+    }
+
+    // A miss during endpoint backoff, or one that has retries left, goes back
+    // through the paced deferred lane; only a miss that exhausted its retries
+    // is negative-cached (and even that expires — see the TTL above).
+    private noteFallbackVocabularyMiss(key: string, tokens: JPDBToken[]): void {
+        const attempts = (this.publicVocabularyMissRetries.get(key) ?? 0) + 1;
+        this.publicVocabularyMissRetries.set(key, attempts);
+        evictOldestStringKeysWhileOverLimit(this.publicVocabularyMissRetries, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
+        if (attempts <= PUBLIC_VOCABULARY_MISS_RETRY_LIMIT || publicJitenBackoffRemainingMs() > 0) {
+            this.requeueDeferredPublicPitchTokens(tokens);
+            return;
+        }
+        this.rememberUnresolvedFallbackVocabulary(key);
+    }
+
+    // Re-enqueue without touching the per-URL enqueue cap: these tokens were
+    // already admitted once; a retry must not consume another page-budget slot
+    // (and must not be dropped once the cap is reached).
+    private requeueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
+        let queued = false;
+        for (const token of tokens) {
+            const key = cardKey(token.card);
+            if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
+            if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
+            this.deferredPublicPitchQueuedKeys.add(key);
+            this.deferredPublicPitchQueue.push(token);
+            queued = true;
+        }
+        if (!queued) return;
+        void this.drainDeferredPublicPitchQueue().catch(error => {
+            log.warn('Deferred pitch retry failed', error);
+        });
     }
 
     private preloadTermAudioForTokens(tokens: JPDBToken[]): void {

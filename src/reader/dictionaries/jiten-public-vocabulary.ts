@@ -9,6 +9,16 @@ import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cach
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
 const REQUEST_TIMEOUT_MS = 1500;
+// Background hydration (readings/pitch for at-rest page words) tolerates a
+// slower answer than an open popover: over a userscript-manager request
+// bridge (iPad Userscripts, GM_xmlhttpRequest round-trips) a healthy /info
+// response routinely takes >1.5s, and every timeout used to be cached as a
+// 10-minute null that the caller then negative-cached for the whole page —
+// one slow network turned most of a page's furigana off permanently.
+export const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4000;
+// Nulls produced by failures (timeout/network) are transient: keep them only
+// long enough to absorb a burst, so the paced retry lane can actually retry.
+const TRANSIENT_NULL_TTL_MS = 5_000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 800;
 const DETAIL_CONCURRENCY = 4;
@@ -31,11 +41,19 @@ export interface JitenPublicVocabularyClientOptions {
 
 export interface JitenPublicLookupManyOptions {
     detailLimit?: number;
+    detailTimeoutMs?: number;
 }
 
 export function resetJitenPublicVocabularyBackoffForTests(): void {
     sharedRequestBackoffUntil = 0;
     sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
+}
+
+// Callers pacing their own retry lanes (deferred pitch enrichment) consult
+// this instead of blindly consuming queued work into guaranteed misses while
+// the shared public-endpoint backoff is active.
+export function publicJitenBackoffRemainingMs(): number {
+    return Math.max(0, sharedRequestBackoffUntil - Date.now());
 }
 
 interface PublicParseWord {
@@ -91,6 +109,7 @@ export class JitenPublicVocabularyClient {
             })
             .catch(error => {
                 this.noteFailure(error);
+                this.shortenCacheEntry(this.cardCache, normalized, TRANSIENT_NULL_TTL_MS);
                 logPublicJitenFailure('Jiten lookup', { term: normalized }, error);
                 return null;
             });
@@ -180,7 +199,7 @@ export class JitenPublicVocabularyClient {
             if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
         }
         await mapLimited(pending, DETAIL_CONCURRENCY, async item => {
-            const card = await this.lookupDetail(item.word, item.requestedTerm).catch(error => {
+            const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch(error => {
                 this.noteFailure(error);
                 logPublicJitenFailure('Jiten parsed detail', { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
                 return null;
@@ -212,7 +231,7 @@ export class JitenPublicVocabularyClient {
         });
 
         await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
-            const promise = this.lookupDetail(candidate, term);
+            const promise = this.lookupDetail(candidate, term, options.detailTimeoutMs);
             this.remember(this.cardCache, term, promise, Date.now());
             await promise;
         });
@@ -220,7 +239,12 @@ export class JitenPublicVocabularyClient {
         const cards = new Map<string, JPDBCard>();
         await Promise.all([...candidatesByTerm.keys()].map(async term => {
             const card = await this.cardCache.get(term)?.promise.catch(() => null);
-            if (!card) return;
+            if (!card) {
+                // A failed detail lookup resolves null; keeping that null for the
+                // full TTL would block the paced retry lane from ever retrying.
+                this.shortenCacheEntry(this.cardCache, term, TRANSIENT_NULL_TTL_MS);
+                return;
+            }
             cards.set(term, card);
             writePublicJitenCache('card', term, card);
         }));
@@ -270,22 +294,27 @@ export class JitenPublicVocabularyClient {
                 this.noteFailure(error);
                 throw error;
             });
+            this.noteSuccess();
             return Array.isArray(payload)
                 ? payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word))
                 : [];
         });
     }
 
-    private async lookupDetail(word: PublicParseWord, requestedTerm: string): Promise<JPDBCard | null> {
+    private async lookupDetail(word: PublicParseWord, requestedTerm: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<JPDBCard | null> {
         const key = `${word.wordId}:${word.readingIndex}`;
         const cached = this.detailCache.get(key);
         const now = Date.now();
         if (cached && cached.expiresAt > now) return cached.promise;
         if (cached) this.detailCache.delete(key);
-        const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`)
-            .then(payload => publicJitenCardFromDetail(payload, requestedTerm, word))
+        const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs)
+            .then(payload => {
+                this.noteSuccess();
+                return publicJitenCardFromDetail(payload, requestedTerm, word);
+            })
             .catch(error => {
                 this.noteFailure(error);
+                this.shortenCacheEntry(this.detailCache, key, TRANSIENT_NULL_TTL_MS);
                 logPublicJitenFailure('Jiten detail', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
                 return null;
             });
@@ -293,11 +322,11 @@ export class JitenPublicVocabularyClient {
         return promise;
     }
 
-    private requestJson(endpoint: string): Promise<unknown> {
+    private requestJson(endpoint: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
         const request = this.options.requestJsonImpl ?? requestJson;
         return request(endpointUrl(this.options.baseUrl, endpoint), {
             responseType: 'json',
-            timeoutMs: REQUEST_TIMEOUT_MS,
+            timeoutMs,
             timeoutLabel: 'Jiten timeout.',
             failureLabel: 'Jiten',
             statusFailureMessage: status => `Jiten fail (${status}).`,
@@ -323,6 +352,14 @@ export class JitenPublicVocabularyClient {
             : this.options.proxyUrl ?? '';
     }
 
+    // Clamp an existing cache entry's lifetime down to a transient-failure
+    // window so a null produced by a timeout/network error cannot masquerade
+    // as an authoritative 10-minute "no such word".
+    private shortenCacheEntry(cache: Map<string, PublicCardCacheEntry>, key: string, ttlMs: number): void {
+        const entry = cache.get(key);
+        if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + ttlMs);
+    }
+
     private remember(cache: Map<string, PublicCardCacheEntry>, key: string, promise: Promise<JPDBCard | null>, now: number): void {
         cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
         for (const [entryKey, entry] of cache) {
@@ -343,6 +380,13 @@ export class JitenPublicVocabularyClient {
         if (!isPublicJitenBackoffError(error)) return;
         sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
         sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
+    }
+
+    // A completed request proves the endpoint is healthy again: stop the
+    // doubling so the NEXT backoff (if any) starts from the initial window
+    // instead of a session-cumulative maximum.
+    private noteSuccess(): void {
+        sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
     }
 }
 
@@ -550,7 +594,11 @@ function uniqueNormalizedTerms(terms: readonly string[]): string[] {
     return [...new Set(terms.map(normalizeLookupText).filter(Boolean))];
 }
 
-function parsedCardHydrationKey(card: JPDBCard): string {
+// The key hydrateCards() results are stored under. Exported so callers can
+// re-key hydration results against their own card-key scheme instead of
+// assuming the two coincide (they never did — cardKey embeds spelling and
+// reading; this key deliberately does not, because hydration REPLACES them).
+export function parsedCardHydrationKey(card: JPDBCard): string {
     return `${card.vid}:${card.sid}`;
 }
 

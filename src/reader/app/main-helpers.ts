@@ -58,6 +58,18 @@ export const LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS = 500;
 export const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
 export const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 export const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1_200;
+// An unresolved public-vocabulary miss is only trusted for this long: misses
+// caused by timeouts/backoff heal on the next scan instead of leaving page
+// words permanently reading-less. Long enough that a genuinely unknown term
+// is not re-fetched on every mutation-driven rescan.
+export const UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS = 120_000;
+// A missed card is re-fed to the paced deferred lane at most this many times
+// before it is negative-cached (TTL above) — bounds the retry traffic on
+// pages whose terms genuinely have no public entry.
+export const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
+// While the shared public-jiten backoff is active the deferred lane sleeps in
+// these slices instead of consuming its queue into guaranteed misses.
+export const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3_000;
 // DOM strategy threshold only: small updates use exact selectors, larger updates may build a rendered-word index.
 // This is not an Anki cache/card cap.
 export const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
