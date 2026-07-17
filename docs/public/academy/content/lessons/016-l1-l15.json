@@ -723,7 +723,7 @@
         "note": "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    "castingNote": "Grammar picks the person: chapter 9's likes and reasons belong to Xingyu (who sings) and Francis (manga and music), with Mika asking the careful どうして; chapter 10's existence-and-location work goes to Angel, who always knows where everything is; Robert frames the get-together and Rie teaches. This overrides the plan seed (robert/mika/sophie/xingyu/angel) only in adding Francis for the likes strand.",
+    "castingNote": "Grammar picks the person: chapter 9's likes and reasons belong to Xingyu (who sings) and Francis (manga and music), with Mika asking the careful どうして; chapter 10's existence-and-location work goes to Onke, who always knows where everything is; Robert frames the get-together and Rie teaches. This overrides the plan seed (robert/mika/sophie/xingyu/angel) only in adding Francis for the likes strand.",
     "gaps": []
   },
   "sourceQuestionNormalization": {
@@ -1013,7 +1013,7 @@
         "japanese": "その みせの なかに へやが ありますか。",
         "reading": "その みせの なかに へやが ありますか。",
         "english": "Is there a room inside that place?",
-        "note": "なか + あります — Angel checks the logistics."
+        "note": "なか + あります — Onke checks the logistics."
       },
       {
         "speakerId": "rie",

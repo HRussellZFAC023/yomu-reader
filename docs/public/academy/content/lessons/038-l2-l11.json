@@ -212,7 +212,7 @@
         "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    "castingNote": "The removed classmate in the plan seed is not used. Angel owns contingency planning, Sophie voices uncertainty without being made the joke, Henry handles a small path change, and Rie turns both surprises into specific if/even-if language.",
+    "castingNote": "The removed classmate in the plan seed is not used. Onke owns contingency planning, Sophie voices uncertainty without being made the joke, Henry handles a small path change, and Rie turns both surprises into specific if/even-if language.",
     "gaps": [],
     "donorPackage": {
       "canonicalWeekId": "l2plus-l10",
@@ -636,7 +636,7 @@
   "scene": {
     "where": "A riverside map board where one footpath is covered by a temporary barrier",
     "sceneImage": "academy/art/scenes/riverside-map-wide.webp",
-    "hook": "Angel's path is perfect except for the part that is closed.",
+    "hook": "Onke's path is perfect except for the part that is closed.",
     "cast": [
       "rie",
       "angel",
@@ -679,7 +679,7 @@
         "japanese": "いいですね。晴れても 雨でも、会える 計画に しましょう。",
         "reading": "いいですね。はれても あめでも、あえる けいかくに しましょう。",
         "english": "Good. Let's make a plan that works whether it is clear or rainy.",
-        "note": "Angel chooses a robust plan rather than demanding certainty."
+        "note": "Onke chooses a robust plan rather than demanding certainty."
       },
       {
         "speakerId": "rie",
@@ -2668,7 +2668,7 @@
     "narrativeIntroduction": {
       "location": "A riverside map board where one footpath is covered by a temporary barrier",
       "characterId": "angel",
-      "beat": "Angel's path is perfect except for the part that is closed.",
+      "beat": "Onke's path is perfect except for the part that is closed.",
       "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     "activities": [

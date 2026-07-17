@@ -50,7 +50,7 @@ describe('Lesson 39 asset and presentation grounding', () => {
             .not.toBe(ACADEMY_ASSETS.locations.languageLab.wide);
     });
 
-    it('renders responsive scene art with Jenny and Angel named but no cast likeness or item art', async () => {
+    it('renders responsive scene art with Jenny and Onke named but no cast likeness or item art', async () => {
         const entry = createLessonStoryRuntime(PLAN).continuity(PACKAGE_ID)!;
         const presentation = lessonStoryPresentation(entry)!;
         const registration = getAuthoredWeekRegistration(PACKAGE_ID);
@@ -68,7 +68,7 @@ describe('Lesson 39 asset and presentation grounding', () => {
                 callback: entry.callback.meaningNow,
                 dialogue: entry.dialogue?.map(turn => ({
                     ...turn,
-                    speakerName: turn.speakerId === 'jenny' ? 'Jenny' : 'Angel',
+                    speakerName: turn.speakerId === 'jenny' ? 'Jenny' : 'Onke',
                 })),
             },
         });
@@ -81,7 +81,7 @@ describe('Lesson 39 asset and presentation grounding', () => {
         expect(screen.element.querySelector('.academy-authored-week-story-context')?.textContent)
             .toContain('Jenny');
         expect(screen.element.querySelector('.academy-authored-week-story-context')?.textContent)
-            .toContain('Angel');
+            .toContain('Onke');
         expect(screen.element.querySelector('.academy-authored-week-host')).toBeNull();
         expect(screen.element.querySelector('img[src*="/characters/"], img[src*="/items/"]')).toBeNull();
         screen.dispose();

@@ -190,7 +190,7 @@ export function createLessonL2L30ConditionalWorkshopBeat(): LessonActivityBeat {
         id: 'conditional-workshop',
         narrative: {
             ja: 'リエ先生が条件形の二枚とことわざ、練習原本を開き、エンジェルが前提と結果のカードを左右に分けます。作り方を確認してから、原文の形を戻します。',
-            en: 'Rie opens the two conditional-form pages, the proverb page, and the exercise originals while Angel separates preconditions from results. After the formation rules are clear, the class restores the source forms.',
+            en: 'Rie opens the two conditional-form pages, the proverb page, and the exercise originals while Onke separates preconditions from results. After the formation rules are clear, the class restores the source forms.',
         },
         activity: Object.freeze(activity),
     });

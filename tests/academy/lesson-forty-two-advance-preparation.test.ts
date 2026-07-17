@@ -117,7 +117,7 @@ describe('Lesson 42 Sensei Chapter 30 advance preparation', () => {
         const chapter = await loadReachableLessonActivityChapter('l2-l17', { lookup: async () => null });
         expect(chapter?.lessonPackageId).toBe('l2-l17');
         expect(chapter?.canonicalEpisodeId).toBe('s1e07-no-spoilers');
-        expect(chapter?.introduction.en).toContain('Angel');
+        expect(chapter?.introduction.en).toContain('Onke');
         expect(chapter?.introduction.en).toContain('Chapter 30-2');
         const extension = createReachableLessonActivityExtension({
             language: 'en', chapter: chapter!, runtime: createActivityRuntime(ACADEMY_ACTIVITY_PLUGINS),

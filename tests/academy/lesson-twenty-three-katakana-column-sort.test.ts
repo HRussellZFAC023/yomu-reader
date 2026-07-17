@@ -70,7 +70,7 @@ describe('Lesson 23 Sensei katakana column sort', () => {
         expect(JSON.stringify(slice)).toContain('Genki I Lesson 2 literacy workbook 2');
     });
 
-    it('makes the completed Lesson 23 activity reachable in Angel and Sophie’s chapter', async () => {
+    it('makes the completed Lesson 23 activity reachable in Onke and Sophie’s chapter', async () => {
         const chapter = await loadLessonActivityChapter('l1-l23', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l23',

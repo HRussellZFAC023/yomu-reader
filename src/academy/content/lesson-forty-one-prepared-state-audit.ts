@@ -193,7 +193,7 @@ export function createLessonFortyOnePreparedStateAuditBeat(): LessonActivityBeat
         id: 'sensei-prepared-state-audit',
         narrative: {
             ja: '完了と残念な出来事を分けたあと、エンジェルは先生の次の準備表を開きます。クリスチャンと、ただ残っている状態と、だれかが使いやすいように準備して残した状態を見分けます。',
-            en: 'After separating completion from regret, Angel opens Sensei’s next preparation sheet. With Christian, she distinguishes what merely remains from what someone deliberately prepared and left ready for use.',
+            en: 'After separating completion from regret, Onke opens Sensei’s next preparation sheet. With Christian, she distinguishes what merely remains from what someone deliberately prepared and left ready for use.',
         },
         activity: Object.freeze(activity),
     });

@@ -503,7 +503,7 @@
         "note": "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    "castingNote": "Grammar picks the person: introducing others, countries and languages belong to Mika (the quiet polyglot), and the numbers to Angel (who keeps everyone organised). Tom carries over the company-employee line from Lesson 1, Henry is the learner beside you, and Miller appears once as a textbook cameo guest. Rie holds the room.",
+    "castingNote": "Grammar picks the person: introducing others, countries and languages belong to Mika (the quiet polyglot), and the numbers to Onke (who keeps everyone organised). Tom carries over the company-employee line from Lesson 1, Henry is the learner beside you, and Miller appears once as a textbook cameo guest. Rie holds the room.",
     "gaps": []
   },
   "runtimeReachability": {
@@ -2263,12 +2263,12 @@
         "assetId": "asset-l1-l02-listening",
         "locator": "academy://audio/level-1/lesson-02-a-new-face",
         "durationSeconds": 36,
-        "voiceNotes": "Three speakers, slow and clear. Angel warm and organised; Lin calm and friendly; Henry cheerful and a beat behind.",
+        "voiceNotes": "Three speakers, slow and clear. Onke warm and organised; Lin calm and friendly; Henry cheerful and a beat behind.",
         "script": "アンヘル：みなさん、しょうかいします。こちらは リンさんです。 リン：はじめまして。リンです。中国人です。かいしゃいんです。どうぞ よろしく。 ヘンリー：リンさんは 日本語の せんせいですか。 リン：いいえ、せんせいじゃ ありません。かいしゃいんです。 アンヘル：リンさんは にじゅうごさいです。 ヘンリー：あ、わたしも にじゅうごさいです！"
       },
       "transcript": {
         "revealAfterFirstAttempt": true,
-        "body": "Angel: Everyone, let me introduce someone — this is Lin. — Lin: How do you do. I'm Lin. I'm Chinese, and a company employee. Nice to meet you. — Henry: Lin, are you a Japanese teacher? — Lin: No, I'm not a teacher — I'm a company employee. — Angel: Lin is twenty-five. — Henry: Oh, I'm twenty-five too!"
+        "body": "Onke: Everyone, let me introduce someone — this is Lin. — Lin: How do you do. I'm Lin. I'm Chinese, and a company employee. Nice to meet you. — Henry: Lin, are you a Japanese teacher? — Lin: No, I'm not a teacher — I'm a company employee. — Onke: Lin is twenty-five. — Henry: Oh, I'm twenty-five too!"
       },
       "audioWorksheetPairing": {
         "pairedWith": "9da1001d0f48a69adc9ac992ec67845b7be4fb812dd4905e0ce3369b470efd99",
@@ -2283,14 +2283,14 @@
             "en": "What is happening?",
             "ja": "何を していますか。"
           },
-          "explanation": "Angel says しょうかいします and こちらは リンさんです — she's introducing a new person to the class.",
+          "explanation": "Onke says しょうかいします and こちらは リンさんです — she's introducing a new person to the class.",
           "reviewTag": "listening-gist",
           "autoGraded": true,
           "options": [
             {
               "id": "a",
               "label": {
-                "en": "Angel is introducing a new person",
+                "en": "Onke is introducing a new person",
                 "ja": "あたらしい 人の しょうかい"
               },
               "correct": true
@@ -2483,7 +2483,7 @@
           {
             "ja": "アンヘルさんは メキシコ人です。かいしゃいんです。",
             "reading": "アンヘルさんは メキシコじんです。かいしゃいんです。",
-            "en": "Angel is Mexican. He's a company employee."
+            "en": "Onke is Mexican. He's a company employee."
           },
           {
             "ja": "ミカさんは スペイン人です。日本語の がくせいです。",
@@ -2556,10 +2556,10 @@
           "kind": "choice",
           "phase": "guided-practice",
           "prompt": {
-            "en": "What is Angel's nationality?",
+            "en": "What is Onke's nationality?",
             "ja": "アンヘルさんは 何人ですか。"
           },
-          "explanation": "Angel's card says メキシコ人 — Mexican. スペイン人 (Spanish) is Mika.",
+          "explanation": "Onke's card says メキシコ人 — Mexican. スペイン人 (Spanish) is Mika.",
           "reviewTag": "reading-detail",
           "autoGraded": true,
           "options": [
@@ -2591,11 +2591,11 @@
           "wrongAnswerExplanations": [
             {
               "trigger": "b",
-              "message": "スペイン人 (Spanish) is Mika. Angel's card says メキシコ人."
+              "message": "スペイン人 (Spanish) is Mika. Onke's card says メキシコ人."
             },
             {
               "trigger": "c",
-              "message": "Nobody on these cards is 日本人; Angel is メキシコ人."
+              "message": "Nobody on these cards is 日本人; Onke is メキシコ人."
             }
           ]
         }
@@ -2994,7 +2994,7 @@
   "mission": {
     "title": "The introductions wall",
     "framedBy": "angel",
-    "prompt": "Angel's idea: as a class, build a wall of introductions. Each person presents the classmate beside them — こちらは 〜さんです, their country, their job, and, if they'll tell you, their age. Keep it to what someone's happy to share — just a friendly card.",
+    "prompt": "Onke's idea: as a class, build a wall of introductions. Each person presents the classmate beside them — こちらは 〜さんです, their country, their job, and, if they'll tell you, their age. Keep it to what someone's happy to share — just a friendly card.",
     "successCriteria": [
       "You present another person with こちらは 〜さんです.",
       "You give their nationality with 〜人 and their job.",

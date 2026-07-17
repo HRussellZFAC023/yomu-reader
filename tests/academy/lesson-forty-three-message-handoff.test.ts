@@ -163,7 +163,7 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
         const chapter = await loadReachableLessonActivityChapter('l2-l18', { lookup: async () => null });
         expect(chapter?.lessonPackageId).toBe('l2-l18');
         expect(chapter?.canonicalEpisodeId).toBe('s1e07-no-spoilers');
-        expect(chapter?.introduction.en).toContain('Angel');
+        expect(chapter?.introduction.en).toContain('Onke');
         expect(chapter?.introduction.en).toContain('Chapter 30-3');
         const extension = createReachableLessonActivityExtension({
             language: 'en', chapter: chapter!, runtime: createActivityRuntime(ACADEMY_ACTIVITY_PLUGINS),

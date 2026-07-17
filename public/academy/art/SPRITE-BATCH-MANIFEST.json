@@ -364,7 +364,7 @@
       "generationPriority": {"tier": 0, "rank": 2, "rationale": "Correcting a known identity failure is urgent, but generation cannot begin from the rejected output.", "blockedBy": ["No historical standalone Xingyu asset passed provenance and likeness review.", "Owner must verify Xingyu's exact class-photo crops before a clean neutral regeneration."]}
     },
     {
-      "id": "angel", "firstName": "Angel", "category": "classmate",
+      "id": "angel", "firstName": "Onke", "category": "classmate",
       "basePose": "poster tube angled across the torso while one hand opens in a precise planning gesture",
       "angles": ["left-three-quarter", "front-near-front", "right-three-quarter"],
       "expressionSet": ["neutral", "happy", "encouraging-listening", "surprised-shocked", "sad-vulnerable", "determined", "comedic"],
@@ -375,7 +375,7 @@
         {"id": "angel-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"}
       ],
       "currentAsset": {"status": "missing", "paths": [], "note": "No current Academy runtime or review-candidate sprite."},
-      "generationPriority": {"tier": 2, "rank": 23, "rationale": "Medium reference confidence and privacy constraints require owner-guided crop selection.", "blockedBy": ["Owner must confirm Angel's exact reference crops."]}
+      "generationPriority": {"tier": 2, "rank": 23, "rationale": "Medium reference confidence and privacy constraints require owner-guided crop selection.", "blockedBy": ["Owner must confirm Onke's exact reference crops."]}
     },
     {
       "id": "stasi", "firstName": "Stasi", "category": "classmate",

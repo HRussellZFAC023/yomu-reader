@@ -73,7 +73,7 @@ describe('Lesson 24 Sensei katakana two-row audio route', () => {
         expect(JSON.stringify(slice)).toContain('Genki I Lesson 2 literacy workbook 3');
     });
 
-    it('makes the completed Lesson 24 activity reachable in Mika and Angel’s chapter', async () => {
+    it('makes the completed Lesson 24 activity reachable in Mika and Onke’s chapter', async () => {
         const chapter = await loadLessonActivityChapter('l1-l24', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l24',

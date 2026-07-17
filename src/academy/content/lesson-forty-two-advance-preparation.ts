@@ -184,7 +184,7 @@ export function createLessonFortyTwoAdvancePreparationBeat(): LessonActivityBeat
         id: 'sensei-advance-preparation',
         narrative: {
             ja: '教室を使える状態にしたあと、エンジェルは帰国前の旅行準備を始めます。クリスチャンとヘンリーは、先生の語彙表を見ながら、旅の前にすること、使ったあとに戻すこと、今のまま残すことを一緒に整理します。',
-            en: 'With the classroom left ready, Angel begins preparing for her journey home. Christian and Henry use Sensei’s vocabulary sheet to sort what must be done before the trip, reset after use, or deliberately left as it is.',
+            en: 'With the classroom left ready, Onke begins preparing for her journey home. Christian and Henry use Sensei’s vocabulary sheet to sort what must be done before the trip, reset after use, or deliberately left as it is.',
         },
         activity: Object.freeze(activity),
     });

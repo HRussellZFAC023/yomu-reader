@@ -169,7 +169,7 @@ describe('Lesson 35 Sensei Chapter 23-1 toki threshold', () => {
         controller.dispose();
     });
 
-    it('restores all rows on remount and hands Ruparna’s media pages to Angel’s control desk', async () => {
+    it('restores all rows on remount and hands Ruparna’s media pages to Onke’s control desk', async () => {
         const runtime = createAcademyActivityRuntime();
         const firstHost = document.createElement('main');
         const first = runtime.mount(model(), { replace(view) { firstHost.replaceChildren(view); }, announce() {} }, () => {});
@@ -194,7 +194,7 @@ describe('Lesson 35 Sensei Chapter 23-1 toki threshold', () => {
             ],
         });
         expect(chapter?.introduction.en).toContain('Ruparna');
-        expect(chapter?.introduction.en).toContain('Angel');
+        expect(chapter?.introduction.en).toContain('Onke');
         expect(chapter?.introduction.en).toContain('station route');
         expect(chapter?.conclusion.en).toContain('fresh replay');
     });

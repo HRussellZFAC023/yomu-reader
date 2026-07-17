@@ -237,7 +237,7 @@ export function createLessonFortyThreeMessageHandoffBeat(): LessonActivityBeat {
         id: 'sensei-message-handoff',
         narrative: {
             ja: 'エンジェルの帰国準備を手伝っていると、教室の明かりが一度消えます。ジョディは非常袋のそばで伝言メモを書き、クリスチャンは必要な物だけを声に出して確認します。ルパーナは、全部を言わなくても行動が伝わるか見守ります。',
-            en: 'While the class helps Angel prepare to return home, the classroom lights flicker out. Jodi writes a memo beside the emergency bag, Christian repeats only the supplies and action he needs, and Ruparna checks that the message works without listing everything.',
+            en: 'While the class helps Onke prepare to return home, the classroom lights flicker out. Jodi writes a memo beside the emergency bag, Christian repeats only the supplies and action he needs, and Ruparna checks that the message works without listing everything.',
         },
         activity: Object.freeze(activity),
     });

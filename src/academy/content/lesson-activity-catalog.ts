@@ -186,7 +186,7 @@ export async function loadLessonActivityChapter(
                 en: 'Mika’s careful listening leaves both the long vowel and small っ clear in the lantern rings. One written 一 returns the first time card to the map.',
             }, [createLessonEightTimeWorkbookBeat(), soundBeat(), kanjiOneBeat(trace), classActivityBeat('free-time-board', {
                 ja: '音の輪が静かになると、入口の時間表にジョディの予定のコマが光ります。エンジェルも時計を確認し、一人ずつ空き時間を置きます。',
-                en: 'As the sound rings settle, Jodi’s schedule token lights up on the doorway board. Angel checks the clock while everyone adds their availability in turn.',
+                en: 'As the sound rings settle, Jodi’s schedule token lights up on the doorway board. Onke checks the clock while everyone adds their availability in turn.',
             }, 'l1-l08')]);
         }
         case 'l1-l09':
@@ -316,7 +316,7 @@ export async function loadLessonActivityChapter(
                 en: 'A two-line commute notebook',
             }, {
                 ja: 'ピーターがストの日といつもの通勤を二行のノートに分けます。エンジェルは、数字を急いで選ぶ前に、その行がどちらの日なのか確かめます。',
-                en: 'Peter separates the strike-day and usual commutes into a two-line notebook. Before choosing numbers, Angel checks which day each line describes.',
+                en: 'Peter separates the strike-day and usual commutes into a two-line notebook. Before choosing numbers, Onke checks which day each line describes.',
             }, {
                 ja: '三つの通勤メモで、交通手段と時間をそれぞれの日に戻せました。ピーターは、回数か時間かを聞く質問が、実際の移動を話すときにも役立つと確かめます。',
                 en: 'The three commute notes now return each transport and duration to its day. Peter sees that asking whether a number is frequency or duration also helps when talking about a real journey.',
@@ -338,10 +338,10 @@ export async function loadLessonActivityChapter(
                 en: 'Ka-row vowel columns',
             }, {
                 ja: 'カタカナの母音の行を確認したあと、エンジェルがカ行の五つの札を五つの列の前に置きます。ソフィーは、英語のつづりに急がず、聞いた音がどの母音の列へ戻るかを確かめます。',
-                en: 'After the vowel row is checked, Angel places five ka-row tiles before five columns. Sophie asks the learner not to rush to English spelling, but to check which vowel column each heard sound returns to.',
+                en: 'After the vowel row is checked, Onke places five ka-row tiles before five columns. Sophie asks the learner not to rush to English spelling, but to check which vowel column each heard sound returns to.',
             }, {
                 ja: '五つのカ行の札が、先生の表と同じ母音の列に戻りました。エンジェルとソフィーは、ガ行を先取りせず、カ行だけを確かめた形で次の書く練習へ渡します。',
-                en: 'All five ka-row tiles now return to the same vowel columns as Sensei’s chart. Without jumping ahead to the ga row, Angel and Sophie pass on a checked ka row for the next writing practice.',
+                en: 'All five ka-row tiles now return to the same vowel columns as Sensei’s chart. Without jumping ahead to the ga row, Onke and Sophie pass on a checked ka row for the next writing practice.',
             }, [createLessonTwentyThreeKatakanaColumnSortBeat()]);
         case 'l1-l24':
             return chapter('l1-l24', 's1e05-final-boss-kana', 'mika', {
@@ -349,7 +349,7 @@ export async function loadLessonActivityChapter(
                 en: 'A sound route through the sa and ta rows',
             }, {
                 ja: '二つの新しいカタカナ行を前に、ミカが先生の表を二本の道に分けます。エンジェルは、音を聞いてから行と母音の位置を一つずつ指します。',
-                en: 'With two new katakana rows open, Mika separates Sensei’s chart into two routes. Angel points to one row and vowel position at a time after listening.',
+                en: 'With two new katakana rows open, Mika separates Sensei’s chart into two routes. Onke points to one row and vowel position at a time after listening.',
             }, {
                 ja: '十の音が二本の道に戻り、サ行とタ行の対比を確かめられました。見本の濁音は、次の練習に持ち込まず、表に残します。',
                 en: 'All ten sounds return to the two routes, confirming the sa/ta contrast. The voiced examples remain on the chart rather than being pulled into the next practice.',
@@ -360,10 +360,10 @@ export async function loadLessonActivityChapter(
                 en: 'The na and ha row switchboard',
             }, {
                 ja: '先生の新しい二行を前に、エンジェルがスイッチボードを開きます。ミカは音を聞いてから、行のスイッチと母音のダイヤルを別々に合わせます。',
-                en: 'With Sensei’s two new rows open, Angel brings up a switchboard. Mika listens first, then sets the row switch and vowel dial separately.',
+                en: 'With Sensei’s two new rows open, Onke brings up a switchboard. Mika listens first, then sets the row switch and vowel dial separately.',
             }, {
                 ja: '十の音をナ行とハ行の設定へ戻せました。エンジェルとミカは、パ行とバ行の見本をまだ表に残します。',
-                en: 'All ten sounds return to their na/ha settings. Angel and Mika leave the pa and ba examples on the chart for now.',
+                en: 'All ten sounds return to their na/ha settings. Onke and Mika leave the pa and ba examples on the chart for now.',
             }, [createLessonTwentyFiveKatakanaRowSwitchboardBeat()]);
         case 'l1-l26':
             return chapter('l1-l26', 's1e05-final-boss-kana', 'mika', {
@@ -371,7 +371,7 @@ export async function loadLessonActivityChapter(
                 en: 'Shelves for the final four rows',
             }, {
                 ja: '先生の最後の四行を前に、ミカが長さの違う棚を開きます。エンジェルは、聞こえた音を急いで五つの位置にそろえず、表にある場所だけを選びます。',
-                en: 'With Sensei’s final four rows open, Mika lays out shelves of different lengths. Angel does not force each heard sound into five positions, but chooses only a place visible on the chart.',
+                en: 'With Sensei’s final four rows open, Mika lays out shelves of different lengths. Onke does not force each heard sound into five positions, but chooses only a place visible on the chart.',
             }, {
                 ja: '十六の音が、マ行・ヤ行・ラ行・ワ行にある正しい棚へ戻りました。短い行の空いている場所を作らずに、最後のカタカナ表を確かめられました。',
                 en: 'All sixteen sounds return to their correct ma, ya, ra, and wa shelves. The final katakana chart is checked without inventing empty positions in its shorter rows.',
@@ -693,7 +693,7 @@ export async function loadLessonActivityChapter(
                 en: 'The toki threshold',
             }, {
                 ja: 'メディア室の信号を片づけると、ルパーナが先生の Chapter 23-1 の二ページをエンジェルへ送ります。アトラス管理デスクでは、駅ルートの一つ一つの行動に「完了する前」と「完了した後」の境目が必要です。',
-                en: 'As the media-room signals settle, Ruparna sends Sensei’s two Chapter 23-1 pages to Angel. At the Atlas control desk, each action on the station route needs a clear threshold: before completion or after it.',
+                en: 'As the media-room signals settle, Ruparna sends Sensei’s two Chapter 23-1 pages to Onke. At the Atlas control desk, each action on the station route needs a clear threshold: before completion or after it.',
             }, {
                 ja: '四つのことばが正しい境目を通り、駅ルートは辞書形とた形の時点を見分けられる案内になりました。先生の説明へ戻る道と、四つを最初からやり直す道も残っています。',
                 en: 'All four speech bubbles cross the right threshold, leaving a station route that distinguishes dictionary-form timing from ta-form timing. A return to Sensei’s teaching and a fresh replay of all four remain open.',
@@ -704,7 +704,7 @@ export async function loadLessonActivityChapter(
                 en: 'The toki occasion routes',
             }, {
                 ja: 'アトラス管理デスクの境目を通し終えると、エンジェルが先生の新しい Chapter 23-1 のページを駅コンコースのりえ先生へ届けます。りえ先生は四つの案内カードを、行動や状態が「ある／ない」の二つの路線へ置きます。',
-                en: 'After the last threshold clears the Atlas control desk, Angel delivers Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie places four notice cards across two routes: an action or state that is present, and one that is absent.',
+                en: 'After the last threshold clears the Atlas control desk, Onke delivers Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie places four notice cards across two routes: an action or state that is present, and one that is absent.',
             }, {
                 ja: '四つの元の二文が、辞書形とない形の正しい「とき」ルートで一文になりました。先生の説明へ戻る道と、四つを最初からやり直す路線も残っています。',
                 en: 'All four source pairs now form one sentence through the correct dictionary-form or nai-form toki route. A return to Sensei’s teaching and a fresh replay of all four routes remain open.',
@@ -777,7 +777,7 @@ export async function loadLessonActivityChapter(
                 en: 'Do it now, thank yourself later',
             }, {
                 ja: '教室の準備表を閉じると、エンジェルが帰国前の予定を持ってきます。クリスチャンとヘンリーは先生の Chapter 30-2 と語彙表を広げ、旅の前、使ったあと、今の状態を保つために何をしておくかを整理します。',
-                en: 'When the classroom preparation sheet closes, Angel arrives with her plans before returning home. Christian and Henry open Sensei’s Chapter 30-2 and vocabulary sheet to decide what to do before the journey, after using something, or to preserve its current state.',
+                en: 'When the classroom preparation sheet closes, Onke arrives with her plans before returning home. Christian and Henry open Sensei’s Chapter 30-2 and vocabulary sheet to decide what to do before the journey, after using something, or to preserve its current state.',
             }, {
                 ja: '八つの原問が、期限までの準備、次に使うための片付け、そのままにする意図を保つ文になりました。先生の説明へ戻る道と、八つを最初からやり直す道も残っています。',
                 en: 'All eight source prompts now preserve preparation by a deadline, resetting for next use, and the intention to leave a state unchanged. A return to Sensei’s teaching and a fresh replay of all eight prompts remain available.',
@@ -788,7 +788,7 @@ export async function loadLessonActivityChapter(
                 en: 'Say enough, not everything',
             }, {
                 ja: 'エンジェルの帰国準備を手伝っていると、教室の明かりが一度消えます。ジョディは先生の Chapter 30-3 語彙表と伝言メモを非常袋の横に広げ、クリスチャンと必要な例だけを残す練習を始めます。',
-                en: 'While the class helps Angel prepare to return home, the classroom lights flicker out. Jodi opens Sensei’s Chapter 30-3 vocabulary and message memos beside the emergency bag, then practises leaving Christian only the examples and instruction he needs.',
+                en: 'While the class helps Onke prepare to return home, the classroom lights flicker out. Jodi opens Sensei’s Chapter 30-3 vocabulary and message memos beside the emergency bag, then practises leaving Christian only the examples and instruction he needs.',
             }, {
                 ja: '八つの原問で、一般的な「とか」の例、特定の出来事、伝言の大切な行動を区別できました。先生の原本、段階ヒント、間違えた問だけの修復、最初からの再挑戦はいつでも戻れます。',
                 en: 'Across eight source prompts, you separated general とか examples, specific events, and the actionable part of a message. Sensei’s originals, earned hints, missed-item repair, and a full replay remain available.',
@@ -799,7 +799,7 @@ export async function loadLessonActivityChapter(
                 en: 'One verb, then a plan',
             }, {
                 ja: '非常袋のメモを閉じると、ルパーナが Chapter 31 の原本と動詞の表をメディア室の机に置きます。サムは一つの小さな計画を言い、ロバートとエンジェルは、その形がどの動詞の組に入るかを確かめます。',
-                en: 'When the emergency-bag notes close, Ruparna lays Sensei’s Chapter 31 originals and verb-form sheet on the media-room table. Sam offers one small plan while Robert and Angel check which verb group gives it its shape.',
+                en: 'When the emergency-bag notes close, Ruparna lays Sensei’s Chapter 31 originals and verb-form sheet on the media-room table. Sam offers one small plan while Robert and Onke check which verb group gives it its shape.',
             }, {
                 ja: '八つの原問で、五段・一段・不規則動詞の意向形を作れました。先生の原本、間違えた問だけの修復、三段階のヒント、最初からの再挑戦はいつでも戻れます。',
                 en: 'Across eight source prompts, the volitional forms for godan, ichidan, and irregular verbs are now in place. Sensei’s originals, missed-item repair, three earned hints, and a full replay remain available.',
@@ -821,7 +821,7 @@ export async function loadLessonActivityChapter(
                 en: 'What you decided, what is arranged',
             }, {
                 ja: 'ヘンリーは先生の Chapter 31-2 の語彙表を開き、エンジェルと二つの欄を作ります。一つは自分で決めたこと、もう一つはすでに予定になっていることです。クリスチャンは「実は」と理由を加え、形が変わるところを確かめます。',
-                en: 'Henry opens Sensei’s Chapter 31-2 vocabulary sheet and builds two columns with Angel: things she has decided herself and things that are already arranged. Christian adds a reason with 実は and checks where the form changes.',
+                en: 'Henry opens Sensei’s Chapter 31-2 vocabulary sheet and builds two columns with Onke: things she has decided herself and things that are already arranged. Christian adds a reason with 実は and checks where the form changes.',
             }, {
                 ja: '八つの原問で、つもり、予定、近い未来、確信のつもりを区別できました。先生の原本、三段階のヒント、間違えた問だけの修復、最初からの再挑戦はいつでも戻れます。',
                 en: 'Across eight source prompts, you separated つもり, 予定, immediate future, and the conviction meaning of つもり. Sensei’s originals, three earned hints, missed-item repair, and a full replay remain available.',

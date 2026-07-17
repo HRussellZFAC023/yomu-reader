@@ -92,6 +92,8 @@ export const VOICE_REGISTRY: Readonly<Record<string, CharacterVoice>> = {
   felix: { azure: "ja-JP-KeitaNeural", polly: "Takumi", prosody: { pitch: "-6%", rate: "96%" } },
   robert: { azure: "ja-JP-DaichiNeural", polly: "Takumi", prosody: { pitch: "-7%", rate: "95%" } },
   peter: { azure: "ja-JP-NaokiNeural", polly: "Takumi", prosody: { pitch: "+4%" } },
+  steve: { azure: "ja-JP-MasaruMultilingualNeural", polly: "Takumi", prosody: { rate: "91%", pitch: "-7%" } },
+  tom2: { azure: "ja-JP-NaokiNeural", polly: "Takumi", prosody: { rate: "94%", pitch: "-5%" } },
   shaun: { azure: "ja-JP-MasaruMultilingualNeural", polly: "Takumi", prosody: { rate: "94%", pitch: "-4%" } },
   xingyu: { azure: "ja-JP-KeitaNeural", polly: "Takumi", prosody: { pitch: "+3%", rate: "99%" } },
 };
@@ -347,7 +349,7 @@ export async function handleWordTts(url: URL, env: TtsEnv): Promise<Response> {
 
 /** GET /voice/line?text=&speaker= — character-voiced dialogue (admin gated). */
 export async function handleLineTts(request: Request, url: URL, env: TtsEnv): Promise<Response> {
-  const engine = ttsEngine(env);
+  const engine = lineEngine(env);
   if (!engine) return errorJson(503, "tts_disabled");
   const expected = env.VOICE_ADMIN_TOKEN?.trim();
   const header = request.headers.get("authorization") ?? "";
@@ -359,15 +361,18 @@ export async function handleLineTts(request: Request, url: URL, env: TtsEnv): Pr
   const character = VOICE_REGISTRY[speaker] ?? VOICE_REGISTRY.narrator;
 
   const payload = lineSsml(text, character);
-  const key = engine === "polly"
-    ? `${LINE_TTS_PREFIX}/${speaker}/${await sha256Hex(`${character.polly} ${payload.text}`)}.mp3`
-    : `${LINE_TTS_PREFIX}/melotts/${await sha256Hex(text)}.wav`;
+  const extension = engine === "azure" ? "ogg" : engine === "polly" ? "mp3" : "wav";
+  const voice = engine === "azure" ? character.azure : engine === "polly" ? character.polly : "melotts-ja";
+  const key = `${LINE_TTS_PREFIX}/${engine}/${speaker}/${await sha256Hex(`${voice} ${payload.text}`)}.${extension}`;
   const contentType = engineContentType(engine);
-  const { audio, cached } = await cachedSynthesis(env, key, contentType, () =>
-    engine === "polly" ? synthesizePolly(env, character.polly, payload) : synthesizeMelo(env, text));
+  const { audio, cached } = await cachedSynthesis(env, key, contentType, () => {
+    if (engine === "azure") return synthesizeAzure(env, character.azure, text, character.prosody);
+    if (engine === "polly") return synthesizePolly(env, character.polly, payload);
+    return synthesizeMelo(env, text);
+  });
   return audioResponse(audio, cached, contentType, {
     "x-yomu-tts-engine": engine,
     "x-yomu-tts-speaker": speaker,
-    "x-yomu-tts-voice": engine === "polly" ? character.polly : "melotts-ja",
+    "x-yomu-tts-voice": voice,
   });
 }

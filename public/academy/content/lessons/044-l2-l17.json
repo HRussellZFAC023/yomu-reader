@@ -266,7 +266,7 @@
         "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    "castingNote": "Grammar picks the person: Angel leads the checklist even though she is outside the plan's seed, Jodi preserves useful arrangements, and Tom brings a trip with one uncharged phone.",
+    "castingNote": "Grammar picks the person: Onke leads the checklist even though she is outside the plan's seed, Jodi preserves useful arrangements, and Tom brings a trip with one uncharged phone.",
     "gaps": [],
     "donorPackage": {
       "canonicalWeekId": "l3-2-l06",
@@ -772,7 +772,7 @@
   "scene": {
     "where": "A hallway with two packed bags and a bus map",
     "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
-    "hook": "Angel's list is complete; Tom's phone disagrees.",
+    "hook": "Onke's list is complete; Tom's phone disagrees.",
     "cast": [
       "rie",
       "angel",
@@ -2138,7 +2138,7 @@
     "narrativeIntroduction": {
       "location": "A hallway with two packed bags and a bus map",
       "characterId": "angel",
-      "beat": "Angel's list is complete; Tom's phone disagrees.",
+      "beat": "Onke's list is complete; Tom's phone disagrees.",
       "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     "activities": [

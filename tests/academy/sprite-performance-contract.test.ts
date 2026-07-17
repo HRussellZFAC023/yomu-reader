@@ -49,7 +49,12 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[0].expressions.determined.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions['encouraging-listening'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[2].expressions.neutral.status).toBe('approved');
-        expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({ approved: 7, reviewCandidates: 10, missing: 571 });
+        const totalPerformanceCells = ACADEMY_CAST.length * SPRITE_ANGLES.length * SPRITE_EXPRESSIONS.length;
+        expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
+            approved: 7,
+            reviewCandidates: 10,
+            missing: totalPerformanceCells - 17,
+        });
     });
 
     it('keeps every textbook legend fully missing until original Yomu art is approved', () => {

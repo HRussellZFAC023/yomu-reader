@@ -25,12 +25,14 @@ describe('Academy canonical cast registry', () => {
             ['mika', 'Mika'],
             ['sophie', 'Sophie'],
             ['xingyu', 'Xingyu'],
-            ['angel', 'Angel'],
+            ['angel', 'Onke'],
             ['stasi', 'Stasi'],
             ['ruparna', 'Ruparna'],
             ['rose', 'Rose'],
             ['peter', 'Peter'],
             ['felix', 'Felix'],
+            ['steve', 'Steve'],
+            ['tom2', 'Tom'],
             ['shaun', 'Shaun'],
             ['nanako', 'Nanako'],
             ['mira', 'Mira'],
@@ -45,9 +47,10 @@ describe('Academy canonical cast registry', () => {
         expect(ACADEMY_CAST.some(member => /unknown|unidentified|contact/i.test(member.id))).toBe(false);
     });
 
-    it('keeps ids and exact first-name labels unique', () => {
+    it('keeps ids unique while allowing distinct classmates to share a first name', () => {
         expect(new Set(ACADEMY_CAST.map(member => member.id)).size).toBe(ACADEMY_CAST.length);
-        expect(new Set(ACADEMY_CAST.map(member => member.firstName)).size).toBe(ACADEMY_CAST.length);
+        expect(ACADEMY_CAST.filter(member => member.firstName === 'Tom').map(member => member.id))
+            .toEqual(['tom', 'tom2']);
         expect(ACADEMY_CAST.every(member => Object.keys(member).every(key =>
             ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence', 'visualBrief'].includes(key),
         ))).toBe(true);
@@ -56,6 +59,17 @@ describe('Academy canonical cast registry', () => {
         expect(() => getAcademyCastMember('pho')).toThrow('Unknown Academy cast id');
         expect(isAcademyCastMemberId('rie')).toBe(true);
         expect(isAcademyCastMemberId('unidentified-contact')).toBe(false);
+    });
+
+    it('keeps the legacy Angel id while exposing Onke as the canonical visible name', () => {
+        expect(getAcademyCastMember('angel')).toMatchObject({
+            id: 'angel',
+            firstName: 'Onke',
+        });
+        expect(displayAcademyCastName('angel', 'en')).toBe('Onke-san');
+        expect(validateAcademyCastReference({ id: 'angel', firstName: 'Onke' }).id).toBe('angel');
+        expect(() => validateAcademyCastReference({ id: 'angel', firstName: 'Angel' }))
+            .toThrow('expected Onke');
     });
 
     it('keeps approved and pending likenesses explicit', () => {
@@ -86,6 +100,18 @@ describe('Academy canonical cast registry', () => {
         expect(canRenderAcademyCastPortrait('shaun', 'journal-review-preview')).toBe(true);
         expect(canRenderAcademyCastPortrait('shaun', 'story-runtime')).toBe(false);
         expect(canRenderAcademyCastPortrait('peter', 'story-runtime')).toBe(false);
+        expect(getAcademyCastMember('steve')).toMatchObject({
+            firstName: 'Steve',
+            category: 'classmate',
+            visualEvidence: 'candidate-needs-owner',
+            eligibility: { story: true, lessons: true, likenessRuntime: false },
+        });
+        expect(getAcademyCastMember('tom2')).toMatchObject({
+            firstName: 'Tom',
+            category: 'classmate',
+            visualEvidence: 'candidate-needs-owner',
+            eligibility: { story: true, lessons: true, likenessRuntime: false },
+        });
     });
 
     it('never stores guessed kana aliases', () => {

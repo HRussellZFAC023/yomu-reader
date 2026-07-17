@@ -248,7 +248,7 @@
         "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    "castingNote": "Grammar picks the person: Angel leads the preparation check, Jodi notices the purpose behind each arrangement, and Christian gives a concise handover.",
+    "castingNote": "Grammar picks the person: Onke leads the preparation check, Jodi notices the purpose behind each arrangement, and Christian gives a concise handover.",
     "gaps": [],
     "donorPackage": {
       "canonicalWeekId": "l3-2-l05",
@@ -653,7 +653,7 @@
   "scene": {
     "where": "A community room set for a small exhibition",
     "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
-    "hook": "Angel checks the room without moving a single thing.",
+    "hook": "Onke checks the room without moving a single thing.",
     "cast": [
       "rie",
       "angel",
@@ -696,7 +696,7 @@
         "japanese": "では、準備は できています。チェックを つけます。",
         "reading": "では、じゅんびは できて います。チェックを つけます。",
         "english": "Then the preparations are complete. I will tick the check.",
-        "note": "Angel closes the checklist."
+        "note": "Onke closes the checklist."
       },
       {
         "speakerId": "rie",
@@ -1149,7 +1149,7 @@
       },
       "passage": {
         "title": {
-          "en": "Angel's handover",
+          "en": "Onke's handover",
           "ja": "エンジェルの 引き継ぎ"
         },
         "gloss": "A written room plan that another learner can reconstruct.",
@@ -1927,7 +1927,7 @@
     "narrativeIntroduction": {
       "location": "A community room set for a small exhibition",
       "characterId": "angel",
-      "beat": "Angel checks the room without moving a single thing.",
+      "beat": "Onke checks the room without moving a single thing.",
       "role": "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     "activities": [

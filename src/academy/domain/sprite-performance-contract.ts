@@ -97,6 +97,8 @@ const SILHOUETTES = {
     ruparna: ['recipe notebook balanced on one palm', 'apron-front stance with pencil poised', 'spice tin lifted beside the recipe notebook'],
     rose: ['flower press hugged beneath one elbow', 'pressed leaf displayed between careful fingers', 'flower press opened into a wide layered shape'],
     peter: ['question cards fanned beneath a thoughtful lean', 'about-26 profile upright with one question card raised', 'light-haired head turn with cards tucked under arm'],
+    steve: ['phone held close while reading a family message', 'relaxed older posture with phone and pocket notebook', 'glasses lowered as he offers a careful reply'],
+    tom2: ['tall half-turn with one hand in a coat pocket', 'quiet centered stance holding a closed notebook', 'shoulder angled away while a small clue card is revealed'],
     felix: ['curly-haired lean following a paper cat trail', 'glasses adjusted above a paper cat held at chest', 'longer curls outlined over a crouched cat-counting pose'],
     shaun: ['jacket hooked from two fingers at the side', 'quiet stance with hands resting in jacket pockets', 'jacket swung over one shoulder in departure'],
     nanako: ['sketchbook opened across a low angled arm', 'pencil and sketchbook aligned at midline', 'sketchbook turned outward to reveal a draft'],

@@ -581,7 +581,7 @@
         "note": "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    "castingNote": "Grammar picks the person: chapter 4 is times and weekly plans, so it belongs to Angel (who already has everyone's week on a spreadsheet) and Jodi (calm, always early), with Rie teaching. The first-kanji strand — the numbers on the clock and 日 — is framed as Shin's, the classmate who reads kanji as little pictures.",
+    "castingNote": "Grammar picks the person: chapter 4 is times and weekly plans, so it belongs to Onke (who already has everyone's week on a spreadsheet) and Jodi (calm, always early), with Rie teaching. The first-kanji strand — the numbers on the clock and 日 — is framed as Shin's, the classmate who reads kanji as little pictures.",
     "gaps": []
   },
   "runtimeReachability": {
@@ -812,7 +812,7 @@
   "scene": {
     "where": "The table by the window, five minutes before class, coats still damp from the walk over",
     "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
-    "hook": "Angel has everyone's week on a spreadsheet already, and it's ten to six.",
+    "hook": "Onke has everyone's week on a spreadsheet already, and it's ten to six.",
     "cast": [
       "rie",
       "angel",
@@ -2177,12 +2177,12 @@
         "assetId": "asset-l1-l09-listening",
         "locator": "academy://audio/level-1/lesson-09-what-time-shall-we-meet",
         "durationSeconds": 36,
-        "voiceNotes": "Two speakers, slow and friendly. Angel is bright and organised; Henry a little apologetic about his work hours.",
+        "voiceNotes": "Two speakers, slow and friendly. Onke is bright and organised; Henry a little apologetic about his work hours.",
         "script": "アンジェル：ヘンリーさん、あした えいがに いきませんか。 ヘンリー：いいですね。なんじからですか。 アンジェル：ごご いちじからです。 ヘンリー：うーん、いちじは ちょっと…。しごとが にじまで あります。 アンジェル：じゃあ、さんじは どうですか。 ヘンリー：さんじは だいじょうぶです。えきで あいましょう。"
       },
       "transcript": {
         "revealAfterFirstAttempt": true,
-        "body": "Angel: Henry, shall we go to a film tomorrow? — Henry: Sounds good. What time does it start? — Angel: From one in the afternoon. — Henry: Hmm, one is a bit… I have work until two. — Angel: Then how about three? — Henry: Three is fine. Let's meet at the station."
+        "body": "Onke: Henry, shall we go to a film tomorrow? — Henry: Sounds good. What time does it start? — Onke: From one in the afternoon. — Henry: Hmm, one is a bit… I have work until two. — Onke: Then how about three? — Henry: Three is fine. Let's meet at the station."
       },
       "audioWorksheetPairing": {
         "pairedWith": "f780d0da9f7a622139ae4e6f5709bb5bbc6986c09d3275fa9248c3fbf8009893",
@@ -2194,10 +2194,10 @@
           "kind": "choice",
           "phase": "guided-practice",
           "prompt": {
-            "en": "What are Angel and Henry deciding?",
+            "en": "What are Onke and Henry deciding?",
             "ja": "アンジェルさんと ヘンリーさんは なにを きめていますか。"
           },
-          "explanation": "Angel invites Henry to a film and they work out what time to meet.",
+          "explanation": "Onke invites Henry to a film and they work out what time to meet.",
           "reviewTag": "listening-gist",
           "autoGraded": true,
           "options": [
@@ -2277,7 +2277,7 @@
           "wrongAnswerExplanations": [
             {
               "trigger": "a",
-              "message": "One was Angel's first idea, but Henry has work then (しごとが にじまで)."
+              "message": "One was Onke's first idea, but Henry has work then (しごとが にじまで)."
             },
             {
               "trigger": "b",
@@ -2522,7 +2522,7 @@
         "reuse": "practice-shape",
         "note": "Speaking task shaped like the chapter 4-2 ask-and-say-a-time exchange; content original."
       },
-      "prompt": "In three or four sentences, tell the class about your day: what time you get up (〜じに おきます), from when to when you work or study (〜から〜まで), and what time you go to bed. Angel will ask you which day you're free.",
+      "prompt": "In three or four sentences, tell the class about your day: what time you get up (〜じに おきます), from when to when you work or study (〜から〜まで), and what time you go to bed. Onke will ask you which day you're free.",
       "targets": [
         "〜じ〜ふん",
         "〜から〜まで",
@@ -3012,7 +3012,7 @@
   "mission": {
     "title": "The free-day board",
     "framedBy": "angel",
-    "prompt": "Angel opens a shared board: everyone writes one line saying which day and time they're free next week (〜ようび, 〜じから〜じまで). Then find one classmate whose free time overlaps with yours and say あいましょう.",
+    "prompt": "Onke opens a shared board: everyone writes one line saying which day and time they're free next week (〜ようび, 〜じから〜じまで). Then find one classmate whose free time overlaps with yours and say あいましょう.",
     "successCriteria": [
       "You name a day with 〜ようび and a time with 〜じ.",
       "You give a span with 〜から〜まで.",

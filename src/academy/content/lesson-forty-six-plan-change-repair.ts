@@ -181,7 +181,7 @@ export function createLessonFortySixPlanChangeRepairBeat(): LessonActivityBeat {
         id: 'sensei-plan-change-repair',
         narrative: {
             ja: 'ヘンリーは予定表を開き、エンジェルはまだ自分で決めていることと、もう決まっていることを別々に書きます。クリスチャンは「実は」と言って理由を加え、二人の計画が同じ形にならないことを確かめます。',
-            en: 'Henry opens the plan board while Angel writes down what she has personally decided and what is already arranged in separate columns. Christian adds a reason with 実は, and the group checks that the two kinds of plan do not collapse into the same form.',
+            en: 'Henry opens the plan board while Onke writes down what she has personally decided and what is already arranged in separate columns. Christian adds a reason with 実は, and the group checks that the two kinds of plan do not collapse into the same form.',
         },
         activity: Object.freeze(activity),
     });

@@ -59,7 +59,7 @@ describe('Lesson 41 asset and presentation grounding', () => {
             week,
             storyContext: {
                 hostId: entry.hostId,
-                hostName: 'Angel',
+                hostName: 'Onke',
                 originPlaceId: presentation.originPlaceId,
                 plate: presentation.plate,
                 location: presentation.location,
@@ -67,7 +67,7 @@ describe('Lesson 41 asset and presentation grounding', () => {
                 callback: entry.callback.meaningNow,
                 dialogue: entry.dialogue?.map(turn => ({
                     ...turn,
-                    speakerName: turn.speakerId === 'angel' ? 'Angel' : 'Christian',
+                    speakerName: turn.speakerId === 'angel' ? 'Onke' : 'Christian',
                 })),
             },
         });
@@ -75,7 +75,7 @@ describe('Lesson 41 asset and presentation grounding', () => {
             .toContain(ACADEMY_ASSETS.locations.classroom.wide);
         expect(screen.element.querySelector<HTMLSourceElement>('.academy-background source')?.srcset)
             .toContain(ACADEMY_ASSETS.locations.classroom.mobile);
-        expect(screen.element.textContent).toContain('Angel');
+        expect(screen.element.textContent).toContain('Onke');
         expect(screen.element.textContent).toContain('Christian');
         expect(screen.element.querySelector('img[src*="/characters/"], img[src*="/items/"]')).toBeNull();
         screen.dispose();

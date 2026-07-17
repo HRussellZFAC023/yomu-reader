@@ -81,7 +81,7 @@ describe('Lesson 26 Sensei katakana final-row shelf', () => {
         expect(JSON.stringify(slice)).toMatch(/shorter ヤ行 and ワ行.*no absent positions.*invented/i);
     });
 
-    it('makes the completed Lesson 26 activity reachable in Mika and Angel’s chapter', async () => {
+    it('makes the completed Lesson 26 activity reachable in Mika and Onke’s chapter', async () => {
         const chapter = await loadLessonActivityChapter('l1-l26', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l26',

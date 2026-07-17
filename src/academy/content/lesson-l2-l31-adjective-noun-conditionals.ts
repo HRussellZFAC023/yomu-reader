@@ -178,7 +178,7 @@ export function createLessonL2L31AdjectiveNounConditionalsBeat(): LessonActivity
         id: 'adjective-noun-conditionals',
         narrative: {
             ja: 'ルパーナが先生の Chapter 35-2 の四枚を開き、エンジェルが語彙、い形容詞、な形容詞、名詞の欄を作ります。原本と作り方を確認してから、八つの条件を戻します。',
-            en: 'Ruparna opens Sensei’s four Chapter 35-2 pages while Angel sorts vocabulary, i-adjectives, na-adjectives, and nouns. Once the source forms are clear, the class restores eight conditions.',
+            en: 'Ruparna opens Sensei’s four Chapter 35-2 pages while Onke sorts vocabulary, i-adjectives, na-adjectives, and nouns. Once the source forms are clear, the class restores eight conditions.',
         },
         activity: Object.freeze(activity),
     });

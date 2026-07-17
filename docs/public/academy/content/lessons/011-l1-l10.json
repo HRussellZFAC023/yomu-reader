@@ -995,7 +995,7 @@
         "note": "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    "castingNote": "Grammar picks the person: time and daily schedule belong to Angel, who keeps everyone's timetable, and Jodi, whose steady routine anchors the day. Shin carries the first number-kanji, and Henry owns a small oversleep lightly. This overrides the plan's recommended seed (francis, jenny, christian) toward the schedule-keepers.",
+    "castingNote": "Grammar picks the person: time and daily schedule belong to Onke, who keeps everyone's timetable, and Jodi, whose steady routine anchors the day. Shin carries the first number-kanji, and Henry owns a small oversleep lightly. This overrides the plan's recommended seed (francis, jenny, christian) toward the schedule-keepers.",
     "gaps": []
   },
   "runtimeReachability": {
@@ -1203,7 +1203,7 @@
   "scene": {
     "where": "By the door, five minutes before class, everyone comparing their week",
     "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
-    "hook": "Angel has a planner open and one question for the whole room.",
+    "hook": "Onke has a planner open and one question for the whole room.",
     "cast": [
       "rie",
       "angel",
@@ -2147,12 +2147,12 @@
         "assetId": "asset-l1-l10-listening",
         "locator": "academy://audio/level-1/lesson-10-your-hours",
         "durationSeconds": 34,
-        "voiceNotes": "Two speakers, relaxed. Angel curious and quick; Jodi warm and even.",
+        "voiceNotes": "Two speakers, relaxed. Onke curious and quick; Jodi warm and even.",
         "script": "アンジェル：ジョディさん、しごとは なんじから なんじまでですか。 ジョディ：くじから ごじまでです。 アンジェル：おひるやすみは？ ジョディ：じゅうにじから いちじまでです。 アンジェル：にちようびは？ ジョディ：にちようびは やすみです。 アンジェル：いいですね。"
       },
       "transcript": {
         "revealAfterFirstAttempt": true,
-        "body": "Angel: Jodi, what are your work hours — from when to when? — Jodi: From nine to five. — Angel: And your lunch break? — Jodi: From twelve to one. — Angel: What about Sundays? — Jodi: Sundays I'm off. — Angel: Nice."
+        "body": "Onke: Jodi, what are your work hours — from when to when? — Jodi: From nine to five. — Onke: And your lunch break? — Jodi: From twelve to one. — Onke: What about Sundays? — Jodi: Sundays I'm off. — Onke: Nice."
       },
       "audioWorksheetPairing": {
         "pairedWith": "42ffa9e7bd729bc3a5df5a9de5481002f5f5c904fbe31ebf32de7fc36fe0ce39",
@@ -2167,7 +2167,7 @@
             "en": "What are they talking about?",
             "ja": "なんの はなしを していますか。"
           },
-          "explanation": "Angel is asking Jodi about her hours — work, lunch, and days off.",
+          "explanation": "Onke is asking Jodi about her hours — work, lunch, and days off.",
           "reviewTag": "listening-gist",
           "autoGraded": true,
           "options": [
@@ -3020,7 +3020,7 @@
   "mission": {
     "title": "Everyone's timetable",
     "framedBy": "angel",
-    "prompt": "Angel wants the whole class's rhythm on one page. Say your day out loud — your get-up time, your work or study hours with から〜まで, and your bedtime — then ask two classmates for theirs and note them down.",
+    "prompt": "Onke wants the whole class's rhythm on one page. Say your day out loud — your get-up time, your work or study hours with から〜まで, and your bedtime — then ask two classmates for theirs and note them down.",
     "successCriteria": [
       "You give at least three times using 〜じ (and はん or 〜ふん if you can).",
       "You use 〜から〜まで for a stretch of the day.",

@@ -122,7 +122,7 @@ export function createLessonThirtyFiveTokiThresholdBeat(): LessonActivityBeat {
         id: 'sensei-toki-threshold',
         narrative: {
             ja: 'ルパーナがメディア室から先生の二ページを送ると、エンジェルはアトラス管理デスクの駅ルートに「完了する前／完了した後」の境目を引きます。答えを伏せたまま、四つのことばを一つずつ通します。',
-            en: 'Ruparna sends Sensei’s two pages from the media room. At the Atlas control desk, Angel draws a before/after threshold across the station route and keeps every completion covered while the four speech bubbles cross one by one.',
+            en: 'Ruparna sends Sensei’s two pages from the media room. At the Atlas control desk, Onke draws a before/after threshold across the station route and keeps every completion covered while the four speech bubbles cross one by one.',
         },
         activity: Object.freeze(activity),
     });

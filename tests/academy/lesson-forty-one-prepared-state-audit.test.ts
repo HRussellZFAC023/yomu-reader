@@ -162,7 +162,7 @@ describe('Lesson 41 Sensei Chapter 30 prepared-state audit', () => {
         controller.dispose();
     });
 
-    it('restores every row on revisit and continues Angel and Christian after Lesson 40', async () => {
+    it('restores every row on revisit and continues Onke and Christian after Lesson 40', async () => {
         const activityRuntime = runtime();
         for (let index = 0; index < 2; index += 1) {
             const host = document.createElement('main');
@@ -174,7 +174,7 @@ describe('Lesson 41 Sensei Chapter 30 prepared-state audit', () => {
         }
 
         expect(createLessonFortyOnePreparedStateAuditBeat().narrative.en).toContain('Christian');
-        expect(createLessonFortyOnePreparedStateAuditBeat().narrative.en).toContain('Angel');
+        expect(createLessonFortyOnePreparedStateAuditBeat().narrative.en).toContain('Onke');
         const chapter = await loadReachableLessonActivityChapter('l2-l16', { lookup: async () => null });
         expect(chapter?.lessonPackageId).toBe('l2-l16');
         expect(chapter?.canonicalEpisodeId).toBe('s1e07-no-spoilers');

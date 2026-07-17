@@ -624,7 +624,7 @@
         "note": "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    "castingNote": "Grammar picks the person: chapter 4's time-and-schedule theme is led by Angel (spreadsheets, everyone's deadlines) counting the clock, with Jodi's steady checklist, Jenny's cosy routine, and Rie framing the lesson. Angel is an override on the plan's recommended seed because clocks and schedules are squarely her ground.",
+    "castingNote": "Grammar picks the person: chapter 4's time-and-schedule theme is led by Onke (spreadsheets, everyone's deadlines) counting the clock, with Jodi's steady checklist, Jenny's cosy routine, and Rie framing the lesson. Onke is an override on the plan's recommended seed because clocks and schedules are squarely her ground.",
     "gaps": []
   },
   "runtimeReachability": {
@@ -855,7 +855,7 @@
   "scene": {
     "where": "The classroom doorway, a few minutes early, everyone glancing at the clock",
     "sceneImage": "academy/art/scenes/classroom-evening-wide.webp",
-    "hook": "Angel has the whole evening timed to the minute and just wants to know when the break is.",
+    "hook": "Onke has the whole evening timed to the minute and just wants to know when the break is.",
     "cast": [
       "rie",
       "angel",
@@ -2645,12 +2645,12 @@
         "assetId": "asset-l1-l08-listening",
         "locator": "academy://audio/level-1/lesson-08-cafe-hours",
         "durationSeconds": 34,
-        "voiceNotes": "Two speakers, slow and clear for beginners. Jenny curious; Angel precise, reading the times off like a schedule.",
+        "voiceNotes": "Two speakers, slow and clear for beginners. Jenny curious; Onke precise, reading the times off like a schedule.",
         "script": "ジェニー：カフェは なんじから なんじまでですか。 アンジェル：あさ はちじから よる じゅうじまでです。 ジェニー：にちようびも やすみじゃ ないですか。 アンジェル：にちようびは やすみです。 ジェニー：わかりました。じゃあ、どようびに いきましょう。 アンジェル：はい、ぜひ。"
       },
       "transcript": {
         "revealAfterFirstAttempt": true,
-        "body": "Jenny: What time is the café open, from when to when? — Angel: From eight in the morning until ten at night. — Jenny: It's not closed on Sundays, is it? — Angel: Sundays it's closed. — Jenny: Got it. Then let's go on Saturday. — Angel: Yes, let's."
+        "body": "Jenny: What time is the café open, from when to when? — Onke: From eight in the morning until ten at night. — Jenny: It's not closed on Sundays, is it? — Onke: Sundays it's closed. — Jenny: Got it. Then let's go on Saturday. — Onke: Yes, let's."
       },
       "audioWorksheetPairing": {
         "pairedWith": "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
@@ -2665,7 +2665,7 @@
             "en": "What are the café's opening hours?",
             "ja": "カフェは なんじから なんじまで ですか。"
           },
-          "explanation": "Angel says あさ はちじから よる じゅうじまで — from 8 a.m. until 10 at night.",
+          "explanation": "Onke says あさ はちじから よる じゅうじまで — from 8 a.m. until 10 at night.",
           "reviewTag": "listening-detail",
           "autoGraded": true,
           "options": [
@@ -2713,7 +2713,7 @@
             "en": "Which day is the café closed?",
             "ja": "カフェの やすみは なんようびですか。"
           },
-          "explanation": "Angel answers にちようびは やすみです — it's closed on Sundays, so they decide to go on Saturday.",
+          "explanation": "Onke answers にちようびは やすみです — it's closed on Sundays, so they decide to go on Saturday.",
           "reviewTag": "listening-detail",
           "autoGraded": true,
           "options": [

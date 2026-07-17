@@ -24,7 +24,7 @@ const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
 afterEach(() => document.body.replaceChildren());
 
 describe('Lesson 36 asset and presentation grounding', () => {
-    it('binds only the source-backed Angel and Alex owner to the approved station plate', () => {
+    it('binds only the source-backed Onke and Alex owner to the approved station plate', () => {
         const entry = createLessonStoryRuntime(PLAN).continuity('l2-l11')!;
         expect(entry).toMatchObject({
             classWeekId: 'l2plus-l10',
@@ -55,7 +55,7 @@ describe('Lesson 36 asset and presentation grounding', () => {
             week,
             storyContext: {
                 hostId: entry.hostId,
-                hostName: 'Angel',
+                hostName: 'Onke',
                 originPlaceId: presentation.originPlaceId,
                 plate: presentation.plate,
                 location: presentation.location,
@@ -63,7 +63,7 @@ describe('Lesson 36 asset and presentation grounding', () => {
                 callback: entry.callback.meaningNow,
                 dialogue: entry.dialogue?.map(turn => ({
                     ...turn,
-                    speakerName: turn.speakerId === 'angel' ? 'Angel' : 'Alex',
+                    speakerName: turn.speakerId === 'angel' ? 'Onke' : 'Alex',
                 })),
             },
         });
@@ -75,7 +75,7 @@ describe('Lesson 36 asset and presentation grounding', () => {
         expect(screen.element.querySelector<HTMLSourceElement>('.academy-background source')?.srcset)
             .toContain(ACADEMY_ASSETS.locations.station.mobile);
         const storyText = screen.element.querySelector('.academy-authored-week-story-context')?.textContent;
-        expect(storyText).toContain('Angel');
+        expect(storyText).toContain('Onke');
         expect(storyText).toContain('Alex');
         expect(screen.element.querySelector('.academy-authored-week-host')).toBeNull();
         expect(screen.element.querySelector('img[src*="/characters/"], img[src*="/items/"]')).toBeNull();

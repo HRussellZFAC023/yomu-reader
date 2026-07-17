@@ -100,7 +100,7 @@ export function createLessonTwentyThreeKatakanaColumnSortBeat(): LessonActivityB
         id: 'sensei-katakana-column-sort',
         narrative: {
             ja: 'エンジェルが先生のカ行の札を、五つの母音の列の前に置きます。ソフィーは、聞こえた音を英語のつづりに急がず、表のどの列へ戻るかを確かめます。',
-            en: 'Angel places Sensei’s ka-row tiles before five vowel columns. Sophie asks the learner not to rush to English spelling, but to check which chart column each heard sound returns to.',
+            en: 'Onke places Sensei’s ka-row tiles before five vowel columns. Sophie asks the learner not to rush to English spelling, but to check which chart column each heard sound returns to.',
         },
         activity: Object.freeze(activity),
     });

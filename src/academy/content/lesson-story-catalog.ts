@@ -180,7 +180,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l09', classWeekId: 'l1-l09', hostId: 'angel', supportingIds: ['sam'],
         location: place('game-club-weekly-board', 'Game-club weekly board', 'ゲーム部の週間ボード'),
-        setup: line('Angel brings the time card to a weekly board and Sam asks for one day at a time, leaving the rest of the board available to change.', 'エンジェルさんは時刻の札を週間ボードに持っていき、サムさんは一度に一つの曜日を聞きます。残りのボードは変えられるままにします。'),
+        setup: line('Onke brings the time card to a weekly board and Sam asks for one day at a time, leaving the rest of the board available to change.', 'エンジェルさんは時刻の札を週間ボードに持っていき、サムさんは一度に一つの曜日を聞きます。残りのボードは変えられるままにします。'),
         handoff: line('A chosen day can be tested against an ordinary routine before it is offered as a plan.', '選んだ曜日は、計画として出す前に、ふだんの一日と照らして確かめられます。'),
         nPlusOne: step('state one time', 'choose one day in a weekly plan'),
         callback: callback('callback:shared-plan', 'transform', 'The board changes from a list of possibilities into a revisable proposal with one time and one day.', 'ボードは可能性の一覧から、時刻と曜日が一つずつある、直せる提案に変わります。', 'The proposal can be checked against a normal day before it is offered.', '提案は、出す前にふだんの一日と照らして確かめられます。'),
@@ -288,7 +288,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l21', classWeekId: 'l1plus-summer-homework', hostId: 'peter', supportingIds: ['angel'],
         location: place('academy-commute-notebook', 'Academy commute notebook', 'アカデミーの通勤ノート'),
-        setup: line('Peter reopens Jodi’s question in a practical commute notebook, while Angel keeps the strike day and the usual day in separate rows.', 'ピーターさんはジョディさんの質問を通勤ノートで確かめます。エンジェルさんは、ストの日といつもの日を別々の行に残します。'),
+        setup: line('Peter reopens Jodi’s question in a practical commute notebook, while Onke keeps the strike day and the usual day in separate rows.', 'ピーターさんはジョディさんの質問を通勤ノートで確かめます。エンジェルさんは、ストの日といつもの日を別々の行に残します。'),
         handoff: line('The notebook closes with a comparison that keeps an unusual journey and an ordinary routine distinct, without turning either into a promise.', 'ノートは、特別な移動とふだんの予定を、どちらも約束にせず別々に残す比べ方で終わります。'),
         nPlusOne: step('separate frequency from duration', 'compare a disrupted journey with the usual journey'),
         callback: callback('callback:l1plus-frequency-lens', 'payoff', 'Once the number’s job is clear, a comparison can preserve both an unusual day and an ordinary routine.', '数字が何を表すか分かると、特別な日といつもの予定をどちらも正しく比べられます。', 'A two-line note keeps a changed journey and the usual journey clear.', '二行のメモにすると、変わった移動といつもの移動が分かりやすくなります。'),
@@ -306,7 +306,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l23', classWeekId: 'l1plus-katakana-2', hostId: 'angel', supportingIds: ['sophie'],
         location: place('academy-katakana-columns', 'Academy katakana column table', 'アカデミーのカタカナ列テーブル'),
-        setup: line('Angel carries the checked vowel row to a five-column table, while Sophie keeps the ka-row tiles separate from the visible ga-row examples.', 'エンジェルさんは、確認した母音の行を五つの列のテーブルへ運びます。ソフィーさんは、カ行の札を、見本にあるガ行とは別にします。'),
+        setup: line('Onke carries the checked vowel row to a five-column table, while Sophie keeps the ka-row tiles separate from the visible ga-row examples.', 'エンジェルさんは、確認した母音の行を五つの列のテーブルへ運びます。ソフィーさんは、カ行の札を、見本にあるガ行とは別にします。'),
         handoff: line('Each ka-row tile returns to its vowel column, leaving a small checked writing row rather than a claim that the voiced row has already been learned.', 'カ行の札は、それぞれの母音の列に戻ります。ガ行まで学んだという主張ではなく、小さく確認した書く行が残ります。'),
         nPlusOne: step('match the five katakana vowel sounds to their shapes', 'sort the ka row by its vowel columns'),
         callback: callback('callback:l1plus-katakana-start', 'payoff', 'A second row reuses the vowel-column map without making a larger chart feel finished.', '二つ目の行は、表全体が終わったようにせず、母音の列の見方を使います。', 'The learner can carry one checked row into writing practice before adding another contrast.', '次の対比を足す前に、確認した一行を、書く練習へ持っていけます。'),
@@ -315,7 +315,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l24', classWeekId: 'l1plus-katakana-3', hostId: 'mika', supportingIds: ['angel'],
         location: place('academy-katakana-two-row-route', 'Academy two-row katakana route', 'アカデミーの二行カタカナの道'),
-        setup: line('Mika opens Sensei’s sa and ta rows as two routes, while Angel keeps the voiced examples on the worksheet and asks only which row and vowel position a heard sound returns to.', 'ミカさんは先生のサ行とタ行を二本の道として開きます。エンジェルさんは濁音の見本をワークシートに残し、聞こえた音がどの行と母音の位置に戻るかだけを聞きます。'),
+        setup: line('Mika opens Sensei’s sa and ta rows as two routes, while Onke keeps the voiced examples on the worksheet and asks only which row and vowel position a heard sound returns to.', 'ミカさんは先生のサ行とタ行を二本の道として開きます。エンジェルさんは濁音の見本をワークシートに残し、聞こえた音がどの行と母音の位置に戻るかだけを聞きます。'),
         handoff: line('The two-row route ends with ten checked positions, not a claim that the visible za and da rows have been learned.', '二行の道は確認した十の位置で終わります。見えているザ行とダ行まで学んだという主張にはしません。'),
         nPlusOne: step('sort one row by vowel columns', 'locate one heard sound by both row and vowel coordinate'),
         callback: callback('callback:l1plus-katakana-two-row', 'seed', 'A vowel column becomes a usable coordinate only after its consonant row is named as well.', '母音の列は、子音の行も言って初めて使える位置になります。', 'Two rows can be checked without treating their visible voiced companions as complete.', '二つの行は、見えている濁音まで終えたことにせずに確認できます。'),
@@ -324,7 +324,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l25', classWeekId: 'l1plus-katakana-4', hostId: 'angel', supportingIds: ['mika'],
         location: place('academy-katakana-switchboard', 'Academy katakana switchboard', 'アカデミーのカタカナスイッチボード'),
-        setup: line('Angel opens Sensei’s na and ha rows on a switchboard, while Mika keeps the visible pa and ba examples on the worksheet and asks the learner to set the row and vowel separately for every heard sound.', 'エンジェルさんは先生のナ行とハ行をスイッチボードで開きます。ミカさんは、見えているパ行とバ行の見本をワークシートに残し、聞こえた音ごとに行と母音を別々に合わせるように聞きます。'),
+        setup: line('Onke opens Sensei’s na and ha rows on a switchboard, while Mika keeps the visible pa and ba examples on the worksheet and asks the learner to set the row and vowel separately for every heard sound.', 'エンジェルさんは先生のナ行とハ行をスイッチボードで開きます。ミカさんは、見えているパ行とバ行の見本をワークシートに残し、聞こえた音ごとに行と母音を別々に合わせるように聞きます。'),
         handoff: line('The switchboard ends with ten checked na/ha settings, without claiming that the visible pa and ba rows have been learned.', 'スイッチボードは確認した十のナ行・ハ行の設定で終わります。見えているパ行とバ行まで学んだという主張にはしません。'),
         nPlusOne: step('locate one heard sound by both row and vowel coordinate', 'set the row and vowel independently for a new pair of katakana rows'),
         callback: callback('callback:l1plus-katakana-two-row', 'payoff', 'Two controls can preserve a careful contrast: row identity first, then its vowel position.', '二つの操作は、注意深い対比を保てます。まず行を決めてから、その母音の位置を選びます。', 'A visible chart can keep later rows as examples while the current pair is checked precisely.', '見える表は、今の二行を正確に確かめながら、後の行を見本のままにできます。'),
@@ -333,7 +333,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l26', classWeekId: 'l1plus-katakana-5', hostId: 'mika', supportingIds: ['angel'],
         location: place('academy-katakana-final-shelf', 'Academy final katakana shelf', 'アカデミーの最後のカタカナ棚'),
-        setup: line('Mika lays Sensei’s ma, ya, ra, and wa rows onto shelves of their actual lengths, while Angel keeps the shorter rows short instead of filling the gaps by guesswork.', 'ミカさんは先生のマ行・ヤ行・ラ行・ワ行を、本当の長さの棚に写します。エンジェルさんは、短い行を推測で埋めず、短いままにします。'),
+        setup: line('Mika lays Sensei’s ma, ya, ra, and wa rows onto shelves of their actual lengths, while Onke keeps the shorter rows short instead of filling the gaps by guesswork.', 'ミカさんは先生のマ行・ヤ行・ラ行・ワ行を、本当の長さの棚に写します。エンジェルさんは、短い行を推測で埋めず、短いままにします。'),
         handoff: line('The final shelf map returns sixteen heard signs to visible positions, leaving a checked chart and no invented cells.', '最後の棚の地図は、聞こえた十六の形を見える位置へ戻します。確認した表だけが残り、作った位置はありません。'),
         nPlusOne: step('set a row and vowel independently', 'locate a heard sign in a source row whose visible positions can vary'),
         callback: callback('callback:l1plus-katakana-final-shelf', 'seed', 'A completed chart stays trustworthy when its gaps are read as part of the chart, not as missing answers to fill.', '完成した表は、空いている所を埋める答えではなく、表の一部として読むと信頼できます。', 'The final rows can be checked by returning each sound only to a visible shelf.', '最後の行は、音を見えている棚だけに戻して確かめられます。'),
@@ -486,7 +486,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l2-l11', classWeekId: 'l2plus-l10', hostId: 'angel', supportingIds: ['alex'],
         location: place('station-concourse-occasion-board', 'Station concourse occasion board', '駅コンコースの場面ボード'),
-        setup: line('At the station concourse, Angel opens Sensei\'s exact Chapter 23-1 page while Alex keeps each notice on its present-action or absent-state route.', '駅コンコースで、エンジェルさんは先生の Chapter 23-1 の原本ページを開きます。アレックスさんは、それぞれの案内を「する・ある」か「しない・ない」の道に保ちます。'),
+        setup: line('At the station concourse, Onke opens Sensei\'s exact Chapter 23-1 page while Alex keeps each notice on its present-action or absent-state route.', '駅コンコースで、エンジェルさんは先生の Chapter 23-1 の原本ページを開きます。アレックスさんは、それぞれの案内を「する・ある」か「しない・ない」の道に保ちます。'),
         handoff: line('All four source pairs now join through the correct occasion route, with every derived completion covered until an attempt.', '原本の四組の文が正しい場面の道でつながり、派生した完成文は試すまで伏せられています。'),
         nPlusOne: step('place a speech act before or after action completion', 'distinguish a present action or state from an absent one before とき'),
         callback: callback('callback:l2-occasion-route', 'payoff', 'The station board separates what happens from what does not happen while Sensei\'s source page stays inspectable.', '駅のボードは、先生の原本ページを確認できるまま、起こることと起こらないことを分けます。', 'The exact page and four routes remain available for a fresh attempt without revealing a completion early.', '完成文を早く見せず、原本ページと四つの道へもう一度戻れます。'),
@@ -534,7 +534,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l2-l14', classWeekId: 'l3-2-l03', hostId: 'jenny', supportingIds: ['angel'],
         location: place('language-lab-state-desk', 'Language lab state desk', '語学ラボの状態確認デスク'),
-        setup: line('At the language lab, Jenny opens Sensei\'s exact four Chapter 29-1 pages while Angel checks what each visible change leaves in effect.', '語学ラボで、ジェニーさんは先生の Chapter 29-1 の原本四ページを開きます。エンジェルさんは、見える変化のあとに何が残っているかを確かめます。'),
+        setup: line('At the language lab, Jenny opens Sensei\'s exact four Chapter 29-1 pages while Onke checks what each visible change leaves in effect.', '語学ラボで、ジェニーさんは先生の Chapter 29-1 の原本四ページを開きます。エンジェルさんは、見える変化のあとに何が残っているかを確かめます。'),
         handoff: line('All eight selected source prompts now report a resulting state, its next action, or its topic, with every Yomu-derived completion covered until an attempt.', '選んだ原本八問が、結果の状態、次の行動、または話題を報告する形になり、よむが派生した完成文は試すまで伏せられています。'),
         nPlusOne: step('list more than one point or reason with plain-form し', 'report the visible state left by a change with an intransitive verb'),
         callback: callback('callback:l3-2-room-state', 'payoff', 'The room itself now supplies evidence for a resulting-state report instead of an unseen actor.', '見えない動作主ではなく、部屋そのものが結果の状態を報告する根拠になります。', 'All four exact Chapter 29-1 pages remain inspectable before a fresh attempt.', 'Chapter 29-1 の原本四ページは、もう一度試す前にも確認できます。'),
@@ -566,7 +566,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l2-l16', classWeekId: 'l3-2-l05', hostId: 'angel', supportingIds: ['christian'],
         location: place('classroom-prepared-state-desk', 'Classroom prepared-state desk', '教室の準備状態デスク'),
-        setup: line('Angel opens Sensei\'s exact Chapter 30-1 and information-gap pages while Christian keeps neutral visible states separate from things deliberately left ready.', 'エンジェルさんは先生の Chapter 30-1 と情報差の原本を開きます。クリスチャンさんは、見えるだけの状態と、だれかが準備して残した状態を分けます。'),
+        setup: line('Onke opens Sensei\'s exact Chapter 30-1 and information-gap pages while Christian keeps neutral visible states separate from things deliberately left ready.', 'エンジェルさんは先生の Chapter 30-1 と情報差の原本を開きます。クリスチャンさんは、見えるだけの状態と、だれかが準備して残した状態を分けます。'),
         handoff: line('Eight source prompts now distinguish 〜ています from purposeful 〜てあります, with every derived answer covered until an attempt.', '八つの原問で「〜ています」と、目的のある「〜てあります」を分け、派生した答えは試すまで伏せられています。'),
         nPlusOne: step('distinguish completion, intention, and regret with 〜てしまう', 'report a purposeful prepared state with a transitive て-form plus あります'),
         callback: callback('callback:l3-2-prepared-state', 'payoff', 'The classroom itself now shows which states merely exist and which were prepared for someone to use.', '教室そのものが、ただある状態と、だれかが使えるように準備された状態を示します。', 'All six exact source pages remain inspectable before another attempt.', '原本六ページは、もう一度試す前にも確認できます。'),

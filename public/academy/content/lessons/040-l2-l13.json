@@ -278,7 +278,7 @@
         "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    "castingNote": "Grammar picks the person: Robert makes the invitation, Sophie gives a careful refusal, and Angel turns several reasons into a clear decision.",
+    "castingNote": "Grammar picks the person: Robert makes the invitation, Sophie gives a careful refusal, and Onke turns several reasons into a clear decision.",
     "gaps": [],
     "donorPackage": {
       "canonicalWeekId": "l3-2-l02",
@@ -2196,7 +2196,7 @@
       },
       "passage": {
         "title": {
-          "en": "Angel's comparison",
+          "en": "Onke's comparison",
           "ja": "エンジェルの 比較"
         },
         "gloss": "A short decision note that weighs three places.",

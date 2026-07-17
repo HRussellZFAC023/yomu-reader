@@ -24,7 +24,25 @@ describe('authored Academy cast guard', () => {
             ruparna: expect.arrayContaining(['inference']),
             aakash: expect.arrayContaining(['directions']),
             sam: expect.arrayContaining(['invitations']),
+            angel: expect.arrayContaining(['planning', 'technology', 'writing']),
+            steve: expect.arrayContaining(['casual-chat', 'technology', 'writing']),
+            tom2: expect.arrayContaining(['ambiguity', 'questions', 'observation']),
         });
+    });
+
+    it('accepts the new lesson-eligible classmates as documented specialty hosts', () => {
+        expect(auditAuthoredCastUsage([
+            {
+                id: 'lesson:family-chat',
+                cast: [{ id: 'steve', firstName: 'Steve' }],
+                requiredSpecialties: ['writing'],
+            },
+            {
+                id: 'lesson:read-between-the-lines',
+                cast: [{ id: 'tom2', firstName: 'Tom' }],
+                requiredSpecialties: ['ambiguity'],
+            },
+        ])).toEqual([]);
     });
 
     it('rejects an unknown id and a misspelled visible first name', () => {

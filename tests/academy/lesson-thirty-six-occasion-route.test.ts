@@ -156,7 +156,7 @@ describe('Lesson 36 Sensei Chapter 23-1 occasion route', () => {
         controller.dispose();
     });
 
-    it('restores all rows on remount and records the Angel-to-Rie station handoff in the chapter catalog', () => {
+    it('restores all rows on remount and records the Onke-to-Rie station handoff in the chapter catalog', () => {
         const activityRuntime = runtime();
         for (let index = 0; index < 2; index += 1) {
             const host = document.createElement('main');
@@ -168,7 +168,7 @@ describe('Lesson 36 Sensei Chapter 23-1 occasion route', () => {
         }
 
         const beat = createLessonThirtySixOccasionRouteBeat();
-        expect(beat.narrative.en).toContain('Angel');
+        expect(beat.narrative.en).toContain('Onke');
         expect(beat.narrative.en).toContain('Rie');
         expect(beat.narrative.en).toContain('station concourse');
         const catalog = readFileSync(path.resolve('src/academy/content/lesson-activity-catalog.ts'), 'utf8');

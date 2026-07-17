@@ -101,7 +101,7 @@ export function createLessonTwentySixKatakanaFinalRowShelfBeat(): LessonActivity
         id: 'sensei-katakana-final-row-shelf',
         narrative: {
             ja: 'ミカが先生の最後の四行を、形の数が変わる棚に写します。エンジェルは、聞こえた音を急いで五つの位置にそろえず、表にある棚だけへ戻します。',
-            en: 'Mika copies Sensei’s final four rows onto shelves whose lengths change. Angel returns each heard sound only to a shelf on the chart, without forcing every row into five positions.',
+            en: 'Mika copies Sensei’s final four rows onto shelves whose lengths change. Onke returns each heard sound only to a shelf on the chart, without forcing every row into five positions.',
         },
         activity: Object.freeze(activity),
     });

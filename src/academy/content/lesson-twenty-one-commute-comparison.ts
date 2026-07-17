@@ -93,7 +93,7 @@ export function createLessonTwentyOneCommuteComparisonBeat(): LessonActivityBeat
     };
     return Object.freeze({
         id: 'sensei-commute-comparison-log',
-        narrative: { ja: 'ピーターが、ストの日といつもの通勤を一つの答えに混ぜないよう、二行だけのノートを開きます。エンジェルは、数字を読む前に、どちらの日の行かを確認します。', en: 'Peter opens a two-line notebook so strike-day and usual commutes do not collapse into one answer. Angel checks which day a line belongs to before reading its number.' },
+        narrative: { ja: 'ピーターが、ストの日といつもの通勤を一つの答えに混ぜないよう、二行だけのノートを開きます。エンジェルは、数字を読む前に、どちらの日の行かを確認します。', en: 'Peter opens a two-line notebook so strike-day and usual commutes do not collapse into one answer. Onke checks which day a line belongs to before reading its number.' },
         activity: Object.freeze(activity),
     });
 }

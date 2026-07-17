@@ -311,7 +311,7 @@
         "note": "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    "castingNote": "Grammar picks the person: Henry explains a failed printing plan without hiding the cause, Angel keeps the shared arrangement clear, and Christian models a factual repair statement.",
+    "castingNote": "Grammar picks the person: Henry explains a failed printing plan without hiding the cause, Onke keeps the shared arrangement clear, and Christian models a factual repair statement.",
     "gaps": [],
     "donorPackage": {
       "canonicalWeekId": "l3-2-l09",
@@ -1038,7 +1038,7 @@
           {
             "ja": "エンジェルが みんなに 変更を 伝えるつもりです。",
             "reading": "エンジェルが みんなに へんこうを つたえる つもりです。",
-            "en": "Angel intends to tell everyone about the change."
+            "en": "Onke intends to tell everyone about the change."
           }
         ]
       },
@@ -1404,7 +1404,7 @@
           {
             "ja": "エンジェルが 変更を みんなに 伝えるつもりです。",
             "reading": "エンジェルが へんこうを みんなに つたえる つもりです。",
-            "en": "Angel intends to tell everyone about the change."
+            "en": "Onke intends to tell everyone about the change."
           }
         ]
       },
@@ -1457,7 +1457,7 @@
             "en": "Who communicates the change?",
             "ja": "だれが 変更を 伝えますか。"
           },
-          "explanation": "Angel says わたしがみんなに変更を伝えます.",
+          "explanation": "Onke says わたしがみんなに変更を伝えます.",
           "reviewTag": "reading-detail",
           "autoGraded": true,
           "options": [
@@ -1465,7 +1465,7 @@
               "id": "a",
               "label": {
                 "ja": "エンジェル",
-                "en": "Angel"
+                "en": "Onke"
               },
               "correct": true
             },
@@ -1481,7 +1481,7 @@
           "wrongAnswerExplanations": [
             {
               "trigger": "b",
-              "message": "Henry offers the map file in the listening. In this reading, Angel takes responsibility for the change message."
+              "message": "Henry offers the map file in the listening. In this reading, Onke takes responsibility for the change message."
             }
           ],
           "provenance": {

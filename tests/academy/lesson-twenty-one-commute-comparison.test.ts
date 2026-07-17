@@ -102,7 +102,7 @@ describe('Lesson 21 Sensei commute comparison log', () => {
         }
     });
 
-    it('makes the completed Lesson 21 activity reachable in Peter and Angel’s chapter', async () => {
+    it('makes the completed Lesson 21 activity reachable in Peter and Onke’s chapter', async () => {
         const chapter = await loadLessonActivityChapter('l1-l21', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l21',

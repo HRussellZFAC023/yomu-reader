@@ -96,7 +96,7 @@ export function createLessonThirtyFiveMinna077ListeningBeat(): LessonActivityBea
         id: 'sensei-minna-077-true-false',
         narrative: {
             ja: '「とき」の境目を確認したあと、エンジェルが前の Chapter 22 の説明節を Minna 077 で呼び戻します。五つの文と台本は、最初の聞き取りが終わるまで伏せます。',
-            en: 'After checking the toki threshold, Angel retrieves the previous Chapter 22 describing clauses through Minna 077. All five statements and the transcript stay covered until the first listening attempt is complete.',
+            en: 'After checking the toki threshold, Onke retrieves the previous Chapter 22 describing clauses through Minna 077. All five statements and the transcript stay covered until the first listening attempt is complete.',
         },
         activity: Object.freeze(activity),
     });

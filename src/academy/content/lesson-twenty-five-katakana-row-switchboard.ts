@@ -88,7 +88,7 @@ export function createLessonTwentyFiveKatakanaRowSwitchboardBeat(): LessonActivi
         id: 'sensei-katakana-row-switchboard',
         narrative: {
             ja: 'エンジェルが先生のナ行とハ行をスイッチボードに写し、ミカは聞こえた音ごとに行と母音を別々に合わせます。パ行とバ行は見本のままにします。',
-            en: 'Angel copies Sensei’s na and ha rows onto a switchboard, while Mika sets the row and vowel separately for each heard sound. The pa and ba rows remain examples.',
+            en: 'Onke copies Sensei’s na and ha rows onto a switchboard, while Mika sets the row and vowel separately for each heard sound. The pa and ba rows remain examples.',
         },
         activity: Object.freeze(activity),
     });

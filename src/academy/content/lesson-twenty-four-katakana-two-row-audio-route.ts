@@ -88,7 +88,7 @@ export function createLessonTwentyFourKatakanaTwoRowAudioRouteBeat(): LessonActi
         id: 'sensei-katakana-two-row-audio-route',
         narrative: {
             ja: 'ミカが先生のサ行とタ行を二本の道に分け、エンジェルは聞こえた音がどちらの道の、どの母音の位置に帰るかを確かめます。ザ行とダ行は見本のままにします。',
-            en: 'Mika lays Sensei’s sa and ta rows as two routes. Angel checks which route and vowel position each heard sound returns to, while leaving the za and da examples as examples.',
+            en: 'Mika lays Sensei’s sa and ta rows as two routes. Onke checks which route and vowel position each heard sound returns to, while leaving the za and da examples as examples.',
         },
         activity: Object.freeze(activity),
     });

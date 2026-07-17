@@ -153,7 +153,7 @@ export function createLessonThirtySixOccasionRouteBeat(): LessonActivityBeat {
         id: 'sensei-occasion-route',
         narrative: {
             ja: 'アトラス管理デスクの境目を通し終えると、エンジェルは先生の新しい Chapter 23-1 のページを駅コンコースのりえ先生へ渡します。りえ先生は四つの案内カードを、行動や状態が「ある／ない」の二つの路線に並べます。',
-            en: 'After the last threshold clears the Atlas control desk, Angel carries Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie lays four notice cards across two routes: an action or state that is present, and one that is absent.',
+            en: 'After the last threshold clears the Atlas control desk, Onke carries Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie lays four notice cards across two routes: an action or state that is present, and one that is absent.',
         },
         activity: Object.freeze(activity),
     });

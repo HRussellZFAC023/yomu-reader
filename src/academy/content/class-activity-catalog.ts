@@ -165,14 +165,14 @@ function freeTimeBoard(): ClassActivitySimulatorModel {
     const roles = [
         role('jodi', 'jodi', 'Jodi', 'classmate', 'Board keeper', 'ボード係'),
         role('learner', 'henry', 'Henry', 'learner', 'Schedule token', '予定のコマ'),
-        role('angel', 'angel', 'Angel', 'classmate', 'Clock checker', '時計を確認する人'),
+        role('angel', 'angel', 'Onke', 'classmate', 'Clock checker', '時計を確認する人'),
     ];
     const turns: readonly ClassActivityTurn[] = [
         { ...classmate('jodi-opens', 'jodi', 'どようびは ごご 一時から 五時まで ひまです。', 'Jodi is free Saturday from 1 p.m. to 5 p.m.'), boardSpaceId: 'jodi' },
         { ...learnerText('post-times', 'learner', 'Post two days and a 〜から〜まで time range.', '二つの曜日と「〜から〜まで」の時間を投稿してください。', 'Two-day availability', '二日分の空き時間', [
             ['どようび', 'にちようび', 'げつようび', 'かようび', 'すいようび', 'もくようび', 'きんようび'], ['から'], ['まで'],
         ], conceptIds[0], 'board-two-day-range'), boardSpaceId: 'learner' },
-        { ...classmate('angel-posts', 'angel', 'どようびは 三時から ひまです。にちようびは いそがしいです。', 'Angel is free from 3 p.m. Saturday and busy Sunday.'), boardSpaceId: 'angel' },
+        { ...classmate('angel-posts', 'angel', 'どようびは 三時から ひまです。にちようびは いそがしいです。', 'Onke is free from 3 p.m. Saturday and busy Sunday.'), boardSpaceId: 'angel' },
         { ...learnerChoice('choose-time', 'learner', 'Move to a time both you and Jodi can use.', '自分とジョディが会える時間へ進んでください。', [
             option('three', 'どようびの 三時に あいましょう。', 'Let’s meet at 3 p.m. Saturday.'),
             option('six', 'どようびの 六時に あいましょう。', 'Let’s meet at 6 p.m. Saturday.'),
@@ -190,7 +190,7 @@ function freeTimeBoard(): ClassActivitySimulatorModel {
     return { ...base, payload: { ...base.payload, board: { spaces: [
         { id: 'jodi', label: { en: 'Jodi posts', ja: 'ジョディの投稿' } },
         { id: 'learner', label: { en: 'Your post', ja: '自分の投稿' } },
-        { id: 'angel', label: { en: 'Angel checks', ja: 'エンジェルの確認' } },
+        { id: 'angel', label: { en: 'Onke checks', ja: 'エンジェルの確認' } },
         { id: 'meet', label: { en: 'Find overlap', ja: '同じ時間を探す' } },
         { id: 'finish', label: { en: 'Meet-up fixed', ja: '集まる時間が決定' } },
     ] } } };

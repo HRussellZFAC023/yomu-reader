@@ -75,7 +75,7 @@ describe('Lesson 25 Sensei katakana row switchboard', () => {
         expect(JSON.stringify(slice)).toMatch(/pa and ba rows.*not assessed/i);
     });
 
-    it('makes the completed Lesson 25 activity reachable in Angel and Mika’s chapter', async () => {
+    it('makes the completed Lesson 25 activity reachable in Onke and Mika’s chapter', async () => {
         const chapter = await loadLessonActivityChapter('l1-l25', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l1-l25',
