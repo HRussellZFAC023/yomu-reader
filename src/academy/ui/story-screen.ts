@@ -177,8 +177,12 @@ function renderPlayableArc(
     };
     const renderMoment = (moment: StoryMoment): void => {
         if (disposed) return;
+        const currentPlace = storyCurrentPlace(moment.scene);
         main.dataset.storyScene = moment.scene.id;
         main.dataset.storyMoment = moment.kind;
+        main.dataset.currentPlace = currentPlace;
+        stage.element.dataset.currentPlace = currentPlace;
+        stage.element.dataset.locationId = moment.scene.locationId;
         progress.textContent = storyProgressLabel(options.language, arc, moment.scene);
         if (renderedSceneId !== moment.scene.id) {
             renderedSceneId = moment.scene.id;
@@ -514,6 +518,14 @@ function directionForScene(scene: StoryArcScene) {
         },
         transition: 'dissolve' as const,
     };
+}
+
+/** Keep authored story beats inside the same spatial vocabulary as the world screen. */
+function storyCurrentPlace(scene: StoryArcScene): 'courtyard' | 'classroom' | 'lab' | 'library' {
+    if (scene.locationId.includes('language-lab')) return 'lab';
+    if (scene.locationId.includes('library')) return 'library';
+    if (scene.locationId.includes('campus-entrance')) return 'courtyard';
+    return 'classroom';
 }
 
 function renderEpisodeOutline(options: StoryScreenOptions, episode: StoryEpisode): HTMLElement {

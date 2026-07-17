@@ -154,6 +154,37 @@ describe('Academy Story screen', () => {
         expect(screen.querySelector('[data-activity-id="activity:lesson-zero-text-input"]')).not.toBeNull();
     });
 
+    it('keeps the Text encounter in the library across its activity handoff', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-text',
+            'line:blank-atlas:sophie-two-gaps',
+        ));
+        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id="arc:open-doors:first-route"]')!;
+        const stage = screen.querySelector<HTMLElement>('.academy-story-vn-stage')!;
+
+        expect(arc.dataset.currentPlace).toBe('library');
+        expect(stage.dataset.currentPlace).toBe('library');
+        expect(stage.dataset.locationId).toBe('location:library');
+        advanceTo(screen, '[data-activity-id="activity:lesson-zero-text-input"]');
+        expect(arc.dataset.currentPlace).toBe('library');
+    });
+
+    it('unlocks exactly Sophie and Ruparna when the Text encounter resolves', async () => {
+        const onSceneEncounter = vi.fn(async () => undefined);
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-text',
+            'line:blank-atlas:sophie-two-gaps',
+        ), { openingArcMode: 'canonical', onSceneEncounter });
+
+        advance(screen);
+        screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only')?.click();
+        advance(screen);
+        await vi.waitFor(() => expect(onSceneEncounter).toHaveBeenCalledWith(
+            'scene:blank-atlas:mission-text', ['sophie', 'ruparna'],
+        ));
+        expect(onSceneEncounter).toHaveBeenCalledTimes(1);
+    });
+
     it('records only actual canonical scene attendees and never writes them from replay', async () => {
         const onSceneEncounter = vi.fn(async () => undefined);
         const { screen } = render(cursor('scene:blank-atlas:close', 'line:blank-atlas:rie-recap'), {

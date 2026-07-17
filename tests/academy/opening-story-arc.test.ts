@@ -501,6 +501,17 @@ describe('opening story arc packages', () => {
         }
     });
 
+    it('keeps the Text hosts recognisably evidence-first and image-first', () => {
+        const sophie = allNodes(chapter).find(node => node.id === 'line:blank-atlas:sophie-two-gaps')!;
+        const ruparna = allNodes(chapter).find(node => node.id === 'line:blank-atlas:ruparna-note-route')!;
+
+        expect(sophie.variants?.n5.japanese).toContain('手掛かりにしません');
+        expect(sophie.variants?.n5.japanese).toContain('意味を比べましょう');
+        expect(ruparna.variants?.n5.japanese).toContain('紙の端');
+        expect(ruparna.variants?.n5.japanese).toContain('道みたい');
+        expect(sophie.variants?.n5.japanese).not.toBe(ruparna.variants?.n5.japanese);
+    });
+
     it('makes disclosure and recording choices non-coercive and safely resumable', () => {
         const sensitiveChoices = [
             'choice:blank-atlas:disclosure-scope',

@@ -38770,6 +38770,28 @@ html.jpdb-reader-doodle-active * {
         scroll-behavior: auto !important;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/rewards/headings */
+.academy-world-screen[data-current-place='home'] .academy-world-title,
+.academy-world-screen[data-current-place='home'] .academy-world-reward,
+.academy-world-screen[data-current-place='home'] .academy-home-notebook-heading,
+.academy-world-screen[data-current-place='home'] .academy-home-notebook-heading-support {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling journal-desk paper */
+.academy-world-screen[data-current-place='home'] .academy-world-action-dock[data-purpose-surface='journal-desk'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='home'] .academy-world-action-dock[data-purpose-surface='journal-desk'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='home'][data-action-open] .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}
 /* Academy Park: full-bleed weather, ink, and paper rather than a lesson panel. */
 .academy-world-screen[data-current-place='park'] {
     --world-accent: #d55145;
@@ -40131,6 +40153,22 @@ html.jpdb-reader-doodle-active * {
         transition: none !important;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/section-titles/rewards/exit text */
+.academy-world-screen[data-current-place='station'] .academy-world-title,
+.academy-world-screen[data-current-place='station'] .academy-world-section-title,
+.academy-world-screen[data-current-place='station'] .academy-world-reward-label,
+.academy-world-screen[data-current-place='station'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='station'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='station'][data-action-open] .academy-world-characters .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}
 /* Academy Tube: a full-bleed blue-hour route scene with one paper listening line. */
 .academy-world-screen[data-current-place='station-platform'] {
     --tube-ink: #071822;
@@ -40753,6 +40791,28 @@ html.jpdb-reader-doodle-active * {
     from { opacity: 0; translate: 18px 12px; }
     to { opacity: 1; translate: 0; }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/section-titles/exit text */
+.academy-world-screen[data-current-place='station-platform'] .academy-world-title,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-section-title,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling transfer-board paper */
+.academy-world-screen[data-current-place='station-platform'] .academy-world-action-dock[data-purpose-surface='transfer-board'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='station-platform'] .academy-world-action-dock[data-purpose-surface='transfer-board'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='station-platform'][data-action-open] .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}
 /* Bookshop: a catalogue and shelf labels, not another opaque task panel. */
 .academy-world-screen[data-current-place='bookshop'] .academy-world-action-dock[data-purpose-surface='bookshop-shelf'] {
     width: min(420px, 36vw);
@@ -41341,6 +41401,27 @@ html.jpdb-reader-doodle-active * {
         transition: none !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on gift-counter speaker/exit text */
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-speaker,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling gift-counter paper */
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='japan-centre'][data-action-open] .academy-world-character[data-position='center'] .academy-world-character-name {
+    visibility: hidden;
 }
 .academy-profile-sync-screen .academy-panel { width: min(760px, 100%); }
 .academy-profile-sync-screen .academy-panel-content { display: grid; min-width: 0; gap: 16px; }
@@ -42921,6 +43002,12 @@ details.academy-code-section > summary {
         transition: none;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX3: clip the speaker sprite to the stage frame so no lower-body renders beneath the dialogue panel */
+.academy-story-vn-shell .academy-story-vn-stage {
+    overflow: hidden;
+}
 .academy-replay-stream {
     display: grid;
     gap: 12px;
@@ -42994,6 +43081,14 @@ details.academy-code-section > summary {
     .academy-replay-task-actions { grid-row: auto; width: 100%; }
     .academy-replay-open,
     .academy-replay-lesson { width: 100%; }
+}
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on replay title text */
+.academy-replay-stream-title {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
 }
 .academy-lesson-zero-proof .academy-vn-object-slot {
     left: auto;
@@ -44085,6 +44180,16 @@ details.academy-code-section > summary {
         animation: none;
         transition: none;
     }
+}
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on Japanese lines/notes/choices */
+.academy-aakash-choice-japanese,
+.academy-aakash-note-japanese,
+.academy-aakash-learning-line {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
 }
 .academy-class-path-screen {
     position: relative;

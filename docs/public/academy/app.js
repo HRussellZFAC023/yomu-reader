@@ -23143,6 +23143,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "location.cafe": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:cafe", "lesson:l2-l13"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/cafe__night-rain--wide.webp", mobile: "/academy/art/locations/mobile/cafe__night-rain--mobile.webp" } }),
     "location.language-lab": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:language-lab", "activity:listening-shadowing", "lesson:l2-l09", "lesson:l2-l14"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/language-lab__evening-listening--wide.webp", mobile: "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp" } }),
     "location.writing-studio": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:writing-studio", "activity:kanji-doodle", "lesson:l2-l12"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/writing-studio__rain-night--wide.webp", mobile: "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp" } }),
+    "location.cafeteria": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:cafeteria", "activity:tray-assembly"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/cafeteria__evening-canteen--wide.webp", mobile: "/academy/art/locations/mobile/cafeteria__evening-canteen--mobile.webp" } }),
+    "location.shrine": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:shrine"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/shrine__blue-hour-rain--wide.webp", mobile: "/academy/art/locations/mobile/shrine__blue-hour-rain--mobile.webp" } }),
+    "location.temple": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:temple"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/temple__evening-rain--wide.webp", mobile: "/academy/art/locations/mobile/temple__evening-rain--mobile.webp" } }),
+    "location.izakaya": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:izakaya"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/izakaya__night-lanterns--wide.webp", mobile: "/academy/art/locations/mobile/izakaya__night-lanterns--mobile.webp" } }),
+    "location.restaurant": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:restaurant"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/restaurant__evening-dining--wide.webp", mobile: "/academy/art/locations/mobile/restaurant__evening-dining--mobile.webp" } }),
+    "location.clinic": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:clinic"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/clinic__evening-waiting--wide.webp", mobile: "/academy/art/locations/mobile/clinic__evening-waiting--mobile.webp" } }),
+    "location.pharmacy": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:pharmacy"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/pharmacy__evening-counter--wide.webp", mobile: "/academy/art/locations/mobile/pharmacy__evening-counter--mobile.webp" } }),
+    "location.office": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:office"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/office__evening-afterhours--wide.webp", mobile: "/academy/art/locations/mobile/office__evening-afterhours--mobile.webp" } }),
+    "location.hotel": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:hotel"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/hotel__evening-lobby--wide.webp", mobile: "/academy/art/locations/mobile/hotel__evening-lobby--mobile.webp" } }),
+    "location.ryokan": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:ryokan"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/ryokan__evening-tatami--wide.webp", mobile: "/academy/art/locations/mobile/ryokan__evening-tatami--mobile.webp" } }),
+    "location.airport": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:airport"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/airport__evening-concourse--wide.webp", mobile: "/academy/art/locations/mobile/airport__evening-concourse--mobile.webp" } }),
+    "location.festival": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:festival"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/festival__night-stalls--wide.webp", mobile: "/academy/art/locations/mobile/festival__night-stalls--mobile.webp" } }),
+    "location.shotengai": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:shotengai"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/shotengai__evening-arcade--wide.webp", mobile: "/academy/art/locations/mobile/shotengai__evening-arcade--mobile.webp" } }),
+    "location.train": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:train"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/train__evening-carriage--wide.webp", mobile: "/academy/art/locations/mobile/train__evening-carriage--mobile.webp" } }),
+    "location.supermarket": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:supermarket", "activity:counter-shopping"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/supermarket__evening-aisles--wide.webp", mobile: "/academy/art/locations/mobile/supermarket__evening-aisles--mobile.webp" } }),
+    "location.post-office": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:post-office"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/post-office__evening-counter--wide.webp", mobile: "/academy/art/locations/mobile/post-office__evening-counter--mobile.webp" } }),
+    "location.museum": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:museum"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/museum__evening-gallery--wide.webp", mobile: "/academy/art/locations/mobile/museum__evening-gallery--mobile.webp" } }),
+    "location.tokyo-station": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:tokyo-station"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/tokyo-station__blue-hour-facade--wide.webp", mobile: "/academy/art/locations/mobile/tokyo-station__blue-hour-facade--mobile.webp" } }),
     "event.rainy-directions": runtimeAsset({ kind: "event-art", status: "approved", runtimeHomes: ["scene:aakash-rainy-directions", "unlock:aakash", "memory:aakash-rainy-directions"], provenance: "current-production", files: { default: "/academy/art/events/rainy-directions__rie-aakash__v001.png" } }),
     "item.station-ticket": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:station:platform-ticket"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/station-ticket-memory__v001.jpg" } }),
     "item.konbini-shopping-list": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:konbini:shopping-receipt"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/konbini-shopping-list__v001.jpg" } }),
@@ -23269,6 +23287,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       cafe: assetFileSet("location.cafe"),
       languageLab: assetFileSet("location.language-lab"),
       writingStudio: assetFileSet("location.writing-studio"),
+      cafeteria: assetFileSet("location.cafeteria"),
+      shrine: assetFileSet("location.shrine"),
+      temple: assetFileSet("location.temple"),
+      izakaya: assetFileSet("location.izakaya"),
+      restaurant: assetFileSet("location.restaurant"),
+      clinic: assetFileSet("location.clinic"),
+      pharmacy: assetFileSet("location.pharmacy"),
+      office: assetFileSet("location.office"),
+      hotel: assetFileSet("location.hotel"),
+      ryokan: assetFileSet("location.ryokan"),
+      airport: assetFileSet("location.airport"),
+      festival: assetFileSet("location.festival"),
+      shotengai: assetFileSet("location.shotengai"),
+      train: assetFileSet("location.train"),
+      tokyoStation: assetFileSet("location.tokyo-station"),
+      supermarket: assetFileSet("location.supermarket"),
+      postOffice: assetFileSet("location.post-office"),
+      museum: assetFileSet("location.museum"),
       rainyDirections: {
         wide: assetFile("event.rainy-directions", "default"),
         mobile: assetFile("event.rainy-directions", "default")
@@ -24418,7 +24454,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "cafeteria",
       region: "campus",
       label: { ja: "学生食堂", en: "Student dining" },
-      scene: "cafe",
+      scene: "cafeteria",
       people: ["aakash", "felix"],
       composition: {
         motif: "cafeteria",
@@ -24811,7 +24847,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "train",
       region: "commute",
       label: { ja: "電車", en: "Train" },
-      scene: "entrance",
+      scene: "train",
       people: ["peter"],
       exits: ["station-platform", "tokyo-station"],
       activity: {
@@ -24824,7 +24860,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "supermarket",
       region: "bloomsbury",
       label: { ja: "スーパー", en: "Supermarket" },
-      scene: "writingStudio",
+      scene: "supermarket",
       people: ["nanako"],
       exits: ["street", "konbini", "restaurant"],
       activity: {
@@ -24837,7 +24873,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "restaurant",
       region: "bloomsbury",
       label: { ja: "定食屋", en: "Set-meal restaurant" },
-      scene: "cafe",
+      scene: "restaurant",
       people: ["felix"],
       exits: ["ramen", "supermarket", "street"],
       activity: {
@@ -24850,7 +24886,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "izakaya",
       region: "bloomsbury",
       label: { ja: "居酒屋", en: "Izakaya" },
-      scene: "cafe",
+      scene: "izakaya",
       people: ["aakash", "felix"],
       exits: ["ramen", "street"],
       activity: {
@@ -24863,7 +24899,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "post-office",
       region: "bloomsbury",
       label: { ja: "郵便局", en: "Post office" },
-      scene: "writingStudio",
+      scene: "postOffice",
       people: ["rie"],
       exits: ["street", "clinic"],
       activity: {
@@ -24876,7 +24912,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "clinic",
       region: "bloomsbury",
       label: { ja: "クリニック", en: "Clinic" },
-      scene: "home",
+      scene: "clinic",
       people: ["rie"],
       exits: ["post-office", "pharmacy"],
       activity: {
@@ -24889,7 +24925,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "pharmacy",
       region: "bloomsbury",
       label: { ja: "薬局", en: "Pharmacy" },
-      scene: "writingStudio",
+      scene: "pharmacy",
       people: ["nanako"],
       exits: ["clinic", "street"],
       activity: {
@@ -24902,7 +24938,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "office",
       region: "bloomsbury",
       label: { ja: "オフィス", en: "Office" },
-      scene: "classroom",
+      scene: "office",
       people: ["peter"],
       exits: ["street", "station"],
       activity: {
@@ -24915,7 +24951,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "museum",
       region: "bloomsbury",
       label: { ja: "美術館", en: "Museum" },
-      scene: "library",
+      scene: "museum",
       people: ["sophie"],
       exits: ["park", "street"],
       activity: {
@@ -24928,7 +24964,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "shrine",
       region: "japan",
       label: { ja: "神社", en: "Shrine" },
-      scene: "entrance",
+      scene: "shrine",
       people: ["rie"],
       exits: ["park", "temple", "festival"],
       activity: {
@@ -24941,7 +24977,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "temple",
       region: "japan",
       label: { ja: "お寺", en: "Temple" },
-      scene: "entrance",
+      scene: "temple",
       people: ["rie"],
       exits: ["shrine", "park"],
       activity: {
@@ -24954,7 +24990,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "hotel",
       region: "commute",
       label: { ja: "ホテル", en: "Hotel" },
-      scene: "home",
+      scene: "hotel",
       people: ["peter"],
       exits: ["station", "airport", "ryokan"],
       activity: {
@@ -24967,7 +25003,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "ryokan",
       region: "japan",
       label: { ja: "旅館", en: "Ryokan" },
-      scene: "home",
+      scene: "ryokan",
       people: ["rie"],
       exits: ["hotel", "airport"],
       activity: {
@@ -24980,7 +25016,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "airport",
       region: "commute",
       label: { ja: "空港", en: "Airport" },
-      scene: "entrance",
+      scene: "airport",
       people: ["peter"],
       exits: ["station", "hotel", "tokyo-station"],
       activity: {
@@ -24993,7 +25029,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "festival",
       region: "japan",
       label: { ja: "祭り会場", en: "Festival grounds" },
-      scene: "entrance",
+      scene: "festival",
       people: ["aakash", "felix"],
       exits: ["shrine", "shotengai"],
       activity: {
@@ -25006,7 +25042,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "shotengai",
       region: "japan",
       label: { ja: "商店街", en: "Shopping street" },
-      scene: "writingStudio",
+      scene: "shotengai",
       people: ["nanako", "felix"],
       exits: ["festival", "tokyo-station", "hotel"],
       activity: {
@@ -25019,7 +25055,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: "tokyo-station",
       region: "japan",
       label: { ja: "東京駅", en: "Tokyo Station" },
-      scene: "entrance",
+      scene: "tokyoStation",
       people: ["aakash", "peter"],
       exits: ["train", "airport", "shotengai"],
       activity: {
@@ -45794,7 +45830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const VOCABULARY_SHA256$s = "c6df5dd2979a7ce376ecfb5d37c813813d99819d825f17a10c2ff2e5be79220e";
   const HANDOUT_SHA256$3 = "42776eb5736dc44caff1809419e41eb189998d3dda04401262cde705676c3fe9";
   const GREETINGS_SHA256 = "843ee30241b15d04c7b1990e8c0f76640379e81be778fbb4bfdf082565e08d6c";
-  const HOMEWORK_SHA256$3 = "0e047a101c7607ffc74a0b64e5b1a1ccafc6227bf0e99c7698017ac727c1e66b";
+  const HOMEWORK_SHA256$4 = "0e047a101c7607ffc74a0b64e5b1a1ccafc6227bf0e99c7698017ac727c1e66b";
   function createLessonOneSourceVocabularyActivities() {
     const component = vocabularyComponent();
     const provenance2 = record$11(component.provenance, "l1-l01 vocabulary provenance");
@@ -45867,7 +45903,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const activity2 = {
       id: "activity:l1-l01-moodle-greeting-worksheet",
       kind: "academy-greeting-worksheet",
-      sourceQuestionId: `moodle-worksheet:${HOMEWORK_SHA256$3}:p1`,
+      sourceQuestionId: `moodle-worksheet:${HOMEWORK_SHA256$4}:p1`,
       conceptIds: [
         "concept:l1-l01:greeting-morning",
         "concept:l1-l01:greeting-daytime",
@@ -45903,8 +45939,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
           loci: [{ page: 1, row: 8 }, { page: 1, row: 10 }, { page: 2, row: 20 }, { page: 2, row: 21 }]
         },
         homework: {
-          sourceId: `moodle-payload:${HOMEWORK_SHA256$3}`,
-          payloadSha256: HOMEWORK_SHA256$3,
+          sourceId: `moodle-payload:${HOMEWORK_SHA256$4}`,
+          payloadSha256: HOMEWORK_SHA256$4,
           title: "HW Chapter 1-1 Greeting",
           locus: { page: 1, prompts: [1, 2, 3, 4, 5, 6] },
           imageUrl: "/academy/content/lessons/l1-l01/moodle-hw-chapter-1-1-greeting-page-1.png",
@@ -45999,7 +46035,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function prompt$1(sourceOrder, id2, en, ja, acceptedOptionIds, conceptId, expression) {
     return {
       id: id2,
-      sourceQuestionId: `moodle-worksheet:${HOMEWORK_SHA256$3}:p1:prompt-${sourceOrder}`,
+      sourceQuestionId: `moodle-worksheet:${HOMEWORK_SHA256$4}:p1:prompt-${sourceOrder}`,
       sourceOrder,
       imageDescription: { en, ja },
       acceptedOptionIds,
@@ -109268,7 +109304,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const FORM_SHA256 = "91c46375a122493ae872d162e4ac3a6dd40904c41e0b122a2260325ce38a6d35";
   const EXERCISE_SHA256$1 = "f8bb529db82886b4b7c0359383fb371e810141971bbfe5a2077007783a31b12a";
   const VOCABULARY_SHA256$l = "d12a86de07bba4dbeadca54778692a2d70392a04b26fe356c454986862b77484";
-  const HOMEWORK_SHA256$2 = "8235ec47d40dc25274690fa77715763ad8958b59c3e5a799f19ffdd71e2896ed";
+  const HOMEWORK_SHA256$3 = "8235ec47d40dc25274690fa77715763ad8958b59c3e5a799f19ffdd71e2896ed";
   const AUDIO_PAYLOADS$1 = Object.freeze([
     "eedd24d38b003285ef130817c17447a432fbaa3742581b807ffb5b99e71a67b1",
     "2ba525fa9a149066591cb6d3bca67f2f468100754300639eef6e63d45205210a",
@@ -109403,7 +109439,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       kind: "academy-typed-response",
       responseKind: "kana-input",
       curriculumPhase: "assessed-production",
-      sourceQuestionId: sourceId(HOMEWORK_SHA256$2, 1, "irregular-kuru-row"),
+      sourceQuestionId: sourceId(HOMEWORK_SHA256$3, 1, "irregular-kuru-row"),
       conceptIds: ["concept:l2-l26:kuru-imperative"],
       prompt: {
         ja: "宿題のirregular表で、辞書形「くる」の命令形をひらがなで入力しましょう。",
@@ -109456,7 +109492,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("Unexpected l2-l26 package identity.");
     }
     const members = array$F(coverage.members, "l2-l26 members").map((value, index) => record$F(value, `l2-l26 member ${index + 1}`));
-    for (const payloadSha256 of [FORM_SHA256, EXERCISE_SHA256$1, VOCABULARY_SHA256$l, HOMEWORK_SHA256$2]) {
+    for (const payloadSha256 of [FORM_SHA256, EXERCISE_SHA256$1, VOCABULARY_SHA256$l, HOMEWORK_SHA256$3]) {
       if (!members.some((member) => member.payloadSha256 === payloadSha256 && member.kind === "document" && member.extension === ".pdf")) {
         throw new TypeError(`Missing exact l2-l26 Moodle document ${payloadSha256}.`);
       }
@@ -171660,7 +171696,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const VOCABULARY_SHA256$b = "8c1351970eebe85982be7e175f957914d21bd30abfcb16e21098b00b9cbea8a9";
   const PLAN_SHA256 = "105aa28ed8bd9294f8ecfab64aa145b425ee49df13cdb19debe7824b5651da74";
   const CONVICTION_SHA256 = "37db0f595c82d4179a7dde9630482e04d09753c818e0138f8e2dc4de12f517d2";
-  const HOMEWORK_SHA256$1 = "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454";
+  const HOMEWORK_SHA256$2 = "10572e757fa6dc59353ce6a873efcc14cd82a7def16cef381ed421474b317454";
   const SOURCE_VISUALS$a = Object.freeze([
     sourceVisual$3(VOCABULARY_SHA256$b, "Chapter 31-2 Vocabulary Sheet", 1, "moodle-chapter-31-2-vocabulary-page-1.png", "b6ddb6e94a83d6bae470f30807bf79bd3d672f0128e8dbd1a1407fd995dc2ff6", {
       ja: "Moodle 原本: Chapter 31-2 語彙表1ページ。予定、直行便、経由便、上旬、下旬、休み、式、言い訳、転勤など。",
@@ -171690,11 +171726,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ja: "Moodle 原本: 「〜つもりです」の確信の意味と、若い・元気なつもりの例。",
       en: "Moodle original: the conviction meaning of 〜つもりです, including the young and healthy examples."
     }),
-    sourceVisual$3(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 1, "moodle-chapter-31-homework-plan-review-page-1.png", "5ae680e64834193b0cc80d3b070dec6c4d8e33f30a63dd16ea994a88907aaab5", {
+    sourceVisual$3(HOMEWORK_SHA256$2, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 1, "moodle-chapter-31-homework-plan-review-page-1.png", "5ae680e64834193b0cc80d3b070dec6c4d8e33f30a63dd16ea994a88907aaab5", {
       ja: "Moodle 原本: つもりを使う文完成と旅行の意向を書く宿題ページ。",
       en: "Moodle original: homework page for completing つもり sentences and writing travel intentions."
     }),
-    sourceVisual$3(HOMEWORK_SHA256$1, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 2, "moodle-chapter-31-homework-plan-review-page-2.png", "a4f04e04b3ad749ab36ff3da22849be0782b19e009fa7b5383ffc4bcc767c8ed", {
+    sourceVisual$3(HOMEWORK_SHA256$2, "HW Chapter 31 grammar review-2 〜つもり 〜よてい", 2, "moodle-chapter-31-homework-plan-review-page-2.png", "a4f04e04b3ad749ab36ff3da22849be0782b19e009fa7b5383ffc4bcc767c8ed", {
       ja: "Moodle 原本: 日記を読み、話者の予定を確認する宿題ページ。",
       en: "Moodle original: homework page for reading a diary and checking the speaker’s plans."
     })
@@ -171836,7 +171872,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         "homework",
         1,
         "typed-report",
-        question$1(HOMEWORK_SHA256$1, 2, "homework", 1),
+        question$1(HOMEWORK_SHA256$2, 2, "homework", 1),
         "燃料サーチャージは高いですが、どう行くつもりですか。先生の旅行例を入力してください。",
         "燃料サーチャージは高いですが、飛行機で行くつもりです。",
         [],
@@ -171965,7 +172001,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("Unexpected l2-l21 package identity.");
     }
     const payloads = array$9(coverage.members, "l2-l21 members").map((member) => record$9(member, "l2-l21 member").payloadSha256);
-    [VOCABULARY_SHA256$b, PLAN_SHA256, CONVICTION_SHA256, HOMEWORK_SHA256$1].forEach((payload) => {
+    [VOCABULARY_SHA256$b, PLAN_SHA256, CONVICTION_SHA256, HOMEWORK_SHA256$2].forEach((payload) => {
       if (!payloads.includes(payload)) throw new TypeError("The exact l2-l21 Moodle payloads are required.");
     });
   }
@@ -180876,7 +180912,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const MODULE_ID$5 = 8121301;
   const ARCHIVE_ID$3 = "archive-000042";
   const ARCHIVE_SHA256$3 = "8c1e974b36b4546301ea6d4b90ec8a12d7ac618a37a18b0c3765ff3c248821c3";
-  const HOMEWORK_SHA256 = "bf9737e27d9ffc740f8bc597538968157f5b87c63207e28a2c55b6dae9ad66ce";
+  const HOMEWORK_SHA256$1 = "bf9737e27d9ffc740f8bc597538968157f5b87c63207e28a2c55b6dae9ad66ce";
   const QUARANTINED_AUDIO_SHA256 = Object.freeze([
     "06f3dfb38532d500d7703639865192e443b98e8ecf48da616b4010a04b8aa6b0",
     "c8bd1dd230f2897ba0bb4cc39cd8ba901a405841d1f2ba43d3f93ea79607232c",
@@ -181134,7 +181170,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourcePage,
       sourceTask,
       sourceItem,
-      sourceQuestionId: `moodle:${MODULE_ID$5}:${HOMEWORK_SHA256}:pdf-p${sourcePage}:${locus}`,
+      sourceQuestionId: `moodle:${MODULE_ID$5}:${HOMEWORK_SHA256$1}:pdf-p${sourcePage}:${locus}`,
       sourcePrompt,
       options,
       answerValue: answerExpression,
@@ -181158,8 +181194,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function visual$2(page, filename, sha2562, alt) {
     return Object.freeze({
-      sourceId: `moodle:${HOMEWORK_SHA256}:page:${page}`,
-      payloadSha256: HOMEWORK_SHA256,
+      sourceId: `moodle:${HOMEWORK_SHA256$1}:page:${page}`,
+      payloadSha256: HOMEWORK_SHA256$1,
       title: "HW Chapter 35 grammar review",
       page,
       url: `/academy/content/lessons/l2-l33/${filename}`,
@@ -181175,8 +181211,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("Unexpected l2-l33 package identity or source archive.");
     }
     const members = array$4(coverage.members, "l2-l33 members").map((value) => record$4(value, "l2-l33 member"));
-    if (!members.some((member) => member.payloadSha256 === HOMEWORK_SHA256 && member.kind === "document" && member.title === "HW Chapter 35 grammar review")) {
-      throw new TypeError(`Missing exact l2-l33 Moodle homework document ${HOMEWORK_SHA256}.`);
+    if (!members.some((member) => member.payloadSha256 === HOMEWORK_SHA256$1 && member.kind === "document" && member.title === "HW Chapter 35 grammar review")) {
+      throw new TypeError(`Missing exact l2-l33 Moodle homework document ${HOMEWORK_SHA256$1}.`);
     }
     const audioMembers = members.filter((member) => member.kind === "audio");
     if (audioMembers.length !== 3 || QUARANTINED_AUDIO_SHA256.some((payloadSha256) => !audioMembers.some((member) => member.payloadSha256 === payloadSha256))) {
@@ -183062,6 +183098,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const ARCHIVE_SHA256 = "5864abfd10047d8084bf67dd6aeb921852a98e2c873d66a47bab32640c7ac174";
   const GRAMMAR_SHA256$3 = "8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73";
   const VOCABULARY_SHA256$7 = "aa2d99c6036efe6f96b766fe682ae06a3f9c9e87e99f92bb687a199de5d902d3";
+  const HOMEWORK_SHA256 = "55be8b35c47adbc082c1d34fb891804f40809ee75e407ab14b6916d13a163fe4";
   const EXCLUDED_AUDIO_PAYLOADS = Object.freeze([
     "0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e",
     "4fe8f7973ea49725d3bb76988bd5c85f32a2e405bd54280be9806952931ca6aa"
@@ -183094,6 +183131,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       1,
       "moodle-chapter-36-1-vocabulary-page-1.png",
       "e6e3ea9b840146e607d638baf60448d29040f53be96e2d886373bd0261f8c6b0"
+    ),
+    sourceVisual(
+      HOMEWORK_SHA256,
+      "HW Chapter 36 grammar exercise-1 〜ように_ないように〜",
+      1,
+      "moodle-chapter-36-homework-goals-page-1.png",
+      "945a80aa95a995cc17f64e5a8290ccd01b9cdb65f0819eff1a575c959ad6faad"
     )
   ]);
   function createLessonL2L36YouniGoalWorkshopBeat() {
@@ -183106,8 +183150,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
       conceptIds: rounds.map((round2) => round2.conceptId),
       prompt: {
-        ja: "先生の Chapter 36-1 の四枚を先に読み、八つの印刷例を原文どおりに戻してください。",
-        en: "Read Sensei’s four Chapter 36-1 pages first, then restore eight printed examples in their source wording."
+        ja: "先生の Chapter 36-1 を先に読み、八つの印刷例を戻してから、宿題の五つの文を完成してください。",
+        en: "Read Sensei’s Chapter 36-1 teaching first, restore eight printed examples, then complete the five exact homework matches."
       },
       teachingSupport: {
         kind: "pattern",
@@ -183133,7 +183177,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             sourceAudioTracksDelivered: 0,
             excludedPayloadSha256: EXCLUDED_AUDIO_PAYLOADS
           },
-          answerKeyBasis: "sensei-verbatim-visible-examples-only"
+          answerKeyBasis: "sensei-verbatim-visible-examples-and-deterministic-homework-matches"
         },
         support: {
           minna: { reference: "Minna no Nihongo II · Lesson 36", reuse: "chronology-and-scope-only" },
@@ -183164,19 +183208,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
           },
           {
             title: "Source boundary",
-            text: "Only the eight examples visibly printed on page 1 are assessed. Homework blanks, open responses, the animal reading, Chapter 35 material, and both unattributed archive audio members remain unconverted.",
+            text: "The eight examples visibly printed on the grammar page and the five deterministic sentence matches in homework task 1 are assessed. Homework tasks 2–3, the animal reading, Chapter 35 material, and both unattributed archive audio members remain unconverted.",
             attribution: "yomu-boundary"
           }
         ],
         taskHeadings: [
           { sourceTask: "goal", text: "Printed goals: make a possible state achievable." },
           { sourceTask: "avoidance", text: "Printed avoidance goals: prevent an unwanted state." },
-          { sourceTask: "model", text: "Sensei’s printed task 1 model." }
+          { sourceTask: "model", text: "Sensei’s printed task 1 model." },
+          { sourceTask: "homework-match", text: "Homework task 1: put the five printed endings with the sentence beginnings." }
         ],
         rounds,
         passScore: 1,
         feedback: {
-          pass: { explanation: { ja: "八つの印刷例を、目標と行動の関係を保って戻せました。", en: "You restored all eight printed examples while preserving the relation between each goal and action." } },
+          pass: { explanation: { ja: "八つの印刷例を戻し、宿題の五つの文も目標と行動の関係を保って完成できました。", en: "You restored all eight printed examples and completed the five homework sentences while preserving each goal/action relation." } },
           lapse: {
             explanation: { ja: "間違えた印刷例だけを、先生の1ページ目でもう一度確認しましょう。", en: "Recheck only the missed printed example on Sensei’s first page." },
             repairPrompt: { ja: "先に、できる状態か、避ける状態かを見つけ、その後の行動を原文どおりにつなぎます。", en: "First locate the possible or avoided state, then attach the printed action exactly as shown." },
@@ -183188,8 +183233,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Object.freeze({
       id: "youni-goal-workshop",
       narrative: {
-        ja: "りえ先生が、目標になる状態と、そのためにする行動を二つの列に分けます。原本を読んでから、印刷された八つの例を戻します。",
-        en: "Rie separates goal states from the actions taken toward them. After reading the originals, restore the eight printed examples."
+        ja: "りえ先生が、目標になる状態と、そのためにする行動を二つの列に分けます。八つの例を戻したあと、宿題の五つの文を完成します。",
+        en: "Rie separates goal states from the actions taken toward them. After restoring the eight examples, complete the five exact homework sentences."
       },
       activity: Object.freeze(activity2)
     });
@@ -183221,6 +183266,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const memo = "買(か)うものを わすれないように、メモします。";
     const rush = "ラッシュに 遭(あ)わないように、早(はや)く うちを 出(で)ます。";
     const newspaper = "日本語の 新聞が 読めるように、漢字を 勉強します。";
+    const homeworkEndings = Object.freeze([
+      "大(おお)きな 声(こえ)で 言(い)ってください。",
+      "めがねを かけます。",
+      "なんでも 食(た)べています。",
+      "メモ してください。",
+      "スマホを 持(も)って 出かけます。"
+    ]);
     return Object.freeze([
       round("bicycle-goal", 1, "goal", "source-choice", "自転車に乗る目標の原文を選んでください。", "Choose the printed bicycle-goal example.", bicycle, [bicycle, meeting]),
       round("japanese-goal", 2, "goal", "pattern-select", "日本語を話す目標の原文を選んでください。", "Select the printed Japanese-speaking goal.", japanese2, [japanese2, newspaper]),
@@ -183229,8 +183281,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       round("mask-avoidance", 5, "avoidance", "pattern-select", "マスクの原文を選んでください。", "Select the printed mask example.", mask, [mask, memo]),
       round("memo-avoidance", 6, "avoidance", "typed-source", "買うものの例を原文どおりに入力してください。", "Type the printed shopping memo example in source wording.", memo, []),
       round("rush-avoidance", 7, "avoidance", "source-choice", "ラッシュを避ける原文を選んでください。", "Choose the printed line about avoiding rush hour.", rush, [rush, meeting]),
-      round("newspaper-model", 8, "model", "typed-source", "Task 1 の新聞の見本を原文どおりに入力してください。", "Type Sensei’s newspaper model in source wording.", newspaper, [])
+      round("newspaper-model", 8, "model", "typed-source", "Task 1 の新聞の見本を原文どおりに入力してください。", "Type Sensei’s newspaper model in source wording.", newspaper, []),
+      homeworkRound("hear-clearly", 9, "はっきり 聞(き)こえるように", homeworkEndings[0], homeworkEndings),
+      homeworkRound("see-well", 10, "よく 見(み)えるように", homeworkEndings[1], homeworkEndings),
+      homeworkRound("avoid-illness", 11, "病気(びょうき)に ならないように", homeworkEndings[2], homeworkEndings),
+      homeworkRound("remember-shopping", 12, "買(か)うものを わすれないように", homeworkEndings[3], homeworkEndings),
+      homeworkRound("contact-quickly", 13, "すぐ 連絡(れんらく)できるように", homeworkEndings[4], homeworkEndings)
     ]);
+  }
+  function homeworkRound(id2, sourceOrder, sourceStem, answer2, values) {
+    return Object.freeze({
+      id: `homework-${id2}`,
+      sourceOrder,
+      sourceTask: "homework-match",
+      sourcePage: 1,
+      interaction: "source-choice",
+      sourceQuestionId: `moodle:${MODULE_ID$2}:${HOMEWORK_SHA256}:pdf-p1:task-1:${id2}`,
+      prompt: Object.freeze({ ja: `${sourceStem}（　）`, en: `Complete the exact homework sentence: ${sourceStem}` }),
+      options: Object.freeze(values.map((value) => Object.freeze({ value, label: value }))),
+      answer: answer2,
+      conceptId: `concept:l2-l36:youni-homework:${sourceOrder - 8}`,
+      errorTag: `l2-l36-youni-homework-${sourceOrder - 8}`
+    });
   }
   function round(id2, sourceOrder, sourceTask, interaction, ja, en, answer2, values) {
     return Object.freeze({
@@ -183254,7 +183326,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const visuals = model2.provenance?.moodle.sourceSheets;
     if (!Array.isArray(visuals) || visuals.length !== L2_L36_SOURCE_VISUALS.length || visuals.some((visual2, index) => JSON.stringify(visual2) !== JSON.stringify(L2_L36_SOURCE_VISUALS[index]))) {
-      issues.push({ path: "provenance.moodle.sourceSheets", message: "All four SHA-pinned Chapter 36-1 pages are required." });
+      issues.push({ path: "provenance.moodle.sourceSheets", message: "All five SHA-pinned Chapter 36-1 and homework pages are required." });
     }
     const media = model2.provenance?.moodle.media;
     if (media?.status !== "archive-audio-not-attributed-to-chapter-36-slice" || media.archiveAudioMembers !== 2 || media.sourceAudioTracksDelivered !== 0 || JSON.stringify(media.excludedPayloadSha256) !== JSON.stringify(EXCLUDED_AUDIO_PAYLOADS)) {
@@ -183274,11 +183346,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "pattern-select",
       "typed-source",
       "source-choice",
-      "typed-source"
+      "typed-source",
+      "source-choice",
+      "source-choice",
+      "source-choice",
+      "source-choice",
+      "source-choice"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$e(item2.sourceQuestionId) || !text$e(item2.prompt.en) || !text$e(item2.prompt.ja) || !text$e(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
-      issues.push({ path: "payload.rounds", message: "Eight verbatim examples with all three interaction modes are required." });
+    if (!Array.isArray(rounds) || rounds.length !== 13 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$e(item2.sourceQuestionId) || !text$e(item2.prompt.en) || !text$e(item2.prompt.ja) || !text$e(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : item2.sourceTask === "homework-match" ? 5 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+      issues.push({ path: "payload.rounds", message: "Eight verbatim examples and five deterministic homework matches are required." });
     }
     validateFeedback(model2.payload?.feedback, issues);
     return issues;
@@ -183317,7 +183394,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const check = document.createElement("button");
     check.type = "submit";
     check.className = "academy-button academy-button-primary";
-    check.textContent = host2.language === "ja" ? "八つの原文を確認する" : "Check all eight source examples";
+    check.textContent = host2.language === "ja" ? "十三の答えを確認する" : "Check all thirteen source answers";
     form.append(groups, check);
     const key2 = renderAnswerKey$g(model2, host2.language);
     const feedback2 = statusRegion("academy-kit-feedback academy-state-inspection-feedback");
@@ -183327,7 +183404,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       event.preventDefault();
       const response = responseFromForm$C(model2, form);
       if (!response) {
-        feedback2.textContent = host2.language === "ja" ? "八つの例に答えてください。" : "Complete all eight source examples.";
+        feedback2.textContent = host2.language === "ja" ? "十三の問題に答えてください。" : "Complete all thirteen source questions.";
         return;
       }
       setPending$1(form, true);
@@ -183425,7 +183502,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     section.dataset.answerVisibility = "after-attempt";
     section.hidden = true;
     const heading = document.createElement("h3");
-    heading.textContent = language === "ja" ? "試したあとの先生の印刷例" : "Sensei’s printed examples after your attempt";
+    heading.textContent = language === "ja" ? "試したあとの印刷例と宿題の答え" : "Printed examples and homework answers after your attempt";
     const list2 = document.createElement("ol");
     model2.payload.rounds.forEach((round2) => {
       const item2 = document.createElement("li");
@@ -183463,7 +183540,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       conceptId: round2.conceptId,
       reason: result.outcome === "pass" ? "new-learning" : "repair",
       sourceQuestionId: round2.sourceQuestionId,
-      content: { expression: round2.answer, meanings: ["Sensei Chapter 36-1 printed example"] }
+      content: { expression: round2.answer, meanings: [round2.sourceTask === "homework-match" ? "Sensei Chapter 36 homework match" : "Sensei Chapter 36-1 printed example"] }
     };
   }
   function fieldName$4(model2, round2) {
@@ -187059,14 +187136,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the two pale spaces",
           variants: {
             foundation: {
-              japanese: "空いているところは二つです。前と後を見ます。",
-              reading: "あいているところはふたつです。まえとあとをみます。",
-              english: "There are two gaps. Look before and after them."
+              japanese: "空いているところは二つ。まず、前と後だけを見ます。",
+              reading: "あいているところはふたつ。まず、まえとあとだけをみます。",
+              english: "There are two gaps. First, look only before and after them."
             },
             n5: {
-              japanese: "空欄は二つです。名前だけではなく、前後の意味を比べましょう。",
-              reading: "くうらんはふたつです。なまえだけではなく、ぜんごのいみをくらべましょう。",
-              english: "There are two blanks. Compare the surrounding meaning, not only the names."
+              japanese: "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
+              reading: "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
+              english: "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning."
             }
           },
           support: {
@@ -187121,14 +187198,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the paper edge aligning with the atlas",
           variants: {
             foundation: {
-              japanese: "文がつながりました。道もつながります。",
-              reading: "ぶんがつながりました。みちもつながります。",
-              english: "The sentence connects. The route connects too."
+              japanese: "文がつながりました。紙のはしが、道みたいです。",
+              reading: "ぶんがつながりました。かみのはしが、みちみたいです。",
+              english: "The sentence connects. The edge of the paper looks like a road."
             },
             n5: {
-              japanese: "文のつながりが、そのまま次の道になりました。",
-              reading: "ぶんのつながりが、そのままつぎのみちになりました。",
-              english: "The sentence's connection has become the next route."
+              japanese: "文字が戻ると、紙の端が次の道みたいにつながります。",
+              reading: "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
+              english: "When the letters return, the paper's edge connects like the next road."
             }
           },
           support: {
@@ -214298,8 +214375,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderMoment = (moment) => {
       if (disposed) return;
+      const currentPlace = storyCurrentPlace(moment.scene);
       main.dataset.storyScene = moment.scene.id;
       main.dataset.storyMoment = moment.kind;
+      main.dataset.currentPlace = currentPlace;
+      stage2.element.dataset.currentPlace = currentPlace;
+      stage2.element.dataset.locationId = moment.scene.locationId;
       progress2.textContent = storyProgressLabel(options.language, arc, moment.scene);
       if (renderedSceneId !== moment.scene.id) {
         renderedSceneId = moment.scene.id;
@@ -214574,6 +214655,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       transition: "dissolve"
     };
+  }
+  function storyCurrentPlace(scene2) {
+    if (scene2.locationId.includes("language-lab")) return "lab";
+    if (scene2.locationId.includes("library")) return "library";
+    if (scene2.locationId.includes("campus-entrance")) return "courtyard";
+    return "classroom";
   }
   function renderEpisodeOutline(options, episode2) {
     const story = options.story;

@@ -1174,14 +1174,14 @@
           "attentionTarget": "the two pale spaces",
           "variants": {
             "foundation": {
-              "japanese": "空いているところは二つです。前と後を見ます。",
-              "reading": "あいているところはふたつです。まえとあとをみます。",
-              "english": "There are two gaps. Look before and after them."
+              "japanese": "空いているところは二つ。まず、前と後だけを見ます。",
+              "reading": "あいているところはふたつ。まず、まえとあとだけをみます。",
+              "english": "There are two gaps. First, look only before and after them."
             },
             "n5": {
-              "japanese": "空欄は二つです。名前だけではなく、前後の意味を比べましょう。",
-              "reading": "くうらんはふたつです。なまえだけではなく、ぜんごのいみをくらべましょう。",
-              "english": "There are two blanks. Compare the surrounding meaning, not only the names."
+              "japanese": "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
+              "reading": "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
+              "english": "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning."
             }
           },
           "support": {
@@ -1236,14 +1236,14 @@
           "attentionTarget": "the paper edge aligning with the atlas",
           "variants": {
             "foundation": {
-              "japanese": "文がつながりました。道もつながります。",
-              "reading": "ぶんがつながりました。みちもつながります。",
-              "english": "The sentence connects. The route connects too."
+              "japanese": "文がつながりました。紙のはしが、道みたいです。",
+              "reading": "ぶんがつながりました。かみのはしが、みちみたいです。",
+              "english": "The sentence connects. The edge of the paper looks like a road."
             },
             "n5": {
-              "japanese": "文のつながりが、そのまま次の道になりました。",
-              "reading": "ぶんのつながりが、そのままつぎのみちになりました。",
-              "english": "The sentence's connection has become the next route."
+              "japanese": "文字が戻ると、紙の端が次の道みたいにつながります。",
+              "reading": "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
+              "english": "When the letters return, the paper's edge connects like the next road."
             }
           },
           "support": {
