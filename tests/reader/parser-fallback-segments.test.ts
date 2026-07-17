@@ -125,8 +125,8 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('日本語を学ぶ')).toEqual(['日本語', 'を', '学ぶ']);
     });
 
-    it('records the current counter fallback split without hiding it behind a lexical override', () => {
-        expect(surfaces('2時間前')).toEqual(['時', '間', '前']);
+    it('keeps 時間 whole after a number (duration word, not a glued counter)', () => {
+        expect(surfaces('2時間前')).toEqual(['時間', '前']);
     });
 
     it('splits leading particles from Segmenter particle+noun compounds', () => {
@@ -149,6 +149,17 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(segs).not.toContain('話おまとめ版');
         expect(fallbackLookupTermAtOffset(text, text.indexOf('話'))).toBe('話');
         expect(fallbackLookupTermAtOffset(text, text.indexOf('おまとめ'))).not.toMatch(/^話/u);
+    });
+
+    it('keeps duration words whole after a number (時間/年間/分間 are words, not glued counters)', () => {
+        // 3時間前 shattered into 時|間|前 on the keyless/segmented path
+        // (Reddit time-ago labels), each shard coloured as its own word.
+        expect(surfaces('3時間前')).toEqual(['時間', '前']);
+        expect(surfaces('1時間前')).toEqual(['時間', '前']);
+        expect(surfaces('5年間の記録')).toContain('年間');
+        expect(surfaces('30分間待つ')).toContain('分間');
+        // The glued-counter split itself must survive: 3時半 is 時 + 半.
+        expect(surfaces('3時半')).toEqual(['時', '半']);
     });
 
     it('keeps numeric counters separate after 第-prefixed numbers too', () => {

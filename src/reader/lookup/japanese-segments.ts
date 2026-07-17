@@ -214,6 +214,11 @@ function splitNumericCounterPrefixSegment(segment: JapaneseTextSegment, sourceTe
     const first = Array.from(segment.surface)[0] ?? '';
     if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
     if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    // A counter followed by 間 is a duration word (時間/年間/分間/日間/月間),
+    // not a counter glued onto the next title word. Peeling it shattered
+    // 3時間前 into 時|間|前 on the keyless/segmented path.
+    const second = Array.from(segment.surface)[1] ?? '';
+    if (second === '間') return [segment];
     return [
         { surface: first, start: segment.start, end: segment.start + first.length },
         { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end },
