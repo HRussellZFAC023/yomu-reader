@@ -7571,15 +7571,29 @@ export class NewTabController {
     }
 
     private renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement {
+        return this.renderNewTabImmersionCardVariant(card, examples[index], index, examples.length, 'word');
+    }
+
+    private renderNewTabImmersionCardVariant(
+        card: JPDBCard,
+        example: ImmersionKitExample,
+        index: number,
+        total: number,
+        variant: 'word' | 'kanji',
+    ): HTMLElement {
         const settings = this.dependencies.getSettings();
-        const example = examples[index];
         const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        const hasAudio = audioUrls.length > 0;
-        const node = el('div', { class: 'jpdb-reader-newtab-immersion' },
-            this.renderNewTabImmersionToolbar(example, index, examples.length, hasAudio),
-            this.renderNewTabImmersionExampleBody(card, example, settings, index, examples.length, audioUrls),
+        const isKanji = variant === 'kanji';
+        const node = el('div', isKanji
+            ? {
+                class: 'jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion',
+                dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling },
+            }
+            : { class: 'jpdb-reader-newtab-immersion' },
+            this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji ? { showSource: true } : {}),
+            this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
         );
-        this.highlightNewTabImmersionTarget(node, card);
+        if (!isKanji) this.highlightNewTabImmersionTarget(node, card);
         return node;
     }
 
@@ -8402,15 +8416,7 @@ export class NewTabController {
     }
 
     private renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement {
-        const settings = this.dependencies.getSettings();
-        const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        return el('div', {
-            class: 'jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion',
-            dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling },
-        },
-            this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, { showSource: true }),
-            this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls),
-        );
+        return this.renderNewTabImmersionCardVariant(card, example, index, total, 'kanji');
     }
 
     private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
