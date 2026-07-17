@@ -1,6 +1,7 @@
 import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
 import { Logger } from '../app/logger';
 import { isAppleTouchBrowser } from '../platform/browser';
+import { delay } from '../core/async-utils';
 import { getUserscriptHttpRequest } from '../userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
@@ -310,10 +311,6 @@ function normalizeJpdbTransportError(error: unknown): Error {
 
 function retryableReadDelayMs(): number {
     return isTestRuntime() ? 0 : RETRYABLE_READ_DELAY_MS;
-}
-
-function delay(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function isTestRuntime(): boolean {

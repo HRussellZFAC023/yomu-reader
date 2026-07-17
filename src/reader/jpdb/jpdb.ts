@@ -1,6 +1,6 @@
 import { JpdbApiClient } from './jpdb-api';
 import { jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
-import { ConcurrencyGate, runLimited } from '../core/async-utils';
+import { ConcurrencyGate, delay as wait, runLimited } from '../core/async-utils';
 import { LruCache } from '../core/lru-cache';
 import { Logger } from '../app/logger';
 import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from '../app/types';
@@ -496,10 +496,6 @@ class JpdbRequestPacer {
 
 function listedDeckVocabularyRequestGapMs(): number {
     return isTestRuntime() ? 0 : LISTED_DECK_VOCABULARY_REQUEST_GAP_MS;
-}
-
-function wait(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function isTestRuntime(): boolean {

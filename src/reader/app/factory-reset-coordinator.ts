@@ -1,6 +1,7 @@
 import { APP_NAME } from './constants';
 import { uiText } from '../app/i18n';
 import { Logger } from './logger';
+import { delay } from '../core/async-utils';
 import {
     beginSettingsResetGuard,
     deleteSettingsStorage,
@@ -166,8 +167,4 @@ export class FactoryResetCoordinator {
         window.clearTimeout(this.remoteGuardReleaseTimer);
         this.remoteGuardReleaseTimer = undefined;
     }
-}
-
-function delay(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
 }

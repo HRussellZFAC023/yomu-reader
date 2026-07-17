@@ -1,6 +1,7 @@
 import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult, type AnkiNoteFieldTargetPlan } from '../anki/index';
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './render-state';
 import { cardKey } from './utils';
+import { delay } from '../core/async-utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
 import type { JitenApiClient, JitenVocabularyInfo, JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
@@ -835,10 +836,6 @@ function jitenAnnotatedReading(value: string): string {
     const source = value.trim();
     const reading = source.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)]/g, '$2').trim();
     return reading === source ? '' : reading;
-}
-
-function delay(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function isLocalKanjiDictionaryCard(card: JPDBCard): boolean {

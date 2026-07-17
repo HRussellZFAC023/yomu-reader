@@ -12,6 +12,7 @@ import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
+export { delay as wait } from '../core/async-utils';
 import { yomuNormalizeOcrRenderedText } from '../companions/registry';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
 import { cardPronunciationReading } from '../popup/pitch';
@@ -113,10 +114,6 @@ function imageLooksLikeReadableSurface(image: HTMLImageElement): boolean {
     return visibleArea >= IMAGE_READING_MIN_AREA
         && visibleArea / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO
         && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
-}
-
-export function wait(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 export function replaceOptionalElement(parent: Element, selector: string, html: string, before: Element | null = null): void {
