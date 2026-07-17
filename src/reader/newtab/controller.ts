@@ -53,6 +53,7 @@ import {
 } from '../immersion/query';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { OperationTracker } from '../core/operation-token';
+import { BoundedMap } from '../core/bounded-map';
 import type { JitenApiClient, JitenKanjiInfo, JitenRecentReview, JitenVocabularyInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
@@ -373,6 +374,15 @@ const QUEUE_REFRESH_LOW_WATER = 20;
 const QUEUE_REFRESH_GRADE_INTERVAL = 10;
 const QUEUE_REFRESH_MAX_AGE_MS = 60_000;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
+// Bounded per-card/per-kanji session caches (NB-54). Sized well above any
+// realistic single session's working set; they only stop unbounded growth over
+// very long sessions (previously freed only by a factory reset).
+const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
+const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
+const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
+const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
+const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
+const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
@@ -851,19 +861,21 @@ export class NewTabController {
     // n+1 sentence selection: once per card the example sentences from every
     // source are scored against the learner's known words and the best one
     // (all known + at most one new word) replaces the card's own sentence.
-    private studySentenceOverrides = new Map<string, string>();
+    private studySentenceOverrides = new BoundedMap<string, string>(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     private nPlusOneSentenceRequests = new Set<string>();
     // Set once the user chooses "Continue offline" in the connection-lost
     // dialog; later drops in the same outage queue silently. Cleared when the
     // browser reports it is back online so the next outage asks again.
     private offlineReviewingAccepted = false;
-    private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
-    private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
-    private immersionExampleIndex = new Map<string, number>();
-    private frontSentenceCache = new Map<string, Promise<string>>();
+    private uchisenDataCache = new BoundedMap<string, Promise<UchisenData | null>>(NEW_TAB_KANJI_DATA_CACHE_LIMIT);
+    private immersionCache = new BoundedMap<string, Promise<ImmersionKitExample[]>>(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    // Rotation cursor into immersionCache's examples; bounded with the same limit
+    // so the two stay aligned (a dropped example set simply restarts at index 0).
+    private immersionExampleIndex = new BoundedMap<string, number>(NEW_TAB_IMMERSION_CACHE_LIMIT);
+    private frontSentenceCache = new BoundedMap<string, Promise<string>>(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     private parsedSentenceCache = new Map<string, ParsedTokenCacheEntry>();
-    private wordPitchCache = new Map<string, Promise<string[]>>();
-    private doodlePreviewCache = new Map<string, string>();
+    private wordPitchCache = new BoundedMap<string, Promise<string[]>>(NEW_TAB_WORD_PITCH_CACHE_LIMIT);
+    private doodlePreviewCache = new BoundedMap<string, string>(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
     private immersionPrefetchGeneration = 0;
     private installPrompt: BeforeInstallPromptEvent | null = null;
     private readonly immersionAudioPlayer: NewTabImmersionAudioPlayer;
@@ -901,7 +913,7 @@ export class NewTabController {
     private searchHandwritingStrokes: DoodleStroke[] = [];
     private searchHandwritingGeneration = 0;
     private searchHandwritingDebounce: ReturnType<typeof setTimeout> | undefined;
-    private searchHandwritingShapeCandidateCache = new Map<string, Promise<KanjiShapeCandidate | null>>();
+    private searchHandwritingShapeCandidateCache = new BoundedMap<string, Promise<KanjiShapeCandidate | null>>(NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT);
     private readonly studyStepStates = new Map<string, StudyStepState>();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     private readonly pitchSrs = new PitchSrsStore();
