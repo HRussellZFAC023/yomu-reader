@@ -114,6 +114,7 @@ export function createSqliteAcademy(): SqliteAcademy {
         '0005_profile_key_commitment.sql',
         '0006_account_recovery_binding.sql',
         '0007_invite_account_requirement.sql',
+        '0008_all_invites_require_account.sql',
     ];
     for (const migration of migrations) {
         database.exec(readFileSync(resolve(process.cwd(), 'workers/yomu-academy/migrations', migration), 'utf8'));

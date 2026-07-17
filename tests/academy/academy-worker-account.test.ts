@@ -20,7 +20,7 @@ async function enrolled(classId: string | null = 'ucl-2026') {
         expires_at: null,
         revoked_at: null,
         purchase_id: null,
-        account_required: 0,
+        account_required: 1,
         class_id: classId,
     });
     const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, () => now);

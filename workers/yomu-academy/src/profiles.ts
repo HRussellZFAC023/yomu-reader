@@ -50,14 +50,12 @@ interface DisposableProfileRow {
     readonly session_count: number;
 }
 
-/** Authorize Academy resources from the access policy captured by the invite. */
+/** Authorize Academy resources: every invite session must be signed in. */
 export async function requireAcademyAccessSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
-    if (session.account_required === 1) {
-        if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
-        await requirePaidSessionEntitlement(env, session, session.account_id);
-    }
+    if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
+    await requirePaidSessionEntitlement(env, session, session.account_id);
     return session;
 }
 

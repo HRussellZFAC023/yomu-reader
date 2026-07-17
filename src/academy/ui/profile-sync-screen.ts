@@ -193,8 +193,8 @@ function redeemForm(language: AcademyLanguage): HTMLElement {
     help.id = 'academy-paid-code-help';
     help.textContent = localize(
         language,
-        'Paid codes must be linked to Google. A paid code can be activated once, and a Google account can hold one paid code. A class-provided anonymous invitation can continue without an account.',
-        '有料コードは Google とリンクする必要があります。有料コードを有効にできるのは一度だけで、Google アカウントに登録できる有料コードは1つです。クラスから案内された匿名用コードは、アカウントなしで続けられます。',
+        'Paid codes must be linked to Google. A paid code can be activated once, and a Google account can hold one paid code. Class invitations also require signing in with Google.',
+        '有料コードは Google とリンクする必要があります。有料コードを有効にできるのは一度だけで、Google アカウントに登録できる有料コードは1つです。クラスの招待コードも Google サインインが必要です。',
     );
     const form = element('form', 'academy-code-form');
     const label = element('label', 'academy-code-label');
@@ -358,7 +358,7 @@ function statusText(status: AcademySyncStatus, language: AcademyLanguage): strin
     if (status.phase === 'local') return status.profile
         ? localize(language, 'Encrypted history is ready on this device.', 'この端末に暗号化された履歴があります。')
         : localize(language, 'No server profile has been created.', 'サーバープロフィールは作成されていません。');
-    if (status.phase === 'sign-in') return localize(language, 'Paid Academy codes must be linked to Google before activation. A class-provided anonymous invitation can continue without an account.', '有料 Academy コードは、有効化する前に Google とリンクする必要があります。クラスから案内された匿名用コードは、アカウントなしで続けられます。');
+    if (status.phase === 'sign-in') return localize(language, 'Sign in with Google to continue. Every Academy invitation, including class invitations, is linked to a Google account.', 'Google にサインインして続けてください。クラスの招待コードを含め、すべての Academy 招待は Google アカウントとリンクされます。');
     if (status.phase === 'recovery') return localize(language, 'Opening Google sign-in for account recovery.', 'アカウント復旧のため Google サインインを開いています。');
     if (status.phase === 'signed-out') return localize(language, 'Your encryption key remains on this device for account recovery.', 'アカウント復旧のため、暗号鍵はこの端末に保持されています。');
     if (status.phase === 'pending') return localize(language, 'Enter the paid code below. If payment just completed, activation may take a moment.', '下に有料コードを入力してください。支払い直後は、有効化まで少し時間がかかることがあります。');

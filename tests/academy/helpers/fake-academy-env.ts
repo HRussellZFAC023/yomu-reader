@@ -210,16 +210,6 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [{ id: invite.id }];
         }
-        if (sql.startsWith('UPDATE invites SET account_required = 0')) {
-            const invite = db.invites.find(row => row.code_hash === v[0] && row.kind === 'seed' && row.revoked_at === null);
-            if (!invite) return [];
-            if (db.invites.some(row => row.id !== invite.id && row.account_required === 0)) {
-                throw new Error('UNIQUE constraint failed: invites.account_required');
-            }
-            invite.account_required = 0;
-            this.lastChanges = 1;
-            return [{ id: invite.id, uses_remaining: invite.uses_remaining, expires_at: invite.expires_at }];
-        }
         if (sql.startsWith('INSERT INTO invites') && sql.includes('ON CONFLICT(id) DO NOTHING')) {
             if (db.invites.some(row => row.id === v[0])) return [];
             db.invites.push({
@@ -355,22 +345,15 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private selectSession(): unknown[] | undefined {
-        if (this.sql.startsWith('SELECT i.account_required FROM sessions s JOIN invites i')) {
-            const session = this.db.sessions.find(row => row.public_id === this.values[0] && row.revoked_at === null);
-            const invite = session ? this.db.invites.find(row => row.id === session.invite_id) : undefined;
-            return invite ? [{ account_required: invite.account_required }] : [];
-        }
-        if (!this.sql.startsWith('SELECT s.public_id, s.invite_id, s.account_id, i.account_required')) return undefined;
+        if (!this.sql.startsWith('SELECT s.public_id, s.invite_id, s.account_id, ')) return undefined;
         const v = this.values;
         const now = v[1] as number;
         const session = this.db.sessions.find(row => row.token_hash === v[0] && row.revoked_at === null && row.expires_at > now);
-        const invite = session ? this.db.invites.find(row => row.id === session.invite_id) : undefined;
         return session
             ? [{
                 public_id: session.public_id,
                 invite_id: session.invite_id,
                 account_id: session.account_id,
-                account_required: invite?.account_required ?? 1,
                 expires_at: session.expires_at,
                 offline_resume_until: session.offline_resume_until,
             }]

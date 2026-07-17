@@ -41,8 +41,8 @@ afterEach(() => {
 });
 
 describe('Academy opening route progression', () => {
-    it('enters Academy directly when the server marks the invitation as account-free', async () => {
-        const exchange = vi.fn(async () => session(false));
+    it('holds class invitations at account linking: no invite enters Academy anonymously', async () => {
+        const exchange = vi.fn(async () => session());
         const connect = vi.fn(async () => syncStatus('sign-in'));
         const flow = createEnrollmentFlow({
             access: { exchange },
@@ -57,8 +57,8 @@ describe('Academy opening route progression', () => {
         input.value = 'CLASS-TEST-2026';
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
 
-        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile', { session: session(false) }));
-        expect(connect).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile-sync', { session: session() }));
+        expect(connect).toHaveBeenCalledOnce();
     });
 
     it('holds paid access at account linking before onboarding and retains the local route state', async () => {

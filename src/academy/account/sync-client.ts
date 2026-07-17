@@ -91,9 +91,9 @@ export interface AcademySyncClientOptions {
  * Client-only encrypted event replication and paid-account activation. The
  * 32-byte profile sync key never leaves the client except wrapped inside a
  * pairing envelope, and no server profile is requested until the learner opts
- * into durable sync. Paid and generated codes must sign in with Google before
- * activation; only a server-designated anonymous invitation reaches a profile
- * without it.
+ * into durable sync. Every invitation — paid, generated, or class-provided —
+ * must sign in with Google before a server profile or protected media is
+ * reachable.
  */
 export class AcademySyncClient {
     private readonly storage: AcademySyncStorage | null;

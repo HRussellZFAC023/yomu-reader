@@ -142,13 +142,16 @@ async function signInWithGoogle(env: Env, sessionCookie: string, subject: string
 }
 
 describe('Academy Google account and paid entitlement policy', () => {
-    it('enforces the single anonymous invite invariant in the migrated schema', async () => {
+    it('account-gates even a legacy account-free invite row in the migrated schema', async () => {
         const academy = createSqliteAcademy();
         try {
-            await seedInvite(academy.env, 'OPEN2026', 'anonymous-one', false);
-            await expect(seedInvite(academy.env, 'OTHER2026', 'anonymous-two', false))
-                .rejects.toThrow(/UNIQUE constraint failed/iu);
-            await seedInvite(academy.env, 'STAFF2026', 'account-required');
+            // A pre-0008 row with account_required = 0 no longer bypasses the
+            // gate: the Worker never reads the column and requires sign-in.
+            await seedInvite(academy.env, 'OPEN2026', 'legacy-anonymous', false);
+            const legacy = await createSession(academy.env, 'OPEN2026');
+            expect(legacy.response.status).toBe(200);
+            expect(await legacy.response.json()).toMatchObject({ accountRequired: true });
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', legacy.cookie))).status).toBe(401);
         } finally {
             academy.close();
         }
@@ -185,9 +188,12 @@ describe('Academy Google account and paid entitlement policy', () => {
             mediaManifest,
         );
         try {
-            await seedInvite(env, 'OPEN2026', 'invite-ucl-media', false);
+            await seedInvite(env, 'OPEN2026', 'invite-ucl-media');
             const ucl = await createSession(env, 'OPEN2026');
-            expect(await ucl.response.clone().json()).toMatchObject({ accountRequired: false });
+            expect(await ucl.response.clone().json()).toMatchObject({ accountRequired: true });
+            // Class invites are account-gated too: media 401 until sign-in.
+            await expect(mediaRequest(ucl.cookie)).rejects.toMatchObject({ status: 401 });
+            expect((await signInWithGoogle(env, ucl.cookie, 'ucl-media-subject', now)).status).toBe(302);
             expect((await mediaRequest(ucl.cookie)).status).toBe(200);
 
             const purchaseId = crypto.randomUUID();
@@ -214,10 +220,10 @@ describe('Academy Google account and paid entitlement policy', () => {
         }
     });
 
-    it('keeps OPEN2026 anonymous while account-gating every other server profile', async () => {
+    it('account-gates every server profile, including the reusable class invite', async () => {
         const academy = createSqliteAcademy();
         try {
-            await seedInvite(academy.env, 'OPEN2026', 'invite-ucl', false);
+            await seedInvite(academy.env, 'OPEN2026', 'invite-ucl');
             await seedInvite(academy.env, 'STAFF2026', 'invite-staff');
             const ucl = await createSession(academy.env, 'OPEN2026');
             const secondUcl = await createSession(academy.env, 'OPEN2026');
@@ -225,16 +231,19 @@ describe('Academy Google account and paid entitlement policy', () => {
             expect(ucl.response.status).toBe(200);
             expect(secondUcl.response.status).toBe(200);
             expect(staff.response.status).toBe(200);
-            expect(await ucl.response.json()).toMatchObject({ accountRequired: false });
+            expect(await ucl.response.json()).toMatchObject({ accountRequired: true });
             expect(await staff.response.json()).toMatchObject({ accountRequired: true });
-            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', ucl.cookie))).status).toBe(200);
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', ucl.cookie))).status).toBe(401);
             expect((await activeSession(
                 get(academy.env, '/academy/api/session', secondUcl.cookie), academy.env, Date.now(),
             ))?.account_id).toBeNull();
             expect((await dispatch(academy.env, get(
                 academy.env, '/academy/api/profile', secondUcl.cookie,
-            ))).status).toBe(200);
+            ))).status).toBe(401);
             expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', staff.cookie))).status).toBe(401);
+
+            expect((await signInWithGoogle(academy.env, ucl.cookie, 'ucl-class-subject')).status).toBe(302);
+            expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', ucl.cookie))).status).toBe(200);
 
             expect((await signInWithGoogle(academy.env, staff.cookie, 'staff-google-subject')).status).toBe(302);
             const profile = await dispatch(academy.env, get(academy.env, '/academy/api/profile', staff.cookie));
@@ -246,7 +255,7 @@ describe('Academy Google account and paid entitlement policy', () => {
             ));
             await expect(signInWithGoogle(academy.env, cookie(recovery), 'unknown-recovery-subject'))
                 .rejects.toMatchObject({ status: 403 });
-            expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(1);
+            expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(2);
         } finally {
             academy.close();
         }

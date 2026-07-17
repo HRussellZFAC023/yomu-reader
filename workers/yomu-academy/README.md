@@ -20,19 +20,15 @@ deterministic code claim, and one-account redemption without those credentials.
 ## Identity ladder
 
 1. `POST /academy/api/session` exchanges an invite for the existing HttpOnly
-   session cookie and returns `accountRequired`. Any session can begin Google
-   OIDC, but only the server-designated anonymous invite can access media or a
-   server profile before account binding.
+   session cookie and returns `accountRequired` (always `true`). No invite —
+   seed, class, or paid — can access media or a server profile before account
+   binding; the session only authorizes beginning Google OIDC.
 2. `POST /academy/api/session/resume` rotates that cookie without spending an
    invite while its fixed 30-day offline-resume window remains valid. Active
    authorization is still renewed in eight-hour windows.
-3. Invite metadata designates at most one anonymous server-profile exception.
-   Its sessions can create a profile, pair, sync, export, and delete with no
-   Google prompt. Other seed, paid, and recovery sessions require Google before
-   any profile, pairing, sync, or profile lifecycle route.
-   Re-submit an existing seed code to the authenticated invite endpoint with
-   `accountRequired: false` to designate it after migration; only its HMAC is
-   used and its usage/expiry state is preserved.
+3. Every seed, paid, and recovery session requires Google before any media,
+   profile, pairing, sync, or profile lifecycle route. There is no anonymous
+   invite exception.
 4. Google Authorization Code + PKCE supplies the durable identity. Only an
    HMAC of Google's stable subject is retained; names, email, photos, browser
    tokens, and Google access/refresh tokens are discarded. Google identifies
@@ -45,7 +41,7 @@ deterministic code claim, and one-account redemption without those credentials.
    an unknown Google subject cannot use recovery to bypass an Academy code.
 
 Local-only Study remains accountless. Server profiles and cross-device sync
-require Google except for the designated anonymous invite.
+always require Google.
 
 ## API contract
 
@@ -55,7 +51,7 @@ the `__Host-academy_session` cookie.
 
 | Method | Route | Contract |
 |---|---|---|
-| `POST` | `/academy/api/session` | Invite exchange with `accountRequired` capability |
+| `POST` | `/academy/api/session` | Invite exchange; `accountRequired` is always `true` |
 | `POST` | `/academy/api/session/resume` | Rotate a resumable session cookie |
 | `POST` | `/academy/api/auth/google/recovery` | Create an auth-only recovery session from `{}` |
 | `GET` | `/academy/api/auth/google/start` | Start state + nonce + S256 PKCE OIDC for the current session |
@@ -267,3 +263,5 @@ never stored. Current per-subject limits are:
   orphan rows while retaining recovery after deliberate profile deletion.
 - `0007_invite_account_requirement.sql`: private invite access metadata and a
   database guard allowing only one account-free invite.
+- `0008_all_invites_require_account.sql`: withdraws the account-free exception;
+  every invite requires an authenticated account.

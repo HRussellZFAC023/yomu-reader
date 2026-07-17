@@ -155,13 +155,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
 
     private async openSession(code: string, context: AcademyRouteContext): Promise<void> {
         const session = await this.options.access.exchange(code);
-        if (!session.accountRequired) {
-            await context.go(academyEntryRoute(context), { session });
-            return;
-        }
 
-        // The paid session cookie is already established by the exchange. The
-        // account route is persisted before its Google recovery controls run.
+        // Every invite requires a signed-in account before Academy resources
+        // unlock. The session cookie is already established by the exchange;
+        // the account route is persisted before its Google recovery controls
+        // run.
         await this.options.account?.connect();
         await context.go('profile-sync', { session });
     }
@@ -269,10 +267,6 @@ class EnrollmentFlow implements AcademyRouteFlow {
         });
     }
 
-}
-
-function academyEntryRoute(context: AcademyRouteContext): 'profile' | 'start' {
-    return context.projection.profile ? 'start' : 'profile';
 }
 
 function requiredBand(context: AcademyRouteContext): JlptBand {

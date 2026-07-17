@@ -24,24 +24,17 @@ interface CreateInviteRow {
     readonly createdAt: number;
     readonly expiresAt: number | null;
     readonly purchaseId: string | null;
-    readonly accountRequired: boolean;
-}
-
-interface ExistingInviteRow {
-    readonly id: string;
-    readonly uses_remaining: number;
-    readonly expires_at: number | null;
 }
 
 async function insertInvite(env: Env, row: CreateInviteRow): Promise<void> {
     await env.ACADEMY_DB
         .prepare(
             'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
-            + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)',
+            + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)',
         )
         .bind(
             row.id, row.codeHash, row.usesRemaining, row.kind, row.createdAt,
-            row.expiresAt, row.purchaseId, row.accountRequired ? 1 : 0,
+            row.expiresAt, row.purchaseId,
         )
         .run();
 }
@@ -61,13 +54,13 @@ export async function mintPaidInvite(env: Env, purchaseId: string, now: number):
 /**
  * POST /academy/api/admin/invites — bearer-authenticated invite creation.
  * A known code is sent in the request body and only its HMAC persists; with no
- * code supplied, a random one is generated and returned exactly once. The
- * administrator may designate the database's single account-free invite.
+ * code supplied, a random one is generated and returned exactly once. Every
+ * invite requires an authenticated account to use Academy resources.
  */
 export async function handleAdminCreateInvite(request: Request, env: Env, clock: Clock): Promise<Response> {
     await requireAdmin(request, env);
     const body = await readJsonBody(request);
-    if (Object.keys(body).some(key => !['code', 'uses', 'expiresAt', 'accountRequired'].includes(key))) {
+    if (Object.keys(body).some(key => !['code', 'uses', 'expiresAt'].includes(key))) {
         throw new HttpError(400, 'Invite request contains unknown fields.');
     }
 
@@ -75,7 +68,6 @@ export async function handleAdminCreateInvite(request: Request, env: Env, clock:
     const code = generated ?? normalizeInviteCode(body.code);
     const uses = readUses(body.uses);
     const expiresAt = readExpiry(body.expiresAt, clock());
-    const accountRequired = readAccountRequired(body.accountRequired);
 
     const inviteId = crypto.randomUUID();
     try {
@@ -87,41 +79,13 @@ export async function handleAdminCreateInvite(request: Request, env: Env, clock:
             createdAt: clock(),
             expiresAt,
             purchaseId: null,
-            accountRequired,
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (!/UNIQUE constraint failed|idx_invites_single_anonymous/iu.test(message)) throw error;
-        if (!accountRequired && body.code !== undefined) {
-            try {
-                const existing = await designateExistingAnonymousInvite(env, code);
-                if (existing) {
-                    return jsonResponse({
-                        inviteId: existing.id,
-                        uses: existing.uses_remaining,
-                        expiresAt: existing.expires_at,
-                    }, 200);
-                }
-            } catch (designationError) {
-                const designationMessage = designationError instanceof Error
-                    ? designationError.message
-                    : String(designationError);
-                if (!/UNIQUE constraint failed|idx_invites_single_anonymous/iu.test(designationMessage)) {
-                    throw designationError;
-                }
-            }
-        }
+        if (!/UNIQUE constraint failed/iu.test(message)) throw error;
         throw new HttpError(409, 'Invitation conflicts with an existing invite.');
     }
     return jsonResponse({ inviteId, uses, expiresAt, ...(generated ? { code: generated } : {}) }, 201);
-}
-
-async function designateExistingAnonymousInvite(env: Env, code: string): Promise<ExistingInviteRow | null> {
-    return env.ACADEMY_DB.prepare(
-        'UPDATE invites SET account_required = 0 '
-        + "WHERE code_hash = ?1 AND kind = 'seed' AND revoked_at IS NULL "
-        + 'RETURNING id, uses_remaining, expires_at',
-    ).bind(await inviteCodeHash(env, code)).first<ExistingInviteRow>();
 }
 
 export async function requireAdmin(request: Request, env: Env): Promise<void> {
@@ -152,8 +116,3 @@ function readExpiry(value: unknown, now: number): number | null {
     return value;
 }
 
-function readAccountRequired(value: unknown): boolean {
-    if (value === undefined) return true;
-    if (typeof value !== 'boolean') throw new HttpError(400, 'accountRequired must be true or false.');
-    return value;
-}

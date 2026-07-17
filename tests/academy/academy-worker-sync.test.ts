@@ -3,6 +3,7 @@ import worker from '../../workers/yomu-academy/src/index';
 import { linkGoogleSubject } from '../../workers/yomu-academy/src/accounts';
 import { toBase64Url } from '../../workers/yomu-academy/src/crypto';
 import type { Env } from '../../workers/yomu-academy/src/env';
+import { ensureSessionProfile } from '../../workers/yomu-academy/src/profiles';
 import { activeSession } from '../../workers/yomu-academy/src/sessions';
 import { createSqliteAcademy, type SqliteAcademy } from './helpers/sqlite-academy-env';
 
@@ -55,7 +56,6 @@ async function enrolled(academy: SqliteAcademy, count = 1): Promise<string[]> {
     const seeded = await dispatch(academy.env, request('/academy/api/admin/invites', 'POST', {
         code: 'OPEN2026',
         uses: 50,
-        accountRequired: false,
     }, undefined, '203.0.113.20', { authorization: 'Bearer sqlite-test-admin-token' }));
     expect(seeded.status).toBe(201);
     const cookies: string[] = [];
@@ -69,6 +69,17 @@ async function enrolled(academy: SqliteAcademy, count = 1): Promise<string[]> {
         ));
         expect(response.status).toBe(200);
         cookies.push(cookie(response));
+    }
+    return cookies;
+}
+
+/** Every invite is account-gated, so device cookies sign in before use. */
+async function signedIn(academy: SqliteAcademy, subjects: string[]): Promise<string[]> {
+    const cookies = await enrolled(academy, subjects.length);
+    for (const [index, subject] of subjects.entries()) {
+        const session = await activeSession(get('/academy/api/session', cookies[index]), academy.env, Date.now());
+        if (!session) throw new Error(`fixture session ${index} missing`);
+        await linkGoogleSubject(academy.env, session, subject, Date.now());
     }
     return cookies;
 }
@@ -108,7 +119,7 @@ describe('Academy profile pairing and event-log sync', () => {
     });
 
     it('atomically pins one profile key commitment and rejects a competing first key', async () => {
-        const [sessionCookie] = await enrolled(academy);
+        const [sessionCookie] = await signedIn(academy, ['key-commit-subject']);
         expect((await dispatch(academy.env, get('/academy/api/profile', sessionCookie))).status).toBe(200);
         const firstCommitment = bytes(32, 7);
         const secondCommitment = bytes(32, 8);
@@ -126,11 +137,12 @@ describe('Academy profile pairing and event-log sync', () => {
             .toBe(winner);
     });
 
-    it('pairs two invite sessions with a one-time HMACed code and encrypted key envelope', async () => {
-        const [sourceCookie, targetCookie] = await enrolled(academy, 2);
+    it('pairs two signed-in devices of one account with a one-time HMACed code and encrypted key envelope', async () => {
+        const [sourceCookie, targetCookie] = await signedIn(academy, ['pairing-subject', 'pairing-subject']);
         const sourceProfile = await (await dispatch(academy.env, get('/academy/api/profile', sourceCookie))).json() as { profileId: string };
         const targetProfile = await (await dispatch(academy.env, get('/academy/api/profile', targetCookie))).json() as { profileId: string };
-        expect(sourceProfile.profileId).not.toBe(targetProfile.profileId);
+        // The second sign-in moved the empty device onto the account profile.
+        expect(sourceProfile.profileId).toBe(targetProfile.profileId);
 
         const created = await dispatch(academy.env, request('/academy/api/pairings', 'POST', {}, sourceCookie));
         expect(created.status).toBe(201);
@@ -171,7 +183,7 @@ describe('Academy profile pairing and event-log sync', () => {
     });
 
     it('unions offline events, makes retries idempotent, and never overwrites a conflicting id', async () => {
-        const [sourceCookie, targetCookie] = await enrolled(academy, 2);
+        const [sourceCookie, targetCookie] = await signedIn(academy, ['union-subject', 'union-subject']);
         await dispatch(academy.env, get('/academy/api/profile', sourceCookie));
         await dispatch(academy.env, get('/academy/api/profile', targetCookie));
         const created = await dispatch(academy.env, request('/academy/api/pairings', 'POST', {}, sourceCookie));
@@ -207,8 +219,8 @@ describe('Academy profile pairing and event-log sync', () => {
         expect(pageTwo.hasMore).toBe(false);
     });
 
-    it('exports and deletes anonymous or durable data without accepting plaintext provider credentials', async () => {
-        const [anonymousCookie] = await enrolled(academy);
+    it('exports and deletes profile data without accepting plaintext provider credentials', async () => {
+        const [anonymousCookie] = await signedIn(academy, ['export-delete-subject']);
         await dispatch(academy.env, get('/academy/api/profile', anonymousCookie));
         const privateEvent = event('33333333-3333-4333-8333-333333333333', 6);
         const rejected = await dispatch(academy.env, request('/academy/api/srs/push', 'POST', {
@@ -238,11 +250,11 @@ describe('Academy profile pairing and event-log sync', () => {
 
     it('exports and fully deletes an optional account, and resumes the anonymous device session in place', async () => {
         const [accountCookie] = await enrolled(academy);
-        const initialProfile = await (await dispatch(academy.env, get('/academy/api/profile', accountCookie))).json() as { profileId: string };
         const sessionRequest = get('/academy/api/session', accountCookie);
         const session = await activeSession(sessionRequest, academy.env, Date.now());
         if (!session) throw new Error('active session missing');
         await linkGoogleSubject(academy.env, session, 'durable-google-subject', Date.now());
+        const initialProfile = await (await dispatch(academy.env, get('/academy/api/profile', accountCookie))).json() as { profileId: string };
         const accountEvent = event('44444444-4444-4444-8444-444444444444', 7);
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [accountEvent] }, accountCookie));
 
@@ -261,7 +273,7 @@ describe('Academy profile pairing and event-log sync', () => {
         academy.db.database.prepare('UPDATE sessions SET expires_at = ?1').run(Date.now() - 1);
         const resumed = await dispatch(academy.env, request('/academy/api/session/resume', 'POST', {}, accountCookie));
         expect(resumed.status).toBe(200);
-        expect(await resumed.clone().json()).toMatchObject({ accountRequired: false });
+        expect(await resumed.clone().json()).toMatchObject({ accountRequired: true });
         const resumedCookie = cookie(resumed);
         expect(resumedCookie).not.toBe(accountCookie);
         expect(await (await dispatch(academy.env, get('/academy/api/profile', resumedCookie))).json()).toMatchObject({
@@ -282,10 +294,10 @@ describe('Academy profile pairing and event-log sync', () => {
 
     it('deletes account-profile learning data while retaining the optional identity', async () => {
         const [accountCookie] = await enrolled(academy);
-        await dispatch(academy.env, get('/academy/api/profile', accountCookie));
         const session = await activeSession(get('/academy/api/session', accountCookie), academy.env, Date.now());
         if (!session) throw new Error('account session missing');
         await linkGoogleSubject(academy.env, session, 'retained-account-subject', Date.now());
+        await dispatch(academy.env, get('/academy/api/profile', accountCookie));
         const [account] = academy.db.rows<{ id: string }>('SELECT id FROM accounts');
         if (!account) throw new Error('account missing');
         academy.db.database.prepare(
@@ -322,12 +334,10 @@ describe('Academy profile pairing and event-log sync', () => {
 
     it('moves an empty account-login profile, then pairs the existing key before syncing local events', async () => {
         const [firstCookie, secondCookie] = await enrolled(academy, 2);
-        const firstProfile = await (await dispatch(academy.env, get('/academy/api/profile', firstCookie))).json() as { profileId: string };
-        await dispatch(academy.env, get('/academy/api/profile', secondCookie));
-
         const firstSession = await activeSession(get('/academy/api/session', firstCookie), academy.env, Date.now());
         if (!firstSession) throw new Error('first session missing');
         await linkGoogleSubject(academy.env, firstSession, 'same-durable-subject', Date.now());
+        const firstProfile = await (await dispatch(academy.env, get('/academy/api/profile', firstCookie))).json() as { profileId: string };
 
         const firstEvent = event('55555555-5555-4555-8555-555555555555', 8);
         const secondEvent = event('66666666-6666-4666-8666-666666666666', 9);
@@ -357,8 +367,6 @@ describe('Academy profile pairing and event-log sync', () => {
 
     it('converges concurrent first-time account links on one profile', async () => {
         const [firstCookie, secondCookie] = await enrolled(academy, 2);
-        await dispatch(academy.env, get('/academy/api/profile', firstCookie));
-        await dispatch(academy.env, get('/academy/api/profile', secondCookie));
         const firstSession = await activeSession(get('/academy/api/session', firstCookie), academy.env, Date.now());
         const secondSession = await activeSession(get('/academy/api/session', secondCookie), academy.env, Date.now());
         if (!firstSession || !secondSession) throw new Error('sessions missing');
@@ -376,50 +384,48 @@ describe('Academy profile pairing and event-log sync', () => {
         expect(academy.db.rows('SELECT * FROM profile_devices')).toHaveLength(2);
     });
 
-    it('refuses to move an already-paired anonymous profile during account login', async () => {
-        const [accountCookie, sourceCookie, targetCookie] = await enrolled(academy, 3);
-        await dispatch(academy.env, get('/academy/api/profile', accountCookie));
-        const sourceProfile = await (await dispatch(academy.env, get('/academy/api/profile', sourceCookie))).json() as { profileId: string };
-        await dispatch(academy.env, get('/academy/api/profile', targetCookie));
+    it('refuses to move a legacy multi-device anonymous profile during account login', async () => {
+        // Anonymous profiles can no longer be created or paired over HTTP;
+        // model a pre-migration paired profile at the domain level and prove
+        // the linking guard and the account gate both still hold.
+        const [accountCookie, sourceCookie] = await enrolled(academy, 2);
         const accountSession = await activeSession(get('/academy/api/session', accountCookie), academy.env, Date.now());
         if (!accountSession) throw new Error('account session missing');
         await linkGoogleSubject(academy.env, accountSession, 'paired-profile-subject', Date.now());
 
-        const created = await dispatch(academy.env, request('/academy/api/pairings', 'POST', {}, sourceCookie));
-        const ticket = await created.json() as { pairingId: string; code: string };
-        await dispatch(academy.env, request(`/academy/api/pairings/${ticket.pairingId}`, 'PUT', envelope(), sourceCookie));
-        expect((await dispatch(academy.env, request(
-            '/academy/api/pairings/claim', 'POST', { code: ticket.code }, targetCookie, '198.51.100.80',
-        ))).status).toBe(200);
-
         const sourceSession = await activeSession(get('/academy/api/session', sourceCookie), academy.env, Date.now());
         if (!sourceSession) throw new Error('source session missing');
+        const legacy = await ensureSessionProfile(academy.env, sourceSession, Date.now());
+        academy.db.database.prepare(
+            'INSERT INTO profile_devices (id, public_id, profile_id, created_at, last_seen_at, revoked_at) '
+            + 'VALUES (?1, ?2, ?3, ?4, ?4, NULL)',
+        ).run(crypto.randomUUID(), crypto.randomUUID(), legacy.profile.id, Date.now());
+
         await expect(linkGoogleSubject(academy.env, sourceSession, 'paired-profile-subject', Date.now()))
             .rejects.toMatchObject({ status: 409 });
-        expect(await (await dispatch(academy.env, get('/academy/api/profile', sourceCookie))).json()).toMatchObject({
-            profileId: sourceProfile.profileId,
-            accountId: null,
-        });
-        expect(await (await dispatch(academy.env, get('/academy/api/profile', targetCookie))).json()).toMatchObject({
-            profileId: sourceProfile.profileId,
-            accountId: null,
-        });
+        // The legacy anonymous session stays account-gated over HTTP.
+        expect((await dispatch(academy.env, get('/academy/api/profile', sourceCookie))).status).toBe(401);
         expect(academy.db.rows('SELECT * FROM profiles')).toHaveLength(2);
     });
 
     it('refuses to mix independently encrypted profiles during account linking', async () => {
         const [firstCookie, secondCookie] = await enrolled(academy, 2);
-        await dispatch(academy.env, get('/academy/api/profile', firstCookie));
-        await dispatch(academy.env, get('/academy/api/profile', secondCookie));
         const firstSession = await activeSession(get('/academy/api/session', firstCookie), academy.env, Date.now());
         if (!firstSession) throw new Error('first session missing');
         await linkGoogleSubject(academy.env, firstSession, 'conflict-durable-subject', Date.now());
 
         const sharedId = '77777777-7777-4777-8777-777777777777';
         await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [event(sharedId, 10)] }, firstCookie));
-        await dispatch(academy.env, request('/academy/api/srs/push', 'POST', { events: [event(sharedId, 11)] }, secondCookie));
+        // A legacy anonymous profile with its own independently encrypted event.
         const secondSession = await activeSession(get('/academy/api/session', secondCookie), academy.env, Date.now());
         if (!secondSession) throw new Error('second session missing');
+        const legacy = await ensureSessionProfile(academy.env, secondSession, Date.now());
+        const conflicting = event(sharedId, 11);
+        academy.db.database.prepare(
+            'INSERT INTO srs_events (profile_id, event_id, occurred_at, key_version, nonce, ciphertext, event_hash, received_at) '
+            + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)',
+        ).run(legacy.profile.id, conflicting.id, conflicting.occurredAt, 1, conflicting.nonce, conflicting.ciphertext, 'f'.repeat(64), Date.now());
+
         await expect(linkGoogleSubject(academy.env, secondSession, 'conflict-durable-subject', Date.now()))
             .rejects.toMatchObject({ status: 409 });
         expect(academy.db.rows('SELECT * FROM profiles')).toHaveLength(2);

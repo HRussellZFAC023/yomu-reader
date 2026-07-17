@@ -12,12 +12,16 @@ import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
 const PROFILE_SYNC_STORAGE_KEY = 'yomu:academy:profile-sync:v1';
 const LOCAL_PROGRESS_AT = Date.now();
+// One provider for the whole file: the Worker caches Google's JWKS at module
+// scope, so per-test providers with distinct keys under one kid would poison
+// later tests.
+const provider = new TestGoogleOidcProvider();
 
 describe('Academy access client and Worker integration', () => {
-    it('admits OPEN2026 anonymously and retains local encrypted progress across reload', async () => {
+    it('gates the reusable class invite on Google sign-in and retains local encrypted progress across reload', async () => {
         const academy = createSqliteAcademy();
         try {
-            await seedAnonymousInvite(academy.env);
+            await seedClassInvite(academy.env);
             const browser = new AcademyAccessBrowser(worker, academy.env);
             const gateway = new HttpAccessGateway('/academy/api/session', browser.request);
             const session = await gateway.exchange(' open2026 ');
@@ -26,10 +30,19 @@ describe('Academy access client and Worker integration', () => {
             const client = syncClient(browser, events, storage);
 
             expect(session.source).toBe('cloudflare');
-            const connected = await client.connect();
+            expect(session.accountRequired).toBe(true);
+            // No anonymous server profile: the class invite must sign in first.
+            expect((await client.connect()).phase).toBe('sign-in');
+
+            client.beginGoogleLink();
+            expect(new URL(browser.location).pathname).toBe('/academy/api/auth/google/start');
+            expect((await followGoogleCallback(browser, 'class-learner-subject', provider)).status).toBe(302);
+            expect(await client.completeGoogleReturn()).toBe(true);
+            expect(client.status.phase).toBe('pair');
+            const connected = await client.initializeAccountProfile();
             expect(connected.error).toBeNull();
             expect(connected.phase).toBe('ready');
-            expect(client.status.profile?.accountId).toBeNull();
+            expect(client.status.profile?.accountId).not.toBeNull();
             expect(await events.readAll()).toEqual([localProgress()]);
             expect(academy.db.rows<{ count: number }>('SELECT COUNT(*) AS count FROM srs_events')[0]?.count).toBe(1);
             expect(JSON.stringify(academy.db.rows('SELECT ciphertext FROM srs_events'))).not.toContain('Retained local learner');
@@ -48,7 +61,6 @@ describe('Academy access client and Worker integration', () => {
         try {
             const firstPaidCode = await seedPaidCode(academy.env, 'paid-access-one');
             const secondPaidCode = await seedPaidCode(academy.env, 'paid-access-two');
-            const provider = new TestGoogleOidcProvider();
             const browser = new AcademyAccessBrowser(worker, academy.env);
             const gateway = new HttpAccessGateway('/academy/api/session', browser.request);
             await gateway.exchange(firstPaidCode);
@@ -114,10 +126,10 @@ function syncClient(
     });
 }
 
-async function seedAnonymousInvite(env: Env): Promise<void> {
+async function seedClassInvite(env: Env): Promise<void> {
     await env.ACADEMY_DB.prepare(
         'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
-        + "VALUES ('ucl-2026', ?1, 10, 'seed', ?2, NULL, NULL, 0)",
+        + "VALUES ('ucl-2026', ?1, 10, 'seed', ?2, NULL, NULL, 1)",
     ).bind(await inviteCodeHash(env, 'OPEN2026'), Date.now() - 1).run();
 }
 

@@ -25,10 +25,12 @@ async function authedAcademy(): Promise<{ academy: FakeAcademy; cookie: string }
         expires_at: null,
         revoked_at: null,
         purchase_id: null,
-        account_required: 0,
+        account_required: 1,
     });
     const session = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, Date.now);
     const cookie = (session.headers.get('set-cookie') ?? '').split(';')[0];
+    // Media requires a signed-in account for every invite kind.
+    academy.db.sessions[0].account_id = 'acct-media-1';
     academy.bucket.put('persona/theme/evening.m4a', bytes);
     return { academy, cookie };
 }
@@ -48,6 +50,15 @@ describe('Academy Worker protected media', () => {
         expect((await media(academy.env, '/academy/media/audio/persona/theme/evening.m4a')).status).toBe(401);
         const stolen = { headers: { cookie: '__Host-academy_session=forged-token' } };
         expect((await media(academy.env, '/academy/media/audio/persona/theme/evening.m4a', stolen)).status).toBe(401);
+    });
+
+    it('rejects invite sessions that have not signed in with an account', async () => {
+        const { academy } = await authedAcademy();
+        const unauthenticated = await handleCreateSession(
+            jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, Date.now,
+        );
+        const cookie = (unauthenticated.headers.get('set-cookie') ?? '').split(';')[0];
+        expect((await media(academy.env, '/academy/media/audio/persona/theme/evening.m4a', { headers: { cookie } })).status).toBe(401);
     });
 
     it('serves only allowlisted keys with private cache headers, no traversal', async () => {
