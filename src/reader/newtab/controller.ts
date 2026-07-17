@@ -52,6 +52,7 @@ import {
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
+import { OperationTracker } from '../core/operation-token';
 import type { JitenApiClient, JitenKanjiInfo, JitenRecentReview, JitenVocabularyInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
@@ -879,8 +880,11 @@ export class NewTabController {
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private fallbackStudyNotice = false;
     private deckSelectorDecks?: { key: string; promise: Promise<JPDBDeck[]> };
+    // Latest-wins operation tracker (NB-41b). Migrated scopes: 'stats',
+    // 'sourceSwitch'. The remaining hand-maintained *Generation counters await
+    // the controller decomposition.
+    private readonly operations = new OperationTracker();
     private loadGeneration = 0;
-    private sourceSwitchGeneration = 0;
     private searchGeneration = 0;
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
@@ -990,7 +994,6 @@ export class NewTabController {
     private statsActivityMetric: StatsActivityMetric = 'reviews';
     private statsSelectedDate = '';
     private statsStudyFilter: 'trouble' | null = null;
-    private statsGeneration = 0;
     private statsLoaded = false;
     private statsDeckPrefsLoaded = false;
     private statsDisabledAnkiDecks = new Set<string>();
@@ -1321,7 +1324,7 @@ export class NewTabController {
         this.statsSnapshot = emptyStatsDashboardSnapshot();
         this.statsLoaded = false;
         this.statsSelectedDate = '';
-        this.statsGeneration++;
+        this.operations.begin('stats'); // invalidate any in-flight stats load
     }
 
     private renderEnabledContent(): DocumentFragment {
@@ -3114,7 +3117,7 @@ export class NewTabController {
         if (this.statsLoaded && !force) return;
         await this.loadStatsDeckPrefs();
         const settings = this.dependencies.getSettings();
-        const generation = ++this.statsGeneration;
+        const statsOp = this.operations.begin('stats');
         this.statsSnapshot = {
             jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup'),
             jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup'),
@@ -3132,7 +3135,7 @@ export class NewTabController {
             this.loadSrsAdapterStatsSource('yomu-local'),
             this.loadAnkiStatsSource(),
         ]);
-        if (generation !== this.statsGeneration || !root.isConnected) return;
+        if (statsOp.superseded || !root.isConnected) return;
         const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
         const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
         this.statsSnapshot = {
@@ -4396,10 +4399,6 @@ export class NewTabController {
         return this.loadGeneration === loadGeneration;
     }
 
-    private isCurrentSourceSwitch(sourceSwitchGeneration: number): boolean {
-        return this.sourceSwitchGeneration === sourceSwitchGeneration;
-    }
-
     private persistSourceSettingChange(source: ConcreteNewTabWordSource): Promise<void> {
         return Promise.resolve()
             .then(() => this.dependencies.onSettingsChange())
@@ -4432,7 +4431,7 @@ export class NewTabController {
 
     private async switchReviewSource(root: HTMLElement, source: ConcreteNewTabWordSource): Promise<void> {
         if (source === this.state.source && this.isRenderedReviewSource(source)) return;
-        const sourceSwitchGeneration = ++this.sourceSwitchGeneration;
+        const sourceSwitchOp = this.operations.begin('sourceSwitch');
         const loadGeneration = ++this.loadGeneration;
         this.dependencies.dismiss({ suppressHoverTarget: false });
         const settings = this.dependencies.getSettings();
@@ -4445,7 +4444,7 @@ export class NewTabController {
         const cached = this.cachedSourceResult(source);
         if (cached && this.canUseCachedResultForSourceSwitch(cached, source)) {
             void this.persistSourceSettingChange(source);
-            if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+            if (sourceSwitchOp.superseded) return;
             await this.applyLoadedWords(root, false, loadGeneration, cached, false, false, this.navigationGeneration);
             return;
         }
@@ -4456,7 +4455,7 @@ export class NewTabController {
         this.index = 0;
         this.setStatus(root, this.text('loading'));
         await this.persistSourceSettingChange(source);
-        if (!this.isCurrentSourceSwitch(sourceSwitchGeneration)) return;
+        if (sourceSwitchOp.superseded) return;
         await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
 
