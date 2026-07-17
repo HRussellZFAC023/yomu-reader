@@ -13,11 +13,22 @@
     }
   ],
   "vars": {
+    "AWS_POLLY_ENABLED": "false",
+    "AWS_POLLY_REGION": "eu-central-1",
     "AUDIO_MANIFEST_KEY": "index/audio-index.json",
     "AUDIO_INDEX_PREFIX": "index/v2/shards",
     "AUDIO_DISABLED": "false",
     "AUDIO_ANALYTICS_LOGS": "false"
   },
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    {
+      "binding": "AUDIO_DB",
+      "database_name": "yomu-audio-db",
+      "database_id": "PENDING_D1_CREATE",
+      "migrations_dir": "./migrations"
+    }
+  ],
   "r2_buckets": [
     {
       "binding": "AUDIO_BUCKET",

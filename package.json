@@ -165,6 +165,7 @@
     "smoke:transcript-drawer": "node scripts/transcript-drawer-row-smoke.mjs"
   },
   "dependencies": {
+    "aws4fetch": "^1.0.20",
     "fflate": "^0.8.2"
   },
   "devDependencies": {

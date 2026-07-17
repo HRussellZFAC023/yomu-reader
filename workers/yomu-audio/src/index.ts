@@ -1,3 +1,4 @@
+import { handleWordTts, handleLineTts, ttsEnabled, type TtsEnv } from "./tts";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
@@ -31,6 +32,7 @@ interface AudioStatus {
   cache: {
     queryTtlSeconds: number;
   };
+  tts: "enabled" | "disabled";
 }
 
 interface R2Bucket {
@@ -125,6 +127,14 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, { "x-yomu-audio-error": "disabled" });
   }
 
+  if (url.pathname === "/audio/tts") {
+    return handleWordTts(url, env as unknown as TtsEnv);
+  }
+
+  if (url.pathname === "/voice/line") {
+    return handleLineTts(request, url, env as unknown as TtsEnv);
+  }
+
   if (url.pathname.startsWith("/audio/")) {
     return serveR2AudioObject(request, env, decodeURIComponent(url.pathname.slice("/audio/".length)));
   }
@@ -169,6 +179,7 @@ function audioStatus(env: Env): AudioStatus {
     upstreamConfigured,
     cors: true,
     cache: { queryTtlSeconds: 3600 },
+    tts: ttsEnabled(env as unknown as TtsEnv) ? "enabled" : "disabled",
   };
 }
 

@@ -35,3 +35,5 @@ docs/.vitepress/dist/
 /references/jiten/
 /references/kotoba-upstream/
 qa-audit-a3/
+.dev.vars
+.wrangler/
