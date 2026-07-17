@@ -252,7 +252,7 @@
       };
     }
     /**
-     * Request the server profile and begin encrypted sync. Non-UCL sessions
+     * Request the server profile and begin encrypted sync. Account-required sessions
      * that have not signed in with Google surface `sign-in`; paid purchases
      * awaiting redemption surface `pending`; a new device on an existing
      * account surfaces `pair`. Local progress is imported only once a profile
@@ -914,9 +914,6 @@
   function cryptoBuffer(bytes) {
     return bytes.slice().buffer;
   }
-  function isAnonymousAcademyCode(code) {
-    return normalizeCode(code) === "UCL2026";
-  }
   class AccessError extends Error {
     constructor(code, message) {
       super(message);
@@ -925,8 +922,7 @@
     }
   }
   function createAccessGateway(location2 = window.location) {
-    const remote = new HttpAccessGateway("/academy/api/session");
-    return localQaHost(location2.hostname) ? new LocalQaFallbackGateway(remote, new LocalQaAccessGateway()) : remote;
+    return new HttpAccessGateway("/academy/api/session");
   }
   class HttpAccessGateway {
     constructor(endpoint, request2 = (...args) => fetch(...args)) {
@@ -956,34 +952,8 @@
       return normalizeSession(await response.json(), "cloudflare");
     }
   }
-  class LocalQaAccessGateway {
-    async exchange(code) {
-      if (normalizeCode(code) !== "UCL2026") throw new AccessError("invalid", "Invitation was not accepted.");
-      const now = Date.now();
-      return {
-        sessionId: `local-qa-${crypto.randomUUID()}`,
-        expiresAt: now + 8 * 60 * 6e4,
-        offlineResumeUntil: now + 30 * 24 * 60 * 6e4,
-        source: "local-qa"
-      };
-    }
-  }
   function sessionCanResume(session, now, online) {
     return online ? session.expiresAt > now : session.offlineResumeUntil > now;
-  }
-  class LocalQaFallbackGateway {
-    constructor(remote, local) {
-      this.remote = remote;
-      this.local = local;
-    }
-    async exchange(code, signal) {
-      try {
-        return await this.remote.exchange(code, signal);
-      } catch (error) {
-        if (error instanceof AccessError && error.code === "unavailable") return this.local.exchange(code, signal);
-        throw error;
-      }
-    }
   }
   function normalizeCode(code) {
     const normalized2 = code.trim().toUpperCase();
@@ -995,10 +965,11 @@
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
-    if (!sessionId || expiresAt <= Date.now() || offlineResumeUntil < expiresAt) {
+    const accountRequired = value.accountRequired;
+    if (!sessionId || expiresAt <= Date.now() || offlineResumeUntil < expiresAt || typeof accountRequired !== "boolean") {
       throw new AccessError("malformed", "Invitation response is incomplete.");
     }
-    return { sessionId, expiresAt, offlineResumeUntil, source: source2 };
+    return { sessionId, expiresAt, offlineResumeUntil, accountRequired, source: source2 };
   }
   function readTimestamp(value) {
     if (typeof value === "number" && Number.isSafeInteger(value)) return value;
@@ -1007,9 +978,6 @@
       if (Number.isSafeInteger(parsed)) return parsed;
     }
     return 0;
-  }
-  function localQaHost(hostname) {
-    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
   }
   function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -3492,11 +3460,67 @@
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MINNA_SOURCES/source-minna-077-true-false",
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-78-bank",
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-79-favor-direction",
-      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a11-meal-survey"
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a11-meal-survey",
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement"
     ],
     answerPolicy: "Answer identity is verified during generation but not published; learner answers remain gated until after an attempt."
   };
   const entries$2 = [
+    {
+      packageId: "l1-l01",
+      sourceQuestionId: "ex-soya-n5_mock1_l_19",
+      locator: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
+      source: {
+        corpus: "soya",
+        questionId: "n5_mock1_l_19",
+        questionMapRef: "references/soya-research/listening-question-audio-map.csv:424",
+        audioSha256: "75194e1fda2886b794a28669948455eb8ab4e45acba4a246221bde5e681cbe15"
+      },
+      verification: {
+        taskEvidenceSha256: "9676476ebbf90ffebaace1da3d79ce85a86361db7b1ff17ca7f5845bc20cee9a",
+        supportEvidenceSha256: "74bac98daa48da007ef4cf4b62dccbae3bd9345bfb4db8517c4bcc25b9d0a585",
+        answerGate: "after-attempt",
+        method: "Verbatim prompt, options, marked answer, and transcript match the Soya question map and the authored source-question reference."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3"
+      }
+    },
+    {
+      packageId: "l1-l01",
+      sourceQuestionId: "ex-soya-n5_mock1_l_24",
+      locator: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",
+      source: {
+        corpus: "soya",
+        questionId: "n5_mock1_l_24",
+        questionMapRef: "references/soya-research/listening-question-audio-map.csv:429",
+        audioSha256: "52ba9cd972e544efb6017cbe220dfa04989565c3f1730e4e42fe81193b107455"
+      },
+      verification: {
+        taskEvidenceSha256: "359b795447d99a524f3e3e99221bba5587901a6bd067a5fe79cd000180e25ccb",
+        supportEvidenceSha256: "4f1e88a185c89be1e74197589adca7b1041d70e2ac4820ef991a6ab3c93f933d",
+        answerGate: "after-attempt",
+        method: "Verbatim prompt, options, marked answer, and transcript match the Soya question map and the authored source-question reference."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3"
+      }
+    },
     {
       packageId: "l1-l18",
       sourceQuestionId: "ex-soya-n5_listening_official_002",
@@ -5278,6 +5302,168 @@
         status: "packaged-static",
         url: "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
       }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1",
+      locator: "academy/content/moodle/audio/l2-l14-a13.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        audioSha256: "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      verification: {
+        taskEvidenceSha256: "8bef71b9edb2f2fd9160c0ff7bb9c4bfd0ad825413b983576c4acbdf1c1a3d3f",
+        supportEvidenceSha256: "339fa128f8cc1c272febfa93407976e00cd47e770aa1450dd87778805e9705a1",
+        answerGate: "after-attempt",
+        method: "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2",
+      locator: "academy/content/moodle/audio/l2-l14-a13.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        audioSha256: "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      verification: {
+        taskEvidenceSha256: "5a772654570b38367bfcef6c26bd0aa8c84ed0fb49ac5aad772fdbe6d22668a0",
+        supportEvidenceSha256: "339fa128f8cc1c272febfa93407976e00cd47e770aa1450dd87778805e9705a1",
+        answerGate: "after-attempt",
+        method: "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3",
+      locator: "academy/content/moodle/audio/l2-l14-a13.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        audioSha256: "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      verification: {
+        taskEvidenceSha256: "fa2101b10ed96d7e20749be20940ba4a084af87ee2c11ae25eaacd355f8fcbc4",
+        supportEvidenceSha256: "14aba4ed72489d1a5573c166863cfa1c11473c76f6621f1ab7608af7389388cb",
+        answerGate: "after-attempt",
+        method: "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1",
+      locator: "academy/content/moodle/audio/l2-l14-a14.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        audioSha256: "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      verification: {
+        taskEvidenceSha256: "d468a659c135d9dab1ccfbfea0951157361a7faaea705bd224b04bd8de2837ba",
+        supportEvidenceSha256: "e9e8faa9aa7ee7e6568b1cdd2857e19537ffd1f84d1f232cab3e05764c60fefd",
+        answerGate: "after-attempt",
+        method: "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2",
+      locator: "academy/content/moodle/audio/l2-l14-a14.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        audioSha256: "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      verification: {
+        taskEvidenceSha256: "871800fa160d33fc60e184705067cbc88419cc563694905ae013acd87009f16a",
+        supportEvidenceSha256: "2f9aea9959051cffe8e171ea54fd19da24d6086bcad77e86ca89527053469622",
+        answerGate: "after-attempt",
+        method: "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      }
+    },
+    {
+      packageId: "l2-l14",
+      sourceQuestionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3",
+      locator: "academy/content/moodle/audio/l2-l14-a14.mp3",
+      source: {
+        corpus: "moodle",
+        questionId: "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3",
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        audioSha256: "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      verification: {
+        taskEvidenceSha256: "c155fe43cc2f2e5f3a0f9ab60d5782504bf851c12dba367d2401f52da6486d64",
+        supportEvidenceSha256: "2f9aea9959051cffe8e171ea54fd19da24d6086bcad77e86ca89527053469622",
+        answerGate: "after-attempt",
+        method: "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      learnerContract: {
+        response: "single-choice",
+        transcriptReveal: "after-attempt",
+        hintReveal: "after-attempt",
+        grading: "deterministic"
+      },
+      delivery: {
+        status: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      }
     }
   ];
   const gaps = [];
@@ -5309,7 +5495,7 @@
         id: "soya",
         root: "references/soya-research/audio-public/assets/audio",
         audioFiles: 2475,
-        result: "Six authored Soya locators have exact local files and question-map evidence."
+        result: "Eight authored Soya locators have exact local files and question-map evidence."
       },
       {
         id: "minna",
@@ -5328,8 +5514,8 @@
       authoredScriptSha256: "df1473d1e413797da68e1156b0a08b5e3427566ef67c632fefc76fb932c58343",
       expectedDurationSeconds: 34,
       provenance: [
-        "public/academy/content/lessons/002-l1-l01.json#/components/3/audio",
-        "Authored provenance declares original Yomu audio; disk audit found no matching recording."
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/quarantine/unresolvedMedia/0",
+        "The original Yomu dialogue remains a written model; disk audit found no matching recording and runtime exposes no audio control for it."
       ]
     },
     {
@@ -5746,6 +5932,66 @@
       provenance: [
         "public/academy/content/lessons/032-l2-l05.json#/sourceQuestionNormalization/sourceQuestions",
         "Moodle module 6974651 archive member audio materials/B-25.mp3 is byte-verified; Chapter 20 listening page 1 supplies the exact three picture-diary items and five blanks. Minna 069 is paired separately to the conversation worksheet and teacher script; B-26 and B-27 remain unbound."
+      ]
+    },
+    {
+      locator: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
+      authoredAssetId: "ex-soya-n5_mock1_l_19",
+      availability: "source-verified",
+      source: {
+        corpus: "soya",
+        repositoryRelativePath: "references/soya-research/audio-public/assets/audio/n5_mock1/n5_mock1_l_19.mp3",
+        sha256: "75194e1fda2886b794a28669948455eb8ab4e45acba4a246221bde5e681cbe15",
+        bytes: 269036,
+        mediaType: "audio/mpeg",
+        codec: "mp3",
+        durationSeconds: 11.144,
+        sampleRateHz: 48e3,
+        channels: 1,
+        questionMapRef: "references/soya-research/listening-question-audio-map.csv:424"
+      },
+      delivery: {
+        mode: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3"
+      },
+      worker: {
+        assetId: "academy-listening-75194e1fda2886b7",
+        purpose: "audio",
+        access: "academy-session-or-signed"
+      },
+      provenance: [
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/sourceQuestions/0",
+        "Exact basename and question id match the Soya question map; local bytes were SHA-256 verified and ffprobe inspected."
+      ]
+    },
+    {
+      locator: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",
+      authoredAssetId: "ex-soya-n5_mock1_l_24",
+      availability: "source-verified",
+      source: {
+        corpus: "soya",
+        repositoryRelativePath: "references/soya-research/audio-public/assets/audio/n5_mock1/n5_mock1_l_24.mp3",
+        sha256: "52ba9cd972e544efb6017cbe220dfa04989565c3f1730e4e42fe81193b107455",
+        bytes: 305900,
+        mediaType: "audio/mpeg",
+        codec: "mp3",
+        durationSeconds: 12.68,
+        sampleRateHz: 48e3,
+        channels: 1,
+        questionMapRef: "references/soya-research/listening-question-audio-map.csv:429"
+      },
+      delivery: {
+        mode: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3"
+      },
+      worker: {
+        assetId: "academy-listening-52ba9cd972e544ef",
+        purpose: "audio",
+        access: "academy-session-or-signed"
+      },
+      provenance: [
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/sourceQuestions/1",
+        "Exact basename and question id match the Soya question map; local bytes were SHA-256 verified and ffprobe inspected."
       ]
     },
     {
@@ -6167,6 +6413,66 @@
         "Moodle module 8121266 archive f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217 members Audio materials/11 A-11.mp3 and Handouts/Chapter 28 listening-2.pdf",
         "Worksheet upper section A-11 explicitly asks for seven meal-survey responses. Original-audio review establishes all seven deterministic answers; transcript and key remain gated until an attempt. Lower worksheet section A-12 and the other four package recordings remain outside this exact pairing."
       ]
+    },
+    {
+      locator: "academy/content/moodle/audio/l2-l14-a13.mp3",
+      authoredAssetId: "moodle-l2-l14-a13",
+      availability: "source-verified",
+      source: {
+        corpus: "moodle",
+        repositoryRelativePath: "apps/yomu-reader/artifacts/yomu-academy/source-pipeline/payloads/b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+        sha256: "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+        bytes: 1012708,
+        mediaType: "audio/mpeg",
+        codec: "mp3",
+        durationSeconds: 64.36,
+        sampleRateHz: 44100,
+        channels: 2,
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction"
+      },
+      delivery: {
+        mode: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      },
+      worker: {
+        assetId: "academy-listening-b61ec5374c6c31fb",
+        purpose: "audio",
+        access: "academy-session-or-signed"
+      },
+      provenance: [
+        "Moodle module 8121267 archive ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96 members audio materials/13 A-13.mp3 and Handouts/Chapter 29 listening-1.pdf; the audio bytes are duplicated in the reviewed Japanese lesson folders without creating a second task claim.",
+        "Worksheet section 1 explicitly names A-13 and supplies three a/b picture rows. Original-audio review establishes the b/b/a key. The curriculum retains its Minna Chapter 29 sequence anchor; no exact official Minna, Genki, Soya, or Shin Kanzen audio match is claimed, and Track 27/28 remain quarantined."
+      ]
+    },
+    {
+      locator: "academy/content/moodle/audio/l2-l14-a14.mp3",
+      authoredAssetId: "moodle-l2-l14-a14",
+      availability: "source-verified",
+      source: {
+        corpus: "moodle",
+        repositoryRelativePath: "apps/yomu-reader/artifacts/yomu-academy/source-pipeline/payloads/72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+        sha256: "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+        bytes: 1937482,
+        mediaType: "audio/mpeg",
+        codec: "mp3",
+        durationSeconds: 110.826667,
+        sampleRateHz: 44100,
+        channels: 2,
+        questionMapRef: "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement"
+      },
+      delivery: {
+        mode: "packaged-static",
+        url: "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      },
+      worker: {
+        assetId: "academy-listening-72537c6e4c3eb82b",
+        purpose: "audio",
+        access: "academy-session-or-signed"
+      },
+      provenance: [
+        "Moodle module 8121267 archive ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96 members audio materials/14 A-14.mp3 and Handouts/Chapter 29 listening-1.pdf; the audio bytes are duplicated in the reviewed Japanese lesson folders without creating a second task claim.",
+        "Worksheet section 2 explicitly names A-14 and supplies three a/b defect pictures. Original-audio review establishes the torn-bag, broken-chopstick, and stained-sweater key a/b/b; transcript and answers remain gated until an attempt. Track 27/28 and all unpaired documents remain quarantined."
+      ]
     }
   ];
   const manifestJson = {
@@ -6306,7 +6612,8 @@
     const binding = bindingByTask.get(`${packageId}/${sourceQuestionId2}`);
     if (!binding || binding.locator !== locator || binding.delivery.status !== "packaged-static") return void 0;
     const delivery = resolvePackagedAcademyListeningLocator(locator);
-    return delivery.status === "ready" && delivery.url === binding.delivery.url ? delivery.url : void 0;
+    if (delivery.status !== "ready" || delivery.url !== binding.delivery.url || delivery.entry.source.corpus !== binding.source.corpus || delivery.entry.source.sha256 !== binding.source.audioSha256 || delivery.entry.source.questionMapRef !== binding.source.questionMapRef) return void 0;
+    return delivery.url;
   }
   function parseListeningTaskBindings(value) {
     if (!isRecord$2(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
@@ -7384,27 +7691,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return lapse;
   }
   const AUTHORED_WEEK_HASHES = {
-    "l1-l01": "0b3540669711fd2019edac4aa8b0afa54b7c931808a0707ecc6f941e048daf50",
-    "l1-l02": "5f2f04b5c575539d0bfe4112c9c456e0c21e7b49d2e6a01332f051b0c978dbbd",
+    "l1-l01": "97dcabe3f1235a91bf3beb781de54f52891d80e50b86a4df01362f7eb9846633",
+    "l1-l02": "46914b1014bdc3c077490636b808e648ecbbf1f2aa9370627ba24414ab62d577",
     "l1-l03": "f2e11d7100e1a1269a54e07fc01ccbc7c653229f423b5df593402874d82e1c6c",
     "l1-l04": "f9b8a577870c194f74f8c93f6d3b04b5f20dcbc69ce20bd9c6f06800a4ea9a2e",
     "l1-l05": "081c109eb3fd3f0f721a690b03ff580165666d391afc3370608862945f26132d",
     "l1-l06": "3cd7bcd1c86f0ef37ccc3c7dc16136847bf0c21290a2f15ab7b460d358895a43",
     "l1-l07": "b924df28e1e398ce8bf1cc2b4f6eaf4e661e287301698ce23b4590f4c55cb7a8",
-    "l1-l08": "a2f403ae5b9e494bb33a8368258ae9e6aeb7bbf126cfa79affe20b30ccf186d2",
-    "l1-l09": "c52c094e16cece56193b8a07574163242159396cdb6575fdaa7083266881b435",
-    "l1-l10": "5ea1b7b013a85a00c0155cb1f5c8f8ae144fde850afcd5a34aacc40a602b8f32",
+    "l1-l08": "e5f9bf2cb8ac3ae0cb248f53d7a6b24ac4a7b4c5abd506af3c95358ec6a51591",
+    "l1-l09": "5a042f7a668feef91c5a14e86f474d487ad1879477449dc9a03d219a7c316f22",
+    "l1-l10": "43880aa107b4c721471fdc20419f13ef01471b2745ee6cf4c20410365724f7f2",
     "l1-l11": "e7af6535f51233a4693ebdf37df61b4afe8c3125c774f754001fed7a351662f9",
     "l1-l12": "43f24fa272b9d9399ed7d73b127d775bc16d45fd57570e610fe4e4a27a6ce717",
     "l1-l13": "b850d5ac1f97902140b102dd45d26748cc48e8a32e2087cc57a355b068cd1b45",
     "l1-l14": "3a4b6d494f043aea728bab6dd7b41bc19301137e1dfc56efa7f768eb5ecf6463",
-    "l1-l15": "ca255f81d24b5163b6265ce3d7ae2e0a2fbe42cc321071054bd5a43f9233e1ff",
+    "l1-l15": "1010e83402ab63d094f9985f31c5237a465545b2a3ccb874ccf1d4f2d24182c4",
     "l1-l16": "f22a3de005e06cc673bf0e0574638fee3449aefd3f0330375f37236a7ec728a8",
     "l1-l17": "64b2bf724adccb446cd05443d86152c7010f93e6e38c7986d4a32ce68ebba4dc",
-    "l1-l18": "6a9de53879f0688c1f15600163811038ddd25afef7944dc078ef2e8c37f9ac5d",
+    "l1-l18": "c83ea82297f592a8a36d45a0bb4a4202b8cdf24ee2c7a49a1c9c115ac7f8d744",
     "l1-l19": "71efeaf9c76f0e8a02b238a99440782fba1cd1ca6e21ee454f9e6c2025f2d199",
     "l1-l20": "dd790467c5aa79e4a754b0c0d7aa2b3c5562accb08639693867129be6812bfd2",
-    "l1-l21": "a70940430542e776156a1a3e174330c4d89d99ca06a0013bf4c1feaacda506d3",
+    "l1-l21": "10547640e686ebd5b9c477d0d38ded450d80ac9954679cf0a8359e44b6ae81ec",
     "l1-l22": "58edb4c41d2c49a2f0d44ab9d0acd0589a2a9afdc5baab7e7ce608f10edd4e5c",
     "l1-l23": "d5796d9847be2d47b932f6a4b31506d8acc334a4e7be9068850da95e90868ae5",
     "l1-l24": "b29ede520d0c9653857a2ce27872d21c5564df75f23de73bdd154aa3cf8deece",
@@ -7418,18 +7725,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "l2-l07": "7edfa0f5430e384f00d6ac2a695c7fa3d8271e266585e2d7c4d889fe5a964a99",
     "l2-l08": "99e60d70579c368a1611bdb6058bdd9e4ee0ccee350c8e0f25c8c4cffc4c22fd",
     "l2-l09": "951cedfa65d24865c12731438d63679c27b5e65fed8efd9abb4984370ac929fd",
-    "l2-l10": "8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af",
-    "l2-l11": "56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6",
+    "l2-l10": "716f456e47d812855f5e5f67a7f704fa93c6a37a2256798588403d36feb28034",
+    "l2-l11": "8f7a382927baacc43f127b43e94c4218e3716e9c3a09c25828d2fe342e55cf00",
     "l2-l12": "55b200a9a89971ed0f4272bfc53c95c8e318677d9c649d41dc90ad909044af30",
-    "l2-l13": "7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe",
+    "l2-l13": "f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9",
     "l2-l14": "d698fdb60de1a60efbb893e0e7bb02094c1332c0a514b1eb8f08d63f02e8b2cb",
     "l2-l15": "abefe9aae6730274afc8bc184eec221c64e7848df84ae5fb8cb235487c6c6da9",
-    "l2-l16": "04ad279a9667497f6419123300eb137f8f4fd4c08fd35cba9ab99427da87e396",
-    "l2-l17": "a319510a34b185d008fd631849f56539f360bd61f32ad017812b5714fe38c834",
+    "l2-l16": "1f28c5c28800df738df4e6fa2a3859ff265a4372376200263859c10a7bcc46fe",
+    "l2-l17": "91937d1499e3cb3f3b6e812861a609bcce144424638de2d6cff448b76d6c63b6",
     "l2-l18": "79331b534ae7a45d12307262656da71d8c52e2d80d8c067f267a5259e4ee3443",
-    "l2-l19": "5be73c8311e5fab0284cb875eab140b6e110e7691e4cdc8fec58570987232c06",
+    "l2-l19": "b13b474ee4587785a9f827828c56325ebb4a562ddd81d020d541dc7fe0107354",
     "l2-l20": "32b44dd9de43b0836153a5907c008e710bcc170e742737e64737343eccbceeda",
-    "l2-l21": "8f0468b15ecc934fa007cd19d7dd1a6e40d31fc0545b0e671a07adcc48c6ed4c",
+    "l2-l21": "f1a50f25404de8556dc6b648ea5c8c4dfc92a8f8265b9caedfb716041c8fbeb7",
     "l2-l22": "4f700d5386baddaf45025a70612e343bf43a92cde19b151b01d9e33222177227",
     "l2-l23": "b6db986c187c97eef70eac6d647a2ccea5cb982546ca7ebabae3311778c9c778",
     "l2-l24": "fa6eeaef568f896958c230e036690beff6bb02c090ad5a2ff58c16cb0ac9973e",
@@ -7464,7 +7771,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "l1-l02/ex-listen-gist": overlay("concept:listening-introduction", "しょうかいします", "introducing someone"),
     "l1-l02/ex-soya-n5_listening_014": overlay("concept:listening-n5-detail-014", "こたえを ききとる", "listen for the answer"),
     "l1-l02/ex-read-study": overlay("concept:reading-field-of-study", "みかさんの せんもん", "Mika's field of study"),
-    "l1-l02/ex-read-nationality": overlay("concept:reading-nationality", "アンヘルさんの こくせき", "Angel's nationality"),
+    "l1-l02/ex-read-nationality": overlay("concept:reading-nationality", "アンヘルさんの こくせき", "Onke's nationality"),
     "l1-l02/ex-kanji-nihon": overlay("concept:kanji-nihon-meaning", "日本", "Japan", "にほん"),
     "l1-l02/ex-review-negative": overlay("concept:copula-negative", "日本人じゃ ありません", "is not Japanese"),
     "l1-l03/ex-input-affil": overlay("concept:affiliation-no", "さくらだいがくの がくせい", "a Sakura University student"),
@@ -10275,7 +10582,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["mika", "Mika"],
     ["sophie", "Sophie"],
     ["xingyu", "Xingyu"],
-    ["angel", "Angel"],
+    ["angel", "Onke"],
     ["stasi", "Stasi"],
     ["ruparna", "Ruparna"],
     ["rose", "Rose"],
@@ -10284,6 +10591,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id2, firstName]) => ({
     id: id2,
     firstName,
+    ...id2 === "angel" ? { preferredName: "Onke" } : {},
     category: "classmate",
     visualEvidence: id2 === "sophie" ? "approved" : "candidate-needs-owner",
     eligibility: id2 === "sophie" ? { story: true, lessons: true, likenessRuntime: true } : ELIGIBLE_WITH_PENDING_LIKENESS
@@ -10314,6 +10622,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       visualEvidence: "reference-confirmed-neutral-pending",
       eligibility: { story: true, lessons: false, likenessRuntime: false },
       nameEvidence: "owner-named"
+    },
+    {
+      id: "tom2",
+      firstName: "Tom",
+      category: "classmate",
+      visualEvidence: "reference-confirmed-neutral-pending",
+      eligibility: { story: true, lessons: true, likenessRuntime: false },
+      nameEvidence: "owner-named",
+      visualBrief: "Tall; average build; dark-brown hair; reserved and a little mysterious."
+    },
+    {
+      id: "steve",
+      firstName: "Steve",
+      category: "classmate",
+      visualEvidence: "approved",
+      eligibility: { story: true, lessons: true, likenessRuntime: true },
+      nameEvidence: "owner-named",
+      visualBrief: "Older man; married to a Japanese wife; learning to write naturally in family group chats with his bilingual children."
     },
     {
       id: "nanako",
@@ -10372,7 +10698,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function displayAcademyCastName(id2, language) {
     const member = getAcademyCastMember(id2);
     if (member.category === "teacher") return member.teacherSalutation?.[language] ?? member.firstName;
-    return `${member.firstName}-san`;
+    return `${member.preferredName ?? member.firstName}-san`;
   }
   function canRenderAcademyCastPortrait(id2, use) {
     const member = getAcademyCastMember(id2);
@@ -10400,7 +10726,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ruparna: ["subtitles", "inference", "ambiguity"],
     rose: ["nature", "work-language", "lived-memory"],
     peter: ["review", "questions", "observation"],
-    felix: ["nature", "description", "personal-expression"]
+    felix: ["nature", "description", "personal-expression"],
+    steve: ["casual-chat", "technology", "writing"],
+    tom2: ["ambiguity", "questions", "observation"]
   };
   function specialtiesFor(id2) {
     const specialties = ACADEMY_CAST_SPECIALTIES;
@@ -13638,13 +13966,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       retainWithoutAcademyProvenance: false,
       academyProvenance: { [provenance2.id]: previousProvenance ?? provenance2 }
     };
-    const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+    const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
     deck.cards[identity2.key] = card;
     return {
       card,
       cardCreated: !existing,
       provenanceAdded: !previousProvenance,
       provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+    };
+  }
+  function preserveExistingSchedule(merged, existing) {
+    return {
+      ...merged,
+      dueAt: existing.dueAt,
+      lastReviewAt: existing.lastReviewAt,
+      reviews: existing.reviews,
+      lapses: existing.lapses,
+      intervalDays: existing.intervalDays,
+      ease: existing.ease
     };
   }
   function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
@@ -22257,13 +22596,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return record2;
   }
   const ACADEMY_RUNTIME_ASSET_REGISTRY = {
-    "character.rie.neutral": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__neutral__halfbody__v001.png" } }),
+    "character.rie.neutral": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__neutral__halfbody__v001.png" } }),
     "character.rie.happy": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__happy__halfbody__v001.png" } }),
     "character.rie.encouraging": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__encouraging__halfbody__v001.png" } }),
     "character.rie.repair": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["lesson-feedback:repair", "dialogue:rie-precise-hint", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__repair__halfbody__v001.png" } }),
     "character.rie.determined-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png" } }),
     "character.rie.sad-vulnerable-front": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png" } }),
     "character.rie.comedic-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png" } }),
+    "character.rie.neutral-glasses": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png" } }),
+    "character.rie.determined-glasses-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png" } }),
+    "character.rie.encouraging-glasses-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png" } }),
     "character.aakash.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:aakash"], provenance: "current-production", files: { default: "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png" } }),
     "character.felix.neutral": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-after-meeting", "journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__neutral__halfbody__v001.png" } }),
     "character.felix.happy-left": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:felix-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png" } }),
@@ -22275,6 +22617,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "character.sophie.neutral-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["world:bookshop:sophie", "journal:sophie", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"], provenance: "current-production", files: { default: "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png" } }),
     "character.sophie.encouraging-front": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:sophie-support", "journal:sophie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png" } }),
     "character.sophie.determined-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["dialogue:sophie-research", "journal:sophie-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png" } }),
+    "character.tom2.neutral-right": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:tom2", "journal:tom2-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png" } }),
+    "character.tom2.encouraging-front": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:tom2-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png" } }),
+    "character.tom2.surprised-left": runtimeAsset({ kind: "character-sprite", status: "review-preview", runtimeHomes: ["journal:tom2-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png" } }),
+    "character.steve.neutral-front": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["journal:steve", "scene:steve-introduction"], provenance: "current-production", files: { default: "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png" } }),
+    "character.steve.happy-right": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["journal:steve-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png" } }),
+    "character.steve.determined-left": runtimeAsset({ kind: "character-sprite", status: "approved", runtimeHomes: ["journal:steve-expression-gallery"], provenance: "current-production", files: { default: "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png" } }),
     "portrait.quality-2": runtimeAsset({ kind: "protagonist-portrait", status: "approved", runtimeHomes: ["onboarding:portrait-choice-2", "journal:player"], provenance: "current-production", files: { default: "/academy/art/protagonists/quality-2__picker__v001.png" } }),
     "portrait.quality-3": runtimeAsset({ kind: "protagonist-portrait", status: "approved", runtimeHomes: ["onboarding:portrait-choice-3", "journal:player"], provenance: "current-production", files: { default: "/academy/art/protagonists/quality-3__picker__v001.png" } }),
     "portrait.quality-4": runtimeAsset({ kind: "protagonist-portrait", status: "approved", runtimeHomes: ["onboarding:portrait-choice-4", "journal:player"], provenance: "current-production", files: { default: "/academy/art/protagonists/quality-4__picker__v001.png" } }),
@@ -22317,7 +22665,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "location.park": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:park", "activity:park-weather-sketchbook", "lesson:l2-l08"], provenance: "recovered-academy-tree", files: { wide: "/academy/art/locations/wide/park__day-overcast--wide.webp", mobile: "/academy/art/locations/mobile/park__day-overcast--mobile.webp" } }),
     "location.konbini": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:konbini", "activity:counter-shopping"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp", mobile: "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp" } }),
     "location.japan-centre": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:japan-centre", "activity:gift-counter"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png", mobile: "/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png" } }),
-    "location.classroom": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", mobile: "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp" } }),
+    "location.classroom": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l1-l01", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", mobile: "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp" } }),
     "location.library": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:library", "review:due-queue", "lesson:l2-l06"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/library__rain-evening--wide.webp", mobile: "/academy/art/locations/mobile/library__rain-evening--mobile.webp" } }),
     "location.bookshop": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:bookshop", "activity:bookshop-catalogue"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp", mobile: "/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp" } }),
     "location.cafe": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:cafe", "lesson:l2-l13"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/cafe__night-rain--wide.webp", mobile: "/academy/art/locations/mobile/cafe__night-rain--mobile.webp" } }),
@@ -22327,7 +22675,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "item.station-ticket": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:station:platform-ticket"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/station-ticket-memory__v001.jpg" } }),
     "item.konbini-shopping-list": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:konbini:shopping-receipt"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/konbini-shopping-list__v001.jpg" } }),
     "item.ramen-quantity-board": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:ramen:order-ticket"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/ramen-quantity-board__v001.jpg" } }),
-    "item.classroom-belongings": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:classroom:board-note"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/classroom-belongings__v001.jpg" } }),
+    "item.classroom-belongings": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:classroom:board-note", "lesson:l1-l01:classroom-language-prop"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/classroom-belongings__v001.jpg" } }),
     "item.library-photo-album": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:library:review-bookmark"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/library-photo-album__v001.jpg" } }),
     "item.street-direction-map": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:street:directions-map"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/street-direction-map__v001.jpg" } }),
     "item.japan-centre-omiyage-tag": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:japan-centre:omiyage-tag"], provenance: "current-production", files: { default: "/academy/art/items/japan-centre-omiyage-tag__v001.png" } }),
@@ -22340,21 +22688,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return file;
   }
   const ACADEMY_APPROVED_CHARACTER_SPRITES = {
-    rie: assetFile("character.rie.neutral", "default"),
-    rieDetermined: assetFile("character.rie.determined-left", "default"),
+    rie: assetFile("character.rie.neutral-glasses", "default"),
+    rieDetermined: assetFile("character.rie.determined-glasses-left", "default"),
+    rieEncouraging: assetFile("character.rie.encouraging-glasses-right", "default"),
     rieSadVulnerable: assetFile("character.rie.sad-vulnerable-front", "default"),
     rieComedic: assetFile("character.rie.comedic-right", "default"),
     sophie: assetFile("character.sophie.neutral-right", "default"),
     sophieEncouraging: assetFile("character.sophie.encouraging-front", "default"),
-    sophieDetermined: assetFile("character.sophie.determined-left", "default")
+    sophieDetermined: assetFile("character.sophie.determined-left", "default"),
+    steve: assetFile("character.steve.neutral-front", "default"),
+    steveHappy: assetFile("character.steve.happy-right", "default"),
+    steveDetermined: assetFile("character.steve.determined-left", "default")
   };
   const ACADEMY_APPROVED_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
-    sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie
+    sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
+    steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve
   };
   const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     rie: {
       neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
+      encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.rieEncouraging,
       determined: ACADEMY_APPROVED_CHARACTER_SPRITES.rieDetermined,
       "sad-vulnerable": ACADEMY_APPROVED_CHARACTER_SPRITES.rieSadVulnerable,
       comedic: ACADEMY_APPROVED_CHARACTER_SPRITES.rieComedic
@@ -22363,6 +22717,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
       encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.sophieEncouraging,
       determined: ACADEMY_APPROVED_CHARACTER_SPRITES.sophieDetermined
+    },
+    steve: {
+      neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
+      happy: ACADEMY_APPROVED_CHARACTER_SPRITES.steveHappy,
+      determined: ACADEMY_APPROVED_CHARACTER_SPRITES.steveDetermined
     }
   };
   const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
@@ -22371,7 +22730,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     felix: assetFile("character.felix.neutral", "default"),
     peter: assetFile("character.peter.neutral", "default"),
     shaun: assetFile("character.shaun.neutral", "default"),
-    sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie
+    sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
+    tom2: assetFile("character.tom2.neutral-right", "default"),
+    steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve
   };
   const ACADEMY_ASSETS = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
@@ -22382,9 +22743,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     },
     characterSpriteGalleries: {
       rie: {
+        "neutral:front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.neutral,
         "determined:left-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.determined,
-        "sad-vulnerable:front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.rie["sad-vulnerable"],
-        "comedic:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.comedic
+        "encouraging-listening:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging
       },
       peter: {
         "left-three-quarter": assetFile("character.peter.thoughtful-left", "default"),
@@ -22400,6 +22761,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "left-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.determined,
         "front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.encouraging,
         "right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.neutral
+      },
+      tom2: {
+        "surprised-shocked:left-three-quarter": assetFile("character.tom2.surprised-left", "default"),
+        "encouraging-listening:front-near-front": assetFile("character.tom2.encouraging-front", "default"),
+        "neutral:right-three-quarter": assetFile("character.tom2.neutral-right", "default")
+      },
+      steve: {
+        "determined:left-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.steve.determined,
+        "neutral:front-near-front": ACADEMY_APPROVED_CAST_PERFORMANCES.steve.neutral,
+        "happy:right-three-quarter": ACADEMY_APPROVED_CAST_PERFORMANCES.steve.happy
       }
     },
     portraits: {
@@ -22564,7 +22935,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "courtyard-notice-look",
           kind: "availability",
-          prompt: { ja: "掲示の「見る」指示を順番に置く。", en: "Put the noticeboard instruction to look in order." },
+          prompt: { ja: "掲示の「見る」指示を順番に置く。", en: "Arrange the words to say “Please look.”" },
           audioLine: "みてください。",
           choices: [],
           correctChoiceId: "source-order",
@@ -22589,7 +22960,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         {
           id: "courtyard-notice-write",
           kind: "availability",
-          prompt: { ja: "掲示の「書く」指示を順番に置く。", en: "Put the noticeboard instruction to write in order." },
+          prompt: { ja: "掲示の「書く」指示を順番に置く。", en: "Arrange the words to say “Please write.”" },
           audioLine: "かいてください。",
           choices: [],
           correctChoiceId: "source-order",
@@ -22939,9 +23310,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         speakerId: "aakash",
         line: {
           ja: "「標識を見ながら、まっすぐと右を聞き取ってみよう。」",
-          en: "“Watch the signs and listen for straight ahead and right.”"
+          en: "“Listen for straight ahead and right.”"
         },
-        action: { ja: "標識を見る", en: "Read the signs" }
+        action: { ja: "標識を見る", en: "Check the signs" }
       },
       exits: ["courtyard", "station", "konbini", "ramen", "supermarket", "park", "post-office", "home", "cafe"],
       activity: {
@@ -23475,8 +23846,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       arrivalDialogue: {
         speakerId: "aakash",
         line: {
-          ja: "「おかえりなさい。今日は、帰ってきてからどんな時間でしたか？」",
-          en: "“Welcome home. What kind of time have you had since you came back today?”"
+          ja: "「お疲れさま。今日は、どんな一日でしたか？」",
+          en: "“Good work today. What kind of day have you had?”"
         },
         action: { ja: "今夜のページを開く", en: "Open tonight’s page" }
       },
@@ -27597,7 +27968,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "xingyu"
     ]
   };
-  const sourceQuestionNormalization$C = {
+  const sourceQuestionNormalization$D = {
     schema: "yomu-academy.source-question-normalization.v1",
     sourceWeekId: "l2plus-l06",
     groundedSourceQuestionCount: 5,
@@ -28019,7 +28390,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     components: components$O,
     mission: mission$L,
     casting: casting$L,
-    sourceQuestionNormalization: sourceQuestionNormalization$C,
+    sourceQuestionNormalization: sourceQuestionNormalization$D,
     srs: srs$L,
     pedagogy: pedagogy$u,
     yomuAugmentation: yomuAugmentation$u,
@@ -28306,7 +28677,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     portraitCards: "Offering a card",
     portraitNotebook: "Pencil and notebook",
     profileSubmit: "Tell Rie",
-    rieUnlockEyebrow: "Your teacher",
+    rieUnlockEyebrow: "Teacher profile",
     rieUnlockTitle: "Rie-sensei",
     rieUnlockBody: "“One open chair is enough. We can begin.”",
     rieUnlockContinue: "Choose where to begin",
@@ -28332,16 +28703,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     startManualBody: "From N5 basics to N1 advanced.",
     startMock: "Take a short placement mock",
     startMockBody: "A quick check of language, reading, and listening.",
-    manualTitle: "Choose a provisional band",
+    manualTitle: "Choose a JLPT band",
     manualBody: "You can change this later.",
     bandN5: "N5 · first useful Japanese",
     bandN4: "N4 · plans and connected sentences",
     bandN3: "N3 · everyday native input and nuance",
-    bandN2: "N2 · evidence, stance, and formal language",
-    bandN1: "N1 · ambiguity, synthesis, and adaptation",
+    bandN2: "N2 · follow opinions and formal articles",
+    bandN1: "N1 · handle ambiguity and dense native text",
     mockTitle: "A short placement check",
     mockBody: "A guide to where to begin, not a JLPT score.",
     mockTargetLegend: "Target band",
+    mockChooseAnswer: "Choose the best answer.",
     mockPlayAudio: "Play the listening line",
     mockAudioUnavailable: "Japanese speech is unavailable in this browser. Choose another route or try a supported browser.",
     mockSourceRecordingLabel: "Play source recording",
@@ -28370,7 +28742,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandEntryTitle: "Start where your Japanese is now.",
     bandEntryBody: "Try a short task at your chosen level.",
     bandEntryComplete: "Done. Earlier memories are waiting in your journal.",
-    bandEntryContinue: "Open the campus",
+    bandEntryContinue: "Enter the campus",
     advancedEntryEyebrow: "N3 arrival · source task",
     advancedEntryTitle: "Listen before you join the next class.",
     advancedEntryBody: "Rie uses one exact Minna 074 task from the completed Moodle source package to tune your arrival support.",
@@ -28422,7 +28794,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     kanjiDeskTitle: "Make it. Then read it.",
     kanjiDeskBody: "Start from いち / one. Write one left-to-right stroke.",
     kanjiDeskComplete: "Lesson kanji complete.",
-    kanjiDeskContinue: "Open the campus",
+    kanjiDeskContinue: "Enter the campus",
     campusTitle: "キャンパス",
     mapLabel: "学内案内",
     mapEntrance: "入口",
@@ -28492,7 +28864,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     journalReplayAakash: "Replay rainy directions",
     journalReason: "Reason for learning",
     memoryTitle: "The open chair",
-    memoryBody: "Rain on the windows. Rie balancing tea and a stack of papers. One chair left open for you.",
+    memoryBody: "Rain on the windows. Rie balancing a stack of papers, her tea going cold beside them. One chair left open for you.",
     memoryReturn: "Close the memory",
     journalLocked: "Meet someone in the story to unlock their page.",
     replayStreamTitle: "NG+ replay stream",
@@ -28581,7 +28953,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     portraitCards: "カードを渡す",
     portraitNotebook: "鉛筆とノート",
     profileSubmit: "りえ先生に伝える",
-    rieUnlockEyebrow: "先生",
+    rieUnlockEyebrow: "先生プロフィール",
     rieUnlockTitle: "りえ先生",
     rieUnlockBody: "「椅子が一つ空いていれば十分。始めましょう。」",
     rieUnlockContinue: "始める場所を選ぶ",
@@ -28607,7 +28979,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     startManualBody: "N5（初級）からN1（最上級）まで。",
     startMock: "短いプレイスメント模試を受ける",
     startMockBody: "言語知識・読解・リスニングを短く確認します。",
-    manualTitle: "仮のレベルを選んでください",
+    manualTitle: "JLPTレベルを選ぶ",
     manualBody: "あとで変更できます。",
     bandN5: "N5・最初の役立つ日本語",
     bandN4: "N4・計画とつながった文",
@@ -28617,6 +28989,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     mockTitle: "短いレベルチェック",
     mockBody: "出発点の目安です。JLPTのスコアではありません。",
     mockTargetLegend: "目標レベル",
+    mockChooseAnswer: "もっとも正しい答えを選んでください。",
     mockPlayAudio: "リスニングの文を再生",
     mockAudioUnavailable: "このブラウザでは日本語音声を再生できません。別のルートを選ぶか、対応ブラウザでお試しください。",
     mockSourceRecordingLabel: "出典の音声を再生",
@@ -28645,7 +29018,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandEntryTitle: "今の日本語力から始めましょう。",
     bandEntryBody: "選んだレベルで、短い課題に挑戦しましょう。",
     bandEntryComplete: "できました。以前の思い出は日記で待っています。",
-    bandEntryContinue: "キャンパスを開く",
+    bandEntryContinue: "キャンパスに入る",
     advancedEntryEyebrow: "N3途中参加・出典課題",
     advancedEntryTitle: "次のクラスに入る前に、音声を聞きましょう。",
     advancedEntryBody: "りえ先生が、照合済みのMoodle出典パッケージにあるMinna 074の課題を一つ使い、途中参加の支援を調整します。",
@@ -28697,7 +29070,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     kanjiDeskTitle: "書いて、読む。",
     kanjiDeskBody: "「いち」から始めて、左から右へ一画で書きます。",
     kanjiDeskComplete: "このレッスンの漢字が終わりました。",
-    kanjiDeskContinue: "キャンパスを開く",
+    kanjiDeskContinue: "キャンパスに入る",
     campusTitle: "キャンパス",
     mapLabel: "キャンパスマップ",
     mapEntrance: "入口",
@@ -28767,7 +29140,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     journalReplayAakash: "雨の道案内をもう一度見る",
     journalReason: "日本語を学ぶ理由",
     memoryTitle: "空いていた椅子",
-    memoryBody: "窓をたたく雨。お茶とプリントの山を抱えるりえ先生。あなたのために空いた椅子が一つ。",
+    memoryBody: "窓をたたく雨。プリントの山を抱えるりえ先生、傍らで冷めていくお茶。あなたのために空いた椅子が一つ。",
     memoryReturn: "思い出を閉じる",
     journalLocked: "物語で誰かに会うと、その人のページが開きます。",
     replayStreamTitle: "NG+ リプレイ",
@@ -30728,7 +31101,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     context: {
       id: "aakash-directions:context",
       japanese: "雨ですね。Aakashはカフェを探しています。",
-      translation: "It is raining. Aakash is looking for the cafe. Help him read the route before you answer."
+      translation: "It is raining. Aakash is looking for the cafe."
     },
     question: {
       id: "aakash-directions:question",
@@ -30745,7 +31118,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     vocabularyPrompt: {
       id: "aakash-directions:vocabulary",
       japanese: "まず、道順のことばを見てみましょう。",
-      translation: "First, learn the route words. The note includes romaji and English."
+      translation: "First, learn the route words."
     },
     recognition: {
       id: "aakash-directions:recognise-right",
@@ -31327,9 +31700,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (disposed) throw new Error("VN performance engine has been disposed.");
   }
   let vnStageSequence = 0;
-  const TEXT_REVEAL_LEAD_IN_MS = 72;
-  const TEXT_REVEAL_BASE_DELAY_MS = 42;
-  const TEXT_REVEAL_CLUSTER_DELAY_MS = 18;
+  const TEXT_REVEAL_LEAD_IN_MS = 90;
+  const TEXT_REVEAL_BASE_DELAY_MS = 38;
+  const TEXT_REVEAL_CLUSTER_DELAY_MS = 16;
+  const TEXT_REVEAL_SENTENCE_BREATH_MS = 460;
   function createAcademyVnStage(options = {}) {
     const lifecycle = new AbortController();
     const root = node("section", "academy-vn-stage");
@@ -31446,8 +31820,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       onSfx: (cue) => options.audio?.playSfx(cue),
       onTextReveal: (event) => {
         if (event.type === "start" && event.animated) {
-          startTextReveal(event.lineId);
           translation2.dataset.waitingForLine = "";
+          startTextReveal(event.lineId);
           return;
         }
         if (event.type === "end") {
@@ -31553,6 +31927,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (textRevealTimer !== void 0) window.clearTimeout(textRevealTimer);
       textRevealTimer = void 0;
       activeTextRevealToken += 1;
+      delete dialogue2.dataset.textBreath;
     }
     function startTextReveal(lineId) {
       clearTextRevealTimer();
@@ -31570,6 +31945,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       dialogue2.dataset.textRevealing = "";
       dialogue2.setAttribute("aria-busy", "true");
       japanese2.replaceChildren(revealText);
+      const scheduleNext = (index, leadInMs = 0) => {
+        const delay2 = leadInMs + textRevealCharacterDelay(units, index);
+        if (leadInMs === 0 && isTextRevealBreath(units, index)) dialogue2.dataset.textBreath = "";
+        else delete dialogue2.dataset.textBreath;
+        textRevealTimer = window.setTimeout(() => {
+          delete dialogue2.dataset.textBreath;
+          revealNext();
+        }, delay2);
+      };
       const revealNext = () => {
         if (typeof window === "undefined") {
           textRevealTimer = void 0;
@@ -31583,15 +31967,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           performance2.completeTextReveal(lineId);
           return;
         }
-        textRevealTimer = window.setTimeout(
-          revealNext,
-          textRevealCharacterDelay(units, visibleUnits - 1)
-        );
+        scheduleNext(visibleUnits - 1);
       };
-      textRevealTimer = window.setTimeout(
-        revealNext,
-        TEXT_REVEAL_LEAD_IN_MS + textRevealCharacterDelay(units, 0)
-      );
+      scheduleNext(0, TEXT_REVEAL_LEAD_IN_MS);
     }
     function finishTextReveal(lineId) {
       if (activeTextRevealLineId === lineId) {
@@ -31952,25 +32330,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const clusterDelayMs = TEXT_REVEAL_CLUSTER_DELAY_MS;
     if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
     if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
-    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 320;
-    if (isSentenceEnd(character)) return baseDelayMs + 320;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 120;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 180;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) {
+      return baseDelayMs + TEXT_REVEAL_SENTENCE_BREATH_MS;
+    }
+    if (isSentenceEnd(character)) return baseDelayMs + TEXT_REVEAL_SENTENCE_BREATH_MS;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 140;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 240;
     if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
     if (/[…―—]/u.test(character)) return baseDelayMs + 160;
-    if (/[」』）】]/u.test(character)) return baseDelayMs + 50;
-    if (/[「『（【]/u.test(character)) return clusterDelayMs;
+    if (isClosingBracket(character)) return baseDelayMs + 50;
+    if (isOpeningBracket(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
       return clusterDelayMs;
     }
     if (/\s/u.test(character)) return 26;
     return baseDelayMs;
   }
+  function isTextRevealBreath(units, index) {
+    const character = units[index] ?? "";
+    const nextCharacter = units[index + 1] ?? "";
+    if (isSentenceEnd(character)) return !isClosingPunctuation(nextCharacter);
+    if (isClosingPunctuation(character)) return closesSentence(units, index);
+    return /[\n\r]/u.test(character);
+  }
   function isSentenceEnd(character) {
     return /[。！？!?]/u.test(character);
   }
   function isClosingPunctuation(character) {
-    return /[」』）】〉》〕］｝”’]/u.test(character);
+    return /[」』）】〉》〕］｝”’"')\]}]/u.test(character);
+  }
+  function isOpeningBracket(character) {
+    return /[「『（【〈《〔［｛(\[{]/u.test(character);
+  }
+  function isClosingBracket(character) {
+    return /[」』）】〉》〕］｝)\]}]/u.test(character);
   }
   function closesSentence(units, closingIndex) {
     let index = closingIndex - 1;
@@ -32460,7 +32853,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       characterId: "rie",
       alt: language === "ja" ? "りえ先生" : "Rie-sensei",
       className: "academy-guide-character academy-character-rie",
-      expressions: { neutral: { still: ACADEMY_ASSETS.rie } }
+      expressions: { neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral } }
     }));
     return cutout;
   }
@@ -36274,8 +36667,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return cutout;
   }
   function rieExpressionSources() {
-    const fallback = { still: ACADEMY_ASSETS.rie };
-    return { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback };
+    const neutral = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral };
+    const encouraging = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging };
+    return { neutral, encouraging, happy: encouraging, repair: neutral };
   }
   const SOURCE_FILE_SHA256 = {
     "data/courses/jlpt_n5/mock1_vocab.js": "2ce50c3d647c3f2922d0664e3c52cf764ce56aa4fca2b685b0fa6089af08fee8",
@@ -36865,6 +37259,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const assessments = /* @__PURE__ */ new Map();
     const target = bandSelect(options.language);
     const progress2 = element("div", "academy-placement-progress");
+    progress2.setAttribute("aria-live", "polite");
+    progress2.setAttribute("aria-atomic", "true");
     const progressLabel = element("span", "academy-placement-progress-label");
     const progressDots = element("span", "academy-placement-progress-dots");
     progress2.append(progressLabel, progressDots);
@@ -36946,6 +37342,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         });
         fieldset.append(play, audioError);
       }
+      fieldset.append(copyElement("p", "academy-mock-instruction", options.language, "mockChooseAnswer"));
       const choices2 = element("div", "academy-mock-options");
       item2.options.forEach((option2) => {
         const label = element("label", "academy-mock-option");
@@ -37026,7 +37423,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     next.addEventListener("click", () => {
       if (step2 === 0) {
         if (!isJlptBand(target.select.value)) {
-          target.select.reportValidity();
           feedback2.replaceChildren(fieldError(options.language === "ja" ? "受けるレベルを選んでください。" : "Choose the JLPT level you want to test."));
           return;
         }
@@ -37036,7 +37432,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       const radio2 = steps[step2]?.querySelector('input[type="radio"]');
       if (radio2 && !steps[step2]?.querySelector('input[type="radio"]:checked')) {
-        radio2.reportValidity();
         feedback2.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
         return;
       }
@@ -37051,7 +37446,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) {
+      if (!form.checkValidity()) {
         feedback2.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
         return;
       }
@@ -37445,18 +37840,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
             context2.shell.replace(renderAdvancedArrivalBridge({
               language: context2.language,
               plan,
-              onEvaluation: (evaluation) => this.options.evidence.recordActivity(
-                evaluation,
-                plan.lessonId,
-                void 0,
-                {
-                  modeId: `advanced-entry:n3:${plan.mode}`,
-                  skill: "listening",
-                  action: "listen",
-                  sourceId: plan.sourceId,
-                  independent: plan.independent
-                }
-              ),
+              onEvaluation: (evaluation) => {
+                this.options.audio?.playSfx?.(
+                  evaluation.result.outcome === "pass" ? "feedback.correct" : "feedback.repair"
+                );
+                return this.options.evidence.recordActivity(
+                  evaluation,
+                  plan.lessonId,
+                  void 0,
+                  {
+                    modeId: `advanced-entry:n3:${plan.mode}`,
+                    skill: "listening",
+                    action: "listen",
+                    sourceId: plan.sourceId,
+                    independent: plan.independent
+                  }
+                );
+              },
               onListeningStart: () => this.beginExternalListening(),
               onListeningStop: () => this.endExternalListening(),
               onContinue: () => void context2.go("campus")
@@ -37487,10 +37887,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async openSession(code, context2) {
       const session = await this.options.access.exchange(code);
-      if (isAnonymousAcademyCode(code)) {
-        await context2.go(academyEntryRoute(context2), { session });
-        return;
-      }
       await this.options.account?.connect();
       await context2.go("profile-sync", { session });
     }
@@ -37499,6 +37895,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       await context2.go(firstIntroduction ? "rie-unlock" : "start");
     }
     async chooseStart(route, context2) {
+      this.options.audio?.playSfx?.("menu.confirm");
       if (route === "manual-band") return context2.go("manual-band", { placementOverride: false });
       if (route === "placement-mock") return context2.go("placement-mock", { placementOverride: false });
       await this.options.evidence.chooseCurriculumEntry({ route: "lesson-zero" });
@@ -37510,6 +37907,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
     }
     async chooseBand(band, context2) {
+      this.options.audio?.playSfx?.("menu.confirm");
       const fromPlacement = context2.checkpoint.placementOverride === true;
       const storySection = placementStorySection(context2);
       await this.options.evidence.chooseCurriculumEntry({
@@ -37554,6 +37952,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }));
     }
     async acceptPlacement(result, context2) {
+      this.options.audio?.playSfx?.("menu.confirm");
       this.placementDraft = null;
       const storySection = placementStorySection(context2);
       if (result.recommendedStart === "lesson-zero") {
@@ -37582,9 +37981,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         activityId: void 0
       });
     }
-  }
-  function academyEntryRoute(context2) {
-    return context2.projection.profile ? "start" : "profile";
   }
   function requiredBand(context2) {
     const band = context2.checkpoint.selectedBand;
@@ -40728,7 +41124,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ],
     corroboratingCohorts: [],
-    gaps: [],
+    gaps: [
+      {
+        payloadSha256: "8e8a160918f4eda7d3b05aed9f7d8b3b3a441cb30a03cb7419b535c0e8397d63",
+        title: "Chapter 1 Numbers 1-100 Romaji",
+        missing: "exact-source-runtime-projection"
+      },
+      {
+        payloadSha256: "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+        title: "Chapter 1 Classroom phrases",
+        missing: "exact-source-runtime-projection"
+      },
+      {
+        payloadSha256: "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
+        title: "Chapter 1 Japanese Writing system introduction",
+        missing: "exact-source-runtime-projection"
+      },
+      {
+        payloadSha256: "0cff394911da80ae258ea59aa11992e1996efc9612661ea55c2cbe1f967ba46c",
+        title: "Japanese Writing system General Features",
+        missing: "exact-source-runtime-projection"
+      },
+      {
+        payloadSha256: "28111bbca8e7afc2f869565b1f8a87d24ca0da81721fb2e013a9f51f43002717",
+        title: "Text book Minna no Nihongo Characters",
+        missing: "exact-source-runtime-projection"
+      },
+      {
+        payloadSha256: "e3670991055fbfb0a6c869b90721dd011aecab238379ec72ccde42e8e5ea3f2f",
+        title: "Vocabulary Family names and Greetings",
+        missing: "source-reference-runtime-projection"
+      }
+    ],
     coverageMap: [
       {
         payloadSha256: "8e8a160918f4eda7d3b05aed9f7d8b3b3a441cb30a03cb7419b535c0e8397d63",
@@ -41107,22 +41534,157 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "jlpt"
     ]
   };
+  const curriculumReadiness = {
+    schema: "yomu-academy.source-grounded-readiness.v1",
+    measurementPolicy: {
+      unit: "assessed-source-grounded-skill-evidence",
+      excludedFromReadiness: [
+        "raw-exercise-count",
+        "unassessed-source-rows",
+        "original-yomu-enrichment",
+        "unbound-or-unavailable-media"
+      ],
+      cumulativeBandInvariant: {
+        N5: [
+          "N5"
+        ],
+        N4: [
+          "N5",
+          "N4"
+        ],
+        N3: [
+          "N5",
+          "N4",
+          "N3"
+        ],
+        N2: [
+          "N5",
+          "N4",
+          "N3",
+          "N2"
+        ],
+        N1: [
+          "N5",
+          "N4",
+          "N3",
+          "N2",
+          "N1"
+        ]
+      },
+      comparisonRule: "A higher JLPT readiness claim must retain every assessed source-grounded requirement from lower bands and add assessed source-grounded evidence at its own band; package or filler counts cannot satisfy the invariant."
+    },
+    weekEvidence: {
+      band: "N5",
+      readinessStatus: "insufficient-evidence-for-band-readiness",
+      jlptDomains: [
+        {
+          domain: "vocabulary",
+          status: "source-taught-not-assessed",
+          sourceIds: [
+            "moodle-payload:c6df5dd2979a7ce376ecfb5d37c813813d99819d825f17a10c2ff2e5be79220e"
+          ],
+          assessmentIds: []
+        },
+        {
+          domain: "grammar",
+          status: "assessed-source-grounded-partial",
+          sourceIds: [
+            "japanese-genki-interactive:b909643450ead83af08d8dd22f717f9d320b165e5accf790514a31212d155451:generateQuiz"
+          ],
+          assessmentIds: [
+            "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+            "genki-2e:l1-l01:workbook-5:takeda-teacher"
+          ]
+        },
+        {
+          domain: "reading",
+          status: "not-source-grounded-assessed",
+          sourceIds: [],
+          assessmentIds: []
+        },
+        {
+          domain: "listening",
+          status: "assessed-source-grounded",
+          sourceIds: [
+            "soya:jlpt_n5:n5_mock1_l_19",
+            "soya:jlpt_n5:n5_mock1_l_24"
+          ],
+          assessmentIds: [
+            "ex-soya-n5_mock1_l_19",
+            "ex-soya-n5_mock1_l_24"
+          ]
+        }
+      ],
+      additionalCourseSkills: [
+        {
+          domain: "writing",
+          status: "assessed-source-grounded-partial",
+          assessmentIds: [
+            "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+            "genki-2e:l1-l01:workbook-5:takeda-teacher"
+          ]
+        },
+        {
+          domain: "speaking",
+          status: "source-taught-not-assessed",
+          assessmentIds: []
+        }
+      ],
+      assessedSourceGroundedJlptDomainCount: 2,
+      jlptDomainCount: 4,
+      note: "This Week supplies partial N5 grammar evidence, two exact answer-gated Soya listening tasks, and source-grounded typed production. It is not an N5 readiness claim: exact vocabulary is taught but not assessed, and source-grounded reading evidence remains absent."
+    },
+    validationBacklog: [
+      {
+        id: "l1-l01-readiness-vocabulary",
+        priority: "P0",
+        requiredEvidence: "Gradeable retrieval using the exact 27-row Sensei vocabulary sheet with stable source-question identities."
+      },
+      {
+        id: "l1-l01-readiness-reading",
+        priority: "P0",
+        requiredEvidence: "A gradeable reading task derived from the preserved greeting and family-name source records, with reviewed answers."
+      },
+      {
+        id: "l1-l01-readiness-speaking",
+        priority: "P1",
+        requiredEvidence: "Add source-linked assessed speaking production for four-skill course coverage; do not count it as an official JLPT domain."
+      },
+      {
+        id: "l1-l01-genki-workbook-parity",
+        priority: "P1",
+        requiredEvidence: "Deliver the remaining four exact Genki Workbook 5 prompts or keep them explicitly unavailable."
+      },
+      {
+        id: "l1-l01-moodle-member-parity",
+        priority: "P1",
+        requiredEvidence: "Project or explicitly review-block every Moodle member listed in sourceCoverage.gaps."
+      }
+    ]
+  };
   const provenance$N = {
-    authoringPolicy: "original-yomu",
+    authoringPolicy: "source-faithful-yomu-adaptation",
     sourceMappings: [
       {
         sourceId: "source-ucl-moodle-raw-manifest",
         relation: "chronology",
         reference: "course ucl-japanese · level 1 · module 5777762",
-        reuse: "metadata-only",
-        note: "Week identity and worksheet inventory come from harvest metadata only."
+        reuse: "selective-verbatim-source-delivery",
+        note: "Moodle fixes the Week chronology. The exact 27-row vocabulary sheet, greeting and grammar examples, and greeting homework page are preserved; every undelivered member is listed in sourceCoverage.gaps."
       },
       {
         sourceId: "source-minna-no-nihongo",
         relation: "scope",
-        reference: "Minna no Nihongo I · Lesson 1",
+        reference: "Minna no Nihongo 2nd Edition Shokyu I · Lesson 1",
         reuse: "sequence-only",
-        note: "Chapter scope (NはNです, じゃ ありません, question か, の, も) is a published textbook sequence reference; all wording here is original."
+        note: "The byte-audited local 2nd Edition corroborates Lesson 1 scope and sequence only. No Minna learner wording is claimed as verbatim delivery."
+      },
+      {
+        sourceId: "japanese-genki-interactive:b909643450ead83af08d8dd22f717f9d320b165e5accf790514a31212d155451:generateQuiz",
+        relation: "guided-practice",
+        reference: "Genki Study Resources 2nd Edition · Lesson 1 · Workbook 5",
+        reuse: "selective-verbatim-exercise-delivery",
+        note: "The exact six-item generated quiz configuration is recorded. The first two source items are playable; the remaining four are not claimed as delivered."
       },
       {
         sourceId: "source-jlpt-framework",
@@ -41133,16 +41695,63 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ],
     castingNote: "Week one, so self-introduction is universal — everyone in the room says はじめまして. Rie-sensei opens; Henry (the learner-insert), Aakash, Jenny and Tom each give their first sentence; Jenny the connector frames the mission of meeting the class.",
-    gaps: []
+    gaps: [
+      "Six Moodle members or source references remain explicit runtime-projection gaps in sourceCoverage.gaps.",
+      "Four of the six exact Genki Workbook 5 items are recorded but not yet playable.",
+      "The original Yomu dialogue remains a written teaching model only; no recording is claimed for it. The two exact Soya tasks are packaged and count only as their own answer-gated listening evidence."
+    ]
   };
   const runtimeReachability$j = {
     packageSchema: "parseable-authored-week-v1",
-    exactExerciseAdapter: "not-delivered-by-current-authored-week-adapter-for-this-week",
-    packageHashRegistration: "blocked-outside-owned-scope",
-    pluginCatalogRegistration: "blocked-outside-owned-scope",
-    sourceMediaRegistration: "blocked-outside-owned-scope",
-    audioPairing: "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
-    honestResult: "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+    exactExerciseAdapter: "13-answer-gated-authored-activities-delivered",
+    packageHashRegistration: "registered-in-authored-week-adapter",
+    pluginCatalogRegistration: "registered-in-lesson-content-and-activity-catalogs",
+    sourceVocabularyDelivery: "27-exact-sensei-rows-delivered-as-lesson-prerequisite-and-library-sheet",
+    sourceActivityDelivery: "moodle-greeting-worksheet-two-genki-sentence-builders-and-class-simulator-delivered",
+    sourceMediaRegistration: "moodle-greeting-page-image-and-two-exact-soya-listening-recordings-packaged",
+    audioPairing: "two-question-map-and-byte-verified-soya-task-bindings;original-yomu-dialogue-text-only",
+    honestResult: "The core Week loads end to end with the exact Sensei vocabulary sheet, Moodle greeting page, two exact Genki prompts, two exact Soya listening tasks, and answer-gated practice. The original Yomu dialogue remains text-only and is never substituted with unrelated audio."
+  };
+  const sourceQuestionNormalization$C = {
+    schema: "yomu-academy.source-question-normalization.v1",
+    sourceWeekId: "l1-l01",
+    groundedSourceQuestionCount: 2,
+    playableSourceQuestionCount: 2,
+    sourceQuestions: [
+      {
+        id: "ex-soya-n5_mock1_l_19",
+        sourceId: "source-soya-eagle",
+        reference: "data/courses/jlpt_n5/mock1_listening.js#n5_mock1_l_19",
+        reuse: "verbatim-soya",
+        note: "Exact immediate-response question, options, marked answer, transcript, and recording are retained with question-map and byte verification.",
+        answerStatus: "question-map-verified",
+        mediaStatus: "packaged-static-source-verified",
+        audioAssetId: "ex-soya-n5_mock1_l_19",
+        audioRef: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3"
+      },
+      {
+        id: "ex-soya-n5_mock1_l_24",
+        sourceId: "source-soya-eagle",
+        reference: "data/courses/jlpt_n5/mock1_listening.js#n5_mock1_l_24",
+        reuse: "verbatim-soya",
+        note: "Exact immediate-response question, options, marked answer, transcript, and recording are retained with question-map and byte verification.",
+        answerStatus: "question-map-verified",
+        mediaStatus: "packaged-static-source-verified",
+        audioAssetId: "ex-soya-n5_mock1_l_24",
+        audioRef: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3"
+      }
+    ],
+    quarantine: {
+      unsupportedExerciseIds: [],
+      unsupportedKinds: [],
+      unresolvedMedia: [
+        {
+          assetId: "asset-l1-l01-listening",
+          locator: "academy://audio/level-1/lesson-01-two-people-meet",
+          reason: "No recording matches the original Yomu teaching script; the script remains text-only and is not exposed as playable audio."
+        }
+      ]
+    }
   };
   const sourceRootAudit$j = {
     revision: "level-one-source-roots/2026-07-14",
@@ -41166,6 +41775,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
           sha256: "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
         },
         readmeSha256: "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        id: "japanese-minna-shokyu-i-2e",
+        path: "japanese-resources://Resource Packs/Japanese Language Learning Pack - Learn Japanese!/03 Grammar and Vocabulary/02 Minna no Nihongo Shokyu/Minna no Nihongo Shokyu I/Minna no Nihongo Shokyu I Dai 2-Han Honsatsu Kanji-Kana.pdf",
+        role: "minna-lesson-one-scope-and-sequence",
+        status: "audited-scope-reference",
+        fileSha256: "66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229",
+        title: "Minna no Nihongo 2nd Edition Shokyu I",
+        pageCount: 326,
+        decision: "Lesson 1 corroborates the identity-sentence scope and order. Moodle remains chronology authority; this source does not establish verbatim Minna task delivery."
       },
       {
         id: "japanese-lessons",
@@ -41242,7 +41861,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       runtime: {
         sourceType: "fill",
         pluginKind: "academy-typed-response",
-        bindingStatus: "package-declared-catalog-registration-outside-owned-scope",
+        bindingStatus: "first-two-source-items-delivered-by-lesson-activity-catalog",
+        deliveredSourceQuestionIds: [
+          "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+          "genki-2e:l1-l01:workbook-5:takeda-teacher"
+        ],
+        remainingSourceItemCount: 4,
         preservesSourceTask: true,
         answerGate: "after-attempt"
       }
@@ -43347,23 +43971,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ja: "ふたりの じこしょうかい"
       },
       provenance: {
-        reuse: "original-yomu",
-        note: "Original recorded self-introduction covering the はじめまして conversation and greetings function; no source audio reused."
-      },
-      audio: {
-        assetId: "asset-l1-l01-listening",
-        locator: "academy://audio/level-1/lesson-01-two-people-meet",
-        durationSeconds: 34,
-        voiceNotes: "Two speakers, slow and clear. Rie warm and unhurried; Jenny a little shy, brightening at the end.",
-        script: "りえ：はじめまして。りえです。にほんごの せんせいです。どうぞ よろしく。 ジェニー：はじめまして。ジェニーです。がくせいです。 りえ：ジェニーさんは アメリカじんですか。 ジェニー：いいえ、アメリカじんじゃ ありません。カナダじんです。 りえ：あ、カナダですか。どうぞ よろしく おねがいします。"
+        reuse: "original-yomu-written-model-and-verbatim-soya-listening",
+        note: "The written Rie/Jenny model supplies context only. The two playable listening exercises retain exact Soya question, option, transcript, answer, and recording identities."
       },
       transcript: {
         revealAfterFirstAttempt: true,
         body: "Rie: How do you do. I'm Rie, the Japanese teacher. Nice to meet you. — Jenny: How do you do. I'm Jenny, a student. — Rie: Jenny, are you American? — Jenny: No, I'm not American. I'm Canadian. — Rie: Oh, Canada! Pleased to meet you."
       },
       audioWorksheetPairing: {
-        pairedWith: "843ee30241b15d04c7b1990e8c0f76640379e81be778fbb4bfdf082565e08d6c",
-        note: "Chapter 1 had no separate audio worksheet in the harvest; this stands in for the はじめまして conversation module and the Greetings handout — same 'listen for name, nationality, job' skill, original script."
+        pairedWith: "soya-question-map:n5_mock1_l_19+n5_mock1_l_24",
+        note: "Each Soya recording is paired only with its exact immediate-response task. The Moodle Greetings handout and original Yomu written model are context, not audio-pairing evidence."
       },
       exercises: [
         {
@@ -43464,7 +44081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         {
           id: "ex-soya-n5_mock1_l_19",
-          kind: "choice",
+          kind: "quarantined-listening-choice",
           phase: "guided-practice",
           source: "soya",
           audioRef: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
@@ -43540,7 +44157,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         },
         {
           id: "ex-soya-n5_mock1_l_24",
-          kind: "choice",
+          kind: "quarantined-listening-choice",
           phase: "guided-practice",
           source: "soya",
           audioRef: "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",
@@ -44484,8 +45101,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     identity: identity$N,
     sourceCoverage: sourceCoverage$N,
     mapping: mapping$N,
+    curriculumReadiness,
     provenance: provenance$N,
     runtimeReachability: runtimeReachability$j,
+    sourceQuestionNormalization: sourceQuestionNormalization$C,
     sourceRootAudit: sourceRootAudit$j,
     genkiInteractiveActivities: genkiInteractiveActivities$l,
     productionSequence: productionSequence$j,
@@ -45254,7 +45873,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    castingNote: "Grammar picks the person: introducing others, countries and languages belong to Mika (the quiet polyglot), and the numbers to Angel (who keeps everyone organised). Tom carries over the company-employee line from Lesson 1, Henry is the learner beside you, and Miller appears once as a textbook cameo guest. Rie holds the room.",
+    castingNote: "Grammar picks the person: introducing others, countries and languages belong to Mika (the quiet polyglot), and the numbers to Onke (who keeps everyone organised). Tom carries over the company-employee line from Lesson 1, Henry is the learner beside you, and Miller appears once as a textbook cameo guest. Rie holds the room.",
     gaps: []
   };
   const runtimeReachability$i = {
@@ -47013,12 +47632,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         assetId: "asset-l1-l02-listening",
         locator: "academy://audio/level-1/lesson-02-a-new-face",
         durationSeconds: 36,
-        voiceNotes: "Three speakers, slow and clear. Angel warm and organised; Lin calm and friendly; Henry cheerful and a beat behind.",
+        voiceNotes: "Three speakers, slow and clear. Onke warm and organised; Lin calm and friendly; Henry cheerful and a beat behind.",
         script: "アンヘル：みなさん、しょうかいします。こちらは リンさんです。 リン：はじめまして。リンです。中国人です。かいしゃいんです。どうぞ よろしく。 ヘンリー：リンさんは 日本語の せんせいですか。 リン：いいえ、せんせいじゃ ありません。かいしゃいんです。 アンヘル：リンさんは にじゅうごさいです。 ヘンリー：あ、わたしも にじゅうごさいです！"
       },
       transcript: {
         revealAfterFirstAttempt: true,
-        body: "Angel: Everyone, let me introduce someone — this is Lin. — Lin: How do you do. I'm Lin. I'm Chinese, and a company employee. Nice to meet you. — Henry: Lin, are you a Japanese teacher? — Lin: No, I'm not a teacher — I'm a company employee. — Angel: Lin is twenty-five. — Henry: Oh, I'm twenty-five too!"
+        body: "Onke: Everyone, let me introduce someone — this is Lin. — Lin: How do you do. I'm Lin. I'm Chinese, and a company employee. Nice to meet you. — Henry: Lin, are you a Japanese teacher? — Lin: No, I'm not a teacher — I'm a company employee. — Onke: Lin is twenty-five. — Henry: Oh, I'm twenty-five too!"
       },
       audioWorksheetPairing: {
         pairedWith: "9da1001d0f48a69adc9ac992ec67845b7be4fb812dd4905e0ce3369b470efd99",
@@ -47033,14 +47652,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
             en: "What is happening?",
             ja: "何を していますか。"
           },
-          explanation: "Angel says しょうかいします and こちらは リンさんです — she's introducing a new person to the class.",
+          explanation: "Onke says しょうかいします and こちらは リンさんです — she's introducing a new person to the class.",
           reviewTag: "listening-gist",
           autoGraded: true,
           options: [
             {
               id: "a",
               label: {
-                en: "Angel is introducing a new person",
+                en: "Onke is introducing a new person",
                 ja: "あたらしい 人の しょうかい"
               },
               correct: true
@@ -47233,7 +47852,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           {
             ja: "アンヘルさんは メキシコ人です。かいしゃいんです。",
             reading: "アンヘルさんは メキシコじんです。かいしゃいんです。",
-            en: "Angel is Mexican. He's a company employee."
+            en: "Onke is Mexican. He's a company employee."
           },
           {
             ja: "ミカさんは スペイン人です。日本語の がくせいです。",
@@ -47306,10 +47925,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "choice",
           phase: "guided-practice",
           prompt: {
-            en: "What is Angel's nationality?",
+            en: "What is Onke's nationality?",
             ja: "アンヘルさんは 何人ですか。"
           },
-          explanation: "Angel's card says メキシコ人 — Mexican. スペイン人 (Spanish) is Mika.",
+          explanation: "Onke's card says メキシコ人 — Mexican. スペイン人 (Spanish) is Mika.",
           reviewTag: "reading-detail",
           autoGraded: true,
           options: [
@@ -47341,11 +47960,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
           wrongAnswerExplanations: [
             {
               trigger: "b",
-              message: "スペイン人 (Spanish) is Mika. Angel's card says メキシコ人."
+              message: "スペイン人 (Spanish) is Mika. Onke's card says メキシコ人."
             },
             {
               trigger: "c",
-              message: "Nobody on these cards is 日本人; Angel is メキシコ人."
+              message: "Nobody on these cards is 日本人; Onke is メキシコ人."
             }
           ]
         }
@@ -47744,7 +48363,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const mission$J = {
     title: "The introductions wall",
     framedBy: "angel",
-    prompt: "Angel's idea: as a class, build a wall of introductions. Each person presents the classmate beside them — こちらは 〜さんです, their country, their job, and, if they'll tell you, their age. Keep it to what someone's happy to share — just a friendly card.",
+    prompt: "Onke's idea: as a class, build a wall of introductions. Each person presents the classmate beside them — こちらは 〜さんです, their country, their job, and, if they'll tell you, their age. Keep it to what someone's happy to share — just a friendly card.",
     successCriteria: [
       "You present another person with こちらは 〜さんです.",
       "You give their nationality with 〜人 and their job.",
@@ -65639,7 +66258,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const roles = [
       role("jodi", "jodi", "Jodi", "classmate", "Board keeper", "ボード係"),
       role("learner", "henry", "Henry", "learner", "Schedule token", "予定のコマ"),
-      role("angel", "angel", "Angel", "classmate", "Clock checker", "時計を確認する人")
+      role("angel", "angel", "Onke", "classmate", "Clock checker", "時計を確認する人")
     ];
     const turns = [
       { ...classmate("jodi-opens", "jodi", "どようびは ごご 一時から 五時まで ひまです。", "Jodi is free Saturday from 1 p.m. to 5 p.m."), boardSpaceId: "jodi" },
@@ -65648,7 +66267,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ["から"],
         ["まで"]
       ], conceptIds[0], "board-two-day-range"), boardSpaceId: "learner" },
-      { ...classmate("angel-posts", "angel", "どようびは 三時から ひまです。にちようびは いそがしいです。", "Angel is free from 3 p.m. Saturday and busy Sunday."), boardSpaceId: "angel" },
+      { ...classmate("angel-posts", "angel", "どようびは 三時から ひまです。にちようびは いそがしいです。", "Onke is free from 3 p.m. Saturday and busy Sunday."), boardSpaceId: "angel" },
       { ...learnerChoice("choose-time", "learner", "Move to a time both you and Jodi can use.", "自分とジョディが会える時間へ進んでください。", [
         option$q("three", "どようびの 三時に あいましょう。", "Let’s meet at 3 p.m. Saturday."),
         option$q("six", "どようびの 六時に あいましょう。", "Let’s meet at 6 p.m. Saturday."),
@@ -65666,7 +66285,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { ...base, payload: { ...base.payload, board: { spaces: [
       { id: "jodi", label: { en: "Jodi posts", ja: "ジョディの投稿" } },
       { id: "learner", label: { en: "Your post", ja: "自分の投稿" } },
-      { id: "angel", label: { en: "Angel checks", ja: "エンジェルの確認" } },
+      { id: "angel", label: { en: "Onke checks", ja: "エンジェルの確認" } },
       { id: "meet", label: { en: "Find overlap", ja: "同じ時間を探す" } },
       { id: "finish", label: { en: "Meet-up fixed", ja: "集まる時間が決定" } }
     ] } } };
@@ -66622,7 +67241,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    castingNote: "Grammar picks the person: chapter 4's time-and-schedule theme is led by Angel (spreadsheets, everyone's deadlines) counting the clock, with Jodi's steady checklist, Jenny's cosy routine, and Rie framing the lesson. Angel is an override on the plan's recommended seed because clocks and schedules are squarely her ground.",
+    castingNote: "Grammar picks the person: chapter 4's time-and-schedule theme is led by Onke (spreadsheets, everyone's deadlines) counting the clock, with Jodi's steady checklist, Jenny's cosy routine, and Rie framing the lesson. Onke is an override on the plan's recommended seed because clocks and schedules are squarely her ground.",
     gaps: []
   };
   const runtimeReachability$d = {
@@ -66852,7 +67471,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$E = {
     where: "The classroom doorway, a few minutes early, everyone glancing at the clock",
     sceneImage: "academy/art/scenes/classroom-evening-wide.webp",
-    hook: "Angel has the whole evening timed to the minute and just wants to know when the break is.",
+    hook: "Onke has the whole evening timed to the minute and just wants to know when the break is.",
     cast: [
       "rie",
       "angel",
@@ -68642,12 +69261,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         assetId: "asset-l1-l08-listening",
         locator: "academy://audio/level-1/lesson-08-cafe-hours",
         durationSeconds: 34,
-        voiceNotes: "Two speakers, slow and clear for beginners. Jenny curious; Angel precise, reading the times off like a schedule.",
+        voiceNotes: "Two speakers, slow and clear for beginners. Jenny curious; Onke precise, reading the times off like a schedule.",
         script: "ジェニー：カフェは なんじから なんじまでですか。 アンジェル：あさ はちじから よる じゅうじまでです。 ジェニー：にちようびも やすみじゃ ないですか。 アンジェル：にちようびは やすみです。 ジェニー：わかりました。じゃあ、どようびに いきましょう。 アンジェル：はい、ぜひ。"
       },
       transcript: {
         revealAfterFirstAttempt: true,
-        body: "Jenny: What time is the café open, from when to when? — Angel: From eight in the morning until ten at night. — Jenny: It's not closed on Sundays, is it? — Angel: Sundays it's closed. — Jenny: Got it. Then let's go on Saturday. — Angel: Yes, let's."
+        body: "Jenny: What time is the café open, from when to when? — Onke: From eight in the morning until ten at night. — Jenny: It's not closed on Sundays, is it? — Onke: Sundays it's closed. — Jenny: Got it. Then let's go on Saturday. — Onke: Yes, let's."
       },
       audioWorksheetPairing: {
         pairedWith: "ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e",
@@ -68662,7 +69281,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             en: "What are the café's opening hours?",
             ja: "カフェは なんじから なんじまで ですか。"
           },
-          explanation: "Angel says あさ はちじから よる じゅうじまで — from 8 a.m. until 10 at night.",
+          explanation: "Onke says あさ はちじから よる じゅうじまで — from 8 a.m. until 10 at night.",
           reviewTag: "listening-detail",
           autoGraded: true,
           options: [
@@ -68710,7 +69329,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             en: "Which day is the café closed?",
             ja: "カフェの やすみは なんようびですか。"
           },
-          explanation: "Angel answers にちようびは やすみです — it's closed on Sundays, so they decide to go on Saturday.",
+          explanation: "Onke answers にちようびは やすみです — it's closed on Sundays, so they decide to go on Saturday.",
           reviewTag: "listening-detail",
           autoGraded: true,
           options: [
@@ -70762,7 +71381,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    castingNote: "Grammar picks the person: chapter 4 is times and weekly plans, so it belongs to Angel (who already has everyone's week on a spreadsheet) and Jodi (calm, always early), with Rie teaching. The first-kanji strand — the numbers on the clock and 日 — is framed as Shin's, the classmate who reads kanji as little pictures.",
+    castingNote: "Grammar picks the person: chapter 4 is times and weekly plans, so it belongs to Onke (who already has everyone's week on a spreadsheet) and Jodi (calm, always early), with Rie teaching. The first-kanji strand — the numbers on the clock and 日 — is framed as Shin's, the classmate who reads kanji as little pictures.",
     gaps: []
   };
   const runtimeReachability$c = {
@@ -70992,7 +71611,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$D = {
     where: "The table by the window, five minutes before class, coats still damp from the walk over",
     sceneImage: "academy/art/scenes/classroom-evening-wide.webp",
-    hook: "Angel has everyone's week on a spreadsheet already, and it's ten to six.",
+    hook: "Onke has everyone's week on a spreadsheet already, and it's ten to six.",
     cast: [
       "rie",
       "angel",
@@ -72357,12 +72976,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         assetId: "asset-l1-l09-listening",
         locator: "academy://audio/level-1/lesson-09-what-time-shall-we-meet",
         durationSeconds: 36,
-        voiceNotes: "Two speakers, slow and friendly. Angel is bright and organised; Henry a little apologetic about his work hours.",
+        voiceNotes: "Two speakers, slow and friendly. Onke is bright and organised; Henry a little apologetic about his work hours.",
         script: "アンジェル：ヘンリーさん、あした えいがに いきませんか。 ヘンリー：いいですね。なんじからですか。 アンジェル：ごご いちじからです。 ヘンリー：うーん、いちじは ちょっと…。しごとが にじまで あります。 アンジェル：じゃあ、さんじは どうですか。 ヘンリー：さんじは だいじょうぶです。えきで あいましょう。"
       },
       transcript: {
         revealAfterFirstAttempt: true,
-        body: "Angel: Henry, shall we go to a film tomorrow? — Henry: Sounds good. What time does it start? — Angel: From one in the afternoon. — Henry: Hmm, one is a bit… I have work until two. — Angel: Then how about three? — Henry: Three is fine. Let's meet at the station."
+        body: "Onke: Henry, shall we go to a film tomorrow? — Henry: Sounds good. What time does it start? — Onke: From one in the afternoon. — Henry: Hmm, one is a bit… I have work until two. — Onke: Then how about three? — Henry: Three is fine. Let's meet at the station."
       },
       audioWorksheetPairing: {
         pairedWith: "f780d0da9f7a622139ae4e6f5709bb5bbc6986c09d3275fa9248c3fbf8009893",
@@ -72374,10 +72993,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "choice",
           phase: "guided-practice",
           prompt: {
-            en: "What are Angel and Henry deciding?",
+            en: "What are Onke and Henry deciding?",
             ja: "アンジェルさんと ヘンリーさんは なにを きめていますか。"
           },
-          explanation: "Angel invites Henry to a film and they work out what time to meet.",
+          explanation: "Onke invites Henry to a film and they work out what time to meet.",
           reviewTag: "listening-gist",
           autoGraded: true,
           options: [
@@ -72457,7 +73076,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           wrongAnswerExplanations: [
             {
               trigger: "a",
-              message: "One was Angel's first idea, but Henry has work then (しごとが にじまで)."
+              message: "One was Onke's first idea, but Henry has work then (しごとが にじまで)."
             },
             {
               trigger: "b",
@@ -72702,7 +73321,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         reuse: "practice-shape",
         note: "Speaking task shaped like the chapter 4-2 ask-and-say-a-time exchange; content original."
       },
-      prompt: "In three or four sentences, tell the class about your day: what time you get up (〜じに おきます), from when to when you work or study (〜から〜まで), and what time you go to bed. Angel will ask you which day you're free.",
+      prompt: "In three or four sentences, tell the class about your day: what time you get up (〜じに おきます), from when to when you work or study (〜から〜まで), and what time you go to bed. Onke will ask you which day you're free.",
       targets: [
         "〜じ〜ふん",
         "〜から〜まで",
@@ -73192,7 +73811,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const mission$D = {
     title: "The free-day board",
     framedBy: "angel",
-    prompt: "Angel opens a shared board: everyone writes one line saying which day and time they're free next week (〜ようび, 〜じから〜じまで). Then find one classmate whose free time overlaps with yours and say あいましょう.",
+    prompt: "Onke opens a shared board: everyone writes one line saying which day and time they're free next week (〜ようび, 〜じから〜じまで). Then find one classmate whose free time overlaps with yours and say あいましょう.",
     successCriteria: [
       "You name a day with 〜ようび and a time with 〜じ.",
       "You give a span with 〜から〜まで.",
@@ -74811,7 +75430,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "JLPT band is a placement heuristic, not a score claim."
       }
     ],
-    castingNote: "Grammar picks the person: time and daily schedule belong to Angel, who keeps everyone's timetable, and Jodi, whose steady routine anchors the day. Shin carries the first number-kanji, and Henry owns a small oversleep lightly. This overrides the plan's recommended seed (francis, jenny, christian) toward the schedule-keepers.",
+    castingNote: "Grammar picks the person: time and daily schedule belong to Onke, who keeps everyone's timetable, and Jodi, whose steady routine anchors the day. Shin carries the first number-kanji, and Henry owns a small oversleep lightly. This overrides the plan's recommended seed (francis, jenny, christian) toward the schedule-keepers.",
     gaps: []
   };
   const runtimeReachability$b = {
@@ -75018,7 +75637,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$C = {
     where: "By the door, five minutes before class, everyone comparing their week",
     sceneImage: "academy/art/scenes/classroom-evening-wide.webp",
-    hook: "Angel has a planner open and one question for the whole room.",
+    hook: "Onke has a planner open and one question for the whole room.",
     cast: [
       "rie",
       "angel",
@@ -75962,12 +76581,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         assetId: "asset-l1-l10-listening",
         locator: "academy://audio/level-1/lesson-10-your-hours",
         durationSeconds: 34,
-        voiceNotes: "Two speakers, relaxed. Angel curious and quick; Jodi warm and even.",
+        voiceNotes: "Two speakers, relaxed. Onke curious and quick; Jodi warm and even.",
         script: "アンジェル：ジョディさん、しごとは なんじから なんじまでですか。 ジョディ：くじから ごじまでです。 アンジェル：おひるやすみは？ ジョディ：じゅうにじから いちじまでです。 アンジェル：にちようびは？ ジョディ：にちようびは やすみです。 アンジェル：いいですね。"
       },
       transcript: {
         revealAfterFirstAttempt: true,
-        body: "Angel: Jodi, what are your work hours — from when to when? — Jodi: From nine to five. — Angel: And your lunch break? — Jodi: From twelve to one. — Angel: What about Sundays? — Jodi: Sundays I'm off. — Angel: Nice."
+        body: "Onke: Jodi, what are your work hours — from when to when? — Jodi: From nine to five. — Onke: And your lunch break? — Jodi: From twelve to one. — Onke: What about Sundays? — Jodi: Sundays I'm off. — Onke: Nice."
       },
       audioWorksheetPairing: {
         pairedWith: "42ffa9e7bd729bc3a5df5a9de5481002f5f5c904fbe31ebf32de7fc36fe0ce39",
@@ -75982,7 +76601,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             en: "What are they talking about?",
             ja: "なんの はなしを していますか。"
           },
-          explanation: "Angel is asking Jodi about her hours — work, lunch, and days off.",
+          explanation: "Onke is asking Jodi about her hours — work, lunch, and days off.",
           reviewTag: "listening-gist",
           autoGraded: true,
           options: [
@@ -76835,7 +77454,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const mission$C = {
     title: "Everyone's timetable",
     framedBy: "angel",
-    prompt: "Angel wants the whole class's rhythm on one page. Say your day out loud — your get-up time, your work or study hours with から〜まで, and your bedtime — then ask two classmates for theirs and note them down.",
+    prompt: "Onke wants the whole class's rhythm on one page. Say your day out loud — your get-up time, your work or study hours with から〜まで, and your bedtime — then ask two classmates for theirs and note them down.",
     successCriteria: [
       "You give at least three times using 〜じ (and はん or 〜ふん if you can).",
       "You use 〜から〜まで for a stretch of the day.",
@@ -95316,7 +95935,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "The beginner scope is a published sequence reference; every scene, example, exercise and audio script here is original."
       }
     ],
-    castingNote: "Angel’s list and Jenny’s gentle, practical examples make a consolidation week feel useful rather than like a test. Henry asks the counter questions that everyone has had.",
+    castingNote: "Onke’s list and Jenny’s gentle, practical examples make a consolidation week feel useful rather than like a test. Henry asks the counter questions that everyone has had.",
     gaps: []
   };
   const runtimeReachability$5 = {
@@ -96986,7 +97605,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze({
       id: "sensei-commute-comparison-log",
-      narrative: { ja: "ピーターが、ストの日といつもの通勤を一つの答えに混ぜないよう、二行だけのノートを開きます。エンジェルは、数字を読む前に、どちらの日の行かを確認します。", en: "Peter opens a two-line notebook so strike-day and usual commutes do not collapse into one answer. Angel checks which day a line belongs to before reading its number." },
+      narrative: { ja: "ピーターが、ストの日といつもの通勤を一つの答えに混ぜないよう、二行だけのノートを開きます。エンジェルは、数字を読む前に、どちらの日の行かを確認します。", en: "Peter opens a two-line notebook so strike-day and usual commutes do not collapse into one answer. Onke checks which day a line belongs to before reading its number." },
       activity: Object.freeze(activity2)
     });
   }
@@ -100542,7 +101161,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-katakana-column-sort",
       narrative: {
         ja: "エンジェルが先生のカ行の札を、五つの母音の列の前に置きます。ソフィーは、聞こえた音を英語のつづりに急がず、表のどの列へ戻るかを確かめます。",
-        en: "Angel places Sensei’s ka-row tiles before five vowel columns. Sophie asks the learner not to rush to English spelling, but to check which chart column each heard sound returns to."
+        en: "Onke places Sensei’s ka-row tiles before five vowel columns. Sophie asks the learner not to rush to English spelling, but to check which chart column each heard sound returns to."
       },
       activity: Object.freeze(activity2)
     });
@@ -102462,7 +103081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-katakana-two-row-audio-route",
       narrative: {
         ja: "ミカが先生のサ行とタ行を二本の道に分け、エンジェルは聞こえた音がどちらの道の、どの母音の位置に帰るかを確かめます。ザ行とダ行は見本のままにします。",
-        en: "Mika lays Sensei’s sa and ta rows as two routes. Angel checks which route and vowel position each heard sound returns to, while leaving the za and da examples as examples."
+        en: "Mika lays Sensei’s sa and ta rows as two routes. Onke checks which route and vowel position each heard sound returns to, while leaving the za and da examples as examples."
       },
       activity: Object.freeze(activity2)
     });
@@ -115024,7 +115643,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-katakana-row-switchboard",
       narrative: {
         ja: "エンジェルが先生のナ行とハ行をスイッチボードに写し、ミカは聞こえた音ごとに行と母音を別々に合わせます。パ行とバ行は見本のままにします。",
-        en: "Angel copies Sensei’s na and ha rows onto a switchboard, while Mika sets the row and vowel separately for each heard sound. The pa and ba rows remain examples."
+        en: "Onke copies Sensei’s na and ha rows onto a switchboard, while Mika sets the row and vowel separately for each heard sound. The pa and ba rows remain examples."
       },
       activity: Object.freeze(activity2)
     });
@@ -117109,7 +117728,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-katakana-final-row-shelf",
       narrative: {
         ja: "ミカが先生の最後の四行を、形の数が変わる棚に写します。エンジェルは、聞こえた音を急いで五つの位置にそろえず、表にある棚だけへ戻します。",
-        en: "Mika copies Sensei’s final four rows onto shelves whose lengths change. Angel returns each heard sound only to a shelf on the chart, without forcing every row into five positions."
+        en: "Mika copies Sensei’s final four rows onto shelves whose lengths change. Onke returns each heard sound only to a shelf on the chart, without forcing every row into five positions."
       },
       activity: Object.freeze(activity2)
     });
@@ -137076,7 +137695,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "The removed classmate in the plan seed is not used. Sam and Robert lead practical offers and path decisions; Angel keeps directions exact, Henry supplies a harmless ticket-machine puzzle, and Rie separates automatic results from personal plans.",
+    castingNote: "The removed classmate in the plan seed is not used. Sam and Robert lead practical offers and path decisions; Onke keeps directions exact, Henry supplies a harmless ticket-machine puzzle, and Rie separates automatic results from personal plans.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l2plus-l09",
@@ -139937,7 +140556,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-toki-threshold",
       narrative: {
         ja: "ルパーナがメディア室から先生の二ページを送ると、エンジェルはアトラス管理デスクの駅ルートに「完了する前／完了した後」の境目を引きます。答えを伏せたまま、四つのことばを一つずつ通します。",
-        en: "Ruparna sends Sensei’s two pages from the media room. At the Atlas control desk, Angel draws a before/after threshold across the station route and keeps every completion covered while the four speech bubbles cross one by one."
+        en: "Ruparna sends Sensei’s two pages from the media room. At the Atlas control desk, Onke draws a before/after threshold across the station route and keeps every completion covered while the four speech bubbles cross one by one."
       },
       activity: Object.freeze(activity2)
     });
@@ -140093,7 +140712,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-minna-077-true-false",
       narrative: {
         ja: "「とき」の境目を確認したあと、エンジェルが前の Chapter 22 の説明節を Minna 077 で呼び戻します。五つの文と台本は、最初の聞き取りが終わるまで伏せます。",
-        en: "After checking the toki threshold, Angel retrieves the previous Chapter 22 describing clauses through Minna 077. All five statements and the transcript stay covered until the first listening attempt is complete."
+        en: "After checking the toki threshold, Onke retrieves the previous Chapter 22 describing clauses through Minna 077. All five statements and the transcript stay covered until the first listening attempt is complete."
       },
       activity: Object.freeze(activity2)
     });
@@ -140379,7 +140998,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "The removed classmate in the plan seed is not used. Angel owns contingency planning, Sophie voices uncertainty without being made the joke, Henry handles a small path change, and Rie turns both surprises into specific if/even-if language.",
+    castingNote: "The removed classmate in the plan seed is not used. Onke owns contingency planning, Sophie voices uncertainty without being made the joke, Henry handles a small path change, and Rie turns both surprises into specific if/even-if language.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l2plus-l10",
@@ -140803,7 +141422,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$g = {
     where: "A riverside map board where one footpath is covered by a temporary barrier",
     sceneImage: "academy/art/scenes/riverside-map-wide.webp",
-    hook: "Angel's path is perfect except for the part that is closed.",
+    hook: "Onke's path is perfect except for the part that is closed.",
     cast: [
       "rie",
       "angel",
@@ -140846,7 +141465,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         japanese: "いいですね。晴れても 雨でも、会える 計画に しましょう。",
         reading: "いいですね。はれても あめでも、あえる けいかくに しましょう。",
         english: "Good. Let's make a plan that works whether it is clear or rainy.",
-        note: "Angel chooses a robust plan rather than demanding certainty."
+        note: "Onke chooses a robust plan rather than demanding certainty."
       },
       {
         speakerId: "rie",
@@ -142835,7 +143454,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     narrativeIntroduction: {
       location: "A riverside map board where one footpath is covered by a temporary barrier",
       characterId: "angel",
-      beat: "Angel's path is perfect except for the part that is closed.",
+      beat: "Onke's path is perfect except for the part that is closed.",
       role: "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     activities: [
@@ -143131,7 +143750,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-occasion-route",
       narrative: {
         ja: "アトラス管理デスクの境目を通し終えると、エンジェルは先生の新しい Chapter 23-1 のページを駅コンコースのりえ先生へ渡します。りえ先生は四つの案内カードを、行動や状態が「ある／ない」の二つの路線に並べます。",
-        en: "After the last threshold clears the Atlas control desk, Angel carries Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie lays four notice cards across two routes: an action or state that is present, and one that is absent."
+        en: "After the last threshold clears the Atlas control desk, Onke carries Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie lays four notice cards across two routes: an action or state that is present, and one that is absent."
       },
       activity: Object.freeze(activity2)
     });
@@ -147102,7 +147721,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "Grammar picks the person: Robert makes the invitation, Sophie gives a careful refusal, and Angel turns several reasons into a clear decision.",
+    castingNote: "Grammar picks the person: Robert makes the invitation, Sophie gives a careful refusal, and Onke turns several reasons into a clear decision.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l3-2-l02",
@@ -149020,7 +149639,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       passage: {
         title: {
-          en: "Angel's comparison",
+          en: "Onke's comparison",
           ja: "エンジェルの 比較"
         },
         gloss: "A short decision note that weighs three places.",
@@ -155860,7 +156479,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "Grammar picks the person: Angel leads the preparation check, Jodi notices the purpose behind each arrangement, and Christian gives a concise handover.",
+    castingNote: "Grammar picks the person: Onke leads the preparation check, Jodi notices the purpose behind each arrangement, and Christian gives a concise handover.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l3-2-l05",
@@ -156265,7 +156884,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$b = {
     where: "A community room set for a small exhibition",
     sceneImage: "academy/art/scenes/classroom-evening-wide.webp",
-    hook: "Angel checks the room without moving a single thing.",
+    hook: "Onke checks the room without moving a single thing.",
     cast: [
       "rie",
       "angel",
@@ -156308,7 +156927,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         japanese: "では、準備は できています。チェックを つけます。",
         reading: "では、じゅんびは できて います。チェックを つけます。",
         english: "Then the preparations are complete. I will tick the check.",
-        note: "Angel closes the checklist."
+        note: "Onke closes the checklist."
       },
       {
         speakerId: "rie",
@@ -156761,7 +157380,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       },
       passage: {
         title: {
-          en: "Angel's handover",
+          en: "Onke's handover",
           ja: "エンジェルの 引き継ぎ"
         },
         gloss: "A written room plan that another learner can reconstruct.",
@@ -157539,7 +158158,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     narrativeIntroduction: {
       location: "A community room set for a small exhibition",
       characterId: "angel",
-      beat: "Angel checks the room without moving a single thing.",
+      beat: "Onke checks the room without moving a single thing.",
       role: "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     activities: [
@@ -157930,7 +158549,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-prepared-state-audit",
       narrative: {
         ja: "完了と残念な出来事を分けたあと、エンジェルは先生の次の準備表を開きます。クリスチャンと、ただ残っている状態と、だれかが使いやすいように準備して残した状態を見分けます。",
-        en: "After separating completion from regret, Angel opens Sensei’s next preparation sheet. With Christian, she distinguishes what merely remains from what someone deliberately prepared and left ready for use."
+        en: "After separating completion from regret, Onke opens Sensei’s next preparation sheet. With Christian, she distinguishes what merely remains from what someone deliberately prepared and left ready for use."
       },
       activity: Object.freeze(activity2)
     });
@@ -158283,7 +158902,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "Grammar picks the person: Angel leads the checklist even though she is outside the plan's seed, Jodi preserves useful arrangements, and Tom brings a trip with one uncharged phone.",
+    castingNote: "Grammar picks the person: Onke leads the checklist even though she is outside the plan's seed, Jodi preserves useful arrangements, and Tom brings a trip with one uncharged phone.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l3-2-l06",
@@ -158829,7 +159448,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const scene$a = {
     where: "A hallway with two packed bags and a bus map",
     sceneImage: "academy/art/scenes/classroom-evening-wide.webp",
-    hook: "Angel's list is complete; Tom's phone disagrees.",
+    hook: "Onke's list is complete; Tom's phone disagrees.",
     cast: [
       "rie",
       "angel",
@@ -160757,7 +161376,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     narrativeIntroduction: {
       location: "A hallway with two packed bags and a bus map",
       characterId: "angel",
-      beat: "Angel's list is complete; Tom's phone disagrees.",
+      beat: "Onke's list is complete; Tom's phone disagrees.",
       role: "A location and character introduce why the canonical item matters; they do not rewrite it."
     },
     activities: [
@@ -161138,7 +161757,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-advance-preparation",
       narrative: {
         ja: "教室を使える状態にしたあと、エンジェルは帰国前の旅行準備を始めます。クリスチャンとヘンリーは、先生の語彙表を見ながら、旅の前にすること、使ったあとに戻すこと、今のまま残すことを一緒に整理します。",
-        en: "With the classroom left ready, Angel begins preparing for her journey home. Christian and Henry use Sensei’s vocabulary sheet to sort what must be done before the trip, reset after use, or deliberately left as it is."
+        en: "With the classroom left ready, Onke begins preparing for her journey home. Christian and Henry use Sensei’s vocabulary sheet to sort what must be done before the trip, reset after use, or deliberately left as it is."
       },
       activity: Object.freeze(activity2)
     });
@@ -163555,7 +164174,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-message-handoff",
       narrative: {
         ja: "エンジェルの帰国準備を手伝っていると、教室の明かりが一度消えます。ジョディは非常袋のそばで伝言メモを書き、クリスチャンは必要な物だけを声に出して確認します。ルパーナは、全部を言わなくても行動が伝わるか見守ります。",
-        en: "While the class helps Angel prepare to return home, the classroom lights flicker out. Jodi writes a memo beside the emergency bag, Christian repeats only the supplies and action he needs, and Ruparna checks that the message works without listing everything."
+        en: "While the class helps Onke prepare to return home, the classroom lights flicker out. Jodi writes a memo beside the emergency bag, Christian repeats only the supplies and action he needs, and Ruparna checks that the message works without listing everything."
       },
       activity: Object.freeze(activity2)
     });
@@ -163795,7 +164414,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "Grammar picks the person: Sam proposes an active plan, Robert turns suggestions into a group choice, and Angel names a sustained intention.",
+    castingNote: "Grammar picks the person: Sam proposes an active plan, Robert turns suggestions into a group choice, and Onke names a sustained intention.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l3-2-prestudy-volitional",
@@ -164101,7 +164720,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           {
             ja: "エンジェル：旅行のために 少しずつ 貯金しようと 思っています。",
             reading: "エンジェル：りょこうの ために すこしずつ ちょきんしようと おもって います。",
-            en: "Angel: I intend to save a little at a time for a trip."
+            en: "Onke: I intend to save a little at a time for a trip."
           },
           {
             ja: "ロバート：みんなで 一つ、新しいことに 挑戦しよう。",
@@ -168150,7 +168769,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         note: "Teacher wording, task order, examples, diagrams, and paired media are canonical whenever an item-level projection is available. Answers remain gated until an attempt."
       }
     ],
-    castingNote: "Grammar picks the person: Henry explains a failed printing plan without hiding the cause, Angel keeps the shared arrangement clear, and Christian models a factual repair statement.",
+    castingNote: "Grammar picks the person: Henry explains a failed printing plan without hiding the cause, Onke keeps the shared arrangement clear, and Christian models a factual repair statement.",
     gaps: [],
     donorPackage: {
       canonicalWeekId: "l3-2-l09",
@@ -168877,7 +169496,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           {
             ja: "エンジェルが みんなに 変更を 伝えるつもりです。",
             reading: "エンジェルが みんなに へんこうを つたえる つもりです。",
-            en: "Angel intends to tell everyone about the change."
+            en: "Onke intends to tell everyone about the change."
           }
         ]
       },
@@ -169243,7 +169862,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           {
             ja: "エンジェルが 変更を みんなに 伝えるつもりです。",
             reading: "エンジェルが へんこうを みんなに つたえる つもりです。",
-            en: "Angel intends to tell everyone about the change."
+            en: "Onke intends to tell everyone about the change."
           }
         ]
       },
@@ -169296,7 +169915,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             en: "Who communicates the change?",
             ja: "だれが 変更を 伝えますか。"
           },
-          explanation: "Angel says わたしがみんなに変更を伝えます.",
+          explanation: "Onke says わたしがみんなに変更を伝えます.",
           reviewTag: "reading-detail",
           autoGraded: true,
           options: [
@@ -169304,7 +169923,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
               id: "a",
               label: {
                 ja: "エンジェル",
-                en: "Angel"
+                en: "Onke"
               },
               correct: true
             },
@@ -169320,7 +169939,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           wrongAnswerExplanations: [
             {
               trigger: "b",
-              message: "Henry offers the map file in the listening. In this reading, Angel takes responsibility for the change message."
+              message: "Henry offers the map file in the listening. In this reading, Onke takes responsibility for the change message."
             }
           ],
           provenance: {
@@ -170617,7 +171236,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "sensei-plan-change-repair",
       narrative: {
         ja: "ヘンリーは予定表を開き、エンジェルはまだ自分で決めていることと、もう決まっていることを別々に書きます。クリスチャンは「実は」と言って理由を加え、二人の計画が同じ形にならないことを確かめます。",
-        en: "Henry opens the plan board while Angel writes down what she has personally decided and what is already arranged in separate columns. Christian adds a reason with 実は, and the group checks that the two kinds of plan do not collapse into the same form."
+        en: "Henry opens the plan board while Onke writes down what she has personally decided and what is already arranged in separate columns. Christian adds a reason with 実は, and the group checks that the two kinds of plan do not collapse into the same form."
       },
       activity: Object.freeze(activity2)
     });
@@ -174538,7 +175157,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "conditional-workshop",
       narrative: {
         ja: "リエ先生が条件形の二枚とことわざ、練習原本を開き、エンジェルが前提と結果のカードを左右に分けます。作り方を確認してから、原文の形を戻します。",
-        en: "Rie opens the two conditional-form pages, the proverb page, and the exercise originals while Angel separates preconditions from results. After the formation rules are clear, the class restores the source forms."
+        en: "Rie opens the two conditional-form pages, the proverb page, and the exercise originals while Onke separates preconditions from results. After the formation rules are clear, the class restores the source forms."
       },
       activity: Object.freeze(activity2)
     });
@@ -176319,7 +176938,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: "adjective-noun-conditionals",
       narrative: {
         ja: "ルパーナが先生の Chapter 35-2 の四枚を開き、エンジェルが語彙、い形容詞、な形容詞、名詞の欄を作ります。原本と作り方を確認してから、八つの条件を戻します。",
-        en: "Ruparna opens Sensei’s four Chapter 35-2 pages while Angel sorts vocabulary, i-adjectives, na-adjectives, and nouns. Once the source forms are clear, the class restores eight conditions."
+        en: "Ruparna opens Sensei’s four Chapter 35-2 pages while Onke sorts vocabulary, i-adjectives, na-adjectives, and nouns. Once the source forms are clear, the class restores eight conditions."
       },
       activity: Object.freeze(activity2)
     });
@@ -183466,8 +184085,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         id: "atlas-control-desk",
         label: "Atlas control desk"
       },
-      storyBeat: "Angel connects the routes to a fictional tool. It follows an imprecise instruction literally and erases every visible path.",
-      emotionalTurn: "Angel expects blame, but the group separates a failed tool from its builder and finds the routes survive in teach-back.",
+      storyBeat: "Onke connects the routes to a fictional tool. It follows an imprecise instruction literally and erases every visible path.",
+      emotionalTurn: "Onke expects blame, but the group separates a failed tool from its builder and finds the routes survive in teach-back.",
       comedyBeat: "The help panel proudly says it reduced clutter by displaying nothing.",
       curriculumHooks: [
         "technology",
@@ -187388,7 +188007,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Mika’s careful listening leaves both the long vowel and small っ clear in the lantern rings. One written 一 returns the first time card to the map."
         }, [createLessonEightTimeWorkbookBeat(), soundBeat(), kanjiOneBeat(trace), classActivityBeat("free-time-board", {
           ja: "音の輪が静かになると、入口の時間表にジョディの予定のコマが光ります。エンジェルも時計を確認し、一人ずつ空き時間を置きます。",
-          en: "As the sound rings settle, Jodi’s schedule token lights up on the doorway board. Angel checks the clock while everyone adds their availability in turn."
+          en: "As the sound rings settle, Jodi’s schedule token lights up on the doorway board. Onke checks the clock while everyone adds their availability in turn."
         }, "l1-l08")]);
       }
       case "l1-l09":
@@ -187518,7 +188137,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "A two-line commute notebook"
         }, {
           ja: "ピーターがストの日といつもの通勤を二行のノートに分けます。エンジェルは、数字を急いで選ぶ前に、その行がどちらの日なのか確かめます。",
-          en: "Peter separates the strike-day and usual commutes into a two-line notebook. Before choosing numbers, Angel checks which day each line describes."
+          en: "Peter separates the strike-day and usual commutes into a two-line notebook. Before choosing numbers, Onke checks which day each line describes."
         }, {
           ja: "三つの通勤メモで、交通手段と時間をそれぞれの日に戻せました。ピーターは、回数か時間かを聞く質問が、実際の移動を話すときにも役立つと確かめます。",
           en: "The three commute notes now return each transport and duration to its day. Peter sees that asking whether a number is frequency or duration also helps when talking about a real journey."
@@ -187540,10 +188159,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Ka-row vowel columns"
         }, {
           ja: "カタカナの母音の行を確認したあと、エンジェルがカ行の五つの札を五つの列の前に置きます。ソフィーは、英語のつづりに急がず、聞いた音がどの母音の列へ戻るかを確かめます。",
-          en: "After the vowel row is checked, Angel places five ka-row tiles before five columns. Sophie asks the learner not to rush to English spelling, but to check which vowel column each heard sound returns to."
+          en: "After the vowel row is checked, Onke places five ka-row tiles before five columns. Sophie asks the learner not to rush to English spelling, but to check which vowel column each heard sound returns to."
         }, {
           ja: "五つのカ行の札が、先生の表と同じ母音の列に戻りました。エンジェルとソフィーは、ガ行を先取りせず、カ行だけを確かめた形で次の書く練習へ渡します。",
-          en: "All five ka-row tiles now return to the same vowel columns as Sensei’s chart. Without jumping ahead to the ga row, Angel and Sophie pass on a checked ka row for the next writing practice."
+          en: "All five ka-row tiles now return to the same vowel columns as Sensei’s chart. Without jumping ahead to the ga row, Onke and Sophie pass on a checked ka row for the next writing practice."
         }, [createLessonTwentyThreeKatakanaColumnSortBeat()]);
       case "l1-l24":
         return chapter("l1-l24", "s1e05-final-boss-kana", "mika", {
@@ -187551,7 +188170,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "A sound route through the sa and ta rows"
         }, {
           ja: "二つの新しいカタカナ行を前に、ミカが先生の表を二本の道に分けます。エンジェルは、音を聞いてから行と母音の位置を一つずつ指します。",
-          en: "With two new katakana rows open, Mika separates Sensei’s chart into two routes. Angel points to one row and vowel position at a time after listening."
+          en: "With two new katakana rows open, Mika separates Sensei’s chart into two routes. Onke points to one row and vowel position at a time after listening."
         }, {
           ja: "十の音が二本の道に戻り、サ行とタ行の対比を確かめられました。見本の濁音は、次の練習に持ち込まず、表に残します。",
           en: "All ten sounds return to the two routes, confirming the sa/ta contrast. The voiced examples remain on the chart rather than being pulled into the next practice."
@@ -187562,10 +188181,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "The na and ha row switchboard"
         }, {
           ja: "先生の新しい二行を前に、エンジェルがスイッチボードを開きます。ミカは音を聞いてから、行のスイッチと母音のダイヤルを別々に合わせます。",
-          en: "With Sensei’s two new rows open, Angel brings up a switchboard. Mika listens first, then sets the row switch and vowel dial separately."
+          en: "With Sensei’s two new rows open, Onke brings up a switchboard. Mika listens first, then sets the row switch and vowel dial separately."
         }, {
           ja: "十の音をナ行とハ行の設定へ戻せました。エンジェルとミカは、パ行とバ行の見本をまだ表に残します。",
-          en: "All ten sounds return to their na/ha settings. Angel and Mika leave the pa and ba examples on the chart for now."
+          en: "All ten sounds return to their na/ha settings. Onke and Mika leave the pa and ba examples on the chart for now."
         }, [createLessonTwentyFiveKatakanaRowSwitchboardBeat()]);
       case "l1-l26":
         return chapter("l1-l26", "s1e05-final-boss-kana", "mika", {
@@ -187573,7 +188192,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Shelves for the final four rows"
         }, {
           ja: "先生の最後の四行を前に、ミカが長さの違う棚を開きます。エンジェルは、聞こえた音を急いで五つの位置にそろえず、表にある場所だけを選びます。",
-          en: "With Sensei’s final four rows open, Mika lays out shelves of different lengths. Angel does not force each heard sound into five positions, but chooses only a place visible on the chart."
+          en: "With Sensei’s final four rows open, Mika lays out shelves of different lengths. Onke does not force each heard sound into five positions, but chooses only a place visible on the chart."
         }, {
           ja: "十六の音が、マ行・ヤ行・ラ行・ワ行にある正しい棚へ戻りました。短い行の空いている場所を作らずに、最後のカタカナ表を確かめられました。",
           en: "All sixteen sounds return to their correct ma, ya, ra, and wa shelves. The final katakana chart is checked without inventing empty positions in its shorter rows."
@@ -187895,7 +188514,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "The toki threshold"
         }, {
           ja: "メディア室の信号を片づけると、ルパーナが先生の Chapter 23-1 の二ページをエンジェルへ送ります。アトラス管理デスクでは、駅ルートの一つ一つの行動に「完了する前」と「完了した後」の境目が必要です。",
-          en: "As the media-room signals settle, Ruparna sends Sensei’s two Chapter 23-1 pages to Angel. At the Atlas control desk, each action on the station route needs a clear threshold: before completion or after it."
+          en: "As the media-room signals settle, Ruparna sends Sensei’s two Chapter 23-1 pages to Onke. At the Atlas control desk, each action on the station route needs a clear threshold: before completion or after it."
         }, {
           ja: "四つのことばが正しい境目を通り、駅ルートは辞書形とた形の時点を見分けられる案内になりました。先生の説明へ戻る道と、四つを最初からやり直す道も残っています。",
           en: "All four speech bubbles cross the right threshold, leaving a station route that distinguishes dictionary-form timing from ta-form timing. A return to Sensei’s teaching and a fresh replay of all four remain open."
@@ -187906,7 +188525,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "The toki occasion routes"
         }, {
           ja: "アトラス管理デスクの境目を通し終えると、エンジェルが先生の新しい Chapter 23-1 のページを駅コンコースのりえ先生へ届けます。りえ先生は四つの案内カードを、行動や状態が「ある／ない」の二つの路線へ置きます。",
-          en: "After the last threshold clears the Atlas control desk, Angel delivers Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie places four notice cards across two routes: an action or state that is present, and one that is absent."
+          en: "After the last threshold clears the Atlas control desk, Onke delivers Sensei’s new Chapter 23-1 page to Rie at the station concourse. Rie places four notice cards across two routes: an action or state that is present, and one that is absent."
         }, {
           ja: "四つの元の二文が、辞書形とない形の正しい「とき」ルートで一文になりました。先生の説明へ戻る道と、四つを最初からやり直す路線も残っています。",
           en: "All four source pairs now form one sentence through the correct dictionary-form or nai-form toki route. A return to Sensei’s teaching and a fresh replay of all four routes remain open."
@@ -187979,7 +188598,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Do it now, thank yourself later"
         }, {
           ja: "教室の準備表を閉じると、エンジェルが帰国前の予定を持ってきます。クリスチャンとヘンリーは先生の Chapter 30-2 と語彙表を広げ、旅の前、使ったあと、今の状態を保つために何をしておくかを整理します。",
-          en: "When the classroom preparation sheet closes, Angel arrives with her plans before returning home. Christian and Henry open Sensei’s Chapter 30-2 and vocabulary sheet to decide what to do before the journey, after using something, or to preserve its current state."
+          en: "When the classroom preparation sheet closes, Onke arrives with her plans before returning home. Christian and Henry open Sensei’s Chapter 30-2 and vocabulary sheet to decide what to do before the journey, after using something, or to preserve its current state."
         }, {
           ja: "八つの原問が、期限までの準備、次に使うための片付け、そのままにする意図を保つ文になりました。先生の説明へ戻る道と、八つを最初からやり直す道も残っています。",
           en: "All eight source prompts now preserve preparation by a deadline, resetting for next use, and the intention to leave a state unchanged. A return to Sensei’s teaching and a fresh replay of all eight prompts remain available."
@@ -187990,7 +188609,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "Say enough, not everything"
         }, {
           ja: "エンジェルの帰国準備を手伝っていると、教室の明かりが一度消えます。ジョディは先生の Chapter 30-3 語彙表と伝言メモを非常袋の横に広げ、クリスチャンと必要な例だけを残す練習を始めます。",
-          en: "While the class helps Angel prepare to return home, the classroom lights flicker out. Jodi opens Sensei’s Chapter 30-3 vocabulary and message memos beside the emergency bag, then practises leaving Christian only the examples and instruction he needs."
+          en: "While the class helps Onke prepare to return home, the classroom lights flicker out. Jodi opens Sensei’s Chapter 30-3 vocabulary and message memos beside the emergency bag, then practises leaving Christian only the examples and instruction he needs."
         }, {
           ja: "八つの原問で、一般的な「とか」の例、特定の出来事、伝言の大切な行動を区別できました。先生の原本、段階ヒント、間違えた問だけの修復、最初からの再挑戦はいつでも戻れます。",
           en: "Across eight source prompts, you separated general とか examples, specific events, and the actionable part of a message. Sensei’s originals, earned hints, missed-item repair, and a full replay remain available."
@@ -188001,7 +188620,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "One verb, then a plan"
         }, {
           ja: "非常袋のメモを閉じると、ルパーナが Chapter 31 の原本と動詞の表をメディア室の机に置きます。サムは一つの小さな計画を言い、ロバートとエンジェルは、その形がどの動詞の組に入るかを確かめます。",
-          en: "When the emergency-bag notes close, Ruparna lays Sensei’s Chapter 31 originals and verb-form sheet on the media-room table. Sam offers one small plan while Robert and Angel check which verb group gives it its shape."
+          en: "When the emergency-bag notes close, Ruparna lays Sensei’s Chapter 31 originals and verb-form sheet on the media-room table. Sam offers one small plan while Robert and Onke check which verb group gives it its shape."
         }, {
           ja: "八つの原問で、五段・一段・不規則動詞の意向形を作れました。先生の原本、間違えた問だけの修復、三段階のヒント、最初からの再挑戦はいつでも戻れます。",
           en: "Across eight source prompts, the volitional forms for godan, ichidan, and irregular verbs are now in place. Sensei’s originals, missed-item repair, three earned hints, and a full replay remain available."
@@ -188023,7 +188642,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           en: "What you decided, what is arranged"
         }, {
           ja: "ヘンリーは先生の Chapter 31-2 の語彙表を開き、エンジェルと二つの欄を作ります。一つは自分で決めたこと、もう一つはすでに予定になっていることです。クリスチャンは「実は」と理由を加え、形が変わるところを確かめます。",
-          en: "Henry opens Sensei’s Chapter 31-2 vocabulary sheet and builds two columns with Angel: things she has decided herself and things that are already arranged. Christian adds a reason with 実は and checks where the form changes."
+          en: "Henry opens Sensei’s Chapter 31-2 vocabulary sheet and builds two columns with Onke: things she has decided herself and things that are already arranged. Christian adds a reason with 実は and checks where the form changes."
         }, {
           ja: "八つの原問で、つもり、予定、近い未来、確信のつもりを区別できました。先生の原本、三段階のヒント、間違えた問だけの修復、最初からの再挑戦はいつでも戻れます。",
           en: "Across eight source prompts, you separated つもり, 予定, immediate future, and the conviction meaning of つもり. Sensei’s originals, three earned hints, missed-item repair, and a full replay remain available."
@@ -188670,9 +189289,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "stasi",
       supportingIds: ["mika"],
       location: place("library-atlas-table", "Library Atlas table", "図書館の地図帳テーブル"),
-      setup: line("The orientation invitation arrives as a pair of name cards; Stasi keeps the first exchange small and Mika waits for the answer before the card is filed.", "オリエンテーションの誘いは二枚の名札になります。スタシさんは最初のやり取りを小さく保ち、ミカさんは答えを待ってから名札をしまいます。"),
-      handoff: line("Two names now have room for one ordinary detail, so profile cards can stay attached to people rather than become a quiz pile.", "二つの名前に一つの日常の情報を足せるようになり、プロフィール札は問題の山ではなく、人につながったままになります。"),
-      nPlusOne: step("answer a supported greeting", "ask and answer a name question"),
+      setup: line("The orientation invitation arrives as two response cards. Stasi keeps the exchange to one heard prompt at a time, and Mika files a card only after its exact answer is checked.", "オリエンテーションの誘いは二枚の返事の札になります。スタシさんは一度に一つの聞こえた問いだけを扱い、ミカさんは正確な答えを確かめてから札をしまいます。"),
+      handoff: line("A returned greeting and one answered name prompt give the next profile card a reliable person to stay attached to.", "あいさつを返し、名前の問いに一つ答えると、次のプロフィール札を確かな人につなげたままにできます。"),
+      nPlusOne: step("answer one bounded greeting cue", "answer one name prompt", {
+        packageId: "lesson:foundation-00",
+        activityId: "activity:lesson-zero-greet-rie",
+        fallbackSetup: line("The first response card is still open. Stasi keeps the prompt visible, and Mika waits while the greeting cue is checked before any name card is filed.", "最初の返事の札はまだ開いたままです。スタシさんは問いを見えるままにし、ミカさんはあいさつの合図を確かめてから名札をしまいます。")
+      }),
       callback: callback("callback:blank-atlas-route", "echo", "A name card earns its place only after its answer is heard.", "名札は、答えを聞いてから初めて場所を持ちます。", "A name can be checked again before the next card is added.", "次の札を足す前に、名前をもう一度確かめられます。"),
       completesThread: false
     }),
@@ -188684,7 +189307,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       location: place("library-profile-table", "Library profile table", "図書館のプロフィールテーブル"),
       setup: line("Jenny uses the already-filed name cards as headings for four profile cards, while Mika keeps each detail attached to the card it came from.", "ジェニーさんは、しまった名札を四枚のプロフィール札の見出しにします。ミカさんは、それぞれの情報を元の札につけたままにします。"),
       handoff: line("One identified profile leaves a reason to ask a specific question instead of guessing from the card.", "一人のプロフィールが分かると、札から推測せず、具体的な質問をする理由が残ります。"),
-      nPlusOne: step("recognise a name in an exchange", "identify one profile detail"),
+      nPlusOne: step("answer one name prompt", "identify one profile detail"),
       callback: callback("callback:blank-atlas-route", "echo", "A profile detail stays with the named person instead of becoming a loose fact.", "プロフィールの情報は、ばらばらの事実ではなく、名前のある人につながったままです。", "The next question can check one detail directly.", "次の質問では、一つの情報を直接確かめられます。"),
       completesThread: false
     }),
@@ -188766,7 +189389,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "angel",
       supportingIds: ["sam"],
       location: place("game-club-weekly-board", "Game-club weekly board", "ゲーム部の週間ボード"),
-      setup: line("Angel brings the time card to a weekly board and Sam asks for one day at a time, leaving the rest of the board available to change.", "エンジェルさんは時刻の札を週間ボードに持っていき、サムさんは一度に一つの曜日を聞きます。残りのボードは変えられるままにします。"),
+      setup: line("Onke brings the time card to a weekly board and Sam asks for one day at a time, leaving the rest of the board available to change.", "エンジェルさんは時刻の札を週間ボードに持っていき、サムさんは一度に一つの曜日を聞きます。残りのボードは変えられるままにします。"),
       handoff: line("A chosen day can be tested against an ordinary routine before it is offered as a plan.", "選んだ曜日は、計画として出す前に、ふだんの一日と照らして確かめられます。"),
       nPlusOne: step("state one time", "choose one day in a weekly plan"),
       callback: callback("callback:shared-plan", "transform", "The board changes from a list of possibilities into a revisable proposal with one time and one day.", "ボードは可能性の一覧から、時刻と曜日が一つずつある、直せる提案に変わります。", "The proposal can be checked against a normal day before it is offered.", "提案は、出す前にふだんの一日と照らして確かめられます。"),
@@ -188895,10 +189518,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     entry({
       packageId: "l1-l20",
       classWeekId: "l1plus-l10",
-      hostId: "jodi",
-      supportingIds: ["peter"],
+      hostId: "tom2",
+      supportingIds: ["jodi"],
       location: place("academy-cafe-window-schedule", "Cafe window schedule cards", "カフェの窓辺の予定札"),
-      setup: line("Jodi carries only the time-bound invitation to the window cards. Peter asks what is being counted before anyone compares a week, month, or year.", "ジョディさんは時間を区切った誘いだけを窓辺の札に持っていきます。ピーターさんは、一週間、一か月、一年を比べる前に、何を数えているか聞きます。"),
+      setup: line("Tom quietly sorts the window cards by week, month, and year. Jodi catches the missing question: what exactly are they counting before they compare them?", "トムさんは窓辺の札を、一週間、一か月、一年に静かに分けます。ジョディさんは、比べる前に「何を数えていますか」という足りない質問に気づきます。"),
       handoff: line("The first twenty lessons end on a reusable checking habit, not on an off-screen gathering or a new plot promise.", "最初の二十課は、画面の外で集まったことや新しい物語の約束ではなく、繰り返し使える確認の習慣で終わります。"),
       nPlusOne: step("separate frequency from duration", "compare one count across a period"),
       callback: callback("callback:l1plus-frequency-lens", "seed", "A count is useful only when its unit is named before it is compared.", "数は、比べる前に何を数えるかを言って初めて役に立ちます。", "The lens can be reused without creating a new commitment or plot event.", "この見方は、新しい約束や物語の出来事を作らずに繰り返し使えます。"),
@@ -188910,7 +189533,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "peter",
       supportingIds: ["angel"],
       location: place("academy-commute-notebook", "Academy commute notebook", "アカデミーの通勤ノート"),
-      setup: line("Peter reopens Jodi’s question in a practical commute notebook, while Angel keeps the strike day and the usual day in separate rows.", "ピーターさんはジョディさんの質問を通勤ノートで確かめます。エンジェルさんは、ストの日といつもの日を別々の行に残します。"),
+      setup: line("Peter reopens Jodi’s question in a practical commute notebook, while Onke keeps the strike day and the usual day in separate rows.", "ピーターさんはジョディさんの質問を通勤ノートで確かめます。エンジェルさんは、ストの日といつもの日を別々の行に残します。"),
       handoff: line("The notebook closes with a comparison that keeps an unusual journey and an ordinary routine distinct, without turning either into a promise.", "ノートは、特別な移動とふだんの予定を、どちらも約束にせず別々に残す比べ方で終わります。"),
       nPlusOne: step("separate frequency from duration", "compare a disrupted journey with the usual journey"),
       callback: callback("callback:l1plus-frequency-lens", "payoff", "Once the number’s job is clear, a comparison can preserve both an unusual day and an ordinary routine.", "数字が何を表すか分かると、特別な日といつもの予定をどちらも正しく比べられます。", "A two-line note keeps a changed journey and the usual journey clear.", "二行のメモにすると、変わった移動といつもの移動が分かりやすくなります。"),
@@ -188934,7 +189557,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "angel",
       supportingIds: ["sophie"],
       location: place("academy-katakana-columns", "Academy katakana column table", "アカデミーのカタカナ列テーブル"),
-      setup: line("Angel carries the checked vowel row to a five-column table, while Sophie keeps the ka-row tiles separate from the visible ga-row examples.", "エンジェルさんは、確認した母音の行を五つの列のテーブルへ運びます。ソフィーさんは、カ行の札を、見本にあるガ行とは別にします。"),
+      setup: line("Onke carries the checked vowel row to a five-column table, while Sophie keeps the ka-row tiles separate from the visible ga-row examples.", "エンジェルさんは、確認した母音の行を五つの列のテーブルへ運びます。ソフィーさんは、カ行の札を、見本にあるガ行とは別にします。"),
       handoff: line("Each ka-row tile returns to its vowel column, leaving a small checked writing row rather than a claim that the voiced row has already been learned.", "カ行の札は、それぞれの母音の列に戻ります。ガ行まで学んだという主張ではなく、小さく確認した書く行が残ります。"),
       nPlusOne: step("match the five katakana vowel sounds to their shapes", "sort the ka row by its vowel columns"),
       callback: callback("callback:l1plus-katakana-start", "payoff", "A second row reuses the vowel-column map without making a larger chart feel finished.", "二つ目の行は、表全体が終わったようにせず、母音の列の見方を使います。", "The learner can carry one checked row into writing practice before adding another contrast.", "次の対比を足す前に、確認した一行を、書く練習へ持っていけます。"),
@@ -188946,7 +189569,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "mika",
       supportingIds: ["angel"],
       location: place("academy-katakana-two-row-route", "Academy two-row katakana route", "アカデミーの二行カタカナの道"),
-      setup: line("Mika opens Sensei’s sa and ta rows as two routes, while Angel keeps the voiced examples on the worksheet and asks only which row and vowel position a heard sound returns to.", "ミカさんは先生のサ行とタ行を二本の道として開きます。エンジェルさんは濁音の見本をワークシートに残し、聞こえた音がどの行と母音の位置に戻るかだけを聞きます。"),
+      setup: line("Mika opens Sensei’s sa and ta rows as two routes, while Onke keeps the voiced examples on the worksheet and asks only which row and vowel position a heard sound returns to.", "ミカさんは先生のサ行とタ行を二本の道として開きます。エンジェルさんは濁音の見本をワークシートに残し、聞こえた音がどの行と母音の位置に戻るかだけを聞きます。"),
       handoff: line("The two-row route ends with ten checked positions, not a claim that the visible za and da rows have been learned.", "二行の道は確認した十の位置で終わります。見えているザ行とダ行まで学んだという主張にはしません。"),
       nPlusOne: step("sort one row by vowel columns", "locate one heard sound by both row and vowel coordinate"),
       callback: callback("callback:l1plus-katakana-two-row", "seed", "A vowel column becomes a usable coordinate only after its consonant row is named as well.", "母音の列は、子音の行も言って初めて使える位置になります。", "Two rows can be checked without treating their visible voiced companions as complete.", "二つの行は、見えている濁音まで終えたことにせずに確認できます。"),
@@ -188958,7 +189581,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "angel",
       supportingIds: ["mika"],
       location: place("academy-katakana-switchboard", "Academy katakana switchboard", "アカデミーのカタカナスイッチボード"),
-      setup: line("Angel opens Sensei’s na and ha rows on a switchboard, while Mika keeps the visible pa and ba examples on the worksheet and asks the learner to set the row and vowel separately for every heard sound.", "エンジェルさんは先生のナ行とハ行をスイッチボードで開きます。ミカさんは、見えているパ行とバ行の見本をワークシートに残し、聞こえた音ごとに行と母音を別々に合わせるように聞きます。"),
+      setup: line("Onke opens Sensei’s na and ha rows on a switchboard, while Mika keeps the visible pa and ba examples on the worksheet and asks the learner to set the row and vowel separately for every heard sound.", "エンジェルさんは先生のナ行とハ行をスイッチボードで開きます。ミカさんは、見えているパ行とバ行の見本をワークシートに残し、聞こえた音ごとに行と母音を別々に合わせるように聞きます。"),
       handoff: line("The switchboard ends with ten checked na/ha settings, without claiming that the visible pa and ba rows have been learned.", "スイッチボードは確認した十のナ行・ハ行の設定で終わります。見えているパ行とバ行まで学んだという主張にはしません。"),
       nPlusOne: step("locate one heard sound by both row and vowel coordinate", "set the row and vowel independently for a new pair of katakana rows"),
       callback: callback("callback:l1plus-katakana-two-row", "payoff", "Two controls can preserve a careful contrast: row identity first, then its vowel position.", "二つの操作は、注意深い対比を保てます。まず行を決めてから、その母音の位置を選びます。", "A visible chart can keep later rows as examples while the current pair is checked precisely.", "見える表は、今の二行を正確に確かめながら、後の行を見本のままにできます。"),
@@ -188970,7 +189593,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "mika",
       supportingIds: ["angel"],
       location: place("academy-katakana-final-shelf", "Academy final katakana shelf", "アカデミーの最後のカタカナ棚"),
-      setup: line("Mika lays Sensei’s ma, ya, ra, and wa rows onto shelves of their actual lengths, while Angel keeps the shorter rows short instead of filling the gaps by guesswork.", "ミカさんは先生のマ行・ヤ行・ラ行・ワ行を、本当の長さの棚に写します。エンジェルさんは、短い行を推測で埋めず、短いままにします。"),
+      setup: line("Mika lays Sensei’s ma, ya, ra, and wa rows onto shelves of their actual lengths, while Onke keeps the shorter rows short instead of filling the gaps by guesswork.", "ミカさんは先生のマ行・ヤ行・ラ行・ワ行を、本当の長さの棚に写します。エンジェルさんは、短い行を推測で埋めず、短いままにします。"),
       handoff: line("The final shelf map returns sixteen heard signs to visible positions, leaving a checked chart and no invented cells.", "最後の棚の地図は、聞こえた十六の形を見える位置へ戻します。確認した表だけが残り、作った位置はありません。"),
       nPlusOne: step("set a row and vowel independently", "locate a heard sign in a source row whose visible positions can vary"),
       callback: callback("callback:l1plus-katakana-final-shelf", "seed", "A completed chart stays trustworthy when its gaps are read as part of the chart, not as missing answers to fill.", "完成した表は、空いている所を埋める答えではなく、表の一部として読むと信頼できます。", "The final rows can be checked by returning each sound only to a visible shelf.", "最後の行は、音を見えている棚だけに戻して確かめられます。"),
@@ -189153,7 +189776,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "angel",
       supportingIds: ["alex"],
       location: place("station-concourse-occasion-board", "Station concourse occasion board", "駅コンコースの場面ボード"),
-      setup: line("At the station concourse, Angel opens Sensei's exact Chapter 23-1 page while Alex keeps each notice on its present-action or absent-state route.", "駅コンコースで、エンジェルさんは先生の Chapter 23-1 の原本ページを開きます。アレックスさんは、それぞれの案内を「する・ある」か「しない・ない」の道に保ちます。"),
+      setup: line("At the station concourse, Onke opens Sensei's exact Chapter 23-1 page while Alex keeps each notice on its present-action or absent-state route.", "駅コンコースで、エンジェルさんは先生の Chapter 23-1 の原本ページを開きます。アレックスさんは、それぞれの案内を「する・ある」か「しない・ない」の道に保ちます。"),
       handoff: line("All four source pairs now join through the correct occasion route, with every derived completion covered until an attempt.", "原本の四組の文が正しい場面の道でつながり、派生した完成文は試すまで伏せられています。"),
       nPlusOne: step("place a speech act before or after action completion", "distinguish a present action or state from an absent one before とき"),
       callback: callback("callback:l2-occasion-route", "payoff", "The station board separates what happens from what does not happen while Sensei's source page stays inspectable.", "駅のボードは、先生の原本ページを確認できるまま、起こることと起こらないことを分けます。", "The exact page and four routes remain available for a fresh attempt without revealing a completion early.", "完成文を早く見せず、原本ページと四つの道へもう一度戻れます。"),
@@ -189210,7 +189833,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "jenny",
       supportingIds: ["angel"],
       location: place("language-lab-state-desk", "Language lab state desk", "語学ラボの状態確認デスク"),
-      setup: line("At the language lab, Jenny opens Sensei's exact four Chapter 29-1 pages while Angel checks what each visible change leaves in effect.", "語学ラボで、ジェニーさんは先生の Chapter 29-1 の原本四ページを開きます。エンジェルさんは、見える変化のあとに何が残っているかを確かめます。"),
+      setup: line("At the language lab, Jenny opens Sensei's exact four Chapter 29-1 pages while Onke checks what each visible change leaves in effect.", "語学ラボで、ジェニーさんは先生の Chapter 29-1 の原本四ページを開きます。エンジェルさんは、見える変化のあとに何が残っているかを確かめます。"),
       handoff: line("All eight selected source prompts now report a resulting state, its next action, or its topic, with every Yomu-derived completion covered until an attempt.", "選んだ原本八問が、結果の状態、次の行動、または話題を報告する形になり、よむが派生した完成文は試すまで伏せられています。"),
       nPlusOne: step("list more than one point or reason with plain-form し", "report the visible state left by a change with an intransitive verb"),
       callback: callback("callback:l3-2-room-state", "payoff", "The room itself now supplies evidence for a resulting-state report instead of an unseen actor.", "見えない動作主ではなく、部屋そのものが結果の状態を報告する根拠になります。", "All four exact Chapter 29-1 pages remain inspectable before a fresh attempt.", "Chapter 29-1 の原本四ページは、もう一度試す前にも確認できます。"),
@@ -189248,7 +189871,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hostId: "angel",
       supportingIds: ["christian"],
       location: place("classroom-prepared-state-desk", "Classroom prepared-state desk", "教室の準備状態デスク"),
-      setup: line("Angel opens Sensei's exact Chapter 30-1 and information-gap pages while Christian keeps neutral visible states separate from things deliberately left ready.", "エンジェルさんは先生の Chapter 30-1 と情報差の原本を開きます。クリスチャンさんは、見えるだけの状態と、だれかが準備して残した状態を分けます。"),
+      setup: line("Onke opens Sensei's exact Chapter 30-1 and information-gap pages while Christian keeps neutral visible states separate from things deliberately left ready.", "エンジェルさんは先生の Chapter 30-1 と情報差の原本を開きます。クリスチャンさんは、見えるだけの状態と、だれかが準備して残した状態を分けます。"),
       handoff: line("Eight source prompts now distinguish 〜ています from purposeful 〜てあります, with every derived answer covered until an attempt.", "八つの原問で「〜ています」と、目的のある「〜てあります」を分け、派生した答えは試すまで伏せられています。"),
       nPlusOne: step("distinguish completion, intention, and regret with 〜てしまう", "report a purposeful prepared state with a transitive て-form plus あります"),
       callback: callback("callback:l3-2-prepared-state", "payoff", "The classroom itself now shows which states merely exist and which were prepared for someone to use.", "教室そのものが、ただある状態と、だれかが使えるように準備された状態を示します。", "All six exact source pages remain inspectable before another attempt.", "原本六ページは、もう一度試す前にも確認できます。"),
@@ -189315,8 +189938,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function line(en, ja) {
     return Object.freeze({ en, ja });
   }
-  function step(carries, introduces) {
-    return Object.freeze({ carries, introduces });
+  function step(carries, introduces, prerequisite2) {
+    return Object.freeze({
+      carries,
+      introduces,
+      ...prerequisite2 ? { prerequisite: prerequisite2 } : {}
+    });
   }
   function callback(id2, state, en, ja, fallbackEn, fallbackJa) {
     return Object.freeze({ id: id2, state, meaningNow: line(en, ja), fallback: line(fallbackEn, fallbackJa) });
@@ -189424,6 +190051,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "callback:l3-2-completion-regret": ["payoff"],
     "callback:l3-2-prepared-state": ["payoff"]
   });
+  function adaptLessonStoryEntry(entry2, activities) {
+    const prerequisite2 = entry2.nPlusOne.prerequisite;
+    const evidence = prerequisite2 ? activities[prerequisite2.activityId] : void 0;
+    const hasRecordedPass = evidence && (evidence.lastOutcome === "pass" || evidence.attemptCount > evidence.lapseCount);
+    const ready2 = !prerequisite2 || hasRecordedPass === true;
+    return Object.freeze({
+      mode: ready2 ? "n-plus-one" : "guided-prerequisite",
+      setup: ready2 ? entry2.setup : prerequisite2.fallbackSetup,
+      callback: ready2 ? entry2.callback.meaningNow : entry2.callback.fallback
+    });
+  }
   function lessonStoryPresentation(entry2) {
     if (!entry2.world) return void 0;
     const place2 = worldPlace(entry2.world.originPlaceId);
@@ -189461,8 +190099,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (packageIds.size !== entries2.length || weekIds.size !== entries2.length) {
       throw new TypeError("Lesson story package and class-week bindings must be unique.");
     }
-    for (const entry2 of entries2) {
+    for (const [index, entry2] of entries2.entries()) {
       validateEntryBoundary(entry2);
+      validateChronologicalPrerequisite(entries2, index);
       if (entry2.packageId === "lesson:foundation-00") {
         validateOrientation(entry2);
         continue;
@@ -189471,6 +190110,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (WORLD_CONTINUITY_PACKAGE_IDS.has(entry2.packageId)) validateWorldContinuity(entry2);
     }
     validateCallbacks(entries2);
+  }
+  function validateChronologicalPrerequisite(entries2, index) {
+    const entry2 = entries2[index];
+    const prerequisite2 = entry2?.nPlusOne.prerequisite;
+    if (!prerequisite2) return;
+    const previous = entries2[index - 1];
+    if (!previous || prerequisite2.packageId !== previous.packageId || entry2.nPlusOne.carries !== previous.nPlusOne.introduces) {
+      throw new TypeError(`Lesson story ${entry2.packageId} must consume its immediate chronological N+1 prerequisite.`);
+    }
+    if (!prerequisite2.activityId || !prerequisite2.fallbackSetup.en || !prerequisite2.fallbackSetup.ja) {
+      throw new TypeError(`Lesson story ${entry2.packageId} needs complete adaptive prerequisite evidence.`);
+    }
   }
   function validateWorldContinuity(entry2) {
     const cast2 = [entry2.hostId, ...entry2.supportingIds];
@@ -208708,6 +209359,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     veil.append(panel);
     screen.append(veil);
     let currentIndex = 0;
+    let preAssessmentIndex = 0;
+    let preAssessmentComplete = options.week.preAssessment.length === 0;
     const completedActivityIds = /* @__PURE__ */ new Set();
     let extensionCompleted = 0;
     let disposed = false;
@@ -208734,6 +209387,41 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (options.extension) renderExtension();
       else renderComplete();
     };
+    const renderPreAssessment = (focus = false) => {
+      const exposure = options.week.preAssessment[preAssessmentIndex];
+      if (!exposure) {
+        preAssessmentComplete = true;
+        renderCurrent(focus);
+        return;
+      }
+      screen.dataset.lessonPhase = "teaching";
+      const supportView = element("div", "academy-authored-week-pre-question academy-authored-week-briefing");
+      const step2 = element("p", "academy-eyebrow academy-authored-week-briefing-step");
+      step2.textContent = options.language === "ja" ? `学習ポイント ${preAssessmentIndex + 1} / ${options.week.preAssessment.length}` : `Lesson note ${preAssessmentIndex + 1} of ${options.week.preAssessment.length}`;
+      supportView.append(step2, authoredExposureView(exposure, options.language));
+      supportView.append(lessonNavigation(options.language, {
+        ...preAssessmentIndex > 0 ? {
+          back: () => {
+            preAssessmentIndex -= 1;
+            renderPreAssessment(true);
+          },
+          backLabel: options.language === "ja" ? "前のポイント" : "Previous note"
+        } : {},
+        next: () => {
+          if (preAssessmentIndex < options.week.preAssessment.length - 1) {
+            preAssessmentIndex += 1;
+            renderPreAssessment(true);
+            return;
+          }
+          preAssessmentComplete = true;
+          renderCurrent(true);
+        },
+        nextLabel: preAssessmentIndex < options.week.preAssessment.length - 1 ? options.language === "ja" ? "次のポイント" : "Next note" : options.language === "ja" ? "例を見る" : "See the example"
+      }, lifecycle.signal));
+      activityHost.replaceChildren(supportView);
+      languageSupport.refresh();
+      if (focus) focusInPanel(supportView.querySelector("h2"));
+    };
     const renderCurrent = (focus = false, showSupport = true) => {
       resetPanelScroll();
       options.onListeningStop?.();
@@ -208745,18 +209433,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
       showingAuthoredActivity = true;
       const activity2 = options.week.activities[currentIndex];
       const hasTeachingSupport = activity2.kind !== "academy-source-vocabulary-sheet";
+      if (currentIndex === 0 && !preAssessmentComplete) {
+        renderPreAssessment(focus);
+        return;
+      }
       if (showSupport && hasTeachingSupport) {
+        screen.dataset.lessonPhase = "support";
         const teachingSupport = authoredTeachingSupport(activity2);
         const supportView = element("div", "academy-authored-week-pre-question");
-        if (currentIndex === 0) {
-          options.week.preAssessment.forEach((exposure) => supportView.append(authoredExposureView(exposure, options.language)));
-        }
         supportView.append(teachingSupportView(teachingSupport, options.language));
         const navigation = lessonNavigation(options.language, {
           back: currentIndex > 0 ? () => {
             currentIndex -= 1;
             renderCurrent(true);
+          } : options.week.preAssessment.length > 0 ? () => {
+            preAssessmentComplete = false;
+            preAssessmentIndex = options.week.preAssessment.length - 1;
+            renderPreAssessment(true);
           } : void 0,
+          backLabel: currentIndex > 0 ? options.language === "ja" ? "前の問題" : "Previous question" : options.language === "ja" ? "学習ポイント" : "Lesson notes",
           next: () => renderCurrent(true, false),
           nextLabel: options.language === "ja" ? "問題へ" : "Continue to question"
         }, lifecycle.signal);
@@ -208766,6 +209461,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (focus) focusInPanel(supportView.querySelector("h2"));
         return;
       }
+      screen.dataset.lessonPhase = "question";
       const questionHost = element("div", "academy-authored-week-question-host");
       const backAction = hasTeachingSupport ? { back: () => renderCurrent(true), backLabel: options.language === "ja" ? "学習サポート" : "Review support" } : currentIndex > 0 ? {
         back: () => {
@@ -208841,6 +209537,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderExtension = () => {
       resetPanelScroll();
+      screen.dataset.lessonPhase = "extension";
       showingComplete = false;
       showingAuthoredActivity = false;
       activityController?.dispose();
@@ -208866,6 +209563,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderComplete = () => {
       resetPanelScroll();
+      screen.dataset.lessonPhase = "complete";
       activityController?.dispose();
       activityController = void 0;
       extensionController?.dispose();
@@ -210420,7 +211118,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ]);
   function lessonCompletionReturn(checkpoint) {
     const place2 = [...checkpoint.routeHistory].reverse().find(isPlaceFrame);
+    if (place2?.route === "classroom" && place2.lessonId === "authored-week:l1-l01") {
+      return clearLessonContext(place2);
+    }
     return place2 ?? { route: "class" };
+  }
+  function clearLessonContext(frame2) {
+    return {
+      route: frame2.route,
+      ...frame2.selectedBand ? { selectedBand: frame2.selectedBand } : {},
+      ...frame2.selectedFork ? { selectedFork: frame2.selectedFork } : {},
+      ...frame2.placementOverride !== void 0 ? { placementOverride: frame2.placementOverride } : {},
+      ...frame2.worldPlace ? { worldPlace: frame2.worldPlace } : {}
+    };
   }
   function isPlaceFrame(frame2) {
     if (PLACE_ROUTES.has(frame2.route)) return true;
@@ -210437,6 +211147,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     get options() {
       if (!this.configuredOptions) throw new Error("Lesson activity routes require configured learning services.");
       return this.configuredOptions;
+    }
+    /** Every graded activity across the lesson flow gets a correct/repair cue through this one seam. */
+    playFeedbackSfx(outcome) {
+      this.options.audio?.playSfx?.(outcome === "pass" ? "feedback.correct" : "feedback.repair");
     }
     async render(route, context2) {
       switch (route) {
@@ -210503,6 +211217,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const registration = getAuthoredWeekRegistration(packageId);
       const plan = await loadClassWeekCastPlan();
       const continuity = createLessonStoryRuntime(plan).continuity(packageId);
+      const storyEntry = continuity ? adaptLessonStoryEntry(continuity, context2.projection.activities) : void 0;
       const presentation2 = continuity ? lessonStoryPresentation(continuity) : void 0;
       const classWeek = plan.weeks.find((week2) => week2.weekId === registration.classWeekId);
       if (!classWeek || classWeek.status !== "source-backed" || !classWeek.primary) {
@@ -210519,10 +211234,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ...presentation2 ? { presentation: { location: presentation2.location } } : {},
         runtime: createAcademyActivityRuntime(),
         pronunciation: this.options.pronunciation,
-        onEvaluation: (_activity, evaluation) => this.options.evidence.recordActivity(
-          evaluation,
-          `authored-week:${packageId}`
-        )
+        onEvaluation: (_activity, evaluation) => {
+          this.playFeedbackSfx(evaluation.result.outcome);
+          return this.options.evidence.recordActivity(
+            evaluation,
+            `authored-week:${packageId}`
+          );
+        }
       }) : void 0;
       const showActivities = () => {
         let releaseListeningDuck;
@@ -210538,8 +211256,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 plate: presentation2.plate,
                 location: presentation2.location
               } : {},
-              setup: continuity.setup,
-              callback: continuity.callback.meaningNow,
+              setup: storyEntry?.setup ?? continuity.setup,
+              callback: storyEntry?.callback ?? continuity.callback.meaningNow,
               ...continuity.world ? { handoff: continuity.handoff } : {},
               ...continuity.dialogue ? {
                 dialogue: continuity.dialogue.map((turn2) => ({
@@ -210562,20 +211280,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
             releaseListeningDuck?.();
             releaseListeningDuck = void 0;
           },
-          onEvaluation: (activity2, evaluation) => this.options.evidence.recordActivity({
-            result: evaluation.result,
-            attempt: {
-              kind: "attempt-recorded",
-              activityId: activity2.id,
-              sourceQuestionId: activity2.sourceQuestionId,
-              conceptIds: activity2.conceptIds,
-              responseKind: activity2.responseKind,
-              outcome: evaluation.result.outcome,
-              score: evaluation.result.score,
-              errorTags: evaluation.result.errorTags
-            },
-            reviewSeeds: evaluation.reviewSeeds
-          }, `authored-week:${packageId}`),
+          onEvaluation: (activity2, evaluation) => {
+            this.playFeedbackSfx(evaluation.result.outcome);
+            return this.options.evidence.recordActivity({
+              result: evaluation.result,
+              attempt: {
+                kind: "attempt-recorded",
+                activityId: activity2.id,
+                sourceQuestionId: activity2.sourceQuestionId,
+                conceptIds: activity2.conceptIds,
+                responseKind: activity2.responseKind,
+                outcome: evaluation.result.outcome,
+                score: evaluation.result.score,
+                errorTags: evaluation.result.errorTags
+              },
+              reviewSeeds: evaluation.reviewSeeds
+            }, `authored-week:${packageId}`);
+          },
           onComplete: async () => {
             await this.options.evidence.recordEncounter(continuity ? lessonStoryEncounter(continuity) : {
               encounterId: `class-week:${classWeek.weekId}`,
@@ -210664,11 +211385,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
         language: context2.language,
         activity: createAakashDirectionsActivity(),
         completed: context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID),
-        onEvaluation: (evaluation) => this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
-          id: "aakash-rainy-directions",
-          sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
-          unlock: { assetId: "character:aakash", characterId: "aakash", bondDelta: 1 }
-        }),
+        onEvaluation: (evaluation) => {
+          this.playFeedbackSfx(evaluation.result.outcome);
+          return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
+            id: "aakash-rainy-directions",
+            sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
+            unlock: { assetId: "character:aakash", characterId: "aakash", bondDelta: 1 }
+          });
+        },
         onSupportUse: (support2) => this.options.evidence.recordSupportUse(
           support2.activityId,
           support2.supportKind,
@@ -210699,15 +211423,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       context2.shell.replace(renderKanjiDeskScreen(
         context2.language,
         trace,
-        (evaluation) => this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
-          id: "lesson-zero-writing-desk",
-          sceneId: "scene:lesson-zero-writing-desk",
-          requiredErrorTag: "kanji-writing-complete"
-        }),
+        (evaluation) => {
+          this.playFeedbackSfx(evaluation.result.outcome);
+          return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
+            id: "lesson-zero-writing-desk",
+            sceneId: "scene:lesson-zero-writing-desk",
+            requiredErrorTag: "kanji-writing-complete"
+          });
+        },
         () => void context2.go("campus")
       ));
     }
     recordActivity(evaluation, milestoneId) {
+      this.playFeedbackSfx(evaluation.result.outcome);
       const firstTask = evaluation.attempt.activityId === "activity:lesson-zero-reconstruct-repair";
       return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
         id: milestoneId,
@@ -212236,8 +212964,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       position: "left",
       expression: "happy",
       expressions: {
-        neutral: { still: ACADEMY_ASSETS.rie },
-        happy: { still: ACADEMY_ASSETS.rie }
+        neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral },
+        happy: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging }
       }
     }]);
     stage2.setLine({
@@ -212407,8 +213135,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     help.id = "academy-paid-code-help";
     help.textContent = localize(
       language,
-      "Paid codes must be linked to Google. A paid code can be activated once, and a Google account can hold one paid code. UCL2026 is the only code that can continue anonymously.",
-      "有料コードは Google とリンクする必要があります。有料コードを有効にできるのは一度だけで、Google アカウントに登録できる有料コードは1つです。UCL2026 のみ匿名で続けられます。"
+      "Paid codes must be linked to Google. A paid code can be activated once, and a Google account can hold one paid code. Class invitations also require signing in with Google.",
+      "有料コードは Google とリンクする必要があります。有料コードを有効にできるのは一度だけで、Google アカウントに登録できる有料コードは1つです。クラスの招待コードも Google サインインが必要です。"
     );
     const form = element("form", "academy-code-form");
     const label = element("label", "academy-code-label");
@@ -212557,7 +213285,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function statusText(status, language) {
     if (status.error) return status.error;
     if (status.phase === "local") return status.profile ? localize(language, "Encrypted history is ready on this device.", "この端末に暗号化された履歴があります。") : localize(language, "No server profile has been created.", "サーバープロフィールは作成されていません。");
-    if (status.phase === "sign-in") return localize(language, "Paid Academy codes must be linked to Google before activation. UCL2026 is the only code that can continue anonymously.", "有料 Academy コードは、有効化する前に Google とリンクする必要があります。UCL2026 のみ匿名で続けられます。");
+    if (status.phase === "sign-in") return localize(language, "Sign in with Google to continue. Every Academy invitation, including class invitations, is linked to a Google account.", "Google にサインインして続けてください。クラスの招待コードを含め、すべての Academy 招待は Google アカウントとリンクされます。");
     if (status.phase === "recovery") return localize(language, "Opening Google sign-in for account recovery.", "アカウント復旧のため Google サインインを開いています。");
     if (status.phase === "signed-out") return localize(language, "Your encryption key remains on this device for account recovery.", "アカウント復旧のため、暗号鍵はこの端末に保持されています。");
     if (status.phase === "pending") return localize(language, "Enter the paid code below. If payment just completed, activation may take a moment.", "下に有料コードを入力してください。支払い直後は、有効化まで少し時間がかかることがあります。");
@@ -214898,10 +215626,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     button2.setAttribute("aria-label", label);
   }
   function renderWorldPlaceScreen(options) {
-    const place2 = projectWorldPlace(options.place, options.progress);
+    const place2 = projectCurrentWorldPlace(options);
     const screen = element("section", "academy-screen academy-world-screen");
     screen.dataset.academyRoute = options.route;
     screen.dataset.currentPlace = place2.id;
+    if (options.lessonContext) screen.dataset.worldLessonId = options.lessonContext.lessonId;
     screen.dataset.worldRegion = place2.region;
     screen.dataset.introductionId = place2.introduction.id;
     screen.dataset.firstVisit = String(place2.introduction.isFirstVisit);
@@ -215092,6 +215821,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     screen.append(stage2);
     return screen;
+  }
+  function projectCurrentWorldPlace(options) {
+    const place2 = projectWorldPlace(options.place, options.progress);
+    const context2 = options.place === "classroom" ? options.lessonContext : void 0;
+    if (!context2) return place2;
+    return {
+      ...place2,
+      people: context2.people,
+      arrivalDialogue: context2.arrivalDialogue,
+      activity: {
+        ...place2.activity,
+        ...context2.activity
+      },
+      introduction: {
+        id: context2.introductionId,
+        isFirstVisit: !(options.progress.seenIntroductions ?? []).includes(context2.introductionId)
+      }
+    };
   }
   function worldActivityButton(options, route) {
     const button2 = element("button", "academy-world-activity-button");
@@ -215491,6 +216238,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function worldClassroomPresence(options, personId) {
     if (options.place !== "classroom") return void 0;
+    const lessonPresence = options.lessonContext?.presence[personId];
+    if (lessonPresence) return lessonPresence;
     const returning = (options.progress.worldVisits?.classroom ?? 0) % 2 === 1;
     if (personId === "rie") {
       return returning ? { id: "erasing-board-corner", label: { ja: "黒板のすみを消している", en: "Erasing a corner of the board" } } : { id: "setting-board-agenda", label: { ja: "黒板に予定を書いている", en: "Writing the agenda on the board" } };
@@ -216051,14 +216800,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onReturnToEpisodes: () => void context2.go("story", { sectionId: void 0 })
       }));
     }
-    renderWorldPlace(place2, context2) {
+    async renderWorldPlace(place2, context2) {
       this.locationAudio.enter(place2);
       const characters = projectCharacterDirectory(context2.projection);
+      const lessonContext = await this.classroomWeekContext(place2, context2);
       let speech;
       const screen = renderWorldPlaceScreen({
         language: context2.language,
         place: place2,
         route: context2.checkpoint.route,
+        ...lessonContext ? { lessonContext } : {},
         progress: {
           completedScenes: context2.projection.completedScenes,
           completedEncounterIds: context2.projection.completedEncounterIds,
@@ -216124,6 +216875,62 @@ recommendedJiten	Jiten由来の頻度バッジです。
       context2.shell.replace(screen);
       return true;
     }
+    async classroomWeekContext(place2, context2) {
+      if (place2 !== "classroom" || context2.checkpoint.lessonId !== "authored-week:l1-l01") return void 0;
+      const plan = await loadClassWeekCastPlan();
+      const week = plan.weeks.find((candidate2) => candidate2.weekId === "l1-l01");
+      if (!week || week.status !== "source-backed" || !week.primary || !week.supporting[0]) {
+        throw new Error("Class Week l1-l01 has no grounded classroom roster.");
+      }
+      const primary = week.primary;
+      const supporting = week.supporting[0];
+      return {
+        lessonId: "authored-week:l1-l01",
+        introductionId: "week:l1-l01:classroom",
+        people: ["rie", primary.id, supporting.id],
+        activity: {
+          label: {
+            en: `Week 1 · ${week.source.title.en}`,
+            ja: `第1週・${week.source.title.ja}`
+          },
+          detail: {
+            en: `Meet ${primary.firstName}-san and ${supporting.firstName}-san, then ask and answer one name question.`,
+            ja: `${primary.firstName}さん、${supporting.firstName}さんと、名前を聞いて答える。`
+          },
+          curriculum: {
+            id: "authored-week:l1-l01",
+            surface: "moodle",
+            state: "grounded",
+            label: {
+              en: "Chapter 1 · self-introduction and classroom phrases",
+              ja: "第1課・自己紹介と教室のことば"
+            }
+          }
+        },
+        arrivalDialogue: {
+          speakerId: "rie",
+          line: {
+            en: `“Tonight begins with はじめまして. ${primary.firstName}-san and ${supporting.firstName}-san have their name cards ready, so start with one greeting.”`,
+            ja: `「今夜は『はじめまして』から始めます。${primary.firstName}さんと${supporting.firstName}さんの名札を見て、最初のあいさつから始めましょう。」`
+          },
+          action: { en: "Read the name cards", ja: "名札を見る" }
+        },
+        presence: {
+          rie: {
+            id: "writing-week-one-heading",
+            label: { en: "Writing はじめまして on the board", ja: "黒板に「はじめまして」と書いている" }
+          },
+          [primary.id]: {
+            id: "setting-out-name-cards",
+            label: { en: "Setting out two name cards", ja: "二枚の名札を並べている" }
+          },
+          [supporting.id]: {
+            id: "waiting-for-name-answer",
+            label: { en: "Waiting for the first name answer", ja: "最初の名前の答えを待っている" }
+          }
+        }
+      };
+    }
     async travelWorldPlace(place2, context2) {
       const route = worldRouteForPlace(place2);
       const isFirstCafeArrival = place2 === "cafe" && !hasSeenIntroduction(context2.checkpoint.seenIntroductions, introductionId("place", "cafe"));
@@ -216164,7 +216971,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onBack: () => void context2.back(),
         onOpenWeek: (weekId) => {
           const lesson = delivery.weeks.find((entry2) => entry2.weekId === weekId);
-          if (!lesson || lesson.state !== "grounded-playable") return;
+          if (!lesson || lesson.state !== "grounded-playable") {
+            this.options.audio?.playSfx?.("action.unavailable");
+            return;
+          }
+          this.options.audio?.playSfx?.("menu.confirm");
+          if (weekId === "l1-l01") {
+            void context2.go("classroom", {
+              lessonId: lesson.lessonId,
+              sectionId: void 0,
+              activityId: void 0
+            });
+            return;
+          }
           void context2.go("lesson-overview", { lessonId: lesson.lessonId });
         }
       }));
@@ -216568,7 +217387,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         language: this.language,
         onLanguage: () => this.toggleLanguage(),
         onMute: () => this.toggleMuted(),
-        onNavigate: (route) => void this.go(route),
+        onNavigate: (route) => {
+          this.audio.playSfx("menu.confirm");
+          void this.go(route);
+        },
         onPresentationMode: (mode) => void this.setPresentationMode(mode),
         onEndForToday: () => void this.go("day-end"),
         onClassBoard: options.onClassBoard

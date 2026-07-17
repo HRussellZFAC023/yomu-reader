@@ -23428,7 +23428,9 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 .academy-placement-screen .academy-screen-veil {
     align-items: end;
     padding: 28px clamp(24px, 5vw, 72px);
-    background: linear-gradient(180deg, rgba(8, 12, 18, 0.04) 0%, rgba(8, 12, 18, 0.2) 44%, rgba(8, 12, 18, 0.72) 100%);
+    /* Warm charcoal (--academy-night #181b18) vignette, not cold navy-black
+       (F094): match the base .academy-screen-veil ink instead of a bluer wash. */
+    background: linear-gradient(180deg, rgba(24, 27, 24, 0.04) 0%, rgba(24, 27, 24, 0.2) 44%, rgba(24, 27, 24, 0.72) 100%);
 }
 
 .academy-placement-screen .academy-placement-stage {
@@ -23483,11 +23485,30 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     padding: 26px 30px 24px;
     overflow: auto;
     border: 0;
-    border-left: 5px solid var(--academy-accent);
     border-radius: 0;
     color: #fffdf5;
     background: transparent;
     box-shadow: none;
+}
+
+/* The content column's accent edge previously used a hard-edged, full-height
+   border-left, which read as a stray decorative line unattached to any paper
+   surface (F153) since it ran from the headline straight past the dark floor
+   to the actions row. Fade both ends so it reads as an accent glow bound to
+   the column rather than an independent ruled line. */
+.academy-placement-screen .academy-panel-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 5px;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        var(--academy-accent) 14%,
+        var(--academy-accent) 86%,
+        transparent 100%);
+    pointer-events: none;
 }
 
 .academy-placement-screen .academy-title {
@@ -23530,6 +23551,24 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     min-height: 42px;
 }
 
+/* The band/confidence selects rendered OS dropdown chrome, breaking the
+   Choice-slip grammar the rest of the mock uses (F029). Suppress native
+   appearance and give them the same asymmetric choice-slip corners + a
+   drawn chevron, scoped to placement only. */
+.academy-placement-screen select.academy-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 34px;
+    border-radius: 3px 10px 3px 9px;
+    /* .academy-input sets `background` as an !important shorthand, so the
+       chevron + paper fill must be one !important shorthand too, or the
+       longhand layers get reset by that rule. */
+    background:
+        linear-gradient(45deg, transparent 50%, #29271f 50%) calc(100% - 20px) center / 6px 6px no-repeat,
+        linear-gradient(135deg, #29271f 50%, transparent 50%) calc(100% - 14px) center / 6px 6px no-repeat,
+        linear-gradient(rgba(255, 253, 244, 0.96), rgba(244, 237, 218, 0.94)) !important;
+}
+
 .academy-placement-progress {
     display: flex;
     align-items: center;
@@ -23551,8 +23590,10 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 .academy-placement-progress-dots i {
     display: block;
     width: clamp(8px, 3vw, 28px);
-    height: 4px;
-    background: var(--academy-line);
+    height: 6px;
+    /* Slightly stronger than --academy-line so unfilled steps stay legible
+       against the dark scene (F205). */
+    background: rgba(255, 253, 245, 0.3);
 }
 
 .academy-placement-progress-dots i.is-active {
@@ -23835,7 +23876,9 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     padding: 16px;
     border: 1px solid rgba(73, 63, 46, 0.24);
     min-height: 180px;
-    border-radius: 6px;
+    /* Living-paper asymmetric corners (3-15px) instead of a uniform rounded
+       card — see docs/academy/VISUAL-SYSTEM.md geometry rule (F031). */
+    border-radius: 4px 15px 5px 11px;
     color: #29271f;
     color-scheme: light;
     background:
@@ -23861,6 +23904,18 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     text-wrap: pretty;
 }
 
+/* The task itself (choose the reading, pick the best answer) was only ever
+   implicit in the prompt sentence, with no visible instruction (F118). A
+   quiet paper-header label is enough without becoming tutorial copy. */
+.academy-mock-instruction {
+    margin: 0;
+    color: var(--academy-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
 .academy-mock-prompt + * {
     clear: both;
 }
@@ -23884,7 +23939,9 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    border-radius: 6px;
+    /* Asymmetric choice-slip corners so four answers don't read as a uniform
+       rounded-card wall (F031). */
+    border-radius: 3px 10px 3px 9px;
     color: #29271f !important;
     background: rgba(255, 253, 244, 0.74);
     cursor: pointer;
@@ -24313,8 +24370,8 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     justify-items: stretch;
     padding: clamp(70px, 8vh, 104px) clamp(24px, 5vw, 78px) clamp(26px, 5vh, 54px);
     background:
-        linear-gradient(90deg, rgba(8, 12, 17, 0.18) 0 34%, rgba(8, 12, 17, 0.03) 58%, rgba(8, 12, 17, 0.46) 100%),
-        linear-gradient(180deg, rgba(8, 12, 17, 0.04) 35%, rgba(8, 12, 17, 0.72) 100%);
+        linear-gradient(90deg, rgba(19, 21, 17, 0.18) 0 34%, rgba(19, 21, 17, 0.03) 58%, rgba(19, 21, 17, 0.46) 100%),
+        linear-gradient(180deg, rgba(19, 21, 17, 0.04) 35%, rgba(19, 21, 17, 0.72) 100%);
 }
 
 .academy-start-screen .academy-guide-panel,
@@ -24974,6 +25031,19 @@ html.jpdb-reader-doodle-active * {
     gap: 14px;
 }
 
+.academy-authored-week-briefing {
+    min-width: 0;
+}
+
+.academy-authored-week-briefing-step {
+    margin: 0;
+    color: var(--academy-muted);
+}
+
+.academy-authored-week-briefing .academy-authored-week-exposure {
+    margin: 0;
+}
+
 .academy-authored-week-progress {
     display: grid;
     grid-template-columns: auto minmax(110px, 1fr);
@@ -25085,6 +25155,10 @@ html.jpdb-reader-doodle-active * {
 
     .academy-authored-week-screen .academy-panel-content {
         gap: 10px;
+    }
+
+    .academy-authored-week-briefing .academy-lesson-teaching-entry {
+        padding: 10px 12px;
     }
 
     .academy-authored-week-progress {
@@ -25926,7 +26000,7 @@ html.jpdb-reader-doodle-active * {
     width: min(390px, calc(100vw - 32px));
     padding: 18px;
     border: 1px solid rgba(255, 250, 233, 0.44);
-    border-radius: 7px;
+    border-radius: 4px 14px 6px 11px;
     color: var(--library-ink);
     background:
         linear-gradient(90deg, rgba(168, 73, 54, 0.08), transparent 34%),
@@ -25968,9 +26042,9 @@ html.jpdb-reader-doodle-active * {
 .academy-library-sheet-button,
 .academy-vocabulary-sheet-start,
 .academy-library-dialogue-continue {
-    border-color: var(--library-red);
+    border-color: var(--library-green);
     color: #fffdf5;
-    background: var(--library-red);
+    background: var(--library-green);
     font-weight: 760;
 }
 
@@ -25980,10 +26054,13 @@ html.jpdb-reader-doodle-active * {
 }
 
 .academy-library-sheet-button:hover,
-.academy-library-back:hover,
 .academy-library-dialogue-continue:hover,
+.academy-vocabulary-sheet-start:hover {
+    filter: brightness(1.12);
+}
+
+.academy-library-back:hover,
 .academy-vocabulary-sheet-close:hover,
-.academy-vocabulary-sheet-start:hover,
 .academy-vocabulary-sheet-audio:hover {
     border-color: #a84936;
 }
@@ -26013,7 +26090,7 @@ html.jpdb-reader-doodle-active * {
     margin: 0 0 34px -18px;
     padding: 16px;
     border: 1px solid rgba(255, 250, 233, 0.5);
-    border-radius: 7px;
+    border-radius: 5px 15px 4px 12px;
     color: var(--library-ink);
     background:
         linear-gradient(90deg, rgba(63, 102, 89, 0.09), transparent 40%),
@@ -26210,7 +26287,7 @@ html.jpdb-reader-doodle-active * {
 .academy-world-screen[data-current-place='lab'] > .academy-background img {
     object-position: center;
     filter: saturate(1.1) contrast(1.07) brightness(0.62) hue-rotate(6deg);
-    animation: academy-lab-room-in 620ms ease-out both;
+    animation: academy-lab-room-in 500ms ease-out both;
 }
 
 .academy-world-screen[data-current-place='lab'] .academy-world-stage::before {
@@ -26341,7 +26418,7 @@ html.jpdb-reader-doodle-active * {
 .academy-world-screen[data-current-place='lab'] .academy-world-exit-name { color: #e5fff7; }
 .academy-world-screen[data-current-place='lab'] .academy-world-exit-reason { color: rgba(222, 255, 246, 0.65); }
 .academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='0'] { top: 37%; left: 20px; }
-.academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='1'] { top: 42%; right: 20px; left: auto; }
+.academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='1'] { top: 42%; right: 44px; left: auto; }
 .academy-world-screen[data-current-place='lab'] .academy-world-objects { bottom: max(22px, env(safe-area-inset-bottom)); left: clamp(20px, 3vw, 46px); }
 .academy-world-screen[data-current-place='lab'][data-first-visit='true'] .academy-world-character-action { display: none; }
 
@@ -28900,10 +28977,15 @@ html.jpdb-reader-doodle-active * {
 .academy-world-character-silhouette {
     width: min(190px, 18vw);
     height: min(390px, 51dvh);
-    border: 2px solid rgba(255, 248, 222, 0.7);
+    border: 2px solid color-mix(in srgb, var(--world-accent, #9aa793) 55%, rgba(255, 248, 222, 0.85));
     border-radius: 44% 44% 12% 12%;
-    background: linear-gradient(#51594c 0 22%, #27372d 22% 100%);
-    box-shadow: inset 0 0 0 6px rgba(255, 253, 245, 0.08);
+    /* Deliberate head-and-shoulders cutout (same grammar as the lab/bookshop
+       variants), tinted by the room's accent — a likeness-safe placeholder
+       must read as intentional, not as a missing asset. */
+    background:
+        radial-gradient(circle at 50% 17%, rgba(255, 251, 236, 0.85) 0 11%, transparent 12%),
+        linear-gradient(100deg, transparent 0 20%, color-mix(in srgb, var(--world-accent, #51594c) 28%, #232d26) 21% 79%, transparent 80%);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--world-accent, #51594c) 24%, transparent);
 }
 
 .academy-world-character-name {
@@ -29761,11 +29843,15 @@ html.jpdb-reader-doodle-active * {
 .academy-world-screen[data-scene-motif] .academy-world-character-silhouette {
     border: 0;
     border-radius: 0;
+    /* Likeness-safe figures tint to the room's accent with a cut-paper rim
+       (drop-shadow, since clip-path removes borders) so they read as a
+       deliberate placeholder, not a flat unfinished blob. */
     background:
-        radial-gradient(circle at 50% 13%, rgba(65, 83, 73, 0.96) 0 12%, transparent 13%),
-        linear-gradient(100deg, transparent 0 18%, rgba(43, 60, 51, 0.96) 19% 81%, transparent 82%);
+        radial-gradient(circle at 50% 13%, color-mix(in srgb, var(--world-accent, #6d7a6f) 26%, #38443b) 0 12%, transparent 13%),
+        linear-gradient(100deg, transparent 0 18%, color-mix(in srgb, var(--world-accent, #43533f) 18%, #26302a) 19% 81%, transparent 82%);
     clip-path: polygon(37% 0, 63% 0, 68% 22%, 78% 30%, 90% 100%, 10% 100%, 22% 30%, 32% 22%);
     box-shadow: none;
+    filter: drop-shadow(0 0 1.5px rgba(241, 234, 215, 0.55)) drop-shadow(0 7px 14px rgba(6, 10, 9, 0.45));
 }
 
 .academy-world-screen[data-scene-motif] .academy-world-reward-use,
@@ -32609,7 +32695,7 @@ html.jpdb-reader-doodle-active * {
     --courtyard-moss: #557862;
     --courtyard-route-rail: calc(min(154px, 15vw) + 44px);
     color: #f8f3e8;
-    background: #0b1820;
+    background: #181d1a;
 }
 
 .academy-world-screen[data-current-place='courtyard'] > .academy-background img {
@@ -32621,8 +32707,8 @@ html.jpdb-reader-doodle-active * {
 .academy-world-screen[data-current-place='courtyard'] .academy-world-stage::before {
     display: block;
     background:
-        linear-gradient(90deg, rgba(5, 14, 20, 0.18), transparent 43%, rgba(5, 14, 20, 0.2)),
-        linear-gradient(0deg, rgba(5, 14, 18, 0.5), transparent 40%);
+        linear-gradient(90deg, rgba(20, 20, 16, 0.18), transparent 43%, rgba(20, 20, 16, 0.2)),
+        linear-gradient(0deg, rgba(18, 18, 15, 0.5), transparent 40%);
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-living-scene {
@@ -32773,9 +32859,9 @@ html.jpdb-reader-doodle-active * {
     z-index: 6;
     width: min(330px, 27vw);
     min-width: 280px;
-    max-height: min(37dvh, 300px);
+    max-height: min(44dvh, 360px);
     margin: 0;
-    padding: 34px 22px 20px;
+    padding: 34px 22px 34px;
     overflow: auto;
     border: 0;
     border-left: 9px solid var(--courtyard-moss);
@@ -32891,7 +32977,7 @@ html.jpdb-reader-doodle-active * {
     border-left: 4px solid var(--courtyard-moss);
     border-radius: 0;
     color: #f8f3e8;
-    background: rgba(7, 23, 28, 0.82);
+    background: rgba(22, 25, 21, 0.82);
     box-shadow: none;
     clip-path: polygon(0 0, 100% 3%, 95% 100%, 2% 95%);
     -webkit-backdrop-filter: none;
@@ -32901,6 +32987,7 @@ html.jpdb-reader-doodle-active * {
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit::before { color: #e5bd68; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit-name { color: #fff9ed; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit-reason { color: rgba(239, 232, 213, 0.66); }
+.academy-world-screen[data-current-place='courtyard'] .academy-world-arrival-continue { border-color: #d37a4a; color: #241a10; background: #d37a4a; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='0'] { top: 30%; left: 20px; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='1'] { top: 47%; left: 20px; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='2'] { top: 28%; right: 20px; bottom: auto; }
@@ -33172,6 +33259,12 @@ html.jpdb-reader-doodle-active * {
     height: 69%;
     opacity: 0.55;
     background: repeating-linear-gradient(104deg, transparent 0 26px, rgba(129, 189, 215, 0.23) 27px 28px, transparent 29px 52px);
+    /* The box overlaps the 中庭/図書館 exit-slip column (left:20px, ~146px
+       wide), so the streaks read as crossing the UI instead of sitting
+       behind the window glass (F200). Fade the streaks out over that
+       column and let them read only past it, toward the window pane. */
+    mask-image: linear-gradient(to right, transparent 0, transparent 190px, #000 260px);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 190px, #000 260px);
     mix-blend-mode: screen;
     animation: academy-classroom-window-in 520ms 90ms ease-out both, academy-classroom-rain 8s 700ms linear infinite;
 }
@@ -33379,6 +33472,7 @@ html.jpdb-reader-doodle-active * {
 
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward-label { color: #342c22; }
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward-use { color: #625745; }
+.academy-world-screen[data-current-place='classroom'] .academy-world-arrival-continue { border-color: #e0b25f; color: #241c0c; background: #e0b25f; }
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward[data-reward-prop='notebook'] .academy-world-reward-prop {
     border: 2px solid #6c573c;
     border-left: 7px solid var(--classroom-signal);
@@ -33579,13 +33673,14 @@ html.jpdb-reader-doodle-active * {
     .academy-world-screen[data-current-place='classroom'] .academy-world-reward {
         top: max(68px, calc(env(safe-area-inset-top) + 54px));
         right: 8px;
-        width: 116px;
+        width: 140px;
         padding: 5px 6px;
     }
     .academy-world-screen[data-current-place='classroom'] .academy-world-reward-use { display: none; }
+    .academy-world-screen[data-current-place='classroom'] .academy-world-reward-label { white-space: nowrap; }
 
     .academy-world-screen[data-current-place='classroom'] .academy-world-back {
-        top: max(128px, calc(env(safe-area-inset-top) + 114px));
+        top: max(140px, calc(env(safe-area-inset-top) + 126px));
         right: 8px;
         left: auto;
     }
@@ -37992,7 +38087,7 @@ html.jpdb-reader-doodle-active * {
         color: #fffaf0;
         background: rgba(8, 17, 19, 0.66) !important;
         box-shadow: 3px 5px 12px rgba(4, 9, 10, 0.20);
-        clip-path: polygon(0 0, 98% 2%, 100% 84%, 94% 100%, 0 96%);
+        clip-path: polygon(0 0, 94% 5%, 100% 78%, 90% 100%, 0 93%);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
@@ -41796,6 +41891,29 @@ details.academy-code-section > summary {
     cursor: pointer;
 }
 
+.academy-vn-japanese[data-performance-text="revealing"]::after {
+    --academy-vn-caret-rest-opacity: 0.18;
+    --academy-vn-caret-peak-opacity: 0.52;
+    content: "";
+    display: inline-block;
+    width: 0.14em;
+    height: 0.82em;
+    margin-inline-start: 0.1em;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: var(--academy-vn-caret-rest-opacity);
+    transform-origin: center bottom;
+    vertical-align: -0.08em;
+    animation: academy-vn-speaking-caret 720ms ease-in-out infinite;
+    transition: transform 180ms ease-out;
+}
+
+.academy-vn-dialogue[data-text-breath] .academy-vn-japanese[data-performance-text="revealing"]::after {
+    --academy-vn-caret-rest-opacity: 0.08;
+    --academy-vn-caret-peak-opacity: 0.2;
+    transform: scaleY(0.82);
+}
+
 .academy-vn-dialogue-content {
     min-width: 0;
     min-height: 0;
@@ -41924,7 +42042,8 @@ details.academy-code-section > summary {
 }
 
 .academy-profile-screen .academy-vn-object-slot {
-    bottom: clamp(214px, 31vh, 330px);
+    left: 58%;
+    bottom: clamp(228px, 33vh, 344px);
     width: min(500px, calc(100% - 32px));
     pointer-events: auto;
 }
@@ -42002,7 +42121,9 @@ details.academy-code-section > summary {
 
 .academy-profile-vn-entry .academy-textarea {
     min-height: 96px;
-    resize: vertical;
+    /* No resize handle: a draggable corner reads as browser-chrome, not a
+       journal field, on a living-paper surface (F077). */
+    resize: none;
 }
 
 .academy-profile-screen .academy-fiction-note {
@@ -42400,6 +42521,12 @@ details.academy-code-section > summary {
         transition: none;
     }
 
+    .academy-vn-japanese[data-performance-text="revealing"]::after {
+        animation: none;
+        opacity: 0.34;
+        transition: none;
+    }
+
     .academy-vn-stage .academy-sprite[data-expression-transition="true"] img,
     .academy-vn-portrait-outgoing {
         animation: none;
@@ -42426,6 +42553,11 @@ details.academy-code-section > summary {
     }
 }
 
+@keyframes academy-vn-speaking-caret {
+    0%, 100% { opacity: var(--academy-vn-caret-rest-opacity); }
+    50% { opacity: var(--academy-vn-caret-peak-opacity); }
+}
+
 .academy-vn-stage[data-reduced-motion] .academy-vn-plate img,
 .academy-vn-stage[data-reduced-motion] .academy-vn-atmosphere,
 .academy-vn-stage[data-reduced-motion] .academy-vn-sprite-slot,
@@ -42438,6 +42570,12 @@ details.academy-code-section > summary {
 .academy-vn-stage[data-reduced-motion] .academy-vn-portrait-outgoing {
     animation: none;
     clip-path: none;
+}
+
+.academy-vn-stage[data-reduced-motion] .academy-vn-japanese[data-performance-text="revealing"]::after {
+    animation: none;
+    opacity: 0.34;
+    transition: none;
 }
 .academy-story-screen:has(.academy-story-vn-shell) {
     min-height: 100dvh;
@@ -44225,6 +44363,12 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 
 .academy-class-person-card[data-portrait-state="available"] {
     min-height: 196px;
+    /* The portrait is mounted 54px above the card box (see .academy-class-person-portrait
+       top offset below); keeping the card's own border here drew a hard line straight
+       across the character art, reading as a cropped placeholder frame (QA F210). The
+       paper caption below already carries its own edge treatment, so the outer box
+       does not need one when a portrait is present. */
+    border: 0;
 }
 
 .academy-class-person-portrait {
@@ -44482,6 +44626,63 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
         transform: none;
     }
 }
+
+/* QA F031/F182: the Path/People/Events card walls and tab group read as generic
+   uniform app chrome. Give each repeating card a small asymmetric corner cycle
+   (matching the documented 3-15px living-paper corners) and clip the tab group
+   into an angled index-tab shape instead of a crisp rectangle. Local to this
+   screen, so kept in class-path.css rather than the shared cohesion layer. */
+.academy-class-person-card,
+.academy-class-event {
+    border-radius: 3px 13px 4px 11px;
+}
+
+.academy-class-person-card:nth-child(3n+2),
+.academy-class-event:nth-child(3n+2) {
+    border-radius: 12px 4px 13px 3px;
+}
+
+.academy-class-person-card:nth-child(3n+3),
+.academy-class-event:nth-child(3n+3) {
+    border-radius: 5px 9px 3px 15px;
+}
+
+.academy-class-person-caption {
+    border-radius: inherit;
+}
+
+.academy-class-week-entry {
+    border-radius: 3px 12px 3px 12px;
+}
+
+.academy-class-week-node:nth-child(3n+2) .academy-class-week-entry {
+    border-radius: 11px 3px 12px 3px;
+}
+
+.academy-class-week-node:nth-child(3n+3) .academy-class-week-entry {
+    border-radius: 4px 8px 3px 13px;
+}
+
+.academy-class-path-index {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.academy-class-path-tab[aria-selected="true"] {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+}
+
+/* QA F057: the final card row sat flush against the viewport edge with nothing
+   signalling that the page keeps scrolling. A quiet fixed fade at the bottom of
+   the (page-scrolling) screen reads as an intentional continuation cue. */
+.academy-class-path-screen::after {
+    position: fixed;
+    z-index: 6;
+    inset: auto 0 0 0;
+    height: 56px;
+    background: linear-gradient(180deg, rgba(10, 14, 13, 0), rgba(8, 11, 10, 0.6));
+    content: "";
+    pointer-events: none;
+}
 .academy-lesson-overview-screen {
     position: relative;
     min-height: 100%;
@@ -44547,7 +44748,8 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 }
 
 .academy-profile-screen .academy-lesson-overview-back,
-.academy-start-screen .academy-lesson-overview-back {
+.academy-start-screen .academy-lesson-overview-back,
+.academy-band-screen .academy-lesson-overview-back {
     color: #fffdf5;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.72);
 }

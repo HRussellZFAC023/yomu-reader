@@ -1511,7 +1511,7 @@ function smokeSettings(placement) {
     return {
         onboardingSeen: true,
         interfaceLanguage: 'en',
-        apiKey: keylessMode ? '' : liveJpdbMode ? liveJpdbApiKey : 'profile-key',
+        apiKey: keylessMode ? '' : liveJpdbMode ? liveJpdbApiKey : 'test-profile-key',
         jitenApiKey: '',
         ankiEnabled: false,
         ankiSectionEnabled: false,

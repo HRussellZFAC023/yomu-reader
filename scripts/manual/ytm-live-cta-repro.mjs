@@ -12,7 +12,7 @@ const SETTINGS = {
     interfaceLanguage: 'ja',
     showFurigana: true,
     furiganaMode: 'all',
-    apiKey: 'live-repro-jpdb-key',
+    apiKey: 'test-live-repro-jpdb-key',
     parserProvider: 'jpdb',
 };
 

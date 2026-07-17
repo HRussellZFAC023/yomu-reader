@@ -38,7 +38,7 @@ const jpdbParseUrl = 'https://jpdb.io/api/v1/parse';
 const settings = {
     onboardingSeen: true,
     interfaceLanguage: 'en',
-    apiKey: 'real-youtube-smoke-key',
+    apiKey: 'test-youtube-smoke-key',
     jitenApiKey: '',
     ankiEnabled: false,
     ankiSectionEnabled: false,
