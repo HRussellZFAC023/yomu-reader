@@ -65,6 +65,62 @@ describe('authored week learner screen', () => {
         expect(screen.element.querySelectorAll('.academy-authored-week-activity')).toHaveLength(1);
     });
 
+    it('shows authored week exposure before the first assessed response only', () => {
+        const base = weekFixture();
+        const fixture: LearnerAuthoredWeek = {
+            ...base,
+            preAssessment: [
+                {
+                    id: 'explanation',
+                    kind: 'explanation',
+                    order: 5,
+                    title: { en: 'Meeting people', ja: '人と会う' },
+                    entries: [{ en: 'Use the polite frame before you answer.' }],
+                },
+                {
+                    id: 'passage',
+                    kind: 'passage',
+                    order: 50,
+                    title: { en: 'Class roster', ja: 'クラスの名簿' },
+                    entries: [{ ja: 'わたしは アーカッシュです。', en: "I'm Aakash." }],
+                },
+                {
+                    id: 'prompt',
+                    kind: 'prompt',
+                    order: 60,
+                    title: { en: 'Your introduction', ja: '自己紹介' },
+                    entries: [{ en: 'Introduce yourself in your own words.' }],
+                },
+                {
+                    id: 'mission',
+                    kind: 'mission',
+                    order: 91,
+                    title: { en: 'Meet three classmates' },
+                    entries: [{ en: 'Ask a classmate one question.' }],
+                },
+            ],
+        };
+        const screen = createAuthoredWeekScreen({ language: 'ja', week: fixture });
+        document.body.append(screen.element);
+
+        expect([...screen.element.querySelectorAll<HTMLElement>('[data-exposure-kind]')]
+            .map(section => section.dataset.exposureKind)).toEqual([
+                'explanation', 'passage', 'prompt', 'mission',
+            ]);
+        expect(screen.element.textContent).toContain('Use the polite frame before you answer.');
+        const authoredEnglish = [...screen.element.querySelectorAll<HTMLElement>('[data-exposure-kind="explanation"] [lang="en"]')]
+            .find(node => node.textContent === 'Use the polite frame before you answer.');
+        expect(authoredEnglish?.hidden).toBe(false);
+        expect(screen.element.textContent).toContain('わたしは アーカッシュです。');
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
+        expect(screen.element.querySelector('.academy-choice-option')).toBeNull();
+
+        openQuestion(screen.element);
+        expect(screen.element.querySelector('[data-exposure-kind]')).toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).not.toBeNull();
+        expect(screen.element.textContent).not.toContain('Introduce yourself in your own words.');
+    });
+
     it('locks a lapse before feedback, offers repair and retry, then gives a pass action', async () => {
         const evaluatedStates: boolean[] = [];
         const fixture = weekFixture((_, responseId) => {
@@ -301,18 +357,25 @@ describe('authored week learner screen', () => {
     it('keeps language controls stable and revisits earlier support without inflating progress', async () => {
         const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture() });
         document.body.append(screen.element);
+        const panel = screen.element.querySelector<HTMLElement>('.academy-authored-week-panel')!;
 
         const translation = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-language-tool:nth-child(2)')!;
         translation.click();
         expect(screen.element.querySelector<HTMLElement>('.academy-lesson-teaching-translation')?.hidden).toBe(true);
         translation.click();
+        panel.scrollTop = 151;
         openQuestion(screen.element);
+        expect(panel.scrollTop).toBe(0);
+        expect(document.activeElement).toBe(choice(screen.element, 'wrong'));
         choice(screen.element, 'right').click();
         await flush();
         screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
         expect(screen.currentActivityIndex).toBe(1);
+        panel.scrollTop = 151;
         screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
         expect(screen.currentActivityIndex).toBe(0);
+        expect(panel.scrollTop).toBe(0);
+        expect(document.activeElement).toBe(screen.element.querySelector('.academy-lesson-teaching-title'));
         expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 2');
 
         const readings = screen.element.querySelector<HTMLButtonElement>('.academy-lesson-language-tool:first-child')!;
@@ -338,6 +401,7 @@ function weekFixture(
     ];
     return {
         id: 'l1-l01',
+        preAssessment: [],
         activities,
         media: [{
             assetId: 'audio:test',

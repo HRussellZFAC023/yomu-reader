@@ -58,12 +58,12 @@ describe('Academy canonical cast registry', () => {
         expect(isAcademyCastMemberId('unidentified-contact')).toBe(false);
     });
 
-    it('keeps extended members useful while withholding unapproved likenesses', () => {
+    it('keeps approved and pending likenesses explicit', () => {
         expect(getAcademyCastMember('sophie')).toMatchObject({
-            visualEvidence: 'candidate-needs-owner',
-            eligibility: { story: true, lessons: true, likenessRuntime: false },
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
-        expect(canRenderAcademyCastPortrait('sophie', 'story-runtime')).toBe(false);
+        expect(canRenderAcademyCastPortrait('sophie', 'story-runtime')).toBe(true);
         expect(getAcademyCastMember('shaun')).toMatchObject({
             firstName: 'Shaun',
             category: 'classmate',

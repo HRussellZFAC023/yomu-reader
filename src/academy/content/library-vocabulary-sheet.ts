@@ -4,7 +4,7 @@ import { createLessonThreeSourceVocabularyActivities } from './lesson-three-prof
 import { createLessonFourSourceVocabularyActivities } from './lesson-four-object-distance';
 import { createLessonFiveSourceVocabularyActivities } from './lesson-five-possession-phrases';
 import { createLessonSixSourceVocabularyActivities } from './lesson-six-place-and-owner';
-import { getAuthoredWeekRegistration } from './lesson-content-registry';
+import { loadAuthoredWeekPackage } from './lesson-content-registry';
 import { exactLibraryVocabularyDefinition } from './lesson-27-31-library-vocabulary';
 import { earlyLibraryVocabularyStudyDefinition } from './lesson-8-10-library-vocabulary';
 import type { ReviewSeed } from '../domain/activity-runtime';
@@ -127,11 +127,7 @@ export async function loadLibraryVocabularySheet(
     const bundled = BUNDLED_SOURCE_SHEETS[packageId];
     if (bundled) return createLibraryVocabularySheet(bundled());
 
-    const registration = getAuthoredWeekRegistration(packageId);
-    const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
-    if (!response.ok) throw new Error(`Unable to load Library vocabulary for ${packageId}.`);
-    const value: unknown = await response.json();
-    registration.validate(value);
+    const { value } = await loadAuthoredWeekPackage(packageId, fetcher);
     return createLibraryVocabularySheetFromPackage(value, packageId);
 }
 

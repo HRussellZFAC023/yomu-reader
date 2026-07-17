@@ -51,14 +51,19 @@ interface DisposableProfileRow {
     readonly session_count: number;
 }
 
-/** Google is required for server profiles; UCL2026 is the explicit exception. */
-export async function requireProfile(request: Request, env: Env, now: number): Promise<ProfileContext> {
+/** Authorize Academy resources: Google is required except for exact UCL2026 sessions. */
+export async function requireAcademyAccessSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
     if (!(await isAnonymousUclSession(env, session))) {
         if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
         await requirePaidSessionEntitlement(env, session, session.account_id);
     }
+    return session;
+}
+
+export async function requireProfile(request: Request, env: Env, now: number): Promise<ProfileContext> {
+    const session = await requireAcademyAccessSession(request, env, now);
     return ensureSessionProfile(env, session, now);
 }
 

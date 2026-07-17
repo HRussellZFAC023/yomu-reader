@@ -30,25 +30,43 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
     let label = trigger.dataset.tooltip ?? '';
     let tooltip: HTMLDivElement | null = null;
     let describedById: string | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     const position = () => {
         if (!tooltip || !trigger.isConnected) return;
         const gap = 8;
         const edge = 8;
-        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-        const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+        const viewport = window.visualViewport;
+        const viewportLeft = viewport?.offsetLeft ?? 0;
+        const viewportTop = viewport?.offsetTop ?? 0;
+        const viewportWidth = viewport?.width ?? (document.documentElement.clientWidth || window.innerWidth);
+        const viewportHeight = viewport?.height ?? (document.documentElement.clientHeight || window.innerHeight);
+        const viewportRight = viewportLeft + viewportWidth;
+        const viewportBottom = viewportTop + viewportHeight;
+        tooltip.style.setProperty('--academy-tooltip-viewport-inline', `${Math.max(0, viewportWidth - edge * 2)}px`);
+        tooltip.style.setProperty('--academy-tooltip-viewport-block', `${Math.max(0, viewportHeight - edge * 2)}px`);
+        tooltip.dataset.viewportConstrained = String(tooltip.scrollWidth > tooltip.clientWidth);
         const bounds = trigger.getBoundingClientRect();
         const tooltipBounds = tooltip.getBoundingClientRect();
+        const headerBounds = trigger.closest<HTMLElement>('.academy-vn-dialogue-header, .academy-vn-log-header')
+            ?.getBoundingClientRect();
         const center = Math.min(
-            Math.max(bounds.left + bounds.width / 2, edge + tooltipBounds.width / 2),
-            viewportWidth - edge - tooltipBounds.width / 2,
+            Math.max(bounds.left + bounds.width / 2, viewportLeft + edge + tooltipBounds.width / 2),
+            viewportRight - edge - tooltipBounds.width / 2,
         );
-        const fitsAbove = bounds.top - gap - tooltipBounds.height >= edge;
+        const aboveTop = bounds.top - gap - tooltipBounds.height;
+        const overlapsHeader = headerBounds
+            ? aboveTop < headerBounds.bottom && bounds.top - gap > headerBounds.top
+            : false;
+        const fitsAbove = aboveTop >= viewportTop + edge && !overlapsHeader;
         tooltip.dataset.placement = fitsAbove ? 'above' : 'below';
         tooltip.style.left = `${center}px`;
         tooltip.style.top = `${fitsAbove
             ? bounds.top - gap
-            : Math.max(edge, Math.min(bounds.bottom + gap, viewportHeight - edge - tooltipBounds.height))}px`;
+            : Math.max(
+                viewportTop + edge,
+                Math.min(bounds.bottom + gap, viewportBottom - edge - tooltipBounds.height),
+            )}px`;
     };
 
     const hide = () => {
@@ -59,6 +77,10 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
         describedById = null;
         window.removeEventListener('resize', position);
         window.removeEventListener('scroll', position, true);
+        window.visualViewport?.removeEventListener('resize', position);
+        window.visualViewport?.removeEventListener('scroll', position);
+        resizeObserver?.disconnect();
+        resizeObserver = null;
         if (activeTooltip === controller) activeTooltip = null;
     };
 
@@ -77,6 +99,12 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
             addDescription(trigger, describedById);
             window.addEventListener('resize', position);
             window.addEventListener('scroll', position, true);
+            window.visualViewport?.addEventListener('resize', position);
+            window.visualViewport?.addEventListener('scroll', position);
+            if (typeof ResizeObserver !== 'undefined') {
+                resizeObserver = new ResizeObserver(position);
+                resizeObserver.observe(tooltip);
+            }
         } else {
             tooltip.textContent = label;
         }

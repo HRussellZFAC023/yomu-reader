@@ -487,7 +487,6 @@ describe('opening story arc packages', () => {
                     expect(use.portrayal).toBe('name-only');
                     expect(use.portraitAsset).toBeUndefined();
                     expect(member?.eligibility.lessons).toBe(true);
-                    expect(member?.eligibility.likenessRuntime).toBe(false);
                 }
             }
 

@@ -3,6 +3,28 @@ import path from 'node:path';
 import { ACADEMY_CAST_SPRITE_COVERAGE, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
 
 describe('Academy offline shell', () => {
+    it('keeps deployable Academy text inputs free of private workstation paths', () => {
+        const runtimeRoot = path.resolve('public/academy');
+        const privatePath = /(?:\/Users\/[^/\s]+(?:\/|$)|\/home\/[^/\s]+(?:\/|$)|[A-Za-z]:\\+Users\\+[^\\\s]+(?:\\+|$))/u;
+        const leaks = runtimeTextFiles(runtimeRoot).flatMap(file => {
+            const source = fs.readFileSync(file, 'utf8');
+            return privatePath.test(source) ? [path.relative(runtimeRoot, file)] : [];
+        });
+
+        expect(leaks).toEqual([]);
+    });
+
+    it('uses a unique precache manifest whose hosted targets all exist', () => {
+        for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
+            const source = fs.readFileSync(path.resolve(workerPath), 'utf8');
+            const urls = precacheUrls(source);
+            const missing = urls.filter(url => !fs.existsSync(hostedPathFor(url)));
+
+            expect(urls, `${workerPath} contains duplicate precache requests`).toEqual([...new Set(urls)]);
+            expect(missing, `${workerPath} references missing hosted files`).toEqual([]);
+        }
+    });
+
     it('pre-caches the hosted Reader and every enrollment-slice dependency', () => {
         const source = fs.readFileSync(path.resolve('docs/public/academy/sw.js'), 'utf8');
         const revision = source.match(/const VERSION = 'yomu-academy-shell-([^']+)'/)?.[1];
@@ -108,4 +130,29 @@ function registryAssetPaths(): string[] {
     return Object.values(ACADEMY_RUNTIME_ASSET_REGISTRY)
         .flatMap(asset => Object.values(asset.files))
         .sort();
+}
+
+function precacheUrls(source: string): string[] {
+    const readArray = (name: string): string[] => {
+        const body = source.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\];`, 'u'))?.[1];
+        if (!body) throw new Error(`Missing ${name} service-worker manifest`);
+        return [...body.matchAll(/^\s*'([^']+)',?$/gmu)].map(match => match[1]);
+    };
+
+    return [...readArray('CAST_SPRITE_PRECACHE'), ...readArray('CORE')];
+}
+
+function hostedPathFor(rawUrl: string): string {
+    const pathname = new URL(rawUrl, 'https://yomureader.com').pathname;
+    const relativePath = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
+    return path.resolve('docs/public', `.${relativePath}`);
+}
+
+function runtimeTextFiles(directory: string): string[] {
+    const textExtensions = new Set(['.css', '.html', '.js', '.json', '.md', '.txt', '.webmanifest']);
+    return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const file = path.join(directory, entry.name);
+        if (entry.isDirectory()) return runtimeTextFiles(file);
+        return textExtensions.has(path.extname(entry.name)) ? [file] : [];
+    });
 }

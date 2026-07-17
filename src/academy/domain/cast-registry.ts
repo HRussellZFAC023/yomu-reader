@@ -54,8 +54,10 @@ const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => ({
     id,
     firstName,
     category: 'classmate' as const,
-    visualEvidence: 'candidate-needs-owner' as const,
-    eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
+    visualEvidence: id === 'sophie' ? 'approved' as const : 'candidate-needs-owner' as const,
+    eligibility: id === 'sophie'
+        ? { story: true, lessons: true, likenessRuntime: true } as const
+        : ELIGIBLE_WITH_PENDING_LIKENESS,
 }));
 
 /**

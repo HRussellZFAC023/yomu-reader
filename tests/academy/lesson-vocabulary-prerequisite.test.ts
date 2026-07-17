@@ -11,6 +11,7 @@ import {
 } from '../../src/academy/content/library-vocabulary-sheet';
 import { EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS } from '../../src/academy/content/lesson-27-31-library-vocabulary';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
+import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
 
 describe('Sensei vocabulary prerequisites', () => {
     it('catalogues Lesson 0 and every registered authored lesson without a second hand-maintained range', () => {
@@ -33,10 +34,11 @@ describe('Sensei vocabulary prerequisites', () => {
     });
 
     it('keeps an absent Moodle sheet explicit instead of projecting new vocabulary', async () => {
-        const source = JSON.parse(readFileSync('public/academy/content/lessons/012-l1-l11.json', 'utf8')) as unknown;
+        const registration = ACADEMY_LESSON_CONTENT_REGISTRY.find(candidate =>
+            candidate.kind === 'authored-week' && candidate.packageId === 'l1-l11')!;
         const prerequisite = await loadSenseiVocabularyPrerequisite(
             'authored-week:l1-l11',
-            (async () => ({ ok: true, json: async () => source }) as Response) as typeof fetch,
+            committedAuthoredWeekFetcher(registration),
         );
 
         expect(prerequisite.sheet).toMatchObject({ lessonId: 'l1-l11', sourceStatus: 'not-provided', items: [] });
@@ -57,14 +59,11 @@ describe('Sensei vocabulary prerequisites', () => {
         ['l2-l08', 18],
         ['l2-l09', 20],
     ] as const)('loads each delivered exact L2 prerequisite through %s', async (packageId, count) => {
-        const source = JSON.parse(readFileSync(
-            `public/academy/content/lessons/${ACADEMY_LESSON_CONTENT_REGISTRY.find(registration =>
-                registration.kind === 'authored-week' && registration.packageId === packageId)!.filename}`,
-            'utf8',
-        )) as unknown;
+        const registration = ACADEMY_LESSON_CONTENT_REGISTRY.find(candidate =>
+            candidate.kind === 'authored-week' && candidate.packageId === packageId)!;
         const prerequisite = await loadSenseiVocabularyPrerequisite(
             `authored-week:${packageId}`,
-            (async () => ({ ok: true, json: async () => source }) as Response) as typeof fetch,
+            committedAuthoredWeekFetcher(registration),
         );
 
         expect(prerequisite.sheet).toMatchObject({ lessonId: packageId, sourceStatus: 'exact-source' });

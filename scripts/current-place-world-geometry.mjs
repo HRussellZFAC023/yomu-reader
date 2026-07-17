@@ -79,7 +79,13 @@ try {
             assert(geometry.exitContents.every(exit => exit.fits), `${viewport.name}/${place}: route text is cropped`, geometry);
             assert(geometry.routePurposes.every(purpose => purpose.visible), `${viewport.name}/${place}: route purpose is hidden`, geometry);
             assert(geometry.routePurposes.every(purpose => purpose.fits), `${viewport.name}/${place}: route purpose is clipped`, geometry);
-            assert(geometry.routePurposes.every(purpose => purpose.lines <= 2), `${viewport.name}/${place}: route purpose exceeds two lines`, geometry);
+            assert(geometry.routePurposes.every(purpose => purpose.unclamped), `${viewport.name}/${place}: route purpose truncation styles returned`, geometry);
+            const expandedPurpose = await verifyExpandedRoutePurpose(page, selector);
+            assert(expandedPurpose.fits, `${viewport.name}/${place}: expanded route purpose is clipped`, expandedPurpose);
+            assert(expandedPurpose.insideExit, `${viewport.name}/${place}: expanded route purpose escapes its route control`, expandedPurpose);
+            assert(expandedPurpose.insideRail, `${viewport.name}/${place}: expanded route purpose escapes its rail`, expandedPurpose);
+            assert(!expandedPurpose.overlapsAction, `${viewport.name}/${place}: expanded route purpose overlaps the active scene paper`, expandedPurpose);
+            assert(expandedPurpose.unclamped, `${viewport.name}/${place}: expanded route purpose truncation styles returned`, expandedPurpose);
             assert(geometry.characterLabels.every(label => label.inside), `${viewport.name}/${place}: a character label is clipped`, geometry);
             assert(geometry.speakerStaging.active.length === 1, `${viewport.name}/${place}: active speaker is missing or duplicated`, geometry.speakerStaging);
             assert(geometry.speakerStaging.active.every(person => person.opacity === 1 && person.visualOpacity === 1), `${viewport.name}/${place}: active speaker is translucent`, geometry.speakerStaging);
@@ -299,6 +305,10 @@ function collectGeometry(screen, place) {
             visible: style.display !== 'none' && style.visibility !== 'hidden' && element.getBoundingClientRect().height > 0,
             fits: element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1,
             lines: Number.isFinite(lineHeight) && lineHeight > 0 ? Math.round(element.getBoundingClientRect().height / lineHeight) : 0,
+            unclamped: style.textOverflow === 'clip'
+                && style.whiteSpace === 'normal'
+                && style.overflowWrap === 'anywhere'
+                && style.webkitLineClamp === 'none',
         };
     });
     const overlap = (first, second) => Boolean(first && second
@@ -359,6 +369,45 @@ function collectGeometry(screen, place) {
         ],
         artCoverage: art && screenRect ? (Math.min(art.width, screenRect.width) * Math.min(art.height, screenRect.height)) / (screenRect.width * screenRect.height) : 0,
     };
+}
+
+async function verifyExpandedRoutePurpose(page, selector) {
+    return page.locator(selector).evaluate(screen => {
+        const purpose = screen.querySelector('.academy-world-exit:not(:disabled) .academy-primary-purpose');
+        if (!(purpose instanceof HTMLElement)) throw new Error('Open route purpose is missing');
+        const exit = purpose.closest('.academy-world-exit');
+        const rail = purpose.closest('.academy-world-spatial-exits');
+        if (!(exit instanceof HTMLElement) || !(rail instanceof HTMLElement)) throw new Error('Route purpose geometry is incomplete');
+        const original = purpose.textContent;
+        purpose.textContent = 'Review the photographed station announcement before choosing the next conversation practice.';
+        const purposeRect = purpose.getBoundingClientRect();
+        const exitRect = exit.getBoundingClientRect();
+        const railRect = rail.getBoundingClientRect();
+        const action = screen.querySelector('.academy-world-action-dock:not([hidden]), .academy-world-arrival-dialogue:not([hidden])');
+        const actionRect = action?.getBoundingClientRect();
+        const style = getComputedStyle(purpose);
+        const overlaps = (first, second) => Boolean(first && second
+            && Math.min(first.right, second.right) - Math.max(first.left, second.left) > 4
+            && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 4);
+        const result = {
+            fits: purpose.scrollHeight <= purpose.clientHeight + 1 && purpose.scrollWidth <= purpose.clientWidth + 1,
+            insideExit: purposeRect.left >= exitRect.left - 1
+                && purposeRect.right <= exitRect.right + 1
+                && purposeRect.top >= exitRect.top - 1
+                && purposeRect.bottom <= exitRect.bottom + 1,
+            insideRail: purposeRect.top >= railRect.top - 1 && purposeRect.bottom <= railRect.bottom + 1,
+            overlapsAction: overlaps(exitRect, actionRect),
+            unclamped: style.textOverflow === 'clip'
+                && style.whiteSpace === 'normal'
+                && style.overflowWrap === 'anywhere'
+                && style.webkitLineClamp === 'none',
+            purpose: { top: purposeRect.top, right: purposeRect.right, bottom: purposeRect.bottom, left: purposeRect.left },
+            exit: { top: exitRect.top, right: exitRect.right, bottom: exitRect.bottom, left: exitRect.left },
+            rail: { top: railRect.top, right: railRect.right, bottom: railRect.bottom, left: railRect.left },
+        };
+        purpose.textContent = original;
+        return result;
+    });
 }
 
 async function academyThemeParity(page, selector) {
@@ -502,8 +551,32 @@ async function verifyCourseEvents(page, viewport) {
     assert(geometry.cards.length > 0, `${viewport.name}/course-events: no event cards`, geometry);
     assert(geometry.cards.every(card => card.fits), `${viewport.name}/course-events: event card clipped`, geometry);
     assert(geometry.cards.every(card => card.title.present && card.title.visible && card.title.fits), `${viewport.name}/course-events: event title clipped`, geometry);
-    assert(geometry.cards.every(card => card.title.lines <= 2), `${viewport.name}/course-events: event title exceeds two lines`, geometry);
     assert(geometry.cards.every(card => card.title.textOverflow === 'clip' && card.title.whiteSpace === 'normal'), `${viewport.name}/course-events: truncation styles returned`, geometry);
+    const expandedTitle = await page.locator(selector).evaluate(surface => {
+        const title = surface.querySelector('.academy-class-event .academy-primary-purpose');
+        const card = title?.closest('.academy-class-event');
+        if (!(title instanceof HTMLElement) || !(card instanceof HTMLElement)) throw new Error('Event purpose geometry is incomplete');
+        const original = title.textContent;
+        title.textContent = 'Cross-cultural-situation-planning and the photographed announcement';
+        const titleRect = title.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const style = getComputedStyle(title);
+        const result = {
+            fits: title.scrollHeight <= title.clientHeight + 1 && title.scrollWidth <= title.clientWidth + 1,
+            insideCard: titleRect.left >= cardRect.left - 1
+                && titleRect.right <= cardRect.right + 1
+                && titleRect.top >= cardRect.top - 1
+                && titleRect.bottom <= cardRect.bottom + 1,
+            unclamped: style.textOverflow === 'clip'
+                && style.whiteSpace === 'normal'
+                && style.overflowWrap === 'anywhere'
+                && style.webkitLineClamp === 'none',
+        };
+        title.textContent = original;
+        return result;
+    });
+    assert(expandedTitle.fits && expandedTitle.insideCard, `${viewport.name}/course-events: expanded event title is clipped`, expandedTitle);
+    assert(expandedTitle.unclamped, `${viewport.name}/course-events: expanded event title truncation styles returned`, expandedTitle);
     const axe = await new AxeBuilder({ page }).include(selector).analyze();
     const serious = axe.violations.filter(violation => violation.impact === 'serious' || violation.impact === 'critical');
     assert(serious.length === 0, `${viewport.name}/course-events: serious accessibility violations`, serious);

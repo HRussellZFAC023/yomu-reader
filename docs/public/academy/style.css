@@ -22374,8 +22374,8 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     position: fixed;
     z-index: 2147483647;
     box-sizing: border-box;
-    max-inline-size: min(15rem, calc(100vw - 16px));
-    max-block-size: calc(100dvh - 16px);
+    max-inline-size: min(15rem, var(--academy-tooltip-viewport-inline, calc(100vw - 16px)));
+    max-block-size: min(calc(100dvh - 16px), var(--academy-tooltip-viewport-block, calc(100dvh - 16px)));
     padding: 5px 9px 6px;
     border: 1px solid color-mix(in srgb, var(--academy-paper, #fffdf4) 26%, transparent);
     border-radius: 0;
@@ -22394,9 +22394,14 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 }
 
 .academy-tooltip[data-compact='true'] {
-    max-inline-size: calc(100vw - 16px);
+    max-inline-size: var(--academy-tooltip-viewport-inline, calc(100vw - 16px));
     overflow-wrap: normal;
     white-space: nowrap;
+}
+
+.academy-tooltip[data-viewport-constrained='true'] {
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .academy-tooltip[data-placement='above'] {
@@ -22409,7 +22414,7 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 
 @media (max-width: 700px) {
     .academy-tooltip {
-        max-inline-size: calc(100vw - 24px);
+        max-inline-size: min(calc(100vw - 24px), var(--academy-tooltip-viewport-inline, calc(100vw - 24px)));
         font-size: 0.7rem;
     }
 }
@@ -40656,16 +40661,6 @@ html.jpdb-reader-doodle-active * {
     width: min(310px, 25vw);
 }
 
-.academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'] .academy-world-character-silhouette {
-    width: 100%;
-    height: min(70dvh, 640px);
-    border: 0;
-    background: url('/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png') bottom center / contain no-repeat;
-    box-shadow: none;
-    filter: drop-shadow(0 12px 14px rgba(19, 10, 4, 0.38));
-    clip-path: none;
-}
-
 /* The location is already named in the scene heading. Keep one escape anchor
    instead of repeating the place as a second badge beside it. */
 .academy-world-screen[data-current-place='bookshop'] .academy-world-back {
@@ -40877,10 +40872,6 @@ html.jpdb-reader-doodle-active * {
     .academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'][data-position='center'] {
         left: 4%;
         width: min(48vw, 190px);
-    }
-
-    .academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'] .academy-world-character-silhouette {
-        height: min(49svh, 420px);
     }
 
     .academy-world-screen[data-current-place='bookshop']:not([data-first-visit='true']) .academy-world-character[data-presence] .academy-world-character-presence,
@@ -42341,6 +42332,18 @@ details.academy-code-section > summary {
 
     .academy-vn-line-tools {
         gap: 5px;
+    }
+
+    @media (max-width: 420px) {
+        .academy-vn-dialogue-header {
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            gap: 6px;
+        }
+
+        .academy-vn-line-tools {
+            justify-self: end;
+        }
     }
 
     .academy-vn-log-button,
@@ -44843,15 +44846,17 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
         transform: none;
     }
 }
-/* Primary route and event purposes are short authored labels, never excerpts. */
-.academy-world-screen[data-current-place]:not([data-current-place='bookshop']) .academy-world-map-routes .academy-world-exit .academy-primary-purpose,
+/* Purpose copy is authored content, so its surface must grow instead of truncating it. */
+.academy-world-screen[data-current-place] .academy-world-map-routes .academy-world-exit .academy-primary-purpose,
 .academy-class-event .academy-primary-purpose {
     display: block;
     min-width: 0;
+    max-width: 100%;
+    max-height: none;
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
     hyphens: none;
     -webkit-box-orient: initial;
@@ -44874,16 +44879,34 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
 }
 
 @media (max-width: 760px) {
-    .academy-world-screen[data-current-place]:not([data-current-place='bookshop']) .academy-world-map-routes .academy-world-exit {
-        flex-basis: clamp(144px, 42vw, 164px);
-        width: clamp(144px, 42vw, 164px);
+    .academy-world-screen[data-current-place] .academy-world-spatial-exits,
+    .academy-world-screen[data-current-place] .academy-world-map {
         height: auto;
         max-height: none;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map {
+        grid-template-rows: auto auto;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map-routes {
+        height: auto;
+        min-height: 60px;
+        align-items: stretch;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map-routes .academy-world-exit {
+        flex-basis: clamp(196px, 54vw, 220px);
+        width: clamp(196px, 54vw, 220px);
+        height: auto;
+        min-height: 56px;
+        max-height: none;
+        align-self: stretch;
         overflow: visible;
     }
 }
@@ -49185,6 +49208,11 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 }
 
 @media (max-width: 620px) {
+    .academy-lesson-language-tool {
+        width: 44px;
+        height: 44px;
+    }
+
     .academy-lesson-activity-navigation {
         flex-direction: column;
         align-items: stretch;

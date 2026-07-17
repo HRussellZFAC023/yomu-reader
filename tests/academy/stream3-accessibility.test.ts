@@ -34,6 +34,7 @@ describe('Stream 3 Academy accessibility', () => {
         const proofCss = fs.readFileSync(path.resolve('src/academy/styles/lesson-zero-proof.css'), 'utf8');
 
         expect(lessonCss).toMatch(/@media \(max-width: 620px\)[\s\S]*\.academy-lesson-activity-navigation\s*\{[^}]*flex-direction:\s*column;[^}]*gap:\s*16px;/);
+        expect(lessonCss).toMatch(/@media \(max-width: 620px\)[\s\S]*\.academy-lesson-language-tool\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/);
         expect(lessonCss).toMatch(/\.academy-activity-chapter-next,[\s\S]*\.academy-lesson-activity-continue\s*\{[^}]*width:\s*100%;/);
         expect(proofCss).toMatch(/\.academy-lesson-zero-handout figcaption\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/s);
         expect(proofCss).toMatch(/\.academy-lesson-zero-proof \{[^}]*--academy-vn-mobile-dialogue-height:\s*min\(61dvh, 520px\);/s);

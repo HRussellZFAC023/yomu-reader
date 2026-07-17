@@ -82,6 +82,38 @@ describe('authored week recovery adapter', () => {
         }
     });
 
+    it('projects authored teaching, passages, production prompts, and missions without answer payloads', () => {
+        const loaded = fixture('002-l1-l01.json', 'l1-l01');
+        const source = loaded.json as {
+            explanation: { intro: string; grammarPoints: Array<{ examples: Array<{ ja: string }> }> };
+            components: Array<{
+                type: string;
+                passage?: { lines: Array<{ ja: string }> };
+                prompt?: string;
+                modelAnswer?: { ja: string };
+            }>;
+            mission: { prompt: string; modelAnswer: { ja: string }; successCriteria: string[] };
+        };
+        const week = adaptAuthoredWeek(loaded.json, loaded.source);
+        const serialized = JSON.stringify(week.preAssessment);
+        const passage = source.components.find(component => component.type === 'reading')!.passage!;
+        const speaking = source.components.find(component => component.type === 'speaking')!;
+        const writing = source.components.find(component => component.type === 'writing')!;
+
+        expect(week.preAssessment.map(exposure => exposure.kind)).toEqual([
+            'explanation', 'passage', 'prompt', 'prompt', 'mission',
+        ]);
+        expect(serialized).toContain(source.explanation.intro);
+        expect(serialized).toContain(passage.lines[0].ja);
+        expect(serialized).toContain(speaking.prompt);
+        expect(serialized).toContain(writing.prompt);
+        expect(serialized).toContain(source.mission.prompt);
+        expect(serialized).not.toContain(source.explanation.grammarPoints[0].examples[0].ja);
+        expect(serialized).not.toContain(source.mission.modelAnswer.ja);
+        source.mission.successCriteria.forEach(criterion => expect(serialized).not.toContain(criterion));
+        expect(serialized).not.toMatch(/"correct"|"answer"|"modelAnswer"|"rubric"/i);
+    });
+
     it('exposes only bilingual assessed learner views without answer material', () => {
         for (const [file, id] of FIXTURES) {
             const loaded = fixture(file, id);

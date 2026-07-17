@@ -2856,7 +2856,8 @@
     if (root.schema !== "yomu-academy.week.v1") fail$3("package.schema", "must be yomu-academy.week.v1");
     const id2 = text$k(root.id, "package.id");
     const sourceItemIds = /* @__PURE__ */ new Set();
-    const components2 = array$15(root.components, "package.components").map((candidate2, index) => {
+    const rawComponents = array$15(root.components, "package.components");
+    const components2 = rawComponents.map((candidate2, index) => {
       const component = record$16(candidate2, `package.components[${index}]`);
       const path = `package.components[${index}]`;
       const exercises = component.exercises === void 0 ? void 0 : array$15(component.exercises, `${path}.exercises`);
@@ -2874,8 +2875,127 @@
       id: id2,
       identity: record$16(root.identity, "package.identity"),
       provenance: record$16(root.provenance, "package.provenance"),
-      components: components2
+      components: components2,
+      preAssessment: parsePreAssessmentExposure(root, rawComponents)
     };
+  }
+  function parsePreAssessmentExposure(root, components2) {
+    const exposures = [];
+    const weekTitle = exposureText(root.title) ?? { en: "Week teaching", ja: "今週のポイント" };
+    const explanation2 = optionalRecord(root.explanation);
+    if (explanation2) {
+      const entries2 = [
+        exposureText(explanation2.recap),
+        exposureText(explanation2.intro),
+        ...arrayOrEmpty$4(explanation2.grammarPoints).flatMap((candidate2) => {
+          const point = optionalRecord(candidate2);
+          if (!point) return [];
+          const japanese2 = [nonEmptyText$1(point.nameJa), nonEmptyText$1(point.pattern)].filter((value, index, values) => Boolean(value) && values.indexOf(value) === index).join(" / ");
+          const en = [point.meaning, point.explanation, point.watchFor, point.commonError].flatMap((value) => nonEmptyText$1(value) ?? []).join(" ");
+          return japanese2 || en ? [{ ...japanese2 ? { ja: japanese2 } : {}, ...en ? { en } : {} }] : [];
+        })
+      ].filter((entry2) => Boolean(entry2));
+      if (entries2.length) {
+        exposures.push({
+          id: "explanation",
+          kind: "explanation",
+          order: optionalFiniteNumber(explanation2.order) ?? 5,
+          title: weekTitle,
+          entries: entries2,
+          sourceIndex: -1
+        });
+      }
+    } else if (typeof root.explanation === "string" && root.explanation.trim()) {
+      exposures.push({
+        id: "explanation",
+        kind: "explanation",
+        order: 5,
+        title: weekTitle,
+        entries: [{ en: root.explanation.trim() }],
+        sourceIndex: -1
+      });
+    }
+    components2.forEach((candidate2, index) => {
+      const component = record$16(candidate2, `package.components[${index}]`);
+      const order2 = finiteNumber$3(component.order, `package.components[${index}].order`);
+      const title2 = exposureText(component.title) ?? {
+        en: component.type === "speaking" ? "Speaking prompt" : component.type === "writing" ? "Writing prompt" : "Passage"
+      };
+      const passageEntries = parsePassageExposure(component.passage);
+      if (passageEntries.length) {
+        exposures.push({
+          id: `component-${index}-passage`,
+          kind: "passage",
+          order: order2,
+          title: title2,
+          entries: passageEntries,
+          sourceIndex: index
+        });
+      }
+      if ((component.type === "speaking" || component.type === "writing") && component.prompt !== void 0) {
+        const prompt2 = exposureText(component.prompt);
+        if (prompt2) {
+          exposures.push({
+            id: `component-${index}-prompt`,
+            kind: "prompt",
+            order: order2,
+            title: title2,
+            entries: [prompt2],
+            sourceIndex: index
+          });
+        }
+      }
+    });
+    const mission2 = optionalRecord(root.mission);
+    if (mission2) {
+      const prompt2 = exposureText(mission2.prompt);
+      if (prompt2) {
+        exposures.push({
+          id: "mission",
+          kind: "mission",
+          order: Math.max(5, ...components2.map((candidate2, index) => finiteNumber$3(record$16(candidate2, `package.components[${index}]`).order, `package.components[${index}].order`))) + 1,
+          title: exposureText(mission2.title) ?? { en: "Mission", ja: "ミッション" },
+          entries: [prompt2],
+          sourceIndex: components2.length
+        });
+      }
+    }
+    return exposures.sort((left, right) => left.order - right.order || left.sourceIndex - right.sourceIndex).map(({ sourceIndex: _sourceIndex, ...exposure }) => exposure);
+  }
+  function parsePassageExposure(value) {
+    if (typeof value === "string" && value.trim()) return [{ ja: value.trim() }];
+    const passage = optionalRecord(value);
+    if (!passage) return [];
+    if (Array.isArray(passage.lines)) {
+      return passage.lines.flatMap((candidate2) => {
+        const line2 = optionalRecord(candidate2);
+        if (!line2) return [];
+        const entry22 = exposureText(line2);
+        return entry22 ? [entry22] : [];
+      });
+    }
+    const entry2 = exposureText(passage);
+    return entry2 ? [entry2] : [];
+  }
+  function exposureText(value) {
+    if (typeof value === "string" && value.trim()) return { en: value.trim() };
+    const candidate2 = optionalRecord(value);
+    if (!candidate2) return void 0;
+    const en = nonEmptyText$1(candidate2.en);
+    const ja = nonEmptyText$1(candidate2.ja);
+    const reading = nonEmptyText$1(candidate2.reading);
+    if (!en && !ja) return void 0;
+    return {
+      ...en ? { en } : {},
+      ...ja ? { ja } : {},
+      ...reading ? { reading } : {}
+    };
+  }
+  function arrayOrEmpty$4(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function optionalFiniteNumber(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : void 0;
   }
   function parseTeachingSupport(component, path) {
     const title2 = isLocalized(component.title) ? localized$h(component.title, `${path}.title`) : { ja: "この問題の前に", en: "Before this question" };
@@ -9432,6 +9552,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }] : []);
     const week = {
       id: id2,
+      preAssessment: authored.preAssessment.map((exposure) => ({
+        ...exposure,
+        title: { ...exposure.title },
+        entries: exposure.entries.map((entry2) => ({ ...entry2 }))
+      })),
       activities,
       media,
       provenance: { source: { ...source2 }, packageId: id2, packageProvenance: authored.provenance },
@@ -11938,8 +12063,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     id: id2,
     firstName,
     category: "classmate",
-    visualEvidence: "candidate-needs-owner",
-    eligibility: ELIGIBLE_WITH_PENDING_LIKENESS
+    visualEvidence: id2 === "sophie" ? "approved" : "candidate-needs-owner",
+    eligibility: id2 === "sophie" ? { story: true, lessons: true, likenessRuntime: true } : ELIGIBLE_WITH_PENDING_LIKENESS
   }));
   const ACADEMY_CAST = [
     {
@@ -12828,10 +12953,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       packageId,
       classWeekId,
       expectedSha256: AUTHORED_WEEK_HASHES[packageId],
-      validate: (value) => adaptAuthoredWeek(value, {
-        path: `/academy/content/lessons/${filename}`,
-        sha256: AUTHORED_WEEK_HASHES[packageId]
-      })
+      validate: (bytes) => validateAuthoredWeekBytes(
+        filename,
+        packageId,
+        AUTHORED_WEEK_HASHES[packageId],
+        bytes
+      )
     })
   );
   const ACADEMY_LESSON_CONTENT_REGISTRY = Object.freeze([
@@ -12881,6 +13008,33 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError(`Unregistered authored Academy week: ${packageId}`);
     }
     return registration;
+  }
+  async function loadAuthoredWeekPackage(packageId, fetcher = fetch) {
+    const registration = getAuthoredWeekRegistration(packageId);
+    const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
+    if (!response.ok) {
+      throw new Error(`Unable to load authored Academy package ${packageId} (${response.status}).`);
+    }
+    return registration.validate(await response.arrayBuffer());
+  }
+  async function validateAuthoredWeekBytes(filename, packageId, expectedSha256, bytes) {
+    const sha2562 = await hashBytes(bytes);
+    if (sha2562 !== expectedSha256) {
+      throw new TypeError(`Authored Academy package ${packageId} does not match its registered bytes.`);
+    }
+    const value = JSON.parse(new TextDecoder().decode(bytes));
+    const week = adaptAuthoredWeek(value, {
+      path: `/academy/content/lessons/${filename}`,
+      sha256: sha2562
+    });
+    if (week.id !== packageId) {
+      throw new TypeError(`Authored Academy package ${packageId} resolved to another package.`);
+    }
+    return Object.freeze({ value, week });
+  }
+  async function hashBytes(bytes) {
+    const digest2 = await crypto.subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(digest2)].map((value) => value.toString(16).padStart(2, "0")).join("");
   }
   const LESSON_CONTENT_ROOT = "/academy/content/lessons/";
   function createGroundedLessonResolver(fetcher = fetch) {
@@ -30854,22 +31008,37 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let label = trigger.dataset.tooltip ?? "";
     let tooltip = null;
     let describedById = null;
+    let resizeObserver = null;
     const position = () => {
       if (!tooltip || !trigger.isConnected) return;
       const gap2 = 8;
       const edge = 8;
-      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-      const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportWidth = viewport?.width ?? (document.documentElement.clientWidth || window.innerWidth);
+      const viewportHeight = viewport?.height ?? (document.documentElement.clientHeight || window.innerHeight);
+      const viewportRight = viewportLeft + viewportWidth;
+      const viewportBottom = viewportTop + viewportHeight;
+      tooltip.style.setProperty("--academy-tooltip-viewport-inline", `${Math.max(0, viewportWidth - edge * 2)}px`);
+      tooltip.style.setProperty("--academy-tooltip-viewport-block", `${Math.max(0, viewportHeight - edge * 2)}px`);
+      tooltip.dataset.viewportConstrained = String(tooltip.scrollWidth > tooltip.clientWidth);
       const bounds = trigger.getBoundingClientRect();
       const tooltipBounds = tooltip.getBoundingClientRect();
+      const headerBounds = trigger.closest(".academy-vn-dialogue-header, .academy-vn-log-header")?.getBoundingClientRect();
       const center = Math.min(
-        Math.max(bounds.left + bounds.width / 2, edge + tooltipBounds.width / 2),
-        viewportWidth - edge - tooltipBounds.width / 2
+        Math.max(bounds.left + bounds.width / 2, viewportLeft + edge + tooltipBounds.width / 2),
+        viewportRight - edge - tooltipBounds.width / 2
       );
-      const fitsAbove = bounds.top - gap2 - tooltipBounds.height >= edge;
+      const aboveTop = bounds.top - gap2 - tooltipBounds.height;
+      const overlapsHeader = headerBounds ? aboveTop < headerBounds.bottom && bounds.top - gap2 > headerBounds.top : false;
+      const fitsAbove = aboveTop >= viewportTop + edge && !overlapsHeader;
       tooltip.dataset.placement = fitsAbove ? "above" : "below";
       tooltip.style.left = `${center}px`;
-      tooltip.style.top = `${fitsAbove ? bounds.top - gap2 : Math.max(edge, Math.min(bounds.bottom + gap2, viewportHeight - edge - tooltipBounds.height))}px`;
+      tooltip.style.top = `${fitsAbove ? bounds.top - gap2 : Math.max(
+        viewportTop + edge,
+        Math.min(bounds.bottom + gap2, viewportBottom - edge - tooltipBounds.height)
+      )}px`;
     };
     const hide = () => {
       if (!tooltip) return;
@@ -30879,6 +31048,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       describedById = null;
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
+      window.visualViewport?.removeEventListener("resize", position);
+      window.visualViewport?.removeEventListener("scroll", position);
+      resizeObserver?.disconnect();
+      resizeObserver = null;
       if (activeTooltip === controller) activeTooltip = null;
     };
     const show = () => {
@@ -30896,6 +31069,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         addDescription(trigger, describedById);
         window.addEventListener("resize", position);
         window.addEventListener("scroll", position, true);
+        window.visualViewport?.addEventListener("resize", position);
+        window.visualViewport?.addEventListener("scroll", position);
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(position);
+          resizeObserver.observe(tooltip);
+        }
       } else {
         tooltip.textContent = label;
       }
@@ -33068,12 +33247,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
         textRevealTimer = window.setTimeout(
           revealNext,
-          textRevealCharacterDelay(characters[visibleCharacters - 1] ?? "", baseDelayMs)
+          textRevealCharacterDelay(
+            characters[visibleCharacters - 1] ?? "",
+            characters[visibleCharacters] ?? "",
+            baseDelayMs
+          )
         );
       };
       textRevealTimer = window.setTimeout(
         revealNext,
-        120 + textRevealCharacterDelay(characters[0] ?? "", baseDelayMs)
+        90 + textRevealCharacterDelay(characters[0] ?? "", characters[1] ?? "", baseDelayMs)
       );
     }
     function finishTextReveal(lineId) {
@@ -33425,12 +33608,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function textRevealDuration(text2) {
     return Math.max(280, Math.min(1600, [...text2].length * 42));
   }
-  function textRevealCharacterDelay(character, baseDelayMs) {
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 360;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 125;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 190;
-    if (/[…―—]/u.test(character)) return baseDelayMs + 150;
-    if (/\s/u.test(character)) return Math.max(22, baseDelayMs - 8);
+  function textRevealCharacterDelay(character, nextCharacter, baseDelayMs) {
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 420;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 190;
+    if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
+      return Math.max(16, Math.round(baseDelayMs * 0.42));
+    }
+    if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
     return baseDelayMs;
   }
   function prefersReducedMotion() {
@@ -66815,11 +67002,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const packageId = authoredPackageId(lessonId);
     const bundled = BUNDLED_SOURCE_SHEETS[packageId];
     if (bundled) return createLibraryVocabularySheet(bundled());
-    const registration = getAuthoredWeekRegistration(packageId);
-    const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
-    if (!response.ok) throw new Error(`Unable to load Library vocabulary for ${packageId}.`);
-    const value = await response.json();
-    registration.validate(value);
+    const { value } = await loadAuthoredWeekPackage(packageId, fetcher);
     return createLibraryVocabularySheetFromPackage(value, packageId);
   }
   function createLibraryVocabularySheetFromPackage(input2, packageId) {
@@ -191162,7 +191345,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateNameOnlyCast(id2) {
     const member = getAcademyCastMember(id2);
-    if (!member.eligibility.lessons || !member.eligibility.story || member.eligibility.likenessRuntime) {
+    if (!member.eligibility.lessons || !member.eligibility.story) {
       throw new TypeError(`Lesson story cast member ${id2} violates the name-only lesson boundary.`);
     }
   }
@@ -210343,6 +210526,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let showingAuthoredActivity = true;
     let extensionController;
     let activityController;
+    const resetPanelScroll = () => {
+      panel.scrollTop = 0;
+    };
+    const focusInPanel = (target) => {
+      target?.focus({ preventScroll: true });
+      resetPanelScroll();
+    };
     const advance = () => {
       completedActivityIds.add(options.week.activities[currentIndex].id);
       progress2.update(completedActivityIds.size + extensionCompleted);
@@ -210355,6 +210545,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       else renderComplete();
     };
     const renderCurrent = (focus = false, showSupport = true) => {
+      resetPanelScroll();
       options.onListeningStop?.();
       activityController?.dispose();
       activityController = void 0;
@@ -210366,7 +210557,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const hasTeachingSupport = activity2.kind !== "academy-source-vocabulary-sheet";
       if (showSupport && hasTeachingSupport) {
         const teachingSupport = authoredTeachingSupport(activity2);
-        const supportView = teachingSupportView(teachingSupport, options.language);
+        const supportView = element("div", "academy-authored-week-pre-question");
+        if (currentIndex === 0) {
+          options.week.preAssessment.forEach((exposure) => supportView.append(authoredExposureView(exposure, options.language)));
+        }
+        supportView.append(teachingSupportView(teachingSupport, options.language));
         const navigation = lessonNavigation(options.language, {
           back: currentIndex > 0 ? () => {
             currentIndex -= 1;
@@ -210378,7 +210573,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         supportView.append(navigation);
         activityHost.replaceChildren(supportView);
         languageSupport.refresh();
-        if (focus) supportView.querySelector("h2")?.focus();
+        if (focus) focusInPanel(supportView.querySelector("h2"));
         return;
       }
       const questionHost = element("div", "academy-authored-week-question-host");
@@ -210423,7 +210618,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
           questionHost.append(action2);
           action2.focus();
         });
-        if (focus) activityController.focus();
+        if (focus) {
+          activityController.focus();
+          resetPanelScroll();
+        }
         return;
       }
       questionHost.replaceChildren(renderActivity(activity2, currentIndex, options.week.activities.length, {
@@ -210447,9 +210645,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
       }));
       languageSupport.refresh();
-      if (focus) questionHost.querySelector(".academy-choice-option, .academy-authored-text-input")?.focus();
+      if (focus) focusInPanel(questionHost.querySelector(".academy-choice-option, .academy-authored-text-input"));
     };
     const renderExtension = () => {
+      resetPanelScroll();
       showingComplete = false;
       showingAuthoredActivity = false;
       activityController?.dispose();
@@ -210471,8 +210670,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         registerReadingSurface: languageSupport.registerReadingSurface
       });
       extensionController?.focus();
+      resetPanelScroll();
     };
     const renderComplete = () => {
+      resetPanelScroll();
       activityController?.dispose();
       activityController = void 0;
       extensionController?.dispose();
@@ -210506,7 +210707,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         } : {}
       }, lifecycle.signal));
       activityHost.replaceChildren(complete);
-      complete.focus();
+      focusInPanel(complete);
       if (!options.storyContext?.handoff) finish();
     };
     renderCurrent();
@@ -210529,6 +210730,47 @@ recommendedJiten	Jiten由来の頻度バッジです。
         screen.remove();
       }
     };
+  }
+  function authoredExposureView(exposure, language) {
+    const root = element("section", "academy-lesson-teaching-support academy-authored-week-exposure");
+    root.dataset.exposureKind = exposure.kind;
+    root.dataset.exposureId = exposure.id;
+    const eyebrow = element("p", "academy-eyebrow");
+    eyebrow.textContent = exposureLabel(exposure.kind, language);
+    const title2 = element("h2", "academy-lesson-teaching-title");
+    title2.tabIndex = -1;
+    appendExposureText(title2, exposure.title);
+    const entries2 = element("div", "academy-lesson-teaching-entries");
+    exposure.entries.forEach((entry2) => {
+      const row = element("article", "academy-lesson-teaching-entry");
+      appendExposureText(row, entry2);
+      entries2.append(row);
+    });
+    root.append(eyebrow, title2, entries2);
+    return root;
+  }
+  function appendExposureText(root, value) {
+    if (value.ja) {
+      const text2 = japanese(value.ja);
+      text2.classList.add("academy-lesson-teaching-japanese");
+      if (value.reading && value.reading !== value.ja) text2.dataset.reading = value.reading;
+      root.append(text2);
+    }
+    if (value.en && value.en !== value.ja) {
+      const text2 = support(value.en);
+      if (!value.ja) text2.classList.remove("academy-support");
+      text2.classList.add("academy-lesson-teaching-translation");
+      root.append(text2);
+    }
+  }
+  function exposureLabel(kind, language) {
+    const labels = {
+      explanation: { en: "Week teaching", ja: "今週のポイント" },
+      passage: { en: "Passage", ja: "読みもの" },
+      prompt: { en: "Try it yourself", ja: "自分でやってみる" },
+      mission: { en: "Week mission", ja: "今週のミッション" }
+    };
+    return labels[kind][language];
   }
   function authoredTeachingSupport(activity2) {
     if ("teachingSupport" in activity2 && activity2.teachingSupport) return activity2.teachingSupport;
@@ -211844,9 +212086,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         throw new Error(`Class Week ${registration.classWeekId} has no grounded attendee roster.`);
       }
       const primary = classWeek.primary;
-      const response = await fetch(`/academy/content/lessons/${registration.filename}`);
-      if (!response.ok) throw new Error(`Unable to load class Week ${packageId}.`);
-      const week = registration.validate(await response.json());
+      const { week } = await loadAuthoredWeekPackage(packageId);
       const authoredLessonId = `authored-week:${registration.packageId}`;
       const prerequisite2 = await loadSenseiVocabularyPrerequisite(authoredLessonId);
       const chapter2 = await loadReachableLessonActivityChapter(packageId, this.options.kanjiWriting);
@@ -212091,9 +212331,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (!canonicalWeekIds.has(registration.classWeekId)) {
           throw new TypeError(`Authored package ${registration.packageId} names a non-canonical class Week ${registration.classWeekId}.`);
         }
-        const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
-        if (!response.ok) throw new Error(`Unable to load authored class Week ${registration.packageId}.`);
-        registration.validate(await response.json());
+        await loadAuthoredWeekPackage(registration.packageId, fetcher);
         auditedByWeek.set(registration.classWeekId, {
           lessonId: `authored-week:${registration.packageId}`,
           status: "playable"
@@ -217524,6 +217762,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async renderLibrary(context2) {
       const sheet2 = await loadLibraryVocabularySheet(await this.libraryPackageId(context2));
+      if (Object.keys(context2.projection.scheduledReviews).length) {
+        await this.restoreDueLibrarySyllabus(context2, sheet2);
+      }
       const due = toSessionVocabulary(await this.options.evidence.dueReviews(50));
       const sheetVocabulary = libraryStudyVocabulary(sheet2);
       const syllabusState = due.length ? "due" : await this.options.evidence.syllabusState?.(sheetVocabulary);
@@ -217545,6 +217786,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       screen.addEventListener("academy:dispose", () => speech?.dispose(), { once: true });
       context2.shell.replace(screen);
+    }
+    async restoreDueLibrarySyllabus(context2, sheet2) {
+      const dueSeeds = libraryVocabularyReviewSeeds(sheet2).filter((seed) => {
+        const itemId = canonicalGroundedReviewKey(seed.content.expression, seed.content.reading);
+        const schedule = context2.projection.scheduledReviews[itemId];
+        return Boolean(schedule && schedule.dueAt <= Date.now() && !context2.projection.reviewRatings[itemId]);
+      });
+      if (!dueSeeds.length) return;
+      await this.options.evidence.seedVocabularyPrerequisite(
+        `authored-week:${sheet2.lessonId}`,
+        dueSeeds
+      );
     }
     async startLibraryStudy(context2, sheet2, sheetVocabulary, play) {
       await this.options.evidence.seedVocabularyPrerequisite(

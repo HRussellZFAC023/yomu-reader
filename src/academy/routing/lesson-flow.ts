@@ -1,6 +1,10 @@
 import { ACADEMY_ASSETS } from '../assets';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID, createAakashDirectionsActivity } from '../content/aakash-meet';
-import { getAuthoredWeekRegistration, getCompleteLessonRegistration } from '../content/lesson-content-registry';
+import {
+    getAuthoredWeekRegistration,
+    getCompleteLessonRegistration,
+    loadAuthoredWeekPackage,
+} from '../content/lesson-content-registry';
 import {
     loadSenseiVocabularyPrerequisite,
 } from '../content/lesson-vocabulary-prerequisite';
@@ -126,9 +130,7 @@ class LessonFlow implements AcademyRouteFlow {
             throw new Error(`Class Week ${registration.classWeekId} has no grounded attendee roster.`);
         }
         const primary = classWeek.primary;
-        const response = await fetch(`/academy/content/lessons/${registration.filename}`);
-        if (!response.ok) throw new Error(`Unable to load class Week ${packageId}.`);
-        const week = registration.validate(await response.json());
+        const { week } = await loadAuthoredWeekPackage(packageId);
         const authoredLessonId = `authored-week:${registration.packageId}` as const;
         const prerequisite = await loadSenseiVocabularyPrerequisite(authoredLessonId);
         const chapter = await loadReachableLessonActivityChapter(packageId, this.options.kanjiWriting);

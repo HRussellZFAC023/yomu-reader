@@ -12,6 +12,7 @@ import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-co
 import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/academy/content/lesson-story-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -50,16 +51,13 @@ describe('Lessons 32-34 asset and presentation grounding', () => {
         }
     });
 
-    it('puts each approved plate and local location label on the real authored screen without a likeness', () => {
+    it('puts each approved plate and local location label on the real authored screen without a likeness', async () => {
         const runtime = createLessonStoryRuntime(PLAN);
         for (const [packageId, originPlaceId, plate] of LESSONS) {
             const entry = runtime.continuity(packageId)!;
             const presentation = lessonStoryPresentation(entry)!;
             const registration = getAuthoredWeekRegistration(packageId);
-            const week = registration.validate(JSON.parse(fs.readFileSync(
-                path.resolve('public/academy/content/lessons', registration.filename),
-                'utf8',
-            )));
+            const { week } = await validateCommittedAuthoredWeek(registration);
             const screen = createAuthoredWeekScreen({
                 language: 'en',
                 week,

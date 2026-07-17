@@ -98,8 +98,11 @@ describe('Library source sheet to SRS journey', () => {
     });
 
     it('loads and validates only the requested later lesson shard', async () => {
-        const input = JSON.parse(readFileSync('public/academy/content/lessons/008-l1-l07.json', 'utf8')) as unknown;
-        const fetcher = vi.fn(async () => ({ ok: true, json: async () => input }) as Response);
+        const bytes = readFileSync('public/academy/content/lessons/008-l1-l07.json');
+        const fetcher = vi.fn(async () => new Response(bytes, {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        }));
 
         const sheet = await loadLibraryVocabularySheet('authored-week:l1-l07', fetcher as typeof fetch);
 

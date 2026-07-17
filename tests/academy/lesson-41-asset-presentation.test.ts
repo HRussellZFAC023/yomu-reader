@@ -10,6 +10,7 @@ import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/aca
 import type { ActivityModel } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const PACKAGE_ID = 'l2-l16';
 const PACKAGE_FILE = '043-l2-l16.json';
@@ -29,7 +30,7 @@ const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
 afterEach(() => document.body.replaceChildren());
 
 describe('Lesson 41 asset and presentation grounding', () => {
-    it('owns the approved responsive classroom plate and exact name-only roster', () => {
+    it('owns the approved responsive classroom plate and exact name-only roster', async () => {
         const entry = createLessonStoryRuntime(PLAN).continuity(PACKAGE_ID)!;
         expect(entry).toMatchObject({
             classWeekId: 'l3-2-l05',
@@ -51,10 +52,7 @@ describe('Lesson 41 asset and presentation grounding', () => {
         expect(ACADEMY_ASSETS.locations.classroom.mobile).not.toBe(ACADEMY_ASSETS.locations.classroom.wide);
 
         const registration = getAuthoredWeekRegistration(PACKAGE_ID);
-        const week = registration.validate(JSON.parse(fs.readFileSync(
-            path.resolve('public/academy/content/lessons', registration.filename),
-            'utf8',
-        )));
+        const { week } = await validateCommittedAuthoredWeek(registration);
         const presentation = lessonStoryPresentation(entry)!;
         const screen = createAuthoredWeekScreen({
             language: 'en',

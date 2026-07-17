@@ -9,6 +9,7 @@ import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/aca
 import type { ActivityModel } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const PACKAGE_ID = 'l2-l15';
 const PACKAGE_FILE = '042-l2-l15.json';
@@ -51,14 +52,11 @@ describe('Lesson 40 asset and presentation grounding', () => {
             .not.toBe(ACADEMY_ASSETS.locations.classroom.wide);
     });
 
-    it('renders responsive scene art with Alex and Jodi named but no cast likeness or item art', () => {
+    it('renders responsive scene art with Alex and Jodi named but no cast likeness or item art', async () => {
         const entry = createLessonStoryRuntime(PLAN).continuity(PACKAGE_ID)!;
         const presentation = lessonStoryPresentation(entry)!;
         const registration = getAuthoredWeekRegistration(PACKAGE_ID);
-        const week = registration.validate(JSON.parse(fs.readFileSync(
-            path.resolve('public/academy/content/lessons', registration.filename),
-            'utf8',
-        )));
+        const { week } = await validateCommittedAuthoredWeek(registration);
         const screen = createAuthoredWeekScreen({
             language: 'en',
             week,

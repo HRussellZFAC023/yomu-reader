@@ -14,6 +14,7 @@ import {
     parseExactExercise,
     type AuthoredExactExercise,
     type AuthoredSourceVocabularySheet,
+    type AuthoredWeekExposure,
 } from './authored-week-schema';
 import { resolvePackagedListeningTask } from './listening/listening-task-bindings';
 import {
@@ -94,6 +95,7 @@ export interface AuthoredWeekSource {
 
 export interface LearnerAuthoredWeek {
     readonly id: AuthoredWeekId;
+    readonly preAssessment: readonly AuthoredWeekExposure[];
     readonly activities: readonly LearnerAuthoredActivity[];
     readonly media: readonly {
         assetId: string;
@@ -380,6 +382,11 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
     }] : []);
     const week: LearnerAuthoredWeek = {
         id,
+        preAssessment: authored.preAssessment.map(exposure => ({
+            ...exposure,
+            title: { ...exposure.title },
+            entries: exposure.entries.map(entry => ({ ...entry })),
+        })),
         activities,
         media,
         provenance: { source: { ...source }, packageId: id, packageProvenance: authored.provenance },

@@ -1,12 +1,13 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type {
     AuthoredChoiceEvaluation,
+    LearnerAuthoredWeek,
     LearnerAuthoredActivity,
     LearnerAuthoredChoice,
     LearnerAuthoredText,
-    LearnerAuthoredWeek,
     LearnerListeningSource,
 } from '../content/authored-week-adapter';
+import type { AuthoredWeekExposure, AuthoredWeekExposureText } from '../content/authored-week-schema';
 import type { ActivityController, ActivityRuntime, ReviewSeed } from '../domain/activity-runtime';
 import type { LocalizedText } from '../domain/source-library';
 import { createAcademyActivityRuntime } from '../minigames';
@@ -153,6 +154,15 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     let extensionController: ReturnType<LessonActivityExtension['mount']> | undefined;
     let activityController: ActivityController | undefined;
 
+    const resetPanelScroll = (): void => {
+        panel.scrollTop = 0;
+    };
+
+    const focusInPanel = (target: HTMLElement | null | undefined): void => {
+        target?.focus({ preventScroll: true });
+        resetPanelScroll();
+    };
+
     const advance = (): void => {
         completedActivityIds.add(options.week.activities[currentIndex].id);
         progress.update(completedActivityIds.size + extensionCompleted);
@@ -166,6 +176,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     };
 
     const renderCurrent = (focus = false, showSupport = true): void => {
+        resetPanelScroll();
         options.onListeningStop?.();
         activityController?.dispose();
         activityController = undefined;
@@ -177,7 +188,11 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         const hasTeachingSupport = activity.kind !== 'academy-source-vocabulary-sheet';
         if (showSupport && hasTeachingSupport) {
             const teachingSupport = authoredTeachingSupport(activity);
-            const supportView = teachingSupportView(teachingSupport, options.language);
+            const supportView = element('div', 'academy-authored-week-pre-question');
+            if (currentIndex === 0) {
+                options.week.preAssessment.forEach(exposure => supportView.append(authoredExposureView(exposure, options.language)));
+            }
+            supportView.append(teachingSupportView(teachingSupport, options.language));
             const navigation = lessonNavigation(options.language, {
                 back: currentIndex > 0 ? () => {
                     currentIndex -= 1;
@@ -189,7 +204,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             supportView.append(navigation);
             activityHost.replaceChildren(supportView);
             languageSupport.refresh();
-            if (focus) supportView.querySelector<HTMLElement>('h2')?.focus();
+            if (focus) focusInPanel(supportView.querySelector<HTMLElement>('h2'));
             return;
         }
         const questionHost = element('div', 'academy-authored-week-question-host');
@@ -230,7 +245,10 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
                 questionHost.append(action);
                 action.focus();
             });
-            if (focus) activityController.focus();
+            if (focus) {
+                activityController.focus();
+                resetPanelScroll();
+            }
             return;
         }
         questionHost.replaceChildren(renderActivity(activity, currentIndex, options.week.activities.length, {
@@ -254,10 +272,11 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             },
         }));
         languageSupport.refresh();
-        if (focus) questionHost.querySelector<HTMLElement>('.academy-choice-option, .academy-authored-text-input')?.focus();
+        if (focus) focusInPanel(questionHost.querySelector<HTMLElement>('.academy-choice-option, .academy-authored-text-input'));
     };
 
     const renderExtension = (): void => {
+        resetPanelScroll();
         showingComplete = false;
         showingAuthoredActivity = false;
         activityController?.dispose();
@@ -279,9 +298,11 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             registerReadingSurface: languageSupport.registerReadingSurface,
         });
         extensionController?.focus();
+        resetPanelScroll();
     };
 
     const renderComplete = (): void => {
+        resetPanelScroll();
         activityController?.dispose();
         activityController = undefined;
         extensionController?.dispose();
@@ -315,7 +336,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             } : {}),
         }, lifecycle.signal));
         activityHost.replaceChildren(complete);
-        complete.focus();
+        focusInPanel(complete);
         if (!options.storyContext?.handoff) finish();
     };
 
@@ -336,6 +357,50 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             screen.remove();
         },
     };
+}
+
+function authoredExposureView(exposure: AuthoredWeekExposure, language: AcademyLanguage): HTMLElement {
+    const root = element('section', 'academy-lesson-teaching-support academy-authored-week-exposure');
+    root.dataset.exposureKind = exposure.kind;
+    root.dataset.exposureId = exposure.id;
+    const eyebrow = element('p', 'academy-eyebrow');
+    eyebrow.textContent = exposureLabel(exposure.kind, language);
+    const title = element('h2', 'academy-lesson-teaching-title');
+    title.tabIndex = -1;
+    appendExposureText(title, exposure.title);
+    const entries = element('div', 'academy-lesson-teaching-entries');
+    exposure.entries.forEach(entry => {
+        const row = element('article', 'academy-lesson-teaching-entry');
+        appendExposureText(row, entry);
+        entries.append(row);
+    });
+    root.append(eyebrow, title, entries);
+    return root;
+}
+
+function appendExposureText(root: HTMLElement, value: AuthoredWeekExposureText): void {
+    if (value.ja) {
+        const text = japanese(value.ja);
+        text.classList.add('academy-lesson-teaching-japanese');
+        if (value.reading && value.reading !== value.ja) text.dataset.reading = value.reading;
+        root.append(text);
+    }
+    if (value.en && value.en !== value.ja) {
+        const text = support(value.en);
+        if (!value.ja) text.classList.remove('academy-support');
+        text.classList.add('academy-lesson-teaching-translation');
+        root.append(text);
+    }
+}
+
+function exposureLabel(kind: AuthoredWeekExposure['kind'], language: AcademyLanguage): string {
+    const labels = {
+        explanation: { en: 'Week teaching', ja: '今週のポイント' },
+        passage: { en: 'Passage', ja: '読みもの' },
+        prompt: { en: 'Try it yourself', ja: '自分でやってみる' },
+        mission: { en: 'Week mission', ja: '今週のミッション' },
+    } as const;
+    return labels[kind][language];
 }
 
 function authoredTeachingSupport(activity: LearnerAuthoredActivity): import('../domain/activity-runtime').ActivityTeachingSupport {

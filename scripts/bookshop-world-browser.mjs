@@ -146,10 +146,9 @@ async function assertFirstVisit(page, viewport) {
         const back = box('.academy-world-back');
         const reward = box('.academy-world-reward');
         const dialogue = box('.academy-world-arrival-dialogue');
-        const sophie = element.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette');
+        const sophie = element.querySelector('[data-world-character="sophie"] img');
         const dialogueElement = element.querySelector('.academy-world-arrival-dialogue');
         const dialogueStyle = getComputedStyle(dialogueElement);
-        const sophieStyle = getComputedStyle(sophie);
         return {
             viewport: { width: innerWidth, height: innerHeight },
             documentWidth: document.documentElement.scrollWidth,
@@ -160,7 +159,7 @@ async function assertFirstVisit(page, viewport) {
             dialogueBackground: dialogueStyle.backgroundColor,
             dialogueBackdrop: dialogueStyle.backdropFilter || dialogueStyle.webkitBackdropFilter,
             dialogueClip: dialogueStyle.clipPath,
-            sophieBackground: sophieStyle.backgroundImage,
+            sophieSource: sophie instanceof HTMLImageElement ? sophie.currentSrc || sophie.src : '',
             sophieWidth: box('[data-world-character="sophie"]')?.width ?? 0,
         };
     });
@@ -176,7 +175,7 @@ async function assertFirstVisit(page, viewport) {
     assert.match(geometry.dialogueBackground, /^rgba\(251, 244, 218, 0\.78\)$/u);
     assert.notEqual(geometry.dialogueBackdrop, 'none', `${viewport.name} dialogue keeps its living-paper blur`);
     assert.notEqual(geometry.dialogueClip, 'none', `${viewport.name} dialogue keeps its paper edge`);
-    assert.match(geometry.sophieBackground, /sophie__bookshop-neutral__halfbody__v003\.png/u);
+    assert.match(geometry.sophieSource, /sophie__bookshop-neutral__halfbody__v003\.png/u);
     assert.ok(geometry.sophieWidth >= 150, `${viewport.name} Sophie remains visibly staged`);
     return geometry;
 }

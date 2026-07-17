@@ -1,13 +1,22 @@
-import { createLearnerRecord } from '../../src/academy/domain/learner-record';
-import { createLibraryVocabularySheet, libraryStudyVocabulary } from '../../src/academy/content/library-vocabulary-sheet';
+import { createLearnerRecord, createMemoryLearnerEventRepository } from '../../src/academy/domain/learner-record';
+import {
+    createLibraryVocabularySheet,
+    libraryStudyVocabulary,
+    libraryVocabularyReviewSeeds,
+} from '../../src/academy/content/library-vocabulary-sheet';
+import { createLearnerEvidence } from '../../src/academy/evidence/learner-evidence';
+import { createYomuLocalReviewService } from '../../src/academy/integration/yomu-local-review';
 import type { AcademyStudyMountContext, AcademyStudyModule } from '../../src/academy/integration/study-module';
 import { createWorldFlow, currentLibraryPackageId } from '../../src/academy/routing/world-flow';
 import { createAcademyShell } from '../../src/academy/ui/shell';
 import { createLessonTwoSourceVocabularyActivities } from '../../src/academy/content/lesson-two-profile-board';
+import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { canonicalStudyCardIdentity } from '../../src/reader/srs/shared';
 import { readFileSync } from 'node:fs';
 
 afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
     document.body.replaceChildren();
 });
 
@@ -117,6 +126,109 @@ describe('Academy Study route', () => {
         shell.replace(document.createElement('section'));
         await vi.runAllTicks();
         expect(dispose).toHaveBeenCalledOnce();
+        shell.dispose();
+    });
+
+    it('restores a due Academy syllabus row into the real scheduler before Study mounts', async () => {
+        const now = Date.now();
+        const sheet = createLibraryVocabularySheet();
+        const [seed, futureSeed, ratedSeed] = libraryVocabularyReviewSeeds(sheet);
+        if (!seed || !futureSeed || !ratedSeed) throw new Error('Expected three objective Library syllabus rows.');
+        const identity = canonicalStudyCardIdentity(seed.content.expression, seed.content.reading);
+        const reviewItemId = identity.key;
+        const futureReviewItemId = canonicalStudyCardIdentity(
+            futureSeed.content.expression,
+            futureSeed.content.reading,
+        ).key;
+        const ratedReviewItemId = canonicalStudyCardIdentity(
+            ratedSeed.content.expression,
+            ratedSeed.content.reading,
+        ).key;
+        const events = createMemoryLearnerEventRepository();
+        const record = createLearnerRecord({ repository: events, now: () => now });
+        await record.recordMany([
+            {
+                kind: 'review-scheduled',
+                eventId: `synced:${seed.id}`,
+                reviewItemId,
+                conceptId: seed.conceptId,
+                dueAt: now - 1,
+                provenance: {
+                    prerequisite: 'authored-week:l1-l01',
+                    sourceQuestion: seed.sourceQuestionId!,
+                },
+            },
+            {
+                kind: 'review-scheduled',
+                eventId: `synced:${futureSeed.id}`,
+                reviewItemId: futureReviewItemId,
+                conceptId: futureSeed.conceptId,
+                dueAt: now + 60_000,
+                provenance: { prerequisite: 'authored-week:l1-l01' },
+            },
+            {
+                kind: 'review-scheduled',
+                eventId: `synced:${ratedSeed.id}`,
+                reviewItemId: ratedReviewItemId,
+                conceptId: ratedSeed.conceptId,
+                dueAt: now - 1,
+                provenance: { prerequisite: 'authored-week:l1-l01' },
+            },
+            {
+                kind: 'review-rated',
+                eventId: `synced:${ratedSeed.id}:rated`,
+                reviewItemId: ratedReviewItemId,
+                rating: 'good',
+            },
+        ]);
+        const repository = new LocalYomuSrsRepository(() => now);
+        const evidence = createLearnerEvidence(events, createYomuLocalReviewService(repository, () => now));
+        await evidence.initialize();
+        let mountedContext: AcademyStudyMountContext | undefined;
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shell = createAcademyShell(host, {
+            language: 'en', onLanguage() {}, onMute() {}, onNavigate() {}, onPresentationMode() {},
+        });
+        const flow = createWorldFlow({
+            study: { mount: (_host, context) => { mountedContext = context; return { dispose() {} }; } },
+            evidence,
+            pronunciation: {} as never,
+            audio: {} as never,
+        });
+
+        await flow.render('review', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2, route: 'review', routeHistory: [], presentationMode: 'course',
+                seenIntroductions: ['place:library'], updatedAt: now,
+            },
+            projection: evidence.projection,
+            shell,
+            go: vi.fn(async () => {}),
+            back: vi.fn(async () => {}),
+        });
+
+        const restoredQueue = (await repository.queue(10)).cards;
+        expect(restoredQueue).toHaveLength(1);
+        const [restored] = restoredQueue;
+        expect(restored).toMatchObject({
+            providerCardId: reviewItemId,
+            expression: identity.expression,
+            dueAt: now,
+            state: ['new'],
+        });
+        expect((restored?.raw as { academyProvenance?: Record<string, { sourceId?: string }> }).academyProvenance)
+            .toMatchObject({ [`academy:review-seed:${seed.id}`]: { sourceId: seed.sourceQuestionId } });
+        expect(host.querySelector<HTMLElement>('.academy-library-screen')?.dataset.queueState).toBe('due');
+
+        (host.querySelector('.academy-library-sheet-button') as HTMLButtonElement).click();
+        expect(host.querySelectorAll('.academy-vocabulary-sheet-word')).toHaveLength(sheet.items.length);
+        expect(host.querySelector('.academy-vocabulary-sheet-japanese')?.textContent).toBe(sheet.items[0]?.expression);
+        (host.querySelector('.academy-vocabulary-sheet-start') as HTMLButtonElement).click();
+        await vi.waitFor(() => expect(mountedContext).toBeDefined());
+        expect(mountedContext?.sessionVocabulary).toEqual(libraryStudyVocabulary(sheet));
+        expect(mountedContext?.sessionVocabulary?.every(item => !('dueAt' in item))).toBe(true);
         shell.dispose();
     });
 

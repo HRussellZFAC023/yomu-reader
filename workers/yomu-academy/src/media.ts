@@ -1,7 +1,7 @@
 import type { R2Range } from './cf';
 import type { Clock, Env } from './env';
 import { HttpError } from './http';
-import { activeSession } from './sessions';
+import { requireAcademyAccessSession } from './profiles';
 import manifest from '../media-manifest.json';
 
 export interface MediaObject {
@@ -52,7 +52,7 @@ export const MEDIA_MANIFEST: MediaManifest = parseMediaManifest(manifest);
  */
 export async function handleMedia(request: Request, env: Env, clock: Clock, allowlist: MediaManifest = MEDIA_MANIFEST): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'Method not allowed.');
-    if (!(await activeSession(request, env, clock()))) throw new HttpError(401, 'Sign in to stream Academy media.');
+    await requireAcademyAccessSession(request, env, clock());
 
     const prefix = '/academy/media/audio/';
     const pathname = new URL(request.url).pathname;

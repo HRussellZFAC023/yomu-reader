@@ -6,6 +6,7 @@ import { derivePaidInviteCode, hmacSha256Hex, toBase64Url } from '../../workers/
 import { bindPaidEntitlement } from '../../workers/yomu-academy/src/entitlements';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { inviteCodeHash, mintPaidInvite } from '../../workers/yomu-academy/src/invites';
+import { handleMedia, type MediaManifest } from '../../workers/yomu-academy/src/media';
 import { handleGoogleCallback, handleGoogleStart } from '../../workers/yomu-academy/src/oauth';
 import { handleClaim, handleCreateCheckout, handleStripeWebhook } from '../../workers/yomu-academy/src/stripe';
 import { activeSession } from '../../workers/yomu-academy/src/sessions';
@@ -122,6 +123,64 @@ async function signInWithGoogle(env: Env, sessionCookie: string, subject: string
 }
 
 describe('Academy Google account and paid entitlement policy', () => {
+    it('keeps paid-code sessions auth-only until the owning Google account is bound', async () => {
+        const academy = createSqliteAcademy();
+        const now = Date.now();
+        const env: Env = {
+            ...academy.env,
+            ACADEMY_MEDIA: {
+                async get(key) {
+                    return key === 'lesson/audio.wav' ? {
+                        key,
+                        size: 1,
+                        httpEtag: 'test-etag',
+                        body: new Response(new Uint8Array([1])).body!,
+                    } : null;
+                },
+                async head() {
+                    return null;
+                },
+            },
+        };
+        const mediaManifest: MediaManifest = {
+            version: 1,
+            bucket: 'test-media',
+            objects: [{ key: 'lesson/audio.wav', contentType: 'audio/wav', bytes: 1, sha256: 'a'.repeat(64) }],
+        };
+        const mediaRequest = (sessionCookie: string): Promise<Response> => handleMedia(
+            get(env, '/academy/media/audio/lesson/audio.wav', sessionCookie),
+            env,
+            () => now + 10,
+            mediaManifest,
+        );
+        try {
+            await seedInvite(env, 'UCL2026', 'invite-ucl-media');
+            const ucl = await createSession(env, 'UCL2026');
+            expect((await mediaRequest(ucl.cookie)).status).toBe(200);
+
+            const purchaseId = crypto.randomUUID();
+            await env.ACADEMY_DB.prepare(
+                'INSERT INTO purchases (id, claim_hash, amount_pence, status, created_at, fulfilled_at) '
+                + "VALUES (?1, 'media-claim', 500, 'paid', ?2, ?2)",
+            ).bind(purchaseId, now).run();
+            const inviteId = await mintPaidInvite(env, purchaseId, now);
+            await env.ACADEMY_DB.prepare('UPDATE purchases SET invite_id = ?1 WHERE id = ?2')
+                .bind(inviteId, purchaseId).run();
+            const code = await derivePaidInviteCode(env.ACADEMY_INVITE_HMAC_KEY, purchaseId);
+
+            const owner = await createSession(env, code);
+            await expect(mediaRequest(owner.cookie)).rejects.toMatchObject({ status: 401 });
+
+            expect((await signInWithGoogle(env, owner.cookie, 'media-owner', now + 1)).status).toBe(302);
+            expect((await mediaRequest(owner.cookie)).status).toBe(200);
+
+            const competing = await createSession(env, code);
+            await expect(mediaRequest(competing.cookie)).rejects.toMatchObject({ status: 401 });
+        } finally {
+            academy.close();
+        }
+    });
+
     it('keeps UCL2026 anonymous while account-gating every other server profile', async () => {
         const academy = createSqliteAcademy();
         try {

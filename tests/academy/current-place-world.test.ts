@@ -658,7 +658,7 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector<HTMLImageElement>('.academy-background img')?.src)
             .toContain('library__rain-evening--wide.webp');
         expect(screen.querySelector('[data-world-character="rie"] .academy-sprite')).not.toBeNull();
-        expect(screen.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(screen.querySelector('[data-world-character="sophie"] .academy-sprite')).not.toBeNull();
         ['book-stacks', 'green-lamps', 'open-book'].forEach(landmark => {
             expect(screen.querySelector(`[data-scene-composition="library"] [data-landmark="${landmark}"]`)).not.toBeNull();
         });
@@ -1512,8 +1512,8 @@ describe('Academy current-place world', () => {
         expect(stationStyles).toMatch(/academy-world-spatial-exits[\s\S]*overflow-x:\s*auto/s);
         expect(stationStyles).toMatch(/data-listening-started='true'[\s\S]*overflow-y:\s*auto/s);
         expect(stationStyles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*data-current-place='station'[\s\S]*animation:\s*none !important[\s\S]*scroll-behavior:\s*auto !important/s);
-        expect(purposeStyles).toMatch(/academy-world-exit \.academy-primary-purpose[\s\S]*display:\s*block[\s\S]*overflow:\s*visible[\s\S]*-webkit-line-clamp:\s*unset/s);
-        expect(purposeStyles).toMatch(/@media \(max-width: 760px\)[\s\S]*flex-basis:\s*clamp\(144px, 42vw, 164px\)[\s\S]*max-height:\s*none/s);
+        expect(purposeStyles).toMatch(/academy-world-exit \.academy-primary-purpose[\s\S]*display:\s*block[\s\S]*overflow:\s*visible[\s\S]*overflow-wrap:\s*anywhere[\s\S]*-webkit-line-clamp:\s*unset/s);
+        expect(purposeStyles).toMatch(/@media \(max-width: 760px\)[\s\S]*academy-world-spatial-exits[\s\S]*height:\s*auto[\s\S]*academy-world-map-routes[\s\S]*height:\s*auto[\s\S]*academy-world-exit[\s\S]*max-height:\s*none/s);
     });
 
     it('keeps desktop and tablet current places as full-art scenes with transparent paper wayfinding', () => {

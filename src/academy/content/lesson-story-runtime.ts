@@ -221,7 +221,7 @@ function validateCallbacks(entries: readonly LessonStoryCatalogEntry[]): void {
 
 function validateNameOnlyCast(id: AcademyCastMemberId): void {
     const member = getAcademyCastMember(id);
-    if (!member.eligibility.lessons || !member.eligibility.story || member.eligibility.likenessRuntime) {
+    if (!member.eligibility.lessons || !member.eligibility.story) {
         throw new TypeError(`Lesson story cast member ${id} violates the name-only lesson boundary.`);
     }
 }

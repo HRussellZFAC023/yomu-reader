@@ -932,6 +932,18 @@
         gap: 5px;
     }
 
+    @media (max-width: 420px) {
+        .academy-vn-dialogue-header {
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            gap: 6px;
+        }
+
+        .academy-vn-line-tools {
+            justify-self: end;
+        }
+    }
+
     .academy-vn-log-button,
     .academy-vn-reading-toggle,
     .academy-vn-translation-toggle {

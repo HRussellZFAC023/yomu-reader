@@ -9,6 +9,7 @@ import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/aca
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { renderInspectableSourceVisual } from '../../src/academy/minigames/source-visual';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -53,16 +54,13 @@ describe('Lessons 27-31 asset and presentation grounding', () => {
         }
     });
 
-    it('puts the approved origin plate and local location label on every real authored screen', () => {
+    it('puts the approved origin plate and local location label on every real authored screen', async () => {
         const runtime = createLessonStoryRuntime(PLAN);
         for (const [packageId, originPlaceId, plate] of LESSONS) {
             const entry = runtime.continuity(packageId)!;
             const presentation = lessonStoryPresentation(entry)!;
             const registration = getAuthoredWeekRegistration(packageId);
-            const week = registration.validate(JSON.parse(fs.readFileSync(
-                path.resolve('public/academy/content/lessons', registration.filename),
-                'utf8',
-            )));
+            const { week } = await validateCommittedAuthoredWeek(registration);
             const screen = createAuthoredWeekScreen({
                 language: 'en',
                 week,
@@ -88,12 +86,9 @@ describe('Lessons 27-31 asset and presentation grounding', () => {
         }
     });
 
-    it('art-directs Lesson 28 mobile from the approved home source instead of claiming an unknown mobile file', () => {
+    it('art-directs Lesson 28 mobile from the approved home source instead of claiming an unknown mobile file', async () => {
         const registration = getAuthoredWeekRegistration('l2-l03');
-        const week = registration.validate(JSON.parse(fs.readFileSync(
-            path.resolve('public/academy/content/lessons', registration.filename),
-            'utf8',
-        )));
+        const { week } = await validateCommittedAuthoredWeek(registration);
         const entry = createLessonStoryRuntime(PLAN).continuity('l2-l03')!;
         const screen = createAuthoredWeekScreen({
             language: 'en',

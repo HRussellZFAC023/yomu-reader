@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -43,16 +44,18 @@ describe('public Academy lesson grounding gate', () => {
         }
     });
 
-    it('validates every imported authored week through its privacy-preserving adapter', () => {
+    it('validates every imported authored week from its exact committed bytes', async () => {
         const weeks = ACADEMY_LESSON_CONTENT_REGISTRY.filter(entry => entry.kind === 'authored-week');
         expect(weeks).toHaveLength(59);
 
         for (const week of weeks) {
-            const value = JSON.parse(fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename), 'utf8'));
-            const adapted = week.validate(value);
+            const bytes = fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename));
+            const observedSha256 = createHash('sha256').update(bytes).digest('hex');
+            expect(observedSha256, week.filename).toBe(week.expectedSha256);
+            const { week: adapted } = await week.validate(Uint8Array.from(bytes).buffer);
             expect(adapted.id).toBe(week.packageId);
             expect(adapted.activities.length).toBeGreaterThan(0);
-            expect(adapted.provenance.source.sha256).toBe(week.expectedSha256);
+            expect(adapted.provenance.source.sha256).toBe(observedSha256);
         }
     });
 });

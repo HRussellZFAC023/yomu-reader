@@ -140,6 +140,7 @@ function week(): LearnerAuthoredWeek {
     };
     return {
         id: 'l1-l23',
+        preAssessment: [],
         activities: [activity],
         media: [],
         provenance: {

@@ -99,12 +99,27 @@ export interface AuthoredComponent {
     readonly teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport;
 }
 
+export interface AuthoredWeekExposureText {
+    readonly en?: string;
+    readonly ja?: string;
+    readonly reading?: string;
+}
+
+export interface AuthoredWeekExposure {
+    readonly id: string;
+    readonly kind: 'explanation' | 'passage' | 'prompt' | 'mission';
+    readonly order: number;
+    readonly title: AuthoredWeekExposureText;
+    readonly entries: readonly AuthoredWeekExposureText[];
+}
+
 export interface AuthoredWeekPackage {
     readonly schema: 'yomu-academy.week.v1';
     readonly id: string;
     readonly identity: Readonly<Record<string, unknown>>;
     readonly provenance: Readonly<Record<string, unknown>>;
     readonly components: readonly AuthoredComponent[];
+    readonly preAssessment: readonly AuthoredWeekExposure[];
 }
 
 export function parseAuthoredWeekPackage(value: unknown): AuthoredWeekPackage {
@@ -112,7 +127,8 @@ export function parseAuthoredWeekPackage(value: unknown): AuthoredWeekPackage {
     if (root.schema !== 'yomu-academy.week.v1') fail('package.schema', 'must be yomu-academy.week.v1');
     const id = text(root.id, 'package.id');
     const sourceItemIds = new Set<string>();
-    const components = array(root.components, 'package.components').map((candidate, index) => {
+    const rawComponents = array(root.components, 'package.components');
+    const components = rawComponents.map((candidate, index) => {
         const component = record(candidate, `package.components[${index}]`);
         const path = `package.components[${index}]`;
         const exercises = component.exercises === undefined
@@ -135,7 +151,144 @@ export function parseAuthoredWeekPackage(value: unknown): AuthoredWeekPackage {
         identity: record(root.identity, 'package.identity'),
         provenance: record(root.provenance, 'package.provenance'),
         components,
+        preAssessment: parsePreAssessmentExposure(root, rawComponents),
     };
+}
+
+function parsePreAssessmentExposure(
+    root: Readonly<Record<string, unknown>>,
+    components: readonly unknown[],
+): readonly AuthoredWeekExposure[] {
+    const exposures: Array<AuthoredWeekExposure & { readonly sourceIndex: number }> = [];
+    const weekTitle = exposureText(root.title) ?? { en: 'Week teaching', ja: '今週のポイント' };
+    const explanation = optionalRecord(root.explanation);
+    if (explanation) {
+        const entries = [
+            exposureText(explanation.recap),
+            exposureText(explanation.intro),
+            ...arrayOrEmpty(explanation.grammarPoints).flatMap(candidate => {
+                const point = optionalRecord(candidate);
+                if (!point) return [];
+                const japanese = [nonEmptyText(point.nameJa), nonEmptyText(point.pattern)]
+                    .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)
+                    .join(' / ');
+                const en = [point.meaning, point.explanation, point.watchFor, point.commonError]
+                    .flatMap(value => nonEmptyText(value) ?? [])
+                    .join(' ');
+                return japanese || en ? [{ ...(japanese ? { ja: japanese } : {}), ...(en ? { en } : {}) }] : [];
+            }),
+        ].filter((entry): entry is AuthoredWeekExposureText => Boolean(entry));
+        if (entries.length) {
+            exposures.push({
+                id: 'explanation',
+                kind: 'explanation',
+                order: optionalFiniteNumber(explanation.order) ?? 5,
+                title: weekTitle,
+                entries,
+                sourceIndex: -1,
+            });
+        }
+    } else if (typeof root.explanation === 'string' && root.explanation.trim()) {
+        exposures.push({
+            id: 'explanation',
+            kind: 'explanation',
+            order: 5,
+            title: weekTitle,
+            entries: [{ en: root.explanation.trim() }],
+            sourceIndex: -1,
+        });
+    }
+
+    components.forEach((candidate, index) => {
+        const component = record(candidate, `package.components[${index}]`);
+        const order = finiteNumber(component.order, `package.components[${index}].order`);
+        const title = exposureText(component.title) ?? {
+            en: component.type === 'speaking' ? 'Speaking prompt' : component.type === 'writing' ? 'Writing prompt' : 'Passage',
+        };
+        const passageEntries = parsePassageExposure(component.passage);
+        if (passageEntries.length) {
+            exposures.push({
+                id: `component-${index}-passage`,
+                kind: 'passage',
+                order,
+                title,
+                entries: passageEntries,
+                sourceIndex: index,
+            });
+        }
+        if ((component.type === 'speaking' || component.type === 'writing') && component.prompt !== undefined) {
+            const prompt = exposureText(component.prompt);
+            if (prompt) {
+                exposures.push({
+                    id: `component-${index}-prompt`,
+                    kind: 'prompt',
+                    order,
+                    title,
+                    entries: [prompt],
+                    sourceIndex: index,
+                });
+            }
+        }
+    });
+
+    const mission = optionalRecord(root.mission);
+    if (mission) {
+        const prompt = exposureText(mission.prompt);
+        if (prompt) {
+            exposures.push({
+                id: 'mission',
+                kind: 'mission',
+                order: Math.max(5, ...components.map((candidate, index) =>
+                    finiteNumber(record(candidate, `package.components[${index}]`).order, `package.components[${index}].order`))) + 1,
+                title: exposureText(mission.title) ?? { en: 'Mission', ja: 'ミッション' },
+                entries: [prompt],
+                sourceIndex: components.length,
+            });
+        }
+    }
+
+    return exposures
+        .sort((left, right) => left.order - right.order || left.sourceIndex - right.sourceIndex)
+        .map(({ sourceIndex: _sourceIndex, ...exposure }) => exposure);
+}
+
+function parsePassageExposure(value: unknown): readonly AuthoredWeekExposureText[] {
+    if (typeof value === 'string' && value.trim()) return [{ ja: value.trim() }];
+    const passage = optionalRecord(value);
+    if (!passage) return [];
+    if (Array.isArray(passage.lines)) {
+        return passage.lines.flatMap(candidate => {
+            const line = optionalRecord(candidate);
+            if (!line) return [];
+            const entry = exposureText(line);
+            return entry ? [entry] : [];
+        });
+    }
+    const entry = exposureText(passage);
+    return entry ? [entry] : [];
+}
+
+function exposureText(value: unknown): AuthoredWeekExposureText | undefined {
+    if (typeof value === 'string' && value.trim()) return { en: value.trim() };
+    const candidate = optionalRecord(value);
+    if (!candidate) return undefined;
+    const en = nonEmptyText(candidate.en);
+    const ja = nonEmptyText(candidate.ja);
+    const reading = nonEmptyText(candidate.reading);
+    if (!en && !ja) return undefined;
+    return {
+        ...(en ? { en } : {}),
+        ...(ja ? { ja } : {}),
+        ...(reading ? { reading } : {}),
+    };
+}
+
+function arrayOrEmpty(value: unknown): readonly unknown[] {
+    return Array.isArray(value) ? value : [];
+}
+
+function optionalFiniteNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function parseTeachingSupport(

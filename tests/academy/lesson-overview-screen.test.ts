@@ -59,7 +59,8 @@ describe('lesson overview screen', () => {
             .toBe('/academy/art/characters/rie/rie__neutral__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
-        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(6);
+        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(5);
+        expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"] img')).toBeNull();
     });
 

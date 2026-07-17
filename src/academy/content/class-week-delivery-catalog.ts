@@ -3,7 +3,10 @@ import {
     validateClassWeekCastPlan,
     type CanonicalClassWeekId,
 } from './class-week-cast-plan';
-import { ACADEMY_LESSON_CONTENT_REGISTRY } from './lesson-content-registry';
+import {
+    ACADEMY_LESSON_CONTENT_REGISTRY,
+    loadAuthoredWeekPackage,
+} from './lesson-content-registry';
 import { createGroundedLessonResolver } from './grounded-lesson-resolver';
 
 export type ClassWeekDeliveryEntry = Readonly<{
@@ -47,9 +50,7 @@ export async function loadClassWeekDeliveryCatalog(
             if (!canonicalWeekIds.has(registration.classWeekId as CanonicalClassWeekId)) {
                 throw new TypeError(`Authored package ${registration.packageId} names a non-canonical class Week ${registration.classWeekId}.`);
             }
-            const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
-            if (!response.ok) throw new Error(`Unable to load authored class Week ${registration.packageId}.`);
-            registration.validate(await response.json());
+            await loadAuthoredWeekPackage(registration.packageId, fetcher);
             auditedByWeek.set(registration.classWeekId as CanonicalClassWeekId, {
                 lessonId: `authored-week:${registration.packageId}`,
                 status: 'playable',

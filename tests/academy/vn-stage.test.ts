@@ -467,6 +467,25 @@ describe('Academy VN stage', () => {
         expect(text.textContent).toBe('はい。次です。');
     });
 
+    it('keeps contracted kana together instead of revealing them at a mechanical pace', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:contracted-kana',
+            japanese: 'きょう、来ます。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        expect(text.textContent).toBe('き');
+        vi.advanceTimersByTime(130);
+        expect(text.textContent).toContain('きょ');
+        vi.advanceTimersByTime(25);
+        expect(text.textContent).toContain('きょう');
+        vi.runAllTimers();
+        expect(text.textContent).toBe('きょう、来ます。');
+    });
+
     it('routes only verified semantic SFX after learner interaction', () => {
         const playSfx = vi.fn();
         const stage = createAcademyVnStage({ audio: { playSfx }, reducedMotion: true });
@@ -566,6 +585,8 @@ describe('Academy VN stage', () => {
         expect(phoneCss).toMatch(/--academy-vn-mobile-dialogue-height:\s*min\(48dvh, 390px\);/);
         expect(phoneCss).toMatch(/\.academy-vn-object-slot\s*\{[^}]*bottom:\s*calc\([\s\S]*--academy-vn-mobile-dialogue-height[\s\S]*--academy-vn-mobile-object-clearance/s);
         expect(phoneCss).toMatch(/\.academy-vn-dialogue\s*\{[^}]*bottom:\s*var\(--academy-vn-mobile-dialogue-bottom\);[^}]*max-height:\s*var\(--academy-vn-mobile-dialogue-height\);/s);
+        expect(phoneCss).toMatch(/@media \(max-width: 420px\)[\s\S]*\.academy-vn-dialogue-header\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*gap:\s*6px;/);
+        expect(phoneCss).toMatch(/@media \(max-width: 420px\)[\s\S]*\.academy-vn-line-tools\s*\{[^}]*justify-self:\s*end;/);
         expect(phoneCss).toMatch(/\.academy-vn-stage\[data-cast-size="2"\] \.academy-vn-sprite-slot\[data-position\]\s*\{[^}]*left:\s*50%;[^}]*right:\s*auto;/s);
         expect(phoneCss).not.toMatch(/(?:left|right):\s*-(?:18|9)vw/);
         expect(css).toMatch(/@media \(min-width: 1100px\)/);

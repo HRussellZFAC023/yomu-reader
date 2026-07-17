@@ -158,7 +158,7 @@ describe('Class path', () => {
 
         expect(screen.querySelector('.academy-class-register-mark')).toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite img')?.getAttribute('src')).toContain('/characters/rie/');
-        expect(screen.querySelector('[data-cast-id="sophie"] picture.academy-sprite img')).toBeNull();
+        expect(screen.querySelector('[data-cast-id="sophie"] picture.academy-sprite img')).not.toBeNull();
         const peter = screen.querySelector<HTMLElement>('[data-cast-id="peter"]')!;
         expect(peter.dataset.portraitState).toBe('name-only');
         expect(peter.querySelector('img')).toBeNull();
@@ -177,7 +177,7 @@ describe('Class path', () => {
         expect(xingyuAppearance?.textContent).toBe('Xingyu');
     });
 
-    it('shows an approved cutout only after that classmate is unlocked', () => {
+    it('combines directory unlock state with the authoritative cast likeness gate', () => {
         const screen = renderClassPathScreen({
             language: 'en',
             plan: plan(),
@@ -190,6 +190,13 @@ describe('Class path', () => {
                 unlocked: false,
                 chapters: [],
                 revisitPaths: [],
+            }, {
+                characterId: 'sophie',
+                name: 'Sophie',
+                category: 'classmate',
+                unlocked: true,
+                chapters: [1],
+                revisitPaths: [],
             }],
             onBack: vi.fn(),
             onOpenWeek: vi.fn(),
@@ -199,6 +206,10 @@ describe('Class path', () => {
         expect(rie.dataset.unlocked).toBe('false');
         expect(rie.dataset.portraitState).toBe('locked');
         expect(rie.querySelector('img')).toBeNull();
+        const sophie = screen.querySelector<HTMLElement>('[data-cast-id="sophie"]')!;
+        expect(sophie.dataset.unlocked).toBe('true');
+        expect(sophie.dataset.portraitState).toBe('available');
+        expect(sophie.querySelector('img')).not.toBeNull();
     });
 
     it('delegates Back to route history instead of choosing a replacement destination', () => {
@@ -236,7 +247,7 @@ describe('Class path', () => {
         expect(css).toMatch(/@media \(max-width: 700px\)/);
         expect(css).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-class-register\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[^}]*row-gap:\s*58px/s);
         expect(css).not.toMatch(/\.academy-class-person-(?:card|portrait|caption)[^{]*\{[^}]*overflow:\s*hidden/s);
-        expect(purposeCss).toMatch(/academy-class-event \.academy-primary-purpose[\s\S]*text-overflow:\s*clip[\s\S]*white-space:\s*normal/s);
+        expect(purposeCss).toMatch(/academy-class-event \.academy-primary-purpose[\s\S]*text-overflow:\s*clip[\s\S]*white-space:\s*normal[\s\S]*overflow-wrap:\s*anywhere/s);
         expect(purposeCss).toMatch(/\.academy-class-event-season\s*\{[^}]*color:\s*#315d45/s);
         expect(purposeCss).toMatch(/\.academy-class-event-copy,[\s\S]*\.academy-class-event-status[\s\S]*overflow:\s*visible/s);
     });

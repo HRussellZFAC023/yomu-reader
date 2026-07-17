@@ -14,6 +14,7 @@ import { loadStoryRuntime, openingArcModeForEntry, STORY_REVIEW_CALENDAR_SECTION
 import { n3StoryPractice } from '../content/n3-story-practice';
 import { storyReplayReviewSeed } from '../content/story-replay-catalog';
 import type { JlptBand } from '../domain/learner-record';
+import { canonicalGroundedReviewKey } from '../domain/review-identity';
 import type { ReplayLanguageBand } from '../domain/story-replay-projection';
 import { projectCharacterDirectory, type CharacterRevisitPath } from '../domain/progress-projections';
 import { markWorldVisit, worldRouteForPlace, type WorldPlaceId, type WorldRoute } from '../domain/world-locations';
@@ -318,6 +319,9 @@ class WorldFlow implements AcademyRouteFlow {
 
     private async renderLibrary(context: AcademyRouteContext): Promise<void> {
         const sheet = await loadLibraryVocabularySheet(await this.libraryPackageId(context));
+        if (Object.keys(context.projection.scheduledReviews).length) {
+            await this.restoreDueLibrarySyllabus(context, sheet);
+        }
         const due = toSessionVocabulary(await this.options.evidence.dueReviews(50));
         const sheetVocabulary = libraryStudyVocabulary(sheet);
         const syllabusState = due.length ? 'due' : await this.options.evidence.syllabusState?.(sheetVocabulary);
@@ -338,6 +342,22 @@ class WorldFlow implements AcademyRouteFlow {
         });
         screen.addEventListener('academy:dispose', () => speech?.dispose(), { once: true });
         context.shell.replace(screen);
+    }
+
+    private async restoreDueLibrarySyllabus(
+        context: AcademyRouteContext,
+        sheet: LibraryVocabularySheet,
+    ): Promise<void> {
+        const dueSeeds = libraryVocabularyReviewSeeds(sheet).filter(seed => {
+            const itemId = canonicalGroundedReviewKey(seed.content.expression, seed.content.reading);
+            const schedule = context.projection.scheduledReviews[itemId];
+            return Boolean(schedule && schedule.dueAt <= Date.now() && !context.projection.reviewRatings[itemId]);
+        });
+        if (!dueSeeds.length) return;
+        await this.options.evidence.seedVocabularyPrerequisite(
+            `authored-week:${sheet.lessonId}`,
+            dueSeeds,
+        );
     }
 
     private async startLibraryStudy(

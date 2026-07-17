@@ -12,6 +12,7 @@ import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-co
 import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/academy/content/lesson-story-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -46,14 +47,11 @@ describe('Lesson 35 asset and presentation grounding', () => {
         });
     });
 
-    it('renders the responsive station plate and exact cast names without any likeness', () => {
+    it('renders the responsive station plate and exact cast names without any likeness', async () => {
         const entry = createLessonStoryRuntime(PLAN).continuity('l2-l10')!;
         const presentation = lessonStoryPresentation(entry)!;
         const registration = getAuthoredWeekRegistration('l2-l10');
-        const week = registration.validate(JSON.parse(fs.readFileSync(
-            path.resolve('public/academy/content/lessons', registration.filename),
-            'utf8',
-        )));
+        const { week } = await validateCommittedAuthoredWeek(registration);
         const screen = createAuthoredWeekScreen({
             language: 'en',
             week,

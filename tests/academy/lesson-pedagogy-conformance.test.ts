@@ -154,6 +154,7 @@ function weekFixture(): LearnerAuthoredWeek {
     const activity = choiceActivity();
     return {
         id: 'l1-l01',
+        preAssessment: [],
         activities: [activity],
         media: [],
         provenance: {

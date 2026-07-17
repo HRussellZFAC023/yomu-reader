@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import {
     assertNoColdProduction,
     auditAuthoredActivityContracts,
@@ -7,8 +5,7 @@ import {
     type AcademyLearningSequenceContract,
 } from '../../src/academy/content/cold-production-audit';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
-
-const LESSON_DIRECTORY = path.resolve('public/academy/content/lessons');
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 // Existing debt, not an exemption from the curriculum contract. The exact set
 // makes any added cold-production surface fail until it has a real sequence.
@@ -116,13 +113,12 @@ describe('cold-production curriculum audit', () => {
         expect(() => assertNoColdProduction(ready)).not.toThrow();
     });
 
-    it('freezes the known authored-week production debt and catches any new match', () => {
+    it('freezes the known authored-week production debt and catches any new match', async () => {
         const weeks = ACADEMY_LESSON_CONTENT_REGISTRY.filter(entry => entry.kind === 'authored-week');
-        const issues = weeks.flatMap(week => {
-            const value = JSON.parse(fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename), 'utf8'));
-            const adapted = week.validate(value);
-            return auditAuthoredActivityContracts(`authored-week:${week.packageId}`, adapted.activities);
-        });
+        const issues = (await Promise.all(weeks.map(async registration => {
+            const { week } = await validateCommittedAuthoredWeek(registration);
+            return auditAuthoredActivityContracts(`authored-week:${registration.packageId}`, week.activities);
+        }))).flat();
         const activityIds = issues.map(issue => issue.activityId).sort();
         const affectedPackages = new Set(activityIds.map(id => id.slice('authored:'.length).split('/')[0]));
 

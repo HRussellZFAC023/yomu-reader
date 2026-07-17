@@ -20,6 +20,8 @@ import { fallbackLookupTermsForCard } from '../../src/reader/lookup/japanese-seg
 import { publicLookupFallbackCards } from '../../src/reader/lookup/public-fallback-cards';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
 
 const PAYLOAD = 'd1296c24f28bc57a83b8c09ce5c591e76d8bae0ea97cf928e4a1b079329a2af4';
 const SOURCE_ID = `moodle-vocabulary:6974659:${PAYLOAD}`;
@@ -103,7 +105,7 @@ describe('Library SRS l2-l10 exact vocabulary frontier', () => {
         const input = lessonPackage();
         const prerequisite = await loadSenseiVocabularyPrerequisite(
             'authored-week:l2-l10',
-            (async () => ({ ok: true, json: async () => input }) as Response) as typeof fetch,
+            committedAuthoredWeekFetcher(getAuthoredWeekRegistration('l2-l10')),
         );
         const onContinue = vi.fn();
         const screen = renderLessonVocabularyPrerequisiteScreen({

@@ -235,25 +235,27 @@ describe('Japanese inflection lookup boundaries', () => {
                 deinflected: deinflected(example.surface, example.expression),
             };
         }));
+        const lookupTermMeta = vi.fn(async (expression: string) => [{
+            expression,
+            mode: 'pitch',
+            data: {
+                reading: examples.find(example => example.expression === expression)?.reading ?? '',
+                pitches: [{ position: 0 }],
+            },
+            dictionary: 'Pitch',
+        }]);
         const parser = new ReaderParser({
             getSettings: () => settings(),
             jpdb: {} as never,
             dictionaries: {
                 findTermMatches,
-                lookupTermMeta: vi.fn(async (expression: string) => [{
-                    expression,
-                    mode: 'pitch',
-                    data: {
-                        reading: examples.find(example => example.expression === expression)?.reading ?? '',
-                        pitches: [{ position: 0 }],
-                    },
-                    dictionary: 'Pitch',
-                }]),
+                lookupTermMeta,
             } as never,
         });
 
         const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
 
+        expect(lookupTermMeta.mock.calls.map(([expression]) => expression)).toEqual(examples.map(example => example.expression));
         expect(tokens.map(token => [text.slice(token.start, token.end), token.card.spelling, token.rubies[0]?.text, token.pitchClass])).toEqual([
             ['聞きました', '聞く', 'き', 'heiban'],
             ['言いました', '言う', 'い', 'heiban'],

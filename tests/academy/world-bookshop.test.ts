@@ -78,10 +78,10 @@ describe('Bookshop world', () => {
         });
 
         expect(first.querySelector<HTMLElement>('[data-world-character="sophie"]')?.dataset.presence).toBe('cataloguing');
-        expect(first.querySelector('[data-world-character="sophie"] img')).toBeNull();
-        expect(first.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette')).not.toBeNull();
+        expect(first.querySelector('[data-world-character="sophie"] img')).not.toBeNull();
+        expect(first.querySelector('[data-world-character="sophie"] .academy-world-character-silhouette')).toBeNull();
         expect(returning.querySelector<HTMLElement>('[data-world-character="sophie"]')?.dataset.presence).toBe('reshelving');
-        expect(returning.querySelector('[data-world-character="sophie"] img')).toBeNull();
+        expect(returning.querySelector('[data-world-character="sophie"] img')).not.toBeNull();
         expect(returning.querySelector('[data-exit-slot="0"]')?.textContent).toContain('Review the words you found in the library.');
         expect(returning.querySelector('[data-exit-slot="1"]')?.textContent).toContain('Take the book back out to the street.');
         const catalogue = returning.querySelector<HTMLElement>('[data-bookshop-catalogue]')!;
@@ -101,7 +101,7 @@ describe('Bookshop world', () => {
         const sophie = path.resolve('public/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png');
         expect(styles).toContain("data-current-place='bookshop'");
         expect(styles).toMatch(/academy-world-action-dock[\s\S]*background:\s*transparent/);
-        expect(styles).toContain("url('/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png')");
+        expect(styles).not.toContain("url('/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png')");
         expect(styles).toMatch(/academy-world-arrival-dialogue[\s\S]*rgba\(251, 244, 218, 0\.78\) !important/);
         expect(styles).toMatch(/academy-world-hud::before[\s\S]*display:\s*none/);
         expect(styles).toMatch(/academy-world-back[\s\S]*position:\s*fixed/);
@@ -117,12 +117,15 @@ describe('Bookshop world', () => {
             path.resolve('public/academy/art/CLASSMATE-SPRITE-INVENTORY.json'),
             'utf8',
         )) as {
-            characters: Array<{ id: string; currentAssets: Array<{ path: string }> }>;
+            characters: Array<{ id: string; currentAssets: Array<{ path: string; coverageStatus: string }> }>;
             migrations: Array<{ character: string; status: string }>;
         };
         expect(inventory.characters.find(character => character.id === 'sophie')?.currentAssets)
             .toEqual(expect.arrayContaining([
-                expect.objectContaining({ path: expect.stringContaining('sophie__bookshop-neutral__halfbody__v003.png') }),
+                expect.objectContaining({
+                    path: expect.stringContaining('sophie__bookshop-neutral__halfbody__v003.png'),
+                    coverageStatus: 'approved',
+                }),
             ]));
         expect(inventory.migrations.find(migration => migration.character === 'sophie')?.status)
             .toBe('deprecated-file-removed-after-zero-runtime-reference-scan');

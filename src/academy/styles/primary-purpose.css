@@ -1,12 +1,14 @@
-/* Primary route and event purposes are short authored labels, never excerpts. */
-.academy-world-screen[data-current-place]:not([data-current-place='bookshop']) .academy-world-map-routes .academy-world-exit .academy-primary-purpose,
+/* Purpose copy is authored content, so its surface must grow instead of truncating it. */
+.academy-world-screen[data-current-place] .academy-world-map-routes .academy-world-exit .academy-primary-purpose,
 .academy-class-event .academy-primary-purpose {
     display: block;
     min-width: 0;
+    max-width: 100%;
+    max-height: none;
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
     hyphens: none;
     -webkit-box-orient: initial;
@@ -29,16 +31,34 @@
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
 }
 
 @media (max-width: 760px) {
-    .academy-world-screen[data-current-place]:not([data-current-place='bookshop']) .academy-world-map-routes .academy-world-exit {
-        flex-basis: clamp(144px, 42vw, 164px);
-        width: clamp(144px, 42vw, 164px);
+    .academy-world-screen[data-current-place] .academy-world-spatial-exits,
+    .academy-world-screen[data-current-place] .academy-world-map {
         height: auto;
         max-height: none;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map {
+        grid-template-rows: auto auto;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map-routes {
+        height: auto;
+        min-height: 60px;
+        align-items: stretch;
+    }
+
+    .academy-world-screen[data-current-place] .academy-world-map-routes .academy-world-exit {
+        flex-basis: clamp(196px, 54vw, 220px);
+        width: clamp(196px, 54vw, 220px);
+        height: auto;
+        min-height: 56px;
+        max-height: none;
+        align-self: stretch;
         overflow: visible;
     }
 }

@@ -8,6 +8,7 @@ import {
     ACADEMY_PURPOSEFUL_ASSET_COVERAGE,
     ACADEMY_RUNTIME_ASSET_REGISTRY,
 } from '../../src/academy/assets';
+import { getAcademyCastMember } from '../../src/academy/domain/cast-registry';
 
 interface RuntimeLedgerAsset {
     readonly verdict: string;
@@ -74,7 +75,7 @@ describe('Academy runtime asset registry', () => {
         }
     });
 
-    it('wires only reviewed Rie and Sophie performances into the approved sprite map', () => {
+    it('wires only likeness-cleared Rie and Sophie performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
             rie: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
             rieDetermined: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
@@ -114,6 +115,10 @@ describe('Academy runtime asset registry', () => {
             const asset = ACADEMY_RUNTIME_ASSET_REGISTRY[id as keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY];
             expect(asset.runtimeHomes).toContain(coverage.primaryUse);
             expect(coverage.presentation === 'approved-runtime').toBe(asset.status === 'approved');
+            if (coverage.presentation === 'approved-runtime') {
+                expect(getAcademyCastMember(coverage.castId).eligibility.likenessRuntime, `${id} bypasses cast consent`)
+                    .toBe(true);
+            }
         }
     });
 

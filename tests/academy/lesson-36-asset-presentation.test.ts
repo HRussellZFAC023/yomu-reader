@@ -8,6 +8,7 @@ import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-co
 import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/academy/content/lesson-story-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
 
 const SOURCE_VISUAL = {
     file: 'l2-l11/moodle-new-chapter-23-1-toki-page-1.png',
@@ -44,14 +45,11 @@ describe('Lesson 36 asset and presentation grounding', () => {
         });
     });
 
-    it('renders distinct responsive station files and exact cast names without likeness or item art', () => {
+    it('renders distinct responsive station files and exact cast names without likeness or item art', async () => {
         const entry = createLessonStoryRuntime(PLAN).continuity('l2-l11')!;
         const presentation = lessonStoryPresentation(entry)!;
         const registration = getAuthoredWeekRegistration('l2-l11');
-        const week = registration.validate(JSON.parse(fs.readFileSync(
-            path.resolve('public/academy/content/lessons', registration.filename),
-            'utf8',
-        )));
+        const { week } = await validateCommittedAuthoredWeek(registration);
         const screen = createAuthoredWeekScreen({
             language: 'en',
             week,

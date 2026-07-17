@@ -35,7 +35,12 @@ export interface AuthoredWeekRegistration {
     readonly packageId: AuthoredWeekId;
     readonly classWeekId: string;
     readonly expectedSha256: string;
-    validate(value: unknown): LearnerAuthoredWeek;
+    validate(bytes: ArrayBuffer): Promise<LoadedAuthoredWeekPackage>;
+}
+
+export interface LoadedAuthoredWeekPackage {
+    readonly value: unknown;
+    readonly week: LearnerAuthoredWeek;
 }
 
 export type LessonContentRegistration = LessonPackageRegistration | LessonSupportRegistration | AuthoredWeekRegistration;
@@ -109,10 +114,12 @@ const AUTHORED_WEEK_REGISTRATIONS: readonly AuthoredWeekRegistration[] = AUTHORE
         packageId,
         classWeekId,
         expectedSha256: AUTHORED_WEEK_HASHES[packageId],
-        validate: (value: unknown) => adaptAuthoredWeek(value, {
-            path: `/academy/content/lessons/${filename}`,
-            sha256: AUTHORED_WEEK_HASHES[packageId],
-        }),
+        validate: (bytes: ArrayBuffer) => validateAuthoredWeekBytes(
+            filename,
+            packageId,
+            AUTHORED_WEEK_HASHES[packageId],
+            bytes,
+        ),
     }),
 );
 
@@ -177,4 +184,42 @@ export function getAuthoredWeekRegistration(packageId: string): AuthoredWeekRegi
         throw new TypeError(`Unregistered authored Academy week: ${packageId}`);
     }
     return registration;
+}
+
+export async function loadAuthoredWeekPackage(
+    packageId: string,
+    fetcher: typeof fetch = fetch,
+): Promise<LoadedAuthoredWeekPackage> {
+    const registration = getAuthoredWeekRegistration(packageId);
+    const response = await fetcher(`/academy/content/lessons/${registration.filename}`);
+    if (!response.ok) {
+        throw new Error(`Unable to load authored Academy package ${packageId} (${response.status}).`);
+    }
+    return registration.validate(await response.arrayBuffer());
+}
+
+async function validateAuthoredWeekBytes(
+    filename: string,
+    packageId: AuthoredWeekId,
+    expectedSha256: string,
+    bytes: ArrayBuffer,
+): Promise<LoadedAuthoredWeekPackage> {
+    const sha256 = await hashBytes(bytes);
+    if (sha256 !== expectedSha256) {
+        throw new TypeError(`Authored Academy package ${packageId} does not match its registered bytes.`);
+    }
+    const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    const week = adaptAuthoredWeek(value, {
+        path: `/academy/content/lessons/${filename}`,
+        sha256,
+    });
+    if (week.id !== packageId) {
+        throw new TypeError(`Authored Academy package ${packageId} resolved to another package.`);
+    }
+    return Object.freeze({ value, week });
+}
+
+async function hashBytes(bytes: ArrayBuffer): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }

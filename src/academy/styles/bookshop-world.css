@@ -81,16 +81,6 @@
     width: min(310px, 25vw);
 }
 
-.academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'] .academy-world-character-silhouette {
-    width: 100%;
-    height: min(70dvh, 640px);
-    border: 0;
-    background: url('/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png') bottom center / contain no-repeat;
-    box-shadow: none;
-    filter: drop-shadow(0 12px 14px rgba(19, 10, 4, 0.38));
-    clip-path: none;
-}
-
 /* The location is already named in the scene heading. Keep one escape anchor
    instead of repeating the place as a second badge beside it. */
 .academy-world-screen[data-current-place='bookshop'] .academy-world-back {
@@ -302,10 +292,6 @@
     .academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'][data-position='center'] {
         left: 4%;
         width: min(48vw, 190px);
-    }
-
-    .academy-world-screen[data-current-place='bookshop'] .academy-world-character[data-world-character='sophie'] .academy-world-character-silhouette {
-        height: min(49svh, 420px);
     }
 
     .academy-world-screen[data-current-place='bookshop']:not([data-first-visit='true']) .academy-world-character[data-presence] .academy-world-character-presence,

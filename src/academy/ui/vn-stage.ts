@@ -354,12 +354,16 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
             }
             textRevealTimer = window.setTimeout(
                 revealNext,
-                textRevealCharacterDelay(characters[visibleCharacters - 1] ?? '', baseDelayMs),
+                textRevealCharacterDelay(
+                    characters[visibleCharacters - 1] ?? '',
+                    characters[visibleCharacters] ?? '',
+                    baseDelayMs,
+                ),
             );
         };
         textRevealTimer = window.setTimeout(
             revealNext,
-            120 + textRevealCharacterDelay(characters[0] ?? '', baseDelayMs),
+            90 + textRevealCharacterDelay(characters[0] ?? '', characters[1] ?? '', baseDelayMs),
         );
     }
 
@@ -758,12 +762,18 @@ function textRevealDuration(text: string): number {
     return Math.max(280, Math.min(1600, [...text].length * 42));
 }
 
-function textRevealCharacterDelay(character: string, baseDelayMs: number): number {
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 360;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 125;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 190;
-    if (/[…―—]/u.test(character)) return baseDelayMs + 150;
-    if (/\s/u.test(character)) return Math.max(22, baseDelayMs - 8);
+function textRevealCharacterDelay(character: string, nextCharacter: string, baseDelayMs: number): number {
+    // Cadence follows spoken Japanese: punctuation breathes, while contracted
+    // sounds such as きょ and long vowels remain visually joined.
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 420;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 190;
+    if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
+        return Math.max(16, Math.round(baseDelayMs * 0.42));
+    }
+    if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
     return baseDelayMs;
 }
 
