@@ -6,6 +6,7 @@ import {
     fetchBunproWordStates,
 } from '../../src/reader/bunpro/word-states';
 import { applyBunproStateToRenderedWord } from '../../src/reader/dom/rendered-word-state';
+import { shouldLookupBunproWordStates } from '../../src/reader/settings/index';
 
 const STORAGE_KEY = 'yomu:bunpro-word-states:v1';
 
@@ -283,5 +284,30 @@ describe('applyBunproStateToRenderedWord', () => {
         const word = renderedWord('jpdb-reader-word jpdb-not-in-deck', 'not-in-deck');
         expect(applyBunproStateToRenderedWord(word, null)).toBe(false);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(true);
+    });
+});
+
+// 2026-07-17: state colouring is a READ and follows the credential alone —
+// the review/mining permission must not gate it (a token-configured user
+// with mining off previously got no state colours anywhere).
+describe('shouldLookupBunproWordStates gate', () => {
+    it('colours from a valid credential even when mining is off', () => {
+        expect(shouldLookupBunproWordStates({
+            bunproMiningEnabled: false,
+            bunproFrontendApiToken: 'token-1234',
+            bunproFrontendApiTokenExpiresAt: '',
+        })).toBe(true);
+    });
+
+    it('requires an unexpired credential', () => {
+        expect(shouldLookupBunproWordStates({
+            bunproMiningEnabled: true,
+            bunproFrontendApiToken: 'token-1234',
+            bunproFrontendApiTokenExpiresAt: new Date(Date.now() - 60_000).toISOString(),
+        })).toBe(false);
+        expect(shouldLookupBunproWordStates({
+            bunproMiningEnabled: true,
+            bunproFrontendApiToken: '',
+        })).toBe(false);
     });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.180] - 2026-07-17
+
+### Fixed
+
+- Bunpro word-state colouring now follows the Bunpro token alone, matching how JPDB and Jiten colour words from their credentials: turning off Allow Bunpro review/mining no longer silently disables the state colours and hover status for a configured account.
+
 ## [1.6.179] - 2026-07-17
 
 ### Changed
