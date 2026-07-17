@@ -288,6 +288,7 @@ import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
+import type { InterfaceLanguage } from '../app/types';
 import { NEW_TAB_CACHE_KEY } from './cache';
 import {
     JPDB_ALL_DECKS,
@@ -764,9 +765,12 @@ function newTabRouteSearchQuery(url: URL): string {
     return '';
 }
 
-function newTabSupportMeta(status: NewTabSupportStatus): string {
-    const cost = status.banner?.costLabel || `Donation goal: ${formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
-    const goal = status.banner?.goalLabel || `This month: ${formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatNewTabSupportGbp(status.donationGoalGbp ?? 10)}`;
+function newTabSupportMeta(status: NewTabSupportStatus, language: InterfaceLanguage): string {
+    const cost = status.banner?.costLabel || newTabText(language, 'supportBannerCost')
+        .replace('{amount}', formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10)));
+    const goal = status.banner?.goalLabel || newTabText(language, 'supportBannerGoal')
+        .replace('{current}', formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0))
+        .replace('{goal}', formatNewTabSupportGbp(status.donationGoalGbp ?? 10));
     return `${cost} · ${goal}`;
 }
 
@@ -2045,7 +2049,7 @@ export class NewTabController {
         banner.replaceChildren(
             el('div', { class: 'jpdb-reader-newtab-support-copy' },
                 el('strong', {}, status.banner?.message || this.text('supportBannerMessage')),
-                el('span', {}, newTabSupportMeta(status)),
+                el('span', {}, newTabSupportMeta(status, this.language())),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },
                 el('a', {

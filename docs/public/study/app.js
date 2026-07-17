@@ -40158,7 +40158,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.175".trim() ? "1.6.175".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.176".trim() ? "1.6.176".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -67765,6 +67765,8 @@ ${component.reading}`;
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
       supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
+      supportBannerCost: "Donation goal: {amount}/month",
+      supportBannerGoal: "This month: {current} / {goal}",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
       listenPerceive: "Perceive",
@@ -68040,6 +68042,8 @@ ${component.reading}`;
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
     supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
+    supportBannerCost: "寄付目標：月{amount}",
+    supportBannerGoal: "今月：{current} / {goal}",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
     listenPerceive: "聞き取り",
@@ -78376,9 +78380,9 @@ ${entry.url}`),
     }
     return "";
   }
-  function newTabSupportMeta(status) {
-    const cost = status.banner?.costLabel || `Donation goal: ${formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10))}/month`;
-    const goal = status.banner?.goalLabel || `This month: ${formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)} / ${formatNewTabSupportGbp(status.donationGoalGbp ?? 10)}`;
+  function newTabSupportMeta(status, language) {
+    const cost = status.banner?.costLabel || newTabText(language, "supportBannerCost").replace("{amount}", formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10)));
+    const goal = status.banner?.goalLabel || newTabText(language, "supportBannerGoal").replace("{current}", formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0)).replace("{goal}", formatNewTabSupportGbp(status.donationGoalGbp ?? 10));
     return `${cost} · ${goal}`;
   }
   function newTabSupportDonateUrl(status) {
@@ -79551,7 +79555,7 @@ ${entry.url}`),
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
           el("strong", {}, status.banner?.message || this.text("supportBannerMessage")),
-          el("span", {}, newTabSupportMeta(status))
+          el("span", {}, newTabSupportMeta(status, this.language()))
         ),
         el(
           "div",

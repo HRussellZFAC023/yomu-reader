@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.176] - 2026-07-17
+
+### Fixed
+
+- The new-tab study support banner now localizes its donation goal and monthly-progress line: the cost and goal meta text follows the interface language instead of always rendering the English fallback while the banner message and donate button around it were already translated.
+
 ## [1.6.175] - 2026-07-17
 
 ### Fixed
