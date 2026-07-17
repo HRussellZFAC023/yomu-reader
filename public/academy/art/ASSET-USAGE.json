@@ -29,9 +29,15 @@
       "packageId": "l1-l01",
       "sourceSceneReference": "academy/art/scenes/classroom-first-evening-wide.webp",
       "sceneAssetId": "classroom-evening-lamplit",
-      "approvedCastAssetIds": {"rie": "rie-neutral-glasses-front-near-front-halfbody-v001"},
-      "reviewOnlyCastCandidates": {"aakash": "aakash-neutral-halfbody-v001"},
-      "itemAssetIds": ["classroom-belongings-v001"],
+      "approvedCastAssetIds": {
+        "rie": "rie-neutral-glasses-front-near-front-halfbody-v001"
+      },
+      "reviewOnlyCastCandidates": {
+        "aakash": "aakash-neutral-halfbody-v001"
+      },
+      "itemAssetIds": [
+        "classroom-belongings-v001"
+      ],
       "sourceMedia": [
         {
           "purpose": "source-homework-worksheet",
@@ -47,11 +53,16 @@
       "source": "repo-authored:public/academy/art/SPRITE-BATCH-MANIFEST.json",
       "provenance": "repo-authored-runtime-metadata",
       "verdict": "approved-runtime-data",
-      "runtimeHome": ["runtime:sprite-performance-contract", "production:sprite-generation-batches"],
-      "deliveries": [{
-        "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-        "sha256": "436e048faf38936f28c57225de77990b3baad97a31519e02de6a782d4905c703"
-      }],
+      "runtimeHome": [
+        "runtime:sprite-performance-contract",
+        "production:sprite-generation-batches"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
+          "sha256": "436e048faf38936f28c57225de77990b3baad97a31519e02de6a782d4905c703"
+        }
+      ],
       "status": "bound-and-schema-validated"
     },
     {
@@ -60,11 +71,15 @@
       "provenance": "repo-authored-generated-conformance-metadata",
       "verdict": "generated-conformance-data/non-runtime",
       "runtimeHome": [],
-      "reviewHome": ["conformance:academy-asset-registry"],
-      "deliveries": [{
-        "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
-        "sha256": "c46353cc384d6a5bb5dcbd016dd7d9a80ca8eae92e373ba88c138ba4d196f493"
-      }],
+      "reviewHome": [
+        "conformance:academy-asset-registry"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
+          "sha256": "c46353cc384d6a5bb5dcbd016dd7d9a80ca8eae92e373ba88c138ba4d196f493"
+        }
+      ],
       "status": "generated-mirrored-and-conformance-validated; not-runtime-bound"
     },
     {
@@ -73,11 +88,15 @@
       "provenance": "repo-authored-generated-conformance-metadata",
       "verdict": "generated-conformance-data/non-runtime",
       "runtimeHome": [],
-      "reviewHome": ["conformance:academy-cast-sprite-migration"],
-      "deliveries": [{
-        "path": "/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
-        "sha256": "00d088b71c27b730f7ea70c9fc97ad6699ea2db23fd935dfa7cab39f448cf452"
-      }],
+      "reviewHome": [
+        "conformance:academy-cast-sprite-migration"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+          "sha256": "e5815b490d03af7381acba2ca98e0e363f90cb1b930bbd30be2d66df33c57336"
+        }
+      ],
       "status": "generated-mirrored-and-conformance-validated; 30-character-630-slot-target; not-runtime-bound"
     },
     {
@@ -87,11 +106,16 @@
       "provenance": "historical-academy-tree; original generation record not recovered",
       "verdict": "review-candidate/non-runtime",
       "runtimeHome": [],
-      "reviewHome": ["production:sprite-performance-contract", "production:sprite-batch-manifest"],
-      "deliveries": [{
-        "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
-        "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d"
-      }],
+      "reviewHome": [
+        "production:sprite-performance-contract",
+        "production:sprite-batch-manifest"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
+          "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d"
+        }
+      ],
       "status": "recovered-clean-alpha-review-evidence; not-runtime-bound; release-blocked-pending-owner-likeness-provenance-and-runtime-owner-approval"
     },
     {
@@ -99,11 +123,15 @@
       "source": "generated-image://019f588c-1181-7ac1-a608-0f6af5ff1813/exec-74fe9f7e-b314-4768-8eca-22f395a39473.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime-preview",
-      "runtimeHome": ["journal:aakash"],
-      "deliveries": [{
-        "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
-        "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f"
-      }],
+      "runtimeHome": [
+        "journal:aakash"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
+          "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f"
+        }
+      ],
       "status": "owner-requested-preview; release-blocked-pending-likeness-approval"
     },
     {
@@ -112,11 +140,15 @@
       "sourceSha256": "a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:shaun"],
-      "deliveries": [{
-        "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
-        "sha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1"
-      }],
+      "runtimeHome": [
+        "journal:shaun"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
+          "sha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1"
+        }
+      ],
       "status": "owner-requested-preview; release-blocked-pending-likeness-and-cast-scale-approval"
     },
     {
@@ -125,11 +157,20 @@
       "sourceSha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["world:bookshop:sophie", "journal:sophie", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
-        "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7"
-      }],
+      "runtimeHome": [
+        "world:bookshop:sophie",
+        "journal:sophie",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
+          "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7"
+        }
+      ],
       "status": "approved-painterly-identity-anchor; right-three-quarter-neutral; bound-and-responsive-reviewed"
     },
     {
@@ -138,11 +179,16 @@
       "sourceSha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:sophie-support", "journal:sophie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
-        "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4"
-      }],
+      "runtimeHome": [
+        "dialogue:sophie-support",
+        "journal:sophie-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
+          "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4"
+        }
+      ],
       "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-16; front-encouraging-performance-bound"
     },
     {
@@ -151,11 +197,16 @@
       "sourceSha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:sophie-research", "journal:sophie-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
-        "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711"
-      }],
+      "runtimeHome": [
+        "dialogue:sophie-research",
+        "journal:sophie-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
+          "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711"
+        }
+      ],
       "status": "identity-angle-expression-hands-alpha-and-cast-scale-reviewed-2026-07-16; left-determined-performance-bound"
     },
     {
@@ -164,10 +215,12 @@
       "provenance": "direct-openai-image-generation",
       "verdict": "rejected-wrong-likeness",
       "runtimeHome": [],
-      "deliveries": [{
-        "path": "/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
-        "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132"
-      }],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png",
+          "sha256": "d66ecccf0c25183923b83bf99f589996e21bd9d7618f9205c294084b7ee5f132"
+        }
+      ],
       "status": "owner-rejected-2026-07-14; must-not-bind-or-use-as-generation-reference"
     },
     {
@@ -176,11 +229,16 @@
       "sourceSha256": "9f5b505a92b66d0e044374f7ad089ccbc87e751f65e587776329ce58c0ba8d4d",
       "provenance": "direct-openai-image-edit-from-owner-correction",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter", "journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
-        "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480"
-      }],
+      "runtimeHome": [
+        "journal:peter",
+        "journal:peter-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
+          "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480"
+        }
+      ],
       "status": "owner-corrected-age-26-and-lighter-hair; release-blocked-pending-final-likeness-approval"
     },
     {
@@ -189,11 +247,16 @@
       "sourceSha256": "2ce611919b12a28a27e66456cefec480ad8fe5415c5875a7980bb9696000e576",
       "provenance": "direct-openai-image-generation-from-owner-written-brief",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-after-meeting", "journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
-        "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4"
-      }],
+      "runtimeHome": [
+        "journal:felix-after-meeting",
+        "journal:felix-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
+          "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4"
+        }
+      ],
       "status": "owner-described-fictional-preview; hidden-until-character-meeting"
     },
     {
@@ -202,11 +265,15 @@
       "sourceSha256": "24edd0ec10856a5a685fcc68e362fb7143d4e22a37b75303203ccbc335532fcd",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
-        "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582"
-      }],
+      "runtimeHome": [
+        "journal:felix-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
+          "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582"
+        }
+      ],
       "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
     },
     {
@@ -215,11 +282,15 @@
       "sourceSha256": "3890cd09d702ef9a72a5ba1b56fbaab1a97e69ca2be2786cc797123cdf5d94e5",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:felix-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
-        "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e"
-      }],
+      "runtimeHome": [
+        "journal:felix-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
+          "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e"
+        }
+      ],
       "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
     },
     {
@@ -228,11 +299,15 @@
       "sourceSha256": "bbe28f48018ad74ebca6495520f1374ec00ca3654d55b55fd87748387927f10a",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
-        "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e"
-      }],
+      "runtimeHome": [
+        "journal:peter-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
+          "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e"
+        }
+      ],
       "status": "clean-alpha-review-preview; owner-approval-required-before-story-runtime"
     },
     {
@@ -241,11 +316,15 @@
       "sourceSha256": "c445d473a34e56256622c8bffe401346739a318dbb561d7e51429f742c90413e",
       "provenance": "direct-openai-image-generation",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:peter-expression-gallery"],
-      "deliveries": [{
-        "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
-        "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a"
-      }],
+      "runtimeHome": [
+        "journal:peter-expression-gallery"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+          "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a"
+        }
+      ],
       "status": "clean-alpha-review-preview; thoughtful gesture maps to the neutral performance cell; owner-approval-required-before-story-runtime"
     },
     {
@@ -253,11 +332,16 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-2.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:portrait-choice-2", "journal:player"],
-      "deliveries": [{
-        "path": "/academy/art/protagonists/quality-2__picker__v001.png",
-        "sha256": "897b4cab4a51d96d49837651276d576ecc1e6fa0559c628229ab92d6b926b2d3"
-      }],
+      "runtimeHome": [
+        "onboarding:portrait-choice-2",
+        "journal:player"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/protagonists/quality-2__picker__v001.png",
+          "sha256": "897b4cab4a51d96d49837651276d576ecc1e6fa0559c628229ab92d6b926b2d3"
+        }
+      ],
       "status": "clean-alpha-browser-reviewed"
     },
     {
@@ -265,11 +349,16 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-3.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:portrait-choice-3", "journal:player"],
-      "deliveries": [{
-        "path": "/academy/art/protagonists/quality-3__picker__v001.png",
-        "sha256": "fb518115f98d505a69720087415ec20e871aa3244b66bf7b28d00b0f5ad204f0"
-      }],
+      "runtimeHome": [
+        "onboarding:portrait-choice-3",
+        "journal:player"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/protagonists/quality-3__picker__v001.png",
+          "sha256": "fb518115f98d505a69720087415ec20e871aa3244b66bf7b28d00b0f5ad204f0"
+        }
+      ],
       "status": "clean-alpha-browser-reviewed"
     },
     {
@@ -277,11 +366,16 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-4.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:portrait-choice-4", "journal:player"],
-      "deliveries": [{
-        "path": "/academy/art/protagonists/quality-4__picker__v001.png",
-        "sha256": "807c9aa1597e6c16c0d09f96fdeadf0e467d751dfd9686e2de68ef6569edfaf8"
-      }],
+      "runtimeHome": [
+        "onboarding:portrait-choice-4",
+        "journal:player"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/protagonists/quality-4__picker__v001.png",
+          "sha256": "807c9aa1597e6c16c0d09f96fdeadf0e467d751dfd9686e2de68ef6569edfaf8"
+        }
+      ],
       "status": "clean-alpha-browser-reviewed"
     },
     {
@@ -289,11 +383,16 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/quality-5.webp",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:portrait-choice-5", "journal:player"],
-      "deliveries": [{
-        "path": "/academy/art/protagonists/quality-5__picker__v001.png",
-        "sha256": "7a9868495d942837ff6197c8eb4d80f0eae829047ae3e7c21bd7f321c86adc4a"
-      }],
+      "runtimeHome": [
+        "onboarding:portrait-choice-5",
+        "journal:player"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/protagonists/quality-5__picker__v001.png",
+          "sha256": "7a9868495d942837ff6197c8eb4d80f0eae829047ae3e7c21bd7f321c86adc4a"
+        }
+      ],
       "status": "clean-alpha-browser-reviewed"
     },
     {
@@ -301,11 +400,15 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/anime-ref-campus-ensemble.webp",
       "provenance": "owner-approved-existing-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["access:campus-ensemble"],
-      "deliveries": [{
-        "path": "/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
-        "sha256": "8d7907e4a05a8e5b915883ac6bb5a52e738eaf6fd17af858b498493974195ff9"
-      }],
+      "runtimeHome": [
+        "access:campus-ensemble"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/campus-home__ensemble-spring--wide.webp",
+          "sha256": "8d7907e4a05a8e5b915883ac6bb5a52e738eaf6fd17af858b498493974195ff9"
+        }
+      ],
       "responsivePresentation": {
         "mobile": {
           "strategy": "art-directed-crop",
@@ -322,15 +425,20 @@
       "sourceSha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:home", "lesson:l2-l03"],
+      "runtimeHome": [
+        "location:home",
+        "lesson:l2-l03"
+      ],
       "recoveryArchive": {
         "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/home-morning-desk.jpg",
         "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
       },
-      "deliveries": [{
-        "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
-        "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
-      }],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/home-morning-desk__routine--wide.jpg",
+          "sha256": "99fa2dbb6eaf91ebb9d4f93e24141e14daa340d70f5fdcd003db05d9cd6be3c1"
+        }
+      ],
       "responsivePresentation": {
         "mobile": {
           "strategy": "art-directed-crop",
@@ -346,10 +454,19 @@
       "source": "donor-a:codex-production-v1/backgrounds/campus-entrance__blue-hour-arrival",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["access:entrance", "campus:evening"],
+      "runtimeHome": [
+        "access:entrance",
+        "campus:evening"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp", "sha256": "fbed4f03098ce6bb8f47e211d5c48f29c8861292afb6ed466e4996fd23a9aa45"},
-        {"path": "/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp", "sha256": "5cf8d39dc2abc0ba91a5e0e1bafa830ee6ec07d2a6a04da20a1a5f2b422a57f3"}
+        {
+          "path": "/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp",
+          "sha256": "fbed4f03098ce6bb8f47e211d5c48f29c8861292afb6ed466e4996fd23a9aa45"
+        },
+        {
+          "path": "/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp",
+          "sha256": "5cf8d39dc2abc0ba91a5e0e1bafa830ee6ec07d2a6a04da20a1a5f2b422a57f3"
+        }
       ],
       "status": "bound-and-responsive-reviewed"
     },
@@ -358,10 +475,19 @@
       "source": "donor-a:codex-production-v1/backgrounds/bloomsbury-street__day-route",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:street", "activity:rainy-directions"],
+      "runtimeHome": [
+        "location:street",
+        "activity:rainy-directions"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp", "sha256": "b5ed1510766f1ed1a0b01529db228b6bcf855f4f2fec2e9b74ae6df613664dd6"},
-        {"path": "/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp", "sha256": "18705904e2e3ef46295ded7960bdb6739e3b2970b5616679f3df6ec4e984dd72"}
+        {
+          "path": "/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp",
+          "sha256": "b5ed1510766f1ed1a0b01529db228b6bcf855f4f2fec2e9b74ae6df613664dd6"
+        },
+        {
+          "path": "/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp",
+          "sha256": "18705904e2e3ef46295ded7960bdb6739e3b2970b5616679f3df6ec4e984dd72"
+        }
       ],
       "status": "recovered-manifest-hash-verified-and-bound-to-open-rainy-directions-route"
     },
@@ -370,10 +496,23 @@
       "source": "donor-a:codex-production-v1/backgrounds/railway-station__day-commute",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:station", "activity:station-announcements", "lesson:l2-l02", "lesson:l2-l05", "lesson:l2-l10", "lesson:l2-l11"],
+      "runtimeHome": [
+        "location:station",
+        "activity:station-announcements",
+        "lesson:l2-l02",
+        "lesson:l2-l05",
+        "lesson:l2-l10",
+        "lesson:l2-l11"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp", "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"},
-        {"path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp", "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"}
+        {
+          "path": "/academy/art/locations/wide/railway-station__day-commute--wide.webp",
+          "sha256": "6d7742a3d00e21f6bd3664d9c5cc758c596bd3058b36a67bab66ce0f83cf5265"
+        },
+        {
+          "path": "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp",
+          "sha256": "3177f872c6e652d6ee80b95364d75c75a45a3ae7953365050e8a0ed572eeead1"
+        }
       ],
       "status": "recovered-manifest-hash-verified-and-bound-to-open-station-route"
     },
@@ -382,10 +521,19 @@
       "source": "donor-a:codex-production-v1/backgrounds/tube-platform__blue-hour-rain",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:station-platform", "activity:station-platform-transfer"],
+      "runtimeHome": [
+        "location:station-platform",
+        "activity:station-platform-transfer"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp", "sha256": "08fb7f255467425eea6606a4676a070ca4a9356af403cf839ee750fc730983f5"},
-        {"path": "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp", "sha256": "4838e50466da14cf55c9e3c08f98739f7c945a6332d5cb648718a0c830079eef"}
+        {
+          "path": "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp",
+          "sha256": "08fb7f255467425eea6606a4676a070ca4a9356af403cf839ee750fc730983f5"
+        },
+        {
+          "path": "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp",
+          "sha256": "4838e50466da14cf55c9e3c08f98739f7c945a6332d5cb648718a0c830079eef"
+        }
       ],
       "status": "recovered-manifest-hash-verified-and-bound-to-open-station-platform-transfer-route"
     },
@@ -394,10 +542,20 @@
       "source": "donor-a:codex-production-v1/backgrounds/ramen__evening-steam",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:ramen", "activity:ramen-ordering", "lesson:l2-l07"],
+      "runtimeHome": [
+        "location:ramen",
+        "activity:ramen-ordering",
+        "lesson:l2-l07"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/ramen__evening-steam--wide.webp", "sha256": "837cfa0c472fae122f660af6cc72952b164fe4d40169e171a99d7ed08d9a3833"},
-        {"path": "/academy/art/locations/mobile/ramen__evening-steam--mobile.webp", "sha256": "70dbcbd9c45701821d6836c55b4a80c3d362c0c33eaea31e7334315081c41725"}
+        {
+          "path": "/academy/art/locations/wide/ramen__evening-steam--wide.webp",
+          "sha256": "837cfa0c472fae122f660af6cc72952b164fe4d40169e171a99d7ed08d9a3833"
+        },
+        {
+          "path": "/academy/art/locations/mobile/ramen__evening-steam--mobile.webp",
+          "sha256": "70dbcbd9c45701821d6836c55b4a80c3d362c0c33eaea31e7334315081c41725"
+        }
       ],
       "status": "recovered-manifest-hash-verified; no-cast-likeness; bound-to-open-ramen-ordering-route"
     },
@@ -406,10 +564,20 @@
       "source": "donor-a:codex-production-v1/backgrounds/park__day-overcast",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:park", "activity:park-weather-sketchbook", "lesson:l2-l08"],
+      "runtimeHome": [
+        "location:park",
+        "activity:park-weather-sketchbook",
+        "lesson:l2-l08"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/park__day-overcast--wide.webp", "sha256": "08497720548dd98c872f6787aada425b4c511395a0d0123da00fecb1027abb9f"},
-        {"path": "/academy/art/locations/mobile/park__day-overcast--mobile.webp", "sha256": "416f6016001be41c59e9f111b5de90b56609b8d03968ee09d94dd27e4669ed53"}
+        {
+          "path": "/academy/art/locations/wide/park__day-overcast--wide.webp",
+          "sha256": "08497720548dd98c872f6787aada425b4c511395a0d0123da00fecb1027abb9f"
+        },
+        {
+          "path": "/academy/art/locations/mobile/park__day-overcast--mobile.webp",
+          "sha256": "416f6016001be41c59e9f111b5de90b56609b8d03968ee09d94dd27e4669ed53"
+        }
       ],
       "status": "recovered-manifest-hash-verified; no-cast-likeness; bound-to-open-park-weather-sketchbook"
     },
@@ -418,10 +586,19 @@
       "source": "openai-image-generation:019f62fa-ae33-78b1-98a9-860c40411b06",
       "provenance": "direct-openai-image-generation-responsive-pair",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:konbini", "activity:counter-shopping"],
+      "runtimeHome": [
+        "location:konbini",
+        "activity:counter-shopping"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp", "sha256": "0ea3ba199e2144bfaa8cde1db68640f7ba4395363cbf79f400461c9b9b3ba2e4"},
-        {"path": "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp", "sha256": "4085dce6e04e749fbfdc2fa82a0ceec1d2afa4e625fdbf02f71a86adfebad9ae"}
+        {
+          "path": "/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp",
+          "sha256": "0ea3ba199e2144bfaa8cde1db68640f7ba4395363cbf79f400461c9b9b3ba2e4"
+        },
+        {
+          "path": "/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp",
+          "sha256": "4085dce6e04e749fbfdc2fa82a0ceec1d2afa4e625fdbf02f71a86adfebad9ae"
+        }
       ],
       "status": "purpose-composed-wide-and-phone-plates; responsive-world-reviewed"
     },
@@ -430,15 +607,32 @@
       "source": "approved-local:public/academy/art/items/japan-centre-omiyage-tag__v001.png",
       "sourceSha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd",
       "sourceArtifacts": [
-        {"variant": "wide", "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-4994d99a-c4c5-4e0c-be82-81eb2bc6a2cb.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
-        {"variant": "mobile", "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-efe1ace7-c154-4211-b6e0-881e3434018b.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
+        {
+          "variant": "wide",
+          "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-4994d99a-c4c5-4e0c-be82-81eb2bc6a2cb.png",
+          "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"
+        },
+        {
+          "variant": "mobile",
+          "path": "generated-image://019f6514-ccf9-7ac1-8cf9-21e09da68c50/exec-efe1ace7-c154-4211-b6e0-881e3434018b.png",
+          "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"
+        }
       ],
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:japan-centre", "activity:gift-counter"],
+      "runtimeHome": [
+        "location:japan-centre",
+        "activity:gift-counter"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png", "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"},
-        {"path": "/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png", "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"}
+        {
+          "path": "/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png",
+          "sha256": "10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493"
+        },
+        {
+          "path": "/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png",
+          "sha256": "e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2"
+        }
       ],
       "status": "purpose-composed-wide-and-phone-plates; no-cast-likeness; no people, hands, brands, or readable copy; bound-to-japan-centre-gift-counter"
     },
@@ -447,10 +641,25 @@
       "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l1-l01", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"],
+      "runtimeHome": [
+        "onboarding:profile",
+        "lesson-zero",
+        "placement",
+        "journal",
+        "lesson:l1-l01",
+        "lesson:l2-l04",
+        "lesson:l2-l15",
+        "lesson:l2-l16"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"},
-        {"path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp", "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"}
+        {
+          "path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+          "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"
+        },
+        {
+          "path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp",
+          "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"
+        }
       ],
       "status": "bound-and-responsive-reviewed"
     },
@@ -459,10 +668,20 @@
       "source": "donor-a:codex-production-v1/backgrounds/library__rain-evening",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:library", "review:due-queue", "lesson:l2-l06"],
+      "runtimeHome": [
+        "location:library",
+        "review:due-queue",
+        "lesson:l2-l06"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/library__rain-evening--wide.webp", "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"},
-        {"path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp", "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"}
+        {
+          "path": "/academy/art/locations/wide/library__rain-evening--wide.webp",
+          "sha256": "d0ec9d2d9007803b81f71c713f6cbdf1af7ff9dc20e758ab5c6411a3e08fda5c"
+        },
+        {
+          "path": "/academy/art/locations/mobile/library__rain-evening--mobile.webp",
+          "sha256": "73dbb359395bf3696579e0ca0f49282ec0df0d3202cc292b7d2de840d129e7c8"
+        }
       ],
       "status": "bound-and-responsive-reviewed"
     },
@@ -471,10 +690,19 @@
       "source": "direct-openai-image-generation:bookshop-rain-evening-shelves",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:bookshop", "activity:bookshop-catalogue"],
+      "runtimeHome": [
+        "location:bookshop",
+        "activity:bookshop-catalogue"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp", "sha256": "bb0029f3f6b3c06c8af867ca4ceb77698628d9710316099c0df79e60a4eaea2e"},
-        {"path": "/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp", "sha256": "446dbddaac1bef713bed2fadf1d9e843b7492d3fd680d74be3f456b297dbf588"}
+        {
+          "path": "/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp",
+          "sha256": "bb0029f3f6b3c06c8af867ca4ceb77698628d9710316099c0df79e60a4eaea2e"
+        },
+        {
+          "path": "/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp",
+          "sha256": "446dbddaac1bef713bed2fadf1d9e843b7492d3fd680d74be3f456b297dbf588"
+        }
       ],
       "status": "purpose-composed-wide-and-phone-plates; bound-to-bookshop-catalogue"
     },
@@ -483,10 +711,19 @@
       "source": "donor-a:codex-production-v1/backgrounds/cafe__night-rain",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["location:cafe", "lesson:l2-l13"],
+      "runtimeHome": [
+        "location:cafe",
+        "lesson:l2-l13"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/cafe__night-rain--wide.webp", "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"},
-        {"path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp", "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"}
+        {
+          "path": "/academy/art/locations/wide/cafe__night-rain--wide.webp",
+          "sha256": "dabc1c2b9b4d770b6bf1e1d13d3f88f5c206abb0df45df304f5f74351395c359"
+        },
+        {
+          "path": "/academy/art/locations/mobile/cafe__night-rain--mobile.webp",
+          "sha256": "1307bc05b8bcb780c56bbda5ce2012d07159402a8a512140f013adffe4920a77"
+        }
       ],
       "status": "bound-and-responsive-reviewed"
     },
@@ -495,10 +732,21 @@
       "source": "donor-a:codex-production-v1/backgrounds/japan-office__evening-close",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime-adaptation",
-      "runtimeHome": ["location:language-lab", "activity:listening-shadowing", "lesson:l2-l09", "lesson:l2-l14"],
+      "runtimeHome": [
+        "location:language-lab",
+        "activity:listening-shadowing",
+        "lesson:l2-l09",
+        "lesson:l2-l14"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp", "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"},
-        {"path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp", "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"}
+        {
+          "path": "/academy/art/locations/wide/language-lab__evening-listening--wide.webp",
+          "sha256": "bc62410da92b80b2d5e423c32d76d555e27096df602347b48d05526c325b7718"
+        },
+        {
+          "path": "/academy/art/locations/mobile/language-lab__evening-listening--mobile.webp",
+          "sha256": "da3a3ebc2e6abd03ef6efa2cd98adf8907375f57b28c527b8f406fd1d169ba5a"
+        }
       ],
       "status": "no-readable-work-data-browser-reviewed"
     },
@@ -507,10 +755,20 @@
       "source": "donor-a:codex-production-v1/backgrounds/student-room__rain-night",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime-adaptation",
-      "runtimeHome": ["location:writing-studio", "activity:kanji-doodle", "lesson:l2-l12"],
+      "runtimeHome": [
+        "location:writing-studio",
+        "activity:kanji-doodle",
+        "lesson:l2-l12"
+      ],
       "deliveries": [
-        {"path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp", "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"},
-        {"path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp", "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"}
+        {
+          "path": "/academy/art/locations/wide/writing-studio__rain-night--wide.webp",
+          "sha256": "0d90ff0f723209a8e90640bdc62eb7f74613d4fc8dce9cabf5b27c24e512e083"
+        },
+        {
+          "path": "/academy/art/locations/mobile/writing-studio__rain-night--mobile.webp",
+          "sha256": "976683285ad25306f1bf4bcc91a2faf0ee838c6431523865af1031f1f6405192"
+        }
       ],
       "status": "ordinary-room-no-private-data-browser-reviewed"
     },
@@ -519,11 +777,17 @@
       "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-ecc50561-7602-42aa-bd70-7699ea67805d.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime-anchor",
-      "runtimeHome": ["scene:aakash-rainy-directions", "unlock:aakash", "memory:aakash-rainy-directions"],
-      "deliveries": [{
-        "path": "/academy/art/events/rainy-directions__rie-aakash__v001.png",
-        "sha256": "efac4f699510441bc8d33e00cf5d3ea346276c25b09469ab682f9b4e13ec9872"
-      }],
+      "runtimeHome": [
+        "scene:aakash-rainy-directions",
+        "unlock:aakash",
+        "memory:aakash-rainy-directions"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/events/rainy-directions__rie-aakash__v001.png",
+          "sha256": "efac4f699510441bc8d33e00cf5d3ea346276c25b09469ab682f9b4e13ec9872"
+        }
+      ],
       "status": "approved-calibration-cg; bound-to-rainy-scene-unlock-and-memory"
     },
     {
@@ -532,11 +796,15 @@
       "sourceSha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:station:platform-ticket"],
-      "deliveries": [{
-        "path": "/academy/art/items/station-ticket-memory__v001.jpg",
-        "sha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663"
-      }],
+      "runtimeHome": [
+        "reward:station:platform-ticket"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/station-ticket-memory__v001.jpg",
+          "sha256": "6035e4e2222a8df3df2052166530207dacfe0d576b64d2c278c210704d2d9663"
+        }
+      ],
       "status": "manifest-hash-verified; no-cast-likeness; bound-to-station-reward"
     },
     {
@@ -545,11 +813,15 @@
       "sourceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:konbini:shopping-receipt"],
-      "deliveries": [{
-        "path": "/academy/art/items/konbini-shopping-list__v001.jpg",
-        "sha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8"
-      }],
+      "runtimeHome": [
+        "reward:konbini:shopping-receipt"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/konbini-shopping-list__v001.jpg",
+          "sha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8"
+        }
+      ],
       "status": "manifest-hash-verified; no-cast-likeness; bound-to-konbini-counter-reward"
     },
     {
@@ -558,11 +830,15 @@
       "sourceSha256": "bfef798562d0797c182a2ff714b3e2e19a403990b4f062704d85eda14a97b57c",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:ramen:order-ticket"],
-      "deliveries": [{
-        "path": "/academy/art/items/ramen-quantity-board__v001.jpg",
-        "sha256": "bfef798562d0797c182a2ff714b3e2e19a403990b4f062704d85eda14a97b57c"
-      }],
+      "runtimeHome": [
+        "reward:ramen:order-ticket"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/ramen-quantity-board__v001.jpg",
+          "sha256": "bfef798562d0797c182a2ff714b3e2e19a403990b4f062704d85eda14a97b57c"
+        }
+      ],
       "status": "manifest-hash-verified; no-cast-likeness; bound-to-ramen-ordering-reward"
     },
     {
@@ -571,11 +847,16 @@
       "sourceSha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:classroom:board-note", "lesson:l1-l01:classroom-language-prop"],
-      "deliveries": [{
-        "path": "/academy/art/items/classroom-belongings__v001.jpg",
-        "sha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75"
-      }],
+      "runtimeHome": [
+        "reward:classroom:board-note",
+        "lesson:l1-l01:classroom-language-prop"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/classroom-belongings__v001.jpg",
+          "sha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75"
+        }
+      ],
       "status": "manifest-hash-verified; no-cast-likeness; bound-to-classroom-note-reward"
     },
     {
@@ -584,11 +865,15 @@
       "sourceSha256": "874c636fb65975cfd790eabca70c4e0571769da44ac40a988d60d6ee6f9ee457",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:library:review-bookmark"],
-      "deliveries": [{
-        "path": "/academy/art/items/library-photo-album__v001.jpg",
-        "sha256": "874c636fb65975cfd790eabca70c4e0571769da44ac40a988d60d6ee6f9ee457"
-      }],
+      "runtimeHome": [
+        "reward:library:review-bookmark"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/library-photo-album__v001.jpg",
+          "sha256": "874c636fb65975cfd790eabca70c4e0571769da44ac40a988d60d6ee6f9ee457"
+        }
+      ],
       "status": "manifest-hash-verified; no-cast-likeness; bound-to-library-review-reward"
     },
     {
@@ -620,11 +905,15 @@
       "referenceSha256": "6d311ecb433de61ec7b429a988b9c4973ae2da202da5684f9e9bfa7d0ed7b3e8",
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:japan-centre:omiyage-tag"],
-      "deliveries": [{
-        "path": "/academy/art/items/japan-centre-omiyage-tag__v001.png",
-        "sha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd"
-      }],
+      "runtimeHome": [
+        "reward:japan-centre:omiyage-tag"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/japan-centre-omiyage-tag__v001.png",
+          "sha256": "f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd"
+        }
+      ],
       "status": "approved-no-likeness-prop; no-cast-likeness; no people, hands, brands, or readable copy; bound-to-japan-centre-counter-reward"
     },
     {
@@ -633,15 +922,19 @@
       "sourceSha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:cafe:inspectable-order-scene"],
+      "runtimeHome": [
+        "reward:cafe:inspectable-order-scene"
+      ],
       "recoveryArchive": {
         "path": "docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets/wide/food-cafe-order.jpg",
         "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
       },
-      "deliveries": [{
-        "path": "/academy/art/items/cafe-order-scene__v001.jpg",
-        "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
-      }],
+      "deliveries": [
+        {
+          "path": "/academy/art/items/cafe-order-scene__v001.jpg",
+          "sha256": "13773a75ec1369166c763ac2b57f4d1f7bf01baeb7530d0638e104c80de1cf74"
+        }
+      ],
       "status": "manifest-hash-verified original generation; owner-directed exact cafe order-scene inspector; unnamed non-cast figures do not authorize character likeness reuse"
     },
     {
@@ -663,10 +956,34 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"],
-      "usage": {"runtime": ["character-book", "lessons", "vn-scenes"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "onboarding:profile",
+        "unlock:rie",
+        "journal:rie",
+        "scene:arrival-bridge",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "lesson:l1-l01:host"
+      ],
+      "usage": {
+        "runtime": [
+          "character-book",
+          "lessons",
+          "vn-scenes"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+          "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282"
+        }
+      ],
       "status": "identity-glasses-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -675,10 +992,29 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
-      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "runtimeHome": [
+        "lesson-feedback:correct-retry",
+        "dialogue:rie-positive",
+        "journal:rie-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "lessons",
+          "vn-scenes",
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing",
+          "alpha-edge"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png", "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+          "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720"
+        }
+      ],
       "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
     },
     {
@@ -687,10 +1023,26 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"],
-      "usage": {"runtime": ["vn-scenes", "character-book"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "dialogue:rie-decisive-guidance",
+        "journal:rie-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "vn-scenes",
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png", "sha256": "2127d47e5bea59317114ad612b28f4d9b888047afb83ef5577d05291a7a2c24e"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+          "sha256": "2127d47e5bea59317114ad612b28f4d9b888047afb83ef5577d05291a7a2c24e"
+        }
+      ],
       "status": "identity-glasses-pottery-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -699,10 +1051,28 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"],
-      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "lesson-feedback:attempt",
+        "dialogue:rie-listening",
+        "journal:rie-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "lessons",
+          "vn-scenes",
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+          "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9"
+        }
+      ],
       "status": "identity-glasses-museum-prop-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -711,10 +1081,30 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"],
-      "usage": {"runtime": ["lessons", "vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "runtimeHome": [
+        "lesson-feedback:repair",
+        "dialogue:rie-precise-hint",
+        "dialogue:rie-vulnerable-reflection",
+        "journal:rie-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "lessons",
+          "vn-scenes",
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing",
+          "alpha-edge"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png", "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+          "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954"
+        }
+      ],
       "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
     },
     {
@@ -723,10 +1113,27 @@
       "provenance": "direct-openai-image-edit-from-approved-reference",
       "privacy": "no-private-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"],
-      "usage": {"runtime": ["vn-scenes", "character-book"], "review": ["responsive-framing", "alpha-edge"]},
+      "runtimeHome": [
+        "dialogue:rie-light-recovery",
+        "journal:rie-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "vn-scenes",
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing",
+          "alpha-edge"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png", "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
+          "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9"
+        }
+      ],
       "status": "identity-glasses-expression-hands-alpha-and-mobile-framing-reviewed-2026-07-17"
     },
     {
@@ -736,10 +1143,25 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:tom2", "journal:tom2-expression-gallery"],
-      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "runtimeHome": [
+        "journal:tom2",
+        "journal:tom2-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [],
+        "review": [
+          "character-book",
+          "responsive-framing",
+          "owner-likeness-approval"
+        ]
+      },
       "orphan": "review-bound",
-      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png", "sha256": "f6565d6eb7327305dfa1b4dccfae98317b147e39507c572a4118d6a71bcdd33e"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
+          "sha256": "f6565d6eb7327305dfa1b4dccfae98317b147e39507c572a4118d6a71bcdd33e"
+        }
+      ],
       "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
     },
     {
@@ -749,10 +1171,24 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:tom2-expression-gallery"],
-      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "runtimeHome": [
+        "journal:tom2-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [],
+        "review": [
+          "character-book",
+          "responsive-framing",
+          "owner-likeness-approval"
+        ]
+      },
       "orphan": "review-bound",
-      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png", "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635"
+        }
+      ],
       "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
     },
     {
@@ -762,10 +1198,24 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
       "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": ["journal:tom2-expression-gallery"],
-      "usage": {"runtime": [], "review": ["character-book", "responsive-framing", "owner-likeness-approval"]},
+      "runtimeHome": [
+        "journal:tom2-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [],
+        "review": [
+          "character-book",
+          "responsive-framing",
+          "owner-likeness-approval"
+        ]
+      },
       "orphan": "review-bound",
-      "deliveries": [{"path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png", "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
+          "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee"
+        }
+      ],
       "status": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
     },
     {
@@ -774,10 +1224,26 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "written-description-only; no-private-likeness-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["journal:steve", "scene:steve-introduction"],
-      "usage": {"runtime": ["character-book", "vn-scenes"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "journal:steve",
+        "scene:steve-introduction"
+      ],
+      "usage": {
+        "runtime": [
+          "character-book",
+          "vn-scenes"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
+          "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef"
+        }
+      ],
       "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -786,10 +1252,24 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "written-description-only; no-private-likeness-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["journal:steve-expression-gallery"],
-      "usage": {"runtime": ["character-book"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "journal:steve-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png", "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png",
+          "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07"
+        }
+      ],
       "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -798,10 +1278,24 @@
       "provenance": "direct-openai-image-generation",
       "privacy": "written-description-only; no-private-likeness-source",
       "verdict": "approved-runtime",
-      "runtimeHome": ["journal:steve-expression-gallery"],
-      "usage": {"runtime": ["character-book"], "review": ["responsive-framing"]},
+      "runtimeHome": [
+        "journal:steve-expression-gallery"
+      ],
+      "usage": {
+        "runtime": [
+          "character-book"
+        ],
+        "review": [
+          "responsive-framing"
+        ]
+      },
       "orphan": "active-runtime",
-      "deliveries": [{"path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png", "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5"}],
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5"
+        }
+      ],
       "status": "original-description-identity-hands-alpha-and-cast-scale-reviewed-2026-07-17"
     },
     {
@@ -811,8 +1305,15 @@
       "privacy": "no-identified-likeness-reference-received; generation-forbidden",
       "verdict": "reference-only",
       "runtimeHome": [],
-      "reviewHome": ["production:sprite-batch-manifest"],
-      "usage": {"runtime": [], "review": ["identity-gate"]},
+      "reviewHome": [
+        "production:sprite-batch-manifest"
+      ],
+      "usage": {
+        "runtime": [],
+        "review": [
+          "identity-gate"
+        ]
+      },
       "orphan": "blocked-no-delivery",
       "status": "privacy-blocked-pending-owner-identified-reference"
     },
