@@ -1,3 +1,7 @@
+export function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 interface UniqueStringOptions {
     trim?: boolean;
     dropEmpty?: boolean;

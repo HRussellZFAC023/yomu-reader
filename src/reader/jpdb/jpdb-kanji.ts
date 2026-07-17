@@ -1,6 +1,7 @@
 import { Logger } from '../app/logger';
 import { requestText as requestReaderText } from '../network/http';
 import { parseHtmlDocument } from '../dom';
+import { escapeRegExp } from '../core/string-utils';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl } from './jpdb-text';
 
 export interface JpdbKanjiReading {
@@ -427,9 +428,6 @@ function isMissingSectionValue(value: string, section: Element | null): boolean 
     return normalized === '' || normalized === 'missing' || (section?.querySelector('.keyword-missing') !== null);
 }
 
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function requestText(
     url: string,

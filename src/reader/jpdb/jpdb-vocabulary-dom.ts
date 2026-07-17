@@ -1,6 +1,7 @@
 import { escapeHtml } from '../dom';
 import { isRubyAnnotation, rubyReadingText } from './jpdb-ruby-text';
 import { cleanText, JAPANESE_RE } from './jpdb-text';
+export { escapeRegExp } from '../core/string-utils';
 
 interface JpdbRichTextOptions {
     preserveHighlight?: boolean;
@@ -113,10 +114,6 @@ function hasReadableRuby(root: Node): boolean {
 
 export function cleanMeaning(value: string): string {
     return cleanText(value).replace(/^\d+\.\s*/, '');
-}
-
-export function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function uniqueBy<T>(values: T[], key: (value: T) => string): T[] {

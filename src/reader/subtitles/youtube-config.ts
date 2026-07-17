@@ -1,6 +1,6 @@
-export function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '../core/string-utils';
+
+export { escapeRegExp };
 
 export function unescapeYouTubeConfigString(value: string): string {
     try {

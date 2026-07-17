@@ -9,7 +9,7 @@ import { uiText } from '../app/i18n';
 import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
 import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from '../jpdb/jpdb-vocabulary-url';
 import { isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
-import { uniqueStrings } from '../core/string-utils';
+import { escapeRegExp, uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { jitenTtsVoicesForValue, jitenWordTtsUrl } from './jiten-tts';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
@@ -1008,6 +1008,3 @@ function appendAudioPreconnectLink(origin: string, rel: (typeof AUDIO_PRECONNECT
     document.head?.append(link);
 }
 
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
