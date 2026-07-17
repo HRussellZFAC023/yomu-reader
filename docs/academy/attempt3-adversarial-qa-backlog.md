@@ -792,3 +792,22 @@ A continuation should pick up:
 ## Provenance
 
 Screenshots: `artifacts/a3-qa-*.png` (24 clean + best-effort error frames). Raw findings + verdicts: workflow `wf_6a05cfd2-7a7` journal. This document was assembled by the lead after the automated synthesis step hit a Fable-5 weekly usage limit; the top tier and roadmap are hand-authored, the detailed findings are the de-duplicated agent output with refuted/artifact items removed.
+
+---
+
+## Triage update — 2026-07-17 (full re-verification against the live tree)
+
+All 236 findings re-verified: 64 fixed-by-sprint · 37 fixed by QA session (verified) · 53 need design ownership · 18 too big for safe scope · 28 ideas · 19 stale · 17 not verifiable. Full per-finding statuses: `qa-audit-a3/a3-triage-results.json`; principles/SFX/pedagogy/discovery results in sibling `a3-*-results.json` files.
+
+
+### New verified showstoppers/criticals (live play, 2026-07-17 — top of queue)
+1. **[CRITICAL] Week-02 tab freeze at lesson note 3→4** — 4/5 fresh runs lock the renderer; most learners can never reach the graded questions. Lead: failing SFX asset fetches on note transitions / note 3 is the speaking prompt. Evidence: `qa-audit-a3/screens/discovery/dbg-after-note2-click-01.png`, journal wf_e6d5bfe9-d20.
+2. **[CRITICAL] `data-choice-id="correct"` in DOM** across ~30 world practice checks (shared renderer helper) — systemic answer leak.
+3. **[HIGH] Correct-answer feedback wiped before paint** in world practices — learners never see written confirmation (only the reward-icon tint).
+4. **[HIGH] Bookshop catalogue puzzle bypassable** (CSS display rule defeats the native `hidden` attribute).
+5. **[HIGH] Back skips a hop** for all "extra" world locations (app.ts route-context forwarding gap).
+6. **[MEDIUM] Placement result renders self-reported confidence with the same assessed-score meters as graded skills.**
+7. **[MEDIUM] Desktop-only: konbini caption renders as unstyled 330×458 block; park canopy polygon overlaps the place card.**
+
+### Fixed and live-verified this round (do not re-file)
+Ink speaker tags unified · figure-mask silhouettes · green-panel/object-detail readability · back/place-chip overlap · warm HUDs (3 rules) · placement native-validation bubbles fully removed · japan-centre ink-collision exclusion · SFX cues wired at all lesson/enrollment evaluation sites + nav (feedback.correct/repair, menu.confirm) · Sophie sprite/translucent dialogue/Back overlap in bookshop confirmed fixed.
