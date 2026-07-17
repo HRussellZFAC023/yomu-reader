@@ -161,11 +161,15 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 
 ## Wave 6 — Harness & tests
 
-- **NB-50 [decision needed → sol] smoke triage** — 63/79 smoke scripts (~34k LOC) run by no
-  gate. Triage: (a) headless-capable regression guards → new `smoke:nightly` aggregate wired
-  into ci.yml; (b) live-only harnesses (bookwalker-live, bunpro-live, live-browser, jpdb-live,
-  subtitle-live) → `scripts/manual/` + docs, out of the smoke: namespace; (c) redundant
-  one-bug scripts already covered by unit tests → delete. Bulk of the LOC win lives here.
+- **NB-50 [DONE 2026-07-17] smoke triage** — 69 ungated `smoke:`/`e2e:`/`qa:`/`screenshots:`
+  scripts triaged against ci.yml / check / smoke:release / smoke:p0 / smoke:layout-regressions.
+  Verdicts: **21 (a)** headless fixture guards → new `smoke:nightly` aggregate
+  (`scripts/run-nightly-smokes.mjs`) run by `.github/workflows/nightly.yml` (cron + dispatch);
+  **38 (b)** live/server/display/perf/enrichment harnesses → `scripts/manual/` + renamed
+  `manual:*` + `scripts/manual/README.md`; **10 (c)** redundant per-bug smokes superseded by
+  product evolution and covered by unit tests → deleted (−3,107 LOC), 24,721 LOC moved out of
+  the `smoke:` namespace. Each (a) guard was observed passing headless locally before wiring;
+  each (c) deletion names its surviving unit test. Full table below.
 - **NB-51 [fable staged] split the 4 monster test files** — jpdb.test.ts + new-tab-review +
   subtitles-controller + settings-form = 69,472 LOC (54% of suite) force a 768-line bespoke
   shard code-generator (`run-ci-tests.mjs`) with brittle string markers. Split by topic into
@@ -177,6 +181,88 @@ independent review + `typecheck` + targeted tests + periodic full `test:ci`.
 - **NB-53 [sol] global test retry masks flakes** — surface/report retried tests; budget to zero.
 - **NB-54 [sol] bounded caches in newtab** — ~17 unbounded per-card session Maps (only
   parsedSentenceCache is capped); reuse its LRU pattern. +30 LOC, kills slow-leak class.
+
+### NB-50 triage table (2026-07-17)
+
+Verdict counts: **21 (a) nightly**, **38 (b) manual**, **10 (c) deleted**. −3,107 LOC deleted,
+24,721 LOC moved to `scripts/manual/`. `smoke:nightly` verified locally 21/21 (runtimes below).
+
+| script | verdict | reason |
+|---|---|---|
+| `e2e:subtitles -> manual:subtitles-e2e` | (b) manual | Drives real youtube.com watch pages end-to-end. |
+| `qa:live -> manual:jpdb-live` | (b) manual | Hits the real JPDB API; needs YOMU_JPDB_API_KEY. |
+| `screenshots:real -> manual:screenshots-real` | (b) manual | Captures real manga/reader pages in a persistent signed-in Chrome profile. |
+| `smoke:academy-bookshop -> manual:academy-bookshop` | (b) manual | Needs the Academy dev server on :5174. |
+| `smoke:academy-home -> manual:academy-home` | (b) manual | Needs the Academy dev server on :5174. |
+| `smoke:academy-park -> manual:academy-park` | (b) manual | Needs the Academy dev server on :5174 (dev:academy). |
+| `smoke:academy-profile -> manual:academy-profile` | (b) manual | Needs the Academy dev server on :5174. |
+| `smoke:anki` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:anki-template` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:anki-wikipedia -> manual:anki-wikipedia` | (b) manual | Navigates real ja.wikibooks.org. |
+| `smoke:audio-csp-fallback -> manual:audio-csp-fallback` | (b) manual | Depends on real JPDB/audio-CDN network for the CSP audio chain. |
+| `smoke:audio-newtab -> manual:audio-newtab` | (b) manual | Depends on real hosted-audio CDN (audio.yomureader.com) source ordering. |
+| `smoke:audio-popover -> manual:audio-popover` | (b) manual | Opens real youtube.com video pages for audio. |
+| `smoke:audio-real-page -> manual:audio-real-page` | (b) manual | Drives real Wikipedia audio/click-open. |
+| `smoke:bookwalker-apex-ocr` | (c) delete | Redundant/superseded; covered by tests/reader/bookwalker-apex-ocr.test.ts. Same-named unit test covers the apex OCR scenario; the smoke only fails on headless-webkit/iPad OCR fixtures. |
+| `smoke:bookwalker-carousel -> manual:bookwalker-carousel` | (b) manual | BookWalker carousel overflow layout guard, currently red; kept for manual triage. |
+| `smoke:bookwalker-cty2-scroll` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:bookwalker-live-firefox -> manual:bookwalker-live-firefox` | (b) manual | Live BookWalker trial reader in real Firefox. |
+| `smoke:bookwalker-modes-ocr` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:bookwalker-tap-passthrough` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:bookwalker-tap-retry` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:bunpro-live -> manual:bunpro-live` | (b) manual | Hits the real Bunpro frontend API; needs YOMU_BUNPRO_FRONTEND_API_TOKEN. |
+| `smoke:compact-chrome` | (c) delete | Redundant/superseded; covered by tests/reader/styles.test.ts + tests/reader/settings-css.test.ts. Same universal-decoration supersession (fails on 'before hover: compact control rendered ruby'). |
+| `smoke:definition-sources` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:enhancement-coverage` | (c) delete | Redundant/superseded; covered by tests/reader/hosted-docs-homepage-chrome-scan.test.ts. Homepage-chrome scan boundary is unit-covered by the exact-topic test; the smoke encodes the pre-demo-runtime no-scan expectation. |
+| `smoke:enrichment-concurrency` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:extension-boot -> manual:extension-boot` | (b) manual | Loads the built Chrome extension package (needs build:extension + EXT_DIR). |
+| `smoke:grading-provider` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:hosted-settings` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:japanese-sites -> manual:japanese-sites` | (b) manual | Injects into real multilingual sites to verify JA redirects. |
+| `smoke:jiten-keyless-definition` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:jiten-newtab -> manual:jiten-newtab` | (b) manual | Needs live jiten.moe enrichment for the newtab status. |
+| `smoke:keyless-jiten-detail -> manual:keyless-jiten-detail` | (b) manual | Needs live keyless jiten.moe detail lookups. |
+| `smoke:keyless-popover -> manual:keyless-popover` | (b) manual | Needs live keyless jiten.moe enrichment to fill the popover. |
+| `smoke:late-content` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:listen-mode` | (c) delete | Redundant/superseded; covered by tests/reader/new-tab-listen.test.ts. Listen-pick behavior is unit-covered (new-tab-listen.test.ts, 100+ assertions). |
+| `smoke:live-browser -> manual:live-browser` | (b) manual | Loads the deployed hosted reader + real jisho/cloudfront audio. |
+| `smoke:live-furigana-layout -> manual:live-furigana-layout` | (b) manual | Injects into real ecommerce pages. |
+| `smoke:lookup-popover-strip -> manual:lookup-popover-strip` | (b) manual | Popover action-strip guard, currently red; needs live enrichment/triage. |
+| `smoke:mobile-docs` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:newtab-recall` | (c) delete | Redundant/superseded; covered by tests/reader/new-tab-recall.test.ts. Recall-step behavior is unit-covered; the smoke targets the pre-migration newtab surface (canonical is now /study). |
+| `smoke:newtab-study-underline` | (c) delete | Redundant/superseded; covered by tests/reader/new-tab-sentence-furigana.test.ts. Fails on stale artifact path docs/public/newtab/app.js (surface migrated to /study); sentence furigana/underline is unit-covered. |
+| `smoke:nhk-mirror-overlap` | (c) delete | Redundant/superseded; covered by tests/reader/nhk-framework-duplication.test.ts. Double-image / mirror-conceal invariants are unit-covered (Wave-8 confirmed intact); the browser smoke is over-strict and unwired. |
+| `smoke:ocr-provider-matrix` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:onboarding-popover` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:overlay-scroll-lock -> manual:overlay-scroll-lock` | (b) manual | Overlay scroll-lock guard, currently red on both engines; kept for manual triage. |
+| `smoke:passive-decoration` | (c) delete | Redundant/superseded; covered by tests/reader/styles.test.ts + tests/reader/settings-css.test.ts. Superseded: passive words now keep always-on furigana/underline (universal decoration, 1.6.60); the smoke asserts the obsolete bare-at-rest state. Decoration CSS is unit-covered. |
+| `smoke:pitch-underline` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:popover-actions -> manual:popover-actions` | (b) manual | Depends on live enrichment to render the action pills. |
+| `smoke:popover-headword-furigana` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:reader-sites -> manual:reader-sites` | (b) manual | Injects into real Ttsu/Yatsu/YouTube pages. |
+| `smoke:settings-layout -> manual:settings-layout` | (b) manual | Mobile settings-layout guard, currently red; kept for manual triage. |
+| `smoke:study-personas` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:subtitle-live-compat -> manual:subtitle-live-compat` | (b) manual | Compat variant of the live subtitle site sweep. |
+| `smoke:subtitle-live-sites -> manual:subtitle-live-sites` | (b) manual | Live subtitle/player discovery across real video sites. |
+| `smoke:subtitle-network` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:subtitles -> manual:subtitles` | (b) manual | Needs local video-player server on :5173 and mp4 server on :8766. |
+| `smoke:transcript-drawer` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:underline-baseline` | (c) delete | Redundant/superseded; covered by tests/reader/styles.test.ts. Furigana/plain-word shared line-height is unit-covered in styles.test.ts; pitch-underline nightly smoke also exercises underline alignment. |
+| `smoke:youtube -> manual:youtube` | (b) manual | Broad 1.6k-line YouTube feature harness, currently red; kept for manual triage. |
+| `smoke:youtube-auto-translation -> manual:youtube-auto-translation` | (b) manual | YouTube auto-translation fixture harness, currently red; kept for manual triage. |
+| `smoke:youtube-dom-safe` | (a) nightly | Passed headless locally; hermetic fixture guard. Wired into smoke:nightly. |
+| `smoke:youtube-fullscreen -> manual:youtube-fullscreen` | (b) manual | Needs real Chrome + real fullscreen top-layer promotion (persistent profile). |
+| `smoke:youtube-homepage-performance -> manual:youtube-homepage-performance` | (b) manual | Machine-dependent performance profiler (persistent profile). |
+| `smoke:youtube-performance -> manual:youtube-performance` | (b) manual | Machine-dependent performance profiler with timing thresholds. |
+| `smoke:youtube-real-dom-instability -> manual:youtube-real-dom-instability` | (b) manual | Persistent-profile harness reproducing real YouTube DOM churn. |
+| `smoke:youtube-shorts-skip` | (c) delete | Redundant/superseded; covered by tests/reader/subtitle-shorts-frame.test.ts. Shorts-frame handling is unit-covered; the fixture smoke is unwired and currently red. |
+| `smoke:youtube-sidebar-layout -> manual:youtube-sidebar-layout` | (b) manual | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage. |
+| `smoke:youtube-sidebar-resize-profile -> manual:youtube-sidebar-resize-profile` | (b) manual | Machine-dependent resize performance profiler (persistent profile). |
+
+`smoke:nightly` verified-passing runtimes (macOS, chrome channel):
+
+PASS  10.1s smoke:anki | 1.5s smoke:anki-template | 17.0s smoke:bookwalker-cty2-scroll | 14.7s smoke:bookwalker-tap-passthrough | 10.5s smoke:bookwalker-tap-retry | 37.3s smoke:bookwalker-modes-ocr | 47.9s smoke:definition-sources | 2.6s smoke:enrichment-concurrency | 3.2s smoke:grading-provider | 5.6s smoke:hosted-settings | 3.3s smoke:jiten-keyless-definition | 10.7s smoke:late-content | 5.5s smoke:mobile-docs | 34.7s smoke:ocr-provider-matrix | 5.1s smoke:onboarding-popover | 2.8s smoke:pitch-underline | 1.3s smoke:popover-headword-furigana | 14.4s smoke:study-personas | 10.2s smoke:subtitle-network | 1.8s smoke:transcript-drawer | 5.1s smoke:youtube-dom-safe
+
 
 ## Wave 7 — Docs & truth
 
