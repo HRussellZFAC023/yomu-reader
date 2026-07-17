@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.174] - 2026-07-17
+
+### Fixed
+
+- The settings dialog now paints in your interface language on the first frame instead of flashing English and rewriting itself: every option list and label is sourced from one shared table used by both initial render and live language switching, and a third stray copy of the colour-source list was removed.
+
 ## [1.6.173] - 2026-07-17
 
 ### Changed
