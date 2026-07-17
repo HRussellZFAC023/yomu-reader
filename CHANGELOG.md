@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.179] - 2026-07-17
+
+### Changed
+
+- Study pool selection (which cards enter the word, recall, kanji, and listen queues, including kanji card synthesis and the pitch-eligibility filter) moved out of the new-tab controller into its own module with an explicit dependency surface, unchanged behavior, and the recent pitch seeding fix carried along.
+
 ## [1.6.178] - 2026-07-17
 
 ### Fixed
