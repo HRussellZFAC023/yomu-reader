@@ -9,8 +9,8 @@ import {
     closeSmokeBrowserAndServer,
     serveFile,
     startLoopbackServer,
-} from './lib/smoke-harness.mjs';
-import { createSmokePaths } from './lib/smoke-harness.mjs';
+} from '../lib/smoke-harness.mjs';
+import { createSmokePaths } from '../lib/smoke-harness.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(paths.artifacts, 'settings-layout');

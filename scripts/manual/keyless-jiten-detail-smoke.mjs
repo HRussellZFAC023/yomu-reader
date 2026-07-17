@@ -11,9 +11,9 @@ import {
     jsonHttpResponse,
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+} from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
+import { youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const {
     root: ROOT,

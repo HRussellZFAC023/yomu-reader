@@ -2,10 +2,10 @@ import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import http from 'node:http';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
-import { assert } from './lib/smoke-harness.mjs';
-import { createYomuPaths } from './lib/paths.mjs';
-import { dragTranscriptResizeHandle, panelSizeDelta } from './lib/subtitle-layout-test-utils.mjs';
-import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+import { assert } from '../lib/smoke-harness.mjs';
+import { createYomuPaths } from '../lib/paths.mjs';
+import { dragTranscriptResizeHandle, panelSizeDelta } from '../lib/subtitle-layout-test-utils.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');

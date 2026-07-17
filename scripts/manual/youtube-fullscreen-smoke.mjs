@@ -9,8 +9,8 @@ import {
     createSmokePaths,
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+} from '../lib/smoke-harness.mjs';
+import { installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
 
 const WATCH_URL = process.argv[2] ?? 'https://www.youtube.com/watch?v=f2Q5tPfiSAE';
 const ARTIFACT_DIR = process.env.YOMU_YOUTUBE_FULLSCREEN_ARTIFACTS ?? '/tmp/yomu-youtube-fullscreen-smoke';

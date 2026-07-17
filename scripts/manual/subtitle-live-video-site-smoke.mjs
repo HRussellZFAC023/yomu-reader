@@ -11,9 +11,9 @@ import {
     createSmokePaths,
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { createYomuPaths } from './lib/paths.mjs';
+} from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
+import { createYomuPaths } from '../lib/paths.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, root: ROOT, dist: DIST } = createSmokePaths(import.meta.dirname);
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);

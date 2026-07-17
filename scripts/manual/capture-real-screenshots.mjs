@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { chromium } from 'playwright';
-import { loadLocalEnv } from './lib/qa-env.mjs';
+import { loadLocalEnv } from '../lib/qa-env.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 loadLocalEnv(ROOT);

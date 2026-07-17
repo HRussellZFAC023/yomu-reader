@@ -10,8 +10,8 @@ import {
     serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { createYomuPaths } from './lib/paths.mjs';
+} from '../lib/smoke-harness.mjs';
+import { createYomuPaths } from '../lib/paths.mjs';
 
 const {
     appRoot: ROOT,

@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { addGmStorageBridgeInitScript, assert } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { youtubePlayerResponse, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+import { addGmStorageBridgeInitScript, assert } from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
+import { youtubePlayerResponse, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_AUTO_TRANSLATION_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_AUTO_TRANSLATION_CSS ?? 'dist/yomu.css');

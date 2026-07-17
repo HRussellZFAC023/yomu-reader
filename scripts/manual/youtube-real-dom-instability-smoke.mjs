@@ -12,7 +12,7 @@ import {
     gmRequestFetchBody,
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
+} from '../lib/smoke-harness.mjs';
 
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
 const companionPaths = [

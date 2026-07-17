@@ -18,7 +18,7 @@ import {
     createSmokePaths,
     gmRequestFetchBody,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
+} from '../lib/smoke-harness.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
 const DEFAULT_URL = 'https://viewer-trial.bookwalker.jp/03/21/viewer.html?cid=64957e78-95e2-4789-a013-541631864606&cty=1';

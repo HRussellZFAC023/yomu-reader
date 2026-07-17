@@ -3,8 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
-import pkg from '../package.json' with { type: 'json' };
-import { createYomuPaths } from './lib/paths.mjs';
+import pkg from '../../package.json' with { type: 'json' };
+import { createYomuPaths } from '../lib/paths.mjs';
 import {
     addGmStorageBridgeInitScript,
     addGmXmlHttpRequestBridgeInitScript,
@@ -21,12 +21,12 @@ import {
     readJsonBody,
     resolveAnkiAction,
     startLoopbackServer,
-} from './lib/smoke-harness.mjs';
-import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
+} from '../lib/smoke-harness.mjs';
+import { waitForSelectorText } from '../lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
-const { assertNoRemoteExecutableMetadata, userscriptMetadataValues } = require('./lib/userscript-build-utils.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('../lib/greasyfork-libraries.cjs');
+const { assertNoRemoteExecutableMetadata, userscriptMetadataValues } = require('../lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
 const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hrussellzfac023.github.io/yomu-reader/').replace(/\/+$/, '');

@@ -11,9 +11,9 @@ import {
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+} from '../lib/smoke-harness.mjs';
+import { installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
 const REQUEST_BRIDGE_NAME = '__yomuYoutubeSidebarLayoutRequest';

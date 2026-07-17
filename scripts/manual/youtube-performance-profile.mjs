@@ -10,9 +10,9 @@ import {
     mockAnkiConnectResponse,
     mockJpdbParseFromVocabulary,
     resolveAnkiAction,
-} from './lib/smoke-harness.mjs';
-import { createYomuPaths } from './lib/paths.mjs';
-import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+} from '../lib/smoke-harness.mjs';
+import { createYomuPaths } from '../lib/paths.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const artifactLabel = process.env.YOMU_PROFILE_LABEL ?? 'working';

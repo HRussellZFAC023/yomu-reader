@@ -9,8 +9,8 @@ import {
     createSmokePaths,
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback } from './lib/smoke-test-helpers.mjs';
+} from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback } from '../lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, root: ROOT } = createSmokePaths(import.meta.dirname);
 assertBuiltArtifacts([SCRIPT_PATH], ROOT);

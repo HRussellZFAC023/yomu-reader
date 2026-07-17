@@ -11,10 +11,10 @@ import {
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { loadLocalEnv } from './lib/qa-env.mjs';
-import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
-import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
+} from '../lib/smoke-harness.mjs';
+import { loadLocalEnv } from '../lib/qa-env.mjs';
+import { installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
+import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const usage = `Usage: node scripts/youtube-sidebar-resize-profile.mjs
 

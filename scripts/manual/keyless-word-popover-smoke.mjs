@@ -14,7 +14,7 @@ import {
     launchSmokeBrowser,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
+} from '../lib/smoke-harness.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/keyless-popover.html';

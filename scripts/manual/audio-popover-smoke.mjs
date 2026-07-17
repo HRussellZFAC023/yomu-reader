@@ -14,8 +14,8 @@ import {
     startLoopbackServer,
     textResponse,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+} from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, root: ROOT, artifacts: ARTIFACTS_ROOT } = createSmokePaths(import.meta.dirname);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);

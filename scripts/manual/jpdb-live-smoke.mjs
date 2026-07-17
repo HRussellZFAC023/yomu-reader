@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from 'node:process';
 import path from 'node:path';
-import { loadLocalEnv } from './lib/qa-env.mjs';
+import { loadLocalEnv } from '../lib/qa-env.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 loadLocalEnv(ROOT);

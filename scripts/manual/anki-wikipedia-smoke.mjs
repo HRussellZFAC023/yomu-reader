@@ -20,7 +20,7 @@ import {
     resolveAnkiAction,
     routeMockedHttpRequests,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
+} from '../lib/smoke-harness.mjs';
 
 const {
     artifacts: ARTIFACTS,

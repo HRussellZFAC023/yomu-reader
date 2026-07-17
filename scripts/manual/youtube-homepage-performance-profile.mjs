@@ -12,8 +12,8 @@ import {
     mockJpdbParseFromVocabulary,
     resolveAnkiAction,
     YOMU_SETTINGS_KEY,
-} from './lib/smoke-harness.mjs';
-import { createYomuPaths } from './lib/paths.mjs';
+} from '../lib/smoke-harness.mjs';
+import { createYomuPaths } from '../lib/paths.mjs';
 
 const { appRoot, qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_HOME_PROFILE_USERSCRIPT ?? join(appRoot, 'dist/yomu.user.js'));

@@ -14,8 +14,8 @@
 // scroll body (the head/handle) does NOT move it (scoping → sheet-drag safe). Requires
 // `npm run build` first.
 import { chromium, webkit } from 'playwright';
-import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { createSmokePaths, addGmStorageBridgeInitScript, YOMU_SETTINGS_KEY } from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
 import path from 'node:path';
 
 const { scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, dist: DIST } = createSmokePaths(import.meta.dirname);
