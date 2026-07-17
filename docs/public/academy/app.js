@@ -243824,6 +243824,579 @@ ${options.version}`;
       studyFallback: source2 === "jpdb" || source2 === "bunpro" || source2 === "yomu-local" || source2 === "dictionary" ? { kind: "study-supplement", minCards: fallbackSupplementMin } : { kind: "none" }
     };
   }
+  const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
+  const NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT = 12;
+  const NEW_TAB_HANDWRITING_GOOGLE_URL = "https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8";
+  const NEW_TAB_HANDWRITING_COMMON_KANJI = "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄光入全公六共内円写冬出分切前力加動北十千午半南原反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒以衣医右雨運英映泳園遠王央横屋温化荷界開階寒感漢館岸起期客急級宮球究去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始姉指歯詩次事持式実写者主守酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対代第題炭短談着注柱丁帳調追定庭笛鉄転都度登島湯等豆動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和";
+  const NEW_TAB_PUBLIC_JPDB_COMMON_WORDS = [
+    "時間",
+    "世界",
+    "日本語",
+    "今日",
+    "明日",
+    "言葉",
+    "友達",
+    "家族",
+    "勉強",
+    "学校",
+    "先生",
+    "学生",
+    "会社",
+    "仕事",
+    "電車",
+    "料理",
+    "食事",
+    "音楽",
+    "映画",
+    "天気",
+    "元気",
+    "簡単",
+    "大丈夫",
+    "一緒",
+    "大切",
+    "自分",
+    "問題",
+    "生活",
+    "場所",
+    "理由",
+    "練習",
+    "説明",
+    "質問",
+    "意味",
+    "経験",
+    "準備",
+    "約束",
+    "連絡",
+    "部屋",
+    "旅行",
+    "写真",
+    "名前",
+    "電話",
+    "病院",
+    "買い物",
+    "食べ物",
+    "飲み物"
+  ];
+  const newTabKanjiKeyword = (card, fullInfo, rtk, localMeanings) => fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || "";
+  const fallbackSearchKanjiCard = (kanji) => kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`kanji:${kanji}`), "fallback");
+  const dictionaryKanjiStudyCard = (kanji) => ({
+    ...kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`dictionary-kanji:${kanji}`), "local"),
+    reviewSource: "dictionary"
+  });
+  function kanjiPlaceholderCard(kanji, vid, source2) {
+    return {
+      vid,
+      sid: 0,
+      rid: 0,
+      spelling: kanji,
+      reading: kanji,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: source2,
+      sentence: kanji
+    };
+  }
+  const oldFormsFact = (fullInfo) => fullInfo?.oldForms.length ? fullInfo.oldForms.join(", ") : "";
+  const isStandaloneKanjiCard = (card, kanji) => card.spelling === kanji && kanjiCharacters$1(card.spelling).length === 1 && Array.from(card.spelling).length === 1;
+  const isKanjiUnlockStudyCard = (card) => card.vid < 0 && isStandaloneKanjiCard(card, card.spelling);
+  const randomPublicJpdbSeedKanji = (limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
+  const randomPublicJpdbSeedWords = (limit = NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings([...NEW_TAB_PUBLIC_JPDB_COMMON_WORDS])).slice(0, Math.max(0, limit));
+  function shuffleStrings(values) {
+    const shuffled2 = [...values];
+    for (let index = shuffled2.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffled2[index], shuffled2[swapIndex]] = [shuffled2[swapIndex], shuffled2[index]];
+    }
+    return shuffled2;
+  }
+  function jpdbKanjiVocabularyToNewTabCard(entry2) {
+    const identity2 = jpdbVocabularyIdentityFromUrl$1(entry2.url);
+    const spelling = cleanNewTabTextValue(identity2?.spelling) || cleanNewTabTextValue(entry2.expression);
+    const reading = cleanNewTabTextValue(identity2?.reading) || cleanNewTabTextValue(entry2.reading) || spelling;
+    const meaning = cleanNewTabTextValue(entry2.meaning);
+    return {
+      vid: identity2?.vid || stableNegativeNewTabId(`${spelling}
+${reading}
+${entry2.url}`),
+      sid: 0,
+      rid: 0,
+      spelling,
+      reading,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: meaning ? [{ glosses: [meaning], partOfSpeech: [] }] : [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: spelling
+    };
+  }
+  const cleanNewTabTextValue = (value) => (value ?? "").replace(/\s+/g, " ").trim();
+  const stableNegativeNewTabId = (value) => -stablePositiveHashId(value);
+  const fact = (label, value) => value ? [label, value] : null;
+  const compactFacts = (facts) => facts.filter((item2) => Boolean(item2));
+  function heisigFact(fullInfo, rtk) {
+    const jpdbFrame = heisigFrameValue(fullInfo?.heisig);
+    const rtkFrames = rtkFrameEntries(rtk?.frameNumber).filter((frame2) => frame2.value !== jpdbFrame);
+    return [
+      jpdbFrame ? `JPDB #${jpdbFrame}` : "",
+      ...rtkFrames.map((frame2) => `${frame2.label} #${frame2.value}`)
+    ].filter(Boolean).join(" · ");
+  }
+  function heisigFrameValue(value) {
+    const frames = rtkFrameValues(value);
+    return frames[frames.length - 1] ?? "";
+  }
+  const rtkFrameValues = (value) => rtkFrameEntries(value).map((frame2) => frame2.value);
+  function rtkFrameEntries(value) {
+    if (!value) return [];
+    const versioned = [...value.matchAll(/(V\d+)\s*:\s*#?(\d+)/giu)].map((match) => ({ label: match[1]?.toUpperCase() ?? "", value: match[2] ?? "" })).filter((frame2) => frame2.label && frame2.value);
+    return versioned.length ? versioned : [...value.matchAll(/#?(\d+)/gu)].map((match) => ({ label: "RTK", value: match[1] ?? "" })).filter((frame2) => frame2.value);
+  }
+  const newTabKanjiReadings = (fullInfo, localReadings) => fullInfo?.readings.length ? fullInfo.readings.slice(0, 8).map((reading) => `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`) : localReadings;
+  const newTabKanjiSourceAttrs = (sourceStateKey, initiallyExpanded = true) => `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
+  function newTabKanjiSourceTitle(settings, sourceId2) {
+    return kanjiSourceLabel(settings, sourceId2, defaultNewTabKanjiSourceTitle(settings, sourceId2));
+  }
+  function defaultNewTabKanjiSourceTitle(settings, sourceId2) {
+    const language = settings.interfaceLanguage;
+    if (sourceId2 === KANJI_STROKE_SOURCE_ID) return uiText(language, "strokePractice");
+    if (sourceId2 === KANJI_JPDB_SOURCE_ID) return uiText(language, "readingsComponents");
+    if (sourceId2 === KANJI_DICTIONARIES_SOURCE_ID) return uiText(language, "kanjiDictionaries");
+    if (sourceId2 === KANJI_SIMILAR_WORDS_SOURCE_ID) return uiText(language, "sourceNameWordsUsingKanji");
+    if (sourceId2 === KANJI_ORIGINS_SOURCE_ID) return uiText(language, "originStructure");
+    return "";
+  }
+  function normalizeJpdbKanjiInfo(info) {
+    return {
+      kanji: textOrEmpty(info.kanji),
+      keyword: textOrEmpty(info.keyword),
+      frequency: textOrEmpty(info.frequency),
+      type: textOrEmpty(info.type),
+      kanken: textOrEmpty(info.kanken),
+      heisig: textOrEmpty(info.heisig),
+      oldForms: arrayOrEmpty(info.oldForms),
+      readings: arrayOrEmpty(info.readings),
+      components: arrayOrEmpty(info.components),
+      usedInKanji: arrayOrEmpty(info.usedInKanji),
+      mnemonic: textOrEmpty(info.mnemonic),
+      vocabulary: arrayOrEmpty(info.vocabulary),
+      actions: arrayOrEmpty(info.actions),
+      loggedIn: Boolean(info.loggedIn),
+      kanjiReviewsEnabled: Boolean(info.kanjiReviewsEnabled)
+    };
+  }
+  const textOrEmpty = (value) => typeof value === "string" ? value : "";
+  const arrayOrEmpty = (value) => Array.isArray(value) ? value : [];
+  function keywordCandidates(card, jpdb, rtk, source2) {
+    return keywordCandidateOrder(source2).map((candidate2) => keywordCandidateValue(candidate2, card, jpdb, rtk));
+  }
+  const KANJI_KEYWORD_CANDIDATE_ORDER = {
+    auto: ["rtk", "jpdb", "local"],
+    rtk: ["rtk", "local"],
+    jpdb: ["jpdb", "local"],
+    local: ["local", "jpdb", "rtk"]
+  };
+  function keywordCandidateOrder(source2) {
+    return KANJI_KEYWORD_CANDIDATE_ORDER[source2] ?? KANJI_KEYWORD_CANDIDATE_ORDER.auto;
+  }
+  function keywordCandidateValue(source2, card, jpdb, rtk) {
+    if (source2 === "rtk") return rtk?.keyword;
+    if (source2 === "jpdb") return jpdb?.keyword;
+    return card.kanjiKeyword;
+  }
+  const firstTruthy = (values) => values.find(Boolean) ?? "";
+  async function recognizeGoogleJapaneseHandwriting(strokes) {
+    if (typeof fetch !== "function" || !strokes.length) return [];
+    const response = await fetch(NEW_TAB_HANDWRITING_GOOGLE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        options: "enable_pre_space",
+        requests: [{
+          writing_guide: {
+            writing_area_width: 240,
+            writing_area_height: 240
+          },
+          ink: googleHandwritingInk(strokes),
+          language: "ja"
+        }]
+      })
+    });
+    if (!response.ok) return [];
+    return googleHandwritingPredictionQueries(await response.json().catch(() => null));
+  }
+  const googleHandwritingInk = (strokes) => strokes.map((stroke) => [stroke.map((point) => Math.round(point.x * 240)), stroke.map((point) => Math.round(point.y * 240)), []]).filter((stroke) => stroke[0].length > 1 && stroke[1].length > 1);
+  function googleHandwritingPredictionQueries(response) {
+    const results = Array.isArray(response) && response.length > 1 && Array.isArray(response[1]) && Array.isArray(response[1][0]) && Array.isArray(response[1][0][1]) ? response[1][0][1] : [];
+    return uniqueTrimmedStrings(results.flatMap((result) => {
+      const text2 = typeof result === "string" ? result.trim() : "";
+      if (!text2) return [];
+      const kanji = kanjiCharacters$1(text2);
+      return kanji.length === 1 && Array.from(text2).length === 1 ? kanji : [];
+    })).slice(0, 8);
+  }
+  const shouldWaitForMoreDoodleStrokes = (strokes, expectedStrokes) => expectedStrokes > 0 && strokes.length < expectedStrokes;
+  const visibleCardKanji = (card) => card ? kanjiCharacters$1(card.spelling)[0] ?? card.spelling[0] ?? "" : "";
+  function doodlePreviewDataUrl(canvas) {
+    const snapshot = document.createElement("canvas");
+    snapshot.width = canvas.width;
+    snapshot.height = canvas.height;
+    const context2 = snapshot.getContext("2d");
+    if (!canPaintDoodlePreview(context2)) return canvas.toDataURL("image/png");
+    paintDoodlePreview(context2, snapshot, canvas);
+    return snapshot.toDataURL("image/png");
+  }
+  const canPaintDoodlePreview = (context2) => Boolean(context2 && typeof context2.fillRect === "function" && typeof context2.drawImage === "function");
+  function paintDoodlePreview(context2, snapshot, canvas) {
+    context2.fillStyle = doodlePreviewBackground(canvas);
+    context2.fillRect(0, 0, snapshot.width, snapshot.height);
+    context2.drawImage(canvas, 0, 0);
+  }
+  function doodlePreviewBackground(canvas) {
+    const stage2 = canvas.closest(".jpdb-reader-doodle-stage");
+    return getComputedStyle(stage2 ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
+  }
+  const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
+  const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
+  const PITCH_HISTORY_LIMIT = 200;
+  const DAY_MS$1 = 864e5;
+  const LAPSE_REDUE_MS = 6e4;
+  const EASE_MIN = 1.3;
+  const EASE_MAX = 2.8;
+  const EASE_DEFAULT = 2.5;
+  function pitchItemKey(reading, pitchNumber) {
+    return `${reading}#${pitchNumber}`;
+  }
+  function isFailGrade(grade2) {
+    return grade2 === "fail" || grade2 === "nothing" || grade2 === "something";
+  }
+  function clampEase(ease) {
+    return Math.min(EASE_MAX, Math.max(EASE_MIN, ease));
+  }
+  function schedulePitchItem(item2, grade2, now) {
+    const next = { ...item2, lastGrade: grade2, lastReviewAt: now };
+    if (isFailGrade(grade2)) {
+      next.reps = 0;
+      next.intervalDays = 0;
+      next.ease = clampEase(item2.ease - 0.2);
+      next.lapses = item2.lapses + 1;
+      next.due = now + LAPSE_REDUE_MS;
+      return next;
+    }
+    if (grade2 === "hard") {
+      next.reps = item2.reps + 1;
+      next.ease = clampEase(item2.ease - 0.05);
+      next.intervalDays = Math.max(1, Math.round(item2.intervalDays * 1.2) || 1);
+    } else if (grade2 === "easy") {
+      next.reps = item2.reps + 1;
+      next.ease = clampEase(item2.ease + 0.15);
+      const base = next.reps === 1 ? 1 : Math.round(item2.intervalDays * next.ease);
+      next.intervalDays = Math.max(1, Math.round(base * 1.3));
+    } else {
+      next.reps = item2.reps + 1;
+      next.intervalDays = next.reps === 1 ? 1 : next.reps === 2 ? 3 : Math.max(1, Math.round(item2.intervalDays * item2.ease));
+    }
+    next.due = now + next.intervalDays * DAY_MS$1;
+    return next;
+  }
+  function createPitchItem(seed) {
+    return {
+      key: pitchItemKey(seed.reading, seed.pitchNumber),
+      reading: seed.reading,
+      pitchNumber: seed.pitchNumber,
+      pattern: seed.pattern,
+      pitchClass: seed.pitchClass,
+      displaySpelling: seed.displaySpelling,
+      due: seed.now,
+      intervalDays: 0,
+      ease: EASE_DEFAULT,
+      reps: 0,
+      lapses: 0,
+      introducedAt: seed.now,
+      unverifiedPitch: seed.unverifiedPitch
+    };
+  }
+  function isPitchItemDue(item2, now) {
+    return !item2.suspended && item2.due <= now;
+  }
+  function selectPitchSessionPool(items, options) {
+    const active = items.filter((item2) => !item2.suspended);
+    const due = active.filter((item2) => item2.reps > 0 && item2.due <= options.now).sort((a, b) => a.due - b.due);
+    const fresh = active.filter((item2) => item2.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
+    return [...due, ...fresh];
+  }
+  function pitchAccuracyByClass(history2) {
+    const buckets = /* @__PURE__ */ new Map();
+    for (const entry2 of history2) {
+      if (!entry2.pitchClass) continue;
+      const bucket = buckets.get(entry2.pitchClass) ?? { total: 0, correct: 0 };
+      bucket.total += 1;
+      if (entry2.correct) bucket.correct += 1;
+      buckets.set(entry2.pitchClass, bucket);
+    }
+    return [...buckets.entries()].map(([pitchClass, value]) => ({ pitchClass, ...value }));
+  }
+  function pitchSeedFromCard(card, now) {
+    const reading = cardPronunciationReading(card);
+    if (!reading) return null;
+    const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+    if (pitchNumber == null) return null;
+    const pattern = contextPitchPattern(card.pitchAccent, reading);
+    return createPitchItem({
+      reading,
+      pitchNumber,
+      pattern,
+      pitchClass: pitchClassNameForPattern(pattern, reading),
+      displaySpelling: card.spelling || reading,
+      now
+    });
+  }
+  class PitchSrsStore {
+    items = /* @__PURE__ */ new Map();
+    history = [];
+    loaded = false;
+    persistItemsHandle;
+    persistHistoryHandle;
+    async load() {
+      if (this.loaded) return;
+      const storedItems = await gmStorageGet(PITCH_ITEMS_KEY, null).catch(() => null);
+      const storedHistory = await gmStorageGet(PITCH_HISTORY_KEY, null).catch(() => null);
+      if (storedItems) {
+        for (const [key2, item2] of Object.entries(storedItems)) if (item2 && item2.key) this.items.set(key2, item2);
+      }
+      if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
+      this.loaded = true;
+    }
+    // fallow-ignore-next-line unused-class-member
+    size() {
+      return this.items.size;
+    }
+    // fallow-ignore-next-line unused-class-member
+    item(key2) {
+      return this.items.get(key2);
+    }
+    allItems() {
+      return [...this.items.values()];
+    }
+    // fallow-ignore-next-line unused-class-member
+    dueCount(now) {
+      let count2 = 0;
+      for (const item2 of this.items.values()) if (isPitchItemDue(item2, now)) count2 += 1;
+      return count2;
+    }
+    sessionPool(options) {
+      return selectPitchSessionPool(this.allItems(), options);
+    }
+    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
+    // never resets its pitch schedule. Returns the (existing or new) item, or null.
+    ensureFromCard(card, now) {
+      const seeded = pitchSeedFromCard(card, now);
+      if (!seeded) return null;
+      const existing = this.items.get(seeded.key);
+      if (existing) return existing;
+      this.items.set(seeded.key, seeded);
+      this.schedulePersistItems();
+      return seeded;
+    }
+    // fallow-ignore-next-line unused-class-member
+    grade(key2, grade2, subMode, options) {
+      const item2 = this.items.get(key2);
+      if (!item2) return null;
+      const updated = schedulePitchItem(item2, grade2, options.now);
+      this.items.set(key2, updated);
+      this.appendHistory({
+        key: key2,
+        at: options.now,
+        grade: grade2,
+        subMode,
+        pitchClass: item2.pitchClass,
+        correct: options.correct
+      });
+      this.schedulePersistItems();
+      return updated;
+    }
+    // fallow-ignore-next-line unused-class-member
+    accuracyByClass() {
+      return pitchAccuracyByClass(this.history);
+    }
+    appendHistory(entry2) {
+      this.history.push(entry2);
+      if (this.history.length > PITCH_HISTORY_LIMIT) this.history = this.history.slice(-PITCH_HISTORY_LIMIT);
+      this.schedulePersistHistory();
+    }
+    // Debounced write-behind (mirrors the offline grade-queue discipline): mutate
+    // in-memory immediately, flush to GM storage shortly after so rapid grading
+    // does not thrash storage.
+    schedulePersistItems() {
+      if (this.persistItemsHandle) return;
+      this.persistItemsHandle = setTimeout(() => {
+        this.persistItemsHandle = void 0;
+        void this.flushItems();
+      }, 400);
+    }
+    schedulePersistHistory() {
+      if (this.persistHistoryHandle) return;
+      this.persistHistoryHandle = setTimeout(() => {
+        this.persistHistoryHandle = void 0;
+        void this.flushHistory();
+      }, 400);
+    }
+    // Synchronous flush for teardown / page-close, where the 400ms debounced async
+    // write would be lost. Mirrors the sync GM-storage path used by the UI state.
+    flushSync() {
+      if (managedStateWritesSuppressed()) return;
+      try {
+        if (this.items.size) {
+          const record2 = {};
+          for (const [key2, item2] of this.items) record2[key2] = item2;
+          gmStorageSetSync(PITCH_ITEMS_KEY, record2);
+        }
+        if (this.history.length) gmStorageSetSync(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT));
+      } catch {
+      }
+    }
+    async flushItems() {
+      if (managedStateWritesSuppressed()) return;
+      if (!this.items.size) {
+        await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => void 0);
+        return;
+      }
+      const record2 = {};
+      for (const [key2, item2] of this.items) record2[key2] = item2;
+      await gmStorageSet(PITCH_ITEMS_KEY, record2).catch(() => void 0);
+    }
+    async flushHistory() {
+      if (managedStateWritesSuppressed()) return;
+      if (!this.history.length) {
+        await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => void 0);
+        return;
+      }
+      await gmStorageSet(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT)).catch(() => void 0);
+    }
+  }
+  class NewTabStudyPool {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    studyPoolForCurrentMode() {
+      const state = this.deps.getState();
+      const cards = this.cardsForCurrentMode(this.deps.getAllWords());
+      if (state.mode === "listen") {
+        return this.listenStudyPool(cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
+      }
+      const filter = state.filter;
+      if (filter === "all") return cards;
+      if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
+      if (filter !== "study") return cards.filter((card) => card.cardState.includes(filter));
+      return this.applyKanjiUnlockQueue(selectNewTabStudyPool(cards));
+    }
+    // jpdb Learn parity: locked words sit behind their kanji, so the combined
+    // queue serves the KANJI card first; the word unlocks once the provider
+    // marks the kanji learned. "Study kanji before unlocking words" (default
+    // on) can be turned off for learners who skip kanji — locked words then
+    // study directly as words. Progression is unaffected either way: card
+    // states live at the provider, the toggle only changes queue composition.
+    applyKanjiUnlockQueue(pool) {
+      if (!this.deps.isVocabularyStudyMode(this.deps.getState().mode) || !this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
+      const out = [];
+      const seenKanji = /* @__PURE__ */ new Set();
+      for (const card of pool) {
+        if (!card.cardState.includes("locked") || this.deps.shouldRenderCardAsKanji(card)) {
+          out.push(card);
+          continue;
+        }
+        const kanjiCards = kanjiCharacters$1(card.spelling).filter((kanji) => !seenKanji.has(kanji)).map((kanji) => {
+          seenKanji.add(kanji);
+          return this.kanjiStudyCardFromSourceCard(card, kanji);
+        });
+        if (kanjiCards.length) out.push(...kanjiCards);
+        else out.push(card);
+      }
+      return out;
+    }
+    cardsForCurrentMode(cards) {
+      return this.deps.getState().mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
+    }
+    kanjiStudyCardsFromSourceCards(cards) {
+      const selected2 = [];
+      const indexes = /* @__PURE__ */ new Map();
+      for (const card of cards) {
+        for (const kanji of kanjiCharacters$1(card.spelling)) {
+          const candidate2 = this.kanjiStudyCardFromSourceCard(card, kanji);
+          const existingIndex = indexes.get(kanji);
+          if (existingIndex === void 0) {
+            indexes.set(kanji, selected2.length);
+            selected2.push(candidate2);
+            continue;
+          }
+          const existing = selected2[existingIndex];
+          if (existing && shouldReplaceKanjiStudyCard(candidate2, existing)) selected2[existingIndex] = candidate2;
+        }
+      }
+      return selected2;
+    }
+    kanjiStudyCardFromSourceCard(card, kanji) {
+      if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
+      const sourceKanji = kanjiCharacters$1(card.spelling);
+      const sourceKeyword = sourceKanji.length === 1 && sourceKanji[0] === kanji ? card.kanjiKeyword : void 0;
+      return normalizeNewTabCard({
+        ...card,
+        vid: stableNegativeNewTabId(`kanji-study:${this.deps.cardReviewSource(card)}:${kanji}`),
+        sid: 0,
+        rid: 0,
+        spelling: kanji,
+        reading: kanji,
+        frequencyRank: null,
+        meanings: [],
+        pitchAccent: [],
+        wordWithReading: null,
+        sentence: card.sentence || card.spelling,
+        reviewSource: void 0,
+        ankiCardId: card.ankiCardId,
+        jpdbReviewId: void 0,
+        kanjiKeyword: sourceKeyword,
+        sourceCardKey: card.sourceCardKey ?? cardKey(card),
+        fallbackLookupTerms: [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].filter(Boolean)
+      });
+    }
+    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
+    // style "review what's due"), then append any not-yet-scheduled eligible words.
+    listenStudyPool(eligible2) {
+      const now = Date.now();
+      const byKey = /* @__PURE__ */ new Map();
+      for (const card of eligible2) {
+        const reading = cardPronunciationReading(card);
+        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
+        if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
+      }
+      const ordered = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const item2 of this.deps.pitchSessionPool({ now, newItemCap: eligible2.length })) {
+        const card = byKey.get(item2.key);
+        if (card && !seen.has(item2.key)) {
+          ordered.push(card);
+          seen.add(item2.key);
+        }
+      }
+      for (const [key2, card] of byKey) if (!seen.has(key2)) ordered.push(card);
+      return ordered;
+    }
+    poolSignature(cards) {
+      const state = this.deps.getState();
+      return [
+        state.source,
+        state.mode,
+        this.deps.getSourceLabel(),
+        ...cards.map((card) => cardKey(card))
+      ].join("|");
+    }
+  }
   const EMPTY_CARDS = {
     total: 0,
     new: 0,
@@ -243837,7 +244410,7 @@ ${options.version}`;
   };
   const JPDB_SUCCESS_GRADES = /* @__PURE__ */ new Set(["known", "pass", "hard", "easy", "okay"]);
   const JPDB_IGNORED_STATES = /* @__PURE__ */ new Set(["blacklisted", "locked", "redundant"]);
-  const DAY_MS$1 = 864e5;
+  const DAY_MS = 864e5;
   const ANKI_RETENTION_WINDOW_DAYS = 30;
   const ANKI_RETENTION_CARD_LIMIT = 5e3;
   function emptyStatsDashboardSnapshot() {
@@ -244032,7 +244605,7 @@ ${options.version}`;
     const end = startOfLocalDay(today).getTime();
     const out = [];
     for (let offset = days - 1; offset >= 0; offset--) {
-      const date = dateKey(new Date(end - offset * DAY_MS$1));
+      const date = dateKey(new Date(end - offset * DAY_MS));
       out.push(byDate.get(date) ?? emptyDailyPoint(date));
     }
     return out;
@@ -244111,7 +244684,7 @@ ${options.version}`;
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return 0;
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let streak = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
+    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date(`${date}T00:00:00`)); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
       streak += 1;
     }
     return streak;
@@ -244278,7 +244851,7 @@ ${options.version}`;
     const selectedCards = cards.filter((card) => Number.isFinite(Number(card))).slice(0, ANKI_RETENTION_CARD_LIMIT);
     if (!selectedCards.length) return [];
     const reviewsByCard = await api.invoke("getReviewsOfCards", { cards: selectedCards });
-    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS$1;
+    const cutoff = Date.now() - ANKI_RETENTION_WINDOW_DAYS * DAY_MS;
     const daily = /* @__PURE__ */ new Map();
     for (const reviews of Object.values(reviewsByCard ?? {})) {
       for (const review2 of reviews ?? []) {
@@ -244375,7 +244948,7 @@ ${options.version}`;
   function streakStats(points) {
     const active = new Set(points.filter((point) => point.reviews > 0).map((point) => point.date));
     let current = 0;
-    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS$1)) {
+    for (let cursor = startOfLocalDay(/* @__PURE__ */ new Date()); active.has(dateKey(cursor)); cursor = new Date(cursor.getTime() - DAY_MS)) {
       current += 1;
     }
     let longest = 0;
@@ -244384,7 +244957,7 @@ ${options.version}`;
     for (const point of points) {
       if (point.reviews <= 0) continue;
       const time = startOfLocalDay(/* @__PURE__ */ new Date(`${point.date}T00:00:00`)).getTime();
-      run = previousTime && time - previousTime === DAY_MS$1 ? run + 1 : 1;
+      run = previousTime && time - previousTime === DAY_MS ? run + 1 : 1;
       longest = Math.max(longest, run);
       previousTime = time;
     }
@@ -245210,224 +245783,6 @@ ${options.version}`;
   function recallClozeTarget(sentence, candidates) {
     return candidates.filter((candidate2) => candidate2 && sentence.includes(candidate2)).sort((a, b) => b.length - a.length)[0] ?? "";
   }
-  const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
-  const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
-  const PITCH_HISTORY_LIMIT = 200;
-  const DAY_MS = 864e5;
-  const LAPSE_REDUE_MS = 6e4;
-  const EASE_MIN = 1.3;
-  const EASE_MAX = 2.8;
-  const EASE_DEFAULT = 2.5;
-  function pitchItemKey(reading, pitchNumber) {
-    return `${reading}#${pitchNumber}`;
-  }
-  function isFailGrade(grade2) {
-    return grade2 === "fail" || grade2 === "nothing" || grade2 === "something";
-  }
-  function clampEase(ease) {
-    return Math.min(EASE_MAX, Math.max(EASE_MIN, ease));
-  }
-  function schedulePitchItem(item2, grade2, now) {
-    const next = { ...item2, lastGrade: grade2, lastReviewAt: now };
-    if (isFailGrade(grade2)) {
-      next.reps = 0;
-      next.intervalDays = 0;
-      next.ease = clampEase(item2.ease - 0.2);
-      next.lapses = item2.lapses + 1;
-      next.due = now + LAPSE_REDUE_MS;
-      return next;
-    }
-    if (grade2 === "hard") {
-      next.reps = item2.reps + 1;
-      next.ease = clampEase(item2.ease - 0.05);
-      next.intervalDays = Math.max(1, Math.round(item2.intervalDays * 1.2) || 1);
-    } else if (grade2 === "easy") {
-      next.reps = item2.reps + 1;
-      next.ease = clampEase(item2.ease + 0.15);
-      const base = next.reps === 1 ? 1 : Math.round(item2.intervalDays * next.ease);
-      next.intervalDays = Math.max(1, Math.round(base * 1.3));
-    } else {
-      next.reps = item2.reps + 1;
-      next.intervalDays = next.reps === 1 ? 1 : next.reps === 2 ? 3 : Math.max(1, Math.round(item2.intervalDays * item2.ease));
-    }
-    next.due = now + next.intervalDays * DAY_MS;
-    return next;
-  }
-  function createPitchItem(seed) {
-    return {
-      key: pitchItemKey(seed.reading, seed.pitchNumber),
-      reading: seed.reading,
-      pitchNumber: seed.pitchNumber,
-      pattern: seed.pattern,
-      pitchClass: seed.pitchClass,
-      displaySpelling: seed.displaySpelling,
-      due: seed.now,
-      intervalDays: 0,
-      ease: EASE_DEFAULT,
-      reps: 0,
-      lapses: 0,
-      introducedAt: seed.now,
-      unverifiedPitch: seed.unverifiedPitch
-    };
-  }
-  function isPitchItemDue(item2, now) {
-    return !item2.suspended && item2.due <= now;
-  }
-  function selectPitchSessionPool(items, options) {
-    const active = items.filter((item2) => !item2.suspended);
-    const due = active.filter((item2) => item2.reps > 0 && item2.due <= options.now).sort((a, b) => a.due - b.due);
-    const fresh = active.filter((item2) => item2.reps === 0).sort((a, b) => a.introducedAt - b.introducedAt).slice(0, Math.max(0, options.newItemCap));
-    return [...due, ...fresh];
-  }
-  function pitchAccuracyByClass(history2) {
-    const buckets = /* @__PURE__ */ new Map();
-    for (const entry2 of history2) {
-      if (!entry2.pitchClass) continue;
-      const bucket = buckets.get(entry2.pitchClass) ?? { total: 0, correct: 0 };
-      bucket.total += 1;
-      if (entry2.correct) bucket.correct += 1;
-      buckets.set(entry2.pitchClass, bucket);
-    }
-    return [...buckets.entries()].map(([pitchClass, value]) => ({ pitchClass, ...value }));
-  }
-  function pitchSeedFromCard(card, now) {
-    const reading = cardPronunciationReading(card);
-    if (!reading) return null;
-    const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
-    if (pitchNumber == null) return null;
-    const pattern = contextPitchPattern(card.pitchAccent, reading);
-    return createPitchItem({
-      reading,
-      pitchNumber,
-      pattern,
-      pitchClass: pitchClassNameForPattern(pattern, reading),
-      displaySpelling: card.spelling || reading,
-      now
-    });
-  }
-  class PitchSrsStore {
-    items = /* @__PURE__ */ new Map();
-    history = [];
-    loaded = false;
-    persistItemsHandle;
-    persistHistoryHandle;
-    async load() {
-      if (this.loaded) return;
-      const storedItems = await gmStorageGet(PITCH_ITEMS_KEY, null).catch(() => null);
-      const storedHistory = await gmStorageGet(PITCH_HISTORY_KEY, null).catch(() => null);
-      if (storedItems) {
-        for (const [key2, item2] of Object.entries(storedItems)) if (item2 && item2.key) this.items.set(key2, item2);
-      }
-      if (Array.isArray(storedHistory)) this.history = storedHistory.slice(-PITCH_HISTORY_LIMIT);
-      this.loaded = true;
-    }
-    // fallow-ignore-next-line unused-class-member
-    size() {
-      return this.items.size;
-    }
-    // fallow-ignore-next-line unused-class-member
-    item(key2) {
-      return this.items.get(key2);
-    }
-    allItems() {
-      return [...this.items.values()];
-    }
-    // fallow-ignore-next-line unused-class-member
-    dueCount(now) {
-      let count2 = 0;
-      for (const item2 of this.items.values()) if (isPitchItemDue(item2, now)) count2 += 1;
-      return count2;
-    }
-    sessionPool(options) {
-      return selectPitchSessionPool(this.allItems(), options);
-    }
-    // Idempotent: only seeds an item that does not exist yet, so re-studying a word
-    // never resets its pitch schedule. Returns the (existing or new) item, or null.
-    ensureFromCard(card, now) {
-      const seeded = pitchSeedFromCard(card, now);
-      if (!seeded) return null;
-      const existing = this.items.get(seeded.key);
-      if (existing) return existing;
-      this.items.set(seeded.key, seeded);
-      this.schedulePersistItems();
-      return seeded;
-    }
-    // fallow-ignore-next-line unused-class-member
-    grade(key2, grade2, subMode, options) {
-      const item2 = this.items.get(key2);
-      if (!item2) return null;
-      const updated = schedulePitchItem(item2, grade2, options.now);
-      this.items.set(key2, updated);
-      this.appendHistory({
-        key: key2,
-        at: options.now,
-        grade: grade2,
-        subMode,
-        pitchClass: item2.pitchClass,
-        correct: options.correct
-      });
-      this.schedulePersistItems();
-      return updated;
-    }
-    // fallow-ignore-next-line unused-class-member
-    accuracyByClass() {
-      return pitchAccuracyByClass(this.history);
-    }
-    appendHistory(entry2) {
-      this.history.push(entry2);
-      if (this.history.length > PITCH_HISTORY_LIMIT) this.history = this.history.slice(-PITCH_HISTORY_LIMIT);
-      this.schedulePersistHistory();
-    }
-    // Debounced write-behind (mirrors the offline grade-queue discipline): mutate
-    // in-memory immediately, flush to GM storage shortly after so rapid grading
-    // does not thrash storage.
-    schedulePersistItems() {
-      if (this.persistItemsHandle) return;
-      this.persistItemsHandle = setTimeout(() => {
-        this.persistItemsHandle = void 0;
-        void this.flushItems();
-      }, 400);
-    }
-    schedulePersistHistory() {
-      if (this.persistHistoryHandle) return;
-      this.persistHistoryHandle = setTimeout(() => {
-        this.persistHistoryHandle = void 0;
-        void this.flushHistory();
-      }, 400);
-    }
-    // Synchronous flush for teardown / page-close, where the 400ms debounced async
-    // write would be lost. Mirrors the sync GM-storage path used by the UI state.
-    flushSync() {
-      if (managedStateWritesSuppressed()) return;
-      try {
-        if (this.items.size) {
-          const record2 = {};
-          for (const [key2, item2] of this.items) record2[key2] = item2;
-          gmStorageSetSync(PITCH_ITEMS_KEY, record2);
-        }
-        if (this.history.length) gmStorageSetSync(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT));
-      } catch {
-      }
-    }
-    async flushItems() {
-      if (managedStateWritesSuppressed()) return;
-      if (!this.items.size) {
-        await gmStorageDelete(PITCH_ITEMS_KEY).catch(() => void 0);
-        return;
-      }
-      const record2 = {};
-      for (const [key2, item2] of this.items) record2[key2] = item2;
-      await gmStorageSet(PITCH_ITEMS_KEY, record2).catch(() => void 0);
-    }
-    async flushHistory() {
-      if (managedStateWritesSuppressed()) return;
-      if (!this.history.length) {
-        await gmStorageDelete(PITCH_HISTORY_KEY).catch(() => void 0);
-        return;
-      }
-      await gmStorageSet(PITCH_HISTORY_KEY, this.history.slice(-PITCH_HISTORY_LIMIT)).catch(() => void 0);
-    }
-  }
   const PITCH_CLASS_LABEL_KEYS = {
     heiban: "pitchClassHeiban",
     atamadaka: "pitchClassAtamadaka",
@@ -246227,244 +246582,6 @@ ${options.version}`;
       sentences.push(sentence);
     }
     return sentences;
-  }
-  const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
-  const NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT = 12;
-  const NEW_TAB_HANDWRITING_GOOGLE_URL = "https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8";
-  const NEW_TAB_HANDWRITING_COMMON_KANJI = "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄光入全公六共内円写冬出分切前力加動北十千午半南原反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒以衣医右雨運英映泳園遠王央横屋温化荷界開階寒感漢館岸起期客急級宮球究去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始姉指歯詩次事持式実写者主守酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対代第題炭短談着注柱丁帳調追定庭笛鉄転都度登島湯等豆動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和";
-  const NEW_TAB_PUBLIC_JPDB_COMMON_WORDS = [
-    "時間",
-    "世界",
-    "日本語",
-    "今日",
-    "明日",
-    "言葉",
-    "友達",
-    "家族",
-    "勉強",
-    "学校",
-    "先生",
-    "学生",
-    "会社",
-    "仕事",
-    "電車",
-    "料理",
-    "食事",
-    "音楽",
-    "映画",
-    "天気",
-    "元気",
-    "簡単",
-    "大丈夫",
-    "一緒",
-    "大切",
-    "自分",
-    "問題",
-    "生活",
-    "場所",
-    "理由",
-    "練習",
-    "説明",
-    "質問",
-    "意味",
-    "経験",
-    "準備",
-    "約束",
-    "連絡",
-    "部屋",
-    "旅行",
-    "写真",
-    "名前",
-    "電話",
-    "病院",
-    "買い物",
-    "食べ物",
-    "飲み物"
-  ];
-  const newTabKanjiKeyword = (card, fullInfo, rtk, localMeanings) => fullInfo?.keyword || rtk?.keyword || card.kanjiKeyword || localMeanings[0] || "";
-  const fallbackSearchKanjiCard = (kanji) => kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`kanji:${kanji}`), "fallback");
-  const dictionaryKanjiStudyCard = (kanji) => ({
-    ...kanjiPlaceholderCard(kanji, stableNegativeNewTabId(`dictionary-kanji:${kanji}`), "local"),
-    reviewSource: "dictionary"
-  });
-  function kanjiPlaceholderCard(kanji, vid, source2) {
-    return {
-      vid,
-      sid: 0,
-      rid: 0,
-      spelling: kanji,
-      reading: kanji,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: source2,
-      sentence: kanji
-    };
-  }
-  const oldFormsFact = (fullInfo) => fullInfo?.oldForms.length ? fullInfo.oldForms.join(", ") : "";
-  const isStandaloneKanjiCard = (card, kanji) => card.spelling === kanji && kanjiCharacters$1(card.spelling).length === 1 && Array.from(card.spelling).length === 1;
-  const isKanjiUnlockStudyCard = (card) => card.vid < 0 && isStandaloneKanjiCard(card, card.spelling);
-  const randomPublicJpdbSeedKanji = (limit = NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI))).slice(0, Math.max(0, limit));
-  const randomPublicJpdbSeedWords = (limit = NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT) => shuffleStrings(uniqueTrimmedStrings([...NEW_TAB_PUBLIC_JPDB_COMMON_WORDS])).slice(0, Math.max(0, limit));
-  function shuffleStrings(values) {
-    const shuffled2 = [...values];
-    for (let index = shuffled2.length - 1; index > 0; index--) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled2[index], shuffled2[swapIndex]] = [shuffled2[swapIndex], shuffled2[index]];
-    }
-    return shuffled2;
-  }
-  function jpdbKanjiVocabularyToNewTabCard(entry2) {
-    const identity2 = jpdbVocabularyIdentityFromUrl$1(entry2.url);
-    const spelling = cleanNewTabTextValue(identity2?.spelling) || cleanNewTabTextValue(entry2.expression);
-    const reading = cleanNewTabTextValue(identity2?.reading) || cleanNewTabTextValue(entry2.reading) || spelling;
-    const meaning = cleanNewTabTextValue(entry2.meaning);
-    return {
-      vid: identity2?.vid || stableNegativeNewTabId(`${spelling}
-${reading}
-${entry2.url}`),
-      sid: 0,
-      rid: 0,
-      spelling,
-      reading,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: meaning ? [{ glosses: [meaning], partOfSpeech: [] }] : [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "jpdb",
-      sentence: spelling
-    };
-  }
-  const cleanNewTabTextValue = (value) => (value ?? "").replace(/\s+/g, " ").trim();
-  const stableNegativeNewTabId = (value) => -stablePositiveHashId(value);
-  const fact = (label, value) => value ? [label, value] : null;
-  const compactFacts = (facts) => facts.filter((item2) => Boolean(item2));
-  function heisigFact(fullInfo, rtk) {
-    const jpdbFrame = heisigFrameValue(fullInfo?.heisig);
-    const rtkFrames = rtkFrameEntries(rtk?.frameNumber).filter((frame2) => frame2.value !== jpdbFrame);
-    return [
-      jpdbFrame ? `JPDB #${jpdbFrame}` : "",
-      ...rtkFrames.map((frame2) => `${frame2.label} #${frame2.value}`)
-    ].filter(Boolean).join(" · ");
-  }
-  function heisigFrameValue(value) {
-    const frames = rtkFrameValues(value);
-    return frames[frames.length - 1] ?? "";
-  }
-  const rtkFrameValues = (value) => rtkFrameEntries(value).map((frame2) => frame2.value);
-  function rtkFrameEntries(value) {
-    if (!value) return [];
-    const versioned = [...value.matchAll(/(V\d+)\s*:\s*#?(\d+)/giu)].map((match) => ({ label: match[1]?.toUpperCase() ?? "", value: match[2] ?? "" })).filter((frame2) => frame2.label && frame2.value);
-    return versioned.length ? versioned : [...value.matchAll(/#?(\d+)/gu)].map((match) => ({ label: "RTK", value: match[1] ?? "" })).filter((frame2) => frame2.value);
-  }
-  const newTabKanjiReadings = (fullInfo, localReadings) => fullInfo?.readings.length ? fullInfo.readings.slice(0, 8).map((reading) => `${reading.reading}${reading.share ? ` ${reading.share}` : ""}`) : localReadings;
-  const newTabKanjiSourceAttrs = (sourceStateKey, initiallyExpanded = true) => `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? "open" : ""}`;
-  function newTabKanjiSourceTitle(settings, sourceId2) {
-    return kanjiSourceLabel(settings, sourceId2, defaultNewTabKanjiSourceTitle(settings, sourceId2));
-  }
-  function defaultNewTabKanjiSourceTitle(settings, sourceId2) {
-    const language = settings.interfaceLanguage;
-    if (sourceId2 === KANJI_STROKE_SOURCE_ID) return uiText(language, "strokePractice");
-    if (sourceId2 === KANJI_JPDB_SOURCE_ID) return uiText(language, "readingsComponents");
-    if (sourceId2 === KANJI_DICTIONARIES_SOURCE_ID) return uiText(language, "kanjiDictionaries");
-    if (sourceId2 === KANJI_SIMILAR_WORDS_SOURCE_ID) return uiText(language, "sourceNameWordsUsingKanji");
-    if (sourceId2 === KANJI_ORIGINS_SOURCE_ID) return uiText(language, "originStructure");
-    return "";
-  }
-  function normalizeJpdbKanjiInfo(info) {
-    return {
-      kanji: textOrEmpty(info.kanji),
-      keyword: textOrEmpty(info.keyword),
-      frequency: textOrEmpty(info.frequency),
-      type: textOrEmpty(info.type),
-      kanken: textOrEmpty(info.kanken),
-      heisig: textOrEmpty(info.heisig),
-      oldForms: arrayOrEmpty(info.oldForms),
-      readings: arrayOrEmpty(info.readings),
-      components: arrayOrEmpty(info.components),
-      usedInKanji: arrayOrEmpty(info.usedInKanji),
-      mnemonic: textOrEmpty(info.mnemonic),
-      vocabulary: arrayOrEmpty(info.vocabulary),
-      actions: arrayOrEmpty(info.actions),
-      loggedIn: Boolean(info.loggedIn),
-      kanjiReviewsEnabled: Boolean(info.kanjiReviewsEnabled)
-    };
-  }
-  const textOrEmpty = (value) => typeof value === "string" ? value : "";
-  const arrayOrEmpty = (value) => Array.isArray(value) ? value : [];
-  function keywordCandidates(card, jpdb, rtk, source2) {
-    return keywordCandidateOrder(source2).map((candidate2) => keywordCandidateValue(candidate2, card, jpdb, rtk));
-  }
-  const KANJI_KEYWORD_CANDIDATE_ORDER = {
-    auto: ["rtk", "jpdb", "local"],
-    rtk: ["rtk", "local"],
-    jpdb: ["jpdb", "local"],
-    local: ["local", "jpdb", "rtk"]
-  };
-  function keywordCandidateOrder(source2) {
-    return KANJI_KEYWORD_CANDIDATE_ORDER[source2] ?? KANJI_KEYWORD_CANDIDATE_ORDER.auto;
-  }
-  function keywordCandidateValue(source2, card, jpdb, rtk) {
-    if (source2 === "rtk") return rtk?.keyword;
-    if (source2 === "jpdb") return jpdb?.keyword;
-    return card.kanjiKeyword;
-  }
-  const firstTruthy = (values) => values.find(Boolean) ?? "";
-  async function recognizeGoogleJapaneseHandwriting(strokes) {
-    if (typeof fetch !== "function" || !strokes.length) return [];
-    const response = await fetch(NEW_TAB_HANDWRITING_GOOGLE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        options: "enable_pre_space",
-        requests: [{
-          writing_guide: {
-            writing_area_width: 240,
-            writing_area_height: 240
-          },
-          ink: googleHandwritingInk(strokes),
-          language: "ja"
-        }]
-      })
-    });
-    if (!response.ok) return [];
-    return googleHandwritingPredictionQueries(await response.json().catch(() => null));
-  }
-  const googleHandwritingInk = (strokes) => strokes.map((stroke) => [stroke.map((point) => Math.round(point.x * 240)), stroke.map((point) => Math.round(point.y * 240)), []]).filter((stroke) => stroke[0].length > 1 && stroke[1].length > 1);
-  function googleHandwritingPredictionQueries(response) {
-    const results = Array.isArray(response) && response.length > 1 && Array.isArray(response[1]) && Array.isArray(response[1][0]) && Array.isArray(response[1][0][1]) ? response[1][0][1] : [];
-    return uniqueTrimmedStrings(results.flatMap((result) => {
-      const text2 = typeof result === "string" ? result.trim() : "";
-      if (!text2) return [];
-      const kanji = kanjiCharacters$1(text2);
-      return kanji.length === 1 && Array.from(text2).length === 1 ? kanji : [];
-    })).slice(0, 8);
-  }
-  const shouldWaitForMoreDoodleStrokes = (strokes, expectedStrokes) => expectedStrokes > 0 && strokes.length < expectedStrokes;
-  const visibleCardKanji = (card) => card ? kanjiCharacters$1(card.spelling)[0] ?? card.spelling[0] ?? "" : "";
-  function doodlePreviewDataUrl(canvas) {
-    const snapshot = document.createElement("canvas");
-    snapshot.width = canvas.width;
-    snapshot.height = canvas.height;
-    const context2 = snapshot.getContext("2d");
-    if (!canPaintDoodlePreview(context2)) return canvas.toDataURL("image/png");
-    paintDoodlePreview(context2, snapshot, canvas);
-    return snapshot.toDataURL("image/png");
-  }
-  const canPaintDoodlePreview = (context2) => Boolean(context2 && typeof context2.fillRect === "function" && typeof context2.drawImage === "function");
-  function paintDoodlePreview(context2, snapshot, canvas) {
-    context2.fillStyle = doodlePreviewBackground(canvas);
-    context2.fillRect(0, 0, snapshot.width, snapshot.height);
-    context2.drawImage(canvas, 0, 0);
-  }
-  function doodlePreviewBackground(canvas) {
-    const stage2 = canvas.closest(".jpdb-reader-doodle-stage");
-    return getComputedStyle(stage2 ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
   }
   const LIVE_REVIEW_CARD_ID = /^v[a-z]?,(\d+),(\d+)$/;
   function liveJpdbCardIdentity(card) {
@@ -248291,6 +248408,18 @@ ${entry2.url}`),
     studyStepStates = /* @__PURE__ */ new Map();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     pitchSrs = new PitchSrsStore();
+    // Pool selection (which cards the study surface renders for the current mode/
+    // filter) lives in its own module; the controller delegates via thin wrappers.
+    studyPool = new NewTabStudyPool({
+      getState: () => this.state,
+      getSourceLabel: () => this.sourceLabel,
+      getAllWords: () => this.allWords,
+      getSettings: () => this.dependencies.getSettings(),
+      shouldRenderCardAsKanji: (card) => this.shouldRenderCardAsKanji(card),
+      cardReviewSource: (card) => this.cardReviewSource(card),
+      isVocabularyStudyMode: (mode) => this.isVocabularyStudyMode(mode),
+      pitchSessionPool: (options) => this.pitchSrs.sessionPool(options)
+    });
     listenItem = null;
     listenRenderedSubMode = null;
     listenSelectedPosition = null;
@@ -251413,42 +251542,7 @@ ${entry2.url}`),
       this.syncMode(root);
     }
     studyPoolForCurrentMode() {
-      const cards = this.cardsForCurrentMode(this.allWords);
-      if (this.state.mode === "listen") {
-        return this.listenStudyPool(cards.filter((card) => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
-      }
-      const filter = this.state.filter;
-      if (filter === "all") return cards;
-      if (filter === "local") return cards.filter((card) => card.source === "local" || card.source === "fallback");
-      if (filter !== "study") return cards.filter((card) => card.cardState.includes(filter));
-      return this.applyKanjiUnlockQueue(selectNewTabStudyPool(cards));
-    }
-    // jpdb Learn parity: locked words sit behind their kanji, so the combined
-    // queue serves the KANJI card first; the word unlocks once the provider
-    // marks the kanji learned. "Study kanji before unlocking words" (default
-    // on) can be turned off for learners who skip kanji — locked words then
-    // study directly as words. Progression is unaffected either way: card
-    // states live at the provider, the toggle only changes queue composition.
-    applyKanjiUnlockQueue(pool) {
-      if (!this.isVocabularyStudyMode(this.state.mode) || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
-      const out = [];
-      const seenKanji = /* @__PURE__ */ new Set();
-      for (const card of pool) {
-        if (!card.cardState.includes("locked") || this.shouldRenderCardAsKanji(card)) {
-          out.push(card);
-          continue;
-        }
-        const kanjiCards = kanjiCharacters$1(card.spelling).filter((kanji) => !seenKanji.has(kanji)).map((kanji) => {
-          seenKanji.add(kanji);
-          return this.kanjiStudyCardFromSourceCard(card, kanji);
-        });
-        if (kanjiCards.length) out.push(...kanjiCards);
-        else out.push(card);
-      }
-      return out;
-    }
-    cardsForCurrentMode(cards) {
-      return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards) : cards;
+      return this.studyPool.studyPoolForCurrentMode();
     }
     isStudyCardMode(mode) {
       return mode === "word" || mode === "recall" || mode === "kanji" || mode === "listen";
@@ -251457,46 +251551,7 @@ ${entry2.url}`),
       return mode === "word" || mode === "recall";
     }
     kanjiStudyCardsFromSourceCards(cards) {
-      const selected2 = [];
-      const indexes = /* @__PURE__ */ new Map();
-      for (const card of cards) {
-        for (const kanji of kanjiCharacters$1(card.spelling)) {
-          const candidate2 = this.kanjiStudyCardFromSourceCard(card, kanji);
-          const existingIndex = indexes.get(kanji);
-          if (existingIndex === void 0) {
-            indexes.set(kanji, selected2.length);
-            selected2.push(candidate2);
-            continue;
-          }
-          const existing = selected2[existingIndex];
-          if (existing && shouldReplaceKanjiStudyCard(candidate2, existing)) selected2[existingIndex] = candidate2;
-        }
-      }
-      return selected2;
-    }
-    kanjiStudyCardFromSourceCard(card, kanji) {
-      if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
-      const sourceKanji = kanjiCharacters$1(card.spelling);
-      const sourceKeyword = sourceKanji.length === 1 && sourceKanji[0] === kanji ? card.kanjiKeyword : void 0;
-      return normalizeNewTabCard({
-        ...card,
-        vid: stableNegativeNewTabId(`kanji-study:${this.cardReviewSource(card)}:${kanji}`),
-        sid: 0,
-        rid: 0,
-        spelling: kanji,
-        reading: kanji,
-        frequencyRank: null,
-        meanings: [],
-        pitchAccent: [],
-        wordWithReading: null,
-        sentence: card.sentence || card.spelling,
-        reviewSource: void 0,
-        ankiCardId: card.ankiCardId,
-        jpdbReviewId: void 0,
-        kanjiKeyword: sourceKeyword,
-        sourceCardKey: card.sourceCardKey ?? cardKey(card),
-        fallbackLookupTerms: [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].filter(Boolean)
-      });
+      return this.studyPool.kanjiStudyCardsFromSourceCards(cards);
     }
     replaceVisibleWordPool(baseWords, poolSignature, preferredKey = "", preserveOrder = false) {
       this.visibleWords = preserveOrder ? baseWords : promoteCardByKey(baseWords, preferredKey);
@@ -251513,12 +251568,7 @@ ${entry2.url}`),
       return "noCards";
     }
     newTabPoolSignature(cards) {
-      return [
-        this.state.source,
-        this.state.mode,
-        this.sourceLabel,
-        ...cards.map((card) => cardKey(card))
-      ].join("|");
+      return this.studyPool.poolSignature(cards);
     }
     resolveInitialIndex(preferStoredWord, preferredCardKey = "") {
       const preferredKey = preferredCardKey || this.preferredStoredWordKey(preferStoredWord);
@@ -251936,28 +251986,6 @@ ${entry2.url}`),
       if ((isNewCard || isSubModeChange) && this.state.listenSubMode === "perceive" && this.dependencies.playWordAudio) {
         void this.playListenModelAudio();
       }
-    }
-    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
-    // style "review what's due"), then append any not-yet-scheduled eligible words.
-    listenStudyPool(eligible2) {
-      const now = Date.now();
-      const byKey = /* @__PURE__ */ new Map();
-      for (const card of eligible2) {
-        const reading = cardPronunciationReading(card);
-        const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
-        if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
-      }
-      const ordered = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const item2 of this.pitchSrs.sessionPool({ now, newItemCap: eligible2.length })) {
-        const card = byKey.get(item2.key);
-        if (card && !seen.has(item2.key)) {
-          ordered.push(card);
-          seen.add(item2.key);
-        }
-      }
-      for (const [key2, card] of byKey) if (!seen.has(key2)) ordered.push(card);
-      return ordered;
     }
     listenCardView(card, item2) {
       return {

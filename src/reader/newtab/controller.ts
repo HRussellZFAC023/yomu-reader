@@ -141,6 +141,7 @@ import {
     type NewTabLoadResult,
 } from './source-orchestrator';
 import { newTabSourceLoadPlan, type NewTabConcreteSource, type NewTabSourceLoadPlan } from './source';
+import { NewTabStudyPool } from './study-pool';
 import { isNewTabStatsDateKey, normalizeNewTabStatsActivityMetric, renderNewTabStatsContent } from './stats-view';
 import {
     newTabApiGradeTargetShortLabel,
@@ -157,7 +158,7 @@ import {
 } from './review-controls';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallCloze, type NewTabRecallOutcome } from './recall-practice';
 import { convertRomajiToKana } from './japanese-input';
-import { PitchSrsStore, pitchItemKey, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
+import { PitchSrsStore, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
@@ -171,7 +172,6 @@ import {
     newTabCardReading,
     normalizeNewTabCard,
     promoteCardByKey,
-    selectNewTabStudyPool,
     sentenceForCard,
 } from './study-queue';
 import { firstStudySentenceTier, studySentenceTiers } from './study-sentence-source';
@@ -214,7 +214,6 @@ import {
     searchSuggestionFromCard,
     searchWordResultOrder,
     newTabDueSummary,
-    shouldReplaceKanjiStudyCard,
     type NewTabSearchSuggestion,
 } from './card-selection';
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
@@ -921,6 +920,18 @@ export class NewTabController {
     private readonly studyStepStates = new Map<string, StudyStepState>();
     // Listen-mode pitch SRS + the in-card interaction state for the active card.
     private readonly pitchSrs = new PitchSrsStore();
+    // Pool selection (which cards the study surface renders for the current mode/
+    // filter) lives in its own module; the controller delegates via thin wrappers.
+    private readonly studyPool = new NewTabStudyPool({
+        getState: () => this.state,
+        getSourceLabel: () => this.sourceLabel,
+        getAllWords: () => this.allWords,
+        getSettings: () => this.dependencies.getSettings(),
+        shouldRenderCardAsKanji: card => this.shouldRenderCardAsKanji(card),
+        cardReviewSource: card => this.cardReviewSource(card),
+        isVocabularyStudyMode: mode => this.isVocabularyStudyMode(mode),
+        pitchSessionPool: options => this.pitchSrs.sessionPool(options),
+    });
     private listenItem: PitchSrsItem | null = null;
     private listenRenderedSubMode: NewTabListenSubMode | null = null;
     private listenSelectedPosition: number | null = null;
@@ -4600,56 +4611,7 @@ export class NewTabController {
     }
 
     private studyPoolForCurrentMode(): JPDBCard[] {
-        const cards = this.cardsForCurrentMode(this.allWords);
-        // Listen drills need a classifiable pitch contour; words without one (e.g.
-        // Anki notes lacking accent data, or kana the classifier can't resolve) are
-        // simply not eligible, so the queue never serves an un-gradeable card.
-        if (this.state.mode === 'listen') {
-            return this.listenStudyPool(cards.filter(card => pitchNumberForReading(card.pitchAccent, cardPronunciationReading(card)) != null));
-        }
-        const filter = this.state.filter;
-        // JPDB deck-browse "Show only" parity: a state filter narrows the
-        // pool by card state; 'all' bypasses the study-queue selection so
-        // known/blacklisted cards become browsable; 'study' is the default
-        // scheduled queue.
-        if (filter === 'all') return cards;
-        if (filter === 'local') return cards.filter(card => card.source === 'local' || card.source === 'fallback');
-        if (filter !== 'study') return cards.filter(card => card.cardState.includes(filter));
-        return this.applyKanjiUnlockQueue(selectNewTabStudyPool(cards));
-    }
-
-    // jpdb Learn parity: locked words sit behind their kanji, so the combined
-    // queue serves the KANJI card first; the word unlocks once the provider
-    // marks the kanji learned. "Study kanji before unlocking words" (default
-    // on) can be turned off for learners who skip kanji — locked words then
-    // study directly as words. Progression is unaffected either way: card
-    // states live at the provider, the toggle only changes queue composition.
-    private applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[] {
-        if (!this.isVocabularyStudyMode(this.state.mode) || !this.dependencies.getSettings().newTabKanjiUnlockEnabled) return pool;
-        const out: JPDBCard[] = [];
-        const seenKanji = new Set<string>();
-        for (const card of pool) {
-            if (!card.cardState.includes('locked') || this.shouldRenderCardAsKanji(card)) {
-                out.push(card);
-                continue;
-            }
-            const kanjiCards = kanjiCharacters(card.spelling)
-                .filter(kanji => !seenKanji.has(kanji))
-                .map(kanji => {
-                    seenKanji.add(kanji);
-                    return this.kanjiStudyCardFromSourceCard(card, kanji);
-                });
-            // Kana-only locked cards (no kanji to unlock) study as words.
-            if (kanjiCards.length) out.push(...kanjiCards);
-            else out.push(card);
-        }
-        return out;
-    }
-
-    private cardsForCurrentMode(cards: JPDBCard[]): JPDBCard[] {
-        return this.state.mode === 'kanji'
-            ? this.kanjiStudyCardsFromSourceCards(cards)
-            : cards;
+        return this.studyPool.studyPoolForCurrentMode();
     }
 
     private isStudyCardMode(mode: NewTabMode): boolean {
@@ -4661,47 +4623,7 @@ export class NewTabController {
     }
 
     private kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[] {
-        const selected: JPDBCard[] = [];
-        const indexes = new Map<string, number>();
-        for (const card of cards) {
-            for (const kanji of kanjiCharacters(card.spelling)) {
-                const candidate = this.kanjiStudyCardFromSourceCard(card, kanji);
-                const existingIndex = indexes.get(kanji);
-                if (existingIndex === undefined) {
-                    indexes.set(kanji, selected.length);
-                    selected.push(candidate);
-                    continue;
-                }
-                const existing = selected[existingIndex];
-                if (existing && shouldReplaceKanjiStudyCard(candidate, existing)) selected[existingIndex] = candidate;
-            }
-        }
-        return selected;
-    }
-
-    private kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard {
-        if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
-        const sourceKanji = kanjiCharacters(card.spelling);
-        const sourceKeyword = sourceKanji.length === 1 && sourceKanji[0] === kanji ? card.kanjiKeyword : undefined;
-        return normalizeNewTabCard({
-            ...card,
-            vid: stableNegativeNewTabId(`kanji-study:${this.cardReviewSource(card)}:${kanji}`),
-            sid: 0,
-            rid: 0,
-            spelling: kanji,
-            reading: kanji,
-            frequencyRank: null,
-            meanings: [],
-            pitchAccent: [],
-            wordWithReading: null,
-            sentence: card.sentence || card.spelling,
-            reviewSource: undefined,
-            ankiCardId: card.ankiCardId,
-            jpdbReviewId: undefined,
-            kanjiKeyword: sourceKeyword,
-            sourceCardKey: card.sourceCardKey ?? cardKey(card),
-            fallbackLookupTerms: [card.spelling, card.reading, ...(card.fallbackLookupTerms ?? [])].filter(Boolean),
-        });
+        return this.studyPool.kanjiStudyCardsFromSourceCards(cards);
     }
 
     private replaceVisibleWordPool(baseWords: JPDBCard[], poolSignature: string, preferredKey = '', preserveOrder = false): void {
@@ -4722,12 +4644,7 @@ export class NewTabController {
     }
 
     private newTabPoolSignature(cards: JPDBCard[]): string {
-        return [
-            this.state.source,
-            this.state.mode,
-            this.sourceLabel,
-            ...cards.map(card => cardKey(card)),
-        ].join('|');
+        return this.studyPool.poolSignature(cards);
     }
 
     private resolveInitialIndex(preferStoredWord: boolean, preferredCardKey = ''): number {
@@ -5214,29 +5131,6 @@ export class NewTabController {
         if ((isNewCard || isSubModeChange) && this.state.listenSubMode === 'perceive' && this.dependencies.playWordAudio) {
             void this.playListenModelAudio();
         }
-    }
-
-    // Order the eligible listen cards due-first using the pitch SRS schedule (kotu-
-    // style "review what's due"), then append any not-yet-scheduled eligible words.
-    private listenStudyPool(eligible: JPDBCard[]): JPDBCard[] {
-        const now = Date.now();
-        const byKey = new Map<string, JPDBCard>();
-        for (const card of eligible) {
-            const reading = cardPronunciationReading(card);
-            const pitchNumber = pitchNumberForReading(card.pitchAccent, reading);
-            if (pitchNumber != null) byKey.set(pitchItemKey(reading, pitchNumber), card);
-        }
-        const ordered: JPDBCard[] = [];
-        const seen = new Set<string>();
-        for (const item of this.pitchSrs.sessionPool({ now, newItemCap: eligible.length })) {
-            const card = byKey.get(item.key);
-            if (card && !seen.has(item.key)) {
-                ordered.push(card);
-                seen.add(item.key);
-            }
-        }
-        for (const [key, card] of byKey) if (!seen.has(key)) ordered.push(card);
-        return ordered;
     }
 
     private listenCardView(card: JPDBCard, item: PitchSrsItem): ListenCardView {

@@ -9,6 +9,18 @@
 - Refined Academy utility navigation and destination-labelled presentation controls.
 
 
+## [1.6.180] - 2026-07-17
+
+### Fixed
+
+- Bunpro word-state colouring now follows the Bunpro token alone, matching how JPDB and Jiten colour words from their credentials: turning off Allow Bunpro review/mining no longer silently disables the state colours and hover status for a configured account.
+
+## [1.6.179] - 2026-07-17
+
+### Changed
+
+- Study pool selection (which cards enter the word, recall, kanji, and listen queues, including kanji card synthesis and the pitch-eligibility filter) moved out of the new-tab controller into its own module with an explicit dependency surface, unchanged behavior, and the recent pitch seeding fix carried along.
+
 ## [1.6.178] - 2026-07-17
 
 ### Fixed

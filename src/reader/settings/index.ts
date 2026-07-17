@@ -1367,8 +1367,11 @@ export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boole
 }
 
 export function shouldLookupBunproWordStates(settings: Partial<ReaderSettings>, now = Date.now()): boolean {
-    return settings.bunproMiningEnabled === true
-        && hasBunproFrontendCredential(settings)
+    // Colouring words with the user's Bunpro SRS state is a READ, like jpdb/
+    // jiten state colouring, so it follows the credential alone. Gating it on
+    // the review/mining permission left token-configured users with no state
+    // colours at all whenever mining was off (2026-07-17 report).
+    return hasBunproFrontendCredential(settings)
         && !isBunproFrontendCredentialExpired(settings, now);
 }
 

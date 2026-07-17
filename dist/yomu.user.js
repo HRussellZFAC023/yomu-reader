@@ -4646,7 +4646,7 @@ function shouldLookupAnkiStatus(settings) {
   return settings.ankiEnabled === true;
 }
 function shouldLookupBunproWordStates(settings, now = Date.now()) {
-  return settings.bunproMiningEnabled === true && hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings, now);
+  return hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings, now);
 }
 function effectiveReaderColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) {
   const concrete = source === "auto" ? legacyReaderColorSourceForAuto(settings, fallback) : source;
