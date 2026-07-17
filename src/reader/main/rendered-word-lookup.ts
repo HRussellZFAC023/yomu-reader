@@ -1,4 +1,5 @@
 import { readerWordSurfaceText } from '../dom/index';
+import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { japaneseRunAt, JPDB_POINTER_BOUNDARY_SEGMENTS, jpdbPointerLookupCandidates } from '../lookup/pointer-text-lookup';
 import { KANA_ONLY_LOOKUP_RUN_RE } from '../app/main-helpers';
@@ -177,9 +178,6 @@ function kanaFragmentBoundaryAt(sentence: string, index: number): string {
     return JPDB_POINTER_BOUNDARY_SEGMENTS.find(segment => sentence.startsWith(segment, index)) ?? '';
 }
 
-function uniqueStrings(values: string[]): string[] {
-    return [...new Set(values.filter(Boolean))];
-}
 
 function canCorrectKanaOnlyRenderedWord(sentence: string, offset: number): boolean {
     return offset >= 0 && isKanaOnlyRenderedWordCorrection(sentence, offset);

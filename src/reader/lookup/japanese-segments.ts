@@ -1,4 +1,5 @@
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
+import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import type { JPDBCard } from '../app/types';
 
 export const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
@@ -514,12 +515,3 @@ function isTerminalDictionaryFallbackTerm(term: string): boolean {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
 
-function uniqueStrings(values: string[]): string[] {
-    const seen = new Set<string>();
-    return values.filter(value => {
-        if (!value) return false;
-        if (seen.has(value)) return false;
-        seen.add(value);
-        return true;
-    });
-}

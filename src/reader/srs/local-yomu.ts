@@ -1,4 +1,5 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
+import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { canonicalStudyCardIdentity } from './shared';
@@ -384,9 +385,6 @@ function startOfLocalDay(now: number): number {
     return date.getTime();
 }
 
-function uniqueStrings(values: string[]): string[] {
-    return [...new Set(values.map(value => value.trim()).filter(Boolean))];
-}
 
 function normalizedQueueLimit(limit: number): number {
     if (Number.isNaN(limit) || limit <= 0) return 0;
