@@ -1,6 +1,5 @@
-import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
 import { Logger } from '../app/logger';
-import { isAppleTouchBrowser } from '../platform/browser';
+import { configuredProxyFetchUrl, shouldPreferConfiguredProxyForJpdbApi } from '../network/proxy-fetch-rules';
 import { delay } from '../core/async-utils';
 import { isAbortError } from '../core/errors';
 import { getUserscriptHttpRequest } from '../userscript';
@@ -196,58 +195,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 }
 
 
-function jpdbApiFetchCandidates(url: string, proxyUrl: string): string[] {
+export function jpdbApiFetchCandidates(url: string, proxyUrl: string): string[] {
     const configuredProxy = configuredProxyFetchUrl(url, proxyUrl);
     const shouldPreferProxy = Boolean(configuredProxy) && shouldPreferConfiguredProxyForJpdbApi(url);
     const candidates = shouldPreferProxy ? [configuredProxy, url] : [url, configuredProxy];
     return [...new Set(candidates.filter((candidate): candidate is string => Boolean(candidate)))];
-}
-
-function configuredProxyFetchUrl(targetUrl: string, configuredProxyUrl: string): string | null {
-    const proxy = configuredProxyUrl.trim();
-    if (!proxy) return null;
-    try {
-        const url = new URL(proxy);
-        url.searchParams.set('url', targetUrl);
-        return url.href;
-    } catch {
-        return null;
-    }
-}
-
-function shouldPreferConfiguredProxyForJpdbApi(url: string): boolean {
-    if (!isJpdbApiUrl(url)) return false;
-    return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
-}
-
-function isJpdbApiUrl(url: string): boolean {
-    try {
-        const target = new URL(url);
-        return target.hostname === 'jpdb.io' && target.pathname.startsWith('/api/v1/');
-    } catch {
-        return false;
-    }
-}
-
-function isHostedGithubPagesApp(): boolean {
-    if (typeof location === 'undefined') return false;
-    try {
-        const current = new URL(location.href);
-        const path = current.pathname.replace(/\/index\.html$/, '/');
-        return current.origin === DOCS_ORIGIN
-            || (current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`));
-    } catch {
-        return false;
-    }
-}
-
-function isCrossOriginJpdbApiPage(): boolean {
-    if (typeof location === 'undefined') return false;
-    try {
-        return new URL(location.href).origin !== 'https://jpdb.io';
-    } catch {
-        return false;
-    }
 }
 
 function postJsonWithUserscriptRequest(
