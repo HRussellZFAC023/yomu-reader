@@ -10,24 +10,24 @@ import { parseChoiceExercise } from '../../src/academy/content/authored-week-sch
 import { auditAuthoredActivityContracts } from '../../src/academy/content/cold-production-audit';
 
 const FIXTURES = [
-    ['002-l1-l01.json', 'l1-l01', 11, 1],
-    ['003-l1-l02.json', 'l1-l02', 12, 1],
-    ['004-l1-l03.json', 'l1-l03', 14, 1],
-    ['005-l1-l04.json', 'l1-l04', 10, 1],
-    ['006-l1-l05.json', 'l1-l05', 11, 1],
-    ['007-l1-l06.json', 'l1-l06', 14, 1],
-    ['008-l1-l07.json', 'l1-l07', 11, 1],
-    ['009-l1-l08.json', 'l1-l08', 28, 1],
-    ['010-l1-l09.json', 'l1-l09', 26, 1],
-    ['011-l1-l10.json', 'l1-l10', 12, 1],
+    ['002-l1-l01.json', 'l1-l01', 13, 1],
+    ['003-l1-l02.json', 'l1-l02', 14, 1],
+    ['004-l1-l03.json', 'l1-l03', 17, 1],
+    ['005-l1-l04.json', 'l1-l04', 13, 1],
+    ['006-l1-l05.json', 'l1-l05', 14, 1],
+    ['007-l1-l06.json', 'l1-l06', 16, 1],
+    ['008-l1-l07.json', 'l1-l07', 14, 1],
+    ['009-l1-l08.json', 'l1-l08', 29, 1],
+    ['010-l1-l09.json', 'l1-l09', 27, 1],
+    ['011-l1-l10.json', 'l1-l10', 14, 1],
     ['012-l1-l11.json', 'l1-l11', 13, 0],
     ['013-l1-l12.json', 'l1-l12', 14, 0],
     ['014-l1-l13.json', 'l1-l13', 13, 0],
     ['015-l1-l14.json', 'l1-l14', 12, 0],
-    ['016-l1-l15.json', 'l1-l15', 11, 1],
-    ['017-l1-l16.json', 'l1-l16', 34, 1],
-    ['018-l1-l17.json', 'l1-l17', 22, 1],
-    ['019-l1-l18.json', 'l1-l18', 12, 1],
+    ['016-l1-l15.json', 'l1-l15', 13, 1],
+    ['017-l1-l16.json', 'l1-l16', 35, 1],
+    ['018-l1-l17.json', 'l1-l17', 23, 1],
+    ['019-l1-l18.json', 'l1-l18', 13, 1],
 ] as const;
 
 function fixture(file: string, id: AuthoredWeekId) {
@@ -125,6 +125,7 @@ describe('authored week recovery adapter', () => {
                 || activity.kind === 'text'
                 || activity.kind === 'academy-authored-cloze'
                 || activity.kind === 'academy-authored-matching'
+                || activity.kind === 'academy-authored-multi-choice'
                 || activity.kind === 'academy-authored-ordering'
                 || activity.kind === 'academy-source-vocabulary-sheet'
             ))).toBe(true);
@@ -185,6 +186,47 @@ describe('authored week recovery adapter', () => {
                 value: index === 0 ? blank.answer.primary : 'ちがいます',
             })),
         }).result).toMatchObject({ outcome: 'lapse', score: 0.5 });
+    });
+
+    it('preserves legacy match, order, and choose-all exercises as graded answer-safe interactions', () => {
+        const first = fixture('002-l1-l01.json', 'l1-l01');
+        const week = adaptAuthoredWeek(first.json, first.source);
+        const match = week.activities.find(activity => activity.sourceQuestionId === 'l1-l01/ex-vocab-match')!;
+        const order = week.activities.find(activity => activity.sourceQuestionId === 'l1-l01/ex-grammar-order')!;
+
+        expect(match).toMatchObject({ kind: 'academy-authored-matching', responseKind: 'authored-one-to-one-matching' });
+        expect(order).toMatchObject({ kind: 'academy-authored-ordering', responseKind: 'authored-ordered-items' });
+        expect(JSON.stringify([match, order])).not.toMatch(/"correct"|"answer"|"correctOrder"/i);
+        if (match.kind !== 'academy-authored-matching' || order.kind !== 'academy-authored-ordering') {
+            throw new TypeError('Expected preserved legacy interactions.');
+        }
+        const targetByLabel = new Map(match.payload.targets.map(target => [target.label, target.id]));
+        const expectedMeanings = ['student', 'teacher', 'company employee', 'a Japanese person'];
+        expect(week.evaluate(match.id, {
+            kind: 'matching',
+            placements: match.payload.items.map((item, index) => ({
+                itemId: item.id,
+                targetId: targetByLabel.get(expectedMeanings[index])!,
+            })),
+        }).result.outcome).toBe('pass');
+        expect(week.evaluate(order.id, {
+            kind: 'ordering',
+            sequences: [{
+                sequenceId: 'sequence-1',
+                itemIds: ['sequence-1-item-1', 'sequence-1-item-2', 'sequence-1-item-3'],
+            }],
+        }).result.outcome).toBe('pass');
+
+        const third = fixture('004-l1-l03.json', 'l1-l03');
+        const thirdWeek = adaptAuthoredWeek(third.json, third.source);
+        const chooseAll = thirdWeek.activities.find(activity => activity.sourceQuestionId === 'l1-l03/ex-listen-true')!;
+        expect(chooseAll).toMatchObject({
+            kind: 'academy-authored-multi-choice',
+            responseKind: 'authored-choice-set',
+        });
+        expect(JSON.stringify(chooseAll)).not.toMatch(/"correct"|"answer"/i);
+        expect(thirdWeek.evaluate(chooseAll.id, { kind: 'multi-choice', optionIds: ['a', 'b', 'c'] }).result.outcome).toBe('pass');
+        expect(thirdWeek.evaluate(chooseAll.id, { kind: 'multi-choice', optionIds: ['a', 'd'] }).result.outcome).toBe('lapse');
     });
 
     it('preserves source matching and ordering as answer-safe structured contracts', () => {

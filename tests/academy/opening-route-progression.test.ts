@@ -1,4 +1,6 @@
 import { academyText } from '../../src/reader/app/academy-copy';
+import { serializeStoryCursor } from '../../src/academy/content/story-runner';
+import { STORY_OPENING_ARC_ID } from '../../src/academy/content/story-runtime';
 import {
     projectLearnerRecord,
     type JlptBand,
@@ -255,6 +257,83 @@ describe('Academy opening route progression', () => {
                 activityId: undefined,
             });
         });
+    });
+
+    it('keeps the exact Story cursor when placement changes the curriculum start level', async () => {
+        const storySection = serializeStoryCursor({
+            version: 1,
+            arcId: STORY_OPENING_ARC_ID,
+            sceneId: 'scene:blank-atlas:close',
+            nodeId: 'node:blank-atlas:one-light-room',
+            choices: {},
+            storyOnlyActivityIds: [],
+        });
+        const enrollment = enrollmentHarness();
+        const result = routeContext('placement-result', [PROFILE_EVENT, placement('n2')], {
+            selectedBand: 'n2',
+            routeHistory: [
+                { route: 'campus' },
+                { route: 'story', sectionId: storySection, selectedBand: 'n3' },
+                { route: 'start', sectionId: storySection, selectedBand: 'n3' },
+                { route: 'placement-mock', sectionId: storySection, selectedBand: 'n3' },
+            ],
+        });
+
+        await enrollment.flow.render('placement-result', result.value);
+        result.shell.current?.querySelector<HTMLButtonElement>('.academy-button-primary')?.click();
+
+        await vi.waitFor(() => expect(result.go).toHaveBeenCalledWith('arrival-bridge', {
+            selectedBand: 'n2',
+            placementOverride: false,
+            lessonId: undefined,
+            sectionId: storySection,
+            activityId: undefined,
+        }));
+
+        const story = routeContext('story', [
+            PROFILE_EVENT,
+            curriculumEntry('placement-mock', 'n2'),
+            {
+                schemaVersion: 1,
+                eventId: 'story-scene-before-placement',
+                at: 3,
+                kind: 'characters-encountered',
+                encounterId: 'story:s1e01-the-blank-atlas:scene:scene:blank-atlas:welcome',
+                sceneId: 'scene:blank-atlas:welcome',
+                attendeeIds: ['rie'],
+            },
+        ], {
+            selectedBand: 'n2',
+            sectionId: storySection,
+            routeHistory: [{ route: 'campus', selectedBand: 'n2', sectionId: storySection }],
+        });
+        await worldFlow().render('story', story.value);
+
+        expect(story.shell.current?.querySelector<HTMLElement>('.academy-story-authored-arc')?.dataset.storyMode)
+            .toBe('chronological-replay');
+        expect(story.shell.current?.querySelector<HTMLElement>('.academy-story-authored-arc')?.dataset.storyScene)
+            .toBe('scene:blank-atlas:close');
+        expect(story.shell.current?.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyReplay)
+            .toBe('true');
+    });
+
+    it('does not resurrect an older scene when the nearest Story frame is the episode list', async () => {
+        const result = routeContext('placement-result', [PROFILE_EVENT, placement('n2')], {
+            selectedBand: 'n2',
+            routeHistory: [
+                { route: 'story', sectionId: 'older-story-cursor' },
+                { route: 'story' },
+                { route: 'placement-mock' },
+            ],
+        });
+
+        await enrollmentHarness().flow.render('placement-result', result.value);
+        result.shell.current?.querySelector<HTMLButtonElement>('.academy-button-primary')?.click();
+
+        await vi.waitFor(() => expect(result.go).toHaveBeenCalledWith('arrival-bridge', expect.objectContaining({
+            selectedBand: 'n2',
+            sectionId: undefined,
+        })));
     });
 
     it('returns to the completed mock when the learner chooses review', async () => {

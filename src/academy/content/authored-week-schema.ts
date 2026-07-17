@@ -34,6 +34,17 @@ export interface AuthoredChoiceExercise {
     readonly options: readonly AuthoredChoiceOption[];
 }
 
+export interface AuthoredMultiChoiceExercise {
+    readonly id: string;
+    readonly kind: 'multi-choice';
+    readonly prompt: AuthoredLocalizedText;
+    readonly explanation: string;
+    readonly reviewTag?: string;
+    readonly phase?: AuthoredExercisePhase;
+    readonly autoGraded: true;
+    readonly options: readonly AuthoredChoiceOption[];
+}
+
 export interface AuthoredExactExercise {
     readonly id: string;
     readonly kind: 'exact';
@@ -539,6 +550,35 @@ export function parseChoiceExercise(value: unknown, path: string): AuthoredChoic
     return {
         id: text(exercise.id, `${path}.id`),
         kind: 'choice',
+        prompt: localized(exercise.prompt, `${path}.prompt`),
+        explanation: text(exercise.explanation, `${path}.explanation`),
+        ...(exercise.reviewTag === undefined ? {} : { reviewTag: text(exercise.reviewTag, `${path}.reviewTag`) }),
+        ...(exercise.phase === undefined ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }),
+        autoGraded: true,
+        options,
+    };
+}
+
+export function parseMultiChoiceExercise(value: unknown, path: string): AuthoredMultiChoiceExercise | undefined {
+    const exercise = record(value, path);
+    if (exercise.kind !== 'multi-choice') return undefined;
+    if (!isLocalized(exercise.prompt)) return undefined;
+    const rawOptions = array(exercise.options, `${path}.options`);
+    if (!rawOptions.every(candidate => isChoiceLabel(record(candidate, `${path}.options[]`).label))) return undefined;
+    if (exercise.autoGraded !== true) fail(`${path}.autoGraded`, 'must be true');
+    const options = rawOptions.map((candidate, index) => {
+        const option = record(candidate, `${path}.options[${index}]`);
+        if (typeof option.correct !== 'boolean') fail(`${path}.options[${index}].correct`, 'must be boolean');
+        return {
+            id: text(option.id, `${path}.options[${index}].id`),
+            label: localized(option.label, `${path}.options[${index}].label`),
+            correct: option.correct,
+        };
+    });
+    if (!options.some(option => option.correct)) fail(`${path}.options`, 'must contain at least one correct option');
+    return {
+        id: text(exercise.id, `${path}.id`),
+        kind: 'multi-choice',
         prompt: localized(exercise.prompt, `${path}.prompt`),
         explanation: text(exercise.explanation, `${path}.explanation`),
         ...(exercise.reviewTag === undefined ? {} : { reviewTag: text(exercise.reviewTag, `${path}.reviewTag`) }),

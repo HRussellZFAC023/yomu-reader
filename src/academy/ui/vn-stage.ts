@@ -84,6 +84,9 @@ interface InertSnapshot {
 }
 
 let vnStageSequence = 0;
+const TEXT_REVEAL_LEAD_IN_MS = 72;
+const TEXT_REVEAL_BASE_DELAY_MS = 42;
+const TEXT_REVEAL_CLUSTER_DELAY_MS = 18;
 
 /** Presentation host. Narrative data never manipulates stage DOM. */
 export function createAcademyVnStage(options: AcademyVnStageOptions = {}): AcademyVnStage {
@@ -340,7 +343,6 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         dialogue.dataset.textRevealing = '';
         dialogue.setAttribute('aria-busy', 'true');
         japanese.replaceChildren(revealText);
-        const baseDelayMs = Math.max(38, Math.round(textRevealDuration(units.length) / units.length));
         const revealNext = (): void => {
             if (typeof window === 'undefined') {
                 textRevealTimer = undefined;
@@ -361,12 +363,12 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
             }
             textRevealTimer = window.setTimeout(
                 revealNext,
-                textRevealCharacterDelay(units, visibleUnits - 1, baseDelayMs),
+                textRevealCharacterDelay(units, visibleUnits - 1),
             );
         };
         textRevealTimer = window.setTimeout(
             revealNext,
-            90 + textRevealCharacterDelay(units, 0, baseDelayMs),
+            TEXT_REVEAL_LEAD_IN_MS + textRevealCharacterDelay(units, 0),
         );
     }
 
@@ -763,36 +765,33 @@ function setSceneInert(
     if (!inert) snapshots.clear();
 }
 
-function textRevealDuration(unitCount: number): number {
-    return Math.max(280, Math.min(1600, unitCount * 42));
-}
-
 function textRevealUnits(text: string): string[] {
     if (typeof Intl.Segmenter !== 'function') return [...text];
     return [...new Intl.Segmenter('ja', { granularity: 'grapheme' }).segment(text)]
         .map(segment => segment.segment);
 }
 
-function textRevealCharacterDelay(units: readonly string[], index: number, baseDelayMs: number): number {
+function textRevealCharacterDelay(units: readonly string[], index: number): number {
     const character = units[index] ?? '';
     const nextCharacter = units[index + 1] ?? '';
-    const clusterDelayMs = Math.max(16, Math.round(baseDelayMs * 0.42));
+    const baseDelayMs = TEXT_REVEAL_BASE_DELAY_MS;
+    const clusterDelayMs = TEXT_REVEAL_CLUSTER_DELAY_MS;
     // Keep sentence punctuation attached to its closing quote, then breathe
     // after the complete written sentence rather than before the quote appears.
     if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
     if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
-    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 420;
-    if (isSentenceEnd(character)) return baseDelayMs + 420;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 320;
+    if (isSentenceEnd(character)) return baseDelayMs + 320;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 120;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 180;
     if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
-    if (/[…―—]/u.test(character)) return baseDelayMs + 190;
-    if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 160;
+    if (/[」』）】]/u.test(character)) return baseDelayMs + 50;
     if (/[「『（【]/u.test(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
         return clusterDelayMs;
     }
-    if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
+    if (/\s/u.test(character)) return 26;
     return baseDelayMs;
 }
 

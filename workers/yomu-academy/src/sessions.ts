@@ -30,9 +30,10 @@ async function tokenHash(env: Env, token: string): Promise<string> {
 /**
  * POST /academy/api/session — exchange an invite code for a session.
  * Same-origin only and rate-limited per HMACed client subject. Seed uses are
- * consumed atomically; paid codes issue retryable auth sessions and are bound
- * only after OIDC. The cookie carries an opaque random token whose HMAC is the
- * stored lookup key; the returned sessionId is a separate public identifier.
+ * consumed atomically; unredeemed paid codes issue retryable auth sessions and
+ * are bound only after OIDC. The cookie carries an opaque random token whose
+ * HMAC is the stored lookup key; the returned sessionId is a separate public
+ * identifier.
  */
 export async function handleCreateSession(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
@@ -54,7 +55,8 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
             + 'SELECT ?1, ?2, id, ?3, ?4, ?5 FROM invites '
             + 'WHERE code_hash = ?6 AND revoked_at IS NULL '
             + "AND ((kind = 'seed' AND uses_remaining > 0) OR (kind = 'paid' AND EXISTS "
-            + "(SELECT 1 FROM purchases p WHERE p.id = invites.purchase_id AND p.status = 'paid'))) "
+            + "(SELECT 1 FROM purchases p WHERE p.id = invites.purchase_id AND p.status = 'paid' "
+            + 'AND p.redeemed_at IS NULL))) '
             + 'AND (expires_at IS NULL OR expires_at > ?3) RETURNING public_id',
         ).bind(await tokenHash(env, token), row.public_id, now, row.expires_at, row.offline_resume_until, codeHash),
         env.ACADEMY_DB.prepare(

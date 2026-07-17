@@ -12,7 +12,7 @@ The shared Academy activity runtime has genuine, separately graded implementatio
 
 Speaking is not conformant as an assessed runtime modality. The world language lab provides speak-aloud rehearsal and an acknowledgement control, class simulation provides typed/choice conversation turns, and Lesson 0 authors a microphone-capture contract. No mounted `MediaRecorder` or speech-evaluation path currently turns a learner utterance into graded speaking evidence. The machine registry therefore marks speaking `guided-only`.
 
-The registered authored-week path now preserves modern source `cloze`, `matching`, and `ordering` as distinct answer-safe learner models. Multi-blank cloze commits every field together, matching commits a complete one-to-one relation, and ordering commits movable item sequences. Legacy `match`, `order`, and `multi-choice` remain omitted until their differing source contracts receive equally explicit adapters.
+The registered authored-week path now preserves modern and legacy source `cloze`, `matching`/`match`, `ordering`/`order`, and `multi-choice` as distinct answer-safe learner models. Multi-blank cloze commits every field together, matching commits a complete one-to-one relation, ordering commits movable item sequences, and choose-all commits a set-valued response.
 
 ## Runtime matrix
 
@@ -20,7 +20,7 @@ The registered authored-week path now preserves modern source `cloze`, `matching
 | --- | --- | --- | --- |
 | JP -> EN | Native | `academy-source-vocabulary-sheet` / `source-vocabulary-recall` | An odd source row presents Japanese; English passes and the Japanese word does not. |
 | EN -> JP | Native | `academy-source-vocabulary-sheet` / `source-vocabulary-recall` | An even source row presents English; the Japanese word/reading passes and English does not. |
-| Multiple choice | Native | `choice` / `choice` | A stable option ID is committed and graded against one authored key. |
+| Multiple choice | Native | `choice` / `choice`; `academy-authored-multi-choice` / `authored-choice-set` | Single-answer and choose-all sources commit their own stable response shape. |
 | Free response | Native | `academy-typed-response` / `kana-input`, `written-description` | Unrevealed Japanese text is graded; the mounted control is a text input or textarea. |
 | Listening | Native | `academy-moodle-listening-choice` / `moodle-audio-a-or-b-choice` | Source-bound audio elements render and all track answers are graded. |
 | Speaking | Guided only | World language-lab rehearsal | No microphone-backed or speech-evaluated attempt exists; typed class simulation does not count. |
@@ -54,10 +54,10 @@ The census covers all 59 `kind: 'authored-week'` registrations. It reads each re
 | Source exercise kind | Raw | Linked | Runtime activities | Current delivery |
 | --- | ---: | ---: | ---: | --- |
 | `choice` | 370 | 361 | 361 `choice` | Mixed preserved; nine donor-shaped choices do not adapt. |
-| `match` | 45 | 0 | 0 | Omitted legacy matching. |
+| `match` | 45 | 45 | 45 `academy-authored-matching` | Preserved complete matching after lossless legacy-shape normalization. |
 | `cloze` | 81 | 81 | 81 `academy-authored-cloze` | Preserved multi-field cloze with one structured submission per source exercise. |
-| `order` | 4 | 0 | 0 | Omitted legacy ordering. |
-| `multi-choice` | 6 | 0 | 0 | Omitted multi-select. |
+| `order` | 4 | 4 | 4 `academy-authored-ordering` | Preserved source order as movable sequences. |
+| `multi-choice` | 6 | 6 | 6 `academy-authored-multi-choice` | Preserved choose-all checkboxes with set-valued grading. |
 | `exact` | 78 | 71 | 71 `text` | Mixed preserved free response. |
 | `writing` | 2 | 0 | 0 | Authored as ungraded production and omitted. |
 | `quarantined-listening-choice` | 16 | 9 | 9 `choice` | Mixed delivery; seven remain omitted. |
@@ -72,13 +72,12 @@ The same adapted packages currently add 124 source-vocabulary rows, which use th
 
 ## Remaining adapter work
 
-The modern `cloze`, `matching`, and `ordering` contracts are native. The remaining source gaps require their own honest behavior rather than aliases:
+The modern and legacy cloze, matching, ordering, and choose-all contracts are native. The remaining source gaps require their own honest behavior rather than aliases:
 
-1. Legacy `match` needs a source-specific complete placement response.
-2. Legacy `order` needs an explicit sequence model compatible with its older payload shape.
-3. `multi-choice` needs a set-valued response and an authored partial-credit policy.
-4. Speaking and character Doodle need mounted capture/rendering and evidence policies.
-5. Ungraded image-fill and writing tasks need media/capture treatment before they can count as assessed delivery.
+1. Speaking and character Doodle need mounted capture/rendering and evidence policies.
+2. Ungraded image-fill and writing tasks need media/capture treatment before they can count as assessed delivery.
+3. Seven quarantined listening choices need verified audio bindings.
+4. Two donor-shaped drag-sort exercises need their source contract normalized into the native placement runtime.
 
 ## Verification
 

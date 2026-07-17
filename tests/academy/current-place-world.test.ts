@@ -554,8 +554,11 @@ describe('Academy current-place world', () => {
         expect(courtyardStyles).toContain("data-landmark='cherry-canopy'");
         expect(courtyardStyles).toContain("data-landmark='garden-path'");
         expect(courtyardStyles).toContain("data-landmark='notice-post'");
+        expect(courtyardStyles).toMatch(/--courtyard-route-rail:\s*calc\(min\(154px, 15vw\) \+ 44px\)/);
+        expect(courtyardStyles).toMatch(/data-landmark='notice-post'[\s\S]*right:\s*var\(--courtyard-route-rail\)/);
+        expect(courtyardStyles).toMatch(/data-purpose-surface='noticeboard'[\s\S]*right:\s*var\(--courtyard-route-rail\)/);
         expect(courtyardStyles).toMatch(/@keyframes academy-courtyard-(gate-in|notice-in|rie-in|aakash-in|journal-in|notebook-in)/);
-        expect(courtyardStyles).toMatch(/@media \(max-width: 760px\)[\s\S]*height:\s*100svh[\s\S]*academy-world-spatial-exits[\s\S]*flex-wrap:\s*nowrap/s);
+        expect(courtyardStyles).toMatch(/@media \(max-width: 760px\)[\s\S]*height:\s*100svh[\s\S]*data-landmark='notice-post'[\s\S]*right:\s*-8%[\s\S]*academy-world-spatial-exits[\s\S]*flex-wrap:\s*nowrap/s);
         expect(courtyardStyles).toMatch(/academy-world-spatial-exits[\s\S]*scroll-snap-type:\s*none/s);
         expect(courtyardStyles).toMatch(/academy-world-map-routes \.academy-world-exit[\s\S]*scroll-margin-inline:\s*8px/s);
         expect(courtyardStyles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*data-current-place='courtyard'[\s\S]*animation:\s*none !important/s);

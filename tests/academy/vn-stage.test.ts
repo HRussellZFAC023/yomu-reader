@@ -463,8 +463,28 @@ describe('Academy VN stage', () => {
         const atBoundary = text.textContent;
         vi.advanceTimersByTime(250);
         expect(text.textContent).toBe(atBoundary);
+        vi.advanceTimersByTime(20);
+        expect(text.textContent).toContain('次');
         vi.runAllTimers();
         expect(text.textContent).toBe('はい。次です。');
+    });
+
+    it('does not stretch short utterances to fill a minimum duration', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:short-cadence',
+            japanese: 'はい。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        expect(text.textContent).toBe('は');
+        vi.advanceTimersByTime(120);
+        expect(text.textContent).toBe('はい');
+        vi.advanceTimersByTime(40);
+        expect(text.textContent).toBe('はい。');
+        expect(text.dataset.performanceText).toBeUndefined();
     });
 
     it('closes quoted sentences before pausing between them', () => {
@@ -667,6 +687,8 @@ describe('Academy VN stage', () => {
         expect(phoneCss).toMatch(/@media \(max-width: 420px\)[\s\S]*\.academy-vn-line-tools\s*\{[^}]*justify-self:\s*end;/);
         expect(phoneCss).toMatch(/\.academy-vn-stage\[data-cast-size="2"\] \.academy-vn-sprite-slot\[data-position\]\s*\{[^}]*left:\s*50%;[^}]*right:\s*auto;/s);
         expect(phoneCss).not.toMatch(/(?:left|right):\s*-(?:18|9)vw/);
+        expect(phoneCss).toMatch(/html:has\(\.academy-profile-screen\) \.jpdb-reader-fab\s*\{[^}]*top:\s*max\(8px, env\(safe-area-inset-top\)\) !important;[^}]*bottom:\s*auto !important;/s);
+        expect(phoneCss).toMatch(/html:has\(\.academy-profile-screen\[data-profile-step='portrait'\]\) \.jpdb-reader-fab\s*\{[^}]*right:\s*max\(60px, calc\(env\(safe-area-inset-right\) \+ 60px\)\) !important;/s);
         expect(css).toMatch(/@media \(min-width: 1100px\)/);
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none;/);
         expect(css).toMatch(/\.academy-vn-stage\[data-reduced-motion\][\s\S]*transition:\s*none;/);

@@ -7,6 +7,7 @@ import type {
     LearnerAuthoredCloze,
     LearnerAuthoredChoice,
     LearnerAuthoredMatching,
+    LearnerAuthoredMultiChoice,
     LearnerAuthoredOrdering,
     LearnerAuthoredText,
     LearnerListeningSource,
@@ -447,7 +448,7 @@ interface ActivityActions {
 }
 
 function renderActivity(
-    activity: LearnerAuthoredChoice | LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering,
+    activity: LearnerAuthoredChoice | LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredMultiChoice | LearnerAuthoredOrdering,
     index: number,
     total: number,
     actions: ActivityActions,
@@ -517,6 +518,8 @@ function renderActivity(
         appendClozeControls(choices, activity, heading.id, actions, submit);
     } else if (activity.kind === 'academy-authored-matching') {
         appendMatchingControls(choices, activity, heading.id, actions, submit);
+    } else if (activity.kind === 'academy-authored-multi-choice') {
+        appendMultiChoiceControls(choices, activity, heading.id, actions, submit);
     } else {
         appendOrderingControls(choices, activity, heading.id, actions, submit);
     }
@@ -581,14 +584,49 @@ function renderActivity(
 }
 
 function modalityClass(
-    activity: LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering,
+    activity: LearnerAuthoredText | LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredMultiChoice | LearnerAuthoredOrdering,
 ): string {
     switch (activity.kind) {
         case 'text': return 'academy-text-response';
         case 'academy-authored-cloze': return 'academy-text-response academy-authored-cloze';
         case 'academy-authored-matching': return 'academy-drag-workspace academy-authored-matching';
+        case 'academy-authored-multi-choice': return 'academy-choice-options academy-authored-multi-choice';
         case 'academy-authored-ordering': return 'academy-authored-ordering';
     }
+}
+
+function appendMultiChoiceControls(
+    root: HTMLElement,
+    activity: LearnerAuthoredMultiChoice,
+    headingId: string,
+    actions: ActivityActions,
+    submit: StructuredSubmit,
+): void {
+    const selected = new Set<string>();
+    const check = checkButton(actions.language, 'Check selections', '選んだ答えを確認');
+    activity.options.forEach(option => {
+        const label = element('label', 'academy-choice-row academy-authored-multi-choice-row');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = option.id;
+        input.dataset.authoredModalityControl = '';
+        input.setAttribute('aria-describedby', headingId);
+        input.addEventListener('change', () => {
+            if (input.checked) selected.add(option.id);
+            else selected.delete(option.id);
+            check.disabled = selected.size === 0;
+        }, { signal: actions.signal });
+        const text = element('span', 'academy-choice-option academy-authored-multi-choice-label');
+        text.append(assessedJapanese(option.label.ja), support(option.label.en));
+        label.append(input, text);
+        root.append(label);
+    });
+    check.disabled = true;
+    check.addEventListener('click', () => {
+        if (check.disabled) return;
+        submit({ kind: 'multi-choice', optionIds: [...selected] }, check);
+    }, { signal: actions.signal });
+    root.append(check);
 }
 
 type StructuredSubmit = (response: AuthoredWeekResponse, control: HTMLButtonElement) => void;

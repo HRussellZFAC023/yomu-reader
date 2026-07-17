@@ -18,6 +18,8 @@ import {
     type AuthoredExactExercise,
     parseMatchingExercise,
     type AuthoredMatchingExercise,
+    parseMultiChoiceExercise,
+    type AuthoredMultiChoiceExercise,
     parseOrderingExercise,
     type AuthoredOrderingExercise,
     type AuthoredSourceVocabularySheet,
@@ -133,6 +135,20 @@ export interface LearnerAuthoredChoice {
     readonly provenance: LearnerAuthoredExerciseProvenance;
 }
 
+export interface LearnerAuthoredMultiChoice {
+    readonly id: string;
+    readonly kind: 'academy-authored-multi-choice';
+    readonly sourceQuestionId: string;
+    readonly conceptIds: readonly string[];
+    readonly responseKind: 'authored-choice-set';
+    readonly curriculumPhase: LearnerAuthoredCurriculumPhase;
+    readonly prompt: LocalizedText;
+    readonly options: readonly { readonly id: string; readonly label: LocalizedText }[];
+    readonly answerSupport: AnswerSupportContract;
+    readonly teachingSupport?: import('../domain/activity-runtime').ActivityTeachingSupport;
+    readonly provenance: LearnerAuthoredExerciseProvenance;
+}
+
 export interface LearnerListeningSource {
     readonly sourceLocator: string;
     readonly url: string;
@@ -210,7 +226,12 @@ export interface AuthoredOrderingResponse {
     readonly sequences: readonly { readonly sequenceId: string; readonly itemIds: readonly string[] }[];
 }
 
-export type AuthoredWeekResponse = string | AuthoredClozeResponse | AuthoredMatchingResponse | AuthoredOrderingResponse;
+export interface AuthoredMultiChoiceResponse {
+    readonly kind: 'multi-choice';
+    readonly optionIds: readonly string[];
+}
+
+export type AuthoredWeekResponse = string | AuthoredClozeResponse | AuthoredMatchingResponse | AuthoredOrderingResponse | AuthoredMultiChoiceResponse;
 
 export interface LearnerAuthoredExerciseProvenance {
     readonly packageId: AuthoredWeekId;
@@ -230,6 +251,7 @@ export type LearnerAuthoredActivity =
     | LearnerAuthoredText
     | LearnerAuthoredCloze
     | LearnerAuthoredMatching
+    | LearnerAuthoredMultiChoice
     | LearnerAuthoredOrdering
     | SourceVocabularySheetModel;
 
@@ -262,7 +284,7 @@ interface AdaptedExercise {
 }
 
 interface AdaptedStructuredExercise {
-    readonly activity: LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering;
+    readonly activity: LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredMultiChoice | LearnerAuthoredOrdering;
     readonly evaluate: (response: AuthoredWeekResponse) => AuthoredChoiceEvaluation;
 }
 
@@ -408,7 +430,7 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
         }
         for (const [exerciseIndex, value] of (component.exercises ?? []).entries()) {
             const path = `package.components[${componentIndex}].exercises[${exerciseIndex}]`;
-            const normalized = normalizeLegacyChoice(id, value, path);
+            const normalized = normalizeLegacyExercise(id, value, path);
             const structured = adaptStructuredSourceExercise(id, normalized, path, component.teachingSupport);
             if (structured) {
                 if (seen.has(structured.activity.sourceQuestionId)) {
@@ -559,6 +581,62 @@ function normalizeLegacyChoice(packageId: AuthoredWeekId, value: unknown, path: 
     return { ...exercise, options };
 }
 
+function normalizeLegacyExercise(packageId: AuthoredWeekId, value: unknown, path: string): unknown {
+    const normalizedChoice = normalizeLegacyChoice(packageId, value, path);
+    if (!normalizedChoice || typeof normalizedChoice !== 'object' || Array.isArray(normalizedChoice)) return normalizedChoice;
+    const exercise = normalizedChoice as Readonly<Record<string, unknown>>;
+    if (exercise.kind === 'match') {
+        const pairs = arrayField(exercise.pairs, `${path}.pairs`).map((candidate, index) => {
+            const pair = recordField(candidate, `${path}.pairs[${index}]`);
+            return {
+                left: legacyLocalizedValue(pair.left, `${path}.pairs[${index}].left`),
+                right: legacyLocalizedValue(pair.right, `${path}.pairs[${index}].right`),
+            };
+        });
+        return {
+            ...exercise,
+            kind: 'matching',
+            pluginTarget: 'academy-drag-sort',
+            answerVisibility: 'after-attempt',
+            sourceItemsExact: pairs.map(pair => pair.left),
+            answers: { visibility: 'after-attempt', values: pairs.map(pair => pair.right) },
+        };
+    }
+    if (exercise.kind === 'order') {
+        const options = arrayField(exercise.options, `${path}.options`).map((candidate, index) => {
+            const option = recordField(candidate, `${path}.options[${index}]`);
+            return {
+                id: textField(option.id, `${path}.options[${index}].id`),
+                label: legacyLocalizedValue(option.label, `${path}.options[${index}].label`),
+            };
+        });
+        const byId = new Map(options.map(option => [option.id, option.label]));
+        const correctOrder = arrayField(exercise.correctOrder, `${path}.correctOrder`)
+            .map((candidate, index) => textField(candidate, `${path}.correctOrder[${index}]`));
+        const tiles = correctOrder.map((id, index) => byId.get(id)
+            ?? (() => { throw new TypeError(`${path}.correctOrder[${index}] references an unknown option.`); })());
+        return {
+            ...exercise,
+            kind: 'ordering',
+            mode: 'tiles',
+            pluginTarget: 'academy-sequence',
+            answerVisibility: 'after-attempt',
+            tiles,
+            answer: { primary: tiles.join(''), alternatives: [] },
+        };
+    }
+    return normalizedChoice;
+}
+
+function legacyLocalizedValue(value: unknown, path: string): string {
+    const localized = recordField(value, path);
+    const japanese = typeof localized.ja === 'string' ? localized.ja.trim() : '';
+    const english = typeof localized.en === 'string' ? localized.en.trim() : '';
+    const result = japanese || english;
+    if (!result) throw new TypeError(`${path} must contain ja or en text.`);
+    return result;
+}
+
 function adaptStructuredSourceExercise(
     packageId: AuthoredWeekId,
     value: unknown,
@@ -571,7 +649,54 @@ function adaptStructuredSourceExercise(
     if (matching) return adaptMatchingExercise(packageId, matching, value, path, teachingSupport);
     const ordering = parseOrderingExercise(value, path);
     if (ordering) return adaptOrderingExercise(packageId, ordering, value, path, teachingSupport);
+    const multiChoice = parseMultiChoiceExercise(value, path);
+    if (multiChoice) return adaptMultiChoiceExercise(packageId, multiChoice, value, path, teachingSupport);
     return undefined;
+}
+
+function adaptMultiChoiceExercise(
+    packageId: AuthoredWeekId,
+    exercise: AuthoredMultiChoiceExercise,
+    raw: unknown,
+    path: string,
+    teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+): AdaptedStructuredExercise {
+    const sourceQuestionId = `${packageId}/${exercise.id}`;
+    const mappings = exercise.options.filter(option => option.correct).map((option, index) => sourceExerciseOverlay(
+        packageId,
+        `${exercise.reviewTag ?? exercise.id}:choice-${index + 1}`,
+        option.label.ja,
+        exercise.explanation,
+        option.label.en,
+    ));
+    const activity: LearnerAuthoredMultiChoice = {
+        id: `authored:${sourceQuestionId}`,
+        kind: 'academy-authored-multi-choice',
+        sourceQuestionId,
+        conceptIds: mappings.map(mapping => mapping.conceptId),
+        responseKind: 'authored-choice-set',
+        curriculumPhase: sourceCurriculumPhase(recordField(raw, path), path, 'guided-practice'),
+        prompt: exercise.prompt,
+        options: exercise.options.map(option => ({ id: option.id, label: option.label })),
+        answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+        teachingSupport,
+        provenance: {
+            packageId,
+            sourceQuestionId,
+            authoredSource: authoredSourceProvenance(recordField(raw, path), exercise.id, path),
+        },
+    };
+    const expected = new Set(exercise.options.filter(option => option.correct).map(option => option.id));
+    return {
+        activity,
+        evaluate: response => {
+            const selected = multiChoiceResponse(response, new Set(exercise.options.map(option => option.id)));
+            const passed = exercise.options.filter(option => option.correct)
+                .map(option => selected.has(option.id));
+            const extras = [...selected].filter(id => !expected.has(id));
+            return structuredEvaluation(exercise.id, sourceQuestionId, mappings, extras.length ? passed.map(() => false) : passed);
+        },
+    };
 }
 
 function adaptClozeExercise(
@@ -735,10 +860,23 @@ function assertStructuredWeekPedagogy(week: LearnerAuthoredWeek): void {
 
 function isStructuredActivity(
     activity: LearnerAuthoredActivity,
-): activity is LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredOrdering {
+): activity is LearnerAuthoredCloze | LearnerAuthoredMatching | LearnerAuthoredMultiChoice | LearnerAuthoredOrdering {
     return activity.kind === 'academy-authored-cloze'
         || activity.kind === 'academy-authored-matching'
+        || activity.kind === 'academy-authored-multi-choice'
         || activity.kind === 'academy-authored-ordering';
+}
+
+function multiChoiceResponse(response: AuthoredWeekResponse, allowed: ReadonlySet<string>): ReadonlySet<string> {
+    if (response === 'pedagogy:lapse-probe') return new Set();
+    if (typeof response === 'string' || response.kind !== 'multi-choice' || !response.optionIds.length) {
+        throw new TypeError('A choose-all response must contain at least one option.');
+    }
+    const selected = new Set(response.optionIds);
+    if (selected.size !== response.optionIds.length || [...selected].some(id => !allowed.has(id))) {
+        throw new TypeError('A choose-all response must contain unique authored options.');
+    }
+    return selected;
 }
 
 function structuredEvaluation(

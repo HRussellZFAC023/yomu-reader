@@ -521,6 +521,39 @@ html.jpdb-reader-doodle-active * {
     font-size: 1.08rem;
 }
 
+.academy-authored-multi-choice-row {
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 12px;
+    padding: 3px;
+    border: 1px solid transparent;
+    border-radius: 6px 14px 7px 11px;
+    cursor: pointer;
+}
+
+.academy-authored-multi-choice-row:has(input:checked) {
+    border-color: color-mix(in srgb, var(--academy-accent) 58%, transparent);
+    background: color-mix(in srgb, var(--academy-accent) 10%, transparent);
+}
+
+.academy-authored-multi-choice-row > input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--academy-accent);
+}
+
+.academy-authored-multi-choice-label {
+    width: 100%;
+    min-height: 52px;
+    box-shadow: none;
+}
+
+.academy-authored-multi-choice-row:hover .academy-authored-multi-choice-label,
+.academy-authored-multi-choice-row:focus-within .academy-authored-multi-choice-label {
+    border-color: color-mix(in srgb, var(--academy-paper-ink) 38%, transparent);
+    background: color-mix(in srgb, var(--academy-paper-deep) 46%, var(--academy-paper));
+}
+
 @media (max-width: 760px) {
     .academy-authored-week-veil {
         align-items: end;
@@ -576,6 +609,11 @@ html.jpdb-reader-doodle-active * {
 
     .academy-authored-week-screen .academy-choice-option {
         min-height: 50px;
+    }
+
+    .academy-authored-multi-choice-row {
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 9px;
     }
 
     .academy-text-response {

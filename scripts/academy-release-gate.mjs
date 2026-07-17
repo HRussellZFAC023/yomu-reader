@@ -71,6 +71,9 @@ try {
         try {
             context = await browser.newContext({
                 viewport: { width: viewport.width, height: viewport.height },
+                deviceScaleFactor: viewport.name === 'mobile' ? 2 : 1,
+                hasTouch: viewport.name === 'mobile',
+                isMobile: viewport.name === 'mobile',
                 reducedMotion: viewport.reducedMotion,
                 locale: 'en-GB',
                 serviceWorkers: 'block',
@@ -110,6 +113,7 @@ async function runEnrollment(page, viewport, runtime) {
 
     await page.locator('input[name="displayName"]').fill('Release Gate');
     await pressFocused(page, '.academy-profile-advance');
+    await auditMilestone(page, viewport, runtime, 'profile-reason', '.academy-profile-screen[data-profile-step="reason"]');
     await page.locator('textarea[name="learningReason"]').fill('Stable learning across devices.');
     await pressFocused(page, '.academy-profile-advance');
     await page.locator('input[name="portrait"][value="quality-2"]').check();
@@ -260,6 +264,27 @@ async function auditMilestone(page, viewport, runtime, name, selector) {
             .filter((label, index, labels) => label && labels.indexOf(label) !== index))];
         const ids = [...surface.querySelectorAll('[id]')].map(element => element.id);
         const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+        const zoomSensitiveSelector = [
+            'input:not([type="button"]):not([type="checkbox"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="image"]):not([type="radio"]):not([type="range"]):not([type="reset"]):not([type="submit"])',
+            'select',
+            'textarea',
+            '[contenteditable]',
+        ].join(', ');
+        const mobileZoomRiskControls = [...surface.querySelectorAll(zoomSensitiveSelector)]
+            .filter(element => visible(element)
+                && !element.matches(':disabled')
+                && (!element.hasAttribute('contenteditable') || element.isContentEditable))
+            .flatMap(element => {
+                const fontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+                return !Number.isFinite(fontSize) || fontSize < 16
+                    ? [{
+                        tag: element.tagName.toLowerCase(),
+                        type: element.getAttribute('type'),
+                        name: element.getAttribute('name'),
+                        fontSize,
+                    }]
+                    : [];
+            });
         const clippedControls = controls.flatMap(element => {
             const rect = element.getBoundingClientRect();
             let ancestor = element.parentElement;
@@ -312,6 +337,7 @@ async function auditMilestone(page, viewport, runtime, name, selector) {
             unnamed: unnamed.map(element => element.outerHTML.slice(0, 180)),
             duplicateControlNames,
             duplicateIds,
+            mobileZoomRiskControls,
             clippedControls,
             clippedText,
             brokenImages: brokenImages.map(image => image.getAttribute('src')),
@@ -323,6 +349,10 @@ async function auditMilestone(page, viewport, runtime, name, selector) {
     assert(layout.unnamed.length === 0, `${viewport.name}/${name}: unnamed controls`, layout);
     assert(layout.duplicateControlNames.length === 0, `${viewport.name}/${name}: duplicate command labels`, layout);
     assert(layout.duplicateIds.length === 0, `${viewport.name}/${name}: duplicate ids`, layout);
+    if (viewport.name === 'mobile') {
+        assert(layout.mobileZoomRiskControls.length === 0,
+            `${viewport.name}/${name}: text-entry controls below 16px can trigger mobile input zoom`, layout);
+    }
     assert(layout.clippedControls.length === 0, `${viewport.name}/${name}: controls are clipped or outside the viewport`, layout);
     assert(layout.clippedText.length === 0, `${viewport.name}/${name}: text is clipped`, layout);
     assert(layout.brokenImages.length === 0, `${viewport.name}/${name}: broken or unlabelled images`, layout);

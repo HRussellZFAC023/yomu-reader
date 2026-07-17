@@ -187,10 +187,18 @@ describe('Academy Google account and paid entitlement policy', () => {
             await seedInvite(academy.env, 'UCL2026', 'invite-ucl');
             await seedInvite(academy.env, 'STAFF2026', 'invite-staff');
             const ucl = await createSession(academy.env, 'UCL2026');
+            const secondUcl = await createSession(academy.env, 'UCL2026');
             const staff = await createSession(academy.env, 'STAFF2026');
             expect(ucl.response.status).toBe(200);
+            expect(secondUcl.response.status).toBe(200);
             expect(staff.response.status).toBe(200);
             expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', ucl.cookie))).status).toBe(200);
+            expect((await activeSession(
+                get(academy.env, '/academy/api/session', secondUcl.cookie), academy.env, Date.now(),
+            ))?.account_id).toBeNull();
+            expect((await dispatch(academy.env, get(
+                academy.env, '/academy/api/profile', secondUcl.cookie,
+            ))).status).toBe(200);
             expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', staff.cookie))).status).toBe(401);
 
             expect((await signInWithGoogle(academy.env, staff.cookie, 'staff-google-subject')).status).toBe(302);
@@ -273,8 +281,8 @@ describe('Academy Google account and paid entitlement policy', () => {
             expect(bound).toMatchObject({ redeemed_by_account_id: expect.any(String), redeemed_at: expect.any(Number) });
 
             const competing = await createSession(env, claimBody.code);
-            await expect(signInWithGoogle(env, competing.cookie, 'different-paid-subject', now + 4))
-                .rejects.toMatchObject({ status: 409 });
+            expect(competing.response.status).toBe(403);
+            expect(competing.cookie).toBe('');
             expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(1);
             expect(academy.db.rows<{ uses_remaining: number }>('SELECT uses_remaining FROM invites WHERE purchase_id = ?', purchase.id)[0]?.uses_remaining).toBe(1);
 

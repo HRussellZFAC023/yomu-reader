@@ -179,6 +179,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
 
     private async chooseBand(band: JlptBand, context: AcademyRouteContext): Promise<void> {
         const fromPlacement = context.checkpoint.placementOverride === true;
+        const storySection = placementStorySection(context);
         await this.options.evidence.chooseCurriculumEntry({
             route: fromPlacement ? 'placement-mock' : 'manual-band',
             band,
@@ -188,7 +189,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
             selectedBand: band,
             placementOverride: false,
             lessonId: undefined,
-            sectionId: undefined,
+            sectionId: storySection,
             activityId: undefined,
         });
     }
@@ -231,6 +232,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
 
     private async acceptPlacement(result: OrientationMockResult, context: AcademyRouteContext): Promise<void> {
         this.placementDraft = null;
+        const storySection = placementStorySection(context);
         if (result.recommendedStart === 'lesson-zero') {
             await this.options.evidence.chooseCurriculumEntry({
                 route: 'lesson-zero',
@@ -239,7 +241,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 selectedBand: undefined,
                 placementOverride: false,
                 lessonId: 'lesson:foundation-00',
-                sectionId: undefined,
+                sectionId: storySection,
                 activityId: undefined,
             });
             return;
@@ -253,7 +255,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
             selectedBand: result.recommendedStart,
             placementOverride: false,
             lessonId: undefined,
-            sectionId: undefined,
+            sectionId: storySection,
             activityId: undefined,
         });
     }
@@ -268,4 +270,12 @@ function requiredBand(context: AcademyRouteContext): JlptBand {
     const band = context.checkpoint.selectedBand;
     if (!band) throw new Error('Arrival bridge requires a selected JLPT band.');
     return band;
+}
+
+function placementStorySection(context: AcademyRouteContext): string | undefined {
+    for (let index = context.checkpoint.routeHistory.length - 1; index >= 0; index -= 1) {
+        const frame = context.checkpoint.routeHistory[index]!;
+        if (frame.route === 'story') return frame.sectionId;
+    }
+    return undefined;
 }

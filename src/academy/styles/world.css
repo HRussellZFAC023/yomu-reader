@@ -7104,6 +7104,7 @@
     --courtyard-ink: #1f2927;
     --courtyard-paper: rgba(239, 231, 204, 0.96);
     --courtyard-moss: #557862;
+    --courtyard-route-rail: calc(min(154px, 15vw) + 44px);
     color: #f8f3e8;
     background: #0b1820;
 }
@@ -7170,7 +7171,7 @@
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-scene-mark[data-landmark='notice-post'] {
-    right: 5%;
+    right: var(--courtyard-route-rail);
     bottom: 8%;
     width: min(330px, 27vw);
     height: min(300px, 37dvh);
@@ -7263,7 +7264,7 @@
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-action-dock,
 .academy-world-screen[data-current-place='courtyard'] .academy-world-action-dock[data-purpose-surface='noticeboard'] {
-    right: 5%;
+    right: var(--courtyard-route-rail);
     bottom: 8%;
     left: auto;
     z-index: 6;

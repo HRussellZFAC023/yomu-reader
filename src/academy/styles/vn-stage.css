@@ -725,6 +725,10 @@
         bottom: auto !important;
     }
 
+    html:has(.academy-profile-screen[data-profile-step='portrait']) .jpdb-reader-fab {
+        right: max(60px, calc(env(safe-area-inset-right) + 60px)) !important;
+    }
+
     .academy-vn-stage {
         --academy-vn-mobile-dialogue-height: min(48dvh, 390px);
         --academy-vn-mobile-dialogue-bottom: max(8px, env(safe-area-inset-bottom));

@@ -3156,6 +3156,34 @@
       options
     };
   }
+  function parseMultiChoiceExercise(value, path) {
+    const exercise = record$16(value, path);
+    if (exercise.kind !== "multi-choice") return void 0;
+    if (!isLocalized(exercise.prompt)) return void 0;
+    const rawOptions = array$15(exercise.options, `${path}.options`);
+    if (!rawOptions.every((candidate2) => isChoiceLabel(record$16(candidate2, `${path}.options[]`).label))) return void 0;
+    if (exercise.autoGraded !== true) fail$3(`${path}.autoGraded`, "must be true");
+    const options = rawOptions.map((candidate2, index) => {
+      const option2 = record$16(candidate2, `${path}.options[${index}]`);
+      if (typeof option2.correct !== "boolean") fail$3(`${path}.options[${index}].correct`, "must be boolean");
+      return {
+        id: text$k(option2.id, `${path}.options[${index}].id`),
+        label: localized$h(option2.label, `${path}.options[${index}].label`),
+        correct: option2.correct
+      };
+    });
+    if (!options.some((option2) => option2.correct)) fail$3(`${path}.options`, "must contain at least one correct option");
+    return {
+      id: text$k(exercise.id, `${path}.id`),
+      kind: "multi-choice",
+      prompt: localized$h(exercise.prompt, `${path}.prompt`),
+      explanation: text$k(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$k(exercise.reviewTag, `${path}.reviewTag`) },
+      ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
+      autoGraded: true,
+      options
+    };
+  }
   function parseExactExercise(value, path) {
     const exercise = record$16(value, path);
     if (exercise.kind !== "exact") return void 0;
@@ -9649,7 +9677,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       for (const [exerciseIndex, value] of (component.exercises ?? []).entries()) {
         const path = `package.components[${componentIndex}].exercises[${exerciseIndex}]`;
-        const normalized2 = normalizeLegacyChoice(id2, value, path);
+        const normalized2 = normalizeLegacyExercise(id2, value, path);
         const structured = adaptStructuredSourceExercise(id2, normalized2, path, component.teachingSupport);
         if (structured) {
           if (seen.has(structured.activity.sourceQuestionId)) {
@@ -9785,6 +9813,60 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
     return { ...exercise, options };
   }
+  function normalizeLegacyExercise(packageId, value, path) {
+    const normalizedChoice = normalizeLegacyChoice(packageId, value, path);
+    if (!normalizedChoice || typeof normalizedChoice !== "object" || Array.isArray(normalizedChoice)) return normalizedChoice;
+    const exercise = normalizedChoice;
+    if (exercise.kind === "match") {
+      const pairs = arrayField(exercise.pairs, `${path}.pairs`).map((candidate2, index) => {
+        const pair = recordField$1(candidate2, `${path}.pairs[${index}]`);
+        return {
+          left: legacyLocalizedValue(pair.left, `${path}.pairs[${index}].left`),
+          right: legacyLocalizedValue(pair.right, `${path}.pairs[${index}].right`)
+        };
+      });
+      return {
+        ...exercise,
+        kind: "matching",
+        pluginTarget: "academy-drag-sort",
+        answerVisibility: "after-attempt",
+        sourceItemsExact: pairs.map((pair) => pair.left),
+        answers: { visibility: "after-attempt", values: pairs.map((pair) => pair.right) }
+      };
+    }
+    if (exercise.kind === "order") {
+      const options = arrayField(exercise.options, `${path}.options`).map((candidate2, index) => {
+        const option2 = recordField$1(candidate2, `${path}.options[${index}]`);
+        return {
+          id: textField(option2.id, `${path}.options[${index}].id`),
+          label: legacyLocalizedValue(option2.label, `${path}.options[${index}].label`)
+        };
+      });
+      const byId2 = new Map(options.map((option2) => [option2.id, option2.label]));
+      const correctOrder = arrayField(exercise.correctOrder, `${path}.correctOrder`).map((candidate2, index) => textField(candidate2, `${path}.correctOrder[${index}]`));
+      const tiles = correctOrder.map((id2, index) => byId2.get(id2) ?? (() => {
+        throw new TypeError(`${path}.correctOrder[${index}] references an unknown option.`);
+      })());
+      return {
+        ...exercise,
+        kind: "ordering",
+        mode: "tiles",
+        pluginTarget: "academy-sequence",
+        answerVisibility: "after-attempt",
+        tiles,
+        answer: { primary: tiles.join(""), alternatives: [] }
+      };
+    }
+    return normalizedChoice;
+  }
+  function legacyLocalizedValue(value, path) {
+    const localized2 = recordField$1(value, path);
+    const japanese2 = typeof localized2.ja === "string" ? localized2.ja.trim() : "";
+    const english = typeof localized2.en === "string" ? localized2.en.trim() : "";
+    const result = japanese2 || english;
+    if (!result) throw new TypeError(`${path} must contain ja or en text.`);
+    return result;
+  }
   function adaptStructuredSourceExercise(packageId, value, path, teachingSupport) {
     const cloze = parseClozeExercise(value, path);
     if (cloze) return adaptClozeExercise(packageId, cloze, value, path, teachingSupport);
@@ -9792,7 +9874,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (matching) return adaptMatchingExercise(packageId, matching, value, path, teachingSupport);
     const ordering = parseOrderingExercise(value, path);
     if (ordering) return adaptOrderingExercise(packageId, ordering, value, path, teachingSupport);
+    const multiChoice = parseMultiChoiceExercise(value, path);
+    if (multiChoice) return adaptMultiChoiceExercise(packageId, multiChoice, value, path, teachingSupport);
     return void 0;
+  }
+  function adaptMultiChoiceExercise(packageId, exercise, raw, path, teachingSupport) {
+    const sourceQuestionId2 = `${packageId}/${exercise.id}`;
+    const mappings = exercise.options.filter((option2) => option2.correct).map((option2, index) => sourceExerciseOverlay(
+      packageId,
+      `${exercise.reviewTag ?? exercise.id}:choice-${index + 1}`,
+      option2.label.ja,
+      exercise.explanation,
+      option2.label.en
+    ));
+    const activity2 = {
+      id: `authored:${sourceQuestionId2}`,
+      kind: "academy-authored-multi-choice",
+      sourceQuestionId: sourceQuestionId2,
+      conceptIds: mappings.map((mapping2) => mapping2.conceptId),
+      responseKind: "authored-choice-set",
+      curriculumPhase: sourceCurriculumPhase(recordField$1(raw, path), path, "guided-practice"),
+      prompt: exercise.prompt,
+      options: exercise.options.map((option2) => ({ id: option2.id, label: option2.label })),
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      teachingSupport,
+      provenance: {
+        packageId,
+        sourceQuestionId: sourceQuestionId2,
+        authoredSource: authoredSourceProvenance(recordField$1(raw, path), exercise.id, path)
+      }
+    };
+    const expected = new Set(exercise.options.filter((option2) => option2.correct).map((option2) => option2.id));
+    return {
+      activity: activity2,
+      evaluate: (response) => {
+        const selected2 = multiChoiceResponse(response, new Set(exercise.options.map((option2) => option2.id)));
+        const passed = exercise.options.filter((option2) => option2.correct).map((option2) => selected2.has(option2.id));
+        const extras = [...selected2].filter((id2) => !expected.has(id2));
+        return structuredEvaluation(exercise.id, sourceQuestionId2, mappings, extras.length ? passed.map(() => false) : passed);
+      }
+    };
   }
   function adaptClozeExercise(packageId, exercise, raw, path, teachingSupport) {
     const sourceQuestionId2 = `${packageId}/${exercise.id}`;
@@ -9918,7 +10039,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     assertAuthoredWeekPedagogy({ ...week, activities });
   }
   function isStructuredActivity(activity2) {
-    return activity2.kind === "academy-authored-cloze" || activity2.kind === "academy-authored-matching" || activity2.kind === "academy-authored-ordering";
+    return activity2.kind === "academy-authored-cloze" || activity2.kind === "academy-authored-matching" || activity2.kind === "academy-authored-multi-choice" || activity2.kind === "academy-authored-ordering";
+  }
+  function multiChoiceResponse(response, allowed) {
+    if (response === "pedagogy:lapse-probe") return /* @__PURE__ */ new Set();
+    if (typeof response === "string" || response.kind !== "multi-choice" || !response.optionIds.length) {
+      throw new TypeError("A choose-all response must contain at least one option.");
+    }
+    const selected2 = new Set(response.optionIds);
+    if (selected2.size !== response.optionIds.length || [...selected2].some((id2) => !allowed.has(id2))) {
+      throw new TypeError("A choose-all response must contain unique authored options.");
+    }
+    return selected2;
   }
   function structuredEvaluation(exerciseId, sourceQuestionId2, mappings, passed) {
     if (!mappings.length || mappings.length !== passed.length) throw new TypeError("Structured grading targets are inconsistent.");
@@ -33180,6 +33312,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (disposed) throw new Error("VN performance engine has been disposed.");
   }
   let vnStageSequence = 0;
+  const TEXT_REVEAL_LEAD_IN_MS = 72;
+  const TEXT_REVEAL_BASE_DELAY_MS = 42;
+  const TEXT_REVEAL_CLUSTER_DELAY_MS = 18;
   function createAcademyVnStage(options = {}) {
     const lifecycle = new AbortController();
     const root = node("section", "academy-vn-stage");
@@ -33420,7 +33555,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       dialogue2.dataset.textRevealing = "";
       dialogue2.setAttribute("aria-busy", "true");
       japanese2.replaceChildren(revealText);
-      const baseDelayMs = Math.max(38, Math.round(textRevealDuration(units.length) / units.length));
       const revealNext = () => {
         if (typeof window === "undefined") {
           textRevealTimer = void 0;
@@ -33436,12 +33570,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
         textRevealTimer = window.setTimeout(
           revealNext,
-          textRevealCharacterDelay(units, visibleUnits - 1, baseDelayMs)
+          textRevealCharacterDelay(units, visibleUnits - 1)
         );
       };
       textRevealTimer = window.setTimeout(
         revealNext,
-        90 + textRevealCharacterDelay(units, 0, baseDelayMs)
+        TEXT_REVEAL_LEAD_IN_MS + textRevealCharacterDelay(units, 0)
       );
     }
     function finishTextReveal(lineId) {
@@ -33792,31 +33926,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     if (!inert) snapshots.clear();
   }
-  function textRevealDuration(unitCount) {
-    return Math.max(280, Math.min(1600, unitCount * 42));
-  }
   function textRevealUnits(text2) {
     if (typeof Intl.Segmenter !== "function") return [...text2];
     return [...new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(text2)].map((segment) => segment.segment);
   }
-  function textRevealCharacterDelay(units, index, baseDelayMs) {
+  function textRevealCharacterDelay(units, index) {
     const character = units[index] ?? "";
     const nextCharacter = units[index + 1] ?? "";
-    const clusterDelayMs = Math.max(16, Math.round(baseDelayMs * 0.42));
+    const baseDelayMs = TEXT_REVEAL_BASE_DELAY_MS;
+    const clusterDelayMs = TEXT_REVEAL_CLUSTER_DELAY_MS;
     if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
     if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
-    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 420;
-    if (isSentenceEnd(character)) return baseDelayMs + 420;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 150;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 230;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 320;
+    if (isSentenceEnd(character)) return baseDelayMs + 320;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 120;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 180;
     if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
-    if (/[…―—]/u.test(character)) return baseDelayMs + 190;
-    if (/[」』）】]/u.test(character)) return baseDelayMs + 70;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 160;
+    if (/[」』）】]/u.test(character)) return baseDelayMs + 50;
     if (/[「『（【]/u.test(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
       return clusterDelayMs;
     }
-    if (/\s/u.test(character)) return Math.max(20, Math.round(baseDelayMs * 0.62));
+    if (/\s/u.test(character)) return 26;
     return baseDelayMs;
   }
   function isSentenceEnd(character) {
@@ -39540,6 +39672,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async chooseBand(band, context2) {
       const fromPlacement = context2.checkpoint.placementOverride === true;
+      const storySection = placementStorySection(context2);
       await this.options.evidence.chooseCurriculumEntry({
         route: fromPlacement ? "placement-mock" : "manual-band",
         band,
@@ -39549,7 +39682,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         selectedBand: band,
         placementOverride: false,
         lessonId: void 0,
-        sectionId: void 0,
+        sectionId: storySection,
         activityId: void 0
       });
     }
@@ -39583,6 +39716,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async acceptPlacement(result, context2) {
       this.placementDraft = null;
+      const storySection = placementStorySection(context2);
       if (result.recommendedStart === "lesson-zero") {
         await this.options.evidence.chooseCurriculumEntry({
           route: "lesson-zero"
@@ -39591,7 +39725,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           selectedBand: void 0,
           placementOverride: false,
           lessonId: "lesson:foundation-00",
-          sectionId: void 0,
+          sectionId: storySection,
           activityId: void 0
         });
         return;
@@ -39605,7 +39739,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         selectedBand: result.recommendedStart,
         placementOverride: false,
         lessonId: void 0,
-        sectionId: void 0,
+        sectionId: storySection,
         activityId: void 0
       });
     }
@@ -39617,6 +39751,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const band = context2.checkpoint.selectedBand;
     if (!band) throw new Error("Arrival bridge requires a selected JLPT band.");
     return band;
+  }
+  function placementStorySection(context2) {
+    for (let index = context2.checkpoint.routeHistory.length - 1; index >= 0; index -= 1) {
+      const frame2 = context2.checkpoint.routeHistory[index];
+      if (frame2.route === "story") return frame2.sectionId;
+    }
+    return void 0;
   }
   const lessons = [
     {
@@ -211068,6 +211209,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       appendClozeControls(choices2, activity2, heading.id, actions, submit);
     } else if (activity2.kind === "academy-authored-matching") {
       appendMatchingControls(choices2, activity2, heading.id, actions, submit);
+    } else if (activity2.kind === "academy-authored-multi-choice") {
+      appendMultiChoiceControls(choices2, activity2, heading.id, actions, submit);
     } else {
       appendOrderingControls(choices2, activity2, heading.id, actions, submit);
     }
@@ -211135,9 +211278,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return "academy-text-response academy-authored-cloze";
       case "academy-authored-matching":
         return "academy-drag-workspace academy-authored-matching";
+      case "academy-authored-multi-choice":
+        return "academy-choice-options academy-authored-multi-choice";
       case "academy-authored-ordering":
         return "academy-authored-ordering";
     }
+  }
+  function appendMultiChoiceControls(root, activity2, headingId, actions, submit) {
+    const selected2 = /* @__PURE__ */ new Set();
+    const check = checkButton(actions.language, "Check selections", "選んだ答えを確認");
+    activity2.options.forEach((option2) => {
+      const label = element("label", "academy-choice-row academy-authored-multi-choice-row");
+      const input2 = document.createElement("input");
+      input2.type = "checkbox";
+      input2.value = option2.id;
+      input2.dataset.authoredModalityControl = "";
+      input2.setAttribute("aria-describedby", headingId);
+      input2.addEventListener("change", () => {
+        if (input2.checked) selected2.add(option2.id);
+        else selected2.delete(option2.id);
+        check.disabled = selected2.size === 0;
+      }, { signal: actions.signal });
+      const text2 = element("span", "academy-choice-option academy-authored-multi-choice-label");
+      text2.append(assessedJapanese(option2.label.ja), support(option2.label.en));
+      label.append(input2, text2);
+      root.append(label);
+    });
+    check.disabled = true;
+    check.addEventListener("click", () => {
+      if (check.disabled) return;
+      submit({ kind: "multi-choice", optionIds: [...selected2] }, check);
+    }, { signal: actions.signal });
+    root.append(check);
   }
   function appendClozeControls(root, activity2, headingId, actions, submit) {
     const sentence = element("p", "academy-authored-cloze-sentence");
