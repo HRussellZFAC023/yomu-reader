@@ -40158,7 +40158,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.176".trim() ? "1.6.176".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.177".trim() ? "1.6.177".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -82166,6 +82166,7 @@ ${entry.url}`),
         void this.loadWordPitch(card).then((pitchAccent) => {
           if (!pitchAccent.length) return;
           if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+          if (!pitchSeedFromCard(card, Date.now())) return;
           const root = this.listenRootEl();
           if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
         }).catch(() => void 0);

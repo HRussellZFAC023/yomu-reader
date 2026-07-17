@@ -157,7 +157,7 @@ import {
 } from './review-controls';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallCloze, type NewTabRecallOutcome } from './recall-practice';
 import { convertRomajiToKana } from './japanese-input';
-import { PitchSrsStore, pitchItemKey, type PitchSrsItem } from './pitch-srs';
+import { PitchSrsStore, pitchItemKey, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
 import { createNewTabStudySession, type NewTabStudySession, type NewTabStudyStep, type NewTabStudyStepId, type NewTabStudyStepKind } from './study-session';
@@ -5178,6 +5178,12 @@ export class NewTabController {
             void this.loadWordPitch(card).then(pitchAccent => {
                 if (!pitchAccent.length) return;
                 if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+                // Re-render ONLY if the enriched pitch actually seeds an SRS item.
+                // Fetched contours that never match the reading (mora mismatch,
+                // empty reading) would otherwise re-enter this branch, resolve the
+                // cached pitch promise on a microtask, and re-render forever —
+                // an infinite loop that froze the tab on the Speak step.
+                if (!pitchSeedFromCard(card, Date.now())) return;
                 const root = this.listenRootEl();
                 if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
             }).catch(() => undefined);

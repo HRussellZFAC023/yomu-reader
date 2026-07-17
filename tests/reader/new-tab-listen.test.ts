@@ -358,6 +358,30 @@ describe('new-tab Listen mode', () => {
         }
     });
 
+    it('does not re-render forever when enriched pitch never seeds an SRS item', async () => {
+        // Regression: a fetched contour that cannot match the reading (mora
+        // mismatch) used to re-render on every cached-promise resolution —
+        // an infinite render loop that froze the tab on the Speak step.
+        const { controller, internals } = listenController([pitchCard({ pitchAccent: [] })], 'shadow');
+        const hacked = controller as unknown as { loadWordPitch(card: JPDBCard): Promise<string[]> };
+        hacked.loadWordPitch = () => Promise.resolve(['HLLLLLLL']); // 8 levels for the 2-mora はし — never seeds
+        const originalRender = internals.renderWord.bind(internals);
+        let renders = 0;
+        internals.renderWord = (root: HTMLElement, card: JPDBCard) => {
+            renders += 1;
+            if (renders > 10) throw new Error('render loop detected');
+            originalRender(root, card);
+        };
+        const root = listenRoot();
+        try {
+            internals.renderWord(root, internals.visibleWords[0]);
+            for (let index = 0; index < 5; index += 1) await Promise.resolve();
+            expect(renders).toBe(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('auto-seeds the pitch deck from a passing vocab review', async () => {
         const { controller, internals } = listenController([pitchCard()], 'perceive', {
             newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],

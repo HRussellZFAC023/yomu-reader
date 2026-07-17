@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.177] - 2026-07-17
+
+### Fixed
+
+- Opening the Speak (or Listen) study step no longer freezes the tab when a word's fetched pitch contour cannot be matched to its reading: the card re-rendered on every resolution of the cached pitch lookup in an endless loop, and now re-renders only when the enriched pitch actually yields a drillable item.
+
 ## [1.6.176] - 2026-07-17
 
 ### Fixed
