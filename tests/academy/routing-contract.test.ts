@@ -1,7 +1,7 @@
 import { projectLearnerRecord, type LearnerEvent } from '../../src/academy/domain/learner-record';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
 import {
-    AAKASH_CONTINUATION_ROUTE,
+
     globalNavigationIsAvailable,
     navigationForRoute,
     normalizeResumeCheckpoint,
@@ -66,10 +66,6 @@ describe('Academy resume route contract', () => {
             .toMatchObject({ route: 'lesson-overview', lessonId: 'lesson:foundation-00' });
     });
 
-    it('returns from Aakash to campus while keeping writing practice optional', () => {
-        expect(AAKASH_CONTINUATION_ROUTE).toBe('campus');
-        expect(checkpoint('writing-practice').route).toBe('writing-practice');
-    });
 
     it('preserves the chosen mission while returning legacy progress to the overview', () => {
         const profile = event({

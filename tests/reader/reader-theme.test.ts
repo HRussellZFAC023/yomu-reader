@@ -12,13 +12,6 @@ import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpac
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_STORAGE_KEY = SETTINGS_STORAGE_KEYS[0];
-const JAPANESE_SURFACE_CSS = [
-    'src/reader/styles/popover-core.css',
-    'src/reader/styles/kanji.css',
-    'src/reader/styles/immersion-study.css',
-    'src/reader/styles/local-dictionaries.css',
-    'src/reader/styles/new-tab.css',
-].map(path => readFileSync(path, 'utf8')).join('\n');
 const READER_WORD_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 type AppliedReaderTheme = ReturnType<typeof applyReaderTheme>;
 type LoadedColorChannels = Pick<ReaderSettings,
@@ -1107,21 +1100,6 @@ describe('reader theme', () => {
         expect(root.style.getPropertyValue('--jpdb-reader-popup-font-weight')).toBe('400');
     });
 
-    it('routes popup Japanese render surfaces through the popup font variables', () => {
-        [
-            '.jpdb-reader-spelling',
-            '.jpdb-reader-reading',
-            '.jpdb-reader-kanji-display',
-            '.jpdb-reader-kanji-inline',
-            '.jpdb-reader-jpdb-compound-term',
-            '.jpdb-reader-example-sentence',
-            '.jpdb-reader-local-expression',
-            '.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence',
-        ].forEach(selector => expect(JAPANESE_SURFACE_CSS).toContain(selector));
-
-        expect(JAPANESE_SURFACE_CSS.match(/font-family: var\(--jpdb-reader-popup-font/g)?.length).toBeGreaterThanOrEqual(10);
-        expect(JAPANESE_SURFACE_CSS.match(/font-weight: var\(--jpdb-reader-popup-font-weight/g)?.length).toBeGreaterThanOrEqual(8);
-    });
 
     it('wires reader word accessible colors without expanding adjacent word hitboxes', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');

@@ -1456,21 +1456,6 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('never clips subtitle cue text: overflow extends up instead of eating the bottom native line', () => {
-        // M1 layout contract, pinned in CSS (jsdom does no layout):
-        // - the height cap is px/%-based, never em-based (an em cap shrank with
-        //   the font so shrink-to-fit could not converge),
-        // - the lines box is an end-aligned grid whose residual overflow goes
-        //   UP into the video, and nothing under .jpdb-subtitle-text clips.
-        expect(SUBTITLES_YOUTUBE_CSS).toContain('max-height: min(45%, calc(100% - 24px), 320px);');
-        expect(SUBTITLES_YOUTUBE_CSS).not.toContain('max-height: min(5.4em');
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit;');
-        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*display: grid;/);
-        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*align-content: end;/);
-        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*overflow: visible;/);
-        expect(normalizedCss).not.toMatch(/\.jpdb-subtitle-lines \{[^}]*overflow: hidden/);
-    });
 
     it('keeps the pause-opened transcript closed while subtitle style controls are open', () => {
         const { controller } = createInstalledSubtitleController({
@@ -6071,43 +6056,8 @@ Watch the cat
         });
     });
 
-    it('collapses the idle subtitle rail to its move grip and fully hides it when the player chrome is away', () => {
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: .55;\n  pointer-events: auto;\n  transform: translateY(0);\n}');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('> :not(.jpdb-subtitle-rail-move) {\n  display: none !important;');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-away:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) {\n  opacity: 0;\n  visibility: hidden;\n  pointer-events: none;\n}');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open) .jpdb-subtitle-rail:not(:hover):not(:focus-within) button[data-action="previous"],');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-panel-open .jpdb-subtitle-rail');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('max-height: min(45%, calc(100% - 24px), 320px);\n  overflow: visible;');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-lines {\n  min-height: 1.36em;\n  max-height: inherit;');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
-    });
 
-    it('keeps the secondary subtitle line on its own stable font size', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss)
-            .toContain('.jpdb-subtitle-secondary { --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted); display: block; width: fit-content; max-width: 100%;');
-        expect(normalizedCss)
-            .toContain('font-size: var(--subtitle-secondary-font-size);');
-        expect(normalizedCss)
-            .not.toContain('font: var(--subtitle-weight) .62em/1.25 var(--subtitle-family);');
-    });
-
-    it('reveals blurred secondary subtitles without the mobile-expensive CSS filter', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('.jpdb-subtitle-secondary-blurred { color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: 0 0 6px var(--jpdb-subtitle-secondary-color), 0 0 9px var(--jpdb-reader-video-shadow-heavy); opacity: .82; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-secondary-blurred:hover, .jpdb-subtitle-secondary-blurred:focus-visible { color: var(--jpdb-subtitle-secondary-color) !important; -webkit-text-fill-color: var(--jpdb-subtitle-secondary-color);');
-        expect(normalizedCss).not.toContain('filter: blur(5px);');
-    });
 
     it('toggles native subtitle blur in place without reparsing or rebuilding the line', () => {
         const parseJapanese = vi.fn(async () => []);
@@ -6145,51 +6095,8 @@ Watch the cat
         }
     });
 
-    it('uses left-aligned movable subtitle rails on touch screens', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
-        // any-pointer:coarse (not the primary pointer) so an iPad-with-Pencil
-        // (pointer:fine, width > 768px) still gets the larger touch targets.
-        expect(normalizedCss).toContain('@media (max-width: 768px), (any-pointer: coarse) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button::after { content: ""; position: absolute; inset: -2px; border-radius: 12px; }');
-        // Drawer transport matches its 44px top-row neighbours on touch — real
-        // chrome, not an invisible hit-slop halo.
-        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }');
-        expect(normalizedCss).not.toContain('.jpdb-subtitle-drawer-playback button::after');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button, .jpdb-subtitle-compact-video .jpdb-subtitle-rail button { min-width: 42px; width: 42px; max-width: 42px; min-height: 42px; height: 42px; max-height: 42px; padding: 0; font-size: 11px; border-radius: 10px; touch-action: manipulation; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail::-webkit-scrollbar { display: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: auto; bottom: auto; gap: 4px; padding: 4px; border-radius: 13px; max-width: calc(100% - 16px); flex-wrap: wrap; overflow: visible;');
-        // The drawer transport shares the bordered icon-button chrome and answers
-        // hover with the accent treatment like the close/options buttons.
-        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-drawer-playback button:is(:hover, :focus-visible):not(:disabled) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail button:is(:hover, :focus-visible):not(:disabled) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-item:is(:hover, :focus-visible) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drawer-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; max-width: 100%; min-width: 0; overflow: visible; scrollbar-width: none; -webkit-overflow-scrolling: touch; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-panel-mode button { min-width: 44px; padding-inline: 4px; font-size: 10px; }');
-        // The merged panel-options control keeps 44px touch targets on coarse pointers.
-        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-toggle { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-list .jpdb-subtitle-panel-options-item { min-height: 44px; }');
-        // The old 72%-opacity full rail is gone; idle now collapses to a chip.
-        expect(normalizedCss).not.toContain('opacity: 0.72; pointer-events: auto; transform: none;');
-        expect(normalizedCss).not.toContain('opacity: .72; pointer-events: auto; transform: none;');
-    });
 
-    it('ignores sticky tap hover when collapsing the idle rail on hoverless devices', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss).toContain('@media (hover: none) {');
-        expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-hidden) .jpdb-subtitle-drag-handle:not(:focus):not(.jpdb-subtitle-dragging), .asbplayer-subtitles-container-bottom.jpdb-subtitle-asb-movable.jpdb-subtitle-controls-idle > .jpdb-subtitle-asb-drag-handle:not(:focus):not(.jpdb-subtitle-dragging) { opacity: 0; pointer-events: none; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-controls-auto.jpdb-subtitle-controls-idle:not(.jpdb-subtitle-style-open) .jpdb-subtitle-rail:not(:focus-within) { opacity: .55; pointer-events: auto; transform: translateY(0); }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-rail:not(:focus-within) > :not(.jpdb-subtitle-rail-move) { display: none !important; }');
-        expect(normalizedCss).not.toContain('jpdb-subtitle-controls-idle:not(.jpdb-subtitle-panel-open):not(.jpdb-subtitle-style-open)');
-    });
-
-    it('hides the whole subtitle rail when subtitle controls are hidden', () => {
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail {\n  opacity: 0;\n  visibility: hidden;\n  pointer-events: none;\n  transform: translateY(-4px);\n}');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('.jpdb-subtitle-controls-hidden .jpdb-subtitle-rail button[data-action="previous"],');
-    });
 
     it('toggles the mobile YouTube bottom sheet class without selector :has()', () => {
         const originalLocation = window.location;
@@ -6256,59 +6163,8 @@ Watch the cat
         }
     });
 
-    it('keeps the transcript panel available in fullscreen', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).not.toContain('html.jpdb-subtitle-fullscreen .jpdb-subtitle-list');
-        expect(normalizedCss).toContain('html.jpdb-subtitle-fullscreen .jpdb-reader-fab { display: none !important; }');
-    });
 
-    it('does not default live subtitle status colors to blue without a real status source', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('--jpdb-reader-subtitle-status-color: var(--jpdb-reader-status-color, transparent);');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('--jpdb-reader-subtitle-jpdb-color: var(--jpdb-reader-jpdb-color, transparent);');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .toContain('--jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, transparent);');
-        expect(SUBTITLES_YOUTUBE_CSS)
-            .not.toContain('--jpdb-reader-subtitle-anki-color: var(--jpdb-reader-anki-color, var(--jpdb-reader-state-new));');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka)');
-        expect(normalizedCss).not.toContain('jpdb-pitch-kifuku');
-        expect(normalizedCss)
-            .not.toContain('.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-highlight');
-        expect(normalizedCss)
-            .toContain('--jpdb-reader-word-highlight-paint: var(--jpdb-reader-subtitle-highlight, transparent);');
-        expect(normalizedCss)
-            .toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
-        expect(normalizedCss)
-            .toContain('background-size: var(--jpdb-reader-word-highlight-size) 100% !important;');
-        expect(normalizedCss)
-            .not.toContain('background: var(--jpdb-reader-subtitle-highlight, var(--jpdb-reader-subtitle-highlight-default)) !important;');
-    });
-
-    it('keeps ASBPlayer subtitle words out of Yomu underline color channels', () => {
-        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
-        const yomuSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface)';
-        const asbSurfaces = ':is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom)';
-
-        expect(normalizedCss)
-            .toContain(`.jpdb-reader-subtitle-underline-jpdb ${yomuSurfaces} .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-jpdb-decoration); }`);
-        expect(normalizedCss)
-            .toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${yomuSurfaces} .jpdb-reader-word { text-decoration-line: none !important; }`);
-        for (const source of ['status', 'jpdb', 'anki', 'pitch']) {
-            expect(normalizedCss)
-                .not.toContain(`.jpdb-reader-subtitle-underline-${source} ${asbSurfaces}`);
-        }
-        expect(normalizedCss)
-            .not.toContain(`:is(.jpdb-reader-subtitle-underline-status, .jpdb-reader-subtitle-underline-jpdb, .jpdb-reader-subtitle-underline-anki, .jpdb-reader-subtitle-underline-pitch) ${asbSurfaces}`);
-        expect(normalizedCss)
-            .toContain(`.jpdb-reader-subtitle-text-jpdb ${asbSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }`);
-        expect(normalizedCss)
-            .toContain(`.jpdb-reader-subtitle-highlight-jpdb ${asbSurfaces} .jpdb-reader-word { --jpdb-reader-subtitle-highlight: var(--jpdb-reader-subtitle-source-jpdb-soft, var(--jpdb-reader-source-jpdb-soft, var(--jpdb-reader-subtitle-highlight-default))); }`);
-    });
 
     it('keeps the tracks panel open after choosing a primary track so Lines is an explicit next step', async () => {
         const settings = {

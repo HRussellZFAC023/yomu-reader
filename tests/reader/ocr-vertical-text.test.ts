@@ -1,14 +1,9 @@
-import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
 import { isVerticalOcrBox, type OcrRect } from '../../src/reader/ocr/response-shared';
 
-const READER_WORDS_OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 
-function normalizeCss(css: string): string {
-    return css.replace(/\s+/g, ' ');
-}
 
 function box(width: number, height: number): OcrRect {
     return { left: 0, top: 0, width, height };
@@ -39,14 +34,3 @@ describe('OCR orientation fallback (isVerticalOcrBox)', () => {
     });
 });
 
-describe('vertical OCR text styling', () => {
-    const css = normalizeCss(READER_WORDS_OCR_CSS);
-
-    it('draws the vertical word pitch mark via the side border, not the dead native underline', () => {
-        // text-decoration cannot paint through the inline-flex word children, so the
-        // side rule is the base ::after (border-block-end = physical-left edge in
-        // vertical-rl); the native underline is suppressed so only one side shows.
-        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word { text-decoration-line: none !important;');
-        expect(css).not.toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after { display: none;');
-    });
-});

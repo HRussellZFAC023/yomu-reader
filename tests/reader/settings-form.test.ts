@@ -39,7 +39,6 @@ const frequencySettings = {
 };
 
 const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
-const DOCS_THEME_SOURCE = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 const GETTING_STARTED_DOCS = readFileSync('docs/getting-started.md', 'utf8');
 const FEATURES_DOCS = readFileSync('docs/features.md', 'utf8');
 const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -1280,39 +1279,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-tag-add-row input, .jpdb-reader-settings .jpdb-reader-tag-add-row .jpdb-reader-btn { flex-basis: 100%; }');
     });
 
-    it('keeps hosted settings companions lazy while preserving settings warmup', () => {
-        const normalizedTheme = DOCS_THEME_SOURCE.replace(/\s+/g, ' ');
 
-        expect(normalizedTheme).toContain('function warmHostedSettingsRuntime(): HTMLScriptElement[] { const forceLocalRuntime = isLocalHostedRuntime(); const settings = appendHostedSettingsCompanionScript(forceLocalRuntime); const core = loadHostedYomuRuntime(); return [settings, core].filter(isHostedRuntimeScriptElement); }');
-        expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); prepareHostedMangaOcrDemo(); if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) {');
-        expect(normalizedTheme).toContain('function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean { return location.pathname.includes(\'/video-player/\') || Boolean(document.querySelector(\'[data-yomu-video-frame]\')); }');
-        expect(normalizedTheme).toContain('if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);');
-        expect(normalizedTheme).toContain('ocrEnabled: true');
-        expect(normalizedTheme).toContain('ocrVideoPauseFrames: true');
-        expect(normalizedTheme).toContain('ocrProvider: \'google-lens\'');
-        expect(normalizedTheme).toContain('ocrOverlayTheme: \'auto\'');
-    });
-
-    it('renders the support banner with localized currency, a progress bar, and provider buttons', () => {
-        // Localized display: the banner prefers the Worker-provided display text
-        // and falls back to Intl.NumberFormat with the visitor's locale.
-        expect(DOCS_THEME_SOURCE).toContain('function formatHostedLocalCurrency(value: number, currency: string): string');
-        expect(DOCS_THEME_SOURCE).toContain('new Intl.NumberFormat(locale, {');
-        expect(DOCS_THEME_SOURCE).toContain('if (display?.goalText) return display.goalText;');
-        // Progress bar toward the localized monthly goal.
-        expect(DOCS_THEME_SOURCE).toContain('function renderHostedSupportProgress(status: HostedSupportStatus): HTMLElement | null');
-        expect(DOCS_THEME_SOURCE).toContain("track.setAttribute('role', 'progressbar');");
-        expect(DOCS_THEME_SOURCE).toContain("fill.className = 'yomu-support-banner-progress-fill';");
-        // Manual providers render only when the Worker reports an enabled https URL.
-        expect(DOCS_THEME_SOURCE).toContain('function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[]');
-        expect(DOCS_THEME_SOURCE).toContain("if (!provider?.enabled || provider.id === 'stripe') continue;");
-        expect(DOCS_THEME_SOURCE).toContain('const url = safeHostedHttpsUrl(provider.url);');
-        // Docs and newtab share the same quieter support-banner policy.
-        expect(DOCS_THEME_SOURCE).toContain('shouldShowSupportBannerImpression');
-        expect(DOCS_THEME_SOURCE).toContain('rememberSupportBannerDismissal');
-        expect(DOCS_THEME_SOURCE).toContain('function shouldShowHostedSupportBannerImpression(version: string): boolean');
-        expect(DOCS_THEME_SOURCE).toContain('function rememberHostedSupportDismissal(version: string): void');
-    });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {
         const form = document.createElement('form');

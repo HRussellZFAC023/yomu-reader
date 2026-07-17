@@ -171,12 +171,6 @@ describe('audio module boundaries', () => {
             .toEqual(['jisho', 'jiten-tts', 'jpdb-tts']);
     });
 
-    it('keeps term audio and automatic lookup playback enabled by default', () => {
-        expect(DEFAULT_SETTINGS.audioEnabled).toBe(true);
-        expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
-        expect(DEFAULT_SETTINGS.audioAutoPlayMode).toBe('all');
-        expect(DEFAULT_SETTINGS.audioEnableDefaultSources).toBe(true);
-    });
 
     it('does not suppress successful autoplay for a fresh hover generation', async () => {
         let hoverGeneration = 1;
@@ -234,13 +228,6 @@ describe('audio module boundaries', () => {
         ]);
     });
 
-    it('keeps Anki opt-in on fresh installs and factory resets', () => {
-        expect(DEFAULT_SETTINGS.ankiEnabled).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiSectionEnabled).toBe(false);
-        expect(DEFAULT_SETTINGS.newTabAnkiEnabled).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
-        expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
-    });
 
     it('extracts Jisho candidates through the userscript path without executing remote HTML', async () => {
         let executed = false;

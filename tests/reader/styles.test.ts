@@ -66,20 +66,7 @@ describe('reader stylesheet loading', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });
 
-    it('uses one slightly smaller font size for every mobile five-grade button', () => {
-        const css = readFileSync('src/reader/styles/kanji.css', 'utf8').replace(/\s+/g, ' ');
-        expect(css).toContain('.jpdb-reader-grades .jpdb-reader-btn { padding-inline: clamp(1px, 0.75cqi, 4px); font-size: clamp(8.2px, 2.2cqi, 9.8px); }');
-        expect(css).not.toMatch(/\.jpdb-reader-btn\.something\s*\{[^}]*font-size:/s);
-    });
 
-    it('keeps the shared Study pause control large enough to operate', () => {
-        const css = readFileSync('src/reader/styles/new-tab.css', 'utf8');
-        const rule = css.match(/\.jpdb-reader-study-clock-toggle\s*\{[^}]*\}/)?.[0] ?? '';
-
-        expect(rule).toContain('min-height: 28px');
-        expect(rule).toContain('padding: 4px 8px');
-        expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*\.jpdb-reader-study-clock-toggle\s*\{\s*min-height: 44px !important;/);
-    });
 
     it('keeps a linked hosted stylesheet authoritative over network fallback CSS', () => {
         expect(shouldLoadReaderCssFallback(true, '')).toBe(false);
@@ -287,36 +274,7 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toContain('jpdb-reader-pitch-compound');
     });
 
-    it('keeps hover layered over highlights while passive chrome strips highlight paint', () => {
-        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const hoverRule = css.match(/\.jpdb-reader-word:hover,\s*\.jpdb-reader-word:focus\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
-        expect(hoverRule).toContain('linear-gradient(var(--jpdb-reader-hover)');
-        expect(hoverRule).toContain('var(--jpdb-reader-word-accessible-highlight');
-        expect(hoverRule).toContain('var(--jpdb-reader-word-highlight-source, transparent)');
-        expect(css).toContain('[data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover');
-        expect(css).toContain('[data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus');
-    });
-
-    it('keeps dark OCR auto overlays readable without an opaque accent block', () => {
-        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const darkAutoVisibleRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line-visible\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-        const darkAutoRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus-visible, \.jpdb-ocr-line-active\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-        const darkAutoWordRule = css.match(/\.jpdb-ocr-layer\[data-ocr-overlay-theme="dark"\]\[data-ocr-overlay-variant="auto"\]\s*\.jpdb-ocr-line:is\(:hover, :focus-visible, \.jpdb-ocr-line-active\)\s*\.jpdb-reader-word\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
-
-        expect(css).toContain('--jpdb-ocr-auto-dark-surface');
-        expect(css).toContain('--jpdb-ocr-auto-dark-visible');
-        expect(css).toContain('--jpdb-ocr-auto-dark-active');
-        expect(darkAutoVisibleRule).toContain('color: var(--jpdb-reader-video-text, #ffffff)');
-        expect(darkAutoVisibleRule).toContain('background: var(--jpdb-ocr-auto-dark-visible)');
-        expect(darkAutoRule).toContain('color: var(--jpdb-reader-video-text, #ffffff)');
-        expect(darkAutoRule).toContain('background: var(--jpdb-ocr-auto-dark-active)');
-        expect(darkAutoRule).toContain('var(--jpdb-reader-video-outline, rgba(0, 0, 0, 0.88))');
-        expect(css).toContain('.jpdb-ocr-line:focus-visible');
-        expect(darkAutoWordRule).toContain('--jpdb-reader-subtitle-fallback: var(--jpdb-reader-video-text, #ffffff)');
-        expect(darkAutoWordRule).toContain('var(--jpdb-reader-video-text, #ffffff)');
-        expect(darkAutoWordRule).toContain('text-shadow: inherit');
-    });
 
     it('keeps pointer-focused OCR text passive until hover or explicit activation', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');

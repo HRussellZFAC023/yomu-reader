@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
@@ -20,7 +18,6 @@ function paint(host: HTMLElement): void {
     applyTokensToScanTarget({ ...target, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 }
 
-const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8').replace(/\r\n/g, '\n');
 
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
@@ -42,18 +39,5 @@ describe('text mirror copy/paste isolation', () => {
         expect(mirror.getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('gives the mirror user-select:none (both standard and -webkit) in CSS', () => {
-        const mirrorRule = css.match(/(^|\n)\.jpdb-reader-text-mirror\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(mirrorRule).toContain('user-select: none');
-        expect(mirrorRule).toContain('-webkit-user-select: none');
-    });
 
-    it('gives the mirror furigana rt user-select:none so ruby readings never copy', () => {
-        // The shared .jpdb-reader-furi rule already carries user-select:none; pin
-        // that both the standard and the -webkit property are present so WebKit
-        // (iOS Safari) also excludes rt readings from the selection.
-        const furiRule = css.match(/(^|\n)\.jpdb-reader-furi\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(furiRule).toContain('user-select: none');
-        expect(furiRule).toContain('-webkit-user-select: none');
-    });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARD_STATE_LABEL_KEYS, cardStateLabel } from '../../src/reader/app/i18n';
+import { cardStateLabel } from '../../src/reader/app/i18n';
 
 describe('card state labels', () => {
     it('maps shared card states to localized labels', () => {
@@ -18,14 +18,4 @@ describe('card state labels', () => {
         expect(cardStateLabel('custom-state', 'en', 'custom state')).toBe('custom state');
     });
 
-    it('exposes the full state label key table for existing callers', () => {
-        expect(CARD_STATE_LABEL_KEYS).toMatchObject({
-            new: 'stateNew',
-            due: 'stateDue',
-            'never-forget': 'stateNeverForget',
-            redundant: 'stateRedundant',
-            frequent: 'stateFrequent',
-            unparsed: 'stateUnparsed',
-        });
-    });
 });

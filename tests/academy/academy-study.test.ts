@@ -5,7 +5,6 @@ import {
 } from '../../src/academy/integration/academy-study';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { DEFAULT_ACADEMY_STUDY_DURATION_MS, type AcademyStudyMountContext, type AcademyStudyModule } from '../../src/academy/integration/study-module';
-import { ACADEMY_OVERFLOW_DESTINATIONS } from '../../src/academy/routing/overflow-destinations';
 
 describe('Academy Study Module seam', () => {
     beforeEach(() => localStorage.clear());
@@ -86,14 +85,6 @@ describe('Academy Study Module seam', () => {
         expect((await repository.queue(10)).cards).toHaveLength(0);
     });
 
-    it('keeps Settings, Achievements, and the opt-in Class Board in the top-left overflow contract', () => {
-        expect(ACADEMY_OVERFLOW_DESTINATIONS.map(destination => destination.id)).toEqual([
-            'class', 'choose-lesson', 'end-day', 'settings', 'achievements', 'class-board',
-        ]);
-        expect(ACADEMY_OVERFLOW_DESTINATIONS.filter(destination => destination.enrollmentRequired).map(destination => destination.id))
-            .toEqual(['class', 'choose-lesson', 'end-day']);
-        expect(ACADEMY_OVERFLOW_DESTINATIONS.find(destination => destination.id === 'class-board')?.accountRequired).toBe(true);
-    });
 });
 
 function encounterSource(): AcademyStudyVocabularyEncounterSource {

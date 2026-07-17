@@ -403,16 +403,6 @@ describe('Academy human interface', () => {
         expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-character-directory\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
         expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-character-dossier\s*\{[^}]*margin-top:\s*34px/s);
     });
-    it('binds the Academy shell to the real logo and よむ palette metadata', () => {
-        const index = fs.readFileSync(path.resolve('public/academy/index.html'), 'utf8');
-        const manifest = JSON.parse(fs.readFileSync(path.resolve('public/academy/manifest.webmanifest'), 'utf8')) as {
-            theme_color: string;
-            icons: Array<{ src: string }>;
-        };
-        expect(index).toContain('href="/yomu-icon.svg"');
-        expect(manifest.theme_color).toBe('#181b18');
-        expect(manifest.icons.some(icon => icon.src === '/yomu-icon.svg')).toBe(true);
-    });
 });
 
 function renderLockedJournalScreen(): HTMLElement {

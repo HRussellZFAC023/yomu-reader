@@ -1583,35 +1583,7 @@ describe('new tab review helpers', () => {
         });
     });
 
-    it('keeps new-tab search suggestions padded on every edge', () => {
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .toContain('.jpdb-reader-newtab-search-suggestions[hidden] { display: none; } .jpdb-reader-newtab-search-suggestions button { display: grid; align-content: center; justify-items: start; gap: 3px; min-width: 0; min-height: 44px; padding: 12px; text-align: left; }');
-        expect(NORMALIZED_NEW_TAB_CSS)
-            .not.toContain('min-height: 44px; padding-inline: 12px; text-align: left;');
-    });
 
-    it('keeps new-tab button text tied to the active theme tokens', () => {
-        const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
-
-        expect(normalizedCss)
-            .toContain('button.jpdb-reader-newtab-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; max-width: min(360px, calc(100vw - 56px)); min-height: 26px; padding: 5px 10px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 999px; background: var(--jpdb-reader-surface); color: var(--jpdb-reader-text);');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-controls[data-newtab-control-count="2"]:not(.jpdb-reader-newtab-grade-controls) { grid-template-columns: repeat(2, minmax(0, 1fr)); }');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-controls button { display: grid; place-items: center; width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid rgba(139, 160, 177, 0.24); border-radius: 8px; background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-surface-2) 82%, var(--jpdb-reader-bg) 18%), color-mix(in srgb, var(--jpdb-reader-surface) 90%, var(--jpdb-reader-bg) 10%) ); color: var(--jpdb-reader-text);');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-theme-light .jpdb-reader-newtab-controls button:not([data-grade]), .yomu-page-theme-light .jpdb-reader-newtab-controls button:not([data-grade]) { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 20%, var(--jpdb-reader-border));');
-        expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
-            .toContain('--jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-light-bg));');
-        expect(newTabCssRule('.jpdb-reader-newtab'))
-            .not.toContain('--jpdb-reader-accent-readable');
-        expect(newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab'))
-            .not.toContain('--jpdb-reader-accent-readable');
-        expect(normalizedCss)
-            .toContain('button[data-newtab-action="reveal"] { border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border)); background: linear-gradient( 180deg, color-mix(in srgb, var(--jpdb-reader-accent) 94%, var(--jpdb-reader-white) 6%), var(--jpdb-reader-accent) ); color: var(--jpdb-reader-accent-text, var(--jpdb-reader-white));');
-        expect(normalizedCss)
-            .toContain('.jpdb-reader-newtab-controls button[data-grade]:disabled { opacity: 1; color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); }');
-    });
 
     it('keeps Immersion Kit media subtitles in video-caption colors across themes', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');

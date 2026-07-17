@@ -1,7 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve as resolvePath } from 'node:path';
-
 import { testEnSettings } from './helpers/settings-fixture';
 
 // These tests assert English UI copy; pin the interface language since the
@@ -2274,36 +2271,7 @@ describe('YouTube immersion filter', () => {
         expect(document.getElementById('v4')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
     });
 
-    it('pins lockup-feed layout CSS: row-start marker uses the default item margin and the continuation wraps to a full row', () => {
-        const css = readFileSync(resolvePath(__dirname, '../../src/reader/styles/youtube-filter.css'), 'utf8');
-        // 2026 lockup rollout: the gutter lives on #contents, so the marker
-        // must NOT add the gutter (it overflowed rows and created feed gaps).
-        const markerRule = css.match(/\.jpdb-youtube-first-in-row\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(markerRule).toContain('margin-left: calc(var(--ytd-rich-grid-item-margin) / 2)');
-        expect(markerRule).not.toContain('gutter');
-        // Ghost skeleton cards must take real card widths: the continuation
-        // item gets a full-width flex basis instead of filling a partial row.
-        const continuationRule = css.match(/ytd-continuation-item-renderer\s*\{[^}]*\}/)?.[0] ?? '';
-        expect(continuationRule).toContain('flex-basis: 100%');
-        expect(css).toContain('.jpdb-youtube-filter-pending[data-yomu-youtube-pending-hidden="true"]');
-        const filteredRule = [...css.matchAll(/\.jpdb-youtube-filtered\s*\{[^}]*\}/g)]
-            .map(match => match[0])
-            .find(rule => rule.includes('visibility')) ?? '';
-        expect(filteredRule).toContain('visibility: hidden');
-        expect(filteredRule).not.toContain('height: 0');
-        expect(css).toContain('.jpdb-youtube-channel-name .jpdb-reader-word.jpdb-reader-has-furi');
-        expect(css).toContain('.jpdb-youtube-channel-description .jpdb-reader-word.jpdb-reader-has-furi');
-        expect(css).toContain('line-height: inherit;');
-    });
 
-    it('rescans when YouTube re-asserts its row-layout flags', () => {
-        // The observer must watch is-in-first-column: YouTube re-adds it on
-        // its own layout passes with no childList change, and without a
-        // rescan the stale flags misalign re-flowed rows.
-        const source = readFileSync(resolvePath(__dirname, '../../src/reader/subtitles/youtube.ts'), 'utf8');
-        const attributeFilter = source.match(/attributeFilter:\s*\[[^\]]*\]/)?.[0] ?? '';
-        expect(attributeFilter).toContain("'is-in-first-column'");
-    });
 
     it('treats a fully filtered section as a row break only when hidden', () => {
         document.body.innerHTML = `

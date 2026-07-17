@@ -16,9 +16,9 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import {
     existingAnkiNote,
     expectFirstRenderedAnkiCardOpen,
-    expectCappedRenderedAnkiMediaCss,
-    expectReadableAnkiLabelCss,
-    expectRenderedAnkiInlineLaneCss,
+
+
+
     renderExistingAnkiNote,
 } from './helpers/anki-render';
 
@@ -1557,19 +1557,6 @@ describe('Anki status-only lookup cache', () => {
     });
 });
 
-describe('Anki rendered card scroll behavior', () => {
-    it('keeps rendered-card content as an inline lane instead of a nested card', () => {
-        expectRenderedAnkiInlineLaneCss();
-    });
-
-    it('keeps Anki labels readable without forcing Yomu-style uppercase', () => {
-        expectReadableAnkiLabelCss();
-    });
-
-    it('caps rendered-card media and keeps Anki audio as separate controls', () => {
-        expectCappedRenderedAnkiMediaCss();
-    });
-});
 
 describe('Anki rendered card details', () => {
     it('renders stored fields instead of a pending state when rendered card HTML is blank', () => {

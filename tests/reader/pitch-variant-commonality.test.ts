@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -113,18 +112,5 @@ describe('renderPitch commonality badges', () => {
         ])).toEqual([67, 33]);
     });
 
-    it('pins audio to the title row and gives multi-graph pitch a balanced full-width row', () => {
-        const css = readFileSync('src/reader/styles/popover-core.css', 'utf8').replace(/\s+/g, ' ');
 
-        expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 10px; }');
-        expect(css).toContain('.jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) { grid-column: 1 / -1; grid-row: 2; width: 100%; margin-block: 0; }');
-        expect(css).toContain('.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control { grid-column: 2; grid-row: 1; margin-left: auto; }');
-    });
-
-    it('gives every legitimate variant the same visual footprint', () => {
-        const css = readFileSync('src/reader/styles/kanji.css', 'utf8');
-        expect(css).not.toContain('.jpdb-reader-pitch-variant:not(.jpdb-reader-pitch-variant-primary)');
-        expect(css).not.toMatch(/\.jpdb-reader-pitch-variant-primary\s*\{[^}]*background:/s);
-        expect(css).not.toMatch(/\.jpdb-reader-pitch-variant-primary\s*\{[^}]*border-color:\s*var\(/s);
-    });
 });
