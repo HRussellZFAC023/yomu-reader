@@ -35,7 +35,7 @@ import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
-import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
+import { pointInElementClientRects } from '../dom/pointer-geometry';
 import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
@@ -142,7 +142,7 @@ import {
 } from './source-orchestrator';
 import { newTabSourceLoadPlan, type NewTabConcreteSource, type NewTabSourceLoadPlan } from './source';
 import { NewTabStudyPool } from './study-pool';
-import { isNewTabStatsDateKey, normalizeNewTabStatsActivityMetric, renderNewTabStatsContent } from './stats-view';
+import { NewTabStatsController, loadNewTabStatsApiProvider, type NewTabStatsApiProvider } from './stats-controller';
 import {
     newTabApiGradeTargetShortLabel,
     newTabGradeTargetLabel,
@@ -257,30 +257,12 @@ import {
     type StudySessionClockSnapshot,
 } from './session-clock';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
-import {
-    applyJitenDailyStats,
-    applyJitenReviewHistory,
-    applyJpdbReviewImport,
-    combineStatsSources,
-    emptyStatsDashboardSnapshot,
-    emptyStatsSource,
-    loadAnkiConnectStats,
-    parseJpdbReviewExportText,
-    statsFromApiCards,
-    statsFromJitenCards,
-    type JpdbReviewImport,
-    type StatsActivityMetric,
-    type StatsDashboardSnapshot,
-    type StatsSourceId,
-    type StatsSourceSnapshot,
-} from '../app/stats';
 import type {
     YomuSrsAdapter,
     YomuSrsQueueSnapshot,
     YomuSrsReviewable,
     YomuSrsReviewableKind,
 } from '../srs/types';
-import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
@@ -291,7 +273,6 @@ import type { InterfaceLanguage } from '../app/types';
 import { NEW_TAB_CACHE_KEY } from './cache';
 import {
     JPDB_ALL_DECKS,
-    JPDB_DECK_SAMPLE_LIMIT,
     NEW_TAB_DICTIONARY_FALLBACK_RANKS,
     NEW_TAB_DICTIONARY_PRESENCE_TIMEOUT_MS,
     NEW_TAB_DICTIONARY_RANDOM_MAX_MS,
@@ -325,11 +306,9 @@ import {
     NEW_TAB_SEARCH_SUGGESTION_LIMIT,
     NEW_TAB_SEARCH_WORD_LIMIT,
     NEW_TAB_SOURCE_LABELS,
-    NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY,
     NEW_TAB_BROWSE_DECK_LIMIT,
     NEW_TAB_UNDO_REVIEW_WINDOW_MS,
     NEW_TAB_STATS_JPDB_CARD_LIMIT,
-    NEW_TAB_STATS_JPDB_HISTORY_KEY,
     NEW_TAB_OFFLINE_WARM_LIMIT,
     NEW_TAB_OFFLINE_WARM_CARD_TIMEOUT_MS,
     NEW_TAB_OFFLINE_WARM_CONCURRENCY,
@@ -384,7 +363,6 @@ const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
 const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
 const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
-const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 export type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './review-controls';
 
@@ -400,37 +378,12 @@ interface NewTabLookupDependencyOptions {
     userGesture?: boolean;
 }
 
-interface NewTabStatsApiProvider {
-    label: string;
-    load: () => Promise<JPDBCard[]>;
-}
-
-interface NewTabStatsApiProviderResult {
-    provider: NewTabStatsApiProvider;
-    cards: JPDBCard[];
-    error: unknown | null;
-}
-
-function orderedNewTabStatsProviderLabel(results: NewTabStatsApiProviderResult[]): string {
-    return results
-        .map(result => result.provider.label)
-        .sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b))
-        .join(' + ');
-}
-
 // Run low-priority work (offline cache warming) when the browser is idle, falling
 // back to a short timer where requestIdleCallback is unavailable (Safari/jsdom).
 function scheduleIdle(task: () => void): void {
     const idle = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
     if (typeof idle === 'function') idle(task, { timeout: 1200 });
     else setTimeout(task, 60);
-}
-
-function newTabStatsProviderLabelRank(label: string): number {
-    if (label.startsWith('Jiten')) return 0;
-    if (label.startsWith('JPDB')) return 1;
-    if (label.startsWith('Anki')) return 2;
-    return 3;
 }
 
 function newTabShortParseOptions(): NewTabParseContentOptions {
@@ -613,13 +566,6 @@ type BeforeInstallPromptEvent = Event & {
 
 type RootClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined) => boolean;
 
-interface StatsClickRequest {
-    action: string;
-    chartDayTarget: HTMLElement | null;
-    target: HTMLElement;
-}
-
-type StatsClickHandler = (root: HTMLElement, target: HTMLElement, request: StatsClickRequest) => void;
 type StudyClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent) => void;
 
 interface ParsedWordLookupRequest {
@@ -991,24 +937,9 @@ export class NewTabController {
             void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
         },
     };
-    private readonly statsClickHandlers: Record<string, StatsClickHandler> = {
-        'stats-source': (root, target) => this.selectStatsSource(root, target),
-        'stats-activity-metric': (root, target) => this.selectStatsActivityMetric(root, target),
-        'stats-select-day': (root, target, request) => this.selectStatsDay(root, target, request.chartDayTarget),
-        'stats-study-trouble': root => this.studyStatsTroubleCards(root),
-        'stats-refresh': root => { void this.loadStatsInto(root, true); },
-        'stats-toggle-anki-deck': (root, target) => this.toggleStatsAnkiDeck(root, target),
-        'stats-connect-anki': root => { void this.connectAnkiStats(root); },
-        'stats-open-jpdb-settings': () => this.dependencies.showSettings('api'),
-        'stats-open-anki-settings': () => this.dependencies.showSettings('mining'),
-        'stats-import-jpdb': root => {
-            root.querySelector<HTMLInputElement>('[data-stats-jpdb-file]')?.click();
-        },
-    };
     private lastPointerNavigation: { action: 'next' | 'previous'; time: number } | null = null;
     private navigationGeneration = 0;
     private navigationSupplementPromise: Promise<void> | null = null;
-    private statsSnapshot: StatsDashboardSnapshot = emptyStatsDashboardSnapshot();
     private browsePool?: JPDBCard[];
     private browsePoolKey = '';
     private browseFilters = new Set<CardState>();
@@ -1017,18 +948,40 @@ export class NewTabController {
     private browseSortDescending = false;
     private browseSelectMode = false;
     private browsePage = 0;
-    private statsSelectedSource: StatsSourceId = 'combined';
-    private statsActivityMetric: StatsActivityMetric = 'reviews';
-    private statsSelectedDate = '';
+    // Trouble-card study bridge: the stats "Study these" button sets this and
+    // hands off to the word-load pipeline (consumed in filterStatsStudyCards /
+    // applyLoadedWordState). Stays on the controller because it steers word load.
     private statsStudyFilter: 'trouble' | null = null;
-    private statsLoaded = false;
-    private statsDeckPrefsLoaded = false;
-    private statsDisabledAnkiDecks = new Set<string>();
+    // The stats-page surface (dashboard snapshot, per-source loading, chart
+    // clicks) lives in its own module; the controller forwards renders/clicks
+    // and reads back the selected source when starting a trouble-card session.
+    // Assigned in the constructor body: the review-source clients are read off
+    // `this.dependencies`, which is a parameter property not yet set during
+    // field initialization.
+    private readonly statsController: NewTabStatsController;
 
     constructor(
         private readonly dependencies: NewTabControllerDependencies,
         private readonly options: NewTabControllerOptions = {},
     ) {
+        this.statsController = new NewTabStatsController({
+            getSettings: () => this.dependencies.getSettings(),
+            jpdb: this.dependencies.jpdb,
+            jiten: this.dependencies.jiten,
+            anki: this.dependencies.anki,
+            srsAdapters: this.dependencies.srsAdapters,
+            srsReviewableToNewTabCard: card => this.srsReviewableToNewTabCard(card),
+            canUseBunproSource: () => this.canUseBunproSource(),
+            canUseYomuLocalSource: () => this.canUseYomuLocalSource(),
+            text: key => this.text(key),
+            formatText: (key, values) => this.formatNewTabText(key, values),
+            resolvedLanguage: () => this.resolvedLanguage(),
+            syncMode: root => this.syncMode(root),
+            syncThemeToggle: root => this.syncThemeToggle(root),
+            showSettings: tab => this.dependencies.showSettings(tab),
+            hasCoarsePointer: () => this.hasCoarsePointer(),
+            studyTroubleCards: root => this.studyStatsTroubleCards(root),
+        });
         this.ownsSessionClock = !options.sessionClock;
         this.sessionClock = options.sessionClock ?? createStudySessionClock({
             visibility: typeof document === 'undefined' ? undefined : document,
@@ -1348,10 +1301,7 @@ export class NewTabController {
         this.typeHandwritingProgress.clear();
         this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
-        this.statsSnapshot = emptyStatsDashboardSnapshot();
-        this.statsLoaded = false;
-        this.statsSelectedDate = '';
-        this.operations.begin('stats'); // invalidate any in-flight stats load
+        this.statsController.reset();
     }
 
     private renderEnabledContent(): DocumentFragment {
@@ -1666,7 +1616,7 @@ export class NewTabController {
                 : null;
             if (!input || !root.contains(input)) return;
             const file = input.files?.[0];
-            if (file) void this.importJpdbStatsFile(root, file);
+            if (file) void this.statsController.importJpdbFile(root, file);
             input.value = '';
         }, { signal: controller.signal });
 
@@ -1705,7 +1655,7 @@ export class NewTabController {
             event.preventDefault();
             dropzone.dataset.dragging = 'false';
             const file = event.dataTransfer?.files?.[0];
-            if (file) void this.importJpdbStatsFile(root, file);
+            if (file) void this.statsController.importJpdbFile(root, file);
         }, { signal: controller.signal });
 
         // Study shortcuts listen at document level: focus sits on body after
@@ -2285,58 +2235,10 @@ export class NewTabController {
         }
     }
 
+    // Thin forwarder to the stats surface (rootClickHandlers + handleRootClick
+    // dispatch stats-* actions and chart-day taps through here).
     private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: string): boolean {
-        const request = this.statsClickRequest(root, target, action, event);
-        if (!request) return false;
-        event.preventDefault();
-        return this.performStatsClick(root, request);
-    }
-
-    private statsClickRequest(root: HTMLElement, target: HTMLElement, action: string | undefined, event: MouseEvent): StatsClickRequest | null {
-        const chartDayTarget = action ? null : this.nearestStatsChartDayTarget(root, target, event);
-        const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
-        return resolvedAction?.startsWith('stats-')
-            ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target }
-            : null;
-    }
-
-    private performStatsClick(root: HTMLElement, request: StatsClickRequest): boolean {
-        const handler = this.statsClickHandlers[request.action];
-        if (!handler) return false;
-        handler(root, request.target, request);
-        return true;
-    }
-
-    private selectStatsSource(root: HTMLElement, target: HTMLElement): void {
-        const source = target.closest<HTMLElement>('[data-stats-source]')?.dataset.statsSource;
-        this.statsSelectedSource = statsSourceIdFromValue(source);
-        this.renderStats(root);
-    }
-
-    private selectStatsActivityMetric(root: HTMLElement, target: HTMLElement): void {
-        const metric = target.closest<HTMLElement>('[data-stats-activity-metric]')?.dataset.statsActivityMetric;
-        this.statsActivityMetric = normalizeNewTabStatsActivityMetric(metric);
-        this.renderStats(root);
-    }
-
-    private selectStatsDay(root: HTMLElement, target: HTMLElement, chartDayTarget: HTMLElement | null): void {
-        const date = target.closest<HTMLElement>('[data-stats-day]')?.dataset.statsDay ?? chartDayTarget?.dataset.statsDay;
-        if (!isNewTabStatsDateKey(date)) return;
-        this.statsSelectedDate = date;
-        this.renderStats(root);
-    }
-
-    private nearestStatsChartDayTarget(root: HTMLElement, target: HTMLElement, event: MouseEvent): HTMLElement | null {
-        if (!this.hasCoarsePointer()) return null;
-        const point = pointerPointFromEvent(event);
-        if (!point) return null;
-        return nearestElementByPoint(this.nearbyStatsChartDayTargets(root, target), point);
-    }
-
-    private nearbyStatsChartDayTargets(root: HTMLElement, target: HTMLElement): HTMLElement[] {
-        const chart = target.closest<HTMLElement>('.jpdb-reader-stats-bars, .jpdb-reader-stats-heatmap-grid');
-        if (!chart || !root.contains(chart)) return [];
-        return Array.from(chart.querySelectorAll<HTMLElement>('[data-newtab-action="stats-select-day"][data-stats-day]'));
+        return this.statsController.handleClick(root, target, event, action);
     }
 
     private hasCoarsePointer(): boolean {
@@ -3093,25 +2995,21 @@ export class NewTabController {
         this.renderEmpty(root, APP_NAME, this.text(this.emptyLoadMessageKey ?? this.emptyStudyMessageKey()));
     }
 
+    // Thin forwarder: the mode-switch / render paths call this to paint the
+    // stats dashboard.
     private renderStats(root: HTMLElement): void {
-        this.syncMode(root);
-        root.classList.remove('jpdb-reader-newtab-setup-mode', 'jpdb-reader-newtab-empty-mode', 'jpdb-reader-newtab-revealed', 'jpdb-reader-newtab-review-mode');
-        this.syncThemeToggle(root);
-        const study = root.querySelector<HTMLElement>('[data-newtab-study]');
-        if (!study) return;
-        study.removeAttribute('data-newtab-card');
-        study.replaceChildren(renderNewTabStatsContent({
-            activityMetric: this.statsActivityMetric,
-            language: this.resolvedLanguage(),
-            selectedDate: this.statsSelectedDate,
-            selectedSource: this.statsSelectedSource,
-            snapshot: this.statsSnapshot,
-            text: key => this.text(key),
-        }));
+        this.statsController.render(root);
     }
 
+    // Thin forwarder: the mode-switch / render paths kick off the stats load.
+    private loadStatsInto(root: HTMLElement, force = false): Promise<void> {
+        return this.statsController.loadInto(root, force);
+    }
+
+    // Bridge from the stats "Study these" button into the word-load pipeline:
+    // switch the study surface to the selected stats source's trouble cards.
     private studyStatsTroubleCards(root: HTMLElement): void {
-        const source = this.studySourceForSelectedStats();
+        const source = this.statsController.selectedStudySource();
         this.statsStudyFilter = 'trouble';
         this.allWords = [];
         this.visibleWords = [];
@@ -3124,14 +3022,6 @@ export class NewTabController {
         void this.loadWordsInto(root, false, { useOfflineCache: false });
     }
 
-    private studySourceForSelectedStats(): NewTabUiState['source'] {
-        if (this.statsSelectedSource === 'jpdb' || this.statsSelectedSource === 'jiten') return 'jpdb';
-        if (this.statsSelectedSource === 'bunpro') return 'bunpro';
-        if (this.statsSelectedSource === 'yomu-local') return 'yomu-local';
-        if (this.statsSelectedSource === 'anki') return 'anki';
-        return 'auto';
-    }
-
     private filterStatsStudyCards(cards: JPDBCard[]): JPDBCard[] {
         if (this.statsStudyFilter !== 'trouble') return cards;
         const trouble = cards.filter(card => {
@@ -3141,73 +3031,18 @@ export class NewTabController {
         return trouble.length ? trouble : cards;
     }
 
-    private async loadStatsInto(root: HTMLElement, force = false): Promise<void> {
-        if (this.statsLoaded && !force) return;
-        await this.loadStatsDeckPrefs();
-        const settings = this.dependencies.getSettings();
-        const statsOp = this.operations.begin('stats');
-        this.statsSnapshot = {
-            jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup'),
-            jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup'),
-            bunpro: this.canUseBunproSource() ? this.loadingStatsSource(this.statsSnapshot.bunpro) : emptyStatsSource('bunpro', 'Bunpro', this.text('statsApiKeyMissing'), 'setup'),
-            yomuLocal: this.canUseYomuLocalSource() ? this.loadingStatsSource(this.statsSnapshot.yomuLocal) : emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.text('statsNoData'), 'setup'),
-            anki: this.shouldLoadAnkiStats(settings) ? this.loadingStatsSource(this.statsSnapshot.anki) : emptyStatsSource('anki', 'Anki', this.text('statsConnectAnki'), 'setup'),
-            combined: this.loadingStatsSource(this.statsSnapshot.combined),
-        };
-        this.renderStats(root);
-        const [history, jpdb, jiten, bunpro, yomuLocal, anki] = await Promise.all([
-            this.readJpdbStatsHistory(),
-            this.loadJpdbStatsSource(),
-            this.loadJitenStatsSource(),
-            this.loadSrsAdapterStatsSource('bunpro'),
-            this.loadSrsAdapterStatsSource('yomu-local'),
-            this.loadAnkiStatsSource(),
-        ]);
-        if (statsOp.superseded || !root.isConnected) return;
-        const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
-        const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
-        this.statsSnapshot = {
-            jpdb: jpdbWithHistory,
-            jiten: jitenWithHistory,
-            bunpro,
-            yomuLocal,
-            anki,
-            combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, yomuLocal, bunpro, anki),
-        };
-        this.statsLoaded = true;
-        this.renderStats(root);
-    }
-
-    private loadingStatsSource<T extends StatsSourceSnapshot | StatsDashboardSnapshot['combined']>(source: T): T {
-        return { ...source, status: 'loading', message: this.text('statsLoading') };
-    }
-
-    private async loadJpdbStatsSource(): Promise<StatsSourceSnapshot> {
-        const providers = this.jpdbStatsApiProviders(this.dependencies.getSettings());
-        if (!providers.length) return emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup');
-        const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));
-        return this.jpdbStatsSourceFromApiResults(results);
-    }
-
-    private jpdbStatsApiProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
-        const providers: NewTabStatsApiProvider[] = [];
-        if (hasJpdbApiCredential(settings)) providers.push({
-            label: 'JPDB',
-            load: () => this.loadJpdbStatsCards(),
-        });
-        return providers;
-    }
-
     // SH-3 v2: the My-Cards browser spans all three providers. Anki joins
-    // only here — NOT in jpdbStatsApiProviders — because the stats page has
-    // its own dedicated Anki source and must not double-count cards.
+    // only here — NOT in the stats page's own jpdbStatsApiProviders — because
+    // the stats page has a dedicated Anki source and must not double-count
+    // cards. The JPDB card fetch itself is shared with the stats surface, so it
+    // lives on the stats controller (this is the browse↔stats seam).
     private browsePoolProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
         const providers: NewTabStatsApiProvider[] = [];
         const jiten = this.jitenBrowsePoolProvider(settings);
         if (jiten) providers.push(jiten);
         if (hasJpdbApiCredential(settings)) providers.push({
             label: 'JPDB',
-            load: () => this.loadJpdbStatsCards(),
+            load: () => this.statsController.loadJpdbCards(),
         });
         const bunpro = this.srsAdapterBrowsePoolProvider('bunpro');
         if (bunpro) providers.push(bunpro);
@@ -3252,251 +3087,6 @@ export class NewTabController {
                     .filter((card): card is JPDBCard => card !== null);
             },
         };
-    }
-
-    private async loadJpdbStatsApiProvider(provider: NewTabStatsApiProvider): Promise<NewTabStatsApiProviderResult> {
-        try {
-            return { provider, cards: await provider.load(), error: null };
-        } catch (error) {
-            log.warn(`${provider.label} stats failed`, error);
-            return { provider, cards: [], error };
-        }
-    }
-
-    private jpdbStatsSourceFromApiResults(results: NewTabStatsApiProviderResult[]): StatsSourceSnapshot {
-        const loaded = results.filter(result => result.error === null);
-        const label = orderedNewTabStatsProviderLabel(loaded.length ? loaded : results);
-        if (!loaded.length) {
-            const error = results.find(result => result.error)?.error;
-            return emptyStatsSource('jpdb', label, error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
-        }
-        const cards = dedupeWords(loaded.flatMap(result => result.cards)).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
-        const message = this.apiStatsLoadedMessage(label, cards.length);
-        return statsFromApiCards(cards, label, message);
-    }
-
-    private apiStatsLoadedMessage(label: string, cardCount: number): string {
-        if (!cardCount) return this.text('statsNoData');
-        if (label === 'JPDB') return this.text('statsJpdbLoaded');
-        if (label === 'Jiten') return this.text('statsJitenLoaded');
-        return this.formatNewTabText('statsApiLoaded', { providers: label });
-    }
-
-    private async loadJitenStatsSource(): Promise<StatsSourceSnapshot> {
-        const settings = this.dependencies.getSettings();
-        const jiten = this.dependencies.jiten;
-        if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyBatchCards !== 'function') {
-            return emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup');
-        }
-        try {
-            const [cards, reviews] = await Promise.all([
-                jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
-                this.loadJitenRecentReviews().catch(error => {
-                    log.warn('Jiten review history failed', error);
-                    return [];
-                }),
-            ]);
-            const source = statsFromJitenCards(cards, this.apiStatsLoadedMessage('Jiten', cards.length));
-            return applyJitenReviewHistory(source, reviews);
-        } catch (error) {
-            log.warn('Jiten stats failed', error);
-            return emptyStatsSource('jiten', 'Jiten', error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
-        }
-    }
-
-    private async loadJitenRecentReviews(): Promise<Array<{ rating: number; reviewDateTime: string; reviewDuration: number | null }>> {
-        const jiten = this.dependencies.jiten;
-        if (typeof jiten?.listRecentReviews !== 'function') return [];
-        return (await jiten.listRecentReviews(NEW_TAB_STATS_JITEN_HISTORY_LIMIT)).map(review => ({
-            rating: review.rating,
-            reviewDateTime: review.reviewDateTime,
-            reviewDuration: review.reviewDuration,
-        }));
-    }
-
-    private async loadJpdbStatsCards(): Promise<JPDBCard[]> {
-        try {
-            return await this.dependencies.jpdb.listDeckCards(JPDB_ALL_DECKS, NEW_TAB_STATS_JPDB_CARD_LIMIT);
-        } catch (error) {
-            log.warn('JPDB deck stats fallback', error);
-        }
-        const decks = await this.dependencies.jpdb.listDecks();
-        const groups = await Promise.all(decks.slice(0, JPDB_DECK_SAMPLE_LIMIT).map(deck =>
-            this.dependencies.jpdb.listDeckCards(deck.id, Math.ceil(NEW_TAB_STATS_JPDB_CARD_LIMIT / JPDB_DECK_SAMPLE_LIMIT)).catch((): JPDBCard[] => []),
-        ));
-        return dedupeWords(groups.flat()).slice(0, NEW_TAB_STATS_JPDB_CARD_LIMIT);
-    }
-
-    private async loadSrsAdapterStatsSource(source: NewTabSrsAdapterSource): Promise<StatsSourceSnapshot> {
-        const adapter = this.dependencies.srsAdapters?.[source];
-        const label = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
-        if (!adapter || !adapter.hasCredential()) {
-            return emptyStatsSource(source, label, source === 'yomu-local' ? this.text('statsNoData') : this.text('statsApiKeyMissing'), 'setup');
-        }
-        try {
-            const [stats, queue] = await Promise.all([
-                adapter.stats(),
-                adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT),
-            ]);
-            const cards = queue.cards
-                .map((card: YomuSrsReviewable) => this.srsReviewableToNewTabCard(card))
-                .filter((card): card is JPDBCard => card !== null);
-            const snapshot = statsFromApiCards(cards, label, this.apiStatsLoadedMessage(label, cards.length), source);
-            return {
-                ...snapshot,
-                message: cards.length || stats.reviewsDue || stats.reviewsToday ? snapshot.message : this.text('statsNoData'),
-                reviewsToday: stats.reviewsToday ?? snapshot.reviewsToday,
-                cards: {
-                    ...snapshot.cards,
-                    due: stats.reviewsDue ?? snapshot.cards.due,
-                },
-                updatedAt: stats.fetchedAt,
-            };
-        } catch (error) {
-            log.warn(`${label} stats failed`, error);
-            return emptyStatsSource(source, label, error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
-        }
-    }
-
-    private async loadAnkiStatsSource(): Promise<StatsSourceSnapshot> {
-        if (!this.shouldLoadAnkiStats(this.dependencies.getSettings())) {
-            return emptyStatsSource('anki', 'Anki', this.text('statsConnectAnki'), 'setup');
-        }
-        try {
-            return await loadAnkiConnectStats({
-                invoke: (action, params) => this.dependencies.anki.invoke(action, params),
-            }, {
-                disabledDeckNames: [...this.statsDisabledAnkiDecks],
-            });
-        } catch (error) {
-            log.warn('Anki stats failed', error);
-            return emptyStatsSource('anki', 'Anki', this.text('statsAnkiUnavailable'), 'error');
-        }
-    }
-
-    private shouldLoadAnkiStats(settings: ReaderSettings): boolean {
-        return settings.ankiEnabled || settings.newTabAnkiEnabled;
-    }
-
-    private async connectAnkiStats(root: HTMLElement): Promise<void> {
-        try {
-            await this.dependencies.anki.requestPermission();
-        } catch (error) {
-            log.warn('Anki permission request failed', error);
-            this.statsSnapshot = {
-                ...this.statsSnapshot,
-                anki: emptyStatsSource('anki', 'Anki', this.text('statsAnkiUnavailable'), 'error'),
-            };
-            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki);
-            this.renderStats(root);
-            return;
-        }
-        this.statsLoaded = false;
-        await this.loadStatsInto(root, true);
-    }
-
-    private toggleStatsAnkiDeck(root: HTMLElement, target: HTMLElement): void {
-        const deck = target.closest<HTMLElement>('[data-stats-anki-deck]')?.dataset.statsAnkiDeck;
-        if (!deck) return;
-        if (!this.statsDeckPrefsLoaded) {
-            void this.loadStatsDeckPrefs().then(() => this.toggleStatsAnkiDeck(root, target));
-            return;
-        }
-        if (this.statsDisabledAnkiDecks.has(deck)) this.statsDisabledAnkiDecks.delete(deck);
-        else this.statsDisabledAnkiDecks.add(deck);
-        this.applyStatsAnkiDeckToggles(root);
-        void gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, [...this.statsDisabledAnkiDecks]).catch(error => {
-            log.warn('Anki stats deck preference save failed', error);
-        });
-        this.statsLoaded = false;
-        void this.loadStatsInto(root, true);
-    }
-
-    private applyStatsAnkiDeckToggles(root: HTMLElement): void {
-        const anki = this.statsSnapshot.anki;
-        if (!anki.deckNames?.length) return;
-        const activeDeckNames = anki.deckNames.filter(deck => !this.statsDisabledAnkiDecks.has(deck));
-        const nextAnki: StatsSourceSnapshot = {
-            ...anki,
-            status: 'ready',
-            message: this.statsAnkiDeckSelectionMessage(activeDeckNames.length, anki.deckNames.length),
-            activeDeckNames,
-        };
-        this.statsSnapshot = {
-            ...this.statsSnapshot,
-            anki: nextAnki,
-            combined: combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, nextAnki),
-        };
-        this.renderStats(root);
-    }
-
-    private statsAnkiDeckSelectionMessage(activeDeckCount: number, totalDeckCount: number): string {
-        if (!totalDeckCount) return this.text('statsAnkiConnected');
-        if (!activeDeckCount) return this.formatNewTabText('statsAnkiNoDecksSelected', { total: String(totalDeckCount) });
-        if (activeDeckCount === totalDeckCount) {
-            return this.formatNewTabText('statsAnkiDecksSelected', {
-                count: String(totalDeckCount),
-                plural: totalDeckCount === 1 ? '' : 's',
-            });
-        }
-        return this.formatNewTabText('statsAnkiPartialDecksSelected', {
-            count: String(activeDeckCount),
-            total: String(totalDeckCount),
-        });
-    }
-
-    private async importJpdbStatsFile(root: HTMLElement, file: File): Promise<void> {
-        try {
-            const imported = parseJpdbReviewExportText(await file.text());
-            await gmStorageSet(NEW_TAB_STATS_JPDB_HISTORY_KEY, imported);
-            const jpdb = applyJpdbReviewImport({
-                ...this.statsSnapshot.jpdb,
-                message: this.text('statsImportReady'),
-                status: this.statsSnapshot.jpdb.status === 'ready' ? 'ready' : 'partial',
-            }, imported);
-            this.statsSnapshot = {
-                jpdb,
-                jiten: this.statsSnapshot.jiten,
-                bunpro: this.statsSnapshot.bunpro,
-                yomuLocal: this.statsSnapshot.yomuLocal,
-                anki: this.statsSnapshot.anki,
-                combined: combineStatsSources(jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki),
-            };
-            this.statsSelectedSource = this.statsSelectedSource === 'anki' ? 'combined' : this.statsSelectedSource;
-            this.statsLoaded = true;
-        } catch (error) {
-            log.warn('JPDB stats import failed', error);
-            this.statsSnapshot = {
-                ...this.statsSnapshot,
-                jpdb: {
-                    ...this.statsSnapshot.jpdb,
-                    status: 'error',
-                    message: this.text('statsImportFailed'),
-                },
-            };
-            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.yomuLocal, this.statsSnapshot.bunpro, this.statsSnapshot.anki);
-        }
-        this.renderStats(root);
-    }
-
-    private async readJpdbStatsHistory(): Promise<JpdbReviewImport | null> {
-        try {
-            const value = await gmStorageGet<JpdbReviewImport | null>(NEW_TAB_STATS_JPDB_HISTORY_KEY, null);
-            return value && Array.isArray(value.daily) ? value : null;
-        } catch {
-            return null;
-        }
-    }
-
-    private async loadStatsDeckPrefs(): Promise<void> {
-        if (this.statsDeckPrefsLoaded) return;
-        try {
-            const disabled = await gmStorageGet<string[]>(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, []);
-            this.statsDisabledAnkiDecks = new Set(Array.isArray(disabled) ? disabled.filter(deck => typeof deck === 'string') : []);
-        } catch {
-            this.statsDisabledAnkiDecks = new Set();
-        }
-        this.statsDeckPrefsLoaded = true;
     }
 
     private async handleLoadWordsError(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number, error: unknown, useOfflineCache: boolean, quiet = false): Promise<void> {
@@ -10022,7 +9612,7 @@ export class NewTabController {
         this.browseDueBucketsKey = '';
         const collected: JPDBCard[] = [];
         const results = await Promise.all(providers.map(async provider => {
-            const result = await this.loadJpdbStatsApiProvider(provider);
+            const result = await loadNewTabStatsApiProvider(provider);
             if (this.browsePoolKey === key && result.error === null) {
                 collected.push(...result.cards);
                 this.browsePool = dedupeWords(collected);
@@ -11979,11 +11569,6 @@ function bunproReviewableType(kind: YomuSrsReviewableKind): JPDBCard['bunproRevi
 function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
     if (type === 'grammar' || type === 'vocabulary' || type === 'sentence') return type;
     return 'unknown';
-}
-
-function statsSourceIdFromValue(value: string | undefined): StatsSourceId {
-    if (value === 'jpdb' || value === 'jiten' || value === 'bunpro' || value === 'yomu-local' || value === 'anki' || value === 'combined') return value;
-    return 'combined';
 }
 
 function isNewTabRevealKey(key: string): boolean {

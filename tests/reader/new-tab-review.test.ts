@@ -1682,10 +1682,9 @@ describe('new tab review helpers', () => {
             const controller = newTabPromptController();
             const internals = controller as unknown as {
                 handleRootClick(root: HTMLElement, event: MouseEvent): void;
-                renderStats(root: HTMLElement): void;
-                statsSelectedDate: string | null;
+                statsController: { render(root: HTMLElement): void; selectedDate: string | null };
             };
-            internals.renderStats = vi.fn();
+            internals.statsController.render = vi.fn();
             const root = document.createElement('main');
             root.className = 'jpdb-reader-newtab';
             root.innerHTML = `
@@ -1707,8 +1706,8 @@ describe('new tab review helpers', () => {
 
             bars.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 18, clientY: 50 }));
 
-            expect(internals.statsSelectedDate).toBe('2026-06-02');
-            expect(internals.renderStats).toHaveBeenCalledWith(root);
+            expect(internals.statsController.selectedDate).toBe('2026-06-02');
+            expect(internals.statsController.render).toHaveBeenCalledWith(root);
 
             const heatmap = root.querySelector<HTMLElement>('.jpdb-reader-stats-heatmap-grid')!;
             const [firstCell, secondCell] = Array.from(heatmap.querySelectorAll<HTMLElement>('[data-stats-day]'));
@@ -1717,7 +1716,7 @@ describe('new tab review helpers', () => {
 
             heatmap.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 25, clientY: 5 }));
 
-            expect(internals.statsSelectedDate).toBe('2026-06-04');
+            expect(internals.statsController.selectedDate).toBe('2026-06-04');
         } finally {
             if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia);
             else delete (window as unknown as Record<string, unknown>).matchMedia;
@@ -1957,8 +1956,8 @@ describe('new tab review helpers', () => {
             expect(rows.some(row => row.textContent?.includes('読む'))).toBe(true);
 
             // The JPDB stats source keeps its own provider list (no Anki).
-            const internals = controller as unknown as { jpdbStatsApiProviders(settings: unknown): Array<{ label: string }> };
-            const labels = internals.jpdbStatsApiProviders({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: true, newTabAnkiEnabled: true }).map(provider => provider.label);
+            const internals = controller as unknown as { statsController: { jpdbStatsApiProviders(settings: unknown): Array<{ label: string }> } };
+            const labels = internals.statsController.jpdbStatsApiProviders({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', ankiEnabled: true, newTabAnkiEnabled: true }).map(provider => provider.label);
             expect(labels).toEqual(['JPDB']);
         } finally {
             controller.destroy();
