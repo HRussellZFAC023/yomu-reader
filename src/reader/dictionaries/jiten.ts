@@ -1,4 +1,5 @@
 import { requestHttp } from '../network/http-request';
+import { isAbortError } from '../core/errors';
 import { recordJitenDailyStats } from './jiten-stats-cache';
 import type { ReaderHttpOptions } from '../network/http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
@@ -1800,6 +1801,3 @@ function endpointUrl(baseUrl: string | undefined, endpoint: string, query?: Jite
     return queryString ? `${url}?${queryString}` : url;
 }
 
-function isAbortError(error: unknown): boolean {
-    return error instanceof DOMException && error.name === 'AbortError';
-}

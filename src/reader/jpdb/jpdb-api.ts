@@ -2,6 +2,7 @@ import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/co
 import { Logger } from '../app/logger';
 import { isAppleTouchBrowser } from '../platform/browser';
 import { delay } from '../core/async-utils';
+import { isAbortError } from '../core/errors';
 import { getUserscriptHttpRequest } from '../userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
@@ -194,9 +195,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     }
 }
 
-function isAbortError(error: unknown): boolean {
-    return error instanceof DOMException && error.name === 'AbortError';
-}
 
 function jpdbApiFetchCandidates(url: string, proxyUrl: string): string[] {
     const configuredProxy = configuredProxyFetchUrl(url, proxyUrl);

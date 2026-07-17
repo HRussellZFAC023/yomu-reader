@@ -1,5 +1,6 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
 import { ocrRuntimeActive } from './mode';
+import { isAbortError } from '../core/errors';
 import { normalizeOcrRenderedText } from './rendered-text';
 import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
 import {
@@ -6034,9 +6035,6 @@ function isLocalOcrUnavailableError(error: unknown): error is LocalOcrUnavailabl
     return error instanceof LocalOcrUnavailableError;
 }
 
-function isAbortError(error: unknown): boolean {
-    return error instanceof Error && error.name === 'AbortError';
-}
 
 function safeHost(value: string): string {
     try {
