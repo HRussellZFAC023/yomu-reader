@@ -56,7 +56,7 @@ describe('lesson overview screen', () => {
         });
 
         expect(screen.querySelector('[data-cast-id="rie"] img')?.getAttribute('src'))
-            .toBe('/academy/art/characters/rie/rie__neutral__halfbody__v001.png');
+            .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(5);

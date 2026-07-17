@@ -12,7 +12,8 @@ describe('Academy day-end scene', () => {
         expect(screen.matches('.academy-vn-stage')).toBe(true);
         expect(screen.dataset.academyRoute).toBe('day-end');
         expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src).toContain(ACADEMY_ASSETS.locations.classroom.wide);
-        expect(screen.querySelector<HTMLImageElement>('[data-character="rie"] img')?.src).toContain(ACADEMY_ASSETS.rie);
+        expect(screen.querySelector<HTMLImageElement>('[data-character="rie"] img')?.src)
+            .toContain(ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging);
         expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Rie-sensei');
         screen.querySelector<HTMLElement>('.academy-vn-japanese')?.click();
         await vi.waitFor(() => {

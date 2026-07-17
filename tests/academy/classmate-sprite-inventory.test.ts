@@ -5,6 +5,11 @@ import { SPRITE_ANGLES, SPRITE_EXPRESSIONS } from '../../src/academy/domain/spri
 
 interface InventoryAsset {
     path: string;
+    source: string;
+    privacy: string;
+    status: 'approved' | 'review-candidate';
+    usage: { runtime: string[]; review: string[] };
+    orphan: 'active-runtime' | 'review-bound' | 'unbound-review-candidate';
     coverageStatus: 'approved' | 'review-candidate' | 'off-matrix';
     decision: 'keep' | 'replace' | 'delete';
     angle: string | null;
@@ -48,13 +53,13 @@ const docsPath = path.resolve('docs/public/academy/art/CLASSMATE-SPRITE-INVENTOR
 const inventory = JSON.parse(fs.readFileSync(publicPath, 'utf8')) as SpriteInventory;
 
 describe('Academy cast-wide sprite migration inventory', () => {
-    it('defines the complete 28 by 3 by 7 target without inventing missing art', () => {
+    it('defines the complete cast by 3 by 7 target without inventing missing art', () => {
         expect(inventory.target).toEqual({
             characters: ACADEMY_CAST.length,
             angles: SPRITE_ANGLES,
             expressions: SPRITE_EXPRESSIONS,
             slotsPerCharacter: 21,
-            totalSlots: 588,
+            totalSlots: ACADEMY_CAST.length * 21,
         });
         expect(inventory.characters.map(character => character.id)).toEqual(ACADEMY_CAST.map(character => character.id));
         expect(new Set(inventory.characters.map(character => character.basePose.trim().toLowerCase())).size)
@@ -71,8 +76,9 @@ describe('Academy cast-wide sprite migration inventory', () => {
                 expect(fs.existsSync(path.resolve('public', missing.plannedPath.slice(1)))).toBe(false);
             }
         }
-        expect(inventory.summary).toMatchObject({ approved: 7, reviewCandidates: 10, missing: 571 });
-        expect(inventory.summary.approved + inventory.summary.reviewCandidates + inventory.summary.missing).toBe(588);
+        expect(inventory.summary).toMatchObject({ approved: 11, reviewCandidates: 13, missing: 606 });
+        expect(inventory.summary.approved + inventory.summary.reviewCandidates + inventory.summary.missing)
+            .toBe(ACADEMY_CAST.length * 21);
     });
 
     it('accounts for every physical current raster exactly once and leaves no sprite orphan', () => {
@@ -88,7 +94,17 @@ describe('Academy cast-wide sprite migration inventory', () => {
         expect(new Set(registered).size).toBe(registered.length);
         expect(inventory.summary.currentPhysicalRasters).toBe(physical.length);
         expect(inventory.characters.flatMap(character => character.currentAssets)
-            .every(asset => asset.decision === 'keep')).toBe(true);
+            .filter(asset => asset.decision === 'replace').map(asset => asset.path).sort()).toEqual([
+            '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
+            '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+        ]);
+        for (const asset of inventory.characters.flatMap(character => character.currentAssets)) {
+            expect(asset.source).toBeTruthy();
+            expect(asset.privacy).toBeTruthy();
+            expect(asset.status).toMatch(/approved|review-candidate/);
+            expect(asset.usage).toEqual({ runtime: expect.any(Array), review: expect.any(Array) });
+            expect(asset.orphan).toMatch(/active-runtime|review-bound|unbound-review-candidate/);
+        }
     });
 
     it('covers every canonical historical sprite candidate and occurrence from older worktrees', () => {
@@ -123,6 +139,22 @@ describe('Academy cast-wide sprite migration inventory', () => {
         ]);
         expect(sophie.currentAssets.every(asset => asset.path.endsWith('__v003.png'))).toBe(true);
         expect(sophie.currentAssets.every(asset => asset.coverageStatus === 'approved')).toBe(true);
+    });
+
+    it('records the priority upgrade without shipping private reference paths', () => {
+        const rie = inventory.characters.find(character => character.id === 'rie')!;
+        const tom2 = inventory.characters.find(character => character.id === 'tom2')!;
+        const steve = inventory.characters.find(character => character.id === 'steve')!;
+        const onke = inventory.characters.find(character => character.id === 'angel')!;
+
+        expect(rie.progress.approved).toBe(5);
+        expect(tom2.progress).toMatchObject({ approved: 0, reviewCandidates: 3, missing: 18 });
+        expect(tom2.currentAssets.every(asset => asset.privacy.includes('not-shipped'))).toBe(true);
+        expect(steve.progress).toMatchObject({ approved: 3, reviewCandidates: 0, missing: 18 });
+        expect(onke).toMatchObject({ firstName: 'Onke', progress: { approved: 0, reviewCandidates: 0, missing: 21 } });
+
+        const serialized = JSON.stringify(inventory);
+        expect(serialized).not.toMatch(/\/var\/folders|\/Users\/|\.jpe?g\b|GPS|EXIF/i);
     });
 
     it('removes deprecated learner-facing Sophie art and the redundant per-character inventory', () => {

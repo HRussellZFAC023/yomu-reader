@@ -76,7 +76,7 @@ describe('Academy character directory presentation', () => {
         expect(screen.querySelector('.academy-character-page')?.hasAttribute('hidden')).toBe(false);
     });
 
-    it('shows the approved Rie trio as distinct journal expressions and angles', () => {
+    it('shows the approved glasses-first Rie trio as distinct journal expressions and angles', () => {
         const screen = renderDirectory();
         screen.querySelector<HTMLButtonElement>('[data-character="rie"] button')?.click();
         const sprites = [...screen.querySelectorAll<HTMLImageElement>(
@@ -84,11 +84,37 @@ describe('Academy character directory presentation', () => {
         )];
 
         expect(sprites.map(sprite => [sprite.dataset.expression, sprite.dataset.angle])).toEqual([
+            ['neutral', 'front-near-front'],
             ['determined', 'left-three-quarter'],
-            ['sad-vulnerable', 'front-near-front'],
-            ['comedic', 'right-three-quarter'],
+            ['encouraging-listening', 'right-three-quarter'],
         ]);
         expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(3);
+    });
+
+    it('wires Tom 2 review art and Steve approved art into unlocked character pages', async () => {
+        const record = createLearnerRecord();
+        await record.record({
+            kind: 'characters-encountered',
+            eventId: 'encounter:asset-upgrade-review',
+            encounterId: 'story:asset-upgrade-review',
+            sceneId: 'scene:asset-upgrade-review',
+            attendeeIds: ['tom2', 'steve'],
+        });
+        const screen = renderJournalScreen(
+            'en',
+            { displayName: 'Learner', learningReason: 'Talk with friends', portraitId: 'quality-2' },
+            { characters: projectCharacterDirectory(await record.snapshot()) },
+            { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
+        );
+
+        for (const characterId of ['tom2', 'steve']) {
+            screen.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.click();
+            const gallery = screen.querySelector<HTMLElement>(`.academy-character-sprite-gallery[data-character="${characterId}"]`)!;
+            expect(gallery.querySelectorAll('img')).toHaveLength(3);
+            expect([...gallery.querySelectorAll<HTMLImageElement>('img')]
+                .every(image => image.src.includes(`/academy/art/characters/${characterId}/`))).toBe(true);
+            screen.querySelector<HTMLButtonElement>('.academy-character-page-back')?.click();
+        }
     });
 
     it('opens Xingyu-san on her own name-only page with every grounded revisit path', async () => {

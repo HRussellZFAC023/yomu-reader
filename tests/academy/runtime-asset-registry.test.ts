@@ -75,19 +75,24 @@ describe('Academy runtime asset registry', () => {
         }
     });
 
-    it('wires only likeness-cleared Rie and Sophie performances into the approved sprite map', () => {
+    it('wires only likeness-cleared Rie, Sophie, and Steve performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
-            rie: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-            rieDetermined: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
+            rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+            rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
+            rieEncouraging: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
             rieSadVulnerable: '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
             rieComedic: '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
             sophie: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
             sophieEncouraging: '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
             sophieDetermined: '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
+            steve: '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
+            steveHappy: '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
+            steveDetermined: '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
         });
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
             rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
             sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
+            steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
         });
         for (const id of [
             'character.rie.neutral',
@@ -97,11 +102,18 @@ describe('Academy runtime asset registry', () => {
             'character.sophie.neutral-right',
             'character.sophie.encouraging-front',
             'character.sophie.determined-left',
+            'character.rie.neutral-glasses',
+            'character.rie.determined-glasses-left',
+            'character.rie.encouraging-glasses-right',
+            'character.steve.neutral-front',
+            'character.steve.happy-right',
+            'character.steve.determined-left',
         ] as const) {
             expect(ACADEMY_RUNTIME_ASSET_REGISTRY[id].status).toBe('approved');
         }
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.peter.neutral'].status).toBe('review-preview');
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.felix.neutral'].status).toBe('review-preview');
+        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.tom2.neutral-right'].status).toBe('review-preview');
     });
 
     it('covers every cast cutout with an explicit presentation gate and runtime home', () => {

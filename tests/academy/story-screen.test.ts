@@ -112,7 +112,7 @@ describe('Academy Story screen', () => {
 
     it('selects only approved Rie performance cutouts for authored VN intents', () => {
         const beats = [
-            ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined__left-three-quarter'],
+            ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined-glasses__left-three-quarter'],
             ['scene:blank-atlas:classroom-survival', 'line:blank-atlas:rie-too-fast', 'sad-vulnerable', 'rie__sad-vulnerable__front-near-front'],
             ['scene:blank-atlas:close', 'line:blank-atlas:rie-recap', 'comedic', 'rie__comedic__right-three-quarter'],
         ] as const;

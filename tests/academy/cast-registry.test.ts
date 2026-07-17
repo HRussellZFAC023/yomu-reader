@@ -52,7 +52,7 @@ describe('Academy canonical cast registry', () => {
         expect(ACADEMY_CAST.filter(member => member.firstName === 'Tom').map(member => member.id))
             .toEqual(['tom', 'tom2']);
         expect(ACADEMY_CAST.every(member => Object.keys(member).every(key =>
-            ['id', 'firstName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence', 'visualBrief'].includes(key),
+            ['id', 'firstName', 'preferredName', 'category', 'visualEvidence', 'eligibility', 'teacherSalutation', 'nameEvidence', 'visualBrief'].includes(key),
         ))).toBe(true);
         expect(validateAcademyCastReference({ id: 'aakash', firstName: 'Aakash' }).id).toBe('aakash');
         expect(() => validateAcademyCastReference({ id: 'aakash', firstName: 'Akash' })).toThrow('expected Aakash');
@@ -103,13 +103,13 @@ describe('Academy canonical cast registry', () => {
         expect(getAcademyCastMember('steve')).toMatchObject({
             firstName: 'Steve',
             category: 'classmate',
-            visualEvidence: 'candidate-needs-owner',
-            eligibility: { story: true, lessons: true, likenessRuntime: false },
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
         expect(getAcademyCastMember('tom2')).toMatchObject({
             firstName: 'Tom',
             category: 'classmate',
-            visualEvidence: 'candidate-needs-owner',
+            visualEvidence: 'reference-confirmed-neutral-pending',
             eligibility: { story: true, lessons: true, likenessRuntime: false },
         });
     });
@@ -128,5 +128,6 @@ describe('Academy canonical cast registry', () => {
         expect(displayAcademyCastName('rie', 'ja')).toBe('りえ先生');
         expect(displayAcademyCastName('aakash', 'en')).toBe('Aakash-san');
         expect(displayAcademyCastName('xingyu', 'ja')).toBe('Xingyu-san');
+        expect(displayAcademyCastName('angel', 'en')).toBe('Onke-san');
     });
 });

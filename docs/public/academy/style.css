@@ -22471,9 +22471,35 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 }
 
 .academy-get-code {
-    border-width: 2px;
+    width: fit-content !important;
+    min-height: 40px;
+    justify-self: center;
+    padding: 8px 10px 7px;
+    border: 0;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    border-radius: 0;
     background: transparent;
     box-shadow: none;
+    clip-path: none !important;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.academy-get-code::after {
+    content: "\2192";
+    font-size: 0.9em;
+    transition: transform 160ms ease;
+}
+
+.academy-get-code:hover:not(:disabled),
+.academy-get-code:focus-visible {
+    transform: none;
+    background: color-mix(in srgb, var(--academy-paper) 48%, transparent);
+}
+
+.academy-get-code:hover:not(:disabled)::after,
+.academy-get-code:focus-visible::after {
+    transform: translateX(3px);
 }
 
 .academy-donation-claim {
@@ -32687,7 +32713,7 @@ html.jpdb-reader-doodle-active * {
     border: 0;
     border-left: 5px solid var(--world-accent);
     color: #fff9ed;
-    background: linear-gradient(90deg, rgba(6, 19, 24, 0.86), rgba(6, 19, 24, 0.28));
+    background: linear-gradient(90deg, rgba(24, 27, 22, 0.86), rgba(24, 27, 22, 0.28));
     box-shadow: none;
     clip-path: polygon(0 0, 100% 3%, 96% 100%, 2% 94%);
     -webkit-backdrop-filter: none;
@@ -33216,7 +33242,7 @@ html.jpdb-reader-doodle-active * {
     border-left: 5px solid var(--classroom-signal);
     border-radius: 0;
     color: #f8f2df;
-    background: rgba(7, 22, 29, 0.86);
+    background: rgba(25, 27, 21, 0.86);
     box-shadow: 5px 7px 0 rgba(0, 0, 0, 0.18);
     clip-path: polygon(0 0, 97% 2%, 100% 88%, 92% 100%, 0 96%);
     text-shadow: none;
@@ -37895,7 +37921,7 @@ html.jpdb-reader-doodle-active * {
         border-left: 4px solid var(--world-accent, #c95b4d);
         border-radius: 0;
         color: #fffaf0;
-        background: linear-gradient(90deg, rgba(9, 18, 20, 0.72), rgba(9, 18, 20, 0.30));
+        background: linear-gradient(90deg, rgba(24, 27, 22, 0.72), rgba(24, 27, 22, 0.30));
         box-shadow: none;
         clip-path: polygon(0 0, 100% 2%, 96% 100%, 0 94%);
         -webkit-backdrop-filter: none;

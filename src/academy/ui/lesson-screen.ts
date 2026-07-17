@@ -264,6 +264,7 @@ function rieGuide(language: AcademyLanguage): HTMLElement {
 }
 
 function rieExpressionSources() {
-    const fallback = { still: ACADEMY_ASSETS.rie } as const;
-    return { neutral: fallback, encouraging: fallback, happy: fallback, repair: fallback };
+    const neutral = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral } as const;
+    const encouraging = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging } as const;
+    return { neutral, encouraging, happy: encouraging, repair: neutral };
 }

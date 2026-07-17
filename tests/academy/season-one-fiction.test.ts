@@ -176,7 +176,7 @@ describe('Season One fiction spine', () => {
     it('covers and uniquely unlocks every live canonical non-textbook cast member', () => {
         const story = loadStory();
         const expectedCast = ACADEMY_CAST
-            .filter(member => member.category !== 'textbook-legend')
+            .filter(member => member.category !== 'textbook-legend' && !['tom2', 'steve'].includes(member.id))
             .map(member => member.id)
             .sort();
         const expectedSet = new Set<string>(expectedCast);

@@ -80,15 +80,15 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain('61 active, 1 orphaned, 2 deprecated, 571 missing expression variants');
+            .toContain('70 active, 1 orphaned, 2 deprecated, 606 missing expression variants');
         expect(currentRasterHashes()).toEqual(before);
     });
 
     it('accounts for every current raster exactly once without conflating authorization and presence', () => {
         expect(inventory.counts).toMatchObject({
-            currentRasterFiles: 62,
-            currentRasterFilesAccountedFor: 62,
-            active: 61,
+            currentRasterFiles: 71,
+            currentRasterFilesAccountedFor: 71,
+            active: 70,
             orphaned: 1,
             deprecated: 2,
             deprecatedPresent: 0,
@@ -100,7 +100,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             ...inventory.assets.active,
             ...inventory.assets.orphaned,
             ...inventory.assets.deprecated.filter(asset => asset.present),
-        ].map(asset => asset.path)).size).toBe(62);
+        ].map(asset => asset.path)).size).toBe(71);
     });
 
     it('keeps the Rie thinking sprite orphaned and reports both off-matrix sprites honestly', () => {
@@ -140,15 +140,15 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
-            expressionMatrixSlots: 588,
-            approvedExpressionVariants: 7,
-            reviewCandidateExpressionVariants: 10,
-            deliveredMatrixExpressionVariants: 17,
-            missingExpressionVariants: 571,
+            expressionMatrixSlots: 630,
+            approvedExpressionVariants: 11,
+            reviewCandidateExpressionVariants: 13,
+            deliveredMatrixExpressionVariants: 24,
+            missingExpressionVariants: 606,
             offMatrixDeliveredSprites: 2,
         });
-        expect(inventory.expressionCoverage.missingVariants).toHaveLength(571);
-        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(571);
+        expect(inventory.expressionCoverage.missingVariants).toHaveLength(606);
+        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(606);
         expect(inventory.expressionCoverage.missingVariants).toContainEqual({
             character: 'xingyu',
             angle: 'front-near-front',

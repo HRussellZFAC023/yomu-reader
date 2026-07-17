@@ -50,10 +50,14 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions['encouraging-listening'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[2].expressions.neutral.status).toBe('approved');
         const totalPerformanceCells = ACADEMY_CAST.length * SPRITE_ANGLES.length * SPRITE_EXPRESSIONS.length;
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
+            .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
+            .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 7,
-            reviewCandidates: 10,
-            missing: totalPerformanceCells - 17,
+            approved: 11,
+            reviewCandidates: 13,
+            missing: totalPerformanceCells - 24,
         });
     });
 
@@ -79,7 +83,12 @@ describe('Academy VN sprite performance contract', () => {
 
     it('keeps off-contract Rie rasters visible without counting them as coverage', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.map(asset => asset.label))
-            .toEqual(['repair', 'thinking']);
+            .toEqual([
+                'superseded-neutral-without-glasses',
+                'superseded-determined-without-glasses',
+                'repair',
+                'thinking',
+            ]);
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.every(asset =>
             asset.status === 'review-candidate')).toBe(true);
     });

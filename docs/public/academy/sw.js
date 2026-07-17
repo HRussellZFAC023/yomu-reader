@@ -33,6 +33,9 @@ const AUDIO_PRECACHE = [
 ];
 const CAST_SPRITE_PRECACHE = [
     '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
     '/academy/art/ACADEMY-ASSET-REGISTRY.json',
     '/academy/art/ASSET-USAGE.json',
     '/academy/art/SPRITE-BATCH-MANIFEST.json',
@@ -53,6 +56,12 @@ const CAST_SPRITE_PRECACHE = [
     '/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
+    '/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
 ];
 
 const CORE = [
@@ -119,6 +128,8 @@ const CORE = [
     '/academy/content/n2-extensive-reading/package.v1.json',
     '/academy/content/listening/listening-crosswalk.v1.json',
     '/academy/content/listening/listening-task-bindings.v1.json',
+    '/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3',
+    '/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3',
     '/academy/content/listening/media/academy-listening-75b031947b395f44.mp3',
     '/academy/content/listening/media/academy-listening-b076fb0e90d9e1b2.mp3',
     '/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3',

@@ -51,7 +51,7 @@ describe('Academy sprite batch manifest', () => {
             character.currentAsset.status,
         ]));
 
-        expect(status.rie).toBe('approved-performance-trio-with-unapproved-legacy-expression-candidates');
+        expect(status.rie).toBe('approved-glasses-primary-trio-with-compatible-and-review-legacy');
         expect(status.aakash).toBe('unapproved-neutral-candidate');
         expect(status.peter).toBe('unapproved-performance-candidates');
         expect(status.felix).toBe('unapproved-performance-candidates');
@@ -72,7 +72,7 @@ describe('Academy sprite batch manifest', () => {
         const rie = ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'rie');
 
         expect(rie?.currentAsset).toMatchObject({
-            status: 'approved-performance-trio-with-unapproved-legacy-expression-candidates',
+            status: 'approved-glasses-primary-trio-with-compatible-and-review-legacy',
             paths: expect.arrayContaining(['/academy/art/characters/rie/rie__thinking__halfbody__v001.png']),
         });
         expect(rie?.currentAsset.note).toMatch(/thinking remain unapproved review candidates/i);
@@ -114,9 +114,7 @@ describe('Academy sprite batch manifest', () => {
         const references = new Map(rie.sourceReferences.map(reference => [reference.id, reference]));
 
         expect(ready.map(slot => slot.castId)).toEqual(['rie', 'rie', 'rie']);
-        expect(ready.map(slot => slot.plannedAssetPath)).toEqual(expect.arrayContaining(
-            ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'rie')!.currentAsset.paths.slice(-3),
-        ));
+        expect(ready.every(slot => rie.currentAsset.paths.includes(slot.plannedAssetPath))).toBe(true);
         for (const slot of ready) {
             expect(slot.likenessReferenceIds.length).toBeGreaterThan(0);
             expect(slot.blockedBy).toEqual([]);

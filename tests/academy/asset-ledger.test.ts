@@ -10,6 +10,10 @@ interface AssetDelivery {
 
 interface AssetEntry {
     readonly id: string;
+    readonly source?: string;
+    readonly privacy?: string;
+    readonly usage?: { readonly runtime: readonly string[]; readonly review: readonly string[] };
+    readonly orphan?: string;
     readonly verdict: string;
     readonly runtimeHome?: readonly string[] | null;
     readonly reviewHome?: readonly string[];
@@ -210,18 +214,18 @@ describe('Academy runtime asset ledger', () => {
         }
     });
 
-    it('promotes only the three audited Rie angle and expression matches', () => {
+    it('retains the earlier three audited Rie angle and expression matches', () => {
         const expected = {
             'rie-determined-left-three-quarter-halfbody-v001': {
-                assetPath: ACADEMY_ASSETS.characterSpriteGalleries.rie['determined:left-three-quarter'],
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-left'].files.default,
                 homes: ['dialogue:rie-decisive-guidance', 'journal:rie-expression-gallery'],
             },
             'rie-sad-vulnerable-front-near-front-halfbody-v001': {
-                assetPath: ACADEMY_ASSETS.characterSpriteGalleries.rie['sad-vulnerable:front-near-front'],
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-front'].files.default,
                 homes: ['dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'],
             },
             'rie-comedic-right-three-quarter-halfbody-v001': {
-                assetPath: ACADEMY_ASSETS.characterSpriteGalleries.rie['comedic:right-three-quarter'],
+                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-right'].files.default,
                 homes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'],
             },
         } as const;
@@ -234,6 +238,35 @@ describe('Academy runtime asset ledger', () => {
                 status: expect.stringContaining('reviewed-2026-07-15'),
             });
         }
+    });
+
+    it('records privacy, usage, and orphan state for the priority character upgrade', () => {
+        const ids = [
+            'rie-neutral-glasses-front-near-front-halfbody-v001',
+            'rie-determined-glasses-left-three-quarter-halfbody-v001',
+            'rie-encouraging-glasses-right-three-quarter-halfbody-v001',
+            'tom2-neutral-right-three-quarter-halfbody-v001',
+            'tom2-encouraging-front-near-front-halfbody-v001',
+            'tom2-surprised-left-three-quarter-halfbody-v001',
+            'steve-neutral-front-near-front-halfbody-v001',
+            'steve-happy-right-three-quarter-halfbody-v001',
+            'steve-determined-left-three-quarter-halfbody-v001',
+        ];
+        for (const id of ids) {
+            expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
+                source: expect.any(String),
+                privacy: expect.any(String),
+                status: expect.any(String),
+                usage: { runtime: expect.any(Array), review: expect.any(Array) },
+                orphan: expect.stringMatching(/active-runtime|review-bound/),
+            });
+        }
+        expect(JSON.stringify(ledger.assets.filter(asset => ids.includes(asset.id))))
+            .not.toMatch(/\/var\/folders|\/Users\/|GPS|EXIF/i);
+        expect(ledger.assets.find(asset => asset.id === 'onke-private-reference-gate')).toMatchObject({
+            privacy: expect.stringContaining('generation-forbidden'),
+            orphan: 'blocked-no-delivery',
+        });
     });
 
     it('keeps the Aakash journal preview honest and separate from the rainy scene CG', () => {

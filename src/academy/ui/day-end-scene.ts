@@ -31,8 +31,8 @@ export function renderDayEndScene(options: DayEndSceneOptions): HTMLElement {
         position: 'left',
         expression: 'happy',
         expressions: {
-            neutral: { still: ACADEMY_ASSETS.rie },
-            happy: { still: ACADEMY_ASSETS.rie },
+            neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral },
+            happy: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging },
         },
     }]);
     stage.setLine({

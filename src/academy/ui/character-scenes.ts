@@ -57,7 +57,7 @@ function rieGuide(language: AcademyLanguage): HTMLElement {
         characterId: 'rie',
         alt: language === 'ja' ? 'りえ先生' : 'Rie-sensei',
         className: 'academy-guide-character academy-character-rie',
-        expressions: { neutral: { still: ACADEMY_ASSETS.rie } },
+        expressions: { neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral } },
     }));
     return cutout;
 }
