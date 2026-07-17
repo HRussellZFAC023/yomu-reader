@@ -21,6 +21,7 @@ import {
     type YouTubeFilterDecision,
     type YouTubeFilterScanDecision,
 } from './youtube-filter-scan';
+import { escapeRegExp, readYouTubeConfigStringFromScripts } from './youtube-config';
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
@@ -1798,26 +1799,12 @@ function readYouTubeConfigValue(ytcfg: YouTubeConfigSource | undefined, key: str
 function readYouTubeConfigSourceFromScripts(): YouTubeConfigSource | undefined {
     const data: Record<string, unknown> = {};
     for (const key of ['INNERTUBE_API_KEY', 'INNERTUBE_CLIENT_NAME', 'INNERTUBE_CLIENT_VERSION', 'VISITOR_DATA']) {
-        const value = readYouTubeConfigScriptValue(key);
+        const value = readYouTubeConfigStringFromScripts(key);
         if (value) data[key] = value;
     }
     const context = readYouTubeConfigScriptObject('INNERTUBE_CONTEXT');
     if (context) data.INNERTUBE_CONTEXT = context;
     return Object.keys(data).length ? { data_: data } : undefined;
-}
-
-function readYouTubeConfigScriptValue(key: string): string {
-    const escapedKey = escapeRegExp(key);
-    const patterns = [
-        new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
-        new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
-    ];
-    for (const script of Array.from(document.scripts)) {
-        const text = script.textContent ?? '';
-        const raw = patterns.map(pattern => text.match(pattern)?.[1]).find(Boolean);
-        if (raw) return unescapeYouTubeConfigString(raw);
-    }
-    return '';
 }
 
 function readYouTubeConfigScriptObject(key: string): Record<string, unknown> | null {
@@ -1834,14 +1821,6 @@ function readYouTubeConfigScriptObject(key: string): Record<string, unknown> | n
         }
     }
     return null;
-}
-
-function unescapeYouTubeConfigString(value: string): string {
-    try {
-        return JSON.parse(`"${value}"`) as string;
-    } catch {
-        return value;
-    }
 }
 
 function readYouTubeInnerTubeContext(ytcfg: YouTubeConfigSource | undefined): Record<string, unknown> {
@@ -2171,10 +2150,6 @@ function recordValue(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' && !Array.isArray(value)
         ? value as Record<string, unknown>
         : null;
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function randomStarterYouTubeChannelRecommendations(limit: number): YouTubeChannelRecommendation[] {

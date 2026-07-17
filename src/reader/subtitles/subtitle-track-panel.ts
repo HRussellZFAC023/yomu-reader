@@ -3,6 +3,7 @@ import { uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import { renderDrawerHead } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import { escapeRegExp } from './youtube-config';
 
 export interface SubtitleTrackPanelTrack {
     id: string;
@@ -224,10 +225,6 @@ function compactTrackSourceLabel(label: string): string {
         .replace(/\s+\u00b7\s+auto-generated$/iu, '')
         .replace(/\s+\u00b7\s+.+$/u, '')
         .trim();
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function trackRoleText(isPrimary: boolean, isSecondary: boolean, language: InterfaceLanguage): string {

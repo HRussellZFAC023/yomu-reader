@@ -1,5 +1,6 @@
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
+import { readYouTubeConfigStringFromScripts } from './youtube-config';
 
 const YOUTUBE_VIDEO_PLAYER_SELECTOR = '#movie_player, .html5-video-player';
 const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
@@ -843,28 +844,6 @@ function readYouTubeConfigString(key: string): string {
     return readYouTubeConfigStringFromScripts(key);
 }
 
-function readYouTubeConfigStringFromScripts(key: string): string {
-    const escapedKey = escapeRegExp(key);
-    const patterns = [
-        new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
-        new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'u'),
-    ];
-    for (const script of Array.from(document.scripts)) {
-        const text = script.textContent ?? '';
-        const raw = patterns.map(pattern => text.match(pattern)?.[1]).find(Boolean);
-        if (raw) return unescapeYouTubeConfigString(raw);
-    }
-    return '';
-}
-
-function unescapeYouTubeConfigString(value: string): string {
-    try {
-        return JSON.parse(`"${value}"`) as string;
-    } catch {
-        return value;
-    }
-}
-
 function youtubeTrackUrlScore(value: string | undefined): number {
     if (!value) return 0;
     try {
@@ -882,8 +861,4 @@ function youtubeTrackSearchParamScore(params: URLSearchParams): number {
         params.has('signature') ? 2 : 0,
         params.has('kind') ? 1 : 0,
     ].reduce((sum, item) => sum + item, 0);
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
