@@ -47,7 +47,7 @@ describe('Academy resume route contract', () => {
             } as LearnerEvent, 1),
             event({ kind: 'curriculum-entry-chosen', route: 'manual-band', band: 'n3' } as LearnerEvent, 2),
         ]);
-        expect(normalizeResumeCheckpoint(checkpoint('band-entry'), projection, 1_000, true)).toMatchObject({
+        expect(normalizeResumeCheckpoint(checkpoint('band-entry'), projection, 1_000, true, true)).toMatchObject({
             route: 'class',
             selectedBand: 'n3',
         });
@@ -61,9 +61,9 @@ describe('Academy resume route contract', () => {
         const sourceComplete = event({ kind: 'scene-completed', sceneId: 'scene:lesson-zero-first-repair' } as LearnerEvent, 2);
         const writingComplete = event({ kind: 'scene-completed', sceneId: 'scene:lesson-zero-writing-desk' } as LearnerEvent, 3);
 
-        expect(normalizeResumeCheckpoint(checkpoint('source-activity'), projectLearnerRecord([profile, sourceComplete]), 1_000, true))
+        expect(normalizeResumeCheckpoint(checkpoint('source-activity'), projectLearnerRecord([profile, sourceComplete]), 1_000, true, true))
             .toMatchObject({ route: 'lesson-overview', lessonId: 'lesson:foundation-00' });
-        expect(normalizeResumeCheckpoint(checkpoint('writing-practice'), projectLearnerRecord([profile, writingComplete]), 1_000, true))
+        expect(normalizeResumeCheckpoint(checkpoint('writing-practice'), projectLearnerRecord([profile, writingComplete]), 1_000, true, true))
             .toMatchObject({ route: 'lesson-overview', lessonId: 'lesson:foundation-00' });
     });
 
@@ -85,10 +85,10 @@ describe('Academy resume route contract', () => {
         const soundCheckpoint = { ...checkpoint('source-activity'), selectedFork: 'sound' as const };
         const projection = projectLearnerRecord([profile, textAttempt]);
 
-        expect(normalizeResumeCheckpoint(textCheckpoint, projection, 1_000, true)).toMatchObject({
+        expect(normalizeResumeCheckpoint(textCheckpoint, projection, 1_000, true, true)).toMatchObject({
             route: 'lesson-overview', selectedFork: 'text', lessonId: 'lesson:foundation-00',
         });
-        expect(normalizeResumeCheckpoint(soundCheckpoint, projection, 1_000, true)).toMatchObject({
+        expect(normalizeResumeCheckpoint(soundCheckpoint, projection, 1_000, true, true)).toMatchObject({
             route: 'lesson-overview', selectedFork: 'sound', lessonId: 'lesson:foundation-00',
         });
     });
@@ -108,9 +108,9 @@ describe('Academy resume route contract', () => {
         }, 2);
         const projection = projectLearnerRecord([profile, soundAttempt]);
 
-        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'sound' }, projection, 1_000, true).route)
+        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'sound' }, projection, 1_000, true, true).route)
             .toBe('lesson-overview');
-        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'speaking' }, projection, 1_000, true).route)
+        expect(normalizeResumeCheckpoint({ ...checkpoint('source-activity'), selectedFork: 'speaking' }, projection, 1_000, true, true).route)
             .toBe('lesson-overview');
     });
 
@@ -120,6 +120,7 @@ describe('Academy resume route contract', () => {
             projectLearnerRecord([]),
             4_000,
             false,
+            true,
         );
         expect(expired.route).toBe('access');
         expect(expired.routeHistory).toEqual([]);
@@ -133,7 +134,7 @@ describe('Academy resume route contract', () => {
         } as LearnerEvent, 1);
         const projection = projectLearnerRecord([profile]);
 
-        expect(normalizeResumeCheckpoint(checkpoint('day-end'), projection, 1_000, true).route).toBe('day-end');
+        expect(normalizeResumeCheckpoint(checkpoint('day-end'), projection, 1_000, true, true).route).toBe('day-end');
         expect(projection.completedScenes).toEqual([]);
         expect(themeForRoute('day-end')).toBe('support.kindness');
     });
@@ -159,9 +160,38 @@ describe('Academy resume route contract', () => {
     });
 
     it('keeps global destinations available on a focused activity after enrollment', () => {
-        expect(globalNavigationIsAvailable(checkpoint('source-activity'), true)).toBe(true);
-        expect(globalNavigationIsAvailable(checkpoint('profile'), false)).toBe(false);
-        expect(globalNavigationIsAvailable({ ...checkpoint('access'), session: undefined }, true)).toBe(false);
+        expect(globalNavigationIsAvailable(checkpoint('source-activity'), true, true)).toBe(true);
+        expect(globalNavigationIsAvailable(checkpoint('profile'), false, true)).toBe(false);
+        expect(globalNavigationIsAvailable({ ...checkpoint('access'), session: undefined }, true, true)).toBe(false);
+    });
+
+    it('withholds global navigation until the session holds a Google-linked account', () => {
+        expect(globalNavigationIsAvailable(checkpoint('source-activity'), true, false)).toBe(false);
+        expect(globalNavigationIsAvailable(checkpoint('campus'), true, false)).toBe(false);
+    });
+
+    it('gates every resume path on a Google-linked account, including reusable class invites', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Riku', learningReason: 'Read', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const projection = projectLearnerRecord([profile]);
+        for (const route of ['campus', 'world', 'class', 'lesson-overview', 'profile', 'start', 'access'] as const) {
+            const gated = normalizeResumeCheckpoint(checkpoint(route), projection, 1_000, true, false);
+            expect(gated.route, route).toBe('profile-sync');
+            expect(gated.session).toEqual(SESSION);
+            expect(gated.routeHistory).toEqual([]);
+        }
+        // Offline resume without linked-account evidence is gated identically.
+        expect(normalizeResumeCheckpoint(checkpoint('campus'), projectLearnerRecord([]), 2_500, false, false).route)
+            .toBe('profile-sync');
+        // An expired session still falls back to the invite screen first.
+        expect(normalizeResumeCheckpoint(checkpoint('campus'), projection, 4_000, false, false).route).toBe('access');
+    });
+
+    it('keeps the sign-in gate stable while awaiting Google', () => {
+        const gated = normalizeResumeCheckpoint(checkpoint('profile-sync'), projectLearnerRecord([]), 1_000, true, false);
+        expect(gated.route).toBe('profile-sync');
     });
 
     it('preserves an explicit Campus visit while course view remains selected', () => {
@@ -175,7 +205,7 @@ describe('Academy resume route contract', () => {
             ...checkpoint('campus'),
             presentationMode: 'course',
             routeHistory: [{ route: 'review' }],
-        }, projection, 1_000, true);
+        }, projection, 1_000, true, true);
 
         expect(resumed.route).toBe('campus');
         expect(resumed.routeHistory).toEqual([{ route: 'review' }]);

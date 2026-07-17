@@ -122,6 +122,15 @@ export class AcademySyncClient {
         this.state = loadState(this.storage);
     }
 
+    /**
+     * True once this session's Google account is confirmed, or this device
+     * already holds an account-bound profile from an earlier sign-in. This is
+     * the only evidence that may open Academy routes past the sign-in gate.
+     */
+    get hasLinkedAccount(): boolean {
+        return Boolean(this.account ?? this.awaitingPairProfile?.accountId ?? this.state?.profile.accountId);
+    }
+
     get status(): AcademySyncStatus {
         const queuedForEncryption = this.state
             ? [...this.queuedLocalEventIds].filter(eventId => !this.state?.eventSyncIds[eventId]).length

@@ -66,7 +66,10 @@ export function renderProfileSyncScreen(options: ProfileSyncScreenOptions): HTML
 }
 
 function canContinueToAcademy(status: AcademySyncStatus): boolean {
-    return status.phase === 'ready' || status.phase === 'offline';
+    // Continuing must never bypass the Google gate: an offline device may
+    // proceed only when it already holds an account-bound profile.
+    const accountLinked = Boolean(status.account) || Boolean(status.profile?.accountId);
+    return accountLinked && (status.phase === 'ready' || status.phase === 'offline');
 }
 
 function appendPrimaryAction(actions: HTMLElement, options: ProfileSyncScreenOptions): void {

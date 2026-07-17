@@ -90,6 +90,7 @@ describe('Academy grounded-route conformance', () => {
                 projection,
                 1_000,
                 true,
+                true,
             );
             expect(FORBIDDEN_UNGROUNDED_ROUTES.has(normalized.route), route).toBe(false);
         }
@@ -100,7 +101,7 @@ describe('Academy grounded-route conformance', () => {
                 ...[...FORBIDDEN_UNGROUNDED_ROUTES].map(route => ({ route })),
                 { route: 'journal' },
             ],
-        }), projection, 1_000, true);
+        }), projection, 1_000, true, true);
 
         expect(normalized.route).toBe('review');
         expect(normalized.routeHistory.map(frame => frame.route)).toEqual(['class', 'journal']);

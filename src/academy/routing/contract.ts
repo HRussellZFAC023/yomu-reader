@@ -23,6 +23,7 @@ export function normalizeResumeCheckpoint(
     projection: LearnerProjection,
     now: number,
     online: boolean,
+    accountLinked: boolean,
 ): AcademyCheckpoint {
     const session = checkpoint.session;
     if (!session || !sessionCanResume(session, now, online)) {
@@ -33,6 +34,15 @@ export function normalizeResumeCheckpoint(
             presentationMode: checkpoint.presentationMode,
             updatedAt: now,
         };
+    }
+    // An invite session alone is not a credential: every invite path — paid
+    // or reusable class code — must hold a Google-linked account before any
+    // Academy profile, curriculum, media, or world route is reachable. Until
+    // then the only destination past the invite screen is the sign-in gate.
+    if (!accountLinked) {
+        return checkpoint.route === 'profile-sync'
+            ? checkpoint
+            : transitionCheckpoint(checkpoint, { kind: 'reset', route: 'profile-sync' }, now);
     }
     let normalized = checkpoint;
     if (!projection.profile) normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'profile' }, now);
@@ -93,8 +103,12 @@ export function navigationForRoute(route: AcademyRoute): AcademyNavigation | und
     return undefined;
 }
 
-export function globalNavigationIsAvailable(checkpoint: AcademyCheckpoint, hasProfile: boolean): boolean {
-    return hasProfile && checkpoint.session !== undefined && checkpoint.route !== 'access';
+export function globalNavigationIsAvailable(
+    checkpoint: AcademyCheckpoint,
+    hasProfile: boolean,
+    accountLinked: boolean,
+): boolean {
+    return accountLinked && hasProfile && checkpoint.session !== undefined && checkpoint.route !== 'access';
 }
 
 export function themeForRoute(route: AcademyRoute, worldPlace?: WorldPlaceId): ThemeSlot {

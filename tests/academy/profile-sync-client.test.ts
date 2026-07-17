@@ -588,6 +588,35 @@ describe('Academy encrypted profile sync client', () => {
 
         expect(ready.textContent).toContain('Continue to Academy');
         expect(pending.textContent).not.toContain('Continue to Academy');
+        // Offline first-run learners without a linked account must stay at the
+        // Google gate; offline devices holding an account-bound profile may go on.
+        const offlineAnonymous = renderProfileSyncScreen({
+            language: 'en',
+            status: { phase: 'offline', profile: null, account: null, entitlement: null, pending: 0, lastSyncAt: null, error: null },
+            onBack: vi.fn(), onConnect: vi.fn(async () => {}), onRetry: vi.fn(async () => {}), onGoogleLink: vi.fn(),
+            onStartPairing: vi.fn(async () => ({ pairingId: PAIRING_ID, code: PAIRING_CODE, expiresAt: 200 })),
+            onClaimPairing: vi.fn(async () => {}), onExport: vi.fn(async () => {}), onSignOut: vi.fn(async () => {}), onDelete: vi.fn(async () => {}),
+            onContinue,
+        });
+        const offlineLinked = renderProfileSyncScreen({
+            language: 'en',
+            status: { phase: 'offline', profile: { ...profile(), accountId: ACCOUNT_ID }, account: null, entitlement: null, pending: 0, lastSyncAt: null, error: null },
+            onBack: vi.fn(), onConnect: vi.fn(async () => {}), onRetry: vi.fn(async () => {}), onGoogleLink: vi.fn(),
+            onStartPairing: vi.fn(async () => ({ pairingId: PAIRING_ID, code: PAIRING_CODE, expiresAt: 200 })),
+            onClaimPairing: vi.fn(async () => {}), onExport: vi.fn(async () => {}), onSignOut: vi.fn(async () => {}), onDelete: vi.fn(async () => {}),
+            onContinue,
+        });
+        expect(offlineAnonymous.textContent).not.toContain('Continue to Academy');
+        expect(offlineLinked.textContent).toContain('Continue to Academy');
+        const readyAnonymous = renderProfileSyncScreen({
+            language: 'en',
+            status: { phase: 'ready', profile: profile(), account: null, entitlement: null, pending: 0, lastSyncAt: null, error: null },
+            onBack: vi.fn(), onConnect: vi.fn(async () => {}), onRetry: vi.fn(async () => {}), onGoogleLink: vi.fn(),
+            onStartPairing: vi.fn(async () => ({ pairingId: PAIRING_ID, code: PAIRING_CODE, expiresAt: 200 })),
+            onClaimPairing: vi.fn(async () => {}), onExport: vi.fn(async () => {}), onSignOut: vi.fn(async () => {}), onDelete: vi.fn(async () => {}),
+            onContinue,
+        });
+        expect(readyAnonymous.textContent).not.toContain('Continue to Academy');
         [...ready.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Continue to Academy')?.click();
         await Promise.resolve();
         expect(onContinue).toHaveBeenCalledOnce();
@@ -614,7 +643,8 @@ describe('Academy encrypted profile sync client', () => {
         expect(screen.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('Paid codes must be linked to Google');
         expect(screen.textContent).toContain('A paid code can be activated once');
         expect(screen.textContent).toContain('a Google account can hold one paid code');
-        expect(screen.textContent).toContain('A class-provided anonymous invitation can continue without an account');
+        expect(screen.textContent).toContain('Class invitations also require signing in with Google');
+        expect(screen.textContent).not.toContain('without an account');
         input.value = 'PAID-CODE';
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await vi.waitFor(() => expect(action).toEqual({ kind: 'redeem', code: 'PAID-CODE' }));
@@ -631,8 +661,8 @@ describe('Academy encrypted profile sync client', () => {
 
         expect(screen.querySelector('input[name="pairingCode"]')).toBeNull();
         expect(screen.textContent).toContain('Sign in with Google');
-        expect(screen.textContent).toContain('Paid Academy codes must be linked to Google before activation');
-        expect(screen.textContent).toContain('A class-provided anonymous invitation can continue without an account');
+        expect(screen.textContent).toContain('Every Academy invitation, including class invitations, is linked to a Google account');
+        expect(screen.textContent).not.toContain('without an account');
         expect(screen.textContent).toContain('Recover another account');
     });
 

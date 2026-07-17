@@ -239,6 +239,14 @@
     error = null;
     pending = Promise.resolve();
     queuedLocalEventIds = /* @__PURE__ */ new Set();
+    /**
+     * True once this session's Google account is confirmed, or this device
+     * already holds an account-bound profile from an earlier sign-in. This is
+     * the only evidence that may open Academy routes past the sign-in gate.
+     */
+    get hasLinkedAccount() {
+      return Boolean(this.account ?? this.awaitingPairProfile?.accountId ?? this.state?.profile.accountId);
+    }
     get status() {
       const queuedForEncryption = this.state ? [...this.queuedLocalEventIds].filter((eventId) => !this.state?.eventSyncIds[eventId]).length : 0;
       return {
@@ -25500,7 +25508,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const UNGROUNDED_ACTIVITY_ROUTES = new Set(
     ACADEMY_ROUTES.filter((route) => academyRouteKind(route) === "legacy-ungrounded-activity")
   );
-  function normalizeResumeCheckpoint(checkpoint, projection, now, online) {
+  function normalizeResumeCheckpoint(checkpoint, projection, now, online, accountLinked) {
     const session = checkpoint.session;
     if (!session || !sessionCanResume(session, now, online)) {
       return {
@@ -25510,6 +25518,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         presentationMode: checkpoint.presentationMode,
         updatedAt: now
       };
+    }
+    if (!accountLinked) {
+      return checkpoint.route === "profile-sync" ? checkpoint : transitionCheckpoint(checkpoint, { kind: "reset", route: "profile-sync" }, now);
     }
     let normalized2 = checkpoint;
     if (!projection.profile) normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "profile" }, now);
@@ -25562,8 +25573,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (route === "campus" || route === "class" || route === "review" || route === "journal") return route;
     return void 0;
   }
-  function globalNavigationIsAvailable(checkpoint, hasProfile) {
-    return hasProfile && checkpoint.session !== void 0 && checkpoint.route !== "access";
+  function globalNavigationIsAvailable(checkpoint, hasProfile, accountLinked) {
+    return accountLinked && hasProfile && checkpoint.session !== void 0 && checkpoint.route !== "access";
   }
   function themeForRoute(route, worldPlace2) {
     if (route === "access") return "silence";
@@ -213073,7 +213084,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return screen;
   }
   function canContinueToAcademy(status) {
-    return status.phase === "ready" || status.phase === "offline";
+    const accountLinked = Boolean(status.account) || Boolean(status.profile?.accountId);
+    return accountLinked && (status.phase === "ready" || status.phase === "offline");
   }
   function appendPrimaryAction(actions, options) {
     const { phase, profile: profile2 } = options.status;
@@ -217521,14 +217533,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         sync: this.sync
       });
       const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+      const returnedFromGoogle = await this.sync.completeGoogleReturn();
+      if (!returnedFromGoogle && restoredCheckpoint.session && !this.sync.hasLinkedAccount && navigator.onLine) {
+        await this.sync.connect();
+      }
       this.checkpoint = normalizeResumeCheckpoint(
         restoredCheckpoint,
         this.projection,
         Date.now(),
-        navigator.onLine
+        navigator.onLine,
+        this.sync.hasLinkedAccount
       );
       if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
-      await this.sync.completeGoogleReturn();
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
       this.bindLifecycle();
       await this.render();
@@ -217562,7 +217578,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const route = this.checkpoint.route;
       await this.audio.setTheme(themeForRoute(route, this.checkpoint.worldPlace));
       const navigation = navigationForRoute(route);
-      const globalNavigationAvailable = globalNavigationIsAvailable(this.checkpoint, Boolean(this.projection.profile));
+      const globalNavigationAvailable = globalNavigationIsAvailable(
+        this.checkpoint,
+        Boolean(this.projection.profile),
+        this.sync.hasLinkedAccount
+      );
       this.shell.setNavigation(globalNavigationAvailable, navigation);
       this.shell.setUtilityVisible?.(route !== "review");
       this.shell.setLearnerActionsVisible(globalNavigationAvailable);
@@ -217612,7 +217632,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
       await this.persistence.checkpoint.save(this.checkpoint);
     }
     async setPresentationMode(mode) {
@@ -217627,7 +217647,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
       await this.persistence.checkpoint.save(this.checkpoint);
       await this.render();
     }
