@@ -2,7 +2,7 @@ import { Logger } from '../app/logger';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
-import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
+import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
@@ -22,13 +22,6 @@ export type ColorSourceSettingName =
 
 export const COLOR_SOURCE_VALUES: readonly SelectableReaderColorSource[] = ['status', 'jpdb', 'anki', 'pitch', 'off'];
 type PageScanMode = 'off' | 'auto' | 'manual';
-const COLOR_SOURCE_OPTIONS: [SelectableReaderColorSource, string][] = [
-    ['status', 'JPDB + Anki status'],
-    ['jpdb', 'JPDB status'],
-    ['anki', 'Anki status'],
-    ['pitch', 'Pitch accent'],
-    ['off', 'None'],
-];
 const DEFAULT_COLOR_SOURCE_VALUES: Record<ColorSourceSettingName, SelectableReaderColorSource> = {
     wordHighlightColorSource: 'jpdb',
     wordUnderlineColorSource: 'pitch',
@@ -112,18 +105,6 @@ const NEW_TAB_STUDY_CHALLENGE_STEPS = [
 export function settingsColorSourceValue(settings: ReaderSettings, name: ColorSourceSettingName): SelectableReaderColorSource {
     const source = settings[name];
     return source === 'auto' ? DEFAULT_COLOR_SOURCE_VALUES[name] : source;
-}
-
-export function colorSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'>): [SelectableReaderColorSource, string][] {
-    const apiLabel = combinedApiCredentialLabel(settings);
-    return COLOR_SOURCE_OPTIONS.map(([value, label]) => [
-        value,
-        value === 'status'
-            ? `${apiLabel} + Anki status`
-            : value === 'jpdb'
-                ? `${apiLabel} status`
-                : label,
-    ]);
 }
 
 export function readFormSettings(data: FormData, current: ReaderSettings): ReaderSettings {
