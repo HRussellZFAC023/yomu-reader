@@ -1,5 +1,25 @@
 (function() {
   "use strict";
+  function localQaAuthBypassEnabled(location2, development) {
+    return false;
+  }
+  function createLocalQaAccessGateway(now = Date.now) {
+    return {
+      async exchange(code) {
+        if (!/^[A-Z0-9-]{4,64}$/.test(code.trim().toUpperCase())) {
+          throw new Error("Use a four-character or longer local QA code.");
+        }
+        const openedAt = now();
+        return {
+          sessionId: `local-qa-${openedAt}`,
+          expiresAt: openedAt + 24 * 60 * 60 * 1e3,
+          offlineResumeUntil: openedAt + 7 * 24 * 60 * 60 * 1e3,
+          accountRequired: true,
+          source: "local-qa"
+        };
+      }
+    };
+  }
   const ACADEMY_ACCOUNT_ACTION_EVENT = "academy:account-action";
   function requestAcademyAccountAction(target, action2) {
     return new Promise((resolve, reject) => {
@@ -37940,6 +37960,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async openSession(code, context2) {
       const session = await this.options.access.exchange(code);
+      if (this.options.skipAccountGate) {
+        await context2.go("profile", { session });
+        return;
+      }
       await this.options.account?.connect();
       await context2.go("profile-sync", { session });
     }
@@ -217458,6 +217482,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     kanjiWriting;
     pronunciation;
     databaseName;
+    devAuthBypass;
     audio;
     lifecycle = new AbortController();
     language = loadLanguage();
@@ -217478,12 +217503,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     get projection() {
       return this.evidence.projection;
     }
+    get accountLinked() {
+      return this.devAuthBypass || this.sync.hasLinkedAccount;
+    }
     constructor(host2, options = {}) {
       this.access = options.access ?? createAccessGateway();
       this.suppliedPersistence = options.persistence;
       this.review = options.review ?? createYomuLocalReviewService();
       this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
       this.databaseName = options.databaseName;
+      this.devAuthBypass = options.devAuthBypass === true;
       this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
       this.pronunciation = options.pronunciation ?? new WorkerTtsPronunciationService(this.audio);
       this.shell = createAcademyShell(host2, {
@@ -217518,7 +217547,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         evidence: this.evidence,
         pronunciation: this.pronunciation,
         audio: this.audio,
-        account: this.sync
+        account: this.sync,
+        skipAccountGate: this.devAuthBypass
       });
       this.lesson = createLessonFlow({
         evidence: this.evidence,
@@ -217534,7 +217564,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
       const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
       const returnedFromGoogle = await this.sync.completeGoogleReturn();
-      if (!returnedFromGoogle && restoredCheckpoint.session && !this.sync.hasLinkedAccount && navigator.onLine) {
+      if (!returnedFromGoogle && restoredCheckpoint.session && !this.accountLinked && navigator.onLine) {
         await this.sync.connect();
       }
       this.checkpoint = normalizeResumeCheckpoint(
@@ -217542,7 +217572,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         this.projection,
         Date.now(),
         navigator.onLine,
-        this.sync.hasLinkedAccount
+        this.accountLinked
       );
       if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
@@ -217581,7 +217611,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const globalNavigationAvailable = globalNavigationIsAvailable(
         this.checkpoint,
         Boolean(this.projection.profile),
-        this.sync.hasLinkedAccount
+        this.accountLinked
       );
       this.shell.setNavigation(globalNavigationAvailable, navigation);
       this.shell.setUtilityVisible?.(route !== "review");
@@ -217632,7 +217662,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.accountLinked);
       await this.persistence.checkpoint.save(this.checkpoint);
     }
     async setPresentationMode(mode) {
@@ -217647,7 +217677,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         schemaVersion: 2,
         updatedAt: now
       };
-      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
+      this.checkpoint = normalizeResumeCheckpoint(candidate2, this.projection, now, navigator.onLine, this.accountLinked);
       await this.persistence.checkpoint.save(this.checkpoint);
       await this.render();
     }
@@ -217970,7 +218000,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const host = document.getElementById("yomu-academy");
   if (host) {
-    const app = new AcademyApp(host, { databaseName: localQaDatabaseName() });
+    const devAuthBypass = localQaAuthBypassEnabled();
+    const app = new AcademyApp(host, {
+      databaseName: localQaDatabaseName(),
+      access: devAuthBypass ? createLocalQaAccessGateway() : void 0,
+      devAuthBypass
+    });
     window.__yomuAcademy = app;
     const disposeOnRealUnload = (event) => {
       if (event.persisted) return;

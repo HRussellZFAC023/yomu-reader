@@ -22490,12 +22490,16 @@ a.academy-chrome-button {
     justify-self: center;
     padding: 8px 10px 7px;
     border: 0;
-    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    border-bottom: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     clip-path: none !important;
     line-height: 1.35;
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
     white-space: nowrap;
 }
 

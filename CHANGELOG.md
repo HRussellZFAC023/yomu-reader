@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.182] - 2026-07-17
+
+### Fixed
+
+- Replaced the oversized rule beneath Academy's “Get a class code” action with a normal text underline that follows the label on desktop and mobile.
+
 ## [1.6.181] - 2026-07-17
 
 ### Fixed
