@@ -46,6 +46,8 @@ export interface AcademyAppOptions {
     readonly kanjiWriting?: KanjiWritingService;
     readonly pronunciation?: PronunciationService;
     readonly databaseName?: string;
+    /** Explicit localhost-only QA seam supplied by the development entrypoint. */
+    readonly devAuthBypass?: boolean;
     readonly onClassBoard?: (access: AcademyClassBoardAccess) => void;
     /** Test/host seam; the browser default always uses the authorized manifest. */
     readonly audio?: AudioDirector;
@@ -58,6 +60,7 @@ export class AcademyApp {
     private readonly kanjiWriting: KanjiWritingService;
     private readonly pronunciation: PronunciationService;
     private readonly databaseName?: string;
+    private readonly devAuthBypass: boolean;
     private readonly audio: AudioDirector;
     private readonly lifecycle = new AbortController();
     private language: AcademyLanguage = loadLanguage();
@@ -77,6 +80,7 @@ export class AcademyApp {
     };
 
     private get projection() { return this.evidence.projection; }
+    private get accountLinked() { return this.devAuthBypass || this.sync.hasLinkedAccount; }
 
     constructor(host: HTMLElement, options: AcademyAppOptions = {}) {
         this.access = options.access ?? createAccessGateway();
@@ -84,6 +88,7 @@ export class AcademyApp {
         this.review = options.review ?? createYomuLocalReviewService();
         this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
         this.databaseName = options.databaseName;
+        this.devAuthBypass = options.devAuthBypass === true;
         this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
         this.pronunciation = options.pronunciation ?? new WorkerTtsPronunciationService(this.audio);
         this.shell = createAcademyShell(host, {
@@ -119,6 +124,7 @@ export class AcademyApp {
             pronunciation: this.pronunciation,
             audio: this.audio,
             account: this.sync,
+            skipAccountGate: this.devAuthBypass,
         });
         this.lesson = createLessonFlow({
             evidence: this.evidence,
@@ -136,7 +142,7 @@ export class AcademyApp {
         // Account evidence must be settled before the resume checkpoint is
         // normalized: an invite session alone never reopens Academy routes.
         const returnedFromGoogle = await this.sync.completeGoogleReturn();
-        if (!returnedFromGoogle && restoredCheckpoint.session && !this.sync.hasLinkedAccount && navigator.onLine) {
+        if (!returnedFromGoogle && restoredCheckpoint.session && !this.accountLinked && navigator.onLine) {
             await this.sync.connect();
         }
         this.checkpoint = normalizeResumeCheckpoint(
@@ -144,7 +150,7 @@ export class AcademyApp {
             this.projection,
             Date.now(),
             navigator.onLine,
-            this.sync.hasLinkedAccount,
+            this.accountLinked,
         );
         if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
         this.shell.setPresentationMode(this.checkpoint.presentationMode);
@@ -188,7 +194,7 @@ export class AcademyApp {
         const globalNavigationAvailable = globalNavigationIsAvailable(
             this.checkpoint,
             Boolean(this.projection.profile),
-            this.sync.hasLinkedAccount,
+            this.accountLinked,
         );
         this.shell.setNavigation(globalNavigationAvailable, navigation);
         this.shell.setUtilityVisible?.(route !== 'review');
@@ -246,7 +252,7 @@ export class AcademyApp {
             schemaVersion: 2,
             updatedAt: now,
         };
-        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
+        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.accountLinked);
         await this.persistence.checkpoint.save(this.checkpoint);
     }
 
@@ -266,7 +272,7 @@ export class AcademyApp {
             schemaVersion: 2,
             updatedAt: now,
         };
-        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.sync.hasLinkedAccount);
+        this.checkpoint = normalizeResumeCheckpoint(candidate, this.projection, now, navigator.onLine, this.accountLinked);
         await this.persistence.checkpoint.save(this.checkpoint);
         await this.render();
     }

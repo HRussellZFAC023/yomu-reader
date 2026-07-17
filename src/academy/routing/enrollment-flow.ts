@@ -25,6 +25,8 @@ export interface EnrollmentFlowOptions {
     readonly donationClaim?: DonationClaimService;
     /** Paid access must settle its account gate before Academy onboarding. */
     readonly account?: Pick<AcademyAccountGate, 'connect'>;
+    /** Development-only seam; production entrypoints never enable it. */
+    readonly skipAccountGate?: boolean;
 }
 
 interface AcademyAccountGate {
@@ -155,6 +157,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
 
     private async openSession(code: string, context: AcademyRouteContext): Promise<void> {
         const session = await this.options.access.exchange(code);
+
+        if (this.options.skipAccountGate) {
+            await context.go('profile', { session });
+            return;
+        }
 
         // Every invite requires a signed-in account before Academy resources
         // unlock. The session cookie is already established by the exchange;

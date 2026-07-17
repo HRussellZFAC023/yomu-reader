@@ -25,6 +25,7 @@ import './styles/class-path.css';
 import './styles/lesson-overview.css';
 import './styles/primary-purpose.css';
 import './styles/speaker-staging.css';
+import { createLocalQaAccessGateway, localQaAuthBypassEnabled } from './access/local-qa';
 import { AcademyApp } from './app';
 import { initYomuReaderRuntime } from './integration/yomu-runtime';
 
@@ -36,7 +37,12 @@ declare global {
 
 const host = document.getElementById('yomu-academy');
 if (host) {
-    const app = new AcademyApp(host, { databaseName: localQaDatabaseName() });
+    const devAuthBypass = localQaAuthBypassEnabled(location, import.meta.env.DEV);
+    const app = new AcademyApp(host, {
+        databaseName: localQaDatabaseName(),
+        access: devAuthBypass ? createLocalQaAccessGateway() : undefined,
+        devAuthBypass,
+    });
     window.__yomuAcademy = app;
     const disposeOnRealUnload = (event: PageTransitionEvent): void => {
         if (event.persisted) return;
