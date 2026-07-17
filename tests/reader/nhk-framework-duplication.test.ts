@@ -4,6 +4,8 @@ import {
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
     collectTextTargetsIn,
+    mutationLooksLikeReaderRenderRejection,
+    readerRenderRejectionRescanDelay,
     removeNonDestructiveScanMirrors,
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -126,6 +128,101 @@ describe('NHK framework source-preserving annotation', () => {
         expect(suffix.data).toBe('です');
         expect(nativeSurfaceText(host)).toBe(`${TEXT}晴れです`);
         expect(host.querySelector('.jpdb-reader-text-mirror .jpdb-reader-word')).toBeTruthy();
+    });
+
+    // Invariant (a) of the 1.6.103 double-image fix: the stored host surface is
+    // capped at RENDERED_SCAN_HOST_MAX_TEXT (1000). When it sits at the cap it may
+    // be truncated, so a partial re-insert of the first 1000 chars could match by
+    // `includes`. addedNodesDuplicateHostSurface must refuse the duplicate-insert
+    // classification for capped/truncated giants (falling back to the safe rescan)
+    // while still catching the ordinary sub-cap paragraph re-insert.
+    it('classifies a sub-cap duplicate re-insert but never a truncated giant', () => {
+        // The double image only occurs on hosts that were destructively painted
+        // BEFORE the framework claimed them (static/SSR markup painted, then React
+        // hydrates and re-renders). Paint the plain host first so it registers as a
+        // rendered scan host, then stamp the framework ownership marker.
+        document.body.innerHTML = `<article class="prose"><p id="host">${TEXT}</p></article>`;
+        const smallHost = document.getElementById('host')!;
+        paint(smallHost);
+        markReactOwned(smallHost);
+        expect(smallHost.querySelector('.jpdb-reader-word')).toBeTruthy();
+        // Sub-cap paragraph: an exact re-insert of the whole painted surface is the
+        // NHK double image and must classify as a duplicate insert.
+        const smallDuplicate = document.createTextNode(TEXT);
+        smallHost.appendChild(smallDuplicate);
+        const smallMutation = {
+            type: 'childList',
+            target: smallHost,
+            addedNodes: [smallDuplicate],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+        expect(mutationLooksLikeReaderRenderRejection(smallMutation)).toBe(true);
+        expect(readerRenderRejectionRescanDelay(smallMutation)).toBeGreaterThan(0);
+
+        // Giant surface (> 1000 chars) whose stored copy is truncated at the cap. A
+        // re-insert of the truncated prefix must NOT be treated as a duplicate.
+        const giant = '走行中'.repeat(400);
+        expect(giant.length).toBeGreaterThan(1000);
+        document.body.innerHTML = `<article class="prose"><p id="giant">${giant}</p></article>`;
+        const giantHost = document.getElementById('giant')!;
+        const giantTarget = collectTextTargetsIn(giantHost, 60, false)[0];
+        applyTokensToScanTarget(giantTarget, tokens(giantTarget.text), { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        markReactOwned(giantHost);
+        expect(giantHost.querySelector('.jpdb-reader-word')).toBeTruthy();
+        const giantDuplicate = document.createTextNode(giant);
+        giantHost.appendChild(giantDuplicate);
+        const giantMutation = {
+            type: 'childList',
+            target: giantHost,
+            addedNodes: [giantDuplicate],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+        expect(mutationLooksLikeReaderRenderRejection(giantMutation)).toBe(false);
+        expect(readerRenderRejectionRescanDelay(giantMutation)).toBeNull();
+    });
+
+    // Invariant (b) of the 1.6.103 fix: fragment-path paints route every plain gap
+    // text node they create through replaceTextNodeRange, which registers them in
+    // the destructivePaintTextNodes WeakSet. The duplicate-insert cleanup then drops
+    // exactly our paint remnants (word-spans + tracked gap text) by ownership, never
+    // a page-owned sibling, leaving one clean copy for the promoted mirror.
+    it('drops fragment-path gap text by ownership on duplicate-insert cleanup', () => {
+        document.body.innerHTML = '<article class="prose"><p id="host">60メートル以上では、<b id="outdoor">屋外</b>で行動するのは極めて危険。走行中のトラックは横転する</p></article>';
+        const host = document.getElementById('host')!;
+        const outdoor = document.getElementById('outdoor')!;
+
+        // Destructive fragment paint of the plain host (registers it and its gap
+        // text nodes), THEN the framework claims the host and re-renders.
+        const target = collectFragmentTextTargetsIn(host, 60, false).find(candidate => candidate.text.includes('走行中'));
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, tokens(target!.text), { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        markReactOwned(host);
+
+        // The paint inserted a reader word-span plus its own plain gap text nodes.
+        const paintedWord = host.querySelector('.jpdb-reader-word');
+        expect(paintedWord).toBeTruthy();
+
+        // The framework re-renders and re-inserts its OWN plain copy of the whole
+        // surface alongside the still-intact word-spans: the double image.
+        const frameworkCopy = document.createTextNode(target!.text);
+        host.appendChild(frameworkCopy);
+        const mutation = {
+            type: 'childList',
+            target: host,
+            addedNodes: [frameworkCopy],
+            removedNodes: [],
+        } as unknown as MutationRecord;
+
+        expect(mutationLooksLikeReaderRenderRejection(mutation)).toBe(true);
+        expect(readerRenderRejectionRescanDelay(mutation)).toBeGreaterThan(0);
+
+        // Cleanup drops our tracked paint remnants: no reader word-spans survive, and
+        // the tracked gap text is gone so '走行中' is not doubled. The page-owned
+        // <b id="outdoor"> element is never our node and must remain by identity.
+        expect(host.querySelector('.jpdb-reader-word')).toBeNull();
+        expect(document.getElementById('outdoor')).toBe(outdoor);
+        expect(outdoor.isConnected).toBe(true);
+        expect((nativeSurfaceText(host).match(/走行中/g) ?? [])).toHaveLength(1);
     });
 
     it('keeps inline fragment structure and one native copy of every gap', () => {
