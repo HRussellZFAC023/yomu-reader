@@ -325,8 +325,12 @@
   transition: none;
   width: auto;
 }
-[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6),
-[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) {
+/* Sectioning/flow elements carry ZERO user-agent margin, so hosts with a
+   Reboot-style author reset (Reddit: section/article/aside/main/pre all get
+   1rem block-end margin + list indents) inflate reader UI built from them
+   unless every such element is rolled back to UA values here. */
+[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, figcaption, form, table, th, td, hr, h1, h2, h3, h4, h5, h6, section, article, aside, main, header, footer, nav, hgroup, address, menu, pre, details, summary),
+[data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, figcaption, form, table, th, td, hr, h1, h2, h3, h4, h5, h6, section, article, aside, main, header, footer, nav, hgroup, address, menu, pre, details, summary) {
   background: transparent;
   color: inherit;
   letter-spacing: normal;

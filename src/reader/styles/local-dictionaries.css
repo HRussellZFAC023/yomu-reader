@@ -432,7 +432,7 @@
   min-width: 0;
   max-width: 100%;
   white-space: normal;
-  line-height: var(--line-height);
+  line-height: var(--line-height, 1.45);
 }
 .jpdb-reader-local-glossary ruby {
   display: ruby;
@@ -478,7 +478,7 @@
 }
 .jpdb-reader-local-glossary .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-ol {
-  margin: 0.25em 0 0.25em var(--list-padding1);
+  margin: 0.25em 0 0.25em var(--list-padding1, 1.1em);
   padding: 0;
 }
 .jpdb-reader-local-glossary .gloss-sc-ul[data-sc-content="glossary"],
@@ -492,7 +492,7 @@
 }
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
-  margin-left: var(--list-padding2);
+  margin-left: var(--list-padding2, 1.1em);
 }
 .jpdb-reader-local-glossary .gloss-sc-details {
   margin: 0.35em 0;
