@@ -365,3 +365,15 @@
         animation-iteration-count: 1 !important;
     }
 }
+.academy-typed-response-audio {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-block: 0.75rem;
+}
+
+.academy-typed-response-play {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+}

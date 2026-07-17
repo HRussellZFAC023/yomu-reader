@@ -443,8 +443,14 @@ describe('Lesson 0 source-led proof', () => {
         expect(proof.element.querySelector('.academy-lesson-zero-kana-mastery')).not.toBeNull();
         expect(onComplete).not.toHaveBeenCalled();
         completeKanaMasteryGate(proof.element);
+        expect(proof.element.querySelector('.academy-lesson-zero-dictation-host')).not.toBeNull();
+        const dictation = proof.element.querySelector<HTMLFormElement>('.academy-lesson-zero-dictation-host form')!;
+        dictation.querySelector<HTMLInputElement>('input')!.value = 'あいうえお';
+        dictation.requestSubmit();
+        await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
         expect(onComplete).toHaveBeenCalledOnce();
         expect(evaluations).toContain('activity:lesson-zero-kana-mastery');
+        expect(evaluations).toContain('activity:lesson-zero-vowel-dictation');
         expect(proof.audioRequired).toEqual({
             sourceGreetings: { assetId: 'audio:genki-k00-g', state: 'ready', ready: true },
             textMission: { assetId: 'audio:lesson-zero-text-hosts', state: 'release-blocked', ready: false },

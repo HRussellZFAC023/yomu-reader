@@ -30,6 +30,8 @@ export interface TypedResponseModel extends ActivityModel {
     readonly answerSupport: typeof ACADEMY_ASSESSED_ANSWER_SUPPORT;
     readonly payload: {
         readonly inputLabel: LocalizedText;
+        /** Optional authored audio sequence for listening-led production. */
+        readonly audioTerms?: readonly Readonly<{ term: string; reading?: string }>[];
         readonly multiline?: boolean;
         readonly acceptedAnswers?: readonly string[];
         readonly requiredGroups?: readonly (readonly string[])[];
@@ -62,6 +64,9 @@ function validate(model: TypedResponseModel): readonly ValidationIssue[] {
     if (!text(model.payload?.inputLabel?.en) || !text(model.payload?.inputLabel?.ja)) {
         issues.push({ path: 'payload.inputLabel', message: 'A bilingual input label is required.' });
     }
+    if (model.payload?.audioTerms?.some(item => !text(item.term))) {
+        issues.push({ path: 'payload.audioTerms', message: 'Audio terms cannot be blank.' });
+    }
     const accepted = model.payload?.acceptedAnswers ?? [];
     const groups = model.payload?.requiredGroups ?? [];
     if (!accepted.length && !groups.length) issues.push({ path: 'payload', message: 'Exact answers or required term groups are required.' });
@@ -90,6 +95,26 @@ function render(
     heading.append(...localizedNodes(model.prompt));
     const form = document.createElement('form');
     form.setAttribute('aria-labelledby', heading.id);
+    if (model.payload.audioTerms?.length) {
+        const audio = document.createElement('div');
+        audio.className = 'academy-typed-response-audio';
+        audio.setAttribute('role', 'group');
+        audio.setAttribute('aria-label', host.language === 'ja' ? '聞き取り音声' : 'Dictation audio');
+        model.payload.audioTerms.forEach((item, index) => {
+            const play = document.createElement('button');
+            play.type = 'button';
+            play.className = 'academy-button academy-button-secondary academy-typed-response-play';
+            play.textContent = `▶ ${index + 1}`;
+            play.setAttribute('aria-label', host.language === 'ja' ? `${index + 1}番の音を聞く` : `Play sound ${index + 1}`);
+            play.addEventListener('click', () => {
+                void host.playPronunciation?.(item.term, item.reading).catch(error => {
+                    status.textContent = error instanceof Error ? error.message : String(error);
+                });
+            }, { signal: lifecycle.signal });
+            audio.append(play);
+        });
+        form.append(audio);
+    }
     const label = document.createElement('label');
     label.append(...localizedNodes(model.payload.inputLabel));
     const input = model.payload.multiline ? document.createElement('textarea') : document.createElement('input');

@@ -10,6 +10,7 @@ import {
     LESSON_ZERO_SOURCE_PROVENANCE,
 } from '../content/lesson-zero-source-material';
 import type { LessonZeroAudioAsset, LessonZeroMission } from '../content/lesson-zero-schema';
+import { createLessonZeroVowelDictation } from '../content/lesson-zero-vowel-dictation';
 import {
     ACADEMY_ASSESSED_ANSWER_SUPPORT,
     createActivityRuntime,
@@ -19,6 +20,7 @@ import {
 import type { LearnerProfileSnapshot } from '../domain/learner-record';
 import type { SourceQuestion } from '../domain/source-library';
 import type { PronunciationService } from '../integration/yomu-bridge';
+import { createAcademyActivityRuntime } from '../minigames';
 import type { AcademySpriteOptions } from './sprite';
 import {
     createLessonZeroKanaGame,
@@ -91,6 +93,7 @@ export async function createLessonZeroProof(options: LessonZeroProofOptions): Pr
     let rieExpression: AcademyVnCastMember['expression'] = 'neutral';
     let unbindPaperReadings: (() => void) | null = null;
     let kanaMasteryGate: ReturnType<typeof createLessonZeroKanaMasteryGate> | null = null;
+    let dictationController: ActivityController | null = null;
 
     stage.element.classList.add('academy-lesson-zero-proof');
     stage.element.dataset.missionProof = mission.id;
@@ -176,7 +179,7 @@ export async function createLessonZeroProof(options: LessonZeroProofOptions): Pr
         kanaMasteryGate = createLessonZeroKanaMasteryGate({
             language: options.language,
             onEvaluation: evaluation => options.onEvaluation?.(evaluation),
-            onComplete() { options.onComplete?.(); },
+            onComplete() { showVowelDictation(); },
         });
         stage.setAction({
             element: kanaMasteryGate.element,
@@ -185,6 +188,32 @@ export async function createLessonZeroProof(options: LessonZeroProofOptions): Pr
                 kanaMasteryGate = null;
             },
         });
+    };
+
+    const showVowelDictation = (): void => {
+        setRie('encouraging');
+        setLine({
+            id: 'lesson-zero-proof:vowel-dictation', speakerId: 'rie', speakerName: rieSalutation,
+            japanese: 'こんどは、音だけを聞いて書きましょう。',
+            reading: readingControl(options, 'lesson-zero-proof:vowel-dictation'),
+            translation: 'Now listen without looking and write the sounds.', translationEarned: true,
+        });
+        const hostElement = document.createElement('div');
+        hostElement.className = 'academy-lesson-zero-dictation-host';
+        const model = createLessonZeroVowelDictation();
+        dictationController?.dispose();
+        dictationController = createAcademyActivityRuntime().mount(model, {
+            language: options.language,
+            replace(view) { hostElement.replaceChildren(view); },
+            announce(message) { stage.element.dispatchEvent(new CustomEvent('academy:announce', { bubbles: true, detail: { message } })); },
+            playPronunciation(term, reading) { return (options.pronunciation ?? UNAVAILABLE_PRONUNCIATION).play(term, reading); },
+            react(reaction) { setRie(reaction.expression); },
+        }, async evaluation => {
+            await options.onEvaluation?.(evaluation);
+            if (evaluation.result.outcome === 'pass') options.onComplete?.();
+        });
+        stage.setAction({ element: hostElement, dispose() { dictationController?.dispose(); dictationController = null; } });
+        dictationController.focus();
     };
 
     const mountAssessment = (): void => {
@@ -366,6 +395,7 @@ export async function createLessonZeroProof(options: LessonZeroProofOptions): Pr
             lifecycle.abort();
             unbindPaperReadings?.();
             kanaMasteryGate?.dispose();
+            dictationController?.dispose();
             stage.dispose();
         },
     };
