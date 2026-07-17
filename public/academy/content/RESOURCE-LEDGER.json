@@ -4896,7 +4896,7 @@
       {
         "lessonId": "l2-l36",
         "moodleModuleId": 8824742,
-        "scope": "Direct canonical-archive Chapter 36-1 goal-and-avoidance slice: the three exact 〜ように／〜ないように grammar pages and one exact vocabulary page precede eight answer-gated retrievals of examples visibly printed on page 1. No authored 063-l2-l36 package JSON, blank completion, open response, reading answer, or audio pairing is inferred.",
+        "scope": "Direct canonical-archive Chapter 36-1 goal-and-avoidance slice: the three exact 〜ように／〜ないように grammar pages and one exact vocabulary page precede eight answer-gated retrievals of examples visibly printed on page 1. The exact homework page then precedes five deterministic task-1 sentence matches using only its printed stems and endings. No authored 063-l2-l36 package JSON, task-2 image answer, task-3 open response, reading answer, or audio pairing is inferred.",
         "sourcePackage": {
           "status": "direct-canonical-archive-extension-no-authored-package-json",
           "intendedFilename": "063-l2-l36.json"
@@ -4921,6 +4921,13 @@
             "pages": [1],
             "status": "canonical-vocabulary-page-rendered-before-retrieval-reference-only",
             "sourceAnswerKeyStatus": "not-applicable-vocabulary-teaching-sheet"
+          },
+          {
+            "payloadSha256": "55be8b35c47adbc082c1d34fb891804f40809ee75e407ab14b6916d13a163fe4",
+            "title": "HW Chapter 36 grammar exercise-1 〜ように_ないように〜",
+            "pages": [1],
+            "status": "canonical-homework-page-rendered-before-five-deterministic-task-one-sentence-matches",
+            "sourceAnswerKeyStatus": "deterministic-from-five-printed-stems-and-five-printed-endings"
           },
           {
             "sourceId": "source-minna-no-nihongo",
@@ -4948,29 +4955,32 @@
           { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-1.png", "sha256": "de858644344a91af309b2235c973cacc3a3d76df393382e38bd19a5bc268510d", "sourcePayloadSha256": "8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73", "page": 1, "answerKeyVisible": false },
           { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-2.png", "sha256": "332ccf3f9d453c80a26696e929a521db7d3e8c3e3d3bf7804b3573d60a71c58e", "sourcePayloadSha256": "8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73", "page": 2, "answerKeyVisible": false },
           { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-3.png", "sha256": "a90490477ac90bd12911e906791879fc53554e9ce7807a668940d88c17030581", "sourcePayloadSha256": "8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73", "page": 3, "answerKeyVisible": false },
-          { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png", "sha256": "e6e3ea9b840146e607d638baf60448d29040f53be96e2d886373bd0261f8c6b0", "sourcePayloadSha256": "aa2d99c6036efe6f96b766fe682ae06a3f9c9e87e99f92bb687a199de5d902d3", "page": 1, "answerKeyVisible": false }
+          { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png", "sha256": "e6e3ea9b840146e607d638baf60448d29040f53be96e2d886373bd0261f8c6b0", "sourcePayloadSha256": "aa2d99c6036efe6f96b766fe682ae06a3f9c9e87e99f92bb687a199de5d902d3", "page": 1, "answerKeyVisible": false },
+          { "url": "/academy/content/lessons/l2-l36/moodle-chapter-36-homework-goals-page-1.png", "sha256": "945a80aa95a995cc17f64e5a8290ccd01b9cdb65f0819eff1a575c959ad6faad", "sourcePayloadSha256": "55be8b35c47adbc082c1d34fb891804f40809ee75e407ab14b6916d13a163fe4", "page": 1, "answerKeyVisible": false }
         ],
         "offline": {
           "precache": [
             "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-1.png",
             "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-2.png",
             "/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-3.png",
-            "/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png"
+            "/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png",
+            "/academy/content/lessons/l2-l36/moodle-chapter-36-homework-goals-page-1.png"
           ],
-          "status": "four-static-canonical-pages-required-no-authored-package-json-or-audio"
+          "status": "five-static-canonical-pages-required-no-authored-package-json-or-audio"
         },
         "claims": {
-          "canonicalMoodlePagesRendered": 4,
+          "canonicalMoodlePagesRendered": 5,
           "verbatimPrintedExamplesAssessed": 8,
+          "deterministicHomeworkMatchesAssessed": 5,
           "yomuDerivedCompletions": 0,
           "interactionModesAssessed": ["source-choice", "pattern-select", "typed-source"],
           "originalAudioTracksDelivered": 0,
           "sourceAnswerKeysExposed": 0,
           "answerVisibility": "after-attempt",
-          "repairScope": "missed-source-example-only"
+          "repairScope": "missed-source-example-or-homework-match-only"
         },
         "unconverted": [
-          "HW Chapter 36 grammar exercise-1 and HW Chapter 36 Reading practice 動物の目 remain outside this focused slice; no blank, image-dependent, or open response is inferred.",
+          "HW Chapter 36 grammar exercise-1 tasks 2–3 and HW Chapter 36 Reading practice 動物の目 remain outside this focused slice; no image-dependent verb, open response, or reading answer is inferred.",
           "All Chapter 35 documents remain outside this l2-l36 claim and may be owned by a separate exact-source slice.",
           "Track 28 and B-4 remain physically absent because neither archive audio member has a verified Chapter 36 task pairing, transcript, duration relation, answer relation, or learner-facing rights claim.",
           "Minna supplies chronology and scope only; Genki is not used, and neither contributes learner-facing wording, media, prompts, or answers."

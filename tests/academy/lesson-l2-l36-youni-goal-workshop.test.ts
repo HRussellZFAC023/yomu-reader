@@ -31,7 +31,7 @@ function runtime() {
 afterEach(() => document.body.replaceChildren());
 
 describe('l2-l36 exact-source ように goal workshop', () => {
-    it('pins the direct canonical archive, four pages, and honest audio exclusion', () => {
+    it('pins the direct canonical archive, five pages, and honest audio exclusion', () => {
         const activity = model();
         expect(runtime().validate(activity)).toEqual([]);
         expect(activity).toMatchObject({
@@ -54,7 +54,7 @@ describe('l2-l36 exact-source ように goal workshop', () => {
                         sourceAudioTracksDelivered: 0,
                         excludedPayloadSha256: AUDIO_PAYLOADS,
                     },
-                    answerKeyBasis: 'sensei-verbatim-visible-examples-only',
+                    answerKeyBasis: 'sensei-verbatim-visible-examples-and-deterministic-homework-matches',
                 },
                 support: {
                     minna: { reference: 'Minna no Nihongo II · Lesson 36', reuse: 'chronology-and-scope-only' },
@@ -74,8 +74,9 @@ describe('l2-l36 exact-source ように goal workshop', () => {
         expect(activity.payload.rounds.map(round => round.interaction)).toEqual([
             'source-choice', 'pattern-select', 'typed-source', 'source-choice',
             'pattern-select', 'typed-source', 'source-choice', 'typed-source',
+            'source-choice', 'source-choice', 'source-choice', 'source-choice', 'source-choice',
         ]);
-        expect(activity.payload.rounds.map(round => round.answer)).toEqual([
+        expect(activity.payload.rounds.slice(0, 8).map(round => round.answer)).toEqual([
             '自転車(じてんしゃ)に 乗(の)れる ように、毎日(まいにち) 練習(れんしゅう)しました。',
             'もっと日本語(にほんご)が はなせるように、毎日(まいにち) 勉強(べんきょう)しています。',
             '会議(かいぎ)に 間(ま)に合(あ)うように、タクシーで 会社へ 行きます。',
@@ -85,6 +86,14 @@ describe('l2-l36 exact-source ように goal workshop', () => {
             'ラッシュに 遭(あ)わないように、早(はや)く うちを 出(で)ます。',
             '日本語の 新聞が 読めるように、漢字を 勉強します。',
         ]);
+        expect(activity.payload.rounds.slice(8).map(round => round.answer)).toEqual([
+            '大(おお)きな 声(こえ)で 言(い)ってください。',
+            'めがねを かけます。',
+            'なんでも 食(た)べています。',
+            'メモ してください。',
+            'スマホを 持(も)って 出かけます。',
+        ]);
+        expect(activity.payload.rounds.slice(8).every(round => round.sourceQuestionId.includes(':pdf-p1:task-1:'))).toBe(true);
     });
 
     it('grades all examples and limits repair to the missed source locus', () => {
@@ -100,7 +109,7 @@ describe('l2-l36 exact-source ように goal workshop', () => {
         });
         expect(lapse.result).toMatchObject({
             outcome: 'lapse',
-            score: 7 / 8,
+            score: 12 / 13,
             errorTags: ['l2-l36-youni-goal-6'],
         });
         expect(lapse.reviewSeeds).toHaveLength(1);
@@ -123,9 +132,9 @@ describe('l2-l36 exact-source ように goal workshop', () => {
         expect(teaching.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(sources.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(host.querySelectorAll('[data-attribution="sensei-source"]')).toHaveLength(4);
-        expect(host.querySelectorAll('.academy-source-visual img')).toHaveLength(4);
-        expect(host.querySelectorAll('.academy-state-inspection-round')).toHaveLength(8);
-        expect(host.querySelectorAll('input[type="radio"]')).toHaveLength(6);
+        expect(host.querySelectorAll('.academy-source-visual img')).toHaveLength(5);
+        expect(host.querySelectorAll('.academy-state-inspection-round')).toHaveLength(13);
+        expect(host.querySelectorAll('input[type="radio"]')).toHaveLength(31);
         expect(host.querySelectorAll('select')).toHaveLength(2);
         expect(host.querySelectorAll('input[type="text"]')).toHaveLength(3);
         expect(host.querySelector('audio')).toBeNull();
@@ -146,7 +155,7 @@ describe('l2-l36 exact-source ように goal workshop', () => {
     });
 
     it('pins mirrors, offline rows, one honest ledger slice, and publishes no audio', () => {
-        expect(L2_L36_SOURCE_VISUALS).toHaveLength(4);
+        expect(L2_L36_SOURCE_VISUALS).toHaveLength(5);
         for (const visual of L2_L36_SOURCE_VISUALS) {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l36', filename));
@@ -183,14 +192,15 @@ describe('l2-l36 exact-source ように goal workshop', () => {
                 excludedPayloadSha256: AUDIO_PAYLOADS,
             },
             claims: {
-                canonicalMoodlePagesRendered: 4,
+                canonicalMoodlePagesRendered: 5,
                 verbatimPrintedExamplesAssessed: 8,
+                deterministicHomeworkMatchesAssessed: 5,
                 yomuDerivedCompletions: 0,
                 interactionModesAssessed: ['source-choice', 'pattern-select', 'typed-source'],
                 originalAudioTracksDelivered: 0,
                 sourceAnswerKeysExposed: 0,
                 answerVisibility: 'after-attempt',
-                repairScope: 'missed-source-example-only',
+                repairScope: 'missed-source-example-or-homework-match-only',
             },
         });
         expect(slices[0]?.unconverted.join(' ')).toContain('Reading practice 動物の目');

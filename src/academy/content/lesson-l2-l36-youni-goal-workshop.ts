@@ -30,6 +30,7 @@ const ARCHIVE_ID = 'archive-000028';
 const ARCHIVE_SHA256 = '5864abfd10047d8084bf67dd6aeb921852a98e2c873d66a47bab32640c7ac174';
 const GRAMMAR_SHA256 = '8ea569a59c76becff9b7c7320c5c4844e897f518ff4af461e7466510dd309a73';
 const VOCABULARY_SHA256 = 'aa2d99c6036efe6f96b766fe682ae06a3f9c9e87e99f92bb687a199de5d902d3';
+const HOMEWORK_SHA256 = '55be8b35c47adbc082c1d34fb891804f40809ee75e407ab14b6916d13a163fe4';
 const EXCLUDED_AUDIO_PAYLOADS = Object.freeze([
     '0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e',
     '4fe8f7973ea49725d3bb76988bd5c85f32a2e405bd54280be9806952931ca6aa',
@@ -44,10 +45,12 @@ export const L2_L36_SOURCE_VISUALS = Object.freeze([
         'moodle-chapter-36-1-youni-grammar-page-3.png', 'a90490477ac90bd12911e906791879fc53554e9ce7807a668940d88c17030581'),
     sourceVisual(VOCABULARY_SHA256, 'Chapter 36-1 Vocabulary Sheet', 1,
         'moodle-chapter-36-1-vocabulary-page-1.png', 'e6e3ea9b840146e607d638baf60448d29040f53be96e2d886373bd0261f8c6b0'),
+    sourceVisual(HOMEWORK_SHA256, 'HW Chapter 36 grammar exercise-1 〜ように_ないように〜', 1,
+        'moodle-chapter-36-homework-goals-page-1.png', '945a80aa95a995cc17f64e5a8290ccd01b9cdb65f0819eff1a575c959ad6faad'),
 ] as const);
 
 type YouniInteraction = 'source-choice' | 'pattern-select' | 'typed-source';
-type YouniTask = 'goal' | 'avoidance' | 'model';
+type YouniTask = 'goal' | 'avoidance' | 'model' | 'homework-match';
 
 interface YouniOption {
     readonly value: string;
@@ -56,7 +59,7 @@ interface YouniOption {
 
 export interface YouniGoalRound {
     readonly id: string;
-    readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+    readonly sourceOrder: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
     readonly sourceTask: YouniTask;
     readonly sourcePage: 1;
     readonly interaction: YouniInteraction;
@@ -99,7 +102,7 @@ export interface YouniGoalWorkshopModel extends ActivityModel {
                 readonly sourceAudioTracksDelivered: 0;
                 readonly excludedPayloadSha256: typeof EXCLUDED_AUDIO_PAYLOADS;
             };
-            readonly answerKeyBasis: 'sensei-verbatim-visible-examples-only';
+            readonly answerKeyBasis: 'sensei-verbatim-visible-examples-and-deterministic-homework-matches';
         };
         readonly support: {
             readonly minna: { readonly reference: 'Minna no Nihongo II · Lesson 36'; readonly reuse: 'chronology-and-scope-only' };
@@ -129,8 +132,8 @@ export function createLessonL2L36YouniGoalWorkshopBeat(): LessonActivityBeat {
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         conceptIds: rounds.map(round => round.conceptId),
         prompt: {
-            ja: '先生の Chapter 36-1 の四枚を先に読み、八つの印刷例を原文どおりに戻してください。',
-            en: 'Read Sensei’s four Chapter 36-1 pages first, then restore eight printed examples in their source wording.',
+            ja: '先生の Chapter 36-1 を先に読み、八つの印刷例を戻してから、宿題の五つの文を完成してください。',
+            en: 'Read Sensei’s Chapter 36-1 teaching first, restore eight printed examples, then complete the five exact homework matches.',
         },
         teachingSupport: {
             kind: 'pattern',
@@ -156,7 +159,7 @@ export function createLessonL2L36YouniGoalWorkshopBeat(): LessonActivityBeat {
                     sourceAudioTracksDelivered: 0,
                     excludedPayloadSha256: EXCLUDED_AUDIO_PAYLOADS,
                 },
-                answerKeyBasis: 'sensei-verbatim-visible-examples-only',
+                answerKeyBasis: 'sensei-verbatim-visible-examples-and-deterministic-homework-matches',
             },
             support: {
                 minna: { reference: 'Minna no Nihongo II · Lesson 36', reuse: 'chronology-and-scope-only' },
@@ -187,7 +190,7 @@ export function createLessonL2L36YouniGoalWorkshopBeat(): LessonActivityBeat {
                 },
                 {
                     title: 'Source boundary',
-                    text: 'Only the eight examples visibly printed on page 1 are assessed. Homework blanks, open responses, the animal reading, Chapter 35 material, and both unattributed archive audio members remain unconverted.',
+                    text: 'The eight examples visibly printed on the grammar page and the five deterministic sentence matches in homework task 1 are assessed. Homework tasks 2–3, the animal reading, Chapter 35 material, and both unattributed archive audio members remain unconverted.',
                     attribution: 'yomu-boundary',
                 },
             ],
@@ -195,11 +198,12 @@ export function createLessonL2L36YouniGoalWorkshopBeat(): LessonActivityBeat {
                 { sourceTask: 'goal', text: 'Printed goals: make a possible state achievable.' },
                 { sourceTask: 'avoidance', text: 'Printed avoidance goals: prevent an unwanted state.' },
                 { sourceTask: 'model', text: 'Sensei’s printed task 1 model.' },
+                { sourceTask: 'homework-match', text: 'Homework task 1: put the five printed endings with the sentence beginnings.' },
             ],
             rounds,
             passScore: 1,
             feedback: {
-                pass: { explanation: { ja: '八つの印刷例を、目標と行動の関係を保って戻せました。', en: 'You restored all eight printed examples while preserving the relation between each goal and action.' } },
+                pass: { explanation: { ja: '八つの印刷例を戻し、宿題の五つの文も目標と行動の関係を保って完成できました。', en: 'You restored all eight printed examples and completed the five homework sentences while preserving each goal/action relation.' } },
                 lapse: {
                     explanation: { ja: '間違えた印刷例だけを、先生の1ページ目でもう一度確認しましょう。', en: 'Recheck only the missed printed example on Sensei’s first page.' },
                     repairPrompt: { ja: '先に、できる状態か、避ける状態かを見つけ、その後の行動を原文どおりにつなぎます。', en: 'First locate the possible or avoided state, then attach the printed action exactly as shown.' },
@@ -211,8 +215,8 @@ export function createLessonL2L36YouniGoalWorkshopBeat(): LessonActivityBeat {
     return Object.freeze({
         id: 'youni-goal-workshop',
         narrative: {
-            ja: 'りえ先生が、目標になる状態と、そのためにする行動を二つの列に分けます。原本を読んでから、印刷された八つの例を戻します。',
-            en: 'Rie separates goal states from the actions taken toward them. After reading the originals, restore the eight printed examples.',
+            ja: 'りえ先生が、目標になる状態と、そのためにする行動を二つの列に分けます。八つの例を戻したあと、宿題の五つの文を完成します。',
+            en: 'Rie separates goal states from the actions taken toward them. After restoring the eight examples, complete the five exact homework sentences.',
         },
         activity: Object.freeze(activity),
     });
@@ -249,6 +253,13 @@ function createRounds(): readonly YouniGoalRound[] {
     const memo = '買(か)うものを わすれないように、メモします。';
     const rush = 'ラッシュに 遭(あ)わないように、早(はや)く うちを 出(で)ます。';
     const newspaper = '日本語の 新聞が 読めるように、漢字を 勉強します。';
+    const homeworkEndings = Object.freeze([
+        '大(おお)きな 声(こえ)で 言(い)ってください。',
+        'めがねを かけます。',
+        'なんでも 食(た)べています。',
+        'メモ してください。',
+        'スマホを 持(も)って 出かけます。',
+    ]);
     return Object.freeze([
         round('bicycle-goal', 1, 'goal', 'source-choice', '自転車に乗る目標の原文を選んでください。', 'Choose the printed bicycle-goal example.', bicycle, [bicycle, meeting]),
         round('japanese-goal', 2, 'goal', 'pattern-select', '日本語を話す目標の原文を選んでください。', 'Select the printed Japanese-speaking goal.', japanese, [japanese, newspaper]),
@@ -258,7 +269,34 @@ function createRounds(): readonly YouniGoalRound[] {
         round('memo-avoidance', 6, 'avoidance', 'typed-source', '買うものの例を原文どおりに入力してください。', 'Type the printed shopping memo example in source wording.', memo, []),
         round('rush-avoidance', 7, 'avoidance', 'source-choice', 'ラッシュを避ける原文を選んでください。', 'Choose the printed line about avoiding rush hour.', rush, [rush, meeting]),
         round('newspaper-model', 8, 'model', 'typed-source', 'Task 1 の新聞の見本を原文どおりに入力してください。', 'Type Sensei’s newspaper model in source wording.', newspaper, []),
+        homeworkRound('hear-clearly', 9, 'はっきり 聞(き)こえるように', homeworkEndings[0]!, homeworkEndings),
+        homeworkRound('see-well', 10, 'よく 見(み)えるように', homeworkEndings[1]!, homeworkEndings),
+        homeworkRound('avoid-illness', 11, '病気(びょうき)に ならないように', homeworkEndings[2]!, homeworkEndings),
+        homeworkRound('remember-shopping', 12, '買(か)うものを わすれないように', homeworkEndings[3]!, homeworkEndings),
+        homeworkRound('contact-quickly', 13, 'すぐ 連絡(れんらく)できるように', homeworkEndings[4]!, homeworkEndings),
     ]);
+}
+
+function homeworkRound(
+    id: string,
+    sourceOrder: YouniGoalRound['sourceOrder'],
+    sourceStem: string,
+    answer: string,
+    values: readonly string[],
+): YouniGoalRound {
+    return Object.freeze({
+        id: `homework-${id}`,
+        sourceOrder,
+        sourceTask: 'homework-match',
+        sourcePage: 1,
+        interaction: 'source-choice',
+        sourceQuestionId: `moodle:${MODULE_ID}:${HOMEWORK_SHA256}:pdf-p1:task-1:${id}`,
+        prompt: Object.freeze({ ja: `${sourceStem}（　）`, en: `Complete the exact homework sentence: ${sourceStem}` }),
+        options: Object.freeze(values.map(value => Object.freeze({ value, label: value }))),
+        answer,
+        conceptId: `concept:l2-l36:youni-homework:${sourceOrder - 8}`,
+        errorTag: `l2-l36-youni-homework-${sourceOrder - 8}`,
+    });
 }
 
 function round(
@@ -297,7 +335,7 @@ function validateModel(model: YouniGoalWorkshopModel): readonly ValidationIssue[
     const visuals = model.provenance?.moodle.sourceSheets;
     if (!Array.isArray(visuals) || visuals.length !== L2_L36_SOURCE_VISUALS.length
         || visuals.some((visual, index) => JSON.stringify(visual) !== JSON.stringify(L2_L36_SOURCE_VISUALS[index]))) {
-        issues.push({ path: 'provenance.moodle.sourceSheets', message: 'All four SHA-pinned Chapter 36-1 pages are required.' });
+        issues.push({ path: 'provenance.moodle.sourceSheets', message: 'All five SHA-pinned Chapter 36-1 and homework pages are required.' });
     }
     const media = model.provenance?.moodle.media;
     if (media?.status !== 'archive-audio-not-attributed-to-chapter-36-slice'
@@ -316,15 +354,16 @@ function validateModel(model: YouniGoalWorkshopModel): readonly ValidationIssue[
     const interactions: readonly YouniInteraction[] = [
         'source-choice', 'pattern-select', 'typed-source', 'source-choice',
         'pattern-select', 'typed-source', 'source-choice', 'typed-source',
+        'source-choice', 'source-choice', 'source-choice', 'source-choice', 'source-choice',
     ];
     const rounds = model.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 8
+    if (!Array.isArray(rounds) || rounds.length !== 13
         || rounds.some((item, index) => item.sourceOrder !== index + 1 || item.interaction !== interactions[index]
             || !text(item.sourceQuestionId) || !text(item.prompt.en) || !text(item.prompt.ja) || !text(item.answer)
             || !model.conceptIds.includes(item.conceptId)
-            || item.options.length !== (item.interaction === 'typed-source' ? 0 : 2)
+            || item.options.length !== (item.interaction === 'typed-source' ? 0 : item.sourceTask === 'homework-match' ? 5 : 2)
             || (item.options.length > 0 && !item.options.some((option: YouniOption) => option.value === item.answer)))) {
-        issues.push({ path: 'payload.rounds', message: 'Eight verbatim examples with all three interaction modes are required.' });
+        issues.push({ path: 'payload.rounds', message: 'Eight verbatim examples and five deterministic homework matches are required.' });
     }
     validateFeedback(model.payload?.feedback, issues);
     return issues;
@@ -369,7 +408,7 @@ function renderWorkshop(
     const check = document.createElement('button');
     check.type = 'submit';
     check.className = 'academy-button academy-button-primary';
-    check.textContent = host.language === 'ja' ? '八つの原文を確認する' : 'Check all eight source examples';
+    check.textContent = host.language === 'ja' ? '十三の答えを確認する' : 'Check all thirteen source answers';
     form.append(groups, check);
     const key = renderAnswerKey(model, host.language);
     const feedback = statusRegion('academy-kit-feedback academy-state-inspection-feedback');
@@ -380,7 +419,7 @@ function renderWorkshop(
         event.preventDefault();
         const response = responseFromForm(model, form);
         if (!response) {
-            feedback.textContent = host.language === 'ja' ? '八つの例に答えてください。' : 'Complete all eight source examples.';
+            feedback.textContent = host.language === 'ja' ? '十三の問題に答えてください。' : 'Complete all thirteen source questions.';
             return;
         }
         setPending(form, true);
@@ -476,7 +515,7 @@ function renderAnswerKey(model: YouniGoalWorkshopModel, language: 'ja' | 'en' | 
     section.dataset.answerVisibility = 'after-attempt';
     section.hidden = true;
     const heading = document.createElement('h3');
-    heading.textContent = language === 'ja' ? '試したあとの先生の印刷例' : 'Sensei’s printed examples after your attempt';
+    heading.textContent = language === 'ja' ? '試したあとの印刷例と宿題の答え' : 'Printed examples and homework answers after your attempt';
     const list = document.createElement('ol');
     model.payload.rounds.forEach(round => {
         const item = document.createElement('li');
@@ -517,7 +556,7 @@ function reviewSeed(round: YouniGoalRound, result: GradeResult): ReviewSeed {
         conceptId: round.conceptId,
         reason: result.outcome === 'pass' ? 'new-learning' : 'repair',
         sourceQuestionId: round.sourceQuestionId,
-        content: { expression: round.answer, meanings: ['Sensei Chapter 36-1 printed example'] },
+        content: { expression: round.answer, meanings: [round.sourceTask === 'homework-match' ? 'Sensei Chapter 36 homework match' : 'Sensei Chapter 36-1 printed example'] },
     };
 }
 

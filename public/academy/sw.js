@@ -396,6 +396,7 @@ const CORE = [
     '/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-2.png',
     '/academy/content/lessons/l2-l36/moodle-chapter-36-1-youni-grammar-page-3.png',
     '/academy/content/lessons/l2-l36/moodle-chapter-36-1-vocabulary-page-1.png',
+    '/academy/content/lessons/l2-l36/moodle-chapter-36-homework-goals-page-1.png',
     '/academy/vendor/kanjivg/04e00.svg',
     '/academy/vendor/kanjivg/ATTRIBUTION.md',
     '/academy/vendor/kanjivg/LICENSE.txt',
