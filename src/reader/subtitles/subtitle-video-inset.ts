@@ -1,5 +1,5 @@
 import { createWindowEvent, dispatchWindowEvent } from '../platform/window-events';
-import { setStylePropertyIfChanged } from './subtitle-surface';
+import { rectArea, setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
 export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'none' | 'settled';
@@ -566,10 +566,6 @@ function rectViewportIntersectionArea(rect: DOMRect): number {
     const right = Math.max(left, Math.min(viewportWidth, rect.right));
     const bottom = Math.max(top, Math.min(viewportHeight, rect.bottom));
     return Math.max(0, right - left) * Math.max(0, bottom - top);
-}
-
-function rectArea(rect: DOMRect): number {
-    return Math.max(0, rect.width) * Math.max(0, rect.height);
 }
 
 function scheduleYouTubePlayerResize(width: number, height: number, mode: SubtitleVideoInsetResizeEventMode): void {
