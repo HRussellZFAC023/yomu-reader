@@ -5841,6 +5841,7 @@ export class ReaderApp {
             anchor,
         };
         this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
+        this.renderHydratedCardLocalEntries(hydrationContext, renderData);
         this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
         this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
         this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
@@ -6369,6 +6370,22 @@ export class ReaderApp {
             return;
         }
         hydrate();
+    }
+
+    // A cold local-dictionary lookup (IndexedDB on WebKit/iPad, large dicts)
+    // can lose the render-capped race; the capped promise then resolves []
+    // permanently and the local source never appears in the popover. Wait on
+    // the uncapped lookup and re-render late instead.
+    private renderHydratedCardLocalEntries(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
+        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        if (state.data.localEntries.length || !renderData.hydrateLocalEntries) return;
+        void renderData.hydrateLocalEntries()
+            .then(entries => {
+                if (!entries.length || state.data.localEntries.length || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                state.data = { ...state.data, localEntries: entries };
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            })
+            .catch(error => log.debug('Popup local dictionary hydration failed', { term: card.spelling, error }));
     }
 
     // Jiten details for a non-Jiten card take search → info → examples; over a

@@ -67,6 +67,7 @@ export interface CardRenderData {
 
 export interface CardRenderDataLoad {
     localEntries: Promise<YomitanTermEntry[]>;
+    hydrateLocalEntries?: () => Promise<YomitanTermEntry[]>;
     localMetaEntries?: Promise<YomitanMetaEntry[]>;
     pitchAccent?: Promise<string[]>;
     ankiLookup?: Promise<AnkiLookupResult>;
@@ -174,7 +175,8 @@ export class CardRenderDataLoader {
 
     private fetch(card: JPDBCard, options: CardRenderDataLoadOptions): CardRenderDataLoad {
         const settings = this.settings();
-        const localEntries = this.loadLocalTermEntries(card);
+        const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+        const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
         const localMetaEntries = this.loadLocalMetaEntries(card).then(async localMeta => {
             if (localMeta.completed) {
                 await this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local pitch accent', this.applyLocalPitchAccent(card, localMeta.entries), undefined);
@@ -247,6 +249,7 @@ export class CardRenderDataLoader {
             hydrateFrequencyRanks: () => frequencyRankLoad.hydrated,
             bunproDefinitionInfo,
             bunproDefinitionStatus,
+            hydrateLocalEntries: () => localEntriesUncapped,
             hydrateBunproDefinitionInfo: () => bunproDefinitionLookup.then(result => result.info),
             hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
             all,
@@ -257,13 +260,21 @@ export class CardRenderDataLoader {
         return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
     }
 
-    private loadLocalTermEntries(card: JPDBCard): Promise<YomitanTermEntry[]> {
+    // Uncapped lookup kept alongside the render-capped race: a slow local
+    // dictionary (cold IndexedDB, WebKit/iPad) must render LATE via the
+    // hydration pass, never NEVER — the capped race alone silently discarded
+    // the real result and the local source vanished from the popover.
+    private loadLocalTermEntriesUncapped(card: JPDBCard): Promise<YomitanTermEntry[]> {
         const settings = this.settings();
         if (!settings.localDictionariesEnabled) return Promise.resolve([]);
-        return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local term dictionary', this.lookupLocalTermEntries(card, settings).catch(error => {
+        return this.lookupLocalTermEntries(card, settings).catch(error => {
             log.warn('Local term lookup failed', { term: card.spelling }, error);
             return [];
-        }), [] as YomitanTermEntry[]);
+        });
+    }
+
+    private loadLocalTermEntries(card: JPDBCard, uncapped: Promise<YomitanTermEntry[]>): Promise<YomitanTermEntry[]> {
+        return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local term dictionary', uncapped, [] as YomitanTermEntry[]);
     }
 
     private async lookupLocalTermEntries(card: JPDBCard, settings: ReaderSettings): Promise<YomitanTermEntry[]> {
