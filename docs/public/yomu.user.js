@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.177
+// @version 1.6.178
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.177#sha256=RYBjXnp+wCg0eQbke/sqL0cDXEXiyIGdUpRZTghWAaQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.177#sha256=FCjTAUlb/GgzXlf5EN6bbTr5hwW8m8++vXkqBW0KZoc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.177#sha256=Xgzt9CYN+URr2GRH4VEGb+HlgUjfqwzK665lmIVDzzI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.177#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.177#sha256=Ry9BHyUIM1Ey8EVxF+6w8IoJ5SKrPmcLjJdNawF8GKo=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.177#sha256=3pOz/WaBX/GUR6F0nR9ave2OUeQ+KxtMfMF7Cs0sZ8Q=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.177#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.178#sha256=W4yK9Ahz9nbkYNu3k2gUMC4eh4nmUvIQ5xjhmrIDWBs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.178#sha256=8h+Gh8oc7vwWSJlIdupmqFQv0W3Xjitr97S4qfwjN1E=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.178#sha256=Xgzt9CYN+URr2GRH4VEGb+HlgUjfqwzK665lmIVDzzI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.178#sha256=/93LJaaKaqqnfgcal4IMCHSXyZCMpIDVtwy1r8+pgmY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.178#sha256=cQICmVkjKy3ph9ZeUlXa/bjh3NEqgrsLDtABByPmLvg=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.178#sha256=1mQactNzMRJmGov1KxKHUN7CJ623amgf79vb5c81N3g=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.178#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -9690,9 +9690,13 @@ function hasSensitiveUrlParams(targetUrl) {
 function isReadMethod(method) {
   return READ_METHODS.has(String(method ?? "GET").toUpperCase());
 }
+const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
+function isMissingProxyTransportError(error) {
+  return error instanceof Error && error.message === NO_PROXY_TRANSPORT_MESSAGE;
+}
 async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
   const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-  if (!candidates.length) throw new Error("No configured proxy.");
+  if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
   let lastError;
   for (const [index, candidate] of candidates.entries()) {
   try {
@@ -25786,7 +25790,7 @@ class JitenPublicVocabularyClient {
     allowDirectCrossOrigin: false,
     allowConfiguredProxy: true,
     allowSensitiveConfiguredProxy: false,
-    allowPublicProxies: false,
+    allowPublicProxies: true,
     preferFetch: true
   });
   }
@@ -32158,6 +32162,7 @@ async function batchJitenFallbackCards(terms, parse) {
   if (!uniqueTerms.length) return cards;
   const parsed = await parse(uniqueTerms).catch((error) => {
   log$4.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+  if (isMissingProxyTransportError(error)) throw error;
   return [];
   });
   uniqueTerms.forEach((term, index) => {
@@ -32168,7 +32173,13 @@ async function batchJitenFallbackCards(terms, parse) {
   return cards;
 }
 async function jitenFallbackCards(terms, entryCount, deps, options) {
-  if (deps.jitenApiActive()) return batchJitenFallbackCards(terms, deps.parse);
+  if (deps.jitenApiActive()) {
+  const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
+    if (!isMissingProxyTransportError(error)) throw error;
+    return null;
+  });
+  if (batched) return batched;
+  }
   const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
   log$4.warn("Jiten fallback failed", { terms: terms.length }, error);
   return new Map();
@@ -36353,8 +36364,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.177"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.177"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.178"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.178"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36472,7 +36483,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.177"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.178"}`;
   } catch {
   return null;
   }
@@ -40754,7 +40765,13 @@ class ReaderApp {
   return void 0;
   }
   async lookupFallbackApiCard(card, options = {}) {
-  return this.isJitenApiActive() ? this.jitenLookupFallbackCard(card) : this.publicLookupFallbackCard(card, options);
+  if (!this.isJitenApiActive()) return this.publicLookupFallbackCard(card, options);
+  try {
+    return await this.jitenLookupFallbackCard(card);
+  } catch (error) {
+    if (!isMissingProxyTransportError(error)) throw error;
+    return this.publicLookupFallbackCard(card, options);
+  }
   }
   async jitenLookupFallbackCard(card) {
   const terms = fallbackLookupTermsForCard(card);

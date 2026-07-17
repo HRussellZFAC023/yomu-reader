@@ -113,12 +113,32 @@ function restoreJsdomMediaElementMethods(): void {
     mediaMethodRestorers = [];
 }
 
+// Unit tests must stay hermetic: the reader's built-in public-proxy fallback
+// gives keyless cross-origin lookups REAL fetch candidates (edge.yomureader.com),
+// so an unstubbed fetch in jsdom would hit the live proxy and leak network
+// nondeterminism (and load) into the suite. Fail remote requests the way a down
+// network would; tests that need fetch behavior stub it themselves (their stub
+// is applied after this beforeEach and wins for that test).
+const nativeFetch = typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : undefined;
+const REMOTE_URL_RE = /^https?:\/\//i;
+const LOCAL_URL_RE = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i;
+
+function hermeticFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (REMOTE_URL_RE.test(url) && !LOCAL_URL_RE.test(url)) {
+        return Promise.reject(new TypeError(`fetch blocked in unit tests: ${url}`));
+    }
+    if (!nativeFetch) return Promise.reject(new TypeError('fetch unavailable'));
+    return nativeFetch(input as RequestInfo, init);
+}
+
 beforeEach(() => {
     resetLocaleState();
     resetPersistedOcrCache();
     stubJsdomMediaElementMethods();
     vi.stubGlobal('GM_xmlhttpRequest', undefined);
     vi.stubGlobal('GM', undefined);
+    vi.stubGlobal('fetch', hermeticFetch);
 });
 
 afterEach(() => {

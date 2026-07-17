@@ -251,6 +251,7 @@ import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './st
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
+import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
@@ -4677,9 +4678,15 @@ export class ReaderApp {
     }
 
     private async lookupFallbackApiCard(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {}): Promise<JPDBCard | undefined> {
-        return this.isJitenApiActive()
-            ? this.jitenLookupFallbackCard(card)
-            : this.publicLookupFallbackCard(card, options);
+        if (!this.isJitenApiActive()) return this.publicLookupFallbackCard(card, options);
+        try {
+            return await this.jitenLookupFallbackCard(card);
+        } catch (error) {
+            // Keyed Jiten transport is dead (hosted page: no GM bridge, no
+            // configured proxy) — degrade to the keyless public lookup.
+            if (!isMissingProxyTransportError(error)) throw error;
+            return this.publicLookupFallbackCard(card, options);
+        }
     }
 
     private async jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {

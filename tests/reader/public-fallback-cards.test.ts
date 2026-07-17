@@ -72,6 +72,25 @@ describe('publicLookupFallbackCards', () => {
         expect(result.size).toBe(spellings.length);
     });
 
+    it('degrades keyed users to the capped keyless lookup when the keyed transport has no proxy', async () => {
+        // Hosted page with a Jiten API key but no GM bridge and no configured
+        // proxy: the keyed reader/parse POST has zero fetch candidates. The
+        // fallback must behave like a keyless user, not return nothing.
+        const card = fallbackCard({ vid: -1, sid: -1, spelling: '青空' });
+        const publicHit = jitenCard({ vid: 1381470, spelling: '青空', reading: 'あおぞら' });
+        const parse = vi.fn(async () => {
+            throw new Error('No configured proxy.');
+        });
+        const lookupMany = vi.fn(async () => new Map([[normalizedJitenLookupKey('青空'), publicHit]]));
+        const deps = keylessDeps({ jitenApiActive: () => true, parse, lookupMany, publicSpellingCard: noPublicSweep() });
+
+        const result = await publicLookupFallbackCards([card], deps, { concurrency: 2 });
+
+        expect(parse).toHaveBeenCalledTimes(1);
+        expect(lookupMany).toHaveBeenCalledTimes(1);
+        expect(result.get(cardKey(card))).toBe(publicHit);
+    });
+
     it('resolves every fallback entry through ONE batched jiten request, never per-word', async () => {
         const spellings = ['青空', '読む', '当たり', '会話', '大切'];
         const cards = spellings.map((spelling, index) => fallbackCard({ vid: -(index + 1), sid: -(index + 1), spelling }));
@@ -286,6 +305,19 @@ describe('batchJitenFallbackCards', () => {
         try {
             await expect(batchJitenFallbackCards(['読む'], parse)).resolves.toEqual(new Map());
             expect(parse).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
+    it('rethrows a missing-proxy transport failure so callers can degrade to the keyless lookup', async () => {
+        const warn = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+        const parse = vi.fn(async () => {
+            throw new Error('No configured proxy.');
+        });
+
+        try {
+            await expect(batchJitenFallbackCards(['読む'], parse)).rejects.toThrow('No configured proxy.');
         } finally {
             warn.mockRestore();
         }

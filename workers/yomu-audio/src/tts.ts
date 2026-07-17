@@ -360,14 +360,14 @@ export async function handleLineTts(request: Request, url: URL, env: TtsEnv): Pr
 
   const payload = lineSsml(text, character);
   const key = engine === "polly"
-    ? `${LINE_TTS_PREFIX}/${speaker}/${await sha256Hex(`${character.voice} ${payload.text}`)}.mp3`
+    ? `${LINE_TTS_PREFIX}/${speaker}/${await sha256Hex(`${character.polly} ${payload.text}`)}.mp3`
     : `${LINE_TTS_PREFIX}/melotts/${await sha256Hex(text)}.wav`;
   const contentType = engineContentType(engine);
   const { audio, cached } = await cachedSynthesis(env, key, contentType, () =>
-    engine === "polly" ? synthesizePolly(env, character.voice, payload) : synthesizeMelo(env, text));
+    engine === "polly" ? synthesizePolly(env, character.polly, payload) : synthesizeMelo(env, text));
   return audioResponse(audio, cached, contentType, {
     "x-yomu-tts-engine": engine,
     "x-yomu-tts-speaker": speaker,
-    "x-yomu-tts-voice": engine === "polly" ? character.voice : "melotts-ja",
+    "x-yomu-tts-voice": engine === "polly" ? character.polly : "melotts-ja",
   });
 }

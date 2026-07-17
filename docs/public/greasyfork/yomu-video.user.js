@@ -3339,9 +3339,10 @@
   function isReadMethod(method) {
     return READ_METHODS.has(String(method ?? "GET").toUpperCase());
   }
+  const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
   async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error("No configured proxy.");
+    if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {

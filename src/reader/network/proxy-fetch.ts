@@ -40,13 +40,24 @@ export function proxyUrlCandidates(targetUrl: string, configuredProxyUrl = '', a
     return [...new Set(candidates)];
 }
 
+// Thrown when a request has ZERO fetch candidates: cross-origin with no
+// configured proxy and no eligible built-in proxy. Callers with a keyless
+// degrade path use isMissingProxyTransportError to fall back instead of
+// surfacing a dead lookup. Keep the message in sync with the logger's
+// OPTIONAL_CORS_BRIDGE_MESSAGE, which downgrades these warns to debug.
+const NO_PROXY_TRANSPORT_MESSAGE = 'No configured proxy.';
+
+export function isMissingProxyTransportError(error: unknown): boolean {
+    return error instanceof Error && error.message === NO_PROXY_TRANSPORT_MESSAGE;
+}
+
 export async function fetchWithCorsFallbacks(
     targetUrl: string,
     configuredProxyUrl = '',
     options: ProxyFetchOptions = {},
 ): Promise<Response> {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error('No configured proxy.');
+    if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError: unknown;
     for (const [index, candidate] of candidates.entries()) {
         try {

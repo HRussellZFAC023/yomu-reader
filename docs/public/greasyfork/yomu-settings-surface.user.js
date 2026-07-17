@@ -3767,9 +3767,10 @@
   function isReadMethod(method) {
     return READ_METHODS.has(String(method ?? "GET").toUpperCase());
   }
+  const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
   async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error("No configured proxy.");
+    if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {
@@ -4069,7 +4070,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.177".trim() ? "1.6.177".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.178".trim() ? "1.6.178".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

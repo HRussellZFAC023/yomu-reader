@@ -179,7 +179,10 @@ describe('JitenPublicVocabularyClient', () => {
         const requestJson = vi.fn(async (url: string, options?: ReaderHttpOptions) => {
             if (url.includes('/vocabulary/parse?')) {
                 expect(new URL(url).searchParams.get('text')).toBe('本を読む。\n猫を見る。');
-                expect(options).toMatchObject({ anonymous: true, allowPublicProxies: false, proxyUrl: '' });
+                // Keyless allowlisted GETs must keep the built-in public proxy
+                // available: on hosted pages with no GM bridge and no configured
+                // proxy it is the only transport to api.jiten.moe (no CORS there).
+                expect(options).toMatchObject({ anonymous: true, allowPublicProxies: true, proxyUrl: '' });
                 return [
                     { wordId: 112, readingIndex: 0, originalText: '本' },
                     { wordId: 2029010, readingIndex: 0, originalText: 'を' },

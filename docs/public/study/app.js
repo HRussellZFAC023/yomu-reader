@@ -368,9 +368,13 @@
   function isReadMethod(method) {
     return READ_METHODS.has(String(method ?? "GET").toUpperCase());
   }
+  const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
+  function isMissingProxyTransportError(error) {
+    return error instanceof Error && error.message === NO_PROXY_TRANSPORT_MESSAGE;
+  }
   async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
     const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error("No configured proxy.");
+    if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError;
     for (const [index, candidate] of candidates.entries()) {
       try {
@@ -40158,7 +40162,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.177".trim() ? "1.6.177".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.178".trim() ? "1.6.178".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70725,7 +70729,13 @@ ${key}`] = { t: now, v: value };
         allowDirectCrossOrigin: false,
         allowConfiguredProxy: true,
         allowSensitiveConfiguredProxy: false,
-        allowPublicProxies: false,
+        // Every request here is a keyless GET against the shared-proxy
+        // allowlist (vocabulary/parse + vocabulary/{id}/{idx}/info), so the
+        // built-in Yomu edge proxy may serve it. api.jiten.moe sends no
+        // Access-Control-Allow-Origin, so on hosted pages with no GM bridge
+        // and no configured proxy this is the ONLY transport — blocking it
+        // killed all keyless public lookups there ("No configured proxy.").
+        allowPublicProxies: true,
         preferFetch: true
       });
     }
@@ -72270,6 +72280,7 @@ ${normalizedReading}`;
     if (!uniqueTerms.length) return cards;
     const parsed = await parse(uniqueTerms).catch((error) => {
       log$4.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+      if (isMissingProxyTransportError(error)) throw error;
       return [];
     });
     uniqueTerms.forEach((term, index) => {
@@ -72280,7 +72291,13 @@ ${normalizedReading}`;
     return cards;
   }
   async function jitenFallbackCards(terms, entryCount, deps, options) {
-    if (deps.jitenApiActive()) return batchJitenFallbackCards(terms, deps.parse);
+    if (deps.jitenApiActive()) {
+      const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
+        if (!isMissingProxyTransportError(error)) throw error;
+        return null;
+      });
+      if (batched) return batched;
+    }
     const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
       log$4.warn("Jiten fallback failed", { terms: terms.length }, error);
       return /* @__PURE__ */ new Map();

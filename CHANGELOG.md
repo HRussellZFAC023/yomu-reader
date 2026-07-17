@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.178] - 2026-07-17
+
+### Fixed
+
+- Dictionary lookups on the hosted pages (homepage demo, new-tab study) work again without any configured proxy: keyless Jiten parse and detail requests may once more ride the built-in Yomu edge proxy, which an old blanket flag from the third-party-proxy era had been blocking, leaving every lookup dead with "No configured proxy." on browsers without the userscript bridge (e.g. iPad Safari).
+- Users with a Jiten API key on those same proxy-less hosted pages now degrade gracefully: when the keyed transport has no route at all, word-card and pitch fallback lookups fall back to the capped keyless public path instead of silently returning nothing.
+
 ## [1.6.177] - 2026-07-17
 
 ### Fixed

@@ -306,7 +306,13 @@ export class JitenPublicVocabularyClient {
             allowDirectCrossOrigin: false,
             allowConfiguredProxy: true,
             allowSensitiveConfiguredProxy: false,
-            allowPublicProxies: false,
+            // Every request here is a keyless GET against the shared-proxy
+            // allowlist (vocabulary/parse + vocabulary/{id}/{idx}/info), so the
+            // built-in Yomu edge proxy may serve it. api.jiten.moe sends no
+            // Access-Control-Allow-Origin, so on hosted pages with no GM bridge
+            // and no configured proxy this is the ONLY transport — blocking it
+            // killed all keyless public lookups there ("No configured proxy.").
+            allowPublicProxies: true,
             preferFetch: true,
         });
     }

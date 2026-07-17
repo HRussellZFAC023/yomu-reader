@@ -1,5 +1,6 @@
 import type { JPDBCard, JPDBToken } from '../app/types';
 import { Logger } from '../app/logger';
+import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { cardKey } from '../cards/utils';
 import { runLimited } from '../core/async-utils';
 import { fallbackLookupTermsForCard } from './japanese-segments';
@@ -67,6 +68,11 @@ export async function batchJitenFallbackCards(
     if (!uniqueTerms.length) return cards;
     const parsed = await parse(uniqueTerms).catch(error => {
         log.warn('Jiten batch fallback parse failed', { terms: uniqueTerms.length }, error);
+        // The keyed transport can be entirely absent (hosted page: no GM
+        // bridge, no configured proxy, and api.jiten.moe sends no CORS
+        // headers). Rethrow so callers degrade to the keyless public lookup
+        // instead of treating "no transport" as "no results".
+        if (isMissingProxyTransportError(error)) throw error;
         return [] as JPDBToken[][];
     });
     uniqueTerms.forEach((term, index) => {
@@ -84,7 +90,14 @@ async function jitenFallbackCards(
     deps: PublicLookupFallbackDeps,
     options: PublicLookupFallbackOptions,
 ): Promise<Map<string, JPDBCard>> {
-    if (deps.jitenApiActive()) return batchJitenFallbackCards(terms, deps.parse);
+    if (deps.jitenApiActive()) {
+        const batched = await batchJitenFallbackCards(terms, deps.parse).catch(error => {
+            if (!isMissingProxyTransportError(error)) throw error;
+            return null;
+        });
+        if (batched) return batched;
+        // Keyed transport is dead — degrade to the capped keyless lookup below.
+    }
     const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : undefined).catch(error => {
         log.warn('Jiten fallback failed', { terms: terms.length }, error);
         return new Map<string, JPDBCard>();
