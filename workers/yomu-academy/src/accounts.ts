@@ -36,7 +36,8 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
     if (session.account_id && account?.id !== session.account_id) {
         throw new HttpError(409, 'Log out before linking a different Academy account.');
     }
-    if (!account && session.invite_id === ACCOUNT_RECOVERY_INVITE_ID) {
+    if (session.invite_id === ACCOUNT_RECOVERY_INVITE_ID
+        && (!account || !(await accountHasDurableBinding(env, account.id)))) {
         throw new HttpError(403, 'No recoverable Academy account was found.');
     }
     await assertSessionEntitlementCanLink(env, session, account?.id ?? null);
@@ -71,7 +72,7 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
     }
     await attachSessionProfileToAccount(env, session, account.id, now);
 
-    await env.ACADEMY_DB.batch([
+    const linked = await env.ACADEMY_DB.batch([
         env.ACADEMY_DB.prepare(
             'UPDATE sessions SET account_id = ?1 WHERE public_id = ?2 AND revoked_at IS NULL',
         ).bind(account.id, session.public_id),
@@ -80,7 +81,16 @@ export async function linkGoogleSubject(env: Env, session: ActiveSession, subjec
             + "SELECT i.class_id, ?1, 'learner', 0, ?3 FROM sessions s JOIN invites i ON i.id = s.invite_id "
             + 'WHERE s.public_id = ?2 AND i.class_id IS NOT NULL',
         ).bind(account.id, session.public_id, now),
+        env.ACADEMY_DB.prepare(
+            'UPDATE accounts SET recovery_bound_at = COALESCE(recovery_bound_at, ?3) '
+            + 'WHERE id = ?1 AND EXISTS ('
+            + 'SELECT 1 FROM sessions s JOIN profiles p ON p.id = s.profile_id '
+            + 'WHERE s.public_id = ?2 AND s.account_id = ?1 AND s.revoked_at IS NULL AND p.account_id = ?1)',
+        ).bind(account.id, session.public_id, now),
     ]);
+    if ((linked[0]?.meta.changes ?? 0) !== 1 || (linked[2]?.meta.changes ?? 0) !== 1) {
+        throw new HttpError(409, 'Academy account link could not be completed.');
+    }
     return account;
 }
 
@@ -174,6 +184,19 @@ async function accountBySubjectHash(env: Env, subjectHash: string): Promise<Acco
         'SELECT id, public_id, display_name, name_chosen, discriminator, avatar_key, board_visible, share_avatar '
         + 'FROM accounts WHERE google_sub_hash = ?1',
     ).bind(subjectHash).first<AccountRow>();
+}
+
+/** Recovery must not adopt an account row left behind by an interrupted link. */
+async function accountHasDurableBinding(env: Env, accountId: string): Promise<boolean> {
+    const row = await env.ACADEMY_DB.prepare(
+        'SELECT ('
+        + 'EXISTS (SELECT 1 FROM accounts WHERE id = ?1 AND recovery_bound_at IS NOT NULL) '
+        + 'OR EXISTS (SELECT 1 FROM profiles WHERE account_id = ?1) '
+        + 'OR EXISTS (SELECT 1 FROM purchases WHERE redeemed_by_account_id = ?1 '
+        + "AND status = 'paid' AND redeemed_at IS NOT NULL) "
+        + ') AS recoverable',
+    ).bind(accountId).first<{ recoverable: number }>();
+    return row?.recoverable === 1;
 }
 
 export async function getAccountView(env: Env, account: AccountRow): Promise<Record<string, unknown>> {

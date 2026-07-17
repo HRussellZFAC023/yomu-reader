@@ -11,10 +11,16 @@ import {
 import { libraryVocabularyReviewSeeds } from '../content/library-vocabulary-sheet';
 import { loadReachableLessonActivityChapter } from '../content/lesson-activity-catalog';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
-import { createLessonStoryRuntime, lessonStoryEncounter, lessonStoryPresentation } from '../content/lesson-story-runtime';
+import {
+    adaptLessonStoryEntry,
+    createLessonStoryRuntime,
+    lessonStoryEncounter,
+    lessonStoryPresentation,
+} from '../content/lesson-story-runtime';
 import { loadLessonZeroContent } from '../content/lesson-zero';
 import { loadVerticalSliceContent, openingForkActivityId } from '../content/vertical-slice';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
+import type { SfxCue } from '../audio/types';
 import { createLessonOverviewModel, type LessonOverviewState } from '../domain/lesson-overview';
 import type { LearnerProjection } from '../domain/learner-record';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
@@ -40,7 +46,7 @@ export interface LessonFlowOptions {
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
     readonly kanjiWriting: KanjiWritingService;
-    readonly audio?: { beginExternalLesson(duck?: number): () => void };
+    readonly audio?: { beginExternalLesson(duck?: number): () => void; playSfx?(cue: SfxCue): void };
 }
 
 export function createLessonFlow(options?: LessonFlowOptions): AcademyRouteFlow {
@@ -53,6 +59,11 @@ class LessonFlow implements AcademyRouteFlow {
     private get options(): LessonFlowOptions {
         if (!this.configuredOptions) throw new Error('Lesson activity routes require configured learning services.');
         return this.configuredOptions;
+    }
+
+    /** Every graded activity across the lesson flow gets a correct/repair cue through this one seam. */
+    private playFeedbackSfx(outcome: 'pass' | 'lapse'): void {
+        this.options.audio?.playSfx?.(outcome === 'pass' ? 'feedback.correct' : 'feedback.repair');
     }
 
     async render(route: AcademyRoute, context: AcademyRouteContext): Promise<boolean> {
@@ -124,6 +135,7 @@ class LessonFlow implements AcademyRouteFlow {
         const registration = getAuthoredWeekRegistration(packageId);
         const plan = await loadClassWeekCastPlan();
         const continuity = createLessonStoryRuntime(plan).continuity(packageId);
+        const storyEntry = continuity ? adaptLessonStoryEntry(continuity, context.projection.activities) : undefined;
         const presentation = continuity ? lessonStoryPresentation(continuity) : undefined;
         const classWeek = plan.weeks.find(week => week.weekId === registration.classWeekId);
         if (!classWeek || classWeek.status !== 'source-backed' || !classWeek.primary) {
@@ -140,10 +152,13 @@ class LessonFlow implements AcademyRouteFlow {
             ...(presentation ? { presentation: { location: presentation.location } } : {}),
             runtime: createAcademyActivityRuntime(),
             pronunciation: this.options.pronunciation,
-            onEvaluation: (_activity, evaluation) => this.options.evidence.recordActivity(
-                evaluation,
-                `authored-week:${packageId}`,
-            ),
+            onEvaluation: (_activity, evaluation) => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                return this.options.evidence.recordActivity(
+                    evaluation,
+                    `authored-week:${packageId}`,
+                );
+            },
         }) : undefined;
         const showActivities = () => {
             let releaseListeningDuck: (() => void) | undefined;
@@ -159,8 +174,8 @@ class LessonFlow implements AcademyRouteFlow {
                         plate: presentation.plate,
                         location: presentation.location,
                     } : {}),
-                    setup: continuity.setup,
-                    callback: continuity.callback.meaningNow,
+                    setup: storyEntry?.setup ?? continuity.setup,
+                    callback: storyEntry?.callback ?? continuity.callback.meaningNow,
                     ...(continuity.world ? { handoff: continuity.handoff } : {}),
                     ...(continuity.dialogue ? {
                         dialogue: continuity.dialogue.map(turn => ({
@@ -183,7 +198,9 @@ class LessonFlow implements AcademyRouteFlow {
                 releaseListeningDuck?.();
                 releaseListeningDuck = undefined;
             },
-            onEvaluation: (activity, evaluation) => this.options.evidence.recordActivity({
+            onEvaluation: (activity, evaluation) => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                return this.options.evidence.recordActivity({
                 result: evaluation.result,
                 attempt: {
                     kind: 'attempt-recorded',
@@ -196,7 +213,8 @@ class LessonFlow implements AcademyRouteFlow {
                     errorTags: evaluation.result.errorTags,
                 },
                 reviewSeeds: evaluation.reviewSeeds,
-            }, `authored-week:${packageId}`),
+            }, `authored-week:${packageId}`);
+            },
             onComplete: async () => {
                 await this.options.evidence.recordEncounter(continuity
                     ? lessonStoryEncounter(continuity)
@@ -289,11 +307,14 @@ class LessonFlow implements AcademyRouteFlow {
             language: context.language,
             activity: createAakashDirectionsActivity(),
             completed: context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID),
-            onEvaluation: evaluation => this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
-                id: 'aakash-rainy-directions',
-                sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
-                unlock: { assetId: 'character:aakash', characterId: 'aakash', bondDelta: 1 },
-            }),
+            onEvaluation: evaluation => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
+                    id: 'aakash-rainy-directions',
+                    sceneId: AAKASH_RAINY_DIRECTIONS_SCENE_ID,
+                    unlock: { assetId: 'character:aakash', characterId: 'aakash', bondDelta: 1 },
+                });
+            },
             onSupportUse: support => this.options.evidence.recordSupportUse(
                 support.activityId,
                 support.supportKind,
@@ -326,16 +347,20 @@ class LessonFlow implements AcademyRouteFlow {
         context.shell.replace(renderKanjiDeskScreen(
             context.language,
             trace,
-            evaluation => this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
-                id: 'lesson-zero-writing-desk',
-                sceneId: 'scene:lesson-zero-writing-desk',
-                requiredErrorTag: 'kanji-writing-complete',
-            }),
+            evaluation => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
+                    id: 'lesson-zero-writing-desk',
+                    sceneId: 'scene:lesson-zero-writing-desk',
+                    requiredErrorTag: 'kanji-writing-complete',
+                });
+            },
             () => void context.go('campus'),
         ));
     }
 
     private recordActivity(evaluation: ActivityEvaluation, milestoneId: string): Promise<void> {
+        this.playFeedbackSfx(evaluation.result.outcome);
         const firstTask = evaluation.attempt.activityId === 'activity:lesson-zero-reconstruct-repair';
         return this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID, {
             id: milestoneId,

@@ -50,6 +50,8 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
     const assessments = new Map<JlptBand, Readonly<{ items: readonly PlacementItem[]; questions: readonly HTMLElement[] }>>();
     const target = bandSelect(options.language);
     const progress = element('div', 'academy-placement-progress');
+    progress.setAttribute('aria-live', 'polite');
+    progress.setAttribute('aria-atomic', 'true');
     const progressLabel = element('span', 'academy-placement-progress-label');
     const progressDots = element('span', 'academy-placement-progress-dots');
     progress.append(progressLabel, progressDots);
@@ -127,6 +129,7 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
             });
             fieldset.append(play, audioError);
         }
+        fieldset.append(copyElement('p', 'academy-mock-instruction', options.language, 'mockChooseAnswer'));
         const choices = element('div', 'academy-mock-options');
         item.options.forEach(option => {
             const label = element('label', 'academy-mock-option');
@@ -220,7 +223,9 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
     next.addEventListener('click', () => {
         if (step === 0) {
             if (!isJlptBand(target.select.value)) {
-                target.select.reportValidity();
+                // In-world paper feedback below is the only error surface here —
+                // the native reportValidity() bubble broke the living-paper scene
+                // with an OS tooltip (F027).
                 feedback.replaceChildren(fieldError(options.language === 'ja'
                     ? '受けるレベルを選んでください。'
                     : 'Choose the JLPT level you want to test.'));
@@ -232,7 +237,8 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
         }
         const radio = steps[step]?.querySelector<HTMLInputElement>('input[type="radio"]');
         if (radio && !steps[step]?.querySelector<HTMLInputElement>('input[type="radio"]:checked')) {
-            radio.reportValidity();
+            // See note above: skip reportValidity() so the fieldError slip is the
+            // only feedback surface (F027).
             feedback.replaceChildren(fieldError(academyText(options.language, 'mockIncomplete')));
             return;
         }
@@ -247,7 +253,9 @@ export function renderPlacementMockScreen(options: PlacementMockOptions): HTMLEl
     });
     form.addEventListener('submit', event => {
         event.preventDefault();
-        if (!form.reportValidity()) {
+        // checkValidity, not reportValidity: the in-world fieldError slip is the
+        // only feedback surface — the native bubble broke the scene (F027/F029).
+        if (!form.checkValidity()) {
             feedback.replaceChildren(fieldError(academyText(options.language, 'mockIncomplete')));
             return;
         }

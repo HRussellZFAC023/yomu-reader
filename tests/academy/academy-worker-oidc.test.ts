@@ -11,10 +11,11 @@ async function sessionFixture() {
     const academy = createFakeAcademy();
     academy.db.classes.push({ id: 'ucl-2026', name: 'UCL Japanese 2026', created_at: now, archived_at: null });
     academy.db.invites.push({
-        id: 'invite-ucl', code_hash: await inviteCodeHash(academy.env, 'UCL2026'), uses_remaining: 10,
-        kind: 'seed', created_at: now - 1, expires_at: null, revoked_at: null, purchase_id: null, class_id: 'ucl-2026',
+        id: 'invite-ucl', code_hash: await inviteCodeHash(academy.env, 'OPEN2026'), uses_remaining: 10,
+        kind: 'seed', created_at: now - 1, expires_at: null, revoked_at: null, purchase_id: null,
+        account_required: 0, class_id: 'ucl-2026',
     });
-    const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'UCL2026' }), academy.env, () => now);
+    const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, () => now);
     return { academy, sessionCookie: (response.headers.get('set-cookie') ?? '').split(';')[0] };
 }
 
@@ -99,7 +100,14 @@ describe('Academy Google OIDC flow', () => {
             headers: { cookie: sessionCookie, 'sec-fetch-site': 'same-origin' },
         }), academy.env, () => now);
         const flowCookie = (start.headers.get('set-cookie') ?? '').split(';')[0];
-        const callback = new Request('https://yomureader.com/academy/api/auth/google/callback?code=x&state=substituted', {
+        const missingIssuer = new URL('https://yomureader.com/academy/api/auth/google/callback');
+        missingIssuer.searchParams.set('code', 'x');
+        missingIssuer.searchParams.set('state', new URL(start.headers.get('location') ?? '').searchParams.get('state') ?? '');
+        await expect(handleGoogleCallback(new Request(missingIssuer, {
+            headers: { cookie: `${sessionCookie}; ${flowCookie}` },
+        }), academy.env, () => now + 1, async () => new Response())).rejects.toMatchObject({ status: 400 });
+
+        const callback = new Request('https://yomureader.com/academy/api/auth/google/callback?code=x&state=substituted&iss=https%3A%2F%2Faccounts.google.com', {
             headers: { cookie: `${sessionCookie}; ${flowCookie}` },
         });
         await expect(handleGoogleCallback(callback, academy.env, () => now + 1, async () => new Response())).rejects.toMatchObject({ status: 400 });

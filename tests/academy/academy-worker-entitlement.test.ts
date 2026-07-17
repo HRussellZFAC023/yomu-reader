@@ -62,11 +62,30 @@ async function createSession(env: Env, code: string): Promise<{ response: Respon
     return { response, cookie: response.status === 200 ? cookie(response) : '' };
 }
 
-async function seedInvite(env: Env, code: string, id: string = crypto.randomUUID()): Promise<void> {
+async function seedInvite(
+    env: Env,
+    code: string,
+    id: string = crypto.randomUUID(),
+    accountRequired = true,
+): Promise<void> {
     await env.ACADEMY_DB.prepare(
-        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id) '
-        + "VALUES (?1, ?2, 20, 'seed', ?3, NULL, NULL)",
-    ).bind(id, await inviteCodeHash(env, code), Date.now() - 1).run();
+        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
+        + "VALUES (?1, ?2, 20, 'seed', ?3, NULL, NULL, ?4)",
+    ).bind(id, await inviteCodeHash(env, code), Date.now() - 1, accountRequired ? 1 : 0).run();
+}
+
+async function insertGoogleAccount(env: Env, id: string, subject: string, discriminator: string, now: number): Promise<void> {
+    await env.ACADEMY_DB.prepare(
+        'INSERT INTO accounts '
+        + '(id, public_id, google_sub_hash, display_name, name_chosen, discriminator, board_visible, share_avatar, created_at, updated_at) '
+        + "VALUES (?1, ?2, ?3, 'Learner', 0, ?4, 0, 0, ?5, ?5)",
+    ).bind(
+        id,
+        crypto.randomUUID(),
+        await hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `google-sub:${subject}`),
+        discriminator,
+        now,
+    ).run();
 }
 
 async function signedIdToken(env: Env, nonce: string, subject: string, now: number): Promise<{ token: string; jwk: JsonWebKey }> {
@@ -123,6 +142,18 @@ async function signInWithGoogle(env: Env, sessionCookie: string, subject: string
 }
 
 describe('Academy Google account and paid entitlement policy', () => {
+    it('enforces the single anonymous invite invariant in the migrated schema', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            await seedInvite(academy.env, 'OPEN2026', 'anonymous-one', false);
+            await expect(seedInvite(academy.env, 'OTHER2026', 'anonymous-two', false))
+                .rejects.toThrow(/UNIQUE constraint failed/iu);
+            await seedInvite(academy.env, 'STAFF2026', 'account-required');
+        } finally {
+            academy.close();
+        }
+    });
+
     it('keeps paid-code sessions auth-only until the owning Google account is bound', async () => {
         const academy = createSqliteAcademy();
         const now = Date.now();
@@ -154,8 +185,9 @@ describe('Academy Google account and paid entitlement policy', () => {
             mediaManifest,
         );
         try {
-            await seedInvite(env, 'UCL2026', 'invite-ucl-media');
-            const ucl = await createSession(env, 'UCL2026');
+            await seedInvite(env, 'OPEN2026', 'invite-ucl-media', false);
+            const ucl = await createSession(env, 'OPEN2026');
+            expect(await ucl.response.clone().json()).toMatchObject({ accountRequired: false });
             expect((await mediaRequest(ucl.cookie)).status).toBe(200);
 
             const purchaseId = crypto.randomUUID();
@@ -169,6 +201,7 @@ describe('Academy Google account and paid entitlement policy', () => {
             const code = await derivePaidInviteCode(env.ACADEMY_INVITE_HMAC_KEY, purchaseId);
 
             const owner = await createSession(env, code);
+            expect(await owner.response.clone().json()).toMatchObject({ accountRequired: true });
             await expect(mediaRequest(owner.cookie)).rejects.toMatchObject({ status: 401 });
 
             expect((await signInWithGoogle(env, owner.cookie, 'media-owner', now + 1)).status).toBe(302);
@@ -181,17 +214,19 @@ describe('Academy Google account and paid entitlement policy', () => {
         }
     });
 
-    it('keeps UCL2026 anonymous while account-gating every other server profile', async () => {
+    it('keeps OPEN2026 anonymous while account-gating every other server profile', async () => {
         const academy = createSqliteAcademy();
         try {
-            await seedInvite(academy.env, 'UCL2026', 'invite-ucl');
+            await seedInvite(academy.env, 'OPEN2026', 'invite-ucl', false);
             await seedInvite(academy.env, 'STAFF2026', 'invite-staff');
-            const ucl = await createSession(academy.env, 'UCL2026');
-            const secondUcl = await createSession(academy.env, 'UCL2026');
+            const ucl = await createSession(academy.env, 'OPEN2026');
+            const secondUcl = await createSession(academy.env, 'OPEN2026');
             const staff = await createSession(academy.env, 'STAFF2026');
             expect(ucl.response.status).toBe(200);
             expect(secondUcl.response.status).toBe(200);
             expect(staff.response.status).toBe(200);
+            expect(await ucl.response.json()).toMatchObject({ accountRequired: false });
+            expect(await staff.response.json()).toMatchObject({ accountRequired: true });
             expect((await dispatch(academy.env, get(academy.env, '/academy/api/profile', ucl.cookie))).status).toBe(200);
             expect((await activeSession(
                 get(academy.env, '/academy/api/session', secondUcl.cookie), academy.env, Date.now(),
@@ -212,6 +247,55 @@ describe('Academy Google account and paid entitlement policy', () => {
             await expect(signInWithGoogle(academy.env, cookie(recovery), 'unknown-recovery-subject'))
                 .rejects.toMatchObject({ status: 403 });
             expect(academy.db.rows('SELECT * FROM accounts')).toHaveLength(1);
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('does not recover a bare account row left by an interrupted account link', async () => {
+        const academy = createSqliteAcademy();
+        const subject = 'orphaned-google-subject';
+        const now = Date.now();
+        try {
+            await insertGoogleAccount(academy.env, 'orphan-account', subject, '800001', now);
+
+            const recovery = await dispatch(academy.env, mutation(
+                academy.env, '/academy/api/auth/google/recovery', 'POST', {},
+            ));
+            expect(recovery.status).toBe(201);
+            expect(await recovery.clone().json()).toMatchObject({ accountRequired: true });
+            await expect(signInWithGoogle(academy.env, cookie(recovery), subject, now + 1))
+                .rejects.toMatchObject({ status: 403 });
+            expect(academy.db.rows('SELECT * FROM profiles')).toHaveLength(0);
+            expect(academy.db.rows('SELECT * FROM sessions WHERE account_id IS NOT NULL')).toHaveLength(0);
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('recovers a paid account when entitlement binding completed before profile attachment', async () => {
+        const academy = createSqliteAcademy();
+        const subject = 'paid-interrupted-subject';
+        const now = Date.now();
+        try {
+            await insertGoogleAccount(academy.env, 'paid-interrupted-account', subject, '800002', now);
+            await academy.env.ACADEMY_DB.prepare(
+                'INSERT INTO purchases '
+                + '(id, claim_hash, amount_pence, status, created_at, fulfilled_at, redeemed_by_account_id, redeemed_at) '
+                + "VALUES ('paid-interrupted-purchase', 'paid-interrupted-claim', 500, 'paid', ?1, ?1, "
+                + "'paid-interrupted-account', ?1)",
+            ).bind(now).run();
+
+            const recovery = await dispatch(academy.env, mutation(
+                academy.env, '/academy/api/auth/google/recovery', 'POST', {},
+            ));
+            const recoveryCookie = cookie(recovery);
+            expect((await signInWithGoogle(academy.env, recoveryCookie, subject, now + 1)).status).toBe(302);
+            expect((await dispatch(academy.env, get(
+                academy.env, '/academy/api/profile', recoveryCookie,
+            ))).status).toBe(200);
+            expect(academy.db.rows('SELECT * FROM profiles WHERE account_id = ?', 'paid-interrupted-account'))
+                .toHaveLength(1);
         } finally {
             academy.close();
         }

@@ -1,5 +1,6 @@
 import { getAcademyCastMember, type AcademyCastMemberId } from '../domain/cast-registry';
 import type { AcademyPlateId } from '../assets';
+import type { ActivityProjection } from '../domain/learner-record';
 import { worldPlace } from '../domain/world-locations';
 import type { ClassWeekCastPlan } from './class-week-cast-plan';
 import { LESSON_STORY_CATALOG, type LessonStoryCatalogEntry, type LessonStoryPackageId } from './lesson-story-catalog';
@@ -67,6 +68,30 @@ export interface LessonStoryRuntime {
     continuity(packageId: string): LessonStoryCatalogEntry | undefined;
 }
 
+export interface LessonStoryEntryAdaptation {
+    readonly mode: 'guided-prerequisite' | 'n-plus-one';
+    readonly setup: Readonly<{ en: string; ja: string }>;
+    readonly callback: Readonly<{ en: string; ja: string }>;
+}
+
+/** Adapt lesson framing from canonical activity evidence without writing or skipping plot state. */
+export function adaptLessonStoryEntry(
+    entry: LessonStoryCatalogEntry,
+    activities: Readonly<Record<string, Pick<ActivityProjection, 'lastOutcome' | 'attemptCount' | 'lapseCount'>>>,
+): LessonStoryEntryAdaptation {
+    const prerequisite = entry.nPlusOne.prerequisite;
+    const evidence = prerequisite ? activities[prerequisite.activityId] : undefined;
+    const hasRecordedPass = evidence
+        && (evidence.lastOutcome === 'pass'
+            || evidence.attemptCount > evidence.lapseCount);
+    const ready = !prerequisite || hasRecordedPass === true;
+    return Object.freeze({
+        mode: ready ? 'n-plus-one' : 'guided-prerequisite',
+        setup: ready ? entry.setup : prerequisite.fallbackSetup,
+        callback: ready ? entry.callback.meaningNow : entry.callback.fallback,
+    });
+}
+
 export interface LessonStoryEncounter {
     readonly encounterId: string;
     readonly sceneId: string;
@@ -129,8 +154,9 @@ function validateCatalog(plan: ClassWeekCastPlan, entries: readonly LessonStoryC
         throw new TypeError('Lesson story package and class-week bindings must be unique.');
     }
 
-    for (const entry of entries) {
+    for (const [index, entry] of entries.entries()) {
         validateEntryBoundary(entry);
+        validateChronologicalPrerequisite(entries, index);
         if (entry.packageId === 'lesson:foundation-00') {
             validateOrientation(entry);
             continue;
@@ -139,6 +165,24 @@ function validateCatalog(plan: ClassWeekCastPlan, entries: readonly LessonStoryC
         if (WORLD_CONTINUITY_PACKAGE_IDS.has(entry.packageId)) validateWorldContinuity(entry);
     }
     validateCallbacks(entries);
+}
+
+function validateChronologicalPrerequisite(
+    entries: readonly LessonStoryCatalogEntry[],
+    index: number,
+): void {
+    const entry = entries[index];
+    const prerequisite = entry?.nPlusOne.prerequisite;
+    if (!prerequisite) return;
+    const previous = entries[index - 1];
+    if (!previous
+        || prerequisite.packageId !== previous.packageId
+        || entry.nPlusOne.carries !== previous.nPlusOne.introduces) {
+        throw new TypeError(`Lesson story ${entry.packageId} must consume its immediate chronological N+1 prerequisite.`);
+    }
+    if (!prerequisite.activityId || !prerequisite.fallbackSetup.en || !prerequisite.fallbackSetup.ja) {
+        throw new TypeError(`Lesson story ${entry.packageId} needs complete adaptive prerequisite evidence.`);
+    }
 }
 
 function validateWorldContinuity(entry: LessonStoryCatalogEntry): void {

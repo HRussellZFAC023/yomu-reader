@@ -92,7 +92,8 @@ export interface AcademySyncClientOptions {
  * 32-byte profile sync key never leaves the client except wrapped inside a
  * pairing envelope, and no server profile is requested until the learner opts
  * into durable sync. Paid and generated codes must sign in with Google before
- * activation; only the anonymous UCL2026 seed reaches a profile without it.
+ * activation; only a server-designated anonymous invitation reaches a profile
+ * without it.
  */
 export class AcademySyncClient {
     private readonly storage: AcademySyncStorage | null;
@@ -137,7 +138,7 @@ export class AcademySyncClient {
     }
 
     /**
-     * Request the server profile and begin encrypted sync. Non-UCL sessions
+     * Request the server profile and begin encrypted sync. Account-required sessions
      * that have not signed in with Google surface `sign-in`; paid purchases
      * awaiting redemption surface `pending`; a new device on an existing
      * account surfaces `pair`. Local progress is imported only once a profile

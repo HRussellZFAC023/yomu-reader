@@ -14,6 +14,7 @@ const SESSION = {
     sessionId: 'session',
     expiresAt: 2_000,
     offlineResumeUntil: 3_000,
+    accountRequired: false,
     source: 'local-qa' as const,
 };
 

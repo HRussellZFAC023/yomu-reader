@@ -425,8 +425,9 @@ describe('Level 1 source fidelity and production readiness', () => {
             expect(runtime.preservesSourceTask, filename).toBe(true);
             expect(runtime.answerGate, filename).toBe('after-attempt');
             expect(text(runtime.pluginKind), filename).toBeTruthy();
-            expect(runtime.bindingStatus, filename)
-                .toBe('package-declared-catalog-registration-outside-owned-scope');
+            expect(runtime.bindingStatus, filename).toBe(filename === '002-l1-l01.json'
+                ? 'first-two-source-items-delivered-by-lesson-activity-catalog'
+                : 'package-declared-catalog-registration-outside-owned-scope');
         }
 
         const slices = activities.filter(({ activity }) =>
@@ -458,15 +459,18 @@ describe('Level 1 source fidelity and production readiness', () => {
                 'supplemental-enrichment',
             ]);
             const roots = array(audit.roots).map(value => record(value));
-            expect(roots.map(root => root.path), filename).toEqual(PUBLIC_SOURCE_REFERENCES);
-            expect(roots[0].treeSha256AtAudit, filename)
+            const requestedRootPaths = new Set<string>(PUBLIC_SOURCE_REFERENCES);
+            const requestedRoots = roots.filter(root => requestedRootPaths.has(text(root.path)));
+            expect(requestedRoots.map(root => root.path), filename).toEqual(PUBLIC_SOURCE_REFERENCES);
+            expect(roots, filename).toHaveLength(filename === '002-l1-l01.json' ? 4 : 3);
+            expect(requestedRoots[0].treeSha256AtAudit, filename)
                 .toBe('a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de');
-            expect(roots[1].treeSha256AtAudit, filename)
+            expect(requestedRoots[1].treeSha256AtAudit, filename)
                 .toBe('8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c');
-            expect(roots[2].treeSha256AtAudit, filename)
+            expect(requestedRoots[2].treeSha256AtAudit, filename)
                 .toBe('b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4');
-            expect(roots[1].status, filename).toBe('audited-no-selected-level-one-material');
-            expect(roots[2].status, filename).toBe('excluded-from-level-one-prestudy');
+            expect(requestedRoots[1].status, filename).toBe('audited-no-selected-level-one-material');
+            expect(requestedRoots[2].status, filename).toBe('excluded-from-level-one-prestudy');
         }
     });
 
@@ -684,6 +688,18 @@ describe('Level 1 source fidelity and production readiness', () => {
         for (const { filename, value: lesson } of lessons) {
             const reachability = record(lesson.runtimeReachability);
             expect(reachability.packageSchema, filename).toBe('parseable-authored-week-v1');
+            if (lesson.id === 'l1-l01') {
+                expect(reachability).toMatchObject({
+                    exactExerciseAdapter: '13-answer-gated-authored-activities-delivered',
+                    packageHashRegistration: 'registered-in-authored-week-adapter',
+                    pluginCatalogRegistration: 'registered-in-lesson-content-and-activity-catalogs',
+                    sourceVocabularyDelivery: '27-exact-sensei-rows-delivered-as-lesson-prerequisite-and-library-sheet',
+                    sourceActivityDelivery: 'moodle-greeting-worksheet-two-genki-sentence-builders-and-class-simulator-delivered',
+                    audioPairing: 'two-question-map-and-byte-verified-soya-task-bindings;original-yomu-dialogue-text-only',
+                });
+                expect(text(reachability.honestResult), filename).toMatch(/core Week loads end to end/i);
+                continue;
+            }
             if (lesson.id === 'l1-l19') {
                 expect(reachability).toMatchObject({
                     exactExerciseAdapter: 'academy-sentence-builder with Moodle teaching-material provenance',

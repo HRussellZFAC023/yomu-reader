@@ -468,6 +468,19 @@ html.jpdb-reader-doodle-active * {
     gap: 14px;
 }
 
+.academy-authored-week-briefing {
+    min-width: 0;
+}
+
+.academy-authored-week-briefing-step {
+    margin: 0;
+    color: var(--academy-muted);
+}
+
+.academy-authored-week-briefing .academy-authored-week-exposure {
+    margin: 0;
+}
+
 .academy-authored-week-progress {
     display: grid;
     grid-template-columns: auto minmax(110px, 1fr);
@@ -579,6 +592,10 @@ html.jpdb-reader-doodle-active * {
 
     .academy-authored-week-screen .academy-panel-content {
         gap: 10px;
+    }
+
+    .academy-authored-week-briefing .academy-lesson-teaching-entry {
+        padding: 10px 12px;
     }
 
     .academy-authored-week-progress {

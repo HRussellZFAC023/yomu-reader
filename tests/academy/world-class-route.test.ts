@@ -91,10 +91,64 @@ describe('World Class route', () => {
         expect(appShell.current?.querySelectorAll('button.academy-class-week-entry')).toHaveLength(1);
         expect(appShell.current?.querySelector('[data-week-id="orientation"] [aria-disabled="true"]')).not.toBeNull();
         appShell.current?.querySelector<HTMLButtonElement>('[data-week-id="l1-l01"] button')?.click();
-        expect(go).toHaveBeenCalledWith('lesson-overview', { lessonId: 'authored-week:l1-l01' });
+        expect(go).toHaveBeenCalledWith('classroom', {
+            lessonId: 'authored-week:l1-l01',
+            sectionId: undefined,
+            activityId: undefined,
+        });
         appShell.current?.querySelector<HTMLButtonElement>('.academy-class-path-back')?.click();
         expect(back).toHaveBeenCalledOnce();
         expect(fetch).toHaveBeenCalledTimes(61);
+    });
+
+    it('enters Week 1 through its located classroom cast, action, and real exits', async () => {
+        const appShell = shell();
+        const go = vi.fn(async () => undefined);
+        const back = vi.fn(async () => undefined);
+        const flow = createWorldFlow({
+            evidence: {} as never,
+            pronunciation: {} as never,
+            audio: { settings: { muted: true, volumes: { music: 1, ambience: 1, lesson: 1, sfx: 1 } } } as never,
+        });
+
+        await flow.render('classroom', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2,
+                route: 'classroom',
+                routeHistory: [{ route: 'class' }],
+                presentationMode: 'course',
+                lessonId: 'authored-week:l1-l01',
+                seenIntroductions: ['place:classroom'],
+                updatedAt: 1,
+            },
+            projection: projectLearnerRecord([]),
+            shell: appShell,
+            go,
+            back,
+        });
+
+        const screen = appShell.current!;
+        expect(screen.dataset.currentPlace).toBe('classroom');
+        expect(screen.dataset.worldLessonId).toBe('authored-week:l1-l01');
+        expect(screen.dataset.introductionId).toBe('week:l1-l01:classroom');
+        expect(screen.dataset.firstVisit).toBe('true');
+        expect(screen.querySelector('[data-world-activity="authored-week:l1-l01"]')?.textContent)
+            .toContain('Week 1 · Nice to meet you');
+        expect([...screen.querySelectorAll<HTMLElement>('[data-world-character]')]
+            .map(character => character.dataset.worldCharacter)).toEqual(['rie', 'stasi', 'mika']);
+        expect(screen.querySelector('[data-world-character="stasi"]')?.getAttribute('data-presence'))
+            .toBe('setting-out-name-cards');
+        expect(screen.querySelector('[data-world-character="mika"]')?.getAttribute('data-presence'))
+            .toBe('waiting-for-name-answer');
+        expect([...screen.querySelectorAll<HTMLElement>('[data-location]')]
+            .map(exit => exit.dataset.location)).toEqual(['courtyard', 'library', 'cafeteria', 'cafe']);
+
+        screen.querySelector<HTMLButtonElement>('.academy-world-arrival-continue')?.click();
+        screen.querySelector<HTMLButtonElement>('[data-activity-route="class"]')?.click();
+        expect(go).toHaveBeenCalledWith('lesson-overview');
+        screen.querySelector<HTMLButtonElement>('.academy-world-back')?.click();
+        expect(back).toHaveBeenCalledOnce();
     });
 
     it('opens the Class spine at the learner’s chosen band without losing earlier playable Weeks', async () => {

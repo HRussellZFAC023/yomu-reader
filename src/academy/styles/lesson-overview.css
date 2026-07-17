@@ -63,7 +63,8 @@
 }
 
 .academy-profile-screen .academy-lesson-overview-back,
-.academy-start-screen .academy-lesson-overview-back {
+.academy-start-screen .academy-lesson-overview-back,
+.academy-band-screen .academy-lesson-overview-back {
     color: #fffdf5;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.72);
 }

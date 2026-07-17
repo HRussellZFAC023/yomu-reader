@@ -62,7 +62,7 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
 
 ### Product slice
 
-- Implemented localhost `UCL2026` exchange behind the production access
+- Implemented localhost `<PRIVATE_CLASS_INVITE>` exchange behind the production access
   interface, Rie's exact fiction note, name/reason capture, four approved
   protagonist choices, and replayable Rie unlock/bond state.
 - Implemented Lesson 0, manual N5–N1 choice, the optional separate-skill mock,
@@ -164,7 +164,7 @@ Begin the Stage 1 enrollment slice from the authorized salvage list, starting wi
   leaving zero duplicate radios.
 - Verified live revision `s1-bbf9a61f26a3`, active `/academy/` service-worker
   scope, and HTTP 200 responses for revisioned JS/CSS, manifest, service worker,
-  campus art, and the vertical-slice source record. Production `UCL2026` failed
+  campus art, and the vertical-slice source record. Production `<PRIVATE_CLASS_INVITE>` failed
   closed with the authored Stage 7 boundary message.
 - Closed Stage 1 and opened Stage 2. Next action is the lossless 96-archive
   occurrence/payload reconciliation; the product still claims exactly one
@@ -313,7 +313,7 @@ The earlier execution blocker was removed in the continuing session; this sectio
 ## Verification
 
 - Focused Academy suites: 8 files / 58 tests passed. Offline manifest: 3/3. `npx tsc --noEmit`, `npm run build:academy`, and `git diff --check` pass. Hosted sync now includes the Lesson 0 shard and required sprite expressions; revision `s1-dad19af5580c` preceded the final CSS refinements.
-- Real Browser journey used `UCL2026`, created a fresh learner, selected Lesson 0 → Text, exercised readings, submitted `わかりました`, verified response-specific retry and Rie repair art, then passed with `もう一度お願いします` and verified happy art, flower mark, focus, persistence, and continuation.
+- Real Browser journey used `<PRIVATE_CLASS_INVITE>`, created a fresh learner, selected Lesson 0 → Text, exercised readings, submitted `わかりました`, verified response-specific retry and Rie repair art, then passed with `もう一度お願いします` and verified happy art, flower mark, focus, persistence, and continuation.
 - 390×844 and 1440×900 both have no horizontal overflow. Current-app evidence and hashes are recorded in `evidence/direction-reset/README.md` (`08`–`10`).
 - Live Browser QA also exposed an unrelated canonical Reader error: `行って` was annotated as `おこなって` in the old Aakash card. Its generic Reader fix and the Aakash VN replacement are the next active slices.
 - Fixed that Reader regression at its source: ordinary sequential scans had bypassed the authored-vocabulary resolution used by prefetch. Both now share `applyParsedBatch`. After reloading the rebuilt hosted Reader, real Aakash-memory DOM rendered `行( い )って` with `expression=行く`, `reading=いく`, `pitch=heiban`; focused compound tests keep `もう一度` as one pitched token with its two component links.
@@ -330,7 +330,7 @@ The earlier execution blocker was removed in the continuing session; this sectio
 
 ## 2026-07-13 — Live access, approved audio, donation return, and 73-week cast plan
 
-- Proved the live Cloudflare boundary with `UCL2026`: cloud session exchange succeeds; authenticated Persona/Shinday HEAD and 1,024-byte ranges return `200/206`; anonymous media returns `401`.
+- Proved the live Cloudflare boundary with `<PRIVATE_CLASS_INVITE>`: cloud session exchange succeeds; authenticated Persona/Shinday HEAD and 1,024-byte ranges return `200/206`; anonymous media returns `401`.
 - Fixed the browser causes behind silent/failing playback: unbound native `fetch`, local rejection of Secure `__Host-` cookies, eager pre-auth SFX pools, access-route theme timing, protected-media service-worker caching, and stale-frame volume overshoot. Real Browser playback reached `readyState=4` with Royal Days playing and Shinday confirm decoded.
 - Created exactly one owner-authorized £2 live Checkout session without payment. D1 records it as pending with a live Stripe session; secret presence was checked by name only. No key, cookie, token, URL, or full Checkout id entered logs or Git.
 - Added the post-checkout claim flow: sensitive return parameters are removed from history immediately; polling is bounded and abortable; the generated code is validated, prefilled, and copyable without storage or URL leakage; pending/unavailable states have one concise retry.
@@ -383,7 +383,7 @@ The earlier execution blocker was removed in the continuing session; this sectio
 
 ### Real-app evidence and verification
 
-- Current-app Browser acceptance used the live `UCL2026` local proxy. A fresh learner reached the blocked Lesson 0 overview with injected annotations and no false start action. Manual N3 placement crossed the concise arrival bridge and opened the correct Level 3.2 Class group.
+- Current-app Browser acceptance used the live `<PRIVATE_CLASS_INVITE>` local proxy. A fresh learner reached the blocked Lesson 0 overview with injected annotations and no false start action. Manual N3 placement crossed the concise arrival bridge and opened the correct Level 3.2 Class group.
 - Academy mounted the canonical Reader Study implementation in living paper. The real countdown decreased from 15 minutes, Pause worked, Reader Study/Doodle content rendered with its own styles, and Back returned to Class without leaving the timer behind. Phone and 1280×720 Class views were exercised.
 - Fable session `7796e6c9-3b8c-49b0-910d-1198fb711679` found and then cleared the fake-write-gate, review-identity, concealment, route-drift, catalogue, and byte-pinning defects. Its final read-only run passed 73 Academy files / 395 tests with no major or medium finding. The focused grounding closure passes 8 files / 49 tests.
 - Fable session `cd7fe7bf-7928-456a-9575-d28c39c64da1` independently confirmed the `l3-2-l04` no-go and rejected audio probing or an authored donor shell as grounding evidence.
@@ -457,6 +457,6 @@ The earlier execution blocker was removed in the continuing session; this sectio
 - Replaced that assertion with the intended privacy contract: the unrevealed ID must match opaque `study-card-N`, must not contain the source ID/spelling/reading, and must remain stable across the Kanji-step transition. The exact smoke passes locally and repair commit `798465abe` is pushed for replacement CI.
 - Recorded active Worker version `8b93d7cf-2cb0-4641-a46a-3e59cdf4f9b1`, then deployed `b10096ab-dc6c-42d2-a48e-d3dd5427a269` with existing variables preserved. Exact rollback is `npx wrangler versions deploy 8b93d7cf-2cb0-4641-a46a-3e59cdf4f9b1@100% --config wrangler.academy.jsonc --yes`.
 - Live static smoke returns Academy `s1-49196f5d199d`, Study app hash `2773926e95c4`, a canonical `/study/` page, and a lightweight `/newtab/` alias. Worker health is `200`.
-- Live access smoke exchanged `UCL2026` for the exact three-field session contract. Authenticated Persona `royal-days.flac` and Shinday `menu-option-select.wav` return `HEAD 200`; their first 1,024 bytes return `206` with exact lengths 29,615,879 and 41,240. Anonymous Persona remains `401`.
-- Real-browser smoke opened the production Academy, accepted `UCL2026`, displayed Rie's sprite/fiction note/name/reason/four-portrait form with Reader annotations, and requested the approved Persona track from R2 at `206`. Opening `/newtab/` navigated to canonical `/study/`, mounted the bound Reader Study root, and loaded app hash `2773926e95c4`.
+- Live access smoke exchanged `<PRIVATE_CLASS_INVITE>` for the exact three-field session contract. Authenticated Persona `royal-days.flac` and Shinday `menu-option-select.wav` return `HEAD 200`; their first 1,024 bytes return `206` with exact lengths 29,615,879 and 41,240. Anonymous Persona remains `401`.
+- Real-browser smoke opened the production Academy, accepted `<PRIVATE_CLASS_INVITE>`, displayed Rie's sprite/fiction note/name/reason/four-portrait form with Reader annotations, and requested the approved Persona track from R2 at `206`. Opening `/newtab/` navigated to canonical `/study/`, mounted the bound Reader Study root, and loaded app hash `2773926e95c4`.
 - Replacement workflows for `798465abe` are green: CI `29303911002`, Userscript `29303910984`, Pages `29304088551`, and extension packages `29304089573`. The checkpoint is closed without claiming a grounded Week; delivery remains 0/73.

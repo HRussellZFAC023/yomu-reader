@@ -57,7 +57,7 @@ Build `AudioDirector` before visual polish. Use the exact private Persona soundt
 
 ## Infrastructure
 
-Use Wrangler and existing Cloudflare credentials to create/verify D1, R2, Worker routes, migrations, archive upload, signed media, invite sessions, and sync. Seed `UCL2026` through the admin endpoint. Keep Stripe implementation ready and activate it after class-code launch stability.
+Use Wrangler and existing Cloudflare credentials to create/verify D1, R2, Worker routes, migrations, archive upload, signed media, invite sessions, and sync. Seed `<PRIVATE_CLASS_INVITE>` through the admin endpoint. Keep Stripe implementation ready and activate it after class-code launch stability.
 
 ## Completion
 

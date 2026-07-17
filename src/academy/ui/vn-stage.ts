@@ -84,9 +84,10 @@ interface InertSnapshot {
 }
 
 let vnStageSequence = 0;
-const TEXT_REVEAL_LEAD_IN_MS = 72;
-const TEXT_REVEAL_BASE_DELAY_MS = 42;
-const TEXT_REVEAL_CLUSTER_DELAY_MS = 18;
+const TEXT_REVEAL_LEAD_IN_MS = 90;
+const TEXT_REVEAL_BASE_DELAY_MS = 38;
+const TEXT_REVEAL_CLUSTER_DELAY_MS = 16;
+const TEXT_REVEAL_SENTENCE_BREATH_MS = 460;
 
 /** Presentation host. Narrative data never manipulates stage DOM. */
 export function createAcademyVnStage(options: AcademyVnStageOptions = {}): AcademyVnStage {
@@ -210,8 +211,8 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         onSfx: cue => options.audio?.playSfx(cue),
         onTextReveal: event => {
             if (event.type === 'start' && event.animated) {
-                startTextReveal(event.lineId);
                 translation.dataset.waitingForLine = '';
+                startTextReveal(event.lineId);
                 return;
             }
             if (event.type === 'end') {
@@ -325,6 +326,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         if (textRevealTimer !== undefined) window.clearTimeout(textRevealTimer);
         textRevealTimer = undefined;
         activeTextRevealToken += 1;
+        delete dialogue.dataset.textBreath;
     }
 
     function startTextReveal(lineId: string): void {
@@ -343,6 +345,15 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         dialogue.dataset.textRevealing = '';
         dialogue.setAttribute('aria-busy', 'true');
         japanese.replaceChildren(revealText);
+        const scheduleNext = (index: number, leadInMs = 0): void => {
+            const delay = leadInMs + textRevealCharacterDelay(units, index);
+            if (leadInMs === 0 && isTextRevealBreath(units, index)) dialogue.dataset.textBreath = '';
+            else delete dialogue.dataset.textBreath;
+            textRevealTimer = window.setTimeout(() => {
+                delete dialogue.dataset.textBreath;
+                revealNext();
+            }, delay);
+        };
         const revealNext = (): void => {
             if (typeof window === 'undefined') {
                 textRevealTimer = undefined;
@@ -361,15 +372,9 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
                 performance.completeTextReveal(lineId);
                 return;
             }
-            textRevealTimer = window.setTimeout(
-                revealNext,
-                textRevealCharacterDelay(units, visibleUnits - 1),
-            );
+            scheduleNext(visibleUnits - 1);
         };
-        textRevealTimer = window.setTimeout(
-            revealNext,
-            TEXT_REVEAL_LEAD_IN_MS + textRevealCharacterDelay(units, 0),
-        );
+        scheduleNext(0, TEXT_REVEAL_LEAD_IN_MS);
     }
 
     function finishTextReveal(lineId: string): void {
@@ -780,14 +785,16 @@ function textRevealCharacterDelay(units: readonly string[], index: number): numb
     // after the complete written sentence rather than before the quote appears.
     if (isSentenceEnd(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
     if (isClosingPunctuation(character) && isClosingPunctuation(nextCharacter)) return clusterDelayMs;
-    if (isClosingPunctuation(character) && closesSentence(units, index)) return baseDelayMs + 320;
-    if (isSentenceEnd(character)) return baseDelayMs + 320;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 120;
-    if (/[\n\r]/u.test(character)) return baseDelayMs + 180;
+    if (isClosingPunctuation(character) && closesSentence(units, index)) {
+        return baseDelayMs + TEXT_REVEAL_SENTENCE_BREATH_MS;
+    }
+    if (isSentenceEnd(character)) return baseDelayMs + TEXT_REVEAL_SENTENCE_BREATH_MS;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 140;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 240;
     if (/[…―—]/u.test(character) && /[…―—]/u.test(nextCharacter)) return clusterDelayMs;
     if (/[…―—]/u.test(character)) return baseDelayMs + 160;
-    if (/[」』）】]/u.test(character)) return baseDelayMs + 50;
-    if (/[「『（【]/u.test(character)) return clusterDelayMs;
+    if (isClosingBracket(character)) return baseDelayMs + 50;
+    if (isOpeningBracket(character)) return clusterDelayMs;
     if (/[ゃゅょぁぃぅぇぉっャュョァィゥェォッー]/u.test(nextCharacter)) {
         return clusterDelayMs;
     }
@@ -795,12 +802,28 @@ function textRevealCharacterDelay(units: readonly string[], index: number): numb
     return baseDelayMs;
 }
 
+function isTextRevealBreath(units: readonly string[], index: number): boolean {
+    const character = units[index] ?? '';
+    const nextCharacter = units[index + 1] ?? '';
+    if (isSentenceEnd(character)) return !isClosingPunctuation(nextCharacter);
+    if (isClosingPunctuation(character)) return closesSentence(units, index);
+    return /[\n\r]/u.test(character);
+}
+
 function isSentenceEnd(character: string): boolean {
     return /[。！？!?]/u.test(character);
 }
 
 function isClosingPunctuation(character: string): boolean {
-    return /[」』）】〉》〕］｝”’]/u.test(character);
+    return /[」』）】〉》〕］｝”’"')\]}]/u.test(character);
+}
+
+function isOpeningBracket(character: string): boolean {
+    return /[「『（【〈《〔［｛(\[{]/u.test(character);
+}
+
+function isClosingBracket(character: string): boolean {
+    return /[」』）】〉》〕］｝)\]}]/u.test(character);
 }
 
 function closesSentence(units: readonly string[], closingIndex: number): boolean {

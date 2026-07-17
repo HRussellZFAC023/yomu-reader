@@ -137,7 +137,38 @@
       }
     ],
     "corroboratingCohorts": [],
-    "gaps": [],
+    "gaps": [
+      {
+        "payloadSha256": "8e8a160918f4eda7d3b05aed9f7d8b3b3a441cb30a03cb7419b535c0e8397d63",
+        "title": "Chapter 1 Numbers 1-100 Romaji",
+        "missing": "exact-source-runtime-projection"
+      },
+      {
+        "payloadSha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+        "title": "Chapter 1 Classroom phrases",
+        "missing": "exact-source-runtime-projection"
+      },
+      {
+        "payloadSha256": "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
+        "title": "Chapter 1 Japanese Writing system introduction",
+        "missing": "exact-source-runtime-projection"
+      },
+      {
+        "payloadSha256": "0cff394911da80ae258ea59aa11992e1996efc9612661ea55c2cbe1f967ba46c",
+        "title": "Japanese Writing system General Features",
+        "missing": "exact-source-runtime-projection"
+      },
+      {
+        "payloadSha256": "28111bbca8e7afc2f869565b1f8a87d24ca0da81721fb2e013a9f51f43002717",
+        "title": "Text book Minna no Nihongo Characters",
+        "missing": "exact-source-runtime-projection"
+      },
+      {
+        "payloadSha256": "e3670991055fbfb0a6c869b90721dd011aecab238379ec72ccde42e8e5ea3f2f",
+        "title": "Vocabulary Family names and Greetings",
+        "missing": "source-reference-runtime-projection"
+      }
+    ],
     "coverageMap": [
       {
       "payloadSha256": "8e8a160918f4eda7d3b05aed9f7d8b3b3a441cb30a03cb7419b535c0e8397d63",
@@ -516,22 +547,157 @@
       "jlpt"
     ]
   },
+  "curriculumReadiness": {
+    "schema": "yomu-academy.source-grounded-readiness.v1",
+    "measurementPolicy": {
+      "unit": "assessed-source-grounded-skill-evidence",
+      "excludedFromReadiness": [
+        "raw-exercise-count",
+        "unassessed-source-rows",
+        "original-yomu-enrichment",
+        "unbound-or-unavailable-media"
+      ],
+      "cumulativeBandInvariant": {
+        "N5": [
+          "N5"
+        ],
+        "N4": [
+          "N5",
+          "N4"
+        ],
+        "N3": [
+          "N5",
+          "N4",
+          "N3"
+        ],
+        "N2": [
+          "N5",
+          "N4",
+          "N3",
+          "N2"
+        ],
+        "N1": [
+          "N5",
+          "N4",
+          "N3",
+          "N2",
+          "N1"
+        ]
+      },
+      "comparisonRule": "A higher JLPT readiness claim must retain every assessed source-grounded requirement from lower bands and add assessed source-grounded evidence at its own band; package or filler counts cannot satisfy the invariant."
+    },
+    "weekEvidence": {
+      "band": "N5",
+      "readinessStatus": "insufficient-evidence-for-band-readiness",
+      "jlptDomains": [
+        {
+          "domain": "vocabulary",
+          "status": "source-taught-not-assessed",
+          "sourceIds": [
+            "moodle-payload:c6df5dd2979a7ce376ecfb5d37c813813d99819d825f17a10c2ff2e5be79220e"
+          ],
+          "assessmentIds": []
+        },
+        {
+          "domain": "grammar",
+          "status": "assessed-source-grounded-partial",
+          "sourceIds": [
+            "japanese-genki-interactive:b909643450ead83af08d8dd22f717f9d320b165e5accf790514a31212d155451:generateQuiz"
+          ],
+          "assessmentIds": [
+            "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+            "genki-2e:l1-l01:workbook-5:takeda-teacher"
+          ]
+        },
+        {
+          "domain": "reading",
+          "status": "not-source-grounded-assessed",
+          "sourceIds": [],
+          "assessmentIds": []
+        },
+        {
+          "domain": "listening",
+          "status": "assessed-source-grounded",
+          "sourceIds": [
+            "soya:jlpt_n5:n5_mock1_l_19",
+            "soya:jlpt_n5:n5_mock1_l_24"
+          ],
+          "assessmentIds": [
+            "ex-soya-n5_mock1_l_19",
+            "ex-soya-n5_mock1_l_24"
+          ]
+        }
+      ],
+      "additionalCourseSkills": [
+        {
+          "domain": "writing",
+          "status": "assessed-source-grounded-partial",
+          "assessmentIds": [
+            "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+            "genki-2e:l1-l01:workbook-5:takeda-teacher"
+          ]
+        },
+        {
+          "domain": "speaking",
+          "status": "source-taught-not-assessed",
+          "assessmentIds": []
+        }
+      ],
+      "assessedSourceGroundedJlptDomainCount": 2,
+      "jlptDomainCount": 4,
+      "note": "This Week supplies partial N5 grammar evidence, two exact answer-gated Soya listening tasks, and source-grounded typed production. It is not an N5 readiness claim: exact vocabulary is taught but not assessed, and source-grounded reading evidence remains absent."
+    },
+    "validationBacklog": [
+      {
+        "id": "l1-l01-readiness-vocabulary",
+        "priority": "P0",
+        "requiredEvidence": "Gradeable retrieval using the exact 27-row Sensei vocabulary sheet with stable source-question identities."
+      },
+      {
+        "id": "l1-l01-readiness-reading",
+        "priority": "P0",
+        "requiredEvidence": "A gradeable reading task derived from the preserved greeting and family-name source records, with reviewed answers."
+      },
+      {
+        "id": "l1-l01-readiness-speaking",
+        "priority": "P1",
+        "requiredEvidence": "Add source-linked assessed speaking production for four-skill course coverage; do not count it as an official JLPT domain."
+      },
+      {
+        "id": "l1-l01-genki-workbook-parity",
+        "priority": "P1",
+        "requiredEvidence": "Deliver the remaining four exact Genki Workbook 5 prompts or keep them explicitly unavailable."
+      },
+      {
+        "id": "l1-l01-moodle-member-parity",
+        "priority": "P1",
+        "requiredEvidence": "Project or explicitly review-block every Moodle member listed in sourceCoverage.gaps."
+      }
+    ]
+  },
   "provenance": {
-    "authoringPolicy": "original-yomu",
+    "authoringPolicy": "source-faithful-yomu-adaptation",
     "sourceMappings": [
       {
         "sourceId": "source-ucl-moodle-raw-manifest",
         "relation": "chronology",
         "reference": "course ucl-japanese · level 1 · module 5777762",
-        "reuse": "metadata-only",
-        "note": "Week identity and worksheet inventory come from harvest metadata only."
+        "reuse": "selective-verbatim-source-delivery",
+        "note": "Moodle fixes the Week chronology. The exact 27-row vocabulary sheet, greeting and grammar examples, and greeting homework page are preserved; every undelivered member is listed in sourceCoverage.gaps."
       },
       {
         "sourceId": "source-minna-no-nihongo",
         "relation": "scope",
-        "reference": "Minna no Nihongo I · Lesson 1",
+        "reference": "Minna no Nihongo 2nd Edition Shokyu I · Lesson 1",
         "reuse": "sequence-only",
-        "note": "Chapter scope (NはNです, じゃ ありません, question か, の, も) is a published textbook sequence reference; all wording here is original."
+        "note": "The byte-audited local 2nd Edition corroborates Lesson 1 scope and sequence only. No Minna learner wording is claimed as verbatim delivery."
+      },
+      {
+        "sourceId": "japanese-genki-interactive:b909643450ead83af08d8dd22f717f9d320b165e5accf790514a31212d155451:generateQuiz",
+        "relation": "guided-practice",
+        "reference": "Genki Study Resources 2nd Edition · Lesson 1 · Workbook 5",
+        "reuse": "selective-verbatim-exercise-delivery",
+        "note": "The exact six-item generated quiz configuration is recorded. The first two source items are playable; the remaining four are not claimed as delivered."
       },
       {
         "sourceId": "source-jlpt-framework",
@@ -542,16 +708,63 @@
       }
     ],
     "castingNote": "Week one, so self-introduction is universal — everyone in the room says はじめまして. Rie-sensei opens; Henry (the learner-insert), Aakash, Jenny and Tom each give their first sentence; Jenny the connector frames the mission of meeting the class.",
-    "gaps": []
+    "gaps": [
+      "Six Moodle members or source references remain explicit runtime-projection gaps in sourceCoverage.gaps.",
+      "Four of the six exact Genki Workbook 5 items are recorded but not yet playable.",
+      "The original Yomu dialogue remains a written teaching model only; no recording is claimed for it. The two exact Soya tasks are packaged and count only as their own answer-gated listening evidence."
+    ]
   },
   "runtimeReachability": {
     "packageSchema": "parseable-authored-week-v1",
-    "exactExerciseAdapter": "not-delivered-by-current-authored-week-adapter-for-this-week",
-    "packageHashRegistration": "blocked-outside-owned-scope",
-    "pluginCatalogRegistration": "blocked-outside-owned-scope",
-    "sourceMediaRegistration": "blocked-outside-owned-scope",
-    "audioPairing": "source-locators-may-be-exact-but-the-current-authored-week-adapter-marks-authored-audio-unavailable",
-    "honestResult": "Package data is authored and source-traced; runtime reachability still requires forbidden adapter, hash, catalog, and media registration edits."
+    "exactExerciseAdapter": "13-answer-gated-authored-activities-delivered",
+    "packageHashRegistration": "registered-in-authored-week-adapter",
+    "pluginCatalogRegistration": "registered-in-lesson-content-and-activity-catalogs",
+    "sourceVocabularyDelivery": "27-exact-sensei-rows-delivered-as-lesson-prerequisite-and-library-sheet",
+    "sourceActivityDelivery": "moodle-greeting-worksheet-two-genki-sentence-builders-and-class-simulator-delivered",
+    "sourceMediaRegistration": "moodle-greeting-page-image-and-two-exact-soya-listening-recordings-packaged",
+    "audioPairing": "two-question-map-and-byte-verified-soya-task-bindings;original-yomu-dialogue-text-only",
+    "honestResult": "The core Week loads end to end with the exact Sensei vocabulary sheet, Moodle greeting page, two exact Genki prompts, two exact Soya listening tasks, and answer-gated practice. The original Yomu dialogue remains text-only and is never substituted with unrelated audio."
+  },
+  "sourceQuestionNormalization": {
+    "schema": "yomu-academy.source-question-normalization.v1",
+    "sourceWeekId": "l1-l01",
+    "groundedSourceQuestionCount": 2,
+    "playableSourceQuestionCount": 2,
+    "sourceQuestions": [
+      {
+        "id": "ex-soya-n5_mock1_l_19",
+        "sourceId": "source-soya-eagle",
+        "reference": "data/courses/jlpt_n5/mock1_listening.js#n5_mock1_l_19",
+        "reuse": "verbatim-soya",
+        "note": "Exact immediate-response question, options, marked answer, transcript, and recording are retained with question-map and byte verification.",
+        "answerStatus": "question-map-verified",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "ex-soya-n5_mock1_l_19",
+        "audioRef": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3"
+      },
+      {
+        "id": "ex-soya-n5_mock1_l_24",
+        "sourceId": "source-soya-eagle",
+        "reference": "data/courses/jlpt_n5/mock1_listening.js#n5_mock1_l_24",
+        "reuse": "verbatim-soya",
+        "note": "Exact immediate-response question, options, marked answer, transcript, and recording are retained with question-map and byte verification.",
+        "answerStatus": "question-map-verified",
+        "mediaStatus": "packaged-static-source-verified",
+        "audioAssetId": "ex-soya-n5_mock1_l_24",
+        "audioRef": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3"
+      }
+    ],
+    "quarantine": {
+      "unsupportedExerciseIds": [],
+      "unsupportedKinds": [],
+      "unresolvedMedia": [
+        {
+          "assetId": "asset-l1-l01-listening",
+          "locator": "academy://audio/level-1/lesson-01-two-people-meet",
+          "reason": "No recording matches the original Yomu teaching script; the script remains text-only and is not exposed as playable audio."
+        }
+      ]
+    }
   },
   "sourceRootAudit": {
     "revision": "level-one-source-roots/2026-07-14",
@@ -575,6 +788,16 @@
           "sha256": "78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839"
         },
         "readmeSha256": "82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab"
+      },
+      {
+        "id": "japanese-minna-shokyu-i-2e",
+        "path": "japanese-resources://Resource Packs/Japanese Language Learning Pack - Learn Japanese!/03 Grammar and Vocabulary/02 Minna no Nihongo Shokyu/Minna no Nihongo Shokyu I/Minna no Nihongo Shokyu I Dai 2-Han Honsatsu Kanji-Kana.pdf",
+        "role": "minna-lesson-one-scope-and-sequence",
+        "status": "audited-scope-reference",
+        "fileSha256": "66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229",
+        "title": "Minna no Nihongo 2nd Edition Shokyu I",
+        "pageCount": 326,
+        "decision": "Lesson 1 corroborates the identity-sentence scope and order. Moodle remains chronology authority; this source does not establish verbatim Minna task delivery."
       },
       {
         "id": "japanese-lessons",
@@ -651,7 +874,12 @@
       "runtime": {
         "sourceType": "fill",
         "pluginKind": "academy-typed-response",
-        "bindingStatus": "package-declared-catalog-registration-outside-owned-scope",
+        "bindingStatus": "first-two-source-items-delivered-by-lesson-activity-catalog",
+        "deliveredSourceQuestionIds": [
+          "genki-2e:l1-l01:workbook-5:ogawa-japanese",
+          "genki-2e:l1-l01:workbook-5:takeda-teacher"
+        ],
+        "remainingSourceItemCount": 4,
         "preservesSourceTask": true,
         "answerGate": "after-attempt"
       }
@@ -2756,23 +2984,16 @@
         "ja": "ふたりの じこしょうかい"
       },
       "provenance": {
-        "reuse": "original-yomu",
-        "note": "Original recorded self-introduction covering the はじめまして conversation and greetings function; no source audio reused."
-      },
-      "audio": {
-        "assetId": "asset-l1-l01-listening",
-        "locator": "academy://audio/level-1/lesson-01-two-people-meet",
-        "durationSeconds": 34,
-        "voiceNotes": "Two speakers, slow and clear. Rie warm and unhurried; Jenny a little shy, brightening at the end.",
-        "script": "りえ：はじめまして。りえです。にほんごの せんせいです。どうぞ よろしく。 ジェニー：はじめまして。ジェニーです。がくせいです。 りえ：ジェニーさんは アメリカじんですか。 ジェニー：いいえ、アメリカじんじゃ ありません。カナダじんです。 りえ：あ、カナダですか。どうぞ よろしく おねがいします。"
+        "reuse": "original-yomu-written-model-and-verbatim-soya-listening",
+        "note": "The written Rie/Jenny model supplies context only. The two playable listening exercises retain exact Soya question, option, transcript, answer, and recording identities."
       },
       "transcript": {
         "revealAfterFirstAttempt": true,
         "body": "Rie: How do you do. I'm Rie, the Japanese teacher. Nice to meet you. — Jenny: How do you do. I'm Jenny, a student. — Rie: Jenny, are you American? — Jenny: No, I'm not American. I'm Canadian. — Rie: Oh, Canada! Pleased to meet you."
       },
       "audioWorksheetPairing": {
-        "pairedWith": "843ee30241b15d04c7b1990e8c0f76640379e81be778fbb4bfdf082565e08d6c",
-        "note": "Chapter 1 had no separate audio worksheet in the harvest; this stands in for the はじめまして conversation module and the Greetings handout — same 'listen for name, nationality, job' skill, original script."
+        "pairedWith": "soya-question-map:n5_mock1_l_19+n5_mock1_l_24",
+        "note": "Each Soya recording is paired only with its exact immediate-response task. The Moodle Greetings handout and original Yomu written model are context, not audio-pairing evidence."
       },
       "exercises": [
         {
@@ -2873,7 +3094,7 @@
         },
         {
           "id": "ex-soya-n5_mock1_l_19",
-          "kind": "choice",
+          "kind": "quarantined-listening-choice",
           "phase": "guided-practice",
           "source": "soya",
           "audioRef": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
@@ -2949,7 +3170,7 @@
         },
         {
           "id": "ex-soya-n5_mock1_l_24",
-          "kind": "choice",
+          "kind": "quarantined-listening-choice",
           "phase": "guided-practice",
           "source": "soya",
           "audioRef": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",

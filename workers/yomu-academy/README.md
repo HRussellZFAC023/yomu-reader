@@ -20,16 +20,19 @@ deterministic code claim, and one-account redemption without those credentials.
 ## Identity ladder
 
 1. `POST /academy/api/session` exchanges an invite for the existing HttpOnly
-   session cookie. The response shape is unchanged. This session can access
-   media and begin Google OIDC, but it does not grant a server profile by
-   itself.
+   session cookie and returns `accountRequired`. Any session can begin Google
+   OIDC, but only the server-designated anonymous invite can access media or a
+   server profile before account binding.
 2. `POST /academy/api/session/resume` rotates that cookie without spending an
    invite while its fixed 30-day offline-resume window remains valid. Active
    authorization is still renewed in eight-hour windows.
-3. The HMAC-matched `UCL2026` seed invite is the only anonymous server-profile
-   exception. Its sessions can create a profile, pair, sync, export, and delete
-   with no Google prompt. Other seed and recovery sessions require Google
-   before any profile, pairing, sync, or profile lifecycle route.
+3. Invite metadata designates at most one anonymous server-profile exception.
+   Its sessions can create a profile, pair, sync, export, and delete with no
+   Google prompt. Other seed, paid, and recovery sessions require Google before
+   any profile, pairing, sync, or profile lifecycle route.
+   Re-submit an existing seed code to the authenticated invite endpoint with
+   `accountRequired: false` to designate it after migration; only its HMAC is
+   used and its usage/expiry state is preserved.
 4. Google Authorization Code + PKCE supplies the durable identity. Only an
    HMAC of Google's stable subject is retained; names, email, photos, browser
    tokens, and Google access/refresh tokens are discarded. Google identifies
@@ -42,7 +45,7 @@ deterministic code claim, and one-account redemption without those credentials.
    an unknown Google subject cannot use recovery to bypass an Academy code.
 
 Local-only Study remains accountless. Server profiles and cross-device sync
-require Google except for `UCL2026`.
+require Google except for the designated anonymous invite.
 
 ## API contract
 
@@ -52,7 +55,7 @@ the `__Host-academy_session` cookie.
 
 | Method | Route | Contract |
 |---|---|---|
-| `POST` | `/academy/api/session` | Existing invite exchange; unchanged response |
+| `POST` | `/academy/api/session` | Invite exchange with `accountRequired` capability |
 | `POST` | `/academy/api/session/resume` | Rotate a resumable session cookie |
 | `POST` | `/academy/api/auth/google/recovery` | Create an auth-only recovery session from `{}` |
 | `GET` | `/academy/api/auth/google/start` | Start state + nonce + S256 PKCE OIDC for the current session |
@@ -112,10 +115,11 @@ hashes. Encrypted events use the event page's `cursor`, `nextCursor`, and
 
 ## Paid entitlement protocol
 
-1. Checkout inserts a `pending` purchase before calling Stripe. Production
-   origin accepts only a live secret key; every non-production origin accepts
-   only a test key. Checkout creation is idempotent and uses hosted Stripe
-   Checkout. Payment fulfillment never trusts the success redirect.
+1. Checkout inserts a `pending` purchase before calling Stripe. Every origin
+   accepts only a test secret key and test Checkout session; live mode fails
+   closed until it is separately reviewed and activated. Checkout creation is
+   idempotent and uses hosted Stripe Checkout. Payment fulfillment never trusts
+   the success redirect.
 2. A signed `checkout.session.completed` or
    `checkout.session.async_payment_succeeded` webhook must match mode,
    metadata, session id, GBP amount, and `payment_status=paid`. Delivery is
@@ -259,3 +263,7 @@ never stored. Current per-subject limits are:
   one-code constraints, and deletion tombstones.
 - `0005_profile_key_commitment.sql`: one atomic client-key commitment per
   profile without server-side key escrow.
+- `0006_account_recovery_binding.sql`: completed-link marker that rejects bare
+  orphan rows while retaining recovery after deliberate profile deletion.
+- `0007_invite_account_requirement.sql`: private invite access metadata and a
+  database guard allowing only one account-free invite.

@@ -62,7 +62,7 @@ export default defineConfig(({ command }) => ({
         port: Number(process.env.ACADEMY_PORT ?? 5174),
         strictPort: true,
         // Local Academy acceptance uses the deployed access/media boundary so
-        // UCL2026, HttpOnly sessions, and protected range audio behave exactly
+        // HttpOnly invite sessions and protected range audio behave exactly
         // as they do on the hosted origin. Build output is unaffected.
         proxy: {
             '/academy/api': remoteAcademyProxy(),

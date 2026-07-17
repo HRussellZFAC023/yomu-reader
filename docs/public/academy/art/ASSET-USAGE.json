@@ -24,6 +24,23 @@
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4
   },
+  "lessonBindings": [
+    {
+      "packageId": "l1-l01",
+      "sourceSceneReference": "academy/art/scenes/classroom-first-evening-wide.webp",
+      "sceneAssetId": "classroom-evening-lamplit",
+      "approvedCastAssetIds": {"rie": "rie-neutral-halfbody-v001"},
+      "reviewOnlyCastCandidates": {"aakash": "aakash-neutral-halfbody-v001"},
+      "itemAssetIds": ["classroom-belongings-v001"],
+      "sourceMedia": [
+        {
+          "purpose": "source-homework-worksheet",
+          "path": "/academy/content/lessons/l1-l01/moodle-hw-chapter-1-1-greeting-page-1.png",
+          "sha256": "26fc7617addb2af8f85678b0e5dacf30518eeadfb030dbbb3d27dd2f54948100"
+        }
+      ]
+    }
+  ],
   "assets": [
     {
       "id": "sprite-batch-manifest-v1",
@@ -46,7 +63,7 @@
       "reviewHome": ["conformance:academy-asset-registry"],
       "deliveries": [{
         "path": "/academy/art/ACADEMY-ASSET-REGISTRY.json",
-        "sha256": "7290171afc9709ab155f75d49355cdfe4dbe4d1679edebdb40c6e40898ff74e7"
+        "sha256": "c46353cc384d6a5bb5dcbd016dd7d9a80ca8eae92e373ba88c138ba4d196f493"
       }],
       "status": "generated-mirrored-and-conformance-validated; not-runtime-bound"
     },
@@ -68,7 +85,7 @@
       "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v1/sprites/people/rie/rie__neutral__halfbody__v001.png",
       "provenance": "direct-openai-image-generation",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"],
+      "runtimeHome": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"],
       "deliveries": [{
         "path": "/academy/art/characters/rie/rie__neutral__halfbody__v001.png",
         "sha256": "cbdb7de384a2a587f61bcd9251a431818bc88efb06f1104f9ce3177caadbaeae"
@@ -517,7 +534,7 @@
       "source": "donor-a:codex-production-v1/backgrounds/classroom__evening-lamplit",
       "provenance": "direct-openai-image-generation-manifest",
       "verdict": "approved-runtime",
-      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"],
+      "runtimeHome": ["onboarding:profile", "lesson-zero", "placement", "journal", "lesson:l1-l01", "lesson:l2-l04", "lesson:l2-l15", "lesson:l2-l16"],
       "deliveries": [
         {"path": "/academy/art/locations/wide/classroom__evening-lamplit--wide.webp", "sha256": "7bfa3746c56b122fc1ae958b693cd4f70289d74882632d46206471c9a53e4037"},
         {"path": "/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp", "sha256": "1843b92e855e3e1adb38b7a48ab1138384e590c3928b9e24f27dc8f15998cb10"}
@@ -641,7 +658,7 @@
       "sourceSha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75",
       "provenance": "direct-openai-image-generation-manifest-recovered",
       "verdict": "approved-runtime",
-      "runtimeHome": ["reward:classroom:board-note"],
+      "runtimeHome": ["reward:classroom:board-note", "lesson:l1-l01:classroom-language-prop"],
       "deliveries": [{
         "path": "/academy/art/items/classroom-belongings__v001.jpg",
         "sha256": "8da8f0677e1b6b06b57cc0bb24e5c117edf6c42d8e431b8b2fda26b16a4bcd75"

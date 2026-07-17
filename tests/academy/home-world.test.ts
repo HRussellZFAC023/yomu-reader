@@ -36,7 +36,7 @@ describe('Academy Home world', () => {
 
         const dialogue = screen.querySelector<HTMLElement>('[data-world-arrival-dialogue="place:home"]')!;
         expect(dialogue.dataset.homeDialogueStep).toBe('reflection');
-        expect(dialogue.textContent).toContain('What kind of time have you had');
+        expect(dialogue.textContent).toContain('What kind of day have you had');
         expect(dialogue.querySelectorAll('[data-home-reflection]')).toHaveLength(3);
         expect(screen.querySelector<HTMLElement>('[data-purpose-surface="journal-desk"]')?.hidden).toBe(true);
 

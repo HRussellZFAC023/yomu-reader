@@ -14,13 +14,21 @@ export interface ActiveSession {
     readonly public_id: string;
     readonly invite_id: string;
     readonly account_id: string | null;
+    readonly account_required: number;
     readonly expires_at: number;
     readonly offline_resume_until: number;
 }
 
 /** Exact client contract (`src/academy/access/gateway.ts`): epoch milliseconds. */
-function sessionContract(row: Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>): { sessionId: string; expiresAt: number; offlineResumeUntil: number } {
-    return { sessionId: row.public_id, expiresAt: row.expires_at, offlineResumeUntil: row.offline_resume_until };
+function sessionContract(
+    row: Pick<ActiveSession, 'public_id' | 'account_required' | 'expires_at' | 'offline_resume_until'>,
+): { sessionId: string; expiresAt: number; offlineResumeUntil: number; accountRequired: boolean } {
+    return {
+        sessionId: row.public_id,
+        expiresAt: row.expires_at,
+        offlineResumeUntil: row.offline_resume_until,
+        accountRequired: row.account_required === 1,
+    };
 }
 
 async function tokenHash(env: Env, token: string): Promise<string> {
@@ -68,8 +76,9 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
     if ((inserted?.meta.changes ?? 0) !== 1 || inserted.results.length !== 1) {
         throw new HttpError(403, 'Invitation was not accepted.');
     }
+    const accountRequired = await sessionAccountRequirement(env, row.public_id);
 
-    return jsonResponse(sessionContract(row), 200, {
+    return jsonResponse(sessionContract({ ...row, account_required: accountRequired }), 200, {
         'set-cookie': hostCookie(SESSION_COOKIE, token, OFFLINE_RESUME_MS / 1000),
     });
 }
@@ -90,12 +99,13 @@ export async function handleCreateRecoverySession(request: Request, env: Env, cl
     const token = randomToken(32);
     const row = {
         public_id: crypto.randomUUID(),
+        account_required: 1,
         expires_at: now + SESSION_TTL_MS,
         offline_resume_until: now + OFFLINE_RESUME_MS,
     };
     await env.ACADEMY_DB.prepare(
-        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id) '
-        + "VALUES (?1, ?2, 100000, 'seed', ?3, NULL, NULL) ON CONFLICT(id) DO NOTHING",
+        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
+        + "VALUES (?1, ?2, 100000, 'seed', ?3, NULL, NULL, 1) ON CONFLICT(id) DO NOTHING",
     ).bind(ACCOUNT_RECOVERY_INVITE_ID, await inviteCodeHash(env, RECOVERY_INVITE_PREIMAGE), now).run();
     const inserted = await env.ACADEMY_DB.prepare(
         'INSERT INTO sessions (token_hash, public_id, invite_id, created_at, expires_at, offline_resume_until) '
@@ -138,7 +148,8 @@ export async function handleResumeSession(request: Request, env: Env, clock: Clo
         now,
     ).first<Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>>();
     if (!row) throw new HttpError(401, 'No resumable session.');
-    return jsonResponse(sessionContract(row), 200, {
+    const accountRequired = await sessionAccountRequirement(env, row.public_id);
+    return jsonResponse(sessionContract({ ...row, account_required: accountRequired }), 200, {
         'set-cookie': hostCookie(SESSION_COOKIE, newToken, (row.offline_resume_until - now) / 1000),
     });
 }
@@ -166,9 +177,22 @@ export async function activeSession(request: Request, env: Env, now: number): Pr
     if (!token) return null;
     return env.ACADEMY_DB
         .prepare(
-            'SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions '
-            + 'WHERE token_hash = ?1 AND revoked_at IS NULL AND expires_at > ?2',
+            'SELECT s.public_id, s.invite_id, s.account_id, i.account_required, '
+            + 's.expires_at, s.offline_resume_until FROM sessions s '
+            + 'JOIN invites i ON i.id = s.invite_id '
+            + 'WHERE s.token_hash = ?1 AND s.revoked_at IS NULL AND s.expires_at > ?2',
         )
         .bind(await tokenHash(env, token), now)
         .first<ActiveSession>();
+}
+
+async function sessionAccountRequirement(env: Env, publicId: string): Promise<number> {
+    const row = await env.ACADEMY_DB.prepare(
+        'SELECT i.account_required FROM sessions s JOIN invites i ON i.id = s.invite_id '
+        + 'WHERE s.public_id = ?1 AND s.revoked_at IS NULL',
+    ).bind(publicId).first<{ account_required: number }>();
+    if (!row || (row.account_required !== 0 && row.account_required !== 1)) {
+        throw new HttpError(401, 'Academy session is no longer valid.');
+    }
+    return row.account_required;
 }

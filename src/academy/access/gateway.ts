@@ -4,16 +4,12 @@ export interface InviteSession {
     readonly sessionId: string;
     readonly expiresAt: number;
     readonly offlineResumeUntil: number;
+    readonly accountRequired: boolean;
     readonly source: InviteSessionSource;
 }
 
 export interface AccessGateway {
     exchange(code: string, signal?: AbortSignal): Promise<InviteSession>;
-}
-
-/** UCL2026 is the single Academy invitation that may remain account-free. */
-export function isAnonymousAcademyCode(code: string): boolean {
-    return normalizeCode(code) === 'UCL2026';
 }
 
 export class AccessError extends Error {
@@ -24,10 +20,8 @@ export class AccessError extends Error {
 }
 
 export function createAccessGateway(location: Pick<Location, 'hostname'> = window.location): AccessGateway {
-    const remote = new HttpAccessGateway('/academy/api/session');
-    return localQaHost(location.hostname)
-        ? new LocalQaFallbackGateway(remote, new LocalQaAccessGateway())
-        : remote;
+    void location;
+    return new HttpAccessGateway('/academy/api/session');
 }
 
 export class HttpAccessGateway implements AccessGateway {
@@ -63,34 +57,8 @@ export class HttpAccessGateway implements AccessGateway {
     }
 }
 
-export class LocalQaAccessGateway implements AccessGateway {
-    async exchange(code: string): Promise<InviteSession> {
-        if (normalizeCode(code) !== 'UCL2026') throw new AccessError('invalid', 'Invitation was not accepted.');
-        const now = Date.now();
-        return {
-            sessionId: `local-qa-${crypto.randomUUID()}`,
-            expiresAt: now + 8 * 60 * 60_000,
-            offlineResumeUntil: now + 30 * 24 * 60 * 60_000,
-            source: 'local-qa',
-        };
-    }
-}
-
 export function sessionCanResume(session: InviteSession, now: number, online: boolean): boolean {
     return online ? session.expiresAt > now : session.offlineResumeUntil > now;
-}
-
-class LocalQaFallbackGateway implements AccessGateway {
-    constructor(private readonly remote: AccessGateway, private readonly local: AccessGateway) {}
-
-    async exchange(code: string, signal?: AbortSignal): Promise<InviteSession> {
-        try {
-            return await this.remote.exchange(code, signal);
-        } catch (error) {
-            if (error instanceof AccessError && error.code === 'unavailable') return this.local.exchange(code, signal);
-            throw error;
-        }
-    }
 }
 
 function normalizeCode(code: string): string {
@@ -104,10 +72,11 @@ function normalizeSession(value: unknown, source: InviteSessionSource): InviteSe
     const sessionId = typeof value.sessionId === 'string' ? value.sessionId.trim() : '';
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
-    if (!sessionId || expiresAt <= Date.now() || offlineResumeUntil < expiresAt) {
+    const accountRequired = value.accountRequired;
+    if (!sessionId || expiresAt <= Date.now() || offlineResumeUntil < expiresAt || typeof accountRequired !== 'boolean') {
         throw new AccessError('malformed', 'Invitation response is incomplete.');
     }
-    return { sessionId, expiresAt, offlineResumeUntil, source };
+    return { sessionId, expiresAt, offlineResumeUntil, accountRequired, source };
 }
 
 function readTimestamp(value: unknown): number {
@@ -117,10 +86,6 @@ function readTimestamp(value: unknown): number {
         if (Number.isSafeInteger(parsed)) return parsed;
     }
     return 0;
-}
-
-function localQaHost(hostname: string): boolean {
-    return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

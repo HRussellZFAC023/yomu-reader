@@ -39,7 +39,12 @@ export function resolvePackagedListeningTask(packageId: string, sourceQuestionId
     const binding = bindingByTask.get(`${packageId}/${sourceQuestionId}`);
     if (!binding || binding.locator !== locator || binding.delivery.status !== 'packaged-static') return undefined;
     const delivery = resolvePackagedAcademyListeningLocator(locator);
-    return delivery.status === 'ready' && delivery.url === binding.delivery.url ? delivery.url : undefined;
+    if (delivery.status !== 'ready'
+        || delivery.url !== binding.delivery.url
+        || delivery.entry.source.corpus !== binding.source.corpus
+        || delivery.entry.source.sha256 !== binding.source.audioSha256
+        || delivery.entry.source.questionMapRef !== binding.source.questionMapRef) return undefined;
+    return delivery.url;
 }
 
 function parseListeningTaskBindings(value: unknown): ListeningTaskBindingsManifest {

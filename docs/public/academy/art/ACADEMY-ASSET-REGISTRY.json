@@ -39,7 +39,7 @@
   "counts": {
     "lessons": 15,
     "worlds": 3,
-    "sourceMedia": 69,
+    "sourceMedia": 71,
     "activeRuntimeAssets": 14,
     "recoveredCandidates": 14,
     "missingPurposefulAssets": 0
@@ -308,6 +308,7 @@
             "lesson-zero",
             "placement",
             "journal",
+            "lesson:l1-l01",
             "lesson:l2-l04",
             "lesson:l2-l15",
             "lesson:l2-l16"
@@ -1427,7 +1428,30 @@
             "orphanStatus": "active-runtime"
           }
         ],
-        "packagedListening": []
+        "packagedListening": [
+          {
+            "path": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3",
+            "sha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement"
+            },
+            "runtimeUse": "listening-task:l2-l14",
+            "orphanStatus": "active-runtime"
+          },
+          {
+            "path": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3",
+            "sha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+            "provenance": {
+              "family": "moodle",
+              "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+              "evidence": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction"
+            },
+            "runtimeUse": "listening-task:l2-l14",
+            "orphanStatus": "active-runtime"
+          }
+        ]
       },
       "runtimeUse": {
         "status": "active-runtime",
@@ -1561,6 +1585,7 @@
             "lesson-zero",
             "placement",
             "journal",
+            "lesson:l1-l01",
             "lesson:l2-l04",
             "lesson:l2-l15",
             "lesson:l2-l16"
@@ -1713,6 +1738,7 @@
             "lesson-zero",
             "placement",
             "journal",
+            "lesson:l1-l01",
             "lesson:l2-l04",
             "lesson:l2-l15",
             "lesson:l2-l16"

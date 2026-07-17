@@ -409,7 +409,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
             {
                 id: 'courtyard-notice-look',
                 kind: 'availability',
-                prompt: { ja: '掲示の「見る」指示を順番に置く。', en: 'Put the noticeboard instruction to look in order.' },
+                prompt: { ja: '掲示の「見る」指示を順番に置く。', en: 'Arrange the words to say “Please look.”' },
                 audioLine: 'みてください。',
                 choices: [],
                 correctChoiceId: 'source-order',
@@ -434,7 +434,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
             {
                 id: 'courtyard-notice-write',
                 kind: 'availability',
-                prompt: { ja: '掲示の「書く」指示を順番に置く。', en: 'Put the noticeboard instruction to write in order.' },
+                prompt: { ja: '掲示の「書く」指示を順番に置く。', en: 'Arrange the words to say “Please write.”' },
                 audioLine: 'かいてください。',
                 choices: [],
                 correctChoiceId: 'source-order',
@@ -784,9 +784,9 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
             speakerId: 'aakash',
             line: {
                 ja: '「標識を見ながら、まっすぐと右を聞き取ってみよう。」',
-                en: '“Watch the signs and listen for straight ahead and right.”',
+                en: '“Listen for straight ahead and right.”',
             },
-            action: { ja: '標識を見る', en: 'Read the signs' },
+            action: { ja: '標識を見る', en: 'Check the signs' },
         },
         exits: ['courtyard', 'station', 'konbini', 'ramen', 'supermarket', 'park', 'post-office', 'home', 'cafe'],
         activity: {
@@ -1308,8 +1308,8 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         arrivalDialogue: {
             speakerId: 'aakash',
             line: {
-                ja: '「おかえりなさい。今日は、帰ってきてからどんな時間でしたか？」',
-                en: '“Welcome home. What kind of time have you had since you came back today?”',
+                ja: '「お疲れさま。今日は、どんな一日でしたか？」',
+                en: '“Good work today. What kind of day have you had?”',
             },
             action: { ja: '今夜のページを開く', en: 'Open tonight’s page' },
         },

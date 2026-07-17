@@ -9,6 +9,8 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const PUBLIC_ART_ROOT = path.join(REPO_ROOT, 'public/academy/art');
 const USAGE_PATH = path.join(PUBLIC_ART_ROOT, 'ASSET-USAGE.json');
 const SPRITE_INVENTORY_PATH = path.join(PUBLIC_ART_ROOT, 'CLASSMATE-SPRITE-INVENTORY.json');
+const LESSON_ONE_PATH = path.join(REPO_ROOT, 'public/academy/content/lessons/002-l1-l01.json');
+const CLASS_WEEK_CAST_PATH = path.join(REPO_ROOT, 'public/academy/content/curriculum/class-week-cast.v1.json');
 export const OUTPUT_PATH = path.join(REPO_ROOT, 'docs/academy/recovery/ASSET-INVENTORY.json');
 
 const SNAPSHOT_DATE = '2026-07-17';
@@ -173,6 +175,67 @@ function offMatrixSprites(spriteInventory, stateByPath) {
         .sort((a, b) => a.path.localeCompare(b.path, 'en'));
 }
 
+function lessonAssetBindings(usage) {
+    const lesson = readJson(LESSON_ONE_PATH);
+    const castPlan = readJson(CLASS_WEEK_CAST_PATH).weeks.find(week => week.weekId === lesson.id);
+    const binding = usage.lessonBindings?.find(entry => entry.packageId === lesson.id);
+    if (!binding || !castPlan) throw new TypeError(`${lesson.id}: asset binding or class-week cast plan is missing.`);
+
+    const assetsById = new Map(usage.assets.map(asset => [asset.id, asset]));
+    const requiredCast = [...new Set([
+        ...lesson.scene.cast,
+        castPlan.primary.id,
+        ...castPlan.supporting.map(member => member.id),
+    ])];
+    const approvedCast = Object.fromEntries(Object.entries(binding.approvedCastAssetIds).map(([castId, assetId]) => {
+        const asset = assetsById.get(assetId);
+        return [castId, { assetId, verdict: asset?.verdict ?? 'missing-ledger-entry', deliveries: asset?.deliveries ?? [] }];
+    }));
+    const reviewOnlyCast = Object.fromEntries(Object.entries(binding.reviewOnlyCastCandidates).map(([castId, assetId]) => {
+        const asset = assetsById.get(assetId);
+        return [castId, { assetId, verdict: asset?.verdict ?? 'missing-ledger-entry', deliveries: asset?.deliveries ?? [] }];
+    }));
+    const reconciledCast = new Set([...Object.keys(approvedCast), ...Object.keys(reviewOnlyCast)]);
+    const sourceReferenceFile = path.join(REPO_ROOT, 'public', lesson.scene.sceneImage.replace(/^\//u, ''));
+
+    return [{
+        packageId: lesson.id,
+        sourceSceneReference: lesson.scene.sceneImage,
+        sourceSceneReferenceState: fs.existsSync(sourceReferenceFile)
+            ? 'present-source-reference'
+            : 'missing-source-reference-with-approved-registry-binding',
+        approvedScene: {
+            assetId: binding.sceneAssetId,
+            verdict: assetsById.get(binding.sceneAssetId)?.verdict ?? 'missing-ledger-entry',
+            deliveries: assetsById.get(binding.sceneAssetId)?.deliveries ?? [],
+        },
+        requiredCastSources: {
+            lessonScene: lesson.scene.cast,
+            storyContinuity: [castPlan.primary.id, ...castPlan.supporting.map(member => member.id)],
+        },
+        approvedCast,
+        reviewOnlyCast,
+        unboundNoApprovedAsset: requiredCast.filter(castId => !reconciledCast.has(castId)).sort(),
+        items: binding.itemAssetIds.map(assetId => ({
+            assetId,
+            verdict: assetsById.get(assetId)?.verdict ?? 'missing-ledger-entry',
+            deliveries: assetsById.get(assetId)?.deliveries ?? [],
+        })),
+        sourceMedia: binding.sourceMedia.map(media => {
+            const publicFile = path.join(REPO_ROOT, 'public', media.path.replace(/^\//u, ''));
+            const docsFile = path.join(REPO_ROOT, 'docs/public', media.path.replace(/^\/academy\//u, 'academy/'));
+            return {
+                ...media,
+                present: fs.existsSync(publicFile),
+                mirrored: fs.existsSync(docsFile),
+                actualSha256: fs.existsSync(publicFile) ? sha256(publicFile) : null,
+                mirrorSha256: fs.existsSync(docsFile) ? sha256(docsFile) : null,
+            };
+        }),
+        placeholderPortraitsAuthorized: false,
+    }];
+}
+
 export function buildAcademyAssetInventory() {
     const usage = readJson(USAGE_PATH);
     const spriteInventory = readJson(SPRITE_INVENTORY_PATH);
@@ -199,6 +262,8 @@ export function buildAcademyAssetInventory() {
     ]);
     const offMatrixDelivered = offMatrixSprites(spriteInventory, stateByPath);
     const deprecatedPresent = deprecated.filter(entry => entry.present).length;
+
+    const lessonBindings = lessonAssetBindings(usage);
 
     return {
         schemaVersion: 1,
@@ -242,6 +307,7 @@ export function buildAcademyAssetInventory() {
             offMatrixDelivered,
             missingVariants,
         },
+        lessonBindings,
         noFilesDeletedByAudit: true,
     };
 }
@@ -294,6 +360,28 @@ export function validateAcademyAssetInventory(inventory) {
     }
     if (!inventory.noFilesDeletedByAudit || deprecated.some(entry => !entry.noDeletionPerformedByAudit)) {
         errors.push('The inventory does not preserve its no-deletion guarantee.');
+    }
+    for (const binding of inventory.lessonBindings ?? []) {
+        if (binding.approvedScene.verdict !== 'approved-runtime') {
+            errors.push(`${binding.packageId}: scene binding is not approved-runtime.`);
+        }
+        for (const [castId, asset] of Object.entries(binding.approvedCast)) {
+            if (asset.verdict !== 'approved-runtime') errors.push(`${binding.packageId}:${castId}: approved cast binding is not approved-runtime.`);
+        }
+        for (const [castId, asset] of Object.entries(binding.reviewOnlyCast)) {
+            if (!asset.verdict.includes('preview')) errors.push(`${binding.packageId}:${castId}: review-only cast candidate is not preview-gated.`);
+        }
+        const requiredCast = new Set([...binding.requiredCastSources.lessonScene, ...binding.requiredCastSources.storyContinuity]);
+        const reconciledCast = new Set([...Object.keys(binding.approvedCast), ...Object.keys(binding.reviewOnlyCast), ...binding.unboundNoApprovedAsset]);
+        if (JSON.stringify([...requiredCast].sort()) !== JSON.stringify([...reconciledCast].sort())) {
+            errors.push(`${binding.packageId}: required cast does not reconcile across approved, review-only, and unbound states.`);
+        }
+        if (binding.placeholderPortraitsAuthorized) errors.push(`${binding.packageId}: placeholder portraits must not be authorized.`);
+        for (const media of binding.sourceMedia) {
+            if (!media.present || !media.mirrored || media.actualSha256 !== media.sha256 || media.mirrorSha256 !== media.sha256) {
+                errors.push(`${binding.packageId}:${media.path}: source media is missing, unmirrored, or hash-drifted.`);
+            }
+        }
     }
     return errors;
 }

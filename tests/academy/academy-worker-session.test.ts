@@ -6,7 +6,7 @@ import { createFakeAcademy, jsonRequest, type FakeAcademy } from './helpers/fake
 
 const ctx = { waitUntil: () => undefined };
 
-async function seedInvite(academy: FakeAcademy, code: string, uses = 3): Promise<void> {
+async function seedInvite(academy: FakeAcademy, code: string, uses = 3, accountRequired = true): Promise<void> {
     academy.db.invites.push({
         id: `invite-${crypto.randomUUID()}`,
         code_hash: await inviteCodeHash(academy.env, code),
@@ -16,6 +16,7 @@ async function seedInvite(academy: FakeAcademy, code: string, uses = 3): Promise
         expires_at: null,
         revoked_at: null,
         purchase_id: null,
+        account_required: accountRequired ? 1 : 0,
     });
 }
 
@@ -32,14 +33,15 @@ function sessionCookie(response: Response): string {
 describe('Academy Worker sessions', () => {
     it('exchanges a seeded invite for the exact client session contract', async () => {
         const academy = createFakeAcademy();
-        await seedInvite(academy, 'UCL2026');
+        await seedInvite(academy, 'OPEN2026', 3, false);
 
         const before = Date.now();
-        const response = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'UCL2026' }));
+        const response = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
         expect(response.status).toBe(200);
 
         const body = await response.json();
-        expect(Object.keys(body).sort()).toEqual(['expiresAt', 'offlineResumeUntil', 'sessionId']);
+        expect(Object.keys(body).sort()).toEqual(['accountRequired', 'expiresAt', 'offlineResumeUntil', 'sessionId']);
+        expect(body.accountRequired).toBe(false);
         expect(typeof body.sessionId).toBe('string');
         expect(body.expiresAt).toBeGreaterThanOrEqual(before + 8 * 60 * 60_000);
         expect(body.offlineResumeUntil).toBeGreaterThan(body.expiresAt);
@@ -56,38 +58,47 @@ describe('Academy Worker sessions', () => {
         expect(await current.json()).toEqual(body);
     });
 
+    it('reports account-required capability without exposing invite classification', async () => {
+        const academy = createFakeAcademy();
+        await seedInvite(academy, 'STAFF2026');
+
+        const response = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'STAFF2026' }));
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ accountRequired: true });
+    });
+
     it('never persists a plaintext invite code anywhere in D1', async () => {
         const academy = createFakeAcademy();
-        await seedInvite(academy, 'UCL2026');
-        await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'UCL2026' }));
+        await seedInvite(academy, 'OPEN2026');
+        await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
         const dump = JSON.stringify({ invites: academy.db.invites, sessions: academy.db.sessions });
-        expect(dump).not.toContain('UCL2026');
+        expect(dump).not.toContain('OPEN2026');
     });
 
     it('rejects unknown, exhausted, and malformed codes without side effects', async () => {
         const academy = createFakeAcademy();
-        await seedInvite(academy, 'UCL2026', 1);
+        await seedInvite(academy, 'OPEN2026', 1);
 
         expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'WRONG-CODE' }))).status).toBe(403);
         expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'a' }))).status).toBe(400);
         expect((await dispatch(academy.env, jsonRequest('/academy/api/session', {}))).status).toBe(400);
 
-        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'ucl2026 ' }))).status).toBe(200);
+        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'open2026 ' }))).status).toBe(200);
         // Single-use invite is now consumed atomically.
-        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'UCL2026' }))).status).toBe(403);
+        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }))).status).toBe(403);
         expect(academy.db.sessions).toHaveLength(1);
     });
 
     it('requires an exact same-origin browser mutation', async () => {
         const academy = createFakeAcademy();
-        await seedInvite(academy, 'UCL2026');
-        const crossOrigin = jsonRequest('/academy/api/session', { code: 'UCL2026' }, { origin: 'https://evil.example' });
+        await seedInvite(academy, 'OPEN2026');
+        const crossOrigin = jsonRequest('/academy/api/session', { code: 'OPEN2026' }, { origin: 'https://evil.example' });
         expect((await dispatch(academy.env, crossOrigin)).status).toBe(403);
 
         const noOrigin = new Request('https://yomureader.com/academy/api/session', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ code: 'UCL2026' }),
+            body: JSON.stringify({ code: 'OPEN2026' }),
         });
         expect((await dispatch(academy.env, noOrigin)).status).toBe(403);
         expect(academy.db.invites[0].uses_remaining).toBe(3);
@@ -111,8 +122,8 @@ describe('Academy Worker sessions', () => {
 
     it('logs out by revoking the session and clearing the cookie', async () => {
         const academy = createFakeAcademy();
-        await seedInvite(academy, 'UCL2026');
-        const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'UCL2026' }));
+        await seedInvite(academy, 'OPEN2026');
+        const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
         const cookie = sessionCookie(created);
 
         const logout = await dispatch(academy.env, jsonRequest('/academy/api/logout', {}, { cookie }));
@@ -127,17 +138,51 @@ describe('Academy Worker sessions', () => {
 describe('Academy Worker admin invites', () => {
     it('seeds a known code via bearer auth without persisting plaintext', async () => {
         const academy = createFakeAcademy();
-        const response = await dispatch(academy.env, jsonRequest('/academy/api/admin/invites', { code: 'UCL2026', uses: 25 }, {
+        const response = await dispatch(academy.env, jsonRequest('/academy/api/admin/invites', {
+            code: 'OPEN2026', uses: 25, accountRequired: false,
+        }, {
             authorization: 'Bearer test-admin-token',
         }));
         expect(response.status).toBe(201);
         const body = await response.json();
         expect(body.code).toBeUndefined();
-        expect(JSON.stringify(academy.db.invites)).not.toContain('UCL2026');
+        expect(JSON.stringify(academy.db.invites)).not.toContain('OPEN2026');
         expect(academy.db.invites[0].uses_remaining).toBe(25);
+        expect(academy.db.invites[0].account_required).toBe(0);
 
         // The seeded code then redeems normally.
-        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'UCL2026' }))).status).toBe(200);
+        expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }))).status).toBe(200);
+    });
+
+    it('allows only one administrator-designated anonymous invite', async () => {
+        const academy = createFakeAcademy();
+        const headers = { authorization: 'Bearer test-admin-token' };
+        expect((await dispatch(academy.env, jsonRequest(
+            '/academy/api/admin/invites', { code: 'OPEN2026', accountRequired: false }, headers,
+        ))).status).toBe(201);
+        expect((await dispatch(academy.env, jsonRequest(
+            '/academy/api/admin/invites', { code: 'OTHER2026', accountRequired: false }, headers,
+        ))).status).toBe(409);
+        expect((await dispatch(academy.env, jsonRequest(
+            '/academy/api/admin/invites', { code: 'STAFF2026' }, headers,
+        ))).status).toBe(201);
+    });
+
+    it('designates an existing seed invite without replacing its code or usage state', async () => {
+        const academy = createFakeAcademy();
+        const headers = { authorization: 'Bearer test-admin-token' };
+        const created = await dispatch(academy.env, jsonRequest(
+            '/academy/api/admin/invites', { code: 'EXISTING2026', uses: 12 }, headers,
+        ));
+        const original = await created.json() as { inviteId: string };
+
+        const designated = await dispatch(academy.env, jsonRequest(
+            '/academy/api/admin/invites', { code: 'EXISTING2026', accountRequired: false }, headers,
+        ));
+        expect(designated.status).toBe(200);
+        expect(await designated.json()).toMatchObject({ inviteId: original.inviteId, uses: 12 });
+        expect(academy.db.invites).toHaveLength(1);
+        expect(academy.db.invites[0].account_required).toBe(0);
     });
 
     it('generates a random code exactly once and rejects duplicates and bad tokens', async () => {

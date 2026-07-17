@@ -10,7 +10,7 @@ import { parseChoiceExercise } from '../../src/academy/content/authored-week-sch
 import { auditAuthoredActivityContracts } from '../../src/academy/content/cold-production-audit';
 
 const FIXTURES = [
-    ['002-l1-l01.json', 'l1-l01', 13, 1],
+    ['002-l1-l01.json', 'l1-l01', 15, 0],
     ['003-l1-l02.json', 'l1-l02', 14, 1],
     ['004-l1-l03.json', 'l1-l03', 17, 1],
     ['005-l1-l04.json', 'l1-l04', 13, 1],
@@ -528,11 +528,7 @@ describe('authored week recovery adapter', () => {
         expect(() => adaptAuthoredWeek(duplicateOption, loaded.source)).toThrow(/duplicate option id/i);
 
         const week = adaptAuthoredWeek(loaded.json, loaded.source);
-        expect(week.media).toEqual([expect.objectContaining({
-            status: 'unavailable',
-            reason: 'unresolved-academy-locator',
-            sourceLocator: expect.stringMatching(/^academy:\/\//),
-        })]);
+        expect(week.media).toEqual([]);
         expect(JSON.stringify(week.media)).not.toMatch(/playable|https?:\/\//);
     });
 

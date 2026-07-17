@@ -31,7 +31,7 @@ mirror evidence. Their compact finding ledger is
   returned HTTP 200. The active service-worker scope is `/academy/`.
 - At 1440x900 the live page had `scrollWidth=innerWidth=1440`; Reader injected
   two word wrappers and one ruby with no duplicate radio inputs.
-- `UCL2026` failed closed with `The invitation service is unavailable. A
+- `<PRIVATE_CLASS_INVITE>` failed closed with `The invitation service is unavailable. A
   previously opened session still works offline.`, as production access remains
   a declared Stage 7 boundary.
 
@@ -41,7 +41,7 @@ mirror evidence. Their compact finding ledger is
 
 Query namespace: `qa-run=final-stage1-acceptance`.
 
-1. Entered `UCL2026` and created learner `Stage One` with a private reason and
+1. Entered `<PRIVATE_CLASS_INVITE>` and created learner `Stage One` with a private reason and
    the second approved protagonist portrait.
 2. Saw Rie's fiction note and replayable `Bond ★☆☆` unlock.
 3. Chose Lesson 0 and the Sound fork.

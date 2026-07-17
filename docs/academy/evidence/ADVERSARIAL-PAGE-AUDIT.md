@@ -75,7 +75,7 @@ The desired composition is not recoverable by simply reverting to the currently 
 
 ## Method and coverage
 
-The walkthrough used the real pages and assets served by the two local apps. The current app's built-in localhost `UCL2026` fallback was exercised by making only the session exchange unavailable; no fixture page, fabricated learner record, or product-code edit was used. Screens were allowed to settle before comparison. Raw DOM measurements and route observations are in [`audit-results.json`](./adversarial-page-audit/audit-results.json).
+The walkthrough used the real pages and assets served by the two local apps. The current app's built-in localhost `<PRIVATE_CLASS_INVITE>` fallback was exercised by making only the session exchange unavailable; no fixture page, fabricated learner record, or product-code edit was used. Screens were allowed to settle before comparison. Raw DOM measurements and route observations are in [`audit-results.json`](./adversarial-page-audit/audit-results.json).
 
 The current app was walked through every route reachable from a fresh learner without inventing progress:
 

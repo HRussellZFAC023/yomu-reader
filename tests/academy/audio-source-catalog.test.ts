@@ -135,7 +135,7 @@ describe('Academy external audio source catalog', () => {
         expect(byPath.get('Genki II/Genki2_KaiwaBunpo-hen(Textbook)/Genki 2-Title.mp3')).toMatchObject({ volume: 2, item: 'title' });
     });
 
-    it('commits the generated public and documentation mirrors with an honest unavailable runtime', () => {
+    it('commits mirrors that grant runtime only to exact task-bound source bytes', () => {
         const repoRoot = path.resolve(__dirname, '../..');
         const publicCatalog = readFileSync(path.join(repoRoot, 'public/academy/content/audio/source-inventory.v1.json'));
         const docsCatalog = readFileSync(path.join(repoRoot, 'docs/public/academy/content/audio/source-inventory.v1.json'));
@@ -162,9 +162,14 @@ describe('Academy external audio source catalog', () => {
             }),
         ]));
         expect(catalog.bindings).toHaveLength(53);
+        expect(catalog.bindings.filter((binding: { status: string }) => (
+            binding.status === 'canonical-source-match-task-bound'
+        ))).toHaveLength(10);
         expect(catalog.bindings.every((binding: { runtime: string; status: string }) => (
-            binding.runtime === 'unavailable'
-            && binding.status === 'canonical-source-match-awaiting-task-pairing'
+            (binding.runtime === 'unavailable'
+                && binding.status === 'canonical-source-match-awaiting-task-pairing')
+            || (binding.runtime === 'packaged-static'
+                && binding.status === 'canonical-source-match-task-bound')
         ))).toBe(true);
         expect(JSON.stringify(catalog)).not.toContain('/Users/heru/');
     });

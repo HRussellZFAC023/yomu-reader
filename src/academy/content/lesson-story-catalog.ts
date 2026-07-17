@@ -45,7 +45,16 @@ export interface LessonStoryCatalogEntry {
     /** A grounded exit line, not a new scene or a canonical plot outcome. */
     readonly handoff: Readonly<{ en: string; ja: string }>;
     /** Keep the story language at one supported step beyond the prior handoff. */
-    readonly nPlusOne: Readonly<{ carries: string; introduces: string }>;
+    readonly nPlusOne: Readonly<{
+        carries: string;
+        introduces: string;
+        /** Present only where an adaptive entry must consume the immediately preceding lesson handoff. */
+        prerequisite?: Readonly<{
+            packageId: LessonStoryPackageId;
+            activityId: string;
+            fallbackSetup: Readonly<{ en: string; ja: string }>;
+        }>;
+    }>;
     readonly threadId: LessonStoryCallbackId;
     readonly callback: Readonly<{
         readonly id: LessonStoryCallbackId;
@@ -95,9 +104,13 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
     entry({
         packageId: 'l1-l01', classWeekId: 'l1-l01', hostId: 'stasi', supportingIds: ['mika'],
         location: place('library-atlas-table', 'Library Atlas table', '図書館の地図帳テーブル'),
-        setup: line('The orientation invitation arrives as a pair of name cards; Stasi keeps the first exchange small and Mika waits for the answer before the card is filed.', 'オリエンテーションの誘いは二枚の名札になります。スタシさんは最初のやり取りを小さく保ち、ミカさんは答えを待ってから名札をしまいます。'),
-        handoff: line('Two names now have room for one ordinary detail, so profile cards can stay attached to people rather than become a quiz pile.', '二つの名前に一つの日常の情報を足せるようになり、プロフィール札は問題の山ではなく、人につながったままになります。'),
-        nPlusOne: step('answer a supported greeting', 'ask and answer a name question'),
+        setup: line('The orientation invitation arrives as two response cards. Stasi keeps the exchange to one heard prompt at a time, and Mika files a card only after its exact answer is checked.', 'オリエンテーションの誘いは二枚の返事の札になります。スタシさんは一度に一つの聞こえた問いだけを扱い、ミカさんは正確な答えを確かめてから札をしまいます。'),
+        handoff: line('A returned greeting and one answered name prompt give the next profile card a reliable person to stay attached to.', 'あいさつを返し、名前の問いに一つ答えると、次のプロフィール札を確かな人につなげたままにできます。'),
+        nPlusOne: step('answer one bounded greeting cue', 'answer one name prompt', {
+            packageId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-greet-rie',
+            fallbackSetup: line('The first response card is still open. Stasi keeps the prompt visible, and Mika waits while the greeting cue is checked before any name card is filed.', '最初の返事の札はまだ開いたままです。スタシさんは問いを見えるままにし、ミカさんはあいさつの合図を確かめてから名札をしまいます。'),
+        }),
         callback: callback('callback:blank-atlas-route', 'echo', 'A name card earns its place only after its answer is heard.', '名札は、答えを聞いてから初めて場所を持ちます。', 'A name can be checked again before the next card is added.', '次の札を足す前に、名前をもう一度確かめられます。'),
         completesThread: false,
     }),
@@ -106,7 +119,7 @@ export const LESSON_STORY_CATALOG: readonly LessonStoryCatalogEntry[] = Object.f
         location: place('library-profile-table', 'Library profile table', '図書館のプロフィールテーブル'),
         setup: line('Jenny uses the already-filed name cards as headings for four profile cards, while Mika keeps each detail attached to the card it came from.', 'ジェニーさんは、しまった名札を四枚のプロフィール札の見出しにします。ミカさんは、それぞれの情報を元の札につけたままにします。'),
         handoff: line('One identified profile leaves a reason to ask a specific question instead of guessing from the card.', '一人のプロフィールが分かると、札から推測せず、具体的な質問をする理由が残ります。'),
-        nPlusOne: step('recognise a name in an exchange', 'identify one profile detail'),
+        nPlusOne: step('answer one name prompt', 'identify one profile detail'),
         callback: callback('callback:blank-atlas-route', 'echo', 'A profile detail stays with the named person instead of becoming a loose fact.', 'プロフィールの情報は、ばらばらの事実ではなく、名前のある人につながったままです。', 'The next question can check one detail directly.', '次の質問では、一つの情報を直接確かめられます。'),
         completesThread: false,
     }),
@@ -638,8 +651,16 @@ function line(en: string, ja: string): Readonly<{ en: string; ja: string }> {
     return Object.freeze({ en, ja });
 }
 
-function step(carries: string, introduces: string): LessonStoryCatalogEntry['nPlusOne'] {
-    return Object.freeze({ carries, introduces });
+function step(
+    carries: string,
+    introduces: string,
+    prerequisite?: NonNullable<LessonStoryCatalogEntry['nPlusOne']['prerequisite']>,
+): LessonStoryCatalogEntry['nPlusOne'] {
+    return Object.freeze({
+        carries,
+        introduces,
+        ...(prerequisite ? { prerequisite } : {}),
+    });
 }
 
 function callback(

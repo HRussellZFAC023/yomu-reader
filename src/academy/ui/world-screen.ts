@@ -6,6 +6,8 @@ import {
     projectWorldPlace,
     worldRouteForPlace,
     type WorldPlaceId,
+    type WorldArrivalDialogue,
+    type WorldCurriculumHook,
     type WorldSceneComposition,
     type WorldObject,
     type WorldPractice,
@@ -34,6 +36,7 @@ export interface WorldScreenOptions {
     readonly place: WorldPlaceId;
     readonly progress: WorldProgress;
     readonly route: string;
+    readonly lessonContext?: WorldLessonContext;
     readonly onTravel: (place: WorldPlaceId) => void;
     readonly onActivity: (route: WorldRoute) => void;
     readonly onClaimStamp: (stampId: string) => void;
@@ -47,6 +50,19 @@ export interface WorldScreenOptions {
     readonly onPaperTurn?: () => void;
     readonly random?: () => number;
     readonly onBack?: () => void;
+}
+
+export interface WorldLessonContext {
+    readonly lessonId: string;
+    readonly introductionId: string;
+    readonly people: readonly string[];
+    readonly activity: Readonly<{
+        label: Readonly<{ en: string; ja: string }>;
+        detail: Readonly<{ en: string; ja: string }>;
+        curriculum: WorldCurriculumHook;
+    }>;
+    readonly arrivalDialogue: WorldArrivalDialogue;
+    readonly presence: Readonly<Record<string, WorldPresence>>;
 }
 
 /** @deprecated The app now calls `renderWorldPlaceScreen` with 中庭 as campus. */
@@ -93,10 +109,11 @@ export function renderLocationScreen(
 
 /** A location-first screen. `campus` is only a route; the learner is in 中庭. */
 export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement {
-    const place = projectWorldPlace(options.place, options.progress);
+    const place = projectCurrentWorldPlace(options);
     const screen = element('section', 'academy-screen academy-world-screen');
     screen.dataset.academyRoute = options.route;
     screen.dataset.currentPlace = place.id;
+    if (options.lessonContext) screen.dataset.worldLessonId = options.lessonContext.lessonId;
     screen.dataset.worldRegion = place.region;
     screen.dataset.introductionId = place.introduction.id;
     screen.dataset.firstVisit = String(place.introduction.isFirstVisit);
@@ -312,6 +329,25 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
     }
     screen.append(stage);
     return screen;
+}
+
+function projectCurrentWorldPlace(options: WorldScreenOptions): ReturnType<typeof projectWorldPlace> {
+    const place = projectWorldPlace(options.place, options.progress);
+    const context = options.place === 'classroom' ? options.lessonContext : undefined;
+    if (!context) return place;
+    return {
+        ...place,
+        people: context.people,
+        arrivalDialogue: context.arrivalDialogue,
+        activity: {
+            ...place.activity,
+            ...context.activity,
+        },
+        introduction: {
+            id: context.introductionId,
+            isFirstVisit: !(options.progress.seenIntroductions ?? []).includes(context.introductionId),
+        },
+    };
 }
 
 function worldActivityButton(options: WorldScreenOptions, route: WorldRoute): HTMLButtonElement {
@@ -809,6 +845,8 @@ function worldCourtyardPresence(options: WorldScreenOptions, personId: string): 
 /** Classroom peers are nearby and independent; their labels never make them judges of the learner's response. */
 function worldClassroomPresence(options: WorldScreenOptions, personId: string): WorldPresence | undefined {
     if (options.place !== 'classroom') return undefined;
+    const lessonPresence = options.lessonContext?.presence[personId];
+    if (lessonPresence) return lessonPresence;
     const returning = (options.progress.worldVisits?.classroom ?? 0) % 2 === 1;
     if (personId === 'rie') {
         return returning

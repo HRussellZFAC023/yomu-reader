@@ -126,20 +126,20 @@ describe('Academy runtime asset ledger', () => {
 
     it('authorizes the reviewed no-likeness place items with exact reward homes', () => {
         const expected = {
-            'station-ticket-memory-v001': [ACADEMY_ASSETS.items.stationTicket, 'reward:station:platform-ticket'],
-            'konbini-shopping-list-v001': [ACADEMY_ASSETS.items.konbiniShoppingList, 'reward:konbini:shopping-receipt'],
-            'ramen-quantity-board-v001': [ACADEMY_ASSETS.items.ramenQuantityBoard, 'reward:ramen:order-ticket'],
-            'classroom-belongings-v001': [ACADEMY_ASSETS.items.classroomBelongings, 'reward:classroom:board-note'],
-            'library-photo-album-v001': [ACADEMY_ASSETS.items.libraryPhotoAlbum, 'reward:library:review-bookmark'],
-            'street-direction-map-v001': [ACADEMY_ASSETS.items.streetDirectionMap, 'reward:street:directions-map'],
-            'japan-centre-omiyage-tag-v001': [ACADEMY_ASSETS.items.japanCentreOmiyageTag, 'reward:japan-centre:omiyage-tag'],
+            'station-ticket-memory-v001': [ACADEMY_ASSETS.items.stationTicket, ['reward:station:platform-ticket']],
+            'konbini-shopping-list-v001': [ACADEMY_ASSETS.items.konbiniShoppingList, ['reward:konbini:shopping-receipt']],
+            'ramen-quantity-board-v001': [ACADEMY_ASSETS.items.ramenQuantityBoard, ['reward:ramen:order-ticket']],
+            'classroom-belongings-v001': [ACADEMY_ASSETS.items.classroomBelongings, ['reward:classroom:board-note', 'lesson:l1-l01:classroom-language-prop']],
+            'library-photo-album-v001': [ACADEMY_ASSETS.items.libraryPhotoAlbum, ['reward:library:review-bookmark']],
+            'street-direction-map-v001': [ACADEMY_ASSETS.items.streetDirectionMap, ['reward:street:directions-map']],
+            'japan-centre-omiyage-tag-v001': [ACADEMY_ASSETS.items.japanCentreOmiyageTag, ['reward:japan-centre:omiyage-tag']],
         } as const;
 
-        for (const [id, [assetPath, runtimeHome]] of Object.entries(expected)) {
+        for (const [id, [assetPath, runtimeHomes]] of Object.entries(expected)) {
             const item = ledger.assets.find(asset => asset.id === id);
             expect(item).toMatchObject({
                 verdict: 'approved-runtime',
-                runtimeHome: [runtimeHome],
+                runtimeHome: runtimeHomes,
                 deliveries: [{ path: assetPath }],
                 status: expect.stringContaining('no-cast-likeness'),
             });

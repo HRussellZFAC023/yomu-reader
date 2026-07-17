@@ -53,8 +53,9 @@ function cookie(response: Response): string {
 
 async function enrolled(academy: SqliteAcademy, count = 1): Promise<string[]> {
     const seeded = await dispatch(academy.env, request('/academy/api/admin/invites', 'POST', {
-        code: 'UCL2026',
+        code: 'OPEN2026',
         uses: 50,
+        accountRequired: false,
     }, undefined, '203.0.113.20', { authorization: 'Bearer sqlite-test-admin-token' }));
     expect(seeded.status).toBe(201);
     const cookies: string[] = [];
@@ -62,7 +63,7 @@ async function enrolled(academy: SqliteAcademy, count = 1): Promise<string[]> {
         const response = await dispatch(academy.env, request(
             '/academy/api/session',
             'POST',
-            { code: 'UCL2026' },
+            { code: 'OPEN2026' },
             undefined,
             `203.0.113.${30 + index}`,
         ));
@@ -260,6 +261,7 @@ describe('Academy profile pairing and event-log sync', () => {
         academy.db.database.prepare('UPDATE sessions SET expires_at = ?1').run(Date.now() - 1);
         const resumed = await dispatch(academy.env, request('/academy/api/session/resume', 'POST', {}, accountCookie));
         expect(resumed.status).toBe(200);
+        expect(await resumed.clone().json()).toMatchObject({ accountRequired: false });
         const resumedCookie = cookie(resumed);
         expect(resumedCookie).not.toBe(accountCookie);
         expect(await (await dispatch(academy.env, get('/academy/api/profile', resumedCookie))).json()).toMatchObject({
@@ -303,6 +305,19 @@ describe('Academy profile pairing and event-log sync', () => {
         expect(academy.db.rows('SELECT * FROM sessions')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM progress_snapshots')).toHaveLength(0);
         expect(academy.db.rows('SELECT * FROM study_days')).toHaveLength(0);
+
+        const recovery = await dispatch(academy.env, request(
+            '/academy/api/auth/google/recovery', 'POST', {}, undefined, '203.0.113.99',
+        ));
+        const recoveryCookie = cookie(recovery);
+        const recoverySession = await activeSession(
+            get('/academy/api/session', recoveryCookie, '203.0.113.99'), academy.env, Date.now(),
+        );
+        if (!recoverySession) throw new Error('recovery session missing');
+        await linkGoogleSubject(academy.env, recoverySession, 'retained-account-subject', Date.now());
+        expect((await dispatch(academy.env, get(
+            '/academy/api/profile', recoveryCookie, '203.0.113.99',
+        ))).status).toBe(200);
     });
 
     it('moves an empty account-login profile, then pairs the existing key before syncing local events', async () => {

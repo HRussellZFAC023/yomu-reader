@@ -21,7 +21,7 @@
         "id": "soya",
         "root": "references/soya-research/audio-public/assets/audio",
         "audioFiles": 2475,
-        "result": "Six authored Soya locators have exact local files and question-map evidence."
+        "result": "Eight authored Soya locators have exact local files and question-map evidence."
       },
       {
         "id": "minna",
@@ -40,8 +40,8 @@
       "authoredScriptSha256": "df1473d1e413797da68e1156b0a08b5e3427566ef67c632fefc76fb932c58343",
       "expectedDurationSeconds": 34,
       "provenance": [
-        "public/academy/content/lessons/002-l1-l01.json#/components/3/audio",
-        "Authored provenance declares original Yomu audio; disk audit found no matching recording."
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/quarantine/unresolvedMedia/0",
+        "The original Yomu dialogue remains a written model; disk audit found no matching recording and runtime exposes no audio control for it."
       ]
     },
     {
@@ -458,6 +458,66 @@
       "provenance": [
         "public/academy/content/lessons/032-l2-l05.json#/sourceQuestionNormalization/sourceQuestions",
         "Moodle module 6974651 archive member audio materials/B-25.mp3 is byte-verified; Chapter 20 listening page 1 supplies the exact three picture-diary items and five blanks. Minna 069 is paired separately to the conversation worksheet and teacher script; B-26 and B-27 remain unbound."
+      ]
+    },
+    {
+      "locator": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
+      "authoredAssetId": "ex-soya-n5_mock1_l_19",
+      "availability": "source-verified",
+      "source": {
+        "corpus": "soya",
+        "repositoryRelativePath": "references/soya-research/audio-public/assets/audio/n5_mock1/n5_mock1_l_19.mp3",
+        "sha256": "75194e1fda2886b794a28669948455eb8ab4e45acba4a246221bde5e681cbe15",
+        "bytes": 269036,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 11.144,
+        "sampleRateHz": 48000,
+        "channels": 1,
+        "questionMapRef": "references/soya-research/listening-question-audio-map.csv:424"
+      },
+      "delivery": {
+        "mode": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3"
+      },
+      "worker": {
+        "assetId": "academy-listening-75194e1fda2886b7",
+        "purpose": "audio",
+        "access": "academy-session-or-signed"
+      },
+      "provenance": [
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/sourceQuestions/0",
+        "Exact basename and question id match the Soya question map; local bytes were SHA-256 verified and ffprobe inspected."
+      ]
+    },
+    {
+      "locator": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",
+      "authoredAssetId": "ex-soya-n5_mock1_l_24",
+      "availability": "source-verified",
+      "source": {
+        "corpus": "soya",
+        "repositoryRelativePath": "references/soya-research/audio-public/assets/audio/n5_mock1/n5_mock1_l_24.mp3",
+        "sha256": "52ba9cd972e544efb6017cbe220dfa04989565c3f1730e4e42fe81193b107455",
+        "bytes": 305900,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 12.68,
+        "sampleRateHz": 48000,
+        "channels": 1,
+        "questionMapRef": "references/soya-research/listening-question-audio-map.csv:429"
+      },
+      "delivery": {
+        "mode": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3"
+      },
+      "worker": {
+        "assetId": "academy-listening-52ba9cd972e544ef",
+        "purpose": "audio",
+        "access": "academy-session-or-signed"
+      },
+      "provenance": [
+        "public/academy/content/lessons/002-l1-l01.json#/sourceQuestionNormalization/sourceQuestions/1",
+        "Exact basename and question id match the Soya question map; local bytes were SHA-256 verified and ffprobe inspected."
       ]
     },
     {
@@ -878,6 +938,66 @@
       "provenance": [
         "Moodle module 8121266 archive f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217 members Audio materials/11 A-11.mp3 and Handouts/Chapter 28 listening-2.pdf",
         "Worksheet upper section A-11 explicitly asks for seven meal-survey responses. Original-audio review establishes all seven deterministic answers; transcript and key remain gated until an attempt. Lower worksheet section A-12 and the other four package recordings remain outside this exact pairing."
+      ]
+    },
+    {
+      "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+      "authoredAssetId": "moodle-l2-l14-a13",
+      "availability": "source-verified",
+      "source": {
+        "corpus": "moodle",
+        "repositoryRelativePath": "apps/yomu-reader/artifacts/yomu-academy/source-pipeline/payloads/b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+        "sha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d",
+        "bytes": 1012708,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 64.36,
+        "sampleRateHz": 44100,
+        "channels": 2,
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction"
+      },
+      "delivery": {
+        "mode": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      },
+      "worker": {
+        "assetId": "academy-listening-b61ec5374c6c31fb",
+        "purpose": "audio",
+        "access": "academy-session-or-signed"
+      },
+      "provenance": [
+        "Moodle module 8121267 archive ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96 members audio materials/13 A-13.mp3 and Handouts/Chapter 29 listening-1.pdf; the audio bytes are duplicated in the reviewed Japanese lesson folders without creating a second task claim.",
+        "Worksheet section 1 explicitly names A-13 and supplies three a/b picture rows. Original-audio review establishes the b/b/a key. The curriculum retains its Minna Chapter 29 sequence anchor; no exact official Minna, Genki, Soya, or Shin Kanzen audio match is claimed, and Track 27/28 remain quarantined."
+      ]
+    },
+    {
+      "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+      "authoredAssetId": "moodle-l2-l14-a14",
+      "availability": "source-verified",
+      "source": {
+        "corpus": "moodle",
+        "repositoryRelativePath": "apps/yomu-reader/artifacts/yomu-academy/source-pipeline/payloads/72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+        "sha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d",
+        "bytes": 1937482,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 110.826667,
+        "sampleRateHz": 44100,
+        "channels": 2,
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement"
+      },
+      "delivery": {
+        "mode": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      },
+      "worker": {
+        "assetId": "academy-listening-72537c6e4c3eb82b",
+        "purpose": "audio",
+        "access": "academy-session-or-signed"
+      },
+      "provenance": [
+        "Moodle module 8121267 archive ea0cf0b1def9dc28a54b407b1cd275b84287b64edba25ef5c3066f9eb5030e96 members audio materials/14 A-14.mp3 and Handouts/Chapter 29 listening-1.pdf; the audio bytes are duplicated in the reviewed Japanese lesson folders without creating a second task claim.",
+        "Worksheet section 2 explicitly names A-14 and supplies three a/b defect pictures. Original-audio review establishes the torn-bag, broken-chopstick, and stained-sweater key a/b/b; transcript and answers remain gated until an attempt. Track 27/28 and all unpaired documents remain quarantined."
       ]
     }
   ]

@@ -16,6 +16,7 @@ interface InviteRow {
     expires_at: number | null;
     revoked_at: number | null;
     purchase_id: string | null;
+    account_required: number;
     class_id?: string | null;
 }
 
@@ -57,6 +58,7 @@ interface AccountDbRow {
     share_avatar: number;
     created_at: number;
     updated_at: number;
+    recovery_bound_at: number | null;
 }
 
 interface ClassDbRow { id: string; name: string; created_at: number; archived_at: number | null }
@@ -208,6 +210,16 @@ class FakeStatement implements D1PreparedStatement {
             this.lastChanges = 1;
             return [{ id: invite.id }];
         }
+        if (sql.startsWith('UPDATE invites SET account_required = 0')) {
+            const invite = db.invites.find(row => row.code_hash === v[0] && row.kind === 'seed' && row.revoked_at === null);
+            if (!invite) return [];
+            if (db.invites.some(row => row.id !== invite.id && row.account_required === 0)) {
+                throw new Error('UNIQUE constraint failed: invites.account_required');
+            }
+            invite.account_required = 0;
+            this.lastChanges = 1;
+            return [{ id: invite.id, uses_remaining: invite.uses_remaining, expires_at: invite.expires_at }];
+        }
         if (sql.startsWith('INSERT INTO invites') && sql.includes('ON CONFLICT(id) DO NOTHING')) {
             if (db.invites.some(row => row.id === v[0])) return [];
             db.invites.push({
@@ -219,6 +231,7 @@ class FakeStatement implements D1PreparedStatement {
                 expires_at: null,
                 revoked_at: null,
                 purchase_id: null,
+                account_required: 1,
                 class_id: null,
             });
             this.lastChanges = 1;
@@ -227,6 +240,10 @@ class FakeStatement implements D1PreparedStatement {
         if (sql.startsWith('INSERT INTO invites')) {
             const codeHash = v[1] as string;
             if (db.invites.some(row => row.code_hash === codeHash)) throw new Error('UNIQUE constraint failed: invites.code_hash');
+            const accountRequired = v[7] === undefined ? 1 : v[7] as number;
+            if (accountRequired === 0 && db.invites.some(row => row.account_required === 0)) {
+                throw new Error('UNIQUE constraint failed: invites.account_required');
+            }
             db.invites.push({
                 id: v[0] as string,
                 code_hash: codeHash,
@@ -236,6 +253,7 @@ class FakeStatement implements D1PreparedStatement {
                 expires_at: v[5] as number | null,
                 revoked_at: null,
                 purchase_id: v[6] as string | null,
+                account_required: accountRequired,
                 class_id: null,
             });
             this.lastChanges = 1;
@@ -254,6 +272,7 @@ class FakeStatement implements D1PreparedStatement {
                 expires_at: v[3] as number,
                 revoked_at: null,
                 purchase_id: purchaseId,
+                account_required: 1,
                 class_id: null,
             });
             this.lastChanges = 1;
@@ -265,10 +284,6 @@ class FakeStatement implements D1PreparedStatement {
             invite.class_id = v[0] as string;
             this.lastChanges = 1;
             return [];
-        }
-        if (sql.startsWith("SELECT id FROM invites WHERE id = ?1 AND kind = 'seed' AND code_hash = ?2")) {
-            const invite = db.invites.find(row => row.id === v[0] && row.kind === 'seed' && row.code_hash === v[1]);
-            return invite ? [{ id: invite.id }] : [];
         }
         return undefined;
     }
@@ -340,12 +355,25 @@ class FakeStatement implements D1PreparedStatement {
     }
 
     private selectSession(): unknown[] | undefined {
-        if (!this.sql.startsWith('SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions')) return undefined;
+        if (this.sql.startsWith('SELECT i.account_required FROM sessions s JOIN invites i')) {
+            const session = this.db.sessions.find(row => row.public_id === this.values[0] && row.revoked_at === null);
+            const invite = session ? this.db.invites.find(row => row.id === session.invite_id) : undefined;
+            return invite ? [{ account_required: invite.account_required }] : [];
+        }
+        if (!this.sql.startsWith('SELECT s.public_id, s.invite_id, s.account_id, i.account_required')) return undefined;
         const v = this.values;
         const now = v[1] as number;
         const session = this.db.sessions.find(row => row.token_hash === v[0] && row.revoked_at === null && row.expires_at > now);
+        const invite = session ? this.db.invites.find(row => row.id === session.invite_id) : undefined;
         return session
-            ? [{ public_id: session.public_id, invite_id: session.invite_id, account_id: session.account_id, expires_at: session.expires_at, offline_resume_until: session.offline_resume_until }]
+            ? [{
+                public_id: session.public_id,
+                invite_id: session.invite_id,
+                account_id: session.account_id,
+                account_required: invite?.account_required ?? 1,
+                expires_at: session.expires_at,
+                offline_resume_until: session.offline_resume_until,
+            }]
             : [];
     }
 
@@ -548,6 +576,17 @@ class FakeStatement implements D1PreparedStatement {
             const account = db.accounts.find(row => row.id === v[0]);
             return account ? [{ id: account.id }] : [];
         }
+        if (sql.startsWith('SELECT (EXISTS (SELECT 1 FROM accounts WHERE id')) {
+            const accountId = v[0] as string;
+            const account = db.accounts.find(row => row.id === accountId);
+            const recoverable = Boolean(account && (
+                account.recovery_bound_at !== null
+                || db.profiles.some(row => row.account_id === accountId)
+                || db.purchases.some(row => row.redeemed_by_account_id === accountId
+                    && row.status === 'paid' && row.redeemed_at !== null)
+            ));
+            return [{ recoverable: recoverable ? 1 : 0 }];
+        }
         if (sql.startsWith('INSERT INTO accounts')) {
             if (db.accounts.some(row => row.google_sub_hash === v[2] || row.discriminator === v[3])) {
                 throw new Error('UNIQUE constraint failed: accounts');
@@ -564,6 +603,7 @@ class FakeStatement implements D1PreparedStatement {
                 share_avatar: 0,
                 created_at: v[4] as number,
                 updated_at: v[4] as number,
+                recovery_bound_at: null,
             });
             this.lastChanges = 1;
             return [];
@@ -577,6 +617,18 @@ class FakeStatement implements D1PreparedStatement {
             account.board_visible = v[3] as number;
             account.share_avatar = v[4] as number;
             account.updated_at = v[5] as number;
+            this.lastChanges = 1;
+            return [];
+        }
+        if (sql.startsWith('UPDATE accounts SET recovery_bound_at')) {
+            const account = db.accounts.find(row => row.id === v[0]);
+            const session = db.sessions.find(row =>
+                row.public_id === v[1] && row.account_id === v[0] && row.revoked_at === null);
+            const profile = session?.profile_id
+                ? db.profiles.find(row => row.id === session.profile_id && row.account_id === v[0])
+                : undefined;
+            if (!account || !profile) return [];
+            account.recovery_bound_at ??= v[2] as number;
             this.lastChanges = 1;
             return [];
         }

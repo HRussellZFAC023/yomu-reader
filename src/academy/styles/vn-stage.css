@@ -406,6 +406,29 @@
     cursor: pointer;
 }
 
+.academy-vn-japanese[data-performance-text="revealing"]::after {
+    --academy-vn-caret-rest-opacity: 0.18;
+    --academy-vn-caret-peak-opacity: 0.52;
+    content: "";
+    display: inline-block;
+    width: 0.14em;
+    height: 0.82em;
+    margin-inline-start: 0.1em;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: var(--academy-vn-caret-rest-opacity);
+    transform-origin: center bottom;
+    vertical-align: -0.08em;
+    animation: academy-vn-speaking-caret 720ms ease-in-out infinite;
+    transition: transform 180ms ease-out;
+}
+
+.academy-vn-dialogue[data-text-breath] .academy-vn-japanese[data-performance-text="revealing"]::after {
+    --academy-vn-caret-rest-opacity: 0.08;
+    --academy-vn-caret-peak-opacity: 0.2;
+    transform: scaleY(0.82);
+}
+
 .academy-vn-dialogue-content {
     min-width: 0;
     min-height: 0;
@@ -534,7 +557,8 @@
 }
 
 .academy-profile-screen .academy-vn-object-slot {
-    bottom: clamp(214px, 31vh, 330px);
+    left: 58%;
+    bottom: clamp(228px, 33vh, 344px);
     width: min(500px, calc(100% - 32px));
     pointer-events: auto;
 }
@@ -612,7 +636,9 @@
 
 .academy-profile-vn-entry .academy-textarea {
     min-height: 96px;
-    resize: vertical;
+    /* No resize handle: a draggable corner reads as browser-chrome, not a
+       journal field, on a living-paper surface (F077). */
+    resize: none;
 }
 
 .academy-profile-screen .academy-fiction-note {
@@ -1010,6 +1036,12 @@
         transition: none;
     }
 
+    .academy-vn-japanese[data-performance-text="revealing"]::after {
+        animation: none;
+        opacity: 0.34;
+        transition: none;
+    }
+
     .academy-vn-stage .academy-sprite[data-expression-transition="true"] img,
     .academy-vn-portrait-outgoing {
         animation: none;
@@ -1036,6 +1068,11 @@
     }
 }
 
+@keyframes academy-vn-speaking-caret {
+    0%, 100% { opacity: var(--academy-vn-caret-rest-opacity); }
+    50% { opacity: var(--academy-vn-caret-peak-opacity); }
+}
+
 .academy-vn-stage[data-reduced-motion] .academy-vn-plate img,
 .academy-vn-stage[data-reduced-motion] .academy-vn-atmosphere,
 .academy-vn-stage[data-reduced-motion] .academy-vn-sprite-slot,
@@ -1048,4 +1085,10 @@
 .academy-vn-stage[data-reduced-motion] .academy-vn-portrait-outgoing {
     animation: none;
     clip-path: none;
+}
+
+.academy-vn-stage[data-reduced-motion] .academy-vn-japanese[data-performance-text="revealing"]::after {
+    animation: none;
+    opacity: 0.34;
+    transition: none;
 }

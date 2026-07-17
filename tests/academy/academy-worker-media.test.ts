@@ -18,15 +18,16 @@ async function authedAcademy(): Promise<{ academy: FakeAcademy; cookie: string }
     const academy = createFakeAcademy();
     academy.db.invites.push({
         id: 'invite-1',
-        code_hash: await inviteCodeHash(academy.env, 'UCL2026'),
+        code_hash: await inviteCodeHash(academy.env, 'OPEN2026'),
         uses_remaining: 5,
         kind: 'seed',
         created_at: 0,
         expires_at: null,
         revoked_at: null,
         purchase_id: null,
+        account_required: 0,
     });
-    const session = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'UCL2026' }), academy.env, Date.now);
+    const session = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, Date.now);
     const cookie = (session.headers.get('set-cookie') ?? '').split(';')[0];
     academy.bucket.put('persona/theme/evening.m4a', bytes);
     return { academy, cookie };

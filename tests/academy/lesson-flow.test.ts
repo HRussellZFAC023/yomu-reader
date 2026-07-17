@@ -229,6 +229,50 @@ describe('Academy lesson flow', () => {
             expect.arrayContaining([expect.objectContaining({ sourceQuestionId: expect.stringMatching(/^moodle-vocabulary:/u) })]),
         ));
         await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        expect(route.shell.current?.textContent).toContain('The first response card is still open.');
+        expect(route.shell.current?.textContent).not.toContain('The orientation invitation arrives as two response cards.');
+    });
+
+    it('uses the normal l1-l01 story entry after Lesson 0 prerequisite evidence passes', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:lesson-zero-greeting-pass',
+            at: 1,
+            kind: 'attempt-recorded',
+            activityId: 'activity:lesson-zero-greet-rie',
+            sourceQuestionId: 'lesson-zero/greet-rie',
+            conceptIds: ['concept:lesson-zero:greeting-response'],
+            responseKind: 'choice',
+            outcome: 'pass',
+            score: 1,
+            errorTags: [],
+        }]);
+        const route = context('authored-week:l1-l01', {}, projection);
+        const flow = createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite: vi.fn(async () => undefined),
+                recordActivity: vi.fn(async () => undefined),
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('lesson-overview', route.value);
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-vocabulary-prerequisite-continue]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
+        expect(route.shell.current?.textContent).toContain('The orientation invitation arrives as two response cards.');
+        expect(route.shell.current?.textContent).not.toContain('The first response card is still open.');
     });
 
     it('does not claim unrelated routes', async () => {

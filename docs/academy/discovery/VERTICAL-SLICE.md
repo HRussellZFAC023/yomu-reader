@@ -6,7 +6,7 @@ This is the first production milestone and the acceptance script for the opening
 
 | Beat | Player action | System proof | Art/audio |
 | --- | --- | --- | --- |
-| Code entry | enter `UCL2026` | invite session and offline-capable profile shell | quiet rain, door ambience |
+| Code entry | enter `<PRIVATE_CLASS_INVITE>` | invite session and offline-capable profile shell | quiet rain, door ambience |
 | Rie introduction | choose one of four `quality-2` to `quality-5` portraits, a name, and learning reason | persistent profile and fictional-story framing | approved Rie sprite; warm pixel-painted picker art; petals and door animation; opening theme after gesture |
 | Choose a start | choose Lesson 0, a provisional N-level, or an optional JLPT mock | per-skill placement evidence, learner override, known-state seed | Rie's welcoming route explanation, quiet exam-room state |
 | Midstream bridge | enter above Lesson 0 and play the level-specific arrival scene | curriculum and story progress remain separate; earlier memories become replayable | present-season campus, current cast, journal recap animation |

@@ -12,6 +12,7 @@ const privateCatalogPath = path.join(repoRoot, 'artifacts/yomu-academy/audio-sou
 const publicCatalogPath = path.join(repoRoot, 'public/academy/content/audio/source-inventory.v1.json');
 const docsCatalogPath = path.join(repoRoot, 'docs/public/academy/content/audio/source-inventory.v1.json');
 const moodleLedgerPath = path.join(repoRoot, 'artifacts/yomu-academy/source-pipeline/private-ledger.v1.json');
+const taskBindingsPath = path.join(repoRoot, 'public/academy/content/listening/listening-task-bindings.v1.json');
 const zipMetadataVersion = 5;
 const audioExtensions = new Set(['.aac', '.flac', '.m4a', '.mp3', '.ogg', '.wav']);
 const visualExtensions = new Set([
@@ -61,20 +62,28 @@ const defaultSources = Object.freeze([
 export function collectAudioSourceCatalog({
     sources = defaultSources,
     moodleLedger = readJson(moodleLedgerPath),
+    taskBindings = readJsonIfPresent(taskBindingsPath),
     lessonRoot = path.join(repoRoot, 'public/academy/content/lessons'),
     cache = readJsonIfPresent(privateCatalogPath),
     log = () => {},
 } = {}) {
     const moodle = indexMoodleAssets(moodleLedger);
     const academyPackages = indexAcademyPackageAssets(lessonRoot);
+    const verifiedTasks = indexVerifiedTasks(taskBindings);
     const sourceRows = sources.map(source => source.kind === 'zip'
         ? indexZipSource(source, cache?.sources?.find(row => row.id === source.id), log)
         : indexDirectorySource(source, cache?.sources?.find(row => row.id === source.id), log));
     const bindings = sourceRows.flatMap(source => uniquePayloadAssets(source.assets.filter(isAudioAsset))
-        .map(asset => bindingFor({ source, asset, moodle: moodle.audio, academyPackages: academyPackages.audio, kind: 'audio' }))
+        .map(asset => bindingFor({
+            source, asset, moodle: moodle.audio, academyPackages: academyPackages.audio,
+            verifiedTasks, kind: 'audio',
+        }))
         .filter(Boolean));
     const visualBindings = sourceRows.flatMap(source => uniquePayloadAssets(source.assets.filter(isVisualAsset))
-        .map(asset => bindingFor({ source, asset, moodle: moodle.visual, academyPackages: academyPackages.visual, kind: 'visual' }))
+        .map(asset => bindingFor({
+            source, asset, moodle: moodle.visual, academyPackages: academyPackages.visual,
+            verifiedTasks, kind: 'visual',
+        }))
         .filter(Boolean));
     const summary = sourceRows.map(source => {
         const audioAssets = source.assets.filter(isAudioAsset);
@@ -117,7 +126,7 @@ export function collectAudioSourceCatalog({
             deterministic: true,
             generatedAt: null,
             zipMetadataVersion,
-            method: 'SHA-256 every supplied audio and visual payload; deduplicate by payload hash; bind only byte-identical Moodle payloads and Academy package source references. Only the official free/no-registration 3A archive is harvest-eligible for audio harvest. No filename, chapter, lesson-number, duration, or visual filename inference creates a runtime binding.',
+            method: 'SHA-256 every supplied audio and visual payload; deduplicate by payload hash; bind only byte-identical Moodle payloads and Academy package source references. Runtime availability additionally requires an exact packaged task binding with the same audio SHA-256. Only the official free/no-registration 3A archive is harvest-eligible for audio harvest. No filename, chapter, lesson-number, duration, or visual filename inference creates a runtime binding.',
         },
         moodle: {
             audioOccurrenceCount: occurrenceCount(moodle.audio),
@@ -134,7 +143,7 @@ export function collectAudioSourceCatalog({
         gaps: {
             unmatchedInventoryBySource: summary.map(source => ({ id: source.id, audioFileCount: source.unmatchedAudioFileCount })),
             unmatchedVisualInventoryBySource: summary.map(source => ({ id: source.id, visualFileCount: source.unmatchedVisualFileCount })),
-            taskPairing: 'A byte-identical Moodle source reference is not a verified listening task. Transcript, worksheet/task, answer, and rights review are required before any runtime delivery.',
+            taskPairing: 'A byte-identical Moodle source reference without a matching exact task binding remains inventory-only. Transcript, worksheet/task, answer, and rights review are required before runtime delivery.',
             visualPairing: 'A byte-identical visual source reference is inventory evidence only. A reviewed media region, source question, semantic role, and rights review are required before any runtime delivery.',
         },
     };
@@ -296,10 +305,12 @@ function chapterFrom(value) {
     return match ? Number(match[1]) : undefined;
 }
 
-function bindingFor({ source, asset, moodle, academyPackages, kind }) {
+function bindingFor({ source, asset, moodle, academyPackages, verifiedTasks, kind }) {
     const moodleReferences = moodle.get(asset.sha256);
     const packageReferences = academyPackages.get(asset.sha256);
     if (!moodleReferences && !packageReferences) return null;
+    const taskBindingReferences = kind === 'audio' ? verifiedTasks.get(asset.sha256) ?? [] : [];
+    const taskBound = taskBindingReferences.length > 0;
     return {
         sourceId: source.id,
         textbook: asset.textbook,
@@ -308,14 +319,33 @@ function bindingFor({ source, asset, moodle, academyPackages, kind }) {
         bytes: asset.bytes,
         moodleReferences: moodleReferences ?? [],
         academyPackageReferences: packageReferences ?? [],
+        ...(taskBound ? { taskBindingReferences } : {}),
         status: kind === 'audio'
-            ? 'canonical-source-match-awaiting-task-pairing'
+            ? taskBound ? 'canonical-source-match-task-bound' : 'canonical-source-match-awaiting-task-pairing'
             : 'canonical-visual-source-match-awaiting-semantic-pairing',
-        runtime: 'unavailable',
+        runtime: taskBound ? 'packaged-static' : 'unavailable',
         reason: kind === 'audio'
-            ? 'A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback.'
+            ? taskBound
+                ? 'A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract.'
+                : 'A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback.'
             : 'A byte-identical visual source item is recorded, but no reviewed media-region and source-question verification grants runtime delivery.',
     };
+}
+
+function indexVerifiedTasks(taskBindings) {
+    const rows = new Map();
+    for (const entry of taskBindings?.entries ?? []) {
+        if (entry.delivery?.status !== 'packaged-static' || typeof entry.source?.audioSha256 !== 'string') continue;
+        const group = rows.get(entry.source.audioSha256) ?? [];
+        group.push({
+            packageId: entry.packageId,
+            sourceQuestionId: entry.sourceQuestionId,
+            locator: entry.locator,
+            deliveryUrl: entry.delivery.url,
+        });
+        rows.set(entry.source.audioSha256, group);
+    }
+    return rows;
 }
 
 function uniquePayloadAssets(assets) {

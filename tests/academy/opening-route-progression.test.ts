@@ -41,8 +41,8 @@ afterEach(() => {
 });
 
 describe('Academy opening route progression', () => {
-    it('keeps UCL2026 anonymous and local as it enters Academy', async () => {
-        const exchange = vi.fn(async () => session());
+    it('enters Academy directly when the server marks the invitation as account-free', async () => {
+        const exchange = vi.fn(async () => session(false));
         const connect = vi.fn(async () => syncStatus('sign-in'));
         const flow = createEnrollmentFlow({
             access: { exchange },
@@ -54,10 +54,10 @@ describe('Academy opening route progression', () => {
 
         await flow.render('access', route.value);
         const input = route.shell.current?.querySelector<HTMLInputElement>('input[name="code"]')!;
-        input.value = 'ucl2026';
+        input.value = 'CLASS-TEST-2026';
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
 
-        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile', { session: session() }));
+        await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile', { session: session(false) }));
         expect(connect).not.toHaveBeenCalled();
     });
 
@@ -503,11 +503,12 @@ function placement(recommendedStart: JlptBand | 'lesson-zero'): LearnerEvent {
     };
 }
 
-function session() {
+function session(accountRequired = true) {
     return {
         sessionId: 'account-session',
         expiresAt: 2_000,
         offlineResumeUntil: 3_000,
+        accountRequired,
         source: 'cloudflare' as const,
     };
 }

@@ -148,13 +148,31 @@ export function upsertAcademyVocabulary(
         retainWithoutAcademyProvenance: false,
         academyProvenance: { [provenance.id]: previousProvenance ?? provenance },
     };
-    const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+    const card = existing
+        ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing)
+        : incoming;
     deck.cards[identity.key] = card;
     return {
         card,
         cardCreated: !existing,
         provenanceAdded: !previousProvenance,
         provenanceCount: Object.keys(card.academyProvenance ?? {}).length,
+    };
+}
+
+/** Academy collection enriches an existing card; it never reschedules it. */
+function preserveExistingSchedule(
+    merged: StoredYomuSrsCard,
+    existing: StoredYomuSrsCard,
+): StoredYomuSrsCard {
+    return {
+        ...merged,
+        dueAt: existing.dueAt,
+        lastReviewAt: existing.lastReviewAt,
+        reviews: existing.reviews,
+        lapses: existing.lapses,
+        intervalDays: existing.intervalDays,
+        ease: existing.ease,
     };
 }
 

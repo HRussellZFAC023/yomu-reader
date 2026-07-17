@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import lessonPackage from '../../public/academy/content/lessons/002-l1-l01.json';
 import resourceLedger from '../../public/academy/content/RESOURCE-LEDGER.json';
@@ -10,7 +11,9 @@ import { createActivityRuntime } from '../../src/academy/domain/activity-runtime
 import { greetingWorksheetPlugin, type GreetingWorksheetModel } from '../../src/academy/minigames/greeting-worksheet';
 import { sourceVocabularySheetPlugin } from '../../src/academy/minigames/source-vocabulary-sheet';
 import { createLibraryVocabularySheet } from '../../src/academy/content/library-vocabulary-sheet';
+import { loadSenseiVocabularyPrerequisite } from '../../src/academy/content/lesson-vocabulary-prerequisite';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
+import { renderLessonVocabularyPrerequisiteScreen } from '../../src/academy/ui/lesson-vocabulary-prerequisite';
 import type { KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
 
 const runtime = createActivityRuntime([greetingWorksheetPlugin]);
@@ -109,6 +112,31 @@ describe('Lesson 1 Moodle greeting worksheet digitisation', () => {
         ]);
     });
 
+    it('opens all 27 source rows before l1-l01 practice can continue', async () => {
+        const prerequisite = await loadSenseiVocabularyPrerequisite('authored-week:l1-l01');
+        const onContinue = vi.fn(async () => undefined);
+        const screen = renderLessonVocabularyPrerequisiteScreen({
+            language: 'en',
+            prerequisite,
+            onContinue,
+        });
+        document.body.append(screen);
+
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const layer = screen.querySelector<HTMLElement>('.academy-vocabulary-sheet-layer');
+        expect(layer).not.toBeNull();
+        expect(layer?.querySelectorAll('.academy-vocabulary-sheet-word')).toHaveLength(27);
+        expect(layer?.querySelector<HTMLElement>('.academy-vocabulary-sheet-word')?.dataset).toMatchObject({
+            sourcePage: '1',
+            sourceRow: '1',
+        });
+        expect(onContinue).not.toHaveBeenCalled();
+
+        layer?.querySelector<HTMLButtonElement>('.academy-vocabulary-sheet-start')?.click();
+        await vi.waitFor(() => expect(onContinue).toHaveBeenCalledOnce());
+    });
+
     it('records local coverage without inflating global legacy totals or fabricating a source answer key', () => {
         const handout = lessonPackage.sourceCoverage.coverageMap.find(row =>
             row.payloadSha256 === '42776eb5736dc44caff1809419e41eb189998d3dda04401262cde705676c3fe9');
@@ -130,6 +158,77 @@ describe('Lesson 1 Moodle greeting worksheet digitisation', () => {
                 listeningLinksVerified: 0,
             },
         });
+    });
+
+    it('measures cumulative JLPT readiness from assessed source evidence rather than filler count', () => {
+        const readiness = lessonPackage.curriculumReadiness;
+        expect(readiness.measurementPolicy.unit).toBe('assessed-source-grounded-skill-evidence');
+        expect(readiness.measurementPolicy.excludedFromReadiness).toContain('raw-exercise-count');
+        expect(readiness.measurementPolicy.cumulativeBandInvariant).toEqual({
+            N5: ['N5'],
+            N4: ['N5', 'N4'],
+            N3: ['N5', 'N4', 'N3'],
+            N2: ['N5', 'N4', 'N3', 'N2'],
+            N1: ['N5', 'N4', 'N3', 'N2', 'N1'],
+        });
+
+        const domains = readiness.weekEvidence.jlptDomains;
+        expect(domains.map(domain => domain.domain)).toEqual(['vocabulary', 'grammar', 'reading', 'listening']);
+        expect(domains.filter(domain => domain.status.startsWith('assessed-source-grounded'))).toHaveLength(
+            readiness.weekEvidence.assessedSourceGroundedJlptDomainCount,
+        );
+        expect(readiness.weekEvidence).toMatchObject({
+            band: 'N5',
+            readinessStatus: 'insufficient-evidence-for-band-readiness',
+            assessedSourceGroundedJlptDomainCount: 2,
+            jlptDomainCount: 4,
+        });
+        expect(readiness.validationBacklog.map(item => item.id)).toEqual([
+            'l1-l01-readiness-vocabulary',
+            'l1-l01-readiness-reading',
+            'l1-l01-readiness-speaking',
+            'l1-l01-genki-workbook-parity',
+            'l1-l01-moodle-member-parity',
+        ]);
+    });
+
+    it('keeps Moodle gaps, Genki delivery, and the byte-audited Minna scope reference honest', () => {
+        const mappedGaps = lessonPackage.sourceCoverage.coverageMap
+            .filter(row => row.status.includes('gap'))
+            .map(row => row.payloadSha256);
+        expect(lessonPackage.sourceCoverage.gaps.map(gap => gap.payloadSha256)).toEqual(mappedGaps);
+        expect(lessonPackage.provenance).toMatchObject({
+            authoringPolicy: 'source-faithful-yomu-adaptation',
+        });
+        expect(lessonPackage.runtimeReachability).toMatchObject({
+            exactExerciseAdapter: '13-answer-gated-authored-activities-delivered',
+            packageHashRegistration: 'registered-in-authored-week-adapter',
+            pluginCatalogRegistration: 'registered-in-lesson-content-and-activity-catalogs',
+            audioPairing: 'two-question-map-and-byte-verified-soya-task-bindings;original-yomu-dialogue-text-only',
+        });
+
+        const genki = lessonPackage.genkiInteractiveActivities[0]!.runtime;
+        expect(genki).toMatchObject({
+            bindingStatus: 'first-two-source-items-delivered-by-lesson-activity-catalog',
+            remainingSourceItemCount: 4,
+            deliveredSourceQuestionIds: [
+                'genki-2e:l1-l01:workbook-5:ogawa-japanese',
+                'genki-2e:l1-l01:workbook-5:takeda-teacher',
+            ],
+        });
+
+        const minna = lessonPackage.sourceRootAudit.roots.find(root => root.id === 'japanese-minna-shokyu-i-2e');
+        expect(minna).toMatchObject({
+            status: 'audited-scope-reference',
+            fileSha256: '66ee6faa78f08bed1f65db00fb88681b7c7338825b4503af904b24bea4e60229',
+            title: 'Minna no Nihongo 2nd Edition Shokyu I',
+            pageCount: 326,
+        });
+
+        const minnaPath = '/Users/heru/Documents/Japanese/Resource Packs/Japanese Language Learning Pack - Learn Japanese!/03 Grammar and Vocabulary/02 Minna no Nihongo Shokyu/Minna no Nihongo Shokyu I/Minna no Nihongo Shokyu I Dai 2-Han Honsatsu Kanji-Kana.pdf';
+        if (existsSync(minnaPath)) {
+            expect(createHash('sha256').update(readFileSync(minnaPath)).digest('hex')).toBe(minna?.fileSha256);
+        }
     });
 });
 

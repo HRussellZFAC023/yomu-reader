@@ -13,16 +13,17 @@ async function enrolled(classId: string | null = 'ucl-2026') {
     if (classId) academy.db.classes.push({ id: classId, name: 'UCL Japanese 2026', created_at: now, archived_at: null });
     academy.db.invites.push({
         id: 'invite-ucl',
-        code_hash: await inviteCodeHash(academy.env, 'UCL2026'),
+        code_hash: await inviteCodeHash(academy.env, 'OPEN2026'),
         uses_remaining: 20,
         kind: 'seed',
         created_at: now - 1000,
         expires_at: null,
         revoked_at: null,
         purchase_id: null,
+        account_required: 0,
         class_id: classId,
     });
-    const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'UCL2026' }), academy.env, () => now);
+    const response = await handleCreateSession(jsonRequest('/academy/api/session', { code: 'OPEN2026' }), academy.env, () => now);
     const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0];
     const request = new Request('https://yomureader.com/academy/api/session', { headers: { cookie } });
     const session = await activeSession(request, academy.env, now);
@@ -160,6 +161,7 @@ describe('aggregate progress merge and class board privacy', () => {
             board_visible: 1,
             created_at: now,
             updated_at: now,
+            recovery_bound_at: now,
         };
         fixture.academy.db.accounts.push(learner);
         fixture.academy.db.memberships.push({ class_id: 'ucl-2026', account_id: learner.id, role: 'learner', board_hidden: 0, joined_at: now });

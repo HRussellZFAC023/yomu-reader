@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
     AuthoredChoiceEvaluation,
     AuthoredWeekResponse,
@@ -8,6 +11,7 @@ import type {
     LearnerAuthoredOrdering,
     LearnerAuthoredWeek,
 } from '../../src/academy/content/authored-week-adapter';
+import { adaptAuthoredWeek } from '../../src/academy/content/authored-week-adapter';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activity-runtime';
 import type { SourceVocabularySheetModel } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
@@ -70,7 +74,7 @@ describe('authored week learner screen', () => {
         expect(screen.element.querySelectorAll('.academy-authored-week-activity')).toHaveLength(1);
     });
 
-    it('shows authored week exposure before the first assessed response only', () => {
+    it('presents authored teaching one reversible note at a time before the first assessed response', () => {
         const base = weekFixture();
         const fixture: LearnerAuthoredWeek = {
             ...base,
@@ -108,22 +112,69 @@ describe('authored week learner screen', () => {
         const screen = createAuthoredWeekScreen({ language: 'ja', week: fixture });
         document.body.append(screen.element);
 
+        expect(screen.element.dataset.lessonPhase).toBe('teaching');
         expect([...screen.element.querySelectorAll<HTMLElement>('[data-exposure-kind]')]
-            .map(section => section.dataset.exposureKind)).toEqual([
-                'explanation', 'passage', 'prompt', 'mission',
-            ]);
+            .map(section => section.dataset.exposureKind)).toEqual(['explanation']);
+        expect(screen.element.querySelector('.academy-authored-week-briefing-step')?.textContent)
+            .toBe('学習ポイント 1 / 4');
         expect(screen.element.textContent).toContain('Use the polite frame before you answer.');
         const authoredEnglish = [...screen.element.querySelectorAll<HTMLElement>('[data-exposure-kind="explanation"] [lang="en"]')]
             .find(node => node.textContent === 'Use the polite frame before you answer.');
         expect(authoredEnglish?.hidden).toBe(false);
-        expect(screen.element.textContent).toContain('わたしは アーカッシュです。');
+        expect(screen.element.textContent).not.toContain('わたしは アーカッシュです。');
         expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
         expect(screen.element.querySelector('.academy-choice-option')).toBeNull();
 
-        openQuestion(screen.element);
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!.click();
+        expect(screen.element.querySelector('[data-exposure-kind="passage"]')).not.toBeNull();
+        expect(screen.element.textContent).toContain('わたしは アーカッシュです。');
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
+        expect(screen.element.querySelector('[data-exposure-kind="explanation"]')).not.toBeNull();
+
+        for (let step = 0; step < 4; step += 1) {
+            screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!.click();
+        }
         expect(screen.element.querySelector('[data-exposure-kind]')).toBeNull();
+        expect(screen.element.dataset.lessonPhase).toBe('support');
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
+        expect(screen.element.querySelector('[data-exposure-kind="mission"]')).not.toBeNull();
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!.click();
+        openQuestion(screen.element);
+        expect(screen.element.dataset.lessonPhase).toBe('question');
         expect(screen.element.querySelector('.academy-authored-week-prompt')).not.toBeNull();
         expect(screen.element.textContent).not.toContain('Introduce yourself in your own words.');
+    });
+
+    it('keeps the real l1-l01 beginner path source-first, reversible, and varied', () => {
+        const fixturePath = path.resolve('public/academy/content/lessons/002-l1-l01.json');
+        const bytes = fs.readFileSync(fixturePath);
+        const week = adaptAuthoredWeek(JSON.parse(bytes.toString('utf8')) as unknown, {
+            path: fixturePath,
+            sha256: createHash('sha256').update(bytes).digest('hex'),
+        });
+        const screen = createAuthoredWeekScreen({ language: 'en', week });
+        document.body.append(screen.element);
+
+        expect(week.preAssessment).toHaveLength(5);
+        expect(new Set(week.activities.map(activity => activity.kind))).toEqual(new Set([
+            'choice',
+            'academy-authored-cloze',
+            'academy-authored-matching',
+            'academy-authored-ordering',
+        ]));
+        expect(screen.element.dataset.lessonPhase).toBe('teaching');
+        expect(screen.element.querySelectorAll('[data-exposure-kind]')).toHaveLength(1);
+        expect(screen.element.querySelector('.academy-authored-week-prompt')).toBeNull();
+
+        for (let step = 0; step < week.preAssessment.length; step += 1) {
+            screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')!.click();
+        }
+        expect(screen.element.dataset.lessonPhase).toBe('support');
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
+        expect(screen.element.dataset.lessonPhase).toBe('teaching');
+        expect(screen.element.querySelector('.academy-authored-week-briefing-step')?.textContent)
+            .toBe('Lesson note 5 of 5');
     });
 
     it('locks a lapse before feedback, offers repair and retry, then gives a pass action', async () => {

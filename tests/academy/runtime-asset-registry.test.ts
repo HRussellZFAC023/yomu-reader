@@ -200,7 +200,10 @@ describe('Academy runtime asset registry', () => {
                 provenance: 'recovered-academy-tree',
                 files: { default: assetPath },
             });
-            expect(asset.runtimeHomes).toEqual([expect.stringMatching(/^reward:/)]);
+            const expectedHomes = id === 'item.classroom-belongings'
+                ? ['reward:classroom:board-note', 'lesson:l1-l01:classroom-language-prop']
+                : [expect.stringMatching(/^reward:/)];
+            expect(asset.runtimeHomes).toEqual(expectedHomes);
             const archived = path.resolve(
                 'docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets',
                 archivePath,

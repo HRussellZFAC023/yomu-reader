@@ -28,7 +28,7 @@ function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
  * separate: an archived file is not runtime-authorized until it appears here.
  */
 export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
-    'character.rie.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['onboarding:profile', 'unlock:rie', 'journal:rie', 'scene:arrival-bridge', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png' } }),
+    'character.rie.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['onboarding:profile', 'unlock:rie', 'journal:rie', 'scene:arrival-bridge', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:host'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png' } }),
     'character.rie.happy': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__happy__halfbody__v001.png' } }),
     'character.rie.encouraging': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png' } }),
     'character.rie.repair': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__repair__halfbody__v001.png' } }),
@@ -88,7 +88,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'location.park': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:park', 'activity:park-weather-sketchbook', 'lesson:l2-l08'], provenance: 'recovered-academy-tree', files: { wide: '/academy/art/locations/wide/park__day-overcast--wide.webp', mobile: '/academy/art/locations/mobile/park__day-overcast--mobile.webp' } }),
     'location.konbini': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:konbini', 'activity:counter-shopping'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/konbini__rain-evening-checkout--wide.webp', mobile: '/academy/art/locations/mobile/konbini__rain-evening-checkout--mobile.webp' } }),
     'location.japan-centre': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:japan-centre', 'activity:gift-counter'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png', mobile: '/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png' } }),
-    'location.classroom': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['onboarding:profile', 'lesson-zero', 'placement', 'journal', 'lesson:l2-l04', 'lesson:l2-l15', 'lesson:l2-l16'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/classroom__evening-lamplit--wide.webp', mobile: '/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp' } }),
+    'location.classroom': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['onboarding:profile', 'lesson-zero', 'placement', 'journal', 'lesson:l1-l01', 'lesson:l2-l04', 'lesson:l2-l15', 'lesson:l2-l16'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/classroom__evening-lamplit--wide.webp', mobile: '/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp' } }),
     'location.library': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:library', 'review:due-queue', 'lesson:l2-l06'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/library__rain-evening--wide.webp', mobile: '/academy/art/locations/mobile/library__rain-evening--mobile.webp' } }),
     'location.bookshop': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:bookshop', 'activity:bookshop-catalogue'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/bookshop__rain-evening-shelves--wide.webp', mobile: '/academy/art/locations/mobile/bookshop__rain-evening-shelves--mobile.webp' } }),
     'location.cafe': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:cafe', 'lesson:l2-l13'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/cafe__night-rain--wide.webp', mobile: '/academy/art/locations/mobile/cafe__night-rain--mobile.webp' } }),
@@ -98,7 +98,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'item.station-ticket': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:station:platform-ticket'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/station-ticket-memory__v001.jpg' } }),
     'item.konbini-shopping-list': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:konbini:shopping-receipt'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/konbini-shopping-list__v001.jpg' } }),
     'item.ramen-quantity-board': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:ramen:order-ticket'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/ramen-quantity-board__v001.jpg' } }),
-    'item.classroom-belongings': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:classroom:board-note'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/classroom-belongings__v001.jpg' } }),
+    'item.classroom-belongings': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:classroom:board-note', 'lesson:l1-l01:classroom-language-prop'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/classroom-belongings__v001.jpg' } }),
     'item.library-photo-album': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:library:review-bookmark'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/library-photo-album__v001.jpg' } }),
     'item.street-direction-map': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:street:directions-map'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/items/street-direction-map__v001.jpg' } }),
     'item.japan-centre-omiyage-tag': runtimeAsset({ kind: 'item-art', status: 'approved', runtimeHomes: ['reward:japan-centre:omiyage-tag'], provenance: 'current-production', files: { default: '/academy/art/items/japan-centre-omiyage-tag__v001.png' } }),
@@ -106,6 +106,38 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
 } as const satisfies Readonly<Record<string, AcademyRuntimeAssetRecord>>;
 
 export type AcademyRuntimeAssetId = keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY;
+
+export interface AcademyLessonAssetBinding {
+    readonly sceneAssetId: AcademyRuntimeAssetId;
+    readonly sourceSceneReference: string;
+    readonly approvedCastAssetIds: Readonly<Record<string, AcademyRuntimeAssetId>>;
+    readonly reviewOnlyCastCandidates: Readonly<Record<string, AcademyRuntimeAssetId>>;
+    readonly itemAssetIds: readonly AcademyRuntimeAssetId[];
+    readonly sourceMedia: readonly {
+        readonly purpose: 'source-homework-worksheet';
+        readonly path: `/academy/content/lessons/${string}`;
+        readonly sha256: string;
+    }[];
+}
+
+/**
+ * Lesson-local art bindings record only assets that cleared their runtime gate.
+ * A cast name is not permission to substitute an unapproved or placeholder face.
+ */
+export const ACADEMY_LESSON_ASSET_BINDINGS = {
+    'l1-l01': {
+        sceneAssetId: 'location.classroom',
+        sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
+        approvedCastAssetIds: { rie: 'character.rie.neutral' },
+        reviewOnlyCastCandidates: { aakash: 'character.aakash.neutral' },
+        itemAssetIds: ['item.classroom-belongings'],
+        sourceMedia: [{
+            purpose: 'source-homework-worksheet',
+            path: '/academy/content/lessons/l1-l01/moodle-hw-chapter-1-1-greeting-page-1.png',
+            sha256: '26fc7617addb2af8f85678b0e5dacf30518eeadfb030dbbb3d27dd2f54948100',
+        }],
+    },
+} as const satisfies Readonly<Record<string, AcademyLessonAssetBinding>>;
 
 export type AcademyItemAssetId = {
     [K in AcademyRuntimeAssetId]: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends 'item-art' ? K : never;

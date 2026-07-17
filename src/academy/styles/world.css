@@ -432,7 +432,7 @@
     width: min(390px, calc(100vw - 32px));
     padding: 18px;
     border: 1px solid rgba(255, 250, 233, 0.44);
-    border-radius: 7px;
+    border-radius: 4px 14px 6px 11px;
     color: var(--library-ink);
     background:
         linear-gradient(90deg, rgba(168, 73, 54, 0.08), transparent 34%),
@@ -474,9 +474,9 @@
 .academy-library-sheet-button,
 .academy-vocabulary-sheet-start,
 .academy-library-dialogue-continue {
-    border-color: var(--library-red);
+    border-color: var(--library-green);
     color: #fffdf5;
-    background: var(--library-red);
+    background: var(--library-green);
     font-weight: 760;
 }
 
@@ -486,10 +486,13 @@
 }
 
 .academy-library-sheet-button:hover,
-.academy-library-back:hover,
 .academy-library-dialogue-continue:hover,
+.academy-vocabulary-sheet-start:hover {
+    filter: brightness(1.12);
+}
+
+.academy-library-back:hover,
 .academy-vocabulary-sheet-close:hover,
-.academy-vocabulary-sheet-start:hover,
 .academy-vocabulary-sheet-audio:hover {
     border-color: #a84936;
 }
@@ -519,7 +522,7 @@
     margin: 0 0 34px -18px;
     padding: 16px;
     border: 1px solid rgba(255, 250, 233, 0.5);
-    border-radius: 7px;
+    border-radius: 5px 15px 4px 12px;
     color: var(--library-ink);
     background:
         linear-gradient(90deg, rgba(63, 102, 89, 0.09), transparent 40%),
@@ -716,7 +719,7 @@
 .academy-world-screen[data-current-place='lab'] > .academy-background img {
     object-position: center;
     filter: saturate(1.1) contrast(1.07) brightness(0.62) hue-rotate(6deg);
-    animation: academy-lab-room-in 620ms ease-out both;
+    animation: academy-lab-room-in 500ms ease-out both;
 }
 
 .academy-world-screen[data-current-place='lab'] .academy-world-stage::before {
@@ -847,7 +850,7 @@
 .academy-world-screen[data-current-place='lab'] .academy-world-exit-name { color: #e5fff7; }
 .academy-world-screen[data-current-place='lab'] .academy-world-exit-reason { color: rgba(222, 255, 246, 0.65); }
 .academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='0'] { top: 37%; left: 20px; }
-.academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='1'] { top: 42%; right: 20px; left: auto; }
+.academy-world-screen[data-current-place='lab'] .academy-world-exit[data-exit-slot='1'] { top: 42%; right: 44px; left: auto; }
 .academy-world-screen[data-current-place='lab'] .academy-world-objects { bottom: max(22px, env(safe-area-inset-bottom)); left: clamp(20px, 3vw, 46px); }
 .academy-world-screen[data-current-place='lab'][data-first-visit='true'] .academy-world-character-action { display: none; }
 
@@ -3406,10 +3409,15 @@
 .academy-world-character-silhouette {
     width: min(190px, 18vw);
     height: min(390px, 51dvh);
-    border: 2px solid rgba(255, 248, 222, 0.7);
+    border: 2px solid color-mix(in srgb, var(--world-accent, #9aa793) 55%, rgba(255, 248, 222, 0.85));
     border-radius: 44% 44% 12% 12%;
-    background: linear-gradient(#51594c 0 22%, #27372d 22% 100%);
-    box-shadow: inset 0 0 0 6px rgba(255, 253, 245, 0.08);
+    /* Deliberate head-and-shoulders cutout (same grammar as the lab/bookshop
+       variants), tinted by the room's accent — a likeness-safe placeholder
+       must read as intentional, not as a missing asset. */
+    background:
+        radial-gradient(circle at 50% 17%, rgba(255, 251, 236, 0.85) 0 11%, transparent 12%),
+        linear-gradient(100deg, transparent 0 20%, color-mix(in srgb, var(--world-accent, #51594c) 28%, #232d26) 21% 79%, transparent 80%);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--world-accent, #51594c) 24%, transparent);
 }
 
 .academy-world-character-name {
@@ -4267,11 +4275,15 @@
 .academy-world-screen[data-scene-motif] .academy-world-character-silhouette {
     border: 0;
     border-radius: 0;
+    /* Likeness-safe figures tint to the room's accent with a cut-paper rim
+       (drop-shadow, since clip-path removes borders) so they read as a
+       deliberate placeholder, not a flat unfinished blob. */
     background:
-        radial-gradient(circle at 50% 13%, rgba(65, 83, 73, 0.96) 0 12%, transparent 13%),
-        linear-gradient(100deg, transparent 0 18%, rgba(43, 60, 51, 0.96) 19% 81%, transparent 82%);
+        radial-gradient(circle at 50% 13%, color-mix(in srgb, var(--world-accent, #6d7a6f) 26%, #38443b) 0 12%, transparent 13%),
+        linear-gradient(100deg, transparent 0 18%, color-mix(in srgb, var(--world-accent, #43533f) 18%, #26302a) 19% 81%, transparent 82%);
     clip-path: polygon(37% 0, 63% 0, 68% 22%, 78% 30%, 90% 100%, 10% 100%, 22% 30%, 32% 22%);
     box-shadow: none;
+    filter: drop-shadow(0 0 1.5px rgba(241, 234, 215, 0.55)) drop-shadow(0 7px 14px rgba(6, 10, 9, 0.45));
 }
 
 .academy-world-screen[data-scene-motif] .academy-world-reward-use,
@@ -7115,7 +7127,7 @@
     --courtyard-moss: #557862;
     --courtyard-route-rail: calc(min(154px, 15vw) + 44px);
     color: #f8f3e8;
-    background: #0b1820;
+    background: #181d1a;
 }
 
 .academy-world-screen[data-current-place='courtyard'] > .academy-background img {
@@ -7127,8 +7139,8 @@
 .academy-world-screen[data-current-place='courtyard'] .academy-world-stage::before {
     display: block;
     background:
-        linear-gradient(90deg, rgba(5, 14, 20, 0.18), transparent 43%, rgba(5, 14, 20, 0.2)),
-        linear-gradient(0deg, rgba(5, 14, 18, 0.5), transparent 40%);
+        linear-gradient(90deg, rgba(20, 20, 16, 0.18), transparent 43%, rgba(20, 20, 16, 0.2)),
+        linear-gradient(0deg, rgba(18, 18, 15, 0.5), transparent 40%);
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-living-scene {
@@ -7219,7 +7231,7 @@
     border: 0;
     border-left: 5px solid var(--world-accent);
     color: #fff9ed;
-    background: linear-gradient(90deg, rgba(6, 19, 24, 0.86), rgba(6, 19, 24, 0.28));
+    background: linear-gradient(90deg, rgba(24, 27, 22, 0.86), rgba(24, 27, 22, 0.28));
     box-shadow: none;
     clip-path: polygon(0 0, 100% 3%, 96% 100%, 2% 94%);
     -webkit-backdrop-filter: none;
@@ -7279,9 +7291,9 @@
     z-index: 6;
     width: min(330px, 27vw);
     min-width: 280px;
-    max-height: min(37dvh, 300px);
+    max-height: min(44dvh, 360px);
     margin: 0;
-    padding: 34px 22px 20px;
+    padding: 34px 22px 34px;
     overflow: auto;
     border: 0;
     border-left: 9px solid var(--courtyard-moss);
@@ -7397,7 +7409,7 @@
     border-left: 4px solid var(--courtyard-moss);
     border-radius: 0;
     color: #f8f3e8;
-    background: rgba(7, 23, 28, 0.82);
+    background: rgba(22, 25, 21, 0.82);
     box-shadow: none;
     clip-path: polygon(0 0, 100% 3%, 95% 100%, 2% 95%);
     -webkit-backdrop-filter: none;
@@ -7407,6 +7419,7 @@
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit::before { color: #e5bd68; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit-name { color: #fff9ed; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit-reason { color: rgba(239, 232, 213, 0.66); }
+.academy-world-screen[data-current-place='courtyard'] .academy-world-arrival-continue { border-color: #d37a4a; color: #241a10; background: #d37a4a; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='0'] { top: 30%; left: 20px; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='1'] { top: 47%; left: 20px; }
 .academy-world-screen[data-current-place='courtyard'] .academy-world-exit[data-exit-slot='2'] { top: 28%; right: 20px; bottom: auto; }
@@ -7678,6 +7691,12 @@
     height: 69%;
     opacity: 0.55;
     background: repeating-linear-gradient(104deg, transparent 0 26px, rgba(129, 189, 215, 0.23) 27px 28px, transparent 29px 52px);
+    /* The box overlaps the 中庭/図書館 exit-slip column (left:20px, ~146px
+       wide), so the streaks read as crossing the UI instead of sitting
+       behind the window glass (F200). Fade the streaks out over that
+       column and let them read only past it, toward the window pane. */
+    mask-image: linear-gradient(to right, transparent 0, transparent 190px, #000 260px);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 190px, #000 260px);
     mix-blend-mode: screen;
     animation: academy-classroom-window-in 520ms 90ms ease-out both, academy-classroom-rain 8s 700ms linear infinite;
 }
@@ -7748,7 +7767,7 @@
     border-left: 5px solid var(--classroom-signal);
     border-radius: 0;
     color: #f8f2df;
-    background: rgba(7, 22, 29, 0.86);
+    background: rgba(25, 27, 21, 0.86);
     box-shadow: 5px 7px 0 rgba(0, 0, 0, 0.18);
     clip-path: polygon(0 0, 97% 2%, 100% 88%, 92% 100%, 0 96%);
     text-shadow: none;
@@ -7885,6 +7904,7 @@
 
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward-label { color: #342c22; }
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward-use { color: #625745; }
+.academy-world-screen[data-current-place='classroom'] .academy-world-arrival-continue { border-color: #e0b25f; color: #241c0c; background: #e0b25f; }
 .academy-world-screen[data-current-place='classroom'] .academy-world-reward[data-reward-prop='notebook'] .academy-world-reward-prop {
     border: 2px solid #6c573c;
     border-left: 7px solid var(--classroom-signal);
@@ -8085,13 +8105,14 @@
     .academy-world-screen[data-current-place='classroom'] .academy-world-reward {
         top: max(68px, calc(env(safe-area-inset-top) + 54px));
         right: 8px;
-        width: 116px;
+        width: 140px;
         padding: 5px 6px;
     }
     .academy-world-screen[data-current-place='classroom'] .academy-world-reward-use { display: none; }
+    .academy-world-screen[data-current-place='classroom'] .academy-world-reward-label { white-space: nowrap; }
 
     .academy-world-screen[data-current-place='classroom'] .academy-world-back {
-        top: max(128px, calc(env(safe-area-inset-top) + 114px));
+        top: max(140px, calc(env(safe-area-inset-top) + 126px));
         right: 8px;
         left: auto;
     }
@@ -12427,7 +12448,7 @@
         border-left: 4px solid var(--world-accent, #c95b4d);
         border-radius: 0;
         color: #fffaf0;
-        background: linear-gradient(90deg, rgba(9, 18, 20, 0.72), rgba(9, 18, 20, 0.30));
+        background: linear-gradient(90deg, rgba(24, 27, 22, 0.72), rgba(24, 27, 22, 0.30));
         box-shadow: none;
         clip-path: polygon(0 0, 100% 2%, 96% 100%, 0 94%);
         -webkit-backdrop-filter: none;
@@ -12498,7 +12519,7 @@
         color: #fffaf0;
         background: rgba(8, 17, 19, 0.66) !important;
         box-shadow: 3px 5px 12px rgba(4, 9, 10, 0.20);
-        clip-path: polygon(0 0, 98% 2%, 100% 84%, 94% 100%, 0 96%);
+        clip-path: polygon(0 0, 94% 5%, 100% 78%, 90% 100%, 0 93%);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }

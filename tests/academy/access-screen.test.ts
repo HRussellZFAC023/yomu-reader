@@ -18,7 +18,7 @@ describe('Academy access screen', () => {
         expect(screen.querySelector('[role="alert"]')?.textContent).toBeTruthy();
         expect(document.activeElement).toBe(input);
 
-        input.value = 'UCL2026';
+        input.value = 'CLASS-TEST-2026';
         input.dispatchEvent(new Event('input', { bubbles: true }));
         expect(input.hasAttribute('aria-invalid')).toBe(false);
         expect(screen.querySelector('[role="alert"]')).toBeNull();

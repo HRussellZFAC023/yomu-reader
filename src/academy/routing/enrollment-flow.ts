@@ -1,4 +1,4 @@
-import { isAnonymousAcademyCode, type AccessGateway } from '../access/gateway';
+import type { AccessGateway } from '../access/gateway';
 import type { AcademySyncStatus } from '../account/sync-client';
 import { createDonationClaimService, type DonationClaimService } from '../access/donation-claim';
 import { createN3AdvancedEntryPlan } from '../content/advanced-entry';
@@ -6,6 +6,7 @@ import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/
 import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
 import type { OrientationMockResult, PlacementMockDraft } from '../placement/orientation';
+import type { SfxCue } from '../audio/types';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAccessScreen } from '../ui/access-screen';
 import { renderAdvancedArrivalBridge } from '../ui/advanced-arrival-bridge';
@@ -20,7 +21,7 @@ export interface EnrollmentFlowOptions {
     readonly access: AccessGateway;
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
-    readonly audio?: { beginExternalLesson(duck?: number): () => void };
+    readonly audio?: { beginExternalLesson(duck?: number): () => void; playSfx?(cue: SfxCue): void };
     readonly donationClaim?: DonationClaimService;
     /** Paid access must settle its account gate before Academy onboarding. */
     readonly account?: Pick<AcademyAccountGate, 'connect'>;
@@ -103,7 +104,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     context.shell.replace(renderAdvancedArrivalBridge({
                         language: context.language,
                         plan,
-                        onEvaluation: evaluation => this.options.evidence.recordActivity(
+                        onEvaluation: evaluation => {
+                            this.options.audio?.playSfx?.(
+                                evaluation.result.outcome === 'pass' ? 'feedback.correct' : 'feedback.repair',
+                            );
+                            return this.options.evidence.recordActivity(
                             evaluation,
                             plan.lessonId,
                             undefined,
@@ -114,7 +119,8 @@ class EnrollmentFlow implements AcademyRouteFlow {
                                 sourceId: plan.sourceId,
                                 independent: plan.independent,
                             },
-                        ),
+                            );
+                        },
                         onListeningStart: () => this.beginExternalListening(),
                         onListeningStop: () => this.endExternalListening(),
                         onContinue: () => void context.go('campus'),
@@ -149,7 +155,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
 
     private async openSession(code: string, context: AcademyRouteContext): Promise<void> {
         const session = await this.options.access.exchange(code);
-        if (isAnonymousAcademyCode(code)) {
+        if (!session.accountRequired) {
             await context.go(academyEntryRoute(context), { session });
             return;
         }
@@ -166,6 +172,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
     }
 
     private async chooseStart(route: StartingRoute, context: AcademyRouteContext): Promise<void> {
+        this.options.audio?.playSfx?.('menu.confirm');
         if (route === 'manual-band') return context.go('manual-band', { placementOverride: false });
         if (route === 'placement-mock') return context.go('placement-mock', { placementOverride: false });
         await this.options.evidence.chooseCurriculumEntry({ route: 'lesson-zero' });
@@ -178,6 +185,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
     }
 
     private async chooseBand(band: JlptBand, context: AcademyRouteContext): Promise<void> {
+        this.options.audio?.playSfx?.('menu.confirm');
         const fromPlacement = context.checkpoint.placementOverride === true;
         const storySection = placementStorySection(context);
         await this.options.evidence.chooseCurriculumEntry({
@@ -231,6 +239,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
     }
 
     private async acceptPlacement(result: OrientationMockResult, context: AcademyRouteContext): Promise<void> {
+        this.options.audio?.playSfx?.('menu.confirm');
         this.placementDraft = null;
         const storySection = placementStorySection(context);
         if (result.recommendedStart === 'lesson-zero') {

@@ -14,13 +14,13 @@ const PROFILE_SYNC_STORAGE_KEY = 'yomu:academy:profile-sync:v1';
 const LOCAL_PROGRESS_AT = Date.now();
 
 describe('Academy access client and Worker integration', () => {
-    it('admits UCL2026 anonymously and retains local encrypted progress across reload', async () => {
+    it('admits OPEN2026 anonymously and retains local encrypted progress across reload', async () => {
         const academy = createSqliteAcademy();
         try {
-            await seedUclInvite(academy.env);
+            await seedAnonymousInvite(academy.env);
             const browser = new AcademyAccessBrowser(worker, academy.env);
             const gateway = new HttpAccessGateway('/academy/api/session', browser.request);
-            const session = await gateway.exchange(' ucl2026 ');
+            const session = await gateway.exchange(' open2026 ');
             const events = createMemoryLearnerEventRepository([localProgress()]);
             const storage = memoryStorage();
             const client = syncClient(browser, events, storage);
@@ -114,11 +114,11 @@ function syncClient(
     });
 }
 
-async function seedUclInvite(env: Env): Promise<void> {
+async function seedAnonymousInvite(env: Env): Promise<void> {
     await env.ACADEMY_DB.prepare(
-        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id) '
-        + "VALUES ('ucl-2026', ?1, 10, 'seed', ?2, NULL, NULL)",
-    ).bind(await inviteCodeHash(env, 'UCL2026'), Date.now() - 1).run();
+        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
+        + "VALUES ('ucl-2026', ?1, 10, 'seed', ?2, NULL, NULL, 0)",
+    ).bind(await inviteCodeHash(env, 'OPEN2026'), Date.now() - 1).run();
 }
 
 async function seedPaidCode(env: Env, purchaseId: string): Promise<string> {

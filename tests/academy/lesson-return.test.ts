@@ -23,6 +23,20 @@ describe('Lesson completion return', () => {
         })).toEqual({ route: 'world', worldPlace: 'museum' });
     });
 
+    it('returns a completed Week 1 to Classroom without reopening the completed Week', () => {
+        expect(lessonCompletionReturn({
+            routeHistory: [
+                { route: 'class', selectedBand: 'n5' },
+                {
+                    route: 'classroom',
+                    selectedBand: 'n5',
+                    lessonId: 'authored-week:l1-l01',
+                    sectionId: 'activity',
+                },
+            ],
+        })).toEqual({ route: 'classroom', selectedBand: 'n5' });
+    });
+
     it('keeps journal and optional story replay returns separate from the Class path', () => {
         expect(lessonCompletionReturn({
             routeHistory: [{ route: 'journal' }, { route: 'class' }],

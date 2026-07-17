@@ -27,7 +27,7 @@ This pack resolves the discovery work that earlier plans deferred. It records th
 
 ## Locked owner decisions
 
-- The launch path is `UCL2026` plus admin-created invite codes. Stripe remains an activation-ready adapter rather than a launch dependency.
+- The launch path is `<PRIVATE_CLASS_INVITE>` plus admin-created invite codes. Stripe remains an activation-ready adapter rather than a launch dependency.
 - The executor owns Cloudflare setup and seeding through Wrangler and the admin API. Owner intervention is reserved for secrets that are unavailable locally and physical-device acceptance.
 - Real classmates remain the emotional foundation. Wholesome details and class chemistry may appear directly. High-risk real events become fictional but equally consequential story events.
 - Rose remains a named classmate from direct recollection. The two unidentified chat numbers are not assigned identities. One may be Rose and one may be another Chinese classmate, but neither is merged into a dossier without evidence.

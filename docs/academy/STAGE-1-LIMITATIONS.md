@@ -6,7 +6,7 @@ build. These boundaries remain explicit until their production stages close.
 
 ## Access and sync
 
-- `UCL2026` is accepted only by the localhost QA fallback today.
+- `<PRIVATE_CLASS_INVITE>` is accepted only by the localhost QA fallback today.
 - A non-localhost build calls `/academy/api/session`; no production Worker route
   is deployed yet, so live invite access remains a Stage 7 gate.
 - Learner Events and checkpoints persist locally and resume offline. Cross-device

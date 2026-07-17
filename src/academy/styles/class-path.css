@@ -367,6 +367,12 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 
 .academy-class-person-card[data-portrait-state="available"] {
     min-height: 196px;
+    /* The portrait is mounted 54px above the card box (see .academy-class-person-portrait
+       top offset below); keeping the card's own border here drew a hard line straight
+       across the character art, reading as a cropped placeholder frame (QA F210). The
+       paper caption below already carries its own edge treatment, so the outer box
+       does not need one when a portrait is present. */
+    border: 0;
 }
 
 .academy-class-person-portrait {
@@ -623,4 +629,61 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     button.academy-class-week-entry:is(:hover, :focus-visible) {
         transform: none;
     }
+}
+
+/* QA F031/F182: the Path/People/Events card walls and tab group read as generic
+   uniform app chrome. Give each repeating card a small asymmetric corner cycle
+   (matching the documented 3-15px living-paper corners) and clip the tab group
+   into an angled index-tab shape instead of a crisp rectangle. Local to this
+   screen, so kept in class-path.css rather than the shared cohesion layer. */
+.academy-class-person-card,
+.academy-class-event {
+    border-radius: 3px 13px 4px 11px;
+}
+
+.academy-class-person-card:nth-child(3n+2),
+.academy-class-event:nth-child(3n+2) {
+    border-radius: 12px 4px 13px 3px;
+}
+
+.academy-class-person-card:nth-child(3n+3),
+.academy-class-event:nth-child(3n+3) {
+    border-radius: 5px 9px 3px 15px;
+}
+
+.academy-class-person-caption {
+    border-radius: inherit;
+}
+
+.academy-class-week-entry {
+    border-radius: 3px 12px 3px 12px;
+}
+
+.academy-class-week-node:nth-child(3n+2) .academy-class-week-entry {
+    border-radius: 11px 3px 12px 3px;
+}
+
+.academy-class-week-node:nth-child(3n+3) .academy-class-week-entry {
+    border-radius: 4px 8px 3px 13px;
+}
+
+.academy-class-path-index {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.academy-class-path-tab[aria-selected="true"] {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+}
+
+/* QA F057: the final card row sat flush against the viewport edge with nothing
+   signalling that the page keeps scrolling. A quiet fixed fade at the bottom of
+   the (page-scrolling) screen reads as an intentional continuation cue. */
+.academy-class-path-screen::after {
+    position: fixed;
+    z-index: 6;
+    inset: auto 0 0 0;
+    height: 56px;
+    background: linear-gradient(180deg, rgba(10, 14, 13, 0), rgba(8, 11, 10, 0.6));
+    content: "";
+    pointer-events: none;
 }

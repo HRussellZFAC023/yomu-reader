@@ -95,7 +95,7 @@ export async function handleGoogleCallback(
     const code = url.searchParams.get('code') ?? '';
     const returnedState = url.searchParams.get('state') ?? '';
     const returnedIssuer = url.searchParams.get('iss');
-    if (!code || code.length > 2048 || !returnedState || (returnedIssuer && returnedIssuer !== 'https://accounts.google.com')) {
+    if (!code || code.length > 2048 || !returnedState || returnedIssuer !== 'https://accounts.google.com') {
         throw new HttpError(400, 'Google sign-in response was invalid.');
     }
 

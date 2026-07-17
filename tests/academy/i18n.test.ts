@@ -5,8 +5,8 @@ describe('Academy interface copy', () => {
         expect(academyCopyHasMissingJapanese()).toBe(false);
         expect(academyText('ja', 'accessBody')).not.toBe('未翻訳');
         expect(academyText('ja', 'fictionNote')).toContain('フィクション');
-        expect(academyText('en', 'rieUnlockEyebrow')).toBe('Your teacher');
-        expect(academyText('ja', 'rieUnlockEyebrow')).toBe('先生');
+        expect(academyText('en', 'rieUnlockEyebrow')).toBe('Teacher profile');
+        expect(academyText('ja', 'rieUnlockEyebrow')).toBe('先生プロフィール');
         expect(academyText('en', 'navClass')).toBe('Class');
         expect(academyText('ja', 'classPathWeeks')).toBe('道のり');
         expect(academyText('en', 'navPresentationCourse')).toBe('Course view');

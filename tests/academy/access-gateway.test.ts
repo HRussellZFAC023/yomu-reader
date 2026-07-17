@@ -1,17 +1,10 @@
 import {
     AccessError,
     HttpAccessGateway,
-    LocalQaAccessGateway,
-    isAnonymousAcademyCode,
     sessionCanResume,
 } from '../../src/academy/access/gateway';
 
 describe('Academy access gateway', () => {
-    it('recognizes only UCL2026 as an account-free invitation', () => {
-        expect(isAnonymousAcademyCode(' ucl2026 ')).toBe(true);
-        expect(isAnonymousAcademyCode('PAID-CODE')).toBe(false);
-    });
-
     afterEach(() => { vi.unstubAllGlobals(); });
 
     it('calls the browser fetch default without binding it to the gateway instance', async () => {
@@ -22,11 +15,12 @@ describe('Academy access gateway', () => {
                 sessionId: 'session-native-fetch',
                 expiresAt: now + 60_000,
                 offlineResumeUntil: now + 120_000,
+                accountRequired: false,
             }), { status: 200, headers: { 'content-type': 'application/json' } }));
         });
         vi.stubGlobal('fetch', request);
 
-        await expect(new HttpAccessGateway('/academy/api/session').exchange('UCL2026'))
+        await expect(new HttpAccessGateway('/academy/api/session').exchange('CLASS-TEST-2026'))
             .resolves.toMatchObject({ sessionId: 'session-native-fetch', source: 'cloudflare' });
         expect(request).toHaveBeenCalledTimes(1);
     });
@@ -38,12 +32,13 @@ describe('Academy access gateway', () => {
             sessionId: 'session-1',
             expiresAt,
             offlineResumeUntil,
+            accountRequired: true,
         }), { status: 200, headers: { 'content-type': 'application/json' } }));
         const gateway = new HttpAccessGateway('/academy/api/session', request as typeof fetch);
 
-        const session = await gateway.exchange(' ucl2026 ');
-        expect(session).toEqual({ sessionId: 'session-1', expiresAt, offlineResumeUntil, source: 'cloudflare' });
-        expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({ code: 'UCL2026' });
+        const session = await gateway.exchange(' class-test-2026 ');
+        expect(session).toEqual({ sessionId: 'session-1', expiresAt, offlineResumeUntil, accountRequired: true, source: 'cloudflare' });
+        expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({ code: 'CLASS-TEST-2026' });
         expect(request.mock.calls[0][1]).toMatchObject({ credentials: 'include', cache: 'no-store' });
     });
 
@@ -52,13 +47,28 @@ describe('Academy access gateway', () => {
         await expect(rejected.exchange('NOPE1')).rejects.toMatchObject({ code: 'invalid' });
 
         const unavailable = new HttpAccessGateway('/academy/api/session', vi.fn(async () => { throw new Error('network'); }) as typeof fetch);
-        await expect(unavailable.exchange('UCL2026')).rejects.toEqual(expect.objectContaining<Partial<AccessError>>({ code: 'unavailable' }));
+        await expect(unavailable.exchange('CLASS-TEST-2026')).rejects.toEqual(expect.objectContaining<Partial<AccessError>>({ code: 'unavailable' }));
     });
 
-    it('keeps UCL2026 local-only for deterministic QA and allows bounded offline resume', async () => {
-        const session = await new LocalQaAccessGateway().exchange('UCL2026');
-        expect(session.source).toBe('local-qa');
-        await expect(new LocalQaAccessGateway().exchange('WRONG1')).rejects.toMatchObject({ code: 'invalid' });
+    it('fails closed when the server omits its account capability', async () => {
+        const now = Date.now();
+        const request = vi.fn(async () => new Response(JSON.stringify({
+            sessionId: 'legacy-session',
+            expiresAt: now + 60_000,
+            offlineResumeUntil: now + 120_000,
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        await expect(new HttpAccessGateway('/academy/api/session', request as typeof fetch).exchange('CLASS-TEST-2026'))
+            .rejects.toMatchObject({ code: 'malformed' });
+    });
+
+    it('allows bounded offline resume without inspecting the invitation code', () => {
+        const session = {
+            sessionId: 'session-offline',
+            expiresAt: 10_000,
+            offlineResumeUntil: 20_000,
+            accountRequired: false,
+            source: 'cloudflare' as const,
+        };
         expect(sessionCanResume(session, session.expiresAt + 1, false)).toBe(true);
         expect(sessionCanResume(session, session.expiresAt + 1, true)).toBe(false);
     });

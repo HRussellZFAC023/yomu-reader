@@ -151,6 +151,8 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     screen.append(veil);
 
     let currentIndex = 0;
+    let preAssessmentIndex = 0;
+    let preAssessmentComplete = options.week.preAssessment.length === 0;
     const completedActivityIds = new Set<string>();
     let extensionCompleted = 0;
     let disposed = false;
@@ -181,6 +183,46 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         else renderComplete();
     };
 
+    const renderPreAssessment = (focus = false): void => {
+        const exposure = options.week.preAssessment[preAssessmentIndex];
+        if (!exposure) {
+            preAssessmentComplete = true;
+            renderCurrent(focus);
+            return;
+        }
+        screen.dataset.lessonPhase = 'teaching';
+        const supportView = element('div', 'academy-authored-week-pre-question academy-authored-week-briefing');
+        const step = element('p', 'academy-eyebrow academy-authored-week-briefing-step');
+        step.textContent = options.language === 'ja'
+            ? `学習ポイント ${preAssessmentIndex + 1} / ${options.week.preAssessment.length}`
+            : `Lesson note ${preAssessmentIndex + 1} of ${options.week.preAssessment.length}`;
+        supportView.append(step, authoredExposureView(exposure, options.language));
+        supportView.append(lessonNavigation(options.language, {
+            ...(preAssessmentIndex > 0 ? {
+                back: () => {
+                    preAssessmentIndex -= 1;
+                    renderPreAssessment(true);
+                },
+                backLabel: options.language === 'ja' ? '前のポイント' : 'Previous note',
+            } : {}),
+            next: () => {
+                if (preAssessmentIndex < options.week.preAssessment.length - 1) {
+                    preAssessmentIndex += 1;
+                    renderPreAssessment(true);
+                    return;
+                }
+                preAssessmentComplete = true;
+                renderCurrent(true);
+            },
+            nextLabel: preAssessmentIndex < options.week.preAssessment.length - 1
+                ? (options.language === 'ja' ? '次のポイント' : 'Next note')
+                : (options.language === 'ja' ? '例を見る' : 'See the example'),
+        }, lifecycle.signal));
+        activityHost.replaceChildren(supportView);
+        languageSupport.refresh();
+        if (focus) focusInPanel(supportView.querySelector<HTMLElement>('h2'));
+    };
+
     const renderCurrent = (focus = false, showSupport = true): void => {
         resetPanelScroll();
         options.onListeningStop?.();
@@ -192,18 +234,27 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         showingAuthoredActivity = true;
         const activity = options.week.activities[currentIndex];
         const hasTeachingSupport = activity.kind !== 'academy-source-vocabulary-sheet';
+        if (currentIndex === 0 && !preAssessmentComplete) {
+            renderPreAssessment(focus);
+            return;
+        }
         if (showSupport && hasTeachingSupport) {
+            screen.dataset.lessonPhase = 'support';
             const teachingSupport = authoredTeachingSupport(activity);
             const supportView = element('div', 'academy-authored-week-pre-question');
-            if (currentIndex === 0) {
-                options.week.preAssessment.forEach(exposure => supportView.append(authoredExposureView(exposure, options.language)));
-            }
             supportView.append(teachingSupportView(teachingSupport, options.language));
             const navigation = lessonNavigation(options.language, {
                 back: currentIndex > 0 ? () => {
                     currentIndex -= 1;
                     renderCurrent(true);
+                } : options.week.preAssessment.length > 0 ? () => {
+                    preAssessmentComplete = false;
+                    preAssessmentIndex = options.week.preAssessment.length - 1;
+                    renderPreAssessment(true);
                 } : undefined,
+                backLabel: currentIndex > 0
+                    ? (options.language === 'ja' ? '前の問題' : 'Previous question')
+                    : (options.language === 'ja' ? '学習ポイント' : 'Lesson notes'),
                 next: () => renderCurrent(true, false),
                 nextLabel: options.language === 'ja' ? '問題へ' : 'Continue to question',
             }, lifecycle.signal);
@@ -213,6 +264,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             if (focus) focusInPanel(supportView.querySelector<HTMLElement>('h2'));
             return;
         }
+        screen.dataset.lessonPhase = 'question';
         const questionHost = element('div', 'academy-authored-week-question-host');
         const backAction = hasTeachingSupport
             ? { back: () => renderCurrent(true), backLabel: options.language === 'ja' ? '学習サポート' : 'Review support' }
@@ -285,6 +337,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const renderExtension = (): void => {
         resetPanelScroll();
+        screen.dataset.lessonPhase = 'extension';
         showingComplete = false;
         showingAuthoredActivity = false;
         activityController?.dispose();
@@ -311,6 +364,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
 
     const renderComplete = (): void => {
         resetPanelScroll();
+        screen.dataset.lessonPhase = 'complete';
         activityController?.dispose();
         activityController = undefined;
         extensionController?.dispose();

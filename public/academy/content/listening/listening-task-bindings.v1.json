@@ -15,11 +15,67 @@
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MINNA_SOURCES/source-minna-077-true-false",
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-78-bank",
       "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-track-79-favor-direction",
-      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a11-meal-survey"
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a11-meal-survey",
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+      "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement"
     ],
     "answerPolicy": "Answer identity is verified during generation but not published; learner answers remain gated until after an attempt."
   },
   "entries": [
+    {
+      "packageId": "l1-l01",
+      "sourceQuestionId": "ex-soya-n5_mock1_l_19",
+      "locator": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3",
+      "source": {
+        "corpus": "soya",
+        "questionId": "n5_mock1_l_19",
+        "questionMapRef": "references/soya-research/listening-question-audio-map.csv:424",
+        "audioSha256": "75194e1fda2886b794a28669948455eb8ab4e45acba4a246221bde5e681cbe15"
+      },
+      "verification": {
+        "taskEvidenceSha256": "9676476ebbf90ffebaace1da3d79ce85a86361db7b1ff17ca7f5845bc20cee9a",
+        "supportEvidenceSha256": "74bac98daa48da007ef4cf4b62dccbae3bd9345bfb4db8517c4bcc25b9d0a585",
+        "answerGate": "after-attempt",
+        "method": "Verbatim prompt, options, marked answer, and transcript match the Soya question map and the authored source-question reference."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3"
+      }
+    },
+    {
+      "packageId": "l1-l01",
+      "sourceQuestionId": "ex-soya-n5_mock1_l_24",
+      "locator": "academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3",
+      "source": {
+        "corpus": "soya",
+        "questionId": "n5_mock1_l_24",
+        "questionMapRef": "references/soya-research/listening-question-audio-map.csv:429",
+        "audioSha256": "52ba9cd972e544efb6017cbe220dfa04989565c3f1730e4e42fe81193b107455"
+      },
+      "verification": {
+        "taskEvidenceSha256": "359b795447d99a524f3e3e99221bba5587901a6bd067a5fe79cd000180e25ccb",
+        "supportEvidenceSha256": "4f1e88a185c89be1e74197589adca7b1041d70e2ac4820ef991a6ab3c93f933d",
+        "answerGate": "after-attempt",
+        "method": "Verbatim prompt, options, marked answer, and transcript match the Soya question map and the authored source-question reference."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3"
+      }
+    },
     {
       "packageId": "l1-l18",
       "sourceQuestionId": "ex-soya-n5_listening_official_002",
@@ -1800,6 +1856,168 @@
       "delivery": {
         "status": "packaged-static",
         "url": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1",
+      "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        "audioSha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "8bef71b9edb2f2fd9160c0ff7bb9c4bfd0ad825413b983576c4acbdf1c1a3d3f",
+        "supportEvidenceSha256": "339fa128f8cc1c272febfa93407976e00cd47e770aa1450dd87778805e9705a1",
+        "answerGate": "after-attempt",
+        "method": "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2",
+      "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        "audioSha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "5a772654570b38367bfcef6c26bd0aa8c84ed0fb49ac5aad772fdbe6d22668a0",
+        "supportEvidenceSha256": "339fa128f8cc1c272febfa93407976e00cd47e770aa1450dd87778805e9705a1",
+        "answerGate": "after-attempt",
+        "method": "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3",
+      "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a13-state-correction",
+        "audioSha256": "b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "fa2101b10ed96d7e20749be20940ba4a084af87ee2c11ae25eaacd355f8fcbc4",
+        "supportEvidenceSha256": "14aba4ed72489d1a5573c166863cfa1c11473c76f6621f1ab7608af7389388cb",
+        "answerGate": "after-attempt",
+        "method": "Moodle module 8121267 places A-13, A-14, and the one-page Chapter 29 listening-1 worksheet in the same source folder. The worksheet explicitly labels A-13 and defines three a/b picture rows; byte verification and original-audio review establish the b/b/a key. Transcript and key remain gated until an attempt. The curriculum retains its Minna Chapter 29 sequence anchor, but no separate official Minna, Genki, Soya, or Shin Kanzen byte match is claimed; Track 27/28 and the other documents remain quarantined."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1",
+      "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        "audioSha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "d468a659c135d9dab1ccfbfea0951157361a7faaea705bd224b04bd8de2837ba",
+        "supportEvidenceSha256": "e9e8faa9aa7ee7e6568b1cdd2857e19537ffd1f84d1f232cab3e05764c60fefd",
+        "answerGate": "after-attempt",
+        "method": "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2",
+      "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        "audioSha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "871800fa160d33fc60e184705067cbc88419cc563694905ae013acd87009f16a",
+        "supportEvidenceSha256": "2f9aea9959051cffe8e171ea54fd19da24d6086bcad77e86ca89527053469622",
+        "answerGate": "after-attempt",
+        "method": "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+      }
+    },
+    {
+      "packageId": "l2-l14",
+      "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3",
+      "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+      "source": {
+        "corpus": "moodle",
+        "questionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3",
+        "questionMapRef": "scripts/academy-listening-task-bindings.mjs#DIRECT_REVIEWED_MOODLE_SOURCES/source-moodle-a14-defect-replacement",
+        "audioSha256": "72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d"
+      },
+      "verification": {
+        "taskEvidenceSha256": "c155fe43cc2f2e5f3a0f9ab60d5782504bf851c12dba367d2401f52da6486d64",
+        "supportEvidenceSha256": "2f9aea9959051cffe8e171ea54fd19da24d6086bcad77e86ca89527053469622",
+        "answerGate": "after-attempt",
+        "method": "The same Moodle Chapter 29 worksheet explicitly labels A-14 and defines three a/b defect pictures. Byte verification and original-audio review establish the torn-bag, broken-chopstick, and stained-sweater choices a/b/b. Transcript and key remain gated until an attempt. No answer is inferred from the folder alone, and Track 27/28 remain outside this exact worksheet/audio pairing."
+      },
+      "learnerContract": {
+        "response": "single-choice",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "delivery": {
+        "status": "packaged-static",
+        "url": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
       }
     }
   ],

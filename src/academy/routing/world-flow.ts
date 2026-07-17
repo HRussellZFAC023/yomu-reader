@@ -39,6 +39,7 @@ import { renderReplayStreamPanel } from '../ui/replay-stream-panel';
 import {
     renderJournalScreen,
     renderWorldPlaceScreen,
+    type WorldLessonContext,
 } from '../ui/world-screen';
 import { createWorldLocationAudioSession, type WorldLocationAudioSession } from '../vn/world-location-audio';
 import type { AcademyRouteContext, AcademyRouteFlow } from './types';
@@ -165,14 +166,16 @@ class WorldFlow implements AcademyRouteFlow {
         }));
     }
 
-    private renderWorldPlace(place: WorldPlaceId, context: AcademyRouteContext): true {
+    private async renderWorldPlace(place: WorldPlaceId, context: AcademyRouteContext): Promise<true> {
         this.locationAudio.enter(place);
         const characters = projectCharacterDirectory(context.projection);
+        const lessonContext = await this.classroomWeekContext(place, context);
         let speech: { dispose(): void } | undefined;
         const screen = renderWorldPlaceScreen({
             language: context.language,
             place,
             route: context.checkpoint.route,
+            ...(lessonContext ? { lessonContext } : {}),
             progress: {
                 completedScenes: context.projection.completedScenes,
                 completedEncounterIds: context.projection.completedEncounterIds,
@@ -245,6 +248,66 @@ class WorldFlow implements AcademyRouteFlow {
         return true;
     }
 
+    private async classroomWeekContext(
+        place: WorldPlaceId,
+        context: AcademyRouteContext,
+    ): Promise<WorldLessonContext | undefined> {
+        if (place !== 'classroom' || context.checkpoint.lessonId !== 'authored-week:l1-l01') return undefined;
+        const plan = await loadClassWeekCastPlan();
+        const week = plan.weeks.find(candidate => candidate.weekId === 'l1-l01');
+        if (!week || week.status !== 'source-backed' || !week.primary || !week.supporting[0]) {
+            throw new Error('Class Week l1-l01 has no grounded classroom roster.');
+        }
+        const primary = week.primary;
+        const supporting = week.supporting[0];
+        return {
+            lessonId: 'authored-week:l1-l01',
+            introductionId: 'week:l1-l01:classroom',
+            people: ['rie', primary.id, supporting.id],
+            activity: {
+                label: {
+                    en: `Week 1 · ${week.source.title.en}`,
+                    ja: `第1週・${week.source.title.ja}`,
+                },
+                detail: {
+                    en: `Meet ${primary.firstName}-san and ${supporting.firstName}-san, then ask and answer one name question.`,
+                    ja: `${primary.firstName}さん、${supporting.firstName}さんと、名前を聞いて答える。`,
+                },
+                curriculum: {
+                    id: 'authored-week:l1-l01',
+                    surface: 'moodle',
+                    state: 'grounded',
+                    label: {
+                        en: 'Chapter 1 · self-introduction and classroom phrases',
+                        ja: '第1課・自己紹介と教室のことば',
+                    },
+                },
+            },
+            arrivalDialogue: {
+                speakerId: 'rie',
+                line: {
+                    en: `“Tonight begins with はじめまして. ${primary.firstName}-san and ${supporting.firstName}-san have their name cards ready, so start with one greeting.”`,
+                    ja: `「今夜は『はじめまして』から始めます。${primary.firstName}さんと${supporting.firstName}さんの名札を見て、最初のあいさつから始めましょう。」`,
+                },
+                action: { en: 'Read the name cards', ja: '名札を見る' },
+            },
+            presence: {
+                rie: {
+                    id: 'writing-week-one-heading',
+                    label: { en: 'Writing はじめまして on the board', ja: '黒板に「はじめまして」と書いている' },
+                },
+                [primary.id]: {
+                    id: 'setting-out-name-cards',
+                    label: { en: 'Setting out two name cards', ja: '二枚の名札を並べている' },
+                },
+                [supporting.id]: {
+                    id: 'waiting-for-name-answer',
+                    label: { en: 'Waiting for the first name answer', ja: '最初の名前の答えを待っている' },
+                },
+            },
+        };
+    }
+
     private async travelWorldPlace(place: WorldPlaceId, context: AcademyRouteContext): Promise<void> {
         const route = worldRouteForPlace(place);
         const isFirstCafeArrival = place === 'cafe'
@@ -292,7 +355,19 @@ class WorldFlow implements AcademyRouteFlow {
             onBack: () => void context.back(),
             onOpenWeek: weekId => {
                 const lesson = delivery.weeks.find(entry => entry.weekId === weekId);
-                if (!lesson || lesson.state !== 'grounded-playable') return;
+                if (!lesson || lesson.state !== 'grounded-playable') {
+                    this.options.audio?.playSfx?.('action.unavailable');
+                    return;
+                }
+                this.options.audio?.playSfx?.('menu.confirm');
+                if (weekId === 'l1-l01') {
+                    void context.go('classroom', {
+                        lessonId: lesson.lessonId,
+                        sectionId: undefined,
+                        activityId: undefined,
+                    });
+                    return;
+                }
                 void context.go('lesson-overview', { lessonId: lesson.lessonId });
             },
         }));

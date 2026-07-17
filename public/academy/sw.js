@@ -119,6 +119,8 @@ const CORE = [
     '/academy/content/n2-extensive-reading/package.v1.json',
     '/academy/content/listening/listening-crosswalk.v1.json',
     '/academy/content/listening/listening-task-bindings.v1.json',
+    '/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3',
+    '/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3',
     '/academy/content/listening/media/academy-listening-75b031947b395f44.mp3',
     '/academy/content/listening/media/academy-listening-b076fb0e90d9e1b2.mp3',
     '/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3',

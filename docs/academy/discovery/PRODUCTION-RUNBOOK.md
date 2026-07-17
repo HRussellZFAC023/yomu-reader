@@ -93,7 +93,7 @@ Gate: no overlapping tracks, drone fallback, blocked autoplay loop, missing tran
 1. Create/verify D1 migrations for invites, profiles, learner events, and reports.
 2. Upload private archive/media to R2 with integrity manifests.
 3. Add signed media access and code-session auth.
-4. Seed `UCL2026` through the admin endpoint using available Wrangler credentials.
+4. Seed `<PRIVATE_CLASS_INVITE>` through the admin endpoint using available Wrangler credentials.
 5. Verify anonymous cross-device link flow and offline event merge.
 6. Keep Stripe adapter and webhook tests ready; activate after class-code stability.
 
@@ -109,7 +109,7 @@ Gate: invite access, logout, expiry, media authorization, sync idempotence, and 
 - keyboard, screen reader, touch, Apple Pencil, reduced motion, captions, contrast
 - service-worker upgrade/offline/rollback tests
 - performance budgets for initial shell, scene art, and audio
-- live Cloudflare smoke behind `UCL2026`
+- live Cloudflare smoke behind `<PRIVATE_CLASS_INVITE>`
 
 ## Release gates
 
@@ -122,7 +122,7 @@ Gate: invite access, logout, expiry, media authorization, sync idempotence, and 
 | Art | approved provenance, consistent style, runtime home, mobile composition |
 | Audio | intentional theme/ambience/SFX state, listening content paired |
 | Yomu bridge | annotations, pitch, grammar, dictionary, mining, Doodle, SRS work in Academy |
-| Access | `UCL2026`, session, R2 authorization, sync, offline |
+| Access | `<PRIVATE_CLASS_INVITE>`, session, R2 authorization, sync, offline |
 | UX | one clear action, stable layout, no duplicate controls, no clipping |
 | Maintainability | typed registries, deep modules, schema validators, no god-object growth |
 

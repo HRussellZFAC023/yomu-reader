@@ -15,7 +15,7 @@ loading before login.
 | `POST /academy/api/session` | Exchange `{code}` for a session. Exact same-origin only, rate-limited per HMACed client subject, invite consumed atomically (`UPDATE … RETURNING`). Sets `__Host-academy_session` (Secure/HttpOnly/SameSite=Lax) and returns the client contract `{sessionId, expiresAt, offlineResumeUntil}` in epoch ms. |
 | `GET /academy/api/session` | Report the live session bound to the cookie. |
 | `POST /academy/api/logout` | Revoke the session, clear the cookie. |
-| `POST /academy/api/admin/invites` | Bearer-authenticated (timing-safe) invite creation. Send `{code}` to seed a known code (e.g. `UCL2026`) — only its HMAC persists; omit `code` to have a random one generated and returned exactly once. |
+| `POST /academy/api/admin/invites` | Bearer-authenticated (timing-safe) invite creation. Send `{code}` to seed a known code (e.g. `<PRIVATE_CLASS_INVITE>`) — only its HMAC persists; omit `code` to have a random one generated and returned exactly once. |
 | `POST /academy/api/checkout` | Donation Checkout: a preset (`{preset}` from £5/£10/£20) or a bounded whole-pence custom amount (`{amountGbp}`, £2–£500), `submit_type=donate`, pinned `Stripe-Version: 2026-02-25.clover`, idempotency key, success/cancel URLs under `ACADEMY_ORIGIN` (success carries `session_id={CHECKOUT_SESSION_ID}`). Returns only a validated `https://checkout.stripe.com/…` URL after linking the returned `cs_…` id to the purchase, and sets the `__Host-academy_claim` cookie. No publishable key anywhere. |
 | `POST /academy/api/stripe/webhook` | Bounded raw-body `Stripe-Signature` HMAC with 5-minute tolerance. Handles `checkout.session.completed` and `checkout.session.async_payment_succeeded`; fulfilment is idempotent and retry-safe end-to-end (event-id record, conditional pending→paid update matching the linked `cs_…` id and charged GBP amount, deterministic invite id + `INSERT OR IGNORE`), so a delivery that crashes mid-way is recovered by Stripe's retry. Mints one deterministic single-use paid invite (re-derived, never stored). |
 | `GET /academy/api/claim?session_id=cs_…` | The initiating browser retrieves its paid invite with two independent proofs: the HttpOnly claim cookie and the Checkout `session_id` from the success URL, both matching the same purchase; 202 while pending. |
@@ -33,7 +33,7 @@ IPs, or Stripe payloads are stored or logged.
 2. Create or verify the private R2 bucket `yomu-academy-archive`.
 3. Set every secret listed under `secrets.required` with
    `npx wrangler secret put NAME --config wrangler.academy.jsonc`.
-4. Deploy, then seed `UCL2026` through the admin endpoint (bearer
+4. Deploy, then seed `<PRIVATE_CLASS_INVITE>` through the admin endpoint (bearer
    `ACADEMY_ADMIN_TOKEN`) so the code never appears in source, config, or D1.
 
 ## Client audio (`src/academy/audio/`)
@@ -78,7 +78,7 @@ doubles in `tests/academy/helpers/fake-academy-env.ts`. Run with
 
 ## Live smoke — 2026-07-13
 
-- `POST /academy/api/session` with `UCL2026`: `200`; one HttpOnly session cookie.
+- `POST /academy/api/session` with `<PRIVATE_CLASS_INVITE>`: `200`; one HttpOnly session cookie.
 - One owner-authorized minimum donation Checkout was created without payment: `POST /academy/api/checkout` with `{"amountGbp":2}` completed as `200`; the linked D1 purchase is `pending`, the returned Checkout id is live (`cs_live_…`), and the Worker accepted only the validated `checkout.stripe.com` URL before linking it. The claim cookie contract is `__Host-academy_claim; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=86400` with no `Domain`. Wrangler lists `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` by name, and the deployed Worker route includes `POST /academy/api/stripe/webhook`. No payment or claim was attempted.
 - Persona `royal-days.flac`: authenticated `HEAD 200`, `Content-Length: 29615879`,
   `Accept-Ranges: bytes`; `bytes=0-1023` returns `206` and exactly 1,024 bytes.

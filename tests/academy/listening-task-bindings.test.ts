@@ -14,8 +14,10 @@ describe('Academy exact listening task bindings', () => {
 
         expect(fs.readFileSync(path.join(DOCS_ROOT, 'listening-task-bindings.v1.json')))
             .toEqual(fs.readFileSync(path.join(PUBLIC_ROOT, 'listening-task-bindings.v1.json')));
-        expect(manifest.entries).toHaveLength(66);
+        expect(manifest.entries).toHaveLength(74);
         expect(manifest.entries.map((entry: { sourceQuestionId: string }) => entry.sourceQuestionId)).toEqual([
+            'ex-soya-n5_mock1_l_19',
+            'ex-soya-n5_mock1_l_24',
             'ex-soya-n5_listening_official_002',
             'ex-soya-n5_mock1_l_04',
             'ex-l19-a43-order-1',
@@ -82,9 +84,15 @@ describe('Academy exact listening task bindings', () => {
             'moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-5',
             'moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-6',
             'moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-7',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2',
+            'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3',
         ]);
         expect(manifest.entries[0]).toMatchObject({
-            packageId: 'l1-l18',
+            packageId: 'l1-l01',
             verification: {
                 answerGate: 'after-attempt',
                 taskEvidenceSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -116,8 +124,53 @@ describe('Academy exact listening task bindings', () => {
         expect(JSON.stringify(manifest)).not.toMatch(/"correct"|"correctAnswer"|"answers"|"transcript"/i);
     });
 
+    it('matches every playable task to the same verified crosswalk source', () => {
+        const bindings = JSON.parse(fs.readFileSync(path.join(PUBLIC_ROOT, 'listening-task-bindings.v1.json'), 'utf8')) as {
+            entries: Array<{
+                locator: string;
+                source: { corpus: string; audioSha256: string; questionMapRef: string };
+                delivery: { status: string; url?: string };
+            }>;
+        };
+        const crosswalk = JSON.parse(fs.readFileSync(path.join(PUBLIC_ROOT, 'listening-crosswalk.v1.json'), 'utf8')) as {
+            entries: Array<{
+                locator: string;
+                availability: string;
+                source?: { corpus: string; sha256: string; questionMapRef: string };
+                delivery?: { mode: string; url: string };
+            }>;
+        };
+        const verifiedByLocator = new Map(crosswalk.entries.map(entry => [entry.locator, entry]));
+
+        for (const binding of bindings.entries.filter(entry => entry.delivery.status === 'packaged-static')) {
+            expect(verifiedByLocator.get(binding.locator)).toMatchObject({
+                availability: 'source-verified',
+                source: {
+                    corpus: binding.source.corpus,
+                    sha256: binding.source.audioSha256,
+                    questionMapRef: binding.source.questionMapRef,
+                },
+                delivery: { mode: 'packaged-static', url: binding.delivery.url },
+            });
+        }
+    });
+
     it('ships byte-verified offline MP3s and resolves each only for its exact task', () => {
         const cases = [
+            {
+                packageId: 'l1-l01',
+                questionId: 'ex-soya-n5_mock1_l_19',
+                locator: 'academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3',
+                url: '/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3',
+                sha256: '75194e1fda2886b794a28669948455eb8ab4e45acba4a246221bde5e681cbe15',
+            },
+            {
+                packageId: 'l1-l01',
+                questionId: 'ex-soya-n5_mock1_l_24',
+                locator: 'academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3',
+                url: '/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3',
+                sha256: '52ba9cd972e544efb6017cbe220dfa04989565c3f1730e4e42fe81193b107455',
+            },
             {
                 packageId: 'l1-l18',
                 questionId: 'ex-soya-n5_listening_official_002',
@@ -264,6 +317,20 @@ describe('Academy exact listening task bindings', () => {
                 locator: 'academy/content/minna/audio/l2-l10-minna-077.mp3',
                 url: '/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3',
                 sha256: '3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339',
+            },
+            {
+                packageId: 'l2-l14',
+                questionId: 'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1',
+                locator: 'academy/content/moodle/audio/l2-l14-a13.mp3',
+                url: '/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3',
+                sha256: 'b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d',
+            },
+            {
+                packageId: 'l2-l14',
+                questionId: 'moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1',
+                locator: 'academy/content/moodle/audio/l2-l14-a14.mp3',
+                url: '/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3',
+                sha256: '72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d',
             },
         ];
         for (const item of cases) {

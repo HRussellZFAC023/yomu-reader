@@ -330,7 +330,7 @@ Acceptance: one source per bus as authored, no overlap/drone/autoplay loop, and 
 - [x] Review/migrate the Worker into focused access, invite, progress, media, Stripe, rate-limit, and crypto modules.
 - [x] Create/verify D1 migrations, R2 integrity manifests, protected range media, anonymous invite sessions, and HMAC-only privacy boundaries.
 - [ ] Complete idempotent learner-event sync and offline merge against the live Worker.
-- [x] Seed `UCL2026` through the authenticated admin endpoint using available secrets; never store plaintext codes.
+- [x] Seed `<PRIVATE_CLASS_INVITE>` through the authenticated admin endpoint using available secrets; never store plaintext codes.
 - [x] Verify authenticated/anonymous protected-media HEAD and range behavior; live Royal Days and Shinday playback pass.
 - [ ] Verify live logout, expiry, revocation, offline merge, and cross-device link.
 - [x] Activate the owner-authorized live Stripe Checkout path and create one uncharged £2 `cs_live_…` smoke session.
@@ -346,6 +346,6 @@ Acceptance: live anonymous access, authorization, sync, deletion, expiry, and of
 - [ ] Complete keyboard, screen reader, touch, Apple Pencil, reduced-motion, captions, contrast, offline-upgrade, rollback, and performance acceptance.
 - [ ] Retry mandatory Fable adversarial review; resolve every actionable release issue.
 - [ ] Update README, docs, credits/licenses, changelog, deployment and rollback instructions together.
-- [ ] Push, deploy, create a `v*` release with `yomu.user.js`, verify latest/non-draft, and smoke `UCL2026` live.
+- [ ] Push, deploy, create a `v*` release with `yomu.user.js`, verify latest/non-draft, and smoke `<PRIVATE_CLASS_INVITE>` live.
 
 Acceptance: every release gate in the runbook is green, with only the explicit owner likeness/opening wording/physical-device/Stripe decisions left for owner acceptance.

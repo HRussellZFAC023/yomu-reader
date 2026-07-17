@@ -1,0 +1,154 @@
+{
+  "schema": "yomu-academy.jlpt-readiness-ledger/v1",
+  "generation": {
+    "deterministic": true,
+    "generatedAt": null,
+    "evidenceSnapshot": [
+      "public/academy/content/listening/listening-task-bindings.v1.json",
+      "public/academy/content/lessons/*.json#/curriculumReadiness"
+    ]
+  },
+  "measurementPolicy": {
+    "unit": "unique-assessed-source-grounded-skill-evidence",
+    "fullyAssessedStatus": "assessed-source-grounded",
+    "jlptDomains": [
+      "vocabulary",
+      "grammar",
+      "reading",
+      "listening"
+    ],
+    "additionalCourseSkills": [
+      "writing",
+      "speaking"
+    ],
+    "excludedFromReadiness": [
+      "raw-exercise-count",
+      "unassessed-source-rows",
+      "partially-assessed-source-rows",
+      "original-yomu-enrichment",
+      "unbound-or-unavailable-media",
+      "duplicate-evidence-across-bands"
+    ],
+    "readinessRule": "A band is ready only when its unique fully assessed evidence reaches the cumulative depth floor, all four JLPT domains and both productive course skills have exact source-grounded assessment evidence, and every lower band is ready.",
+    "cumulativeDepthRule": {
+      "N5": "baseline-four-domain-floor",
+      "N4": "N4 > N5",
+      "N3": "N3 > N4 + N5",
+      "N2": "N2 > N3 + N4 + N5",
+      "N1": "N1 > N2 + N3 + N4 + N5"
+    }
+  },
+  "sourceFamilies": [
+    {
+      "id": "moodle",
+      "verifiedPlayableTaskCount": 43,
+      "status": "exact-task-bound"
+    },
+    {
+      "id": "minna",
+      "verifiedPlayableTaskCount": 23,
+      "status": "exact-task-bound"
+    },
+    {
+      "id": "soya",
+      "verifiedPlayableTaskCount": 8,
+      "status": "exact-task-bound"
+    },
+    {
+      "id": "genki",
+      "verifiedPlayableTaskCount": 0,
+      "status": "partial-or-prerequisite-evidence-only"
+    },
+    {
+      "id": "japanese-folder",
+      "verifiedPlayableTaskCount": 0,
+      "status": "duplicate-byte-task-provenance",
+      "note": "The reviewed A-13 and A-14 Japanese-folder copies duplicate the canonical Moodle bytes and do not create additional task evidence."
+    },
+    {
+      "id": "shin-kanzen",
+      "verifiedPlayableTaskCount": 0,
+      "status": "no-source-admissible-task-binding"
+    }
+  ],
+  "bands": [
+    {
+      "band": "N5",
+      "currentFullyAssessedEvidenceCount": 19,
+      "minimumCumulativeEvidenceCount": 4,
+      "lowerComparisonEvidenceCount": 0,
+      "fullyAssessedJlptDomains": [
+        "listening"
+      ],
+      "fullyAssessedAdditionalCourseSkills": [],
+      "depthGatePass": true,
+      "readinessStatus": "not-ready",
+      "blockers": [
+        "missing-vocabulary-grammar-reading-evidence",
+        "missing-writing-speaking-evidence"
+      ]
+    },
+    {
+      "band": "N4",
+      "currentFullyAssessedEvidenceCount": 55,
+      "minimumCumulativeEvidenceCount": 20,
+      "lowerComparisonEvidenceCount": 19,
+      "fullyAssessedJlptDomains": [
+        "listening"
+      ],
+      "fullyAssessedAdditionalCourseSkills": [],
+      "depthGatePass": true,
+      "readinessStatus": "not-ready",
+      "blockers": [
+        "n5-not-ready",
+        "missing-vocabulary-grammar-reading-evidence",
+        "missing-writing-speaking-evidence"
+      ]
+    },
+    {
+      "band": "N3",
+      "currentFullyAssessedEvidenceCount": 0,
+      "minimumCumulativeEvidenceCount": 75,
+      "lowerComparisonEvidenceCount": 74,
+      "fullyAssessedJlptDomains": [],
+      "fullyAssessedAdditionalCourseSkills": [],
+      "depthGatePass": false,
+      "readinessStatus": "not-ready",
+      "blockers": [
+        "cumulative-depth-floor-not-met",
+        "lower-bands-not-ready",
+        "all-domain-and-modality-evidence-missing"
+      ]
+    },
+    {
+      "band": "N2",
+      "currentFullyAssessedEvidenceCount": 0,
+      "minimumCumulativeEvidenceCount": 150,
+      "lowerComparisonEvidenceCount": 149,
+      "fullyAssessedJlptDomains": [],
+      "fullyAssessedAdditionalCourseSkills": [],
+      "depthGatePass": false,
+      "readinessStatus": "not-ready",
+      "blockers": [
+        "cumulative-depth-floor-not-met",
+        "lower-bands-not-ready",
+        "all-domain-and-modality-evidence-missing"
+      ]
+    },
+    {
+      "band": "N1",
+      "currentFullyAssessedEvidenceCount": 0,
+      "minimumCumulativeEvidenceCount": 300,
+      "lowerComparisonEvidenceCount": 299,
+      "fullyAssessedJlptDomains": [],
+      "fullyAssessedAdditionalCourseSkills": [],
+      "depthGatePass": false,
+      "readinessStatus": "not-ready",
+      "blockers": [
+        "cumulative-depth-floor-not-met",
+        "lower-bands-not-ready",
+        "all-domain-and-modality-evidence-missing"
+      ]
+    }
+  ]
+}

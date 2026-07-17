@@ -1,7 +1,6 @@
 import type { Clock, Env } from './env';
 import { requirePaidSessionEntitlement } from './entitlements';
 import { HttpError, jsonResponse, readJsonBody, requireSameOriginMutation } from './http';
-import { inviteCodeHash } from './invites';
 import { activeSession, type ActiveSession } from './sessions';
 
 export interface ProfileRow {
@@ -51,11 +50,11 @@ interface DisposableProfileRow {
     readonly session_count: number;
 }
 
-/** Authorize Academy resources: Google is required except for exact UCL2026 sessions. */
+/** Authorize Academy resources from the access policy captured by the invite. */
 export async function requireAcademyAccessSession(request: Request, env: Env, now: number): Promise<ActiveSession> {
     const session = await activeSession(request, env, now);
     if (!session) throw new HttpError(401, 'No active session.');
-    if (!(await isAnonymousUclSession(env, session))) {
+    if (session.account_required === 1) {
         if (!session.account_id) throw new HttpError(401, 'Sign in with Google to use an Academy profile.');
         await requirePaidSessionEntitlement(env, session, session.account_id);
     }
@@ -65,13 +64,6 @@ export async function requireAcademyAccessSession(request: Request, env: Env, no
 export async function requireProfile(request: Request, env: Env, now: number): Promise<ProfileContext> {
     const session = await requireAcademyAccessSession(request, env, now);
     return ensureSessionProfile(env, session, now);
-}
-
-export async function isAnonymousUclSession(env: Env, session: ActiveSession): Promise<boolean> {
-    const match = await env.ACADEMY_DB.prepare(
-        "SELECT id FROM invites WHERE id = ?1 AND kind = 'seed' AND code_hash = ?2",
-    ).bind(session.invite_id, await inviteCodeHash(env, 'UCL2026')).first<{ id: string }>();
-    return match !== null;
 }
 
 /** Lazily backfills profiles for sessions issued before migration 0003. */

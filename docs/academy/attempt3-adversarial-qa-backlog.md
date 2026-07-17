@@ -1,6 +1,6 @@
 # Yomu Academy — Attempt 3 Adversarial QA Backlog
 
-**Generated:** 2026-07-16 · **Target:** `apps/yomu-reader` on `main`, HEAD `c7dfdb1cd` plus the live uncommitted working tree · **Served:** isolated `vite dev` (academy.config) on `127.0.0.1:5199`, class-code `UCL2026` (localhost QA fallback).
+**Generated:** 2026-07-16 · **Target:** `apps/yomu-reader` on `main`, HEAD `c7dfdb1cd` plus the live uncommitted working tree · **Served:** isolated `vite dev` (academy.config) on `127.0.0.1:5199`, class-code `<PRIVATE_CLASS_INVITE>` (localhost QA fallback).
 
 ## Methodology & coverage
 

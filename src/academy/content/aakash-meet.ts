@@ -13,7 +13,7 @@ export const AAKASH_DIRECTIONS_CONTENT = {
     context: {
         id: 'aakash-directions:context',
         japanese: '雨ですね。Aakashはカフェを探しています。',
-        translation: 'It is raining. Aakash is looking for the cafe. Help him read the route before you answer.',
+        translation: 'It is raining. Aakash is looking for the cafe.',
     },
     question: {
         id: 'aakash-directions:question',
@@ -30,7 +30,7 @@ export const AAKASH_DIRECTIONS_CONTENT = {
     vocabularyPrompt: {
         id: 'aakash-directions:vocabulary',
         japanese: 'まず、道順のことばを見てみましょう。',
-        translation: 'First, learn the route words. The note includes romaji and English.',
+        translation: 'First, learn the route words.',
     },
     recognition: {
         id: 'aakash-directions:recognise-right',

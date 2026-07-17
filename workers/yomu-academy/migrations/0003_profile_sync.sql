@@ -1,5 +1,5 @@
 -- Learner profiles, secure device pairing, and local-first event sync. Route
--- authorization limits anonymous use to UCL2026. Event bodies and profile
+-- authorization limits anonymous use to the designated invite. Event bodies and profile
 -- keys are encrypted by the client; D1 stores
 -- only ciphertext, opaque ids, timestamps, and one-time-code HMACs. Provider
 -- credentials have no plaintext column in this schema.

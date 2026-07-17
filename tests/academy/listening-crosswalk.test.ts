@@ -30,7 +30,7 @@ describe('Academy listening locator crosswalk', () => {
 
         expect([...crosswalk].sort()).toEqual([...authored].sort());
         expect(new Set(crosswalk).size).toBe(crosswalk.length);
-        expect(ACADEMY_LISTENING_CROSSWALK.entries.filter(entry => entry.availability === 'source-verified')).toHaveLength(20);
+        expect(ACADEMY_LISTENING_CROSSWALK.entries.filter(entry => entry.availability === 'source-verified')).toHaveLength(24);
         expect(ACADEMY_LISTENING_CROSSWALK.entries.filter(entry => entry.availability === 'unavailable')).toHaveLength(22);
     });
 
@@ -82,7 +82,15 @@ describe('Academy listening locator crosswalk', () => {
         const packaged = ACADEMY_LISTENING_CROSSWALK.entries.filter(
             (entry): entry is SourceVerifiedListeningEntry => entry.availability === 'source-verified' && entry.delivery !== undefined,
         );
-        expect(packaged).toHaveLength(20);
+        expect(packaged).toHaveLength(24);
+        expect(resolvePackagedAcademyListeningLocator('academy/content/soya/audio/jlpt_n5/n5_mock1_l_19.mp3')).toMatchObject({
+            status: 'ready',
+            url: '/academy/content/listening/media/academy-listening-75194e1fda2886b7.mp3',
+        });
+        expect(resolvePackagedAcademyListeningLocator('academy/content/soya/audio/jlpt_n5/n5_mock1_l_24.mp3')).toMatchObject({
+            status: 'ready',
+            url: '/academy/content/listening/media/academy-listening-52ba9cd972e544ef.mp3',
+        });
         expect(resolvePackagedAcademyListeningLocator('academy/content/moodle/audio/l1-l19-a43.mp3')).toMatchObject({
             status: 'ready',
             url: '/academy/content/listening/media/academy-listening-75b031947b395f44.mp3',

@@ -192,9 +192,35 @@
 }
 
 .academy-get-code {
-    border-width: 2px;
+    width: fit-content !important;
+    min-height: 40px;
+    justify-self: center;
+    padding: 8px 10px 7px;
+    border: 0;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 72%, var(--academy-paper-ink));
+    border-radius: 0;
     background: transparent;
     box-shadow: none;
+    clip-path: none !important;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.academy-get-code::after {
+    content: "\2192";
+    font-size: 0.9em;
+    transition: transform 160ms ease;
+}
+
+.academy-get-code:hover:not(:disabled),
+.academy-get-code:focus-visible {
+    transform: none;
+    background: color-mix(in srgb, var(--academy-paper) 48%, transparent);
+}
+
+.academy-get-code:hover:not(:disabled)::after,
+.academy-get-code:focus-visible::after {
+    transform: translateX(3px);
 }
 
 .academy-donation-claim {
@@ -1123,7 +1149,9 @@
 .academy-placement-screen .academy-screen-veil {
     align-items: end;
     padding: 28px clamp(24px, 5vw, 72px);
-    background: linear-gradient(180deg, rgba(8, 12, 18, 0.04) 0%, rgba(8, 12, 18, 0.2) 44%, rgba(8, 12, 18, 0.72) 100%);
+    /* Warm charcoal (--academy-night #181b18) vignette, not cold navy-black
+       (F094): match the base .academy-screen-veil ink instead of a bluer wash. */
+    background: linear-gradient(180deg, rgba(24, 27, 24, 0.04) 0%, rgba(24, 27, 24, 0.2) 44%, rgba(24, 27, 24, 0.72) 100%);
 }
 
 .academy-placement-screen .academy-placement-stage {
@@ -1178,11 +1206,30 @@
     padding: 26px 30px 24px;
     overflow: auto;
     border: 0;
-    border-left: 5px solid var(--academy-accent);
     border-radius: 0;
     color: #fffdf5;
     background: transparent;
     box-shadow: none;
+}
+
+/* The content column's accent edge previously used a hard-edged, full-height
+   border-left, which read as a stray decorative line unattached to any paper
+   surface (F153) since it ran from the headline straight past the dark floor
+   to the actions row. Fade both ends so it reads as an accent glow bound to
+   the column rather than an independent ruled line. */
+.academy-placement-screen .academy-panel-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 5px;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        var(--academy-accent) 14%,
+        var(--academy-accent) 86%,
+        transparent 100%);
+    pointer-events: none;
 }
 
 .academy-placement-screen .academy-title {
@@ -1225,6 +1272,24 @@
     min-height: 42px;
 }
 
+/* The band/confidence selects rendered OS dropdown chrome, breaking the
+   Choice-slip grammar the rest of the mock uses (F029). Suppress native
+   appearance and give them the same asymmetric choice-slip corners + a
+   drawn chevron, scoped to placement only. */
+.academy-placement-screen select.academy-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 34px;
+    border-radius: 3px 10px 3px 9px;
+    /* .academy-input sets `background` as an !important shorthand, so the
+       chevron + paper fill must be one !important shorthand too, or the
+       longhand layers get reset by that rule. */
+    background:
+        linear-gradient(45deg, transparent 50%, #29271f 50%) calc(100% - 20px) center / 6px 6px no-repeat,
+        linear-gradient(135deg, #29271f 50%, transparent 50%) calc(100% - 14px) center / 6px 6px no-repeat,
+        linear-gradient(rgba(255, 253, 244, 0.96), rgba(244, 237, 218, 0.94)) !important;
+}
+
 .academy-placement-progress {
     display: flex;
     align-items: center;
@@ -1246,8 +1311,10 @@
 .academy-placement-progress-dots i {
     display: block;
     width: clamp(8px, 3vw, 28px);
-    height: 4px;
-    background: var(--academy-line);
+    height: 6px;
+    /* Slightly stronger than --academy-line so unfilled steps stay legible
+       against the dark scene (F205). */
+    background: rgba(255, 253, 245, 0.3);
 }
 
 .academy-placement-progress-dots i.is-active {
@@ -1530,7 +1597,9 @@
     padding: 16px;
     border: 1px solid rgba(73, 63, 46, 0.24);
     min-height: 180px;
-    border-radius: 6px;
+    /* Living-paper asymmetric corners (3-15px) instead of a uniform rounded
+       card — see docs/academy/VISUAL-SYSTEM.md geometry rule (F031). */
+    border-radius: 4px 15px 5px 11px;
     color: #29271f;
     color-scheme: light;
     background:
@@ -1556,6 +1625,18 @@
     text-wrap: pretty;
 }
 
+/* The task itself (choose the reading, pick the best answer) was only ever
+   implicit in the prompt sentence, with no visible instruction (F118). A
+   quiet paper-header label is enough without becoming tutorial copy. */
+.academy-mock-instruction {
+    margin: 0;
+    color: var(--academy-ink-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
 .academy-mock-prompt + * {
     clear: both;
 }
@@ -1579,7 +1660,9 @@
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    border-radius: 6px;
+    /* Asymmetric choice-slip corners so four answers don't read as a uniform
+       rounded-card wall (F031). */
+    border-radius: 3px 10px 3px 9px;
     color: #29271f !important;
     background: rgba(255, 253, 244, 0.74);
     cursor: pointer;
@@ -2008,8 +2091,8 @@
     justify-items: stretch;
     padding: clamp(70px, 8vh, 104px) clamp(24px, 5vw, 78px) clamp(26px, 5vh, 54px);
     background:
-        linear-gradient(90deg, rgba(8, 12, 17, 0.18) 0 34%, rgba(8, 12, 17, 0.03) 58%, rgba(8, 12, 17, 0.46) 100%),
-        linear-gradient(180deg, rgba(8, 12, 17, 0.04) 35%, rgba(8, 12, 17, 0.72) 100%);
+        linear-gradient(90deg, rgba(19, 21, 17, 0.18) 0 34%, rgba(19, 21, 17, 0.03) 58%, rgba(19, 21, 17, 0.46) 100%),
+        linear-gradient(180deg, rgba(19, 21, 17, 0.04) 35%, rgba(19, 21, 17, 0.72) 100%);
 }
 
 .academy-start-screen .academy-guide-panel,

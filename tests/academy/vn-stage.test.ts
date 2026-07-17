@@ -455,7 +455,9 @@ describe('Academy VN stage', () => {
         });
 
         const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
         expect(text.textContent).toBe('は');
+        expect(dialogue.dataset.textBreath).toBeUndefined();
         vi.advanceTimersByTime(100);
         expect(text.textContent).toBe('は');
         vi.advanceTimersByTime(160);
@@ -463,10 +465,36 @@ describe('Academy VN stage', () => {
         const atBoundary = text.textContent;
         vi.advanceTimersByTime(250);
         expect(text.textContent).toBe(atBoundary);
-        vi.advanceTimersByTime(20);
+        expect(dialogue.dataset.textBreath).toBe('');
+        vi.advanceTimersByTime(140);
+        expect(text.textContent).toBe(atBoundary);
+        vi.advanceTimersByTime(40);
         expect(text.textContent).toContain('次');
+        expect(dialogue.dataset.textBreath).toBeUndefined();
         vi.runAllTimers();
         expect(text.textContent).toBe('はい。次です。');
+    });
+
+    it('uses a lighter clause pause without entering a sentence breath', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:clause-cadence',
+            japanese: 'はい、次です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        vi.advanceTimersToNextTimer();
+        expect(text.textContent).toBe('はい');
+        vi.advanceTimersToNextTimer();
+        expect(text.textContent).toBe('はい、');
+        expect(dialogue.dataset.textBreath).toBeUndefined();
+        vi.advanceTimersByTime(177);
+        expect(text.textContent).toBe('はい、');
+        vi.advanceTimersByTime(1);
+        expect(text.textContent).toBe('はい、次');
     });
 
     it('does not stretch short utterances to fill a minimum duration', () => {
@@ -481,6 +509,8 @@ describe('Academy VN stage', () => {
         const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
         expect(text.textContent).toBe('は');
         vi.advanceTimersByTime(120);
+        expect(text.textContent).toBe('は');
+        vi.advanceTimersByTime(20);
         expect(text.textContent).toBe('はい');
         vi.advanceTimersByTime(40);
         expect(text.textContent).toBe('はい。');
@@ -499,10 +529,35 @@ describe('Academy VN stage', () => {
         const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
         vi.advanceTimersByTime(210);
         expect(text.textContent).toBe('「はい。」');
-        vi.advanceTimersByTime(300);
+        expect(stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')?.dataset.textBreath).toBe('');
+        vi.advanceTimersByTime(420);
         expect(text.textContent).toBe('「はい。」');
         vi.runAllTimers();
         expect(text.textContent).toBe('「はい。」次です。');
+    });
+
+    it('keeps ASCII closing brackets attached before taking a sentence breath', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:bracketed-cadence',
+            japanese: '(はい。)次です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        vi.advanceTimersToNextTimer();
+        vi.advanceTimersToNextTimer();
+        vi.advanceTimersToNextTimer();
+        expect(text.textContent).toBe('(はい。');
+        expect(dialogue.dataset.textBreath).toBeUndefined();
+
+        vi.advanceTimersToNextTimer();
+        expect(text.textContent).toBe('(はい。)');
+        expect(dialogue.dataset.textBreath).toBe('');
+        vi.runAllTimers();
+        expect(text.textContent).toBe('(はい。)次です。');
     });
 
     it('reveals Japanese grapheme clusters atomically and appends into one text node', () => {
@@ -522,6 +577,27 @@ describe('Academy VN stage', () => {
         expect(text.textContent).toContain('か\u3099く');
         vi.runAllTimers();
         expect(text.textContent).toBe('か\u3099く。');
+    });
+
+    it('finishes a one-grapheme line synchronously without leaving reveal state behind', () => {
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:single-grapheme',
+            japanese: 'ん',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+            translation: 'Mm.',
+            translationEarned: true,
+        });
+
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        const translation = stage.element.querySelector<HTMLElement>('.academy-vn-translation')!;
+        expect(text.textContent).toBe('ん');
+        expect(text.dataset.performanceText).toBeUndefined();
+        expect(dialogue.dataset.textRevealing).toBeUndefined();
+        expect(dialogue.dataset.textBreath).toBeUndefined();
+        expect(dialogue.hasAttribute('aria-busy')).toBe(false);
+        expect(translation.dataset.waitingForLine).toBeUndefined();
     });
 
     it('completes an active reveal from the full dialogue line surface', () => {
@@ -625,7 +701,13 @@ describe('Academy VN stage', () => {
         expect(slot.querySelector('.academy-vn-portrait-outgoing')).toBeNull();
         expect(slot.querySelector<HTMLImageElement>('.academy-vn-sprite img')?.src).toContain('/rie-happy.png');
         expect(slot.style.getPropertyValue('--academy-vn-performance-lift')).toBe('0px');
-        expect(stage.element.querySelector<HTMLElement>('.academy-vn-japanese')?.dataset.performanceText).toBeUndefined();
+        const dialogue = stage.element.querySelector<HTMLElement>('.academy-vn-dialogue')!;
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        expect(text.textContent).toBe('ゆっくり。');
+        expect(text.dataset.performanceText).toBeUndefined();
+        expect(dialogue.dataset.textRevealing).toBeUndefined();
+        expect(dialogue.dataset.textBreath).toBeUndefined();
+        expect(dialogue.hasAttribute('aria-busy')).toBe(false);
         vi.spyOn(stage.element, 'getBoundingClientRect').mockReturnValue({
             left: 0, top: 0, width: 320, height: 640, right: 320, bottom: 640, x: 0, y: 0, toJSON: () => ({}),
         });
@@ -692,6 +774,10 @@ describe('Academy VN stage', () => {
         expect(css).toMatch(/@media \(min-width: 1100px\)/);
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none;/);
         expect(css).toMatch(/\.academy-vn-stage\[data-reduced-motion\][\s\S]*transition:\s*none;/);
+        expect(css).toMatch(/\.academy-vn-dialogue\[data-text-breath\][^{]*\{[^}]*--academy-vn-caret-peak-opacity:\s*0\.2;/s);
+        expect(css).toMatch(/\.academy-vn-japanese\[data-performance-text="revealing"\]::after\s*\{[^}]*transition:\s*transform 180ms ease-out;/s);
+        expect(css).toMatch(/@keyframes academy-vn-speaking-caret\s*\{[^}]*var\(--academy-vn-caret-rest-opacity\)[\s\S]*var\(--academy-vn-caret-peak-opacity\)/s);
+        expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.academy-vn-japanese\[data-performance-text="revealing"\]::after\s*\{[^}]*animation:\s*none;/s);
         expect(css).toMatch(/\.academy-vn-portrait-outgoing\s*\{[^}]*animation:\s*academy-vn-portrait-swap-out var\(--academy-vn-pose-duration, 220ms\)/s);
         expect(css).toMatch(/\.academy-vn-dialogue\[data-text-revealing\] \.academy-vn-line-body\s*\{[^}]*cursor:\s*pointer;/s);
         expect(css).not.toContain('.academy-panel');

@@ -46,7 +46,7 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 
 ## D-008 — Stage 1 access is local proof, never production theatre
 
-**Decision:** `UCL2026` is accepted by a localhost-only adapter for deterministic enrollment QA. Non-local hosts must call the production session boundary and fail closed until Stage 7 deploys it.
+**Decision:** `<PRIVATE_CLASS_INVITE>` is accepted by a localhost-only adapter for deterministic enrollment QA. Non-local hosts must call the production session boundary and fail closed until Stage 7 deploys it.
 
 **Why:** The vertical slice needs a runnable access seam, but claiming a static client-side code as secure production access would invalidate the release gate.
 
@@ -88,7 +88,7 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 
 ## D-015 — Protected audio begins only after the invite session
 
-**Decision:** This supersedes D-008/D-009 for the live infrastructure boundary. `UCL2026` exchanges through the Cloudflare Worker/D1. Owner-approved Persona and Shinday files remain private R2 objects behind that session. The access route is silent; the authenticated Rie route begins the opening theme. Local Vite acceptance proxies the live boundary and rewrites only Academy's Secure `__Host-` cookies on its HTTP leg.
+**Decision:** This supersedes D-008/D-009 for the live infrastructure boundary. `<PRIVATE_CLASS_INVITE>` exchanges through the Cloudflare Worker/D1. Owner-approved Persona and Shinday files remain private R2 objects behind that session. The access route is silent; the authenticated Rie route begins the opening theme. Local Vite acceptance proxies the live boundary and rewrites only Academy's Secure `__Host-` cookies on its HTTP leg.
 
 **Why:** Starting protected media before the session caused avoidable 401s and connection pressure. A local-only fake session could not prove the real cookie/range/audio behavior.
 

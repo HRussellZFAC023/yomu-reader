@@ -34,7 +34,7 @@ import { grammarConceptForAuthoredQuestion } from '../integration/grammar-concep
 import { assertAuthoredWeekPedagogy } from './authored-week-pedagogy';
 
 export const AUTHORED_WEEK_HASHES = {
-    'l1-l01': '0b3540669711fd2019edac4aa8b0afa54b7c931808a0707ecc6f941e048daf50',
+    'l1-l01': '97dcabe3f1235a91bf3beb781de54f52891d80e50b86a4df01362f7eb9846633',
     'l1-l02': '5f2f04b5c575539d0bfe4112c9c456e0c21e7b49d2e6a01332f051b0c978dbbd',
     'l1-l03': 'f2e11d7100e1a1269a54e07fc01ccbc7c653229f423b5df593402874d82e1c6c',
     'l1-l04': 'f9b8a577870c194f74f8c93f6d3b04b5f20dcbc69ce20bd9c6f06800a4ea9a2e',

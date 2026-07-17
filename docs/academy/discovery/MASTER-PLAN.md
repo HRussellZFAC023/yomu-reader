@@ -160,14 +160,14 @@ Every screen must pass four questions:
 
 - Deploy archive media to R2 with signed access through the Worker.
 - Use D1 for invite codes, profiles, progress events, and optional sync.
-- Seed `UCL2026` through the token-gated admin endpoint.
+- Seed `<PRIVATE_CLASS_INVITE>` through the token-gated admin endpoint.
 - Keep Stripe behind an adapter and activate after the class-code release is stable.
 
 ## Release definition
 
 Enrollment-ready means:
 
-- `UCL2026` opens a secure anonymous session without an account.
+- `<PRIVATE_CLASS_INVITE>` opens a secure anonymous session without an account.
 - Onboarding, map, Lesson 0, one complete class week, daily review, character unlock, journal replay, Doodle, listening, writing, and offline resume work end to end.
 - All Moodle sources have ledger entries and every source question is playable. Blocking reasons are production tracking states, never release completion.
 - The class chronology is fully visible, with honest authored/playable states.

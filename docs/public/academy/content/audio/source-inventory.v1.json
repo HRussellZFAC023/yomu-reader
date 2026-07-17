@@ -4,7 +4,7 @@
     "deterministic": true,
     "generatedAt": null,
     "zipMetadataVersion": 5,
-    "method": "SHA-256 every supplied audio and visual payload; deduplicate by payload hash; bind only byte-identical Moodle payloads and Academy package source references. Only the official free/no-registration 3A archive is harvest-eligible for audio harvest. No filename, chapter, lesson-number, duration, or visual filename inference creates a runtime binding."
+    "method": "SHA-256 every supplied audio and visual payload; deduplicate by payload hash; bind only byte-identical Moodle payloads and Academy package source references. Runtime availability additionally requires an exact packaged task binding with the same audio SHA-256. Only the official free/no-registration 3A archive is harvest-eligible for audio harvest. No filename, chapter, lesson-number, duration, or visual filename inference creates a runtime binding."
   },
   "moodle": {
     "audioOccurrenceCount": 185,
@@ -945,9 +945,41 @@
           "textbookChapter": 20
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l05",
+          "sourceQuestionId": "moodle:6974651:01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280:pdf-p1:minna069-conversation:item-1",
+          "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3"
+        },
+        {
+          "packageId": "l2-l05",
+          "sourceQuestionId": "moodle:6974651:01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280:pdf-p1:minna069-conversation:item-2",
+          "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3"
+        },
+        {
+          "packageId": "l2-l05",
+          "sourceQuestionId": "moodle:6974651:01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280:pdf-p1:minna069-conversation:item-3",
+          "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3"
+        },
+        {
+          "packageId": "l2-l05",
+          "sourceQuestionId": "moodle:6974651:01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280:pdf-p1:minna069-conversation:item-4",
+          "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3"
+        },
+        {
+          "packageId": "l2-l05",
+          "sourceQuestionId": "moodle:6974651:01d6d86ad59a1a4fc30891dcd14f2916387552c35802a025a289e622a5478280:pdf-p1:minna069-conversation:item-5",
+          "locator": "academy/content/minna/audio/l2-l05-minna-069.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-f423d074fd31d9ef.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "minna-shokyu-1",
@@ -985,9 +1017,35 @@
           "textbookChapter": 21
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l06",
+          "sourceQuestionId": "moodle:6974652:bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0:pdf-p1:minna072-conversation:item-1",
+          "locator": "academy/content/minna/audio/l2-l06-minna-072.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3"
+        },
+        {
+          "packageId": "l2-l06",
+          "sourceQuestionId": "moodle:6974652:bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0:pdf-p1:minna072-conversation:item-2",
+          "locator": "academy/content/minna/audio/l2-l06-minna-072.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3"
+        },
+        {
+          "packageId": "l2-l06",
+          "sourceQuestionId": "moodle:6974652:bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0:pdf-p1:minna072-conversation:item-3",
+          "locator": "academy/content/minna/audio/l2-l06-minna-072.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3"
+        },
+        {
+          "packageId": "l2-l06",
+          "sourceQuestionId": "moodle:6974652:bb2cea0ce9563e15e78f64cc0e8bf6cbdcfde589e458cdced63ddd11cea005a0:pdf-p1:minna072-conversation:item-4",
+          "locator": "academy/content/minna/audio/l2-l06-minna-072.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-71cd9a20f51a1c49.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "minna-shokyu-1",
@@ -1025,9 +1083,41 @@
           "textbookChapter": 21
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l07",
+          "sourceQuestionId": "moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2:item-1",
+          "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3"
+        },
+        {
+          "packageId": "l2-l07",
+          "sourceQuestionId": "moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2:item-2",
+          "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3"
+        },
+        {
+          "packageId": "l2-l07",
+          "sourceQuestionId": "moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2:item-3",
+          "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3"
+        },
+        {
+          "packageId": "l2-l07",
+          "sourceQuestionId": "moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2:item-4",
+          "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3"
+        },
+        {
+          "packageId": "l2-l07",
+          "sourceQuestionId": "moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2:item-5",
+          "locator": "academy/content/minna/audio/l2-l07-minna-074.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-2a287bcef237d1e3.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "minna-shokyu-1",
@@ -1083,9 +1173,35 @@
           "sourceTitle": "audio materials/minna_shokyu_1_075.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l09",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-1",
+          "locator": "academy/content/minna/audio/l2-l09-minna-075.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3"
+        },
+        {
+          "packageId": "l2-l09",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-2",
+          "locator": "academy/content/minna/audio/l2-l09-minna-075.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3"
+        },
+        {
+          "packageId": "l2-l09",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-3",
+          "locator": "academy/content/minna/audio/l2-l09-minna-075.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3"
+        },
+        {
+          "packageId": "l2-l09",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-4",
+          "locator": "academy/content/minna/audio/l2-l09-minna-075.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "minna-shokyu-1",
@@ -1122,9 +1238,41 @@
           "sourceTitle": "Homework/minna_shokyu_1_077.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l10",
+          "sourceQuestionId": "moodle:6974659:3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339:audio:minna077-mondai-2:item-1",
+          "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3"
+        },
+        {
+          "packageId": "l2-l10",
+          "sourceQuestionId": "moodle:6974659:3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339:audio:minna077-mondai-2:item-2",
+          "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3"
+        },
+        {
+          "packageId": "l2-l10",
+          "sourceQuestionId": "moodle:6974659:3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339:audio:minna077-mondai-2:item-3",
+          "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3"
+        },
+        {
+          "packageId": "l2-l10",
+          "sourceQuestionId": "moodle:6974659:3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339:audio:minna077-mondai-2:item-4",
+          "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3"
+        },
+        {
+          "packageId": "l2-l10",
+          "sourceQuestionId": "moodle:6974659:3be2ca818292e685f08d8acf55b54b10b9c2853bcc5d9cb246b91abbdb158339:audio:minna077-mondai-2:item-5",
+          "locator": "academy/content/minna/audio/l2-l10-minna-077.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-3be2ca818292e685.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1150,9 +1298,65 @@
           "sourceTitle": "Homework/78 Track 78.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-1",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-2",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-3",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-4",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-5",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-6",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-7",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:blank-8",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p1:track78-bank:choice",
+          "locator": "academy/content/moodle/audio/l2-l12-track-78.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1178,9 +1382,29 @@
           "sourceTitle": "Homework/79 Track 79.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-1",
+          "locator": "academy/content/moodle/audio/l2-l12-track-79.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-2",
+          "locator": "academy/content/moodle/audio/l2-l12-track-79.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3"
+        },
+        {
+          "packageId": "l2-l12",
+          "sourceQuestionId": "moodle:8121261:3f50e72c599d504bfa27b2a246befc67963b6c7072d6553e820b11ce1d14b617:pdf-p2:track79-favor-direction:item-3",
+          "locator": "academy/content/moodle/audio/l2-l12-track-79.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-612ff9f8f70e5ce4.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1262,9 +1486,53 @@
           "sourceTitle": "Audio materials/11 A-11.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-1",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-2",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-3",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-4",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-5",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-6",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        },
+        {
+          "packageId": "l2-l13",
+          "sourceQuestionId": "moodle:8121266:3023ab51a23ae6744380db3cf909754a77fa8decac47de70a5c46224bc6daed9:pdf-p1:a11-meal-survey:item-7",
+          "locator": "academy/content/moodle/audio/l2-l13-a11.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-596a4499996bd959.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1458,9 +1726,29 @@
           "sourceTitle": "audio materials/13 A-13.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-1",
+          "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+        },
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-2",
+          "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+        },
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a13-state-correction:item-3",
+          "locator": "academy/content/moodle/audio/l2-l14-a13.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-b61ec5374c6c31fb.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1486,9 +1774,29 @@
           "sourceTitle": "audio materials/14 A-14.mp3"
         }
       ],
-      "status": "canonical-source-match-awaiting-task-pairing",
-      "runtime": "unavailable",
-      "reason": "A byte-identical source item is recorded, but no transcript-and-task verification grants runtime playback."
+      "taskBindingReferences": [
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-1",
+          "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+        },
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-2",
+          "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+        },
+        {
+          "packageId": "l2-l14",
+          "sourceQuestionId": "moodle:8121267:a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499:pdf-p1:a14-defect-replacement:item-3",
+          "locator": "academy/content/moodle/audio/l2-l14-a14.mp3",
+          "deliveryUrl": "/academy/content/listening/media/academy-listening-72537c6e4c3eb82b.mp3"
+        }
+      ],
+      "status": "canonical-source-match-task-bound",
+      "runtime": "packaged-static",
+      "reason": "A byte-identical source item has an exact transcript-and-task binding; runtime authority remains the canonical packaged task and its gated learner contract."
     },
     {
       "sourceId": "japanese-folder",
@@ -1809,7 +2117,7 @@
         "visualFileCount": 1302
       }
     ],
-    "taskPairing": "A byte-identical Moodle source reference is not a verified listening task. Transcript, worksheet/task, answer, and rights review are required before any runtime delivery.",
+    "taskPairing": "A byte-identical Moodle source reference without a matching exact task binding remains inventory-only. Transcript, worksheet/task, answer, and rights review are required before runtime delivery.",
     "visualPairing": "A byte-identical visual source reference is inventory evidence only. A reviewed media region, source question, semantic role, and rights review are required before any runtime delivery."
   }
 }

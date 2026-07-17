@@ -151,14 +151,14 @@ export interface AuthoredExerciseDeliveryRegistration {
  * their adapter delivery requires an intentional registry and audit update.
  */
 export const AUTHORED_EXERCISE_DELIVERY_REGISTRY: readonly AuthoredExerciseDeliveryRegistration[] = Object.freeze([
-    sourceDelivery('choice', 'multiple-choice', 'mixed-preserved', 370, 361, 361, ['choice']),
+    sourceDelivery('choice', 'multiple-choice', 'mixed-preserved', 368, 361, 361, ['choice']),
     sourceDelivery('match', 'matching', 'preserved', 45, 45, 45, ['academy-authored-matching']),
     sourceDelivery('cloze', 'cloze', 'preserved', 81, 81, 81, ['academy-authored-cloze']),
     sourceDelivery('order', 'ordering', 'preserved', 4, 4, 4, ['academy-authored-ordering']),
     sourceDelivery('multi-choice', 'multiple-choice', 'preserved', 6, 6, 6, ['academy-authored-multi-choice']),
     sourceDelivery('exact', 'free-response', 'mixed-preserved', 78, 71, 71, ['text']),
     sourceDelivery('writing', 'free-response', 'ungraded', 2, 0, 0, []),
-    sourceDelivery('quarantined-listening-choice', 'listening', 'mixed-preserved', 16, 9, 9, ['choice']),
+    sourceDelivery('quarantined-listening-choice', 'listening', 'mixed-preserved', 18, 11, 11, ['choice']),
     sourceDelivery('drag-sort', 'matching', 'omitted', 2, 0, 0, []),
     sourceDelivery('ordering', 'ordering', 'mixed-preserved', 8, 7, 7, ['academy-authored-ordering']),
     sourceDelivery('class-simulation', 'speaking', 'ungraded', 11, 0, 0, []),

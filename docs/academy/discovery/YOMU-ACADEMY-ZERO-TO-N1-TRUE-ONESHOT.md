@@ -68,7 +68,7 @@ Build `AudioDirector` before visual polish. Use the exact private Persona soundt
 
 ## Infrastructure
 
-Use Wrangler and existing Cloudflare credentials to create/verify D1, R2, Worker routes, migrations, archive upload, signed media, invite sessions, and sync. Seed `UCL2026` through the admin endpoint. Keep Stripe implementation ready and activate it after class-code launch stability.
+Use Wrangler and existing Cloudflare credentials to create/verify D1, R2, Worker routes, migrations, archive upload, signed media, invite sessions, and sync. Seed `<PRIVATE_CLASS_INVITE>` through the admin endpoint. Keep Stripe implementation ready and activate it after class-code launch stability.
 
 ## Completion
 
@@ -108,7 +108,7 @@ This pack resolves the discovery work that earlier plans deferred. It records th
 
 ## Locked owner decisions
 
-- The launch path is `UCL2026` plus admin-created invite codes. Stripe remains an activation-ready adapter rather than a launch dependency.
+- The launch path is `<PRIVATE_CLASS_INVITE>` plus admin-created invite codes. Stripe remains an activation-ready adapter rather than a launch dependency.
 - The executor owns Cloudflare setup and seeding through Wrangler and the admin API. Owner intervention is reserved for secrets that are unavailable locally and physical-device acceptance.
 - Real classmates remain the emotional foundation. Wholesome details and class chemistry may appear directly. High-risk real events become fictional but equally consequential story events.
 - Rose remains a named classmate from direct recollection. The two unidentified chat numbers are not assigned identities. One may be Rose and one may be another Chinese classmate, but neither is merged into a dossier without evidence.
@@ -291,14 +291,14 @@ Every screen must pass four questions:
 
 - Deploy archive media to R2 with signed access through the Worker.
 - Use D1 for invite codes, profiles, progress events, and optional sync.
-- Seed `UCL2026` through the token-gated admin endpoint.
+- Seed `<PRIVATE_CLASS_INVITE>` through the token-gated admin endpoint.
 - Keep Stripe behind an adapter and activate after the class-code release is stable.
 
 ## Release definition
 
 Enrollment-ready means:
 
-- `UCL2026` opens a secure anonymous session without an account.
+- `<PRIVATE_CLASS_INVITE>` opens a secure anonymous session without an account.
 - Onboarding, map, Lesson 0, one complete class week, daily review, character unlock, journal replay, Doodle, listening, writing, and offline resume work end to end.
 - All Moodle sources have ledger entries and every source question is playable. Blocking reasons are production tracking states, never release completion.
 - The class chronology is fully visible, with honest authored/playable states.
@@ -1417,7 +1417,7 @@ This is the first production milestone and the acceptance script for the opening
 
 | Beat | Player action | System proof | Art/audio |
 | --- | --- | --- | --- |
-| Code entry | enter `UCL2026` | invite session and offline-capable profile shell | quiet rain, door ambience |
+| Code entry | enter `<PRIVATE_CLASS_INVITE>` | invite session and offline-capable profile shell | quiet rain, door ambience |
 | Rie introduction | choose one of four `quality-2` to `quality-5` portraits, a name, and learning reason | persistent profile and fictional-story framing | approved Rie sprite; warm pixel-painted picker art; petals and door animation; opening theme after gesture |
 | Choose a start | choose Lesson 0, a provisional N-level, or an optional JLPT mock | per-skill placement evidence, learner override, known-state seed | Rie's welcoming route explanation, quiet exam-room state |
 | Midstream bridge | enter above Lesson 0 and play the level-specific arrival scene | curriculum and story progress remain separate; earlier memories become replayable | present-season campus, current cast, journal recap animation |
@@ -1703,7 +1703,7 @@ Gate: no overlapping tracks, drone fallback, blocked autoplay loop, missing tran
 1. Create/verify D1 migrations for invites, profiles, learner events, and reports.
 2. Upload private archive/media to R2 with integrity manifests.
 3. Add signed media access and code-session auth.
-4. Seed `UCL2026` through the admin endpoint using available Wrangler credentials.
+4. Seed `<PRIVATE_CLASS_INVITE>` through the admin endpoint using available Wrangler credentials.
 5. Verify anonymous cross-device link flow and offline event merge.
 6. Keep Stripe adapter and webhook tests ready; activate after class-code stability.
 
@@ -1719,7 +1719,7 @@ Gate: invite access, logout, expiry, media authorization, sync idempotence, and 
 - keyboard, screen reader, touch, Apple Pencil, reduced motion, captions, contrast
 - service-worker upgrade/offline/rollback tests
 - performance budgets for initial shell, scene art, and audio
-- live Cloudflare smoke behind `UCL2026`
+- live Cloudflare smoke behind `<PRIVATE_CLASS_INVITE>`
 
 ## Release gates
 
@@ -1732,7 +1732,7 @@ Gate: invite access, logout, expiry, media authorization, sync idempotence, and 
 | Art | approved provenance, consistent style, runtime home, mobile composition |
 | Audio | intentional theme/ambience/SFX state, listening content paired |
 | Yomu bridge | annotations, pitch, grammar, dictionary, mining, Doodle, SRS work in Academy |
-| Access | `UCL2026`, session, R2 authorization, sync, offline |
+| Access | `<PRIVATE_CLASS_INVITE>`, session, R2 authorization, sync, offline |
 | UX | one clear action, stable layout, no duplicate controls, no clipping |
 | Maintainability | typed registries, deep modules, schema validators, no god-object growth |
 

@@ -34,7 +34,7 @@ It verified these closures:
 
 Non-blocking later-stage follow-ups are to migrate remaining inline bilingual
 content into canonical copy tables during volume authoring, remove the local
-`UCL2026` literal before Stage 7 live access, cross-link recording limitations
+`<PRIVATE_CLASS_INVITE>` literal before Stage 7 live access, cross-link recording limitations
 when Stage 6 begins, and optionally make the recognition `aria-live` setting
 explicit.
 

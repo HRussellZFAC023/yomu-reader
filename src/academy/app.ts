@@ -90,7 +90,10 @@ export class AcademyApp {
             language: this.language,
             onLanguage: () => this.toggleLanguage(),
             onMute: () => this.toggleMuted(),
-            onNavigate: route => void this.go(route),
+            onNavigate: route => {
+                this.audio.playSfx('menu.confirm');
+                void this.go(route);
+            },
             onPresentationMode: mode => void this.setPresentationMode(mode),
             onEndForToday: () => void this.go('day-end'),
             onClassBoard: options.onClassBoard,

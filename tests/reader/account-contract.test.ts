@@ -76,7 +76,7 @@ describe('Reader account and Class Board client contract', () => {
             accountId: null,
             keyVersion: 1,
             createdAt: 100,
-            inviteCode: 'UCL2026',
+            inviteCode: 'CLASS-TEST-2026',
         })).toEqual({
             profileId: ACCOUNT_ID,
             deviceId: '22222222-2222-4222-8222-222222222222',

@@ -105,7 +105,7 @@ describe('Academy encrypted profile sync client', () => {
         expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile/key')).toHaveLength(2);
     });
 
-    it('gates paid profiles on Google sign-in while UCL2026 can connect anonymously', async () => {
+    it('gates paid profiles on Google sign-in while a server-designated invite can connect anonymously', async () => {
         const navigate = vi.fn();
         const paid = new AcademySyncClient({
             events: createMemoryLearnerEventRepository(),
@@ -117,9 +117,9 @@ describe('Academy encrypted profile sync client', () => {
         paid.beginGoogleLink();
         expect(navigate).toHaveBeenCalledWith('/academy/api/auth/google/start');
 
-        const ucl = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request: fakeApi() });
-        expect((await ucl.connect()).phase).toBe('ready');
-        expect(ucl.status.profile?.accountId).toBeNull();
+        const anonymousClass = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request: fakeApi() });
+        expect((await anonymousClass.connect()).phase).toBe('ready');
+        expect(anonymousClass.status.profile?.accountId).toBeNull();
     });
 
     it('surfaces pending activation and binds one paid code to one account', async () => {
@@ -614,7 +614,7 @@ describe('Academy encrypted profile sync client', () => {
         expect(screen.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('Paid codes must be linked to Google');
         expect(screen.textContent).toContain('A paid code can be activated once');
         expect(screen.textContent).toContain('a Google account can hold one paid code');
-        expect(screen.textContent).toContain('UCL2026 is the only code that can continue anonymously');
+        expect(screen.textContent).toContain('A class-provided anonymous invitation can continue without an account');
         input.value = 'PAID-CODE';
         input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
         await vi.waitFor(() => expect(action).toEqual({ kind: 'redeem', code: 'PAID-CODE' }));
@@ -632,7 +632,7 @@ describe('Academy encrypted profile sync client', () => {
         expect(screen.querySelector('input[name="pairingCode"]')).toBeNull();
         expect(screen.textContent).toContain('Sign in with Google');
         expect(screen.textContent).toContain('Paid Academy codes must be linked to Google before activation');
-        expect(screen.textContent).toContain('UCL2026 is the only code that can continue anonymously');
+        expect(screen.textContent).toContain('A class-provided anonymous invitation can continue without an account');
         expect(screen.textContent).toContain('Recover another account');
     });
 
