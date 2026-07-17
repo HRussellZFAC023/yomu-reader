@@ -206,12 +206,23 @@ export function closestRubyFragileConstrainedRow(element: HTMLElement): HTMLElem
     // Deep enough to escape inline formatting wrappers: search snippets nest
     // text in span/em/b chains 6+ deep, which a 5-ancestor walk never
     // escaped, so the clamped row was invisible to the fragile-row check.
-    for (let depth = 0; current && depth < 10; depth += 1) {
+    // COMPOSED walk: the clipping row can be a light-DOM ancestor of shadow
+    // content (web-component chrome) that parentElement never reaches.
+    for (let depth = 0; current && depth < 12; depth += 1) {
         const facts = constrainedRowStyleFacts(current);
         if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
-        current = current.parentElement;
+        current = composedAncestorElement(current);
     }
     return null;
+}
+
+// Shadow-aware parent step shared by the fragile-row walk. Mirrors the
+// composed-tree traversal the detached-reading collision detector uses.
+export function composedAncestorElement(element: HTMLElement): HTMLElement | null {
+    if (element.assignedSlot) return element.assignedSlot;
+    if (element.parentElement) return element.parentElement;
+    const root = element.getRootNode();
+    return typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 
 // The style-only clip-capability fact used by ruby-room's ancestor walk.

@@ -46,6 +46,7 @@ import {
     safeComputedStyle,
     safeElementMatches,
     selectorPairs,
+    composedAncestorElement as composedParentElement,
 } from './decoration-policy';
 
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
@@ -2699,13 +2700,6 @@ function detachedReadingIsClipped(reading: HTMLElement, rect: DOMRect): boolean 
     return false;
 }
 
-function composedParentElement(element: HTMLElement): HTMLElement | null {
-    if (element.assignedSlot) return element.assignedSlot;
-    if (element.parentElement) return element.parentElement;
-    const root = element.getRootNode();
-    return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-}
-
 function hideUnsafeDetachedReading(reading: HTMLElement): void {
     reading.dataset.yomuDetachedReadingHidden = 'unsafe-lane';
     reading.style.setProperty('display', 'none', 'important');
@@ -2721,8 +2715,12 @@ function restoreUnsafeDetachedReading(reading: HTMLElement): void {
 // clip was verified safe to open (single-line, base fits). This mirrors the
 // in-place rt policy so the two channels can never disagree on a row.
 function detachedReadingRestHidden(reading: HTMLElement): boolean {
-    const row = reading.closest<HTMLElement>('[data-yomu-clip-constrained="true"]');
-    return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== 'true');
+    // Composed walk: the stamped clip row can sit past a shadow boundary
+    // (Reddit shreddit labels), where closest() never reaches it.
+    for (let row: HTMLElement | null = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedParentElement(row)) {
+        if (row.dataset.yomuClipConstrained === 'true') return row.dataset.yomuDetachedReadingOverflow !== 'true';
+    }
+    return false;
 }
 
 // Individual targets are applied one at a time, but neighboring menu rows and
@@ -2744,7 +2742,10 @@ function uniqueElements(elements: HTMLElement[]): HTMLElement[] {
     return [...new Set(elements)];
 }
 
-const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
+// Aligned with the collision detector's composed-tree walk depth: the clip
+// box a detached reading can spill into may sit past a shadow boundary or
+// deeper than inline wrapper chains reach in 6 hops.
+const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
 const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
 const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
@@ -2759,8 +2760,8 @@ const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; prio
 // metadata, menu rows, and titles on any site.
 function openSafeDetachedReadingClips(element: HTMLElement): void {
     let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-        if (!current.querySelector('.jpdb-reader-detached-furi')) continue;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
+        if (!queryAllPiercingShadow(current, '.jpdb-reader-detached-furi').length) continue;
         // Collapsible descriptions and accordions own their overflow. Opening
         // it for an out-of-flow reading lets annotated paint escape the panel
         // and overlap neighbouring media after expansion.
@@ -4417,7 +4418,14 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     // their readings stay visible at rest by default, re-hidden only under the
     // opt-in hover-only root mode. Search cards/headings remain "true" and CSS
     // removes their rt from in-place layout while retaining word lookup.
-    if (!renderTarget.suppressRuby) {
+    // The stamp applies to BOTH channels: detached (suppressRuby) readings are
+    // absolutely positioned with width:max-content and SPILL a closed clip box
+    // horizontally — the spill raises the row's scrollWidth and iOS applies
+    // the row's own text-overflow to the native base (共有 → 共… on the m.youtube
+    // Shorts action rail). Stamping lets the rest-hide rule keep readings out
+    // of any clip the safe-open pass cannot verify, so the two channels never
+    // disagree on a row.
+    {
         const clipRow = closestRubyFragileConstrainedRow(target.parent);
         if (clipRow) {
             clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow)
