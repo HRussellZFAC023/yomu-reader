@@ -447,9 +447,15 @@
 
 .academy-world-screen [data-practice-complete='true'] [role='status'],
 [data-practice-complete='true'] [role='status'] {
+    width: fit-content;
     animation: academy-practice-complete-pulse 220ms ease-out 1;
     border-left: 3px solid color-mix(in srgb, var(--academy-accent) 78%, var(--academy-paper-ink));
-    padding-left: 8px;
+    padding: 3px 10px 3px 8px;
+    /* Paper chip: the cafe's status escapes its paper and lands on the dark
+       stage (measured x=74 vs paper x=379), where paper ink is invisible.
+       Carrying its own paper keeps the confirmation legible on any surface. */
+    background: color-mix(in srgb, var(--academy-paper) 96%, transparent);
+    box-shadow: 2px 3px 0 rgba(8, 10, 9, 0.24);
     color: color-mix(in srgb, var(--academy-accent) 46%, var(--academy-paper-ink));
     font-size: 0.85rem;
     font-weight: 750;
@@ -509,4 +515,14 @@
 .academy-world-screen[data-current-place='classroom'] .academy-world-hud::before,
 .academy-world-screen[data-current-place='street'] .academy-world-hud::before {
     display: none;
+}
+
+/* Token-order word pills (courtyard notice board, journal recall) are dark
+   grey chips, but their EN gloss reuses the paper-ink support colour —
+   measured #615b50 on #6b6b6b, a 1.25:1 ratio at 10.5px, i.e. invisible to
+   the kana-zero learner the gloss exists for. Re-ink the gloss chip-side;
+   the JA text on these pills is already white. */
+.academy-world-token-order-option .academy-world-practice-choice-support,
+.academy-world-screen[data-scene-motif] .academy-world-token-order-option .academy-world-practice-choice-support {
+    color: rgba(255, 255, 255, 0.78);
 }
