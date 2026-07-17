@@ -20889,6 +20889,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
   }
+  function isAppleTouchBrowser() {
+    if (typeof navigator === "undefined") return false;
+    const userAgent = navigator.userAgent ?? "";
+    const platform = navigator.platform ?? "";
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+  }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
     [167772160, 184549375],
@@ -20975,7 +20981,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     YOMU_SHARED_PUBLIC_PROXY_URL,
     "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/"
   ];
-  function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
+  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
     try {
@@ -20994,7 +21000,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
   }
   function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
-    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp$1() && isCrossOriginHttpUrl(targetUrl);
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
   }
   function isKnownCorsBlockedPublicAudioCdnUrl(target) {
     try {
@@ -21011,7 +21017,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function builtInProxyUrls(targetUrl, options) {
     if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
-    return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl$1(targetUrl, proxyUrl)).filter((url) => Boolean(url));
+    return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {
@@ -21064,7 +21070,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isLocalHostedBrowserCorsTarget(target, method) {
     return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
   }
-  function isHostedGithubPagesApp$1() {
+  function shouldPreferConfiguredProxyForJpdbApi(targetUrl) {
+    if (!isJpdbApiUrl(targetUrl)) return false;
+    return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
+  }
+  function isJpdbApiUrl(url) {
+    try {
+      const target = new URL(url);
+      return target.hostname === "jpdb.io" && target.pathname.startsWith("/api/v1/");
+    } catch {
+      return false;
+    }
+  }
+  function isCrossOriginJpdbApiPage() {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(location.href).origin !== "https://jpdb.io";
+    } catch {
+      return false;
+    }
+  }
+  function isHostedGithubPagesApp() {
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
@@ -21193,7 +21219,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-    const configuredUrl = configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl);
+    const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
     const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
     const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
@@ -217324,12 +217350,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reader.readAsDataURL(blob);
     });
   }
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
-  }
   const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
   function parseJpdbAudioData(value) {
     return value.split(",").map(normalizeJpdbAudioGroup).filter(Boolean);
@@ -236735,47 +236755,6 @@ ${component.reading}`;
     const shouldPreferProxy = Boolean(configuredProxy) && shouldPreferConfiguredProxyForJpdbApi(url);
     const candidates = shouldPreferProxy ? [configuredProxy, url] : [url, configuredProxy];
     return [...new Set(candidates.filter((candidate2) => Boolean(candidate2)))];
-  }
-  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
-    const proxy = configuredProxyUrl.trim();
-    if (!proxy) return null;
-    try {
-      const url = new URL(proxy);
-      url.searchParams.set("url", targetUrl);
-      return url.href;
-    } catch {
-      return null;
-    }
-  }
-  function shouldPreferConfiguredProxyForJpdbApi(url) {
-    if (!isJpdbApiUrl(url)) return false;
-    return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
-  }
-  function isJpdbApiUrl(url) {
-    try {
-      const target = new URL(url);
-      return target.hostname === "jpdb.io" && target.pathname.startsWith("/api/v1/");
-    } catch {
-      return false;
-    }
-  }
-  function isHostedGithubPagesApp() {
-    if (typeof location === "undefined") return false;
-    try {
-      const current = new URL(location.href);
-      const path = current.pathname.replace(/\/index\.html$/, "/");
-      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-    } catch {
-      return false;
-    }
-  }
-  function isCrossOriginJpdbApiPage() {
-    if (typeof location === "undefined") return false;
-    try {
-      return new URL(location.href).origin !== "https://jpdb.io";
-    } catch {
-      return false;
-    }
   }
   function postJsonWithUserscriptRequest(request2, url, headers, data) {
     return new Promise((resolve, reject) => {

@@ -42,6 +42,12 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  function isAppleTouchBrowser() {
+    if (typeof navigator === "undefined") return false;
+    const userAgent2 = navigator.userAgent ?? "";
+    const platform = navigator.platform ?? "";
+    return /iPad|iPhone|iPod/i.test(userAgent2) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent2) || platform === "MacIntel");
+  }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
     [167772160, 184549375],
@@ -6750,12 +6756,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function quoteAnkiSearch(term) {
     return `"${escapeAnkiSearchText(term)}"`;
-  }
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent2 = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent2) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent2) || platform === "MacIntel");
   }
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);

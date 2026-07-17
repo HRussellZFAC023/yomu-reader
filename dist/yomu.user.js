@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.171
+// @version 1.6.172
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.171#sha256=BWIXBLtVXa5T4wwZUXH/4UORmtIUppC6Lkdk0GiEGSE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.171#sha256=FCjTAUlb/GgzXlf5EN6bbTr5hwW8m8++vXkqBW0KZoc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.171#sha256=Tu1NWudmShpzhmlJuM5WDOBiwsAQk1cv21yvInKgwSM=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.171#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.171#sha256=GbRrU+uygZAvVrjuOS5y+y/yY/pWG4+sb5QeeCPqeNM=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.171#sha256=3pOz/WaBX/GUR6F0nR9ave2OUeQ+KxtMfMF7Cs0sZ8Q=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.171#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.172#sha256=RYBjXnp+wCg0eQbke/sqL0cDXEXiyIGdUpRZTghWAaQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.172#sha256=FCjTAUlb/GgzXlf5EN6bbTr5hwW8m8++vXkqBW0KZoc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.172#sha256=Tu1NWudmShpzhmlJuM5WDOBiwsAQk1cv21yvInKgwSM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.172#sha256=XkOg9qVJZsb75xuE95RIrviDh97V/rYqajn9xPuxPoY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.172#sha256=Xsq723WbuSA2PYUXPa5BRChtmjxOXJ07lXxEyf1hkBI=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.172#sha256=3pOz/WaBX/GUR6F0nR9ave2OUeQ+KxtMfMF7Cs0sZ8Q=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.172#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -9404,6 +9404,12 @@ function getAudioSourceSignature(source) {
   source.voice.trim()
   ].join("\0");
 }
+function isAppleTouchBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+}
 const PRIVATE_IPV4_RANGES = [
   [0, 16777215],
   [167772160, 184549375],
@@ -9490,7 +9496,7 @@ const YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS = [
   YOMU_SHARED_PUBLIC_PROXY_URL,
   "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/"
 ];
-function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
+function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
   const proxyUrl = configuredProxyUrl.trim();
   if (!proxyUrl) return null;
   try {
@@ -9509,7 +9515,7 @@ function isSharedPublicProxySafeRequest(targetUrl, options) {
   return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
 }
 function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
-  return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp$1() && isCrossOriginHttpUrl(targetUrl);
+  return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
 }
 function isKnownCorsBlockedPublicAudioCdnUrl(target) {
   try {
@@ -9526,7 +9532,7 @@ function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
 }
 function builtInProxyUrls(targetUrl, options) {
   if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
-  return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl$1(targetUrl, proxyUrl)).filter((url) => Boolean(url));
+  return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
 }
 function isJpdbPublicAudioUrl(targetUrl) {
   try {
@@ -9579,7 +9585,27 @@ function isJpdbPublicLookupTarget(target, method) {
 function isLocalHostedBrowserCorsTarget(target, method) {
   return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
 }
-function isHostedGithubPagesApp$1() {
+function shouldPreferConfiguredProxyForJpdbApi(targetUrl) {
+  if (!isJpdbApiUrl(targetUrl)) return false;
+  return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
+}
+function isJpdbApiUrl(url) {
+  try {
+  const target = new URL(url);
+  return target.hostname === "jpdb.io" && target.pathname.startsWith("/api/v1/");
+  } catch {
+  return false;
+  }
+}
+function isCrossOriginJpdbApiPage() {
+  if (typeof location === "undefined") return false;
+  try {
+  return new URL(location.href).origin !== "https://jpdb.io";
+  } catch {
+  return false;
+  }
+}
+function isHostedGithubPagesApp() {
   if (typeof location === "undefined") return false;
   try {
   const current = new URL(location.href);
@@ -9708,7 +9734,7 @@ function headerValue(headers, name) {
 function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
   const proxySafe = isProxySafeRequest(targetUrl, options);
   const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-  const configuredUrl = configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl);
+  const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
   const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
   const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
   const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
@@ -10292,12 +10318,6 @@ function readBlobAsDataUrl(blob, errorMessage2 = "Could not read media.") {
   reader.onerror = () => reject(reader.error ?? new Error(errorMessage2));
   reader.readAsDataURL(blob);
   });
-}
-function isAppleTouchBrowser() {
-  if (typeof navigator === "undefined") return false;
-  const userAgent = navigator.userAgent ?? "";
-  const platform = navigator.platform ?? "";
-  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
 }
 const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
 function parseJpdbAudioData(value) {
@@ -26529,47 +26549,6 @@ function jpdbApiFetchCandidates(url, proxyUrl) {
   const candidates = shouldPreferProxy ? [configuredProxy, url] : [url, configuredProxy];
   return [...new Set(candidates.filter((candidate) => Boolean(candidate)))];
 }
-function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
-  const proxy = configuredProxyUrl.trim();
-  if (!proxy) return null;
-  try {
-  const url = new URL(proxy);
-  url.searchParams.set("url", targetUrl);
-  return url.href;
-  } catch {
-  return null;
-  }
-}
-function shouldPreferConfiguredProxyForJpdbApi(url) {
-  if (!isJpdbApiUrl(url)) return false;
-  return isCrossOriginJpdbApiPage() || isHostedGithubPagesApp() || isAppleTouchBrowser();
-}
-function isJpdbApiUrl(url) {
-  try {
-  const target = new URL(url);
-  return target.hostname === "jpdb.io" && target.pathname.startsWith("/api/v1/");
-  } catch {
-  return false;
-  }
-}
-function isHostedGithubPagesApp() {
-  if (typeof location === "undefined") return false;
-  try {
-  const current = new URL(location.href);
-  const path = current.pathname.replace(/\/index\.html$/, "/");
-  return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-  } catch {
-  return false;
-  }
-}
-function isCrossOriginJpdbApiPage() {
-  if (typeof location === "undefined") return false;
-  try {
-  return new URL(location.href).origin !== "https://jpdb.io";
-  } catch {
-  return false;
-  }
-}
 function postJsonWithUserscriptRequest(request, url, headers, data) {
   return new Promise((resolve, reject) => {
   const handleLoad = (response) => resolve({
@@ -36360,8 +36339,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.171"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.171"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.172"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.172"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36479,7 +36458,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.171"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.172"}`;
   } catch {
   return null;
   }

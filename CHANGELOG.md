@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.172] - 2026-07-17
+
+### Changed
+
+- The smoke-test harness was fully triaged: 21 verified headless regression guards now run nightly in CI as one aggregate, 38 live-site/manual harnesses moved to a documented manual directory, and 10 scripts whose scenarios are covered by unit tests were removed. Regressions those scripts guarded can no longer slip through silently.
+- The jpdb.io proxy-candidate policy now has a single owner module, with tests pinning the candidate order per environment; five verbatim policy copies were removed from the API client without touching its rate-limit and backoff behavior.
+
 ## [1.6.171] - 2026-07-17
 
 ### Changed
