@@ -4,7 +4,7 @@ import {
     blobFromUserscriptResponse,
     imageMimeTypeFromUrl,
     sniffImageMimeType,
-} from '../../src/reader/ocr/controller';
+} from '../../src/reader/ocr/ocr-providers';
 
 // Regression: BookWalker (and any tainted cross-origin image) OCR was dead on iPad/Safari
 // because the GM-fetched clean source image was wrapped in a TYPELESS Blob. The reader
