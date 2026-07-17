@@ -134,6 +134,7 @@
     "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "manual:reader-sites": "node scripts/manual/reader-sites-smoke.mjs",
     "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
+    "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:constrained-gate && npm run smoke:reddit-chrome",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",

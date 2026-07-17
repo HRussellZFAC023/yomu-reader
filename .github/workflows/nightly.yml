@@ -1,0 +1,37 @@
+name: Nightly smokes
+
+# NB-50: headless-capable regression-guard smokes that are not on the fast
+# per-push CI gate. They reproduce historical bugs against the built userscript
+# in fixture-served headless browsers. Run once nightly (and on demand) so the
+# per-push gate stays fast while these guards still catch regressions.
+
+on:
+  schedule:
+    # 03:17 UTC daily — off the hour to avoid the top-of-hour scheduler surge.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-smokes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      YOMU_PLAYWRIGHT_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install smoke browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Build userscript + sync docs
+        run: |
+          npm run build
+          node scripts/sync-docs-userscript.cjs
+      - name: Run nightly smokes
+        run: npm run smoke:nightly
