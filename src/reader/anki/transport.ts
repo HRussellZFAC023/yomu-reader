@@ -125,6 +125,6 @@ function isHttpUrl(url: URL): boolean {
     return url.protocol === 'http:' || url.protocol === 'https:';
 }
 
-function safeLocationHref(): string {
+export function safeLocationHref(): string {
     return typeof location === 'undefined' ? '' : location.href;
 }

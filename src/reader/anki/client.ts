@@ -28,6 +28,7 @@ import {
     hasUserscriptAnkiBridge,
     isAnkiConnectAvailabilityError,
     postAnkiJson,
+    safeLocationHref,
 } from './transport';
 import { resolvedAnkiDeckName, resolvedAnkiModelName } from './anki-settings';
 import {
@@ -2088,10 +2089,6 @@ function visibleArea(element: HTMLElement): number {
 
 function ankiEaseFromGrade(grade: JPDBGrade): number {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
-}
-
-function safeLocationHref(): string {
-    return typeof location === 'undefined' ? '' : location.href;
 }
 
 function safeDocumentTitle(): string {
