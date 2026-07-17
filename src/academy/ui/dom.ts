@@ -89,6 +89,19 @@ export function element<K extends keyof HTMLElementTagNameMap>(tag: K, className
     return node;
 }
 
+/**
+ * Opaque per-render token for a practice/choice option button.
+ *
+ * Renderers must NEVER write a choice's own content id (or any value derived from
+ * which option is correct) into the DOM as an attribute, id, or class -- a devtools
+ * user could read the answer before answering. Correctness must only ever be checked
+ * against a value held in JS closure state. This token exists purely so tests and
+ * styling hooks can address "the Nth rendered option" without revealing anything.
+ */
+export function choiceToken(index: number): string {
+    return `option-${index}`;
+}
+
 export function setBusy(button: HTMLButtonElement, busy: boolean, label: string): void {
     button.disabled = busy;
     button.setAttribute('aria-busy', String(busy));

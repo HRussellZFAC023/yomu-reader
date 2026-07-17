@@ -2,7 +2,7 @@ import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { WorldPractice } from '../domain/world-locations';
 import { completedWorldPracticeEvaluation } from '../domain/world-practice-evidence';
-import { element } from './dom';
+import { choiceToken, element } from './dom';
 
 interface JapanCentreWorldOptions {
     readonly language: AcademyLanguage;
@@ -106,10 +106,10 @@ export function renderJapanCentreGiftCounter(options: JapanCentreWorldOptions): 
         tags.append(button);
     });
 
-    options.practice.choices.forEach(choice => {
+    options.practice.choices.forEach((choice, index) => {
         const button = element('button', 'academy-world-practice-option');
         button.type = 'button';
-        button.dataset.choiceId = choice.id;
+        button.dataset.choiceId = choiceToken(index);
         const japanese = element('span', 'academy-world-practice-choice-ja');
         japanese.lang = 'ja';
         japanese.textContent = choice.label.ja;

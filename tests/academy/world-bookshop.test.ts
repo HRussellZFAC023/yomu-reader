@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
 const progress = {
     completedScenes: [],
@@ -49,7 +50,7 @@ describe('Bookshop world', () => {
         listen.click();
         await Promise.resolve();
         expect(onListen).toHaveBeenCalledWith('じしょが ありますか。');
-        catalogue.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(catalogue, 'はい、あります。')?.click();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'bookshop-dictionary-available',
             'action:world-stamp:bookshop',
@@ -90,7 +91,7 @@ describe('Bookshop world', () => {
         catalogue.querySelector<HTMLButtonElement>('[data-catalogue-entry="small-change"]')?.click();
         catalogue.querySelector<HTMLButtonElement>('[data-bookshop-listen]')?.click();
         await Promise.resolve();
-        catalogue.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(catalogue, 'はい、たくさん あります。')?.click();
         expect(catalogue.querySelector<HTMLElement>('[data-bookshop-question]')?.dataset.practiceComplete).toBe('true');
         const reading = catalogue.querySelector<HTMLElement>('[data-bookshop-reading]')!;
         expect(reading.textContent).toContain('川から 大きな もも');

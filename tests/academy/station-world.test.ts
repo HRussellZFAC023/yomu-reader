@@ -1,5 +1,6 @@
 import { themeForRoute } from '../../src/academy/routing/contract';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
 const PROGRESS = {
     completedScenes: [],
@@ -84,7 +85,7 @@ describe('Station world presentation', () => {
         board.querySelector<HTMLButtonElement>('[data-station-primary-action]')?.click();
         await Promise.resolve();
 
-        const correct = board.querySelector<HTMLButtonElement>('[data-choice-id="konbini"]')!;
+        const correct = worldChoiceButtonByLabel(board, 'コンビニ')!;
         correct.click();
         correct.click();
         expect(onPracticeComplete).toHaveBeenCalledTimes(1);

@@ -2,7 +2,7 @@ import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { WorldPractice } from '../domain/world-locations';
 import { completedWorldPracticeEvaluation } from '../domain/world-practice-evidence';
-import { element } from './dom';
+import { choiceToken, element } from './dom';
 
 interface StationAnnouncementOptions {
     readonly host: HTMLElement;
@@ -91,10 +91,10 @@ function stationListeningTask(options: StationAnnouncementOptions): HTMLElement 
     choices.setAttribute('aria-label', language === 'ja' ? '答えを選ぶ' : 'Choose an answer');
 
     let completed = false;
-    practice.choices.forEach(choice => {
+    practice.choices.forEach((choice, index) => {
         const answer = element('button', 'academy-world-practice-option');
         answer.type = 'button';
-        answer.dataset.choiceId = choice.id;
+        answer.dataset.choiceId = choiceToken(index);
         const japanese = element('span', 'academy-world-practice-choice-ja');
         japanese.lang = 'ja';
         japanese.textContent = choice.label.ja;

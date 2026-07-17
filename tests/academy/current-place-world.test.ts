@@ -16,6 +16,7 @@ import {
     type WorldPlaceId,
 } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButton, worldChoiceButtonByLabel } from './helpers/world-choice';
 
 const ALL_PLACES: readonly WorldPlaceId[] = [
     'courtyard', 'classroom', 'library', 'cafe', 'lab', 'street', 'station', 'konbini', 'ramen', 'japan-centre', 'home', 'park', 'station-platform',
@@ -256,7 +257,7 @@ describe('Academy current-place world', () => {
 
         screen.querySelector<HTMLButtonElement>('[data-activity-route="review"]')?.click();
         expect(onActivity).toHaveBeenCalledWith('review');
-        screen.querySelector<HTMLButtonElement>('[data-world-practice="library-dictionary-location"] [data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(screen.querySelector('[data-world-practice="library-dictionary-location"]')!, '図書館')?.click();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'library-dictionary-location',
             'action:world-stamp:library',
@@ -273,7 +274,7 @@ describe('Academy current-place world', () => {
         expect(cafeScreen.querySelector('[data-activity-route="aakash-meet"]')).toBeNull();
         expect(onActivity).toHaveBeenCalledTimes(1);
         cafeScreen.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')?.click();
-        cafeScreen.querySelector<HTMLButtonElement>('[data-world-practice="cafe-coffee-price"] [data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(cafeScreen.querySelector('[data-world-practice="cafe-coffee-price"]')!, '三百円')?.click();
         expect(onPracticeComplete).toHaveBeenLastCalledWith(
             'cafe-coffee-price',
             'action:world-stamp:cafe',
@@ -601,7 +602,7 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector<HTMLElement>('[data-world-character="rie"]')?.dataset.presence).toBe('erasing-board-corner');
         expect(screen.querySelector<HTMLElement>('[data-world-character="aakash"]')?.dataset.presence).toBe('packing-own-notes');
         expect(screen.querySelector<HTMLElement>('[data-world-character="felix"]')?.dataset.presence).toBe('checking-own-example');
-        practice.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(practice, 'あってます。')?.click();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'classroom-board-confirmation',
             'action:world-stamp:classroom',
@@ -1241,7 +1242,7 @@ describe('Academy current-place world', () => {
         await Promise.resolve();
         expect(screen.querySelector('.academy-world-practice-status')?.textContent).toBe('Good. Now choose the final word.');
 
-        screen.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')!.click();
+        worldChoiceButtonByLabel(screen, 'お願いします')!.click();
         expect(practice.dataset.practiceComplete).toBe('true');
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'lab-classroom-repair',
@@ -1402,7 +1403,7 @@ describe('Academy current-place world', () => {
         await Promise.resolve();
         expect(onListen).toHaveBeenCalledWith('このかばんをください。');
         counter.querySelector<HTMLButtonElement>('[data-counter-tag="bag"]')?.click();
-        purpose.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(purpose, 'このかばんをください。')?.click();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'japan-centre-bag-request',
             'action:world-stamp:japan-centre',
@@ -1577,12 +1578,12 @@ describe('Academy current-place world', () => {
         expect(transcript.hidden).toBe(false);
 
         const incorrect = practice.choices.find(choice => choice.id !== practice.correctChoiceId)!;
-        screen.querySelector<HTMLButtonElement>(`[data-choice-id="${incorrect.id}"]`)?.click();
+        worldChoiceButton(screen, practice.choices, incorrect.id)?.click();
         expect(onPracticeComplete).not.toHaveBeenCalled();
         expect(screen.querySelector('.academy-world-practice-status')?.textContent).toContain('choose another answer');
 
-        screen.querySelector<HTMLButtonElement>(`[data-choice-id="${practice.correctChoiceId}"]`)?.click();
-        screen.querySelector<HTMLButtonElement>(`[data-choice-id="${practice.correctChoiceId}"]`)?.click();
+        worldChoiceButton(screen, practice.choices, practice.correctChoiceId)?.click();
+        worldChoiceButton(screen, practice.choices, practice.correctChoiceId)?.click();
         expect(screen.querySelector<HTMLElement>('[data-world-practice]')?.dataset.practiceComplete).toBe('true');
         expect(onPracticeComplete).toHaveBeenCalledTimes(1);
         expect(onPracticeComplete).toHaveBeenCalledWith(
@@ -1615,7 +1616,7 @@ describe('Academy current-place world', () => {
             onTravel: vi.fn(), onActivity: vi.fn(), onClaimStamp: vi.fn(), onPracticeComplete: onStationComplete,
         });
         station.querySelector<HTMLButtonElement>('[data-world-listen="station-bookshop-location"]')?.click();
-        station.querySelector<HTMLButtonElement>('[data-world-practice="station-bookshop-location"] [data-choice-id="bookshop"]')?.click();
+        worldChoiceButtonByLabel(station.querySelector('[data-world-practice="station-bookshop-location"]')!, '本屋')?.click();
         expect(onStationComplete).toHaveBeenCalledWith(
             'station-bookshop-location',
             'action:world-stamp:station',
@@ -1671,7 +1672,7 @@ describe('Academy current-place world', () => {
             expect(street.querySelector('[data-world-character="peter"] .academy-sprite')).toBeNull();
             expect(street.querySelector('[data-world-character="peter"] .academy-world-character-silhouette')).not.toBeNull();
         }
-        street.querySelector<HTMLButtonElement>('[data-world-practice="street-cafe-direction"] [data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(street.querySelector('[data-world-practice="street-cafe-direction"]')!, 'まっすぐ行って、右です。')?.click();
         expect(onStreetComplete).toHaveBeenCalledWith(
             'street-cafe-direction',
             'action:world-stamp:street',

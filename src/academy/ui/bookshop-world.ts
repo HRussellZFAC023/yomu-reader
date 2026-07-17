@@ -4,7 +4,7 @@ import type { ActivityEvaluation } from '../domain/activity-runtime';
 import { completedWorldPracticeEvaluation } from '../domain/world-practice-evidence';
 import { createMegaPackReaderBeat } from '../content/mega-pack-reader';
 import type { StoryReaderModel } from '../minigames/activity-kit';
-import { element } from './dom';
+import { choiceToken, element } from './dom';
 
 interface BookshopWorldOptions {
     readonly language: AcademyLanguage;
@@ -165,10 +165,10 @@ function bookshopQuestion(options: BookshopWorldOptions): HTMLElement {
     const readingSample = bookshopReadingSample(options);
     readingSample.hidden = true;
 
-    options.practice.choices.forEach(choice => {
+    options.practice.choices.forEach((choice, index) => {
         const answer = element('button', 'academy-bookshop-answer');
         answer.type = 'button';
-        answer.dataset.choiceId = choice.id;
+        answer.dataset.choiceId = choiceToken(index);
         const japanese = element('span', 'academy-bookshop-answer-ja');
         japanese.lang = 'ja';
         japanese.textContent = choice.label.ja;

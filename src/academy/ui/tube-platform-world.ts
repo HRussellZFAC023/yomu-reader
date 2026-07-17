@@ -2,7 +2,7 @@ import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { WorldPractice } from '../domain/world-locations';
 import { completedWorldPracticeEvaluation } from '../domain/world-practice-evidence';
-import { element } from './dom';
+import { choiceToken, element } from './dom';
 
 interface TubePlatformOptions {
     readonly host: HTMLElement;
@@ -92,7 +92,7 @@ function tubeListeningTask(options: TubePlatformOptions): HTMLElement {
     practice.choices.forEach((choice, index) => {
         const answer = element('button', 'academy-world-practice-option academy-tube-route-option');
         answer.type = 'button';
-        answer.dataset.choiceId = choice.id;
+        answer.dataset.choiceId = choiceToken(index);
         const marker = element('span', 'academy-tube-route-marker');
         marker.setAttribute('aria-hidden', 'true');
         marker.textContent = String(index + 1).padStart(2, '0');

@@ -1,6 +1,7 @@
 import { canRenderAcademyCastPortrait } from '../../src/academy/domain/cast-registry';
 import { projectWorldPlace } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButton } from './helpers/world-choice';
 
 const progress = {
     completedScenes: [],
@@ -35,6 +36,7 @@ describe('Japan Centre world stream', () => {
     });
 
     it('moves focus through the paper counter and never renders an uncleared cast portrait', () => {
+        const practice = projectWorldPlace('japan-centre', progress).practice!;
         const onIntroductionComplete = vi.fn();
         const onPracticeComplete = vi.fn();
         const screen = renderWorldPlaceScreen({
@@ -55,8 +57,9 @@ describe('Japan Centre world stream', () => {
         expect(document.activeElement).toBe(screen.querySelector('[data-world-listen="japan-centre-bag-request"]'));
 
         screen.querySelector<HTMLButtonElement>('[data-counter-tag="bag"]')?.click();
-        expect(document.activeElement).toBe(screen.querySelector('[data-choice-id="correct"]'));
-        screen.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        const correctResponse = worldChoiceButton(screen, practice.choices, practice.correctChoiceId);
+        expect(document.activeElement).toBe(correctResponse);
+        correctResponse?.click();
         expect(document.activeElement).toBe(screen.querySelector('[role="status"]'));
         expect(onPracticeComplete).toHaveBeenCalledOnce();
 

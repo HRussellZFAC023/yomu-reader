@@ -2,7 +2,7 @@ import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { WorldPractice, WorldStamp } from '../domain/world-locations';
 import { completedWorldPracticeEvaluation } from '../domain/world-practice-evidence';
-import { element } from './dom';
+import { choiceToken, element } from './dom';
 
 export interface CafeOrderOptions {
     readonly language: AcademyLanguage;
@@ -66,10 +66,10 @@ export function renderCafeOrder(options: CafeOrderOptions): HTMLElement {
     choices.setAttribute('aria-labelledby', title.id);
     const orderScene = cafeOrderScene(options);
     let complete = false;
-    options.practice.choices.forEach(choice => {
+    options.practice.choices.forEach((choice, index) => {
         const answer = element('button', 'academy-cafe-order-option');
         answer.type = 'button';
-        answer.dataset.choiceId = choice.id;
+        answer.dataset.choiceId = choiceToken(index);
         const japanese = element('span', 'academy-cafe-order-option-ja academy-assessed-japanese');
         japanese.setAttribute('data-jpdb-reader-surface-ignore', '');
         japanese.lang = 'ja';

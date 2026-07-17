@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { projectWorldPlace } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
 const FIRST_VISIT = {
     completedScenes: [],
@@ -86,9 +87,9 @@ describe('Academy Tube platform world', () => {
         expect(purpose.querySelector<HTMLElement>('.academy-tube-transcript')?.hidden).toBe(false);
         expect(purpose.querySelector<HTMLElement>('.academy-tube-route-options')?.hidden).toBe(false);
 
-        purpose.querySelector<HTMLButtonElement>('[data-choice-id="bus-2h"]')!.click();
+        worldChoiceButtonByLabel(purpose, 'バス　２時間')!.click();
         expect(purpose.querySelector('[role="status"]')?.textContent).toContain('usual route');
-        purpose.querySelector<HTMLButtonElement>('[data-choice-id="tube-30"]')!.click();
+        worldChoiceButtonByLabel(purpose, '地下鉄　３０分')!.click();
         expect(onPracticeComplete).toHaveBeenCalledOnce();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'tube-platform-usual-thirty',

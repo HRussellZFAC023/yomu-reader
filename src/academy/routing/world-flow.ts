@@ -217,9 +217,17 @@ class WorldFlow implements AcademyRouteFlow {
             onPracticeComplete: (_practiceId, stampId, evaluation) => {
                 this.locationAudio.succeed(place);
                 if (evaluation) void this.options.evidence.recordWorldPractice?.(evaluation);
-                void context.go(context.checkpoint.route, {
-                    seenIntroductions: markIntroductionSeen(context.checkpoint.seenIntroductions, stampId),
-                });
+                // `complete()` in world-screen.ts (and the sibling world-* renderers) has
+                // just written the success confirmation into the practice's status text.
+                // Going to the route immediately re-renders the whole screen synchronously
+                // enough to out-race the browser's paint, so the learner never actually sees
+                // the written confirmation. Hold the re-render open long enough for the
+                // confirmation to be seen before swapping the screen out.
+                setTimeout(() => {
+                    void context.go(context.checkpoint.route, {
+                        seenIntroductions: markIntroductionSeen(context.checkpoint.seenIntroductions, stampId),
+                    });
+                }, 1200);
             },
             // Route-flow harnesses and older embedded hosts may not mount an audio director.
             // The in-world radio remains optional in that case instead of blocking travel.

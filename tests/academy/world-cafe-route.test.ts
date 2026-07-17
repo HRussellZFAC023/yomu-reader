@@ -2,6 +2,7 @@ import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import { createWorldFlow } from '../../src/academy/routing/world-flow';
 import type { AcademyShell } from '../../src/academy/ui/shell';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
 afterEach(() => document.body.replaceChildren());
 
@@ -107,7 +108,7 @@ describe('World Cafe route', () => {
         expect(first.querySelector<HTMLElement>('.academy-cafe-order-options')?.hidden).toBe(false);
         expect(first.querySelectorAll('.academy-cafe-order-option .academy-assessed-japanese')).toHaveLength(3);
         expect(first.querySelectorAll('.academy-cafe-order-option [data-jpdb-reader-surface-ignore]')).toHaveLength(3);
-        first.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(first, '三百円')?.click();
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'cafe-coffee-price',
             'action:world-stamp:cafe',
@@ -186,8 +187,17 @@ describe('World Cafe route', () => {
         current?.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
         await Promise.resolve();
         expect(play).toHaveBeenCalledWith('駅の前に本屋があります。');
-        current?.querySelector<HTMLButtonElement>('[data-choice-id="bookshop"]')?.click();
-        current?.querySelector<HTMLButtonElement>('[data-choice-id="bookshop"]')?.click();
+        vi.useFakeTimers();
+        try {
+            const stationBoard = current!;
+            worldChoiceButtonByLabel(stationBoard, '本屋')?.click();
+            worldChoiceButtonByLabel(stationBoard, '本屋')?.click();
+            // The route re-render is deliberately held open briefly so the just-written
+            // success confirmation survives long enough to paint (see world-flow.ts).
+            await vi.advanceTimersByTimeAsync(1200);
+        } finally {
+            vi.useRealTimers();
+        }
         expect(go).toHaveBeenCalledTimes(1);
         expect(go).toHaveBeenCalledWith('station', {
             seenIntroductions: ['action:world-stamp:station'],
@@ -230,7 +240,15 @@ describe('World Cafe route', () => {
 
         await flow.render('cafe', context);
         current?.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')?.click();
-        current?.querySelector<HTMLButtonElement>('[data-world-practice="cafe-coffee-price"] [data-choice-id="correct"]')?.click();
+        vi.useFakeTimers();
+        try {
+            worldChoiceButtonByLabel(current!.querySelector('[data-world-practice="cafe-coffee-price"]')!, '三百円')?.click();
+            // The route re-render is deliberately held open briefly so the just-written
+            // success confirmation survives long enough to paint (see world-flow.ts).
+            await vi.advanceTimersByTimeAsync(1200);
+        } finally {
+            vi.useRealTimers();
+        }
 
         expect(recordWorldPractice).toHaveBeenCalledWith(expect.objectContaining({
             attempt: expect.objectContaining({ activityId: 'activity:world:cafe-coffee-price' }),
@@ -273,7 +291,15 @@ describe('World Cafe route', () => {
         };
 
         await flow.render('street', context);
-        current?.querySelector<HTMLButtonElement>('[data-world-practice="street-cafe-direction"] [data-choice-id="correct"]')?.click();
+        vi.useFakeTimers();
+        try {
+            worldChoiceButtonByLabel(current!.querySelector('[data-world-practice="street-cafe-direction"]')!, 'まっすぐ行って、右です。')?.click();
+            // The route re-render is deliberately held open briefly so the just-written
+            // success confirmation survives long enough to paint (see world-flow.ts).
+            await vi.advanceTimersByTimeAsync(1200);
+        } finally {
+            vi.useRealTimers();
+        }
 
         expect(recordWorldPractice).toHaveBeenCalledWith(expect.objectContaining({
             attempt: expect.objectContaining({

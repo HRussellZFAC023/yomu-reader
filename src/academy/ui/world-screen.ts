@@ -17,7 +17,7 @@ import { completedWorldPracticeEvaluation } from '../domain/world-practice-evide
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { LearnerEvent, LearnerProfileSnapshot } from '../domain/learner-record';
 import type { CharacterDirectoryEntryProjection, CharacterRevisitPath } from '../domain/progress-projections';
-import { academyBackgroundPicture, backButton, copyButton, copyElement, element, screenFrame } from './dom';
+import { academyBackgroundPicture, backButton, choiceToken, copyButton, copyElement, element, screenFrame } from './dom';
 import { renderBookshopCatalogue } from './bookshop-world';
 import { renderCafeOrder } from './cafe-world';
 import { renderJapanCentreGiftCounter } from './japan-centre-world';
@@ -505,10 +505,10 @@ function worldPractice(
     const mountChoices = () => {
         if (choicesMounted) return;
         choicesMounted = true;
-        practice.choices.forEach(choice => {
+        practice.choices.forEach((choice, index) => {
             const answer = element('button', 'academy-world-practice-option');
             answer.type = 'button';
-            answer.dataset.choiceId = choice.id;
+            answer.dataset.choiceId = choiceToken(index);
             const japanese = element('span', 'academy-world-practice-choice-ja');
             japanese.lang = 'ja';
             japanese.textContent = choice.label.ja;

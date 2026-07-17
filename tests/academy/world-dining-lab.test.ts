@@ -1,5 +1,6 @@
 import { markWorldVisit, projectWorldPlace, worldRouteForPlace } from '../../src/academy/domain/world-locations';
 import { renderWorldPlaceScreen } from '../../src/academy/ui/world-screen';
+import { worldChoiceButtonByLabel } from './helpers/world-choice';
 
 afterEach(() => {
     document.body.replaceChildren();
@@ -85,7 +86,7 @@ describe('Student Dining and Language Lab current-place replays', () => {
         practice.querySelector<HTMLButtonElement>('[data-world-listen]')?.click();
         await vi.waitFor(() => expect(onListen).toHaveBeenCalledWith('もう一度お願いします。'));
         practice.querySelector<HTMLButtonElement>('.academy-lab-speaking-button')?.click();
-        practice.querySelector<HTMLButtonElement>('[data-choice-id="correct"]')?.click();
+        worldChoiceButtonByLabel(practice, 'お願いします')?.click();
 
         expect(onPracticeComplete).toHaveBeenCalledWith(
             'lab-classroom-repair',
