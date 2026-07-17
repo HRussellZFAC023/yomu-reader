@@ -1,3 +1,4 @@
+import { isRecord } from '../core/object-utils';
 import type { ReaderSettings } from '../app/types';
 import type { CloudSettingsAuthRedirectResult, CloudSettingsSyncMetadata, CloudSettingsSyncSnapshot } from './cloud-sync';
 import { requestJson, requestText } from '../network/http';
@@ -416,9 +417,6 @@ function randomBoundary(): string {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 interface GoogleTokenResponse {
     access_token?: string;

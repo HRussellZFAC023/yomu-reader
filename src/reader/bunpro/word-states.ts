@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import type { CardState } from '../app/types';
 import type { BunproClient } from './bunpro';
@@ -214,6 +215,3 @@ function objectAt(value: unknown, key: string): Record<string, unknown> | null {
     return isRecord(nested) && !Array.isArray(nested) ? nested : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}

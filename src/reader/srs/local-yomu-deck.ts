@@ -1,3 +1,4 @@
+import { isRecord } from '../core/object-utils';
 import { canonicalStudyCardIdentity } from './shared';
 
 export interface StoredYomuSrsDeck {
@@ -326,6 +327,3 @@ function nonNegativeInteger(value: unknown): number {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}

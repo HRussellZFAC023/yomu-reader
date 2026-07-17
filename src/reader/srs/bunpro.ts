@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { BunproApiError, BunproClient, type BunproReviewActionRequest } from '../bunpro/bunpro';
 import type {
@@ -437,6 +438,3 @@ function objectAt(value: unknown, key: string): Record<string, unknown> | null {
     return isRecord(nested) && !Array.isArray(nested) ? nested : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object');
-}

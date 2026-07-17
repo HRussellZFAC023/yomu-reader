@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
     compactTextLength,
@@ -1010,9 +1011,6 @@ function syncSubtitleStyleRangeControl(
     else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object');
-}
 
 export class SubtitlePlayerController {
     private root?: HTMLElement;

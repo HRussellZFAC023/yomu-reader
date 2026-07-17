@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import { Logger } from '../app/logger';
 import type { JPDBCard, JPDBToken } from '../app/types';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
@@ -560,9 +561,6 @@ function endpointUrl(baseUrl: string | undefined, endpoint: string): string {
     return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, '')}/${endpoint.replace(/^\/+/u, '')}`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object');
-}
 
 function arrayRecords(value: unknown): Array<Record<string, unknown>> {
     return Array.isArray(value) ? value.filter(isRecord) : [];

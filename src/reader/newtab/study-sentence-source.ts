@@ -1,3 +1,4 @@
+import { isRecord } from '../core/object-utils';
 import type { JPDBCard } from '../app/types';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { ImmersionKitExample } from '../immersion/kit';
@@ -73,9 +74,6 @@ function isExampleRecord(value: Record<string, unknown>): boolean {
         .some(key => typeof value[key] === 'string' && /example|sentence|\u4f8b\u6587/iu.test(value[key]));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function splitJapaneseSentences(value: string): string[] {
     return value

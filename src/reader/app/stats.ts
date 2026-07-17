@@ -1,3 +1,4 @@
+import { isRecord } from '../core/object-utils';
 import { primaryCardState } from '../cards/state';
 import { ACADEMY_SRS_LABEL } from './constants';
 import type { CardState, JPDBCard } from './types';
@@ -825,6 +826,3 @@ function numberValue(value: unknown): number {
     return Number.isFinite(number) ? number : 0;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}

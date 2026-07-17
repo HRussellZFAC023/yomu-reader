@@ -1,3 +1,4 @@
+import { isRecord } from '../core/object-utils';
 import { pruneOldestCacheEntries } from '../core/cache-utils';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { formatUiText, uiText } from '../app/i18n';
@@ -627,9 +628,6 @@ function text(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function titleSlugFromId(id: string): string {
     const parts = id.split('_');

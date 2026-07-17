@@ -1,3 +1,4 @@
+import { isRecord } from '../../core/object-utils';
 import { glossaryValueToText } from './glossary-text';
 
 export interface GlossaryRenderOptions {
@@ -470,9 +471,6 @@ function camelToKebabCase(value: string): string {
     return value.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function escapeHtml(value: string): string {
     return value

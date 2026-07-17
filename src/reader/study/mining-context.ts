@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import type { ImmersionKitExample } from '../immersion/kit';
 import { Logger } from '../app/logger';
 import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
@@ -337,9 +338,6 @@ function isMiningSourceKind(value: unknown): value is MiningSourceKind {
     return typeof value === 'string' && (MINING_SOURCE_KINDS as readonly string[]).includes(value);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object');
-}
 
 function optionalText(value: unknown): string | undefined {
     const normalized = text(value);

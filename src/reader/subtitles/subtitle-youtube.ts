@@ -1,3 +1,4 @@
+import { isNonNullObject as isRecord } from '../core/object-utils';
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { readYouTubeConfigStringFromScripts } from './youtube-config';
@@ -614,9 +615,6 @@ function youtubePlayerTranslationSource(track: YouTubeSubtitleTrack): unknown {
     return raw.source ?? null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object');
-}
 
 function findPreferredYouTubeCaptionCandidate(track: YouTubeSubtitleTrack): YouTubeCaptionTrackCandidate | null {
     if (track.kind !== 'youtube') return null;

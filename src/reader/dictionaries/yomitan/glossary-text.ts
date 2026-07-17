@@ -1,3 +1,4 @@
+import { isRecord } from '../../core/object-utils';
 interface GlossaryTextOptions {
     includeDirectDataAttributes: boolean;
     fallbackTextKeys: Set<string>;
@@ -76,6 +77,3 @@ function shouldReadRecordTextKey(key: string, options: GlossaryTextOptions): boo
         || (options.includeDirectDataAttributes && key.startsWith('data-'));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
