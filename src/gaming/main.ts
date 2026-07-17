@@ -2,12 +2,10 @@ import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeIma
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { lookupGamingTerm } from './lookup';
 import { requestGamingOcr } from './ocr';
 import {
     YOMU_GAMING_CHANNELS,
     type YomuGamingCaptureMode,
-    type YomuGamingCaptureRequest,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
     type YomuGamingOcrRequest,
@@ -18,8 +16,6 @@ import {
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
-const DEFAULT_CAPTURE_WIDTH = 1920;
-const DEFAULT_CAPTURE_HEIGHT = 1080;
 // OCR runs on the full-screen grab, so capture at the display's native framebuffer
 // (logical size x scaleFactor) instead of a 1080p thumbnail. Retina/4K text is lost
 // otherwise. Cap the long edge so a 5K/8K panel can't blow up the OCR payload.
@@ -282,25 +278,12 @@ async function showApp(): Promise<void> {
 
 function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.getEnvironment, () => environmentStatus());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.listCaptureSources, () => captureSources(DEFAULT_CAPTURE_WIDTH, DEFAULT_CAPTURE_HEIGHT));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.captureSource, (_event, request: YomuGamingCaptureRequest) =>
-        captureSource(request.sourceId, request.width ?? DEFAULT_CAPTURE_WIDTH, request.height ?? DEFAULT_CAPTURE_HEIGHT));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.capturePrimaryScreen, () => capturePrimaryScreen());
     ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request) => requestGamingOcr(normalizeOcrRequest(request)));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.lookupTerm, (_event, request) => lookupGamingTerm({ term: typeof request?.term === 'string' ? request.term : '' }));
     ipcMain.handle(YOMU_GAMING_CHANNELS.getFrozenCapture, () => getFrozenCapture());
     ipcMain.handle(YOMU_GAMING_CHANNELS.recaptureFrozenFrame, () => recaptureFrozenFrame());
     ipcMain.handle(YOMU_GAMING_CHANNELS.openScreenSettings, () => openScreenRecordingSettings());
     ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => showOverlay(normalizeCaptureMode(mode)));
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.completeOverlayCapture, (_event, capture: YomuGamingCaptureSource) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send(YOMU_GAMING_CHANNELS.overlayCaptureCompleted, capture);
-            mainWindow.show();
-            mainWindow.focus();
-        }
-        hideOverlay();
-    });
     ipcMain.handle(YOMU_GAMING_CHANNELS.showApp, () => showApp());
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideApp, () => {
         mainWindow?.hide();
@@ -348,12 +331,6 @@ async function captureSources(width: number, height: number): Promise<YomuGaming
             thumbnailDataUrl: source.thumbnail.toDataURL(),
             size: source.thumbnail.getSize(),
         }));
-}
-
-async function captureSource(sourceId: string, width: number, height: number): Promise<YomuGamingCaptureSource> {
-    const source = (await captureSources(width, height)).find(candidate => candidate.id === sourceId);
-    if (!source) throw new Error('Capture source is no longer available.');
-    return source;
 }
 
 async function capturePrimaryScreen(): Promise<YomuGamingCaptureSource> {

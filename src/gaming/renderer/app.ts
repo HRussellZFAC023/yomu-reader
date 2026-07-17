@@ -1320,13 +1320,6 @@ function browserFallbackBridge(): YomuGamingBridge {
             hotkeyRegistered: false,
             screenAccess: 'unsupported',
         }),
-        listCaptureSources: async () => [],
-        captureSource: async () => {
-            throw new Error('Electron capture unavailable');
-        },
-        capturePrimaryScreen: async () => {
-            throw new Error('Electron capture unavailable');
-        },
         getFrozenCapture: async () => {
             throw new Error('Electron capture unavailable');
         },
@@ -1335,10 +1328,8 @@ function browserFallbackBridge(): YomuGamingBridge {
         },
         openScreenSettings: async () => undefined,
         requestOcr: async () => ({ ok: false, status: 0, body: null, error: 'Electron OCR bridge unavailable' }),
-        lookupTerm: async () => ({ ok: false, error: 'Electron lookup bridge unavailable' }),
         showOverlay: async () => undefined,
         hideOverlay: async () => undefined,
-        completeOverlayCapture: async () => undefined,
         showApp: async () => undefined,
         hideApp: async () => undefined,
         openExternal: async (url: string) => {
@@ -1366,6 +1357,5 @@ function browserFallbackBridge(): YomuGamingBridge {
             const parsed = JSON.parse(raw) as unknown;
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { version: 1; syncedAt: string; settings: unknown } : null;
         },
-        onOverlayCaptureCompleted: () => () => undefined,
     };
 }
