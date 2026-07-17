@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.178
+// @version 1.6.181
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.178#sha256=W4yK9Ahz9nbkYNu3k2gUMC4eh4nmUvIQ5xjhmrIDWBs=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.178#sha256=8h+Gh8oc7vwWSJlIdupmqFQv0W3Xjitr97S4qfwjN1E=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.178#sha256=Xgzt9CYN+URr2GRH4VEGb+HlgUjfqwzK665lmIVDzzI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.178#sha256=/93LJaaKaqqnfgcal4IMCHSXyZCMpIDVtwy1r8+pgmY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.178#sha256=cQICmVkjKy3ph9ZeUlXa/bjh3NEqgrsLDtABByPmLvg=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.178#sha256=1mQactNzMRJmGov1KxKHUN7CJ623amgf79vb5c81N3g=
-// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.178#sha256=+afg6wBzoXQSwrucjK479/tsM6oLojMQegadrU60lEc=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.6.181#sha256=N9Oiuajlt3mFLZLxnN14fNA3E8EDixfqNiOK/UFLy8Q=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.6.181#sha256=MDnmc9LuOrQLQldQm2F60yuuw2y0gqtreuRybM4/a9c=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.user.js?v=1.6.181#sha256=LKzU33jRqdzAqESWtTG1g6qLFP0++FJhQmMFJcAH3vM=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.user.js?v=1.6.181#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.6.181#sha256=EF9ALjBFrGVAk6RxzN36o9nD6VItynm9STXY4yVOgZ0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.6.181#sha256=MveGt0xVG6a24AGhhbA6ViAaAUSGq+rNn8gdbfAsJLs=
+// @resource yomuCss  https://yomureader.com/yomu.css?v=1.6.181#sha256=dgXDzE/3jr8/c1yie9P02gaWbuFrtrIW2m2ZU5wglbU=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -25557,6 +25557,8 @@ const readPublicJitenCache = cache$1.read;
 const writePublicJitenCache = cache$1.write;
 const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
 const REQUEST_TIMEOUT_MS$2 = 1500;
+const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4e3;
+const TRANSIENT_NULL_TTL_MS = 5e3;
 const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
 const CACHE_LIMIT$1 = 800;
 const DETAIL_CONCURRENCY = 4;
@@ -25570,6 +25572,9 @@ const log$9 = Logger.scope("JitenPublicVocabulary");
 const sharedParseGate = new ConcurrencyGate(1);
 let sharedRequestBackoffUntil = 0;
 let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
+function publicJitenBackoffRemainingMs() {
+  return Math.max(0, sharedRequestBackoffUntil - Date.now());
+}
 class JitenPublicVocabularyClient {
   constructor(options = {}) {
   this.options = options;
@@ -25598,6 +25603,7 @@ class JitenPublicVocabularyClient {
     return card;
   }).catch((error) => {
     this.noteFailure(error);
+    this.shortenCacheEntry(this.cardCache, normalized, TRANSIENT_NULL_TTL_MS);
     logPublicJitenFailure("Jiten lookup", { term: normalized }, error);
     return null;
   });
@@ -25681,7 +25687,7 @@ class JitenPublicVocabularyClient {
     if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
   }
   await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
-    const card = await this.lookupDetail(item.word, item.requestedTerm).catch((error) => {
+    const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
       this.noteFailure(error);
       logPublicJitenFailure("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
       return null;
@@ -25709,14 +25715,17 @@ class JitenPublicVocabularyClient {
     if (candidate) candidatesByTerm.set(term, candidate);
   });
   await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
-    const promise = this.lookupDetail(candidate, term);
+    const promise = this.lookupDetail(candidate, term, options.detailTimeoutMs);
     this.remember(this.cardCache, term, promise, Date.now());
     await promise;
   });
   const cards = new Map();
   await Promise.all([...candidatesByTerm.keys()].map(async (term) => {
     const card = await this.cardCache.get(term)?.promise.catch(() => null);
-    if (!card) return;
+    if (!card) {
+      this.shortenCacheEntry(this.cardCache, term, TRANSIENT_NULL_TTL_MS);
+      return;
+    }
     cards.set(term, card);
     writePublicJitenCache("card", term, card);
   }));
@@ -25760,28 +25769,33 @@ class JitenPublicVocabularyClient {
       this.noteFailure(error);
       throw error;
     });
+    this.noteSuccess();
     return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
   });
   }
-  async lookupDetail(word, requestedTerm) {
+  async lookupDetail(word, requestedTerm, timeoutMs = REQUEST_TIMEOUT_MS$2) {
   const key = `${word.wordId}:${word.readingIndex}`;
   const cached = this.detailCache.get(key);
   const now = Date.now();
   if (cached && cached.expiresAt > now) return cached.promise;
   if (cached) this.detailCache.delete(key);
-  const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
+  const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs).then((payload) => {
+    this.noteSuccess();
+    return publicJitenCardFromDetail(payload, requestedTerm, word);
+  }).catch((error) => {
     this.noteFailure(error);
+    this.shortenCacheEntry(this.detailCache, key, TRANSIENT_NULL_TTL_MS);
     logPublicJitenFailure("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
     return null;
   });
   this.remember(this.detailCache, key, promise, now);
   return promise;
   }
-  requestJson(endpoint) {
+  requestJson(endpoint, timeoutMs = REQUEST_TIMEOUT_MS$2) {
   const request = this.options.requestJsonImpl ?? requestJson$1;
   return request(endpointUrl(this.options.baseUrl, endpoint), {
     responseType: "json",
-    timeoutMs: REQUEST_TIMEOUT_MS$2,
+    timeoutMs,
     timeoutLabel: "Jiten timeout.",
     failureLabel: "Jiten",
     statusFailureMessage: (status) => `Jiten fail (${status}).`,
@@ -25796,6 +25810,10 @@ class JitenPublicVocabularyClient {
   }
   proxyUrl() {
   return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
+  }
+  shortenCacheEntry(cache2, key, ttlMs) {
+  const entry = cache2.get(key);
+  if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + ttlMs);
   }
   remember(cache2, key, promise, now) {
   cache2.set(key, { expiresAt: now + CACHE_TTL_MS$1, promise });
@@ -25815,6 +25833,9 @@ class JitenPublicVocabularyClient {
   if (!isPublicJitenBackoffError(error)) return;
   sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
   sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
+  }
+  noteSuccess() {
+  sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
   }
 }
 function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
@@ -30535,6 +30556,9 @@ const LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS = 500;
 const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
 const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
 const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1200;
+const UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS = 12e4;
+const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
+const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3e3;
 const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
 const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
 const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
@@ -35568,13 +35592,24 @@ function upsertAcademyVocabulary(deck, input, now) {
   retainWithoutAcademyProvenance: false,
   academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
   };
-  const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+  const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
   deck.cards[identity.key] = card;
   return {
   card,
   cardCreated: !existing,
   provenanceAdded: !previousProvenance,
   provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+  };
+}
+function preserveExistingSchedule(merged, existing) {
+  return {
+  ...merged,
+  dueAt: existing.dueAt,
+  lastReviewAt: existing.lastReviewAt,
+  reviews: existing.reviews,
+  lapses: existing.lapses,
+  intervalDays: existing.intervalDays,
+  ease: existing.ease
   };
 }
 function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
@@ -36364,8 +36399,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.178"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.178"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.181"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.181"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36483,7 +36518,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.178"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.181"}`;
   } catch {
   return null;
   }
@@ -37845,7 +37880,8 @@ class ReaderApp {
   pitchEnrichmentLocalCache = new Map();
   localPitchDictionaryAvailability;
   resolvedFallbackVocabularyCache = new Map();
-  unresolvedFallbackVocabularyCache = new Set();
+  unresolvedFallbackVocabularyCache = new Map();
+  publicVocabularyMissRetries = new Map();
   fallbackVocabularyResolutionCache = new Map();
   uchisenDataCache = new Map();
   renderedWordIndex = new Map();
@@ -38229,6 +38265,7 @@ class ReaderApp {
   this.jitenPublicVocabulary.clear();
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
+  this.publicVocabularyMissRetries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   this.pitchEnrichmentUrgentKeys.clear();
@@ -38383,6 +38420,7 @@ class ReaderApp {
   this.nestedParseContentCache.clear();
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
+  this.publicVocabularyMissRetries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -38840,6 +38878,7 @@ class ReaderApp {
   this.localPitchDictionaryAvailability = void 0;
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
+  this.publicVocabularyMissRetries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   window.clearTimeout(this.subtitleRebakeTimer);
@@ -40726,7 +40765,7 @@ class ReaderApp {
   return publicLookupFallbackCards(cards, {
     jitenApiActive: () => this.isJitenApiActive(),
     parse: (terms) => this.jiten.parse(terms),
-    lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, lookupOptions),
+    lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS }),
     publicSpellingCard: (term) => this.publicLookupSpellingCard(term)
   }, {
     concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
@@ -43116,7 +43155,7 @@ class ReaderApp {
   for (const token of tokens) {
     if (token.card.source === "fallback") {
       const key = cardKey(token.card);
-      if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+      if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
       const group = fallbackGroups.get(key) ?? { card: token.card, tokens: [] };
       group.tokens.push(token);
       fallbackGroups.set(key, group);
@@ -43124,7 +43163,7 @@ class ReaderApp {
     }
     if (isHydratablePublicJitenCard(token.card)) {
       const key = cardKey(token.card);
-      if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+      if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
       const group = jitenGroups.get(key) ?? { card: token.card, tokens: [] };
       group.tokens.push(token);
       jitenGroups.set(key, group);
@@ -43142,13 +43181,16 @@ class ReaderApp {
     jitenGroups.size ? this.publicLookupHydratableJitenCards([...jitenGroups.values()].map((group) => group.card)) : Promise.resolve(new Map())
   ]);
   fallbackCards.forEach((card, key) => resolved.set(key, card));
-  jitenCards.forEach((card, key) => resolved.set(key, card));
+  for (const [key, group] of jitenGroups) {
+    const card = jitenCards.get(parsedCardHydrationKey(group.card));
+    if (card) resolved.set(key, card);
+  }
   const cardsToCache = [];
   const localOnlyTokens = [];
   for (const [key, group] of [...fallbackGroups, ...jitenGroups]) {
     const card = resolved.get(key);
     if (!card || card.source === "fallback") {
-      this.rememberUnresolvedFallbackVocabulary(key);
+      this.noteFallbackVocabularyMiss(key, group.tokens);
       if (this.settings.showPitchAccent && options.jpdbPublicLookup !== false) {
         queuedTokens.push(...group.tokens);
       } else {
@@ -43198,6 +43240,7 @@ class ReaderApp {
   this.backgroundPublicPitchLookupBudgetHref = location.href;
   this.backgroundPublicPitchLookupBudgetUsed = 0;
   this.deferredPublicPitchEnqueuedForUrl = 0;
+  this.publicVocabularyMissRetries.clear();
   }
   queueDeferredPublicPitchTokens(tokens) {
   this.resetBackgroundPublicPitchLookupBudgetIfNeeded();
@@ -43226,6 +43269,11 @@ class ReaderApp {
     await this.waitForIdle(DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS);
     if (this.shouldPauseBackgroundPublicPitchLookup({})) {
       await delay(DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS);
+      continue;
+    }
+    const backoffMs = publicJitenBackoffRemainingMs();
+    if (backoffMs > 0 && this.deferredPublicPitchQueue.slice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE).some((token) => token.card.source === "fallback" || isHydratablePublicJitenCard(token.card))) {
+      await delay(Math.min(backoffMs, DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS));
       continue;
     }
     const batch = this.deferredPublicPitchQueue.splice(0, DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE);
@@ -43459,10 +43507,10 @@ class ReaderApp {
   async resolveRenderedFallbackVocabulary(card, options = {}) {
   if (card.source !== "fallback") return void 0;
   const key = cardKey(card);
-  if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) return void 0;
+  if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) return void 0;
   const publicCard = await this.lookupFallbackApiCard(card, options);
   if (!publicCard) {
-    this.rememberUnresolvedFallbackVocabulary(key);
+    this.noteFallbackVocabularyMiss(key, []);
     return void 0;
   }
   if (!publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
@@ -43483,8 +43531,40 @@ class ReaderApp {
   }
   rememberUnresolvedFallbackVocabulary(key) {
   this.unresolvedFallbackVocabularyCache.delete(key);
-  this.unresolvedFallbackVocabularyCache.add(key);
+  this.unresolvedFallbackVocabularyCache.set(key, Date.now() + UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS);
   evictOldestStringKeysWhileOverLimit(this.unresolvedFallbackVocabularyCache, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
+  }
+  hasUnresolvedFallbackVocabulary(key) {
+  const retryAfter = this.unresolvedFallbackVocabularyCache.get(key);
+  if (retryAfter === void 0) return false;
+  if (retryAfter > Date.now()) return true;
+  this.unresolvedFallbackVocabularyCache.delete(key);
+  return false;
+  }
+  noteFallbackVocabularyMiss(key, tokens) {
+  const attempts = (this.publicVocabularyMissRetries.get(key) ?? 0) + 1;
+  this.publicVocabularyMissRetries.set(key, attempts);
+  evictOldestStringKeysWhileOverLimit(this.publicVocabularyMissRetries, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
+  if (attempts <= PUBLIC_VOCABULARY_MISS_RETRY_LIMIT || publicJitenBackoffRemainingMs() > 0) {
+    this.requeueDeferredPublicPitchTokens(tokens);
+    return;
+  }
+  this.rememberUnresolvedFallbackVocabulary(key);
+  }
+  requeueDeferredPublicPitchTokens(tokens) {
+  let queued = false;
+  for (const token of tokens) {
+    const key = cardKey(token.card);
+    if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
+    if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
+    this.deferredPublicPitchQueuedKeys.add(key);
+    this.deferredPublicPitchQueue.push(token);
+    queued = true;
+  }
+  if (!queued) return;
+  void this.drainDeferredPublicPitchQueue().catch((error) => {
+    log.warn("Deferred pitch retry failed", error);
+  });
   }
   preloadTermAudioForTokens(tokens) {
   if (!this.canPreloadBackgroundReaderAudio()) return;

@@ -445,6 +445,7 @@
     100% { box-shadow: 0 0 0 0 transparent; }
 }
 
+.academy-world-screen[data-current-place] [data-practice-complete='true'] [role='status'],
 .academy-world-screen [data-practice-complete='true'] [role='status'],
 [data-practice-complete='true'] [role='status'] {
     width: fit-content;
@@ -456,7 +457,9 @@
        Carrying its own paper keeps the confirmation legible on any surface. */
     background: color-mix(in srgb, var(--academy-paper) 96%, transparent);
     box-shadow: 2px 3px 0 rgba(8, 10, 9, 0.24);
-    color: color-mix(in srgb, var(--academy-accent) 46%, var(--academy-paper-ink));
+    /* !important: the desktop forced-paper ink rules above pin muted #5d564a
+       at (0,5,0) specificity; the completion announce must win everywhere. */
+    color: color-mix(in srgb, var(--academy-accent) 46%, var(--academy-paper-ink)) !important;
     font-size: 0.85rem;
     font-weight: 750;
 }
@@ -525,4 +528,17 @@
 .academy-world-token-order-option .academy-world-practice-choice-support,
 .academy-world-screen[data-scene-motif] .academy-world-token-order-option .academy-world-practice-choice-support {
     color: rgba(255, 255, 255, 0.78);
+}
+
+/* Park (desktop): the generic dialogue rule centres the paper via
+   right: 50% + translateX(50%); park-world.css re-anchors it to the right
+   margin (right: 4%) but never resets the inherited transform, so the whole
+   arrival paper rendered 215px (half its width) past the stage's right edge
+   and overflow: hidden clipped Felix's line mid-sentence (measured right
+   edge 1597px on a 1440px viewport). Drop the centring transform where the
+   park anchor wins. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='park'] .academy-world-arrival-dialogue {
+        transform: none;
+    }
 }

@@ -2251,6 +2251,7 @@
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
+      academy: "Academy",
       newTabPage: "Study",
       localAudio: "Local Audio",
       changelog: "Changelog",
@@ -3675,6 +3676,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
+academy	アカデミー
 newTabPage	学習
 localAudio	ローカル音声
 changelog	変更履歴
@@ -40162,7 +40164,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.178".trim() ? "1.6.178".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.181".trim() ? "1.6.181".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70496,6 +70498,8 @@ ${key}`] = { t: now, v: value };
   const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$1 = 1500;
+  const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4e3;
+  const TRANSIENT_NULL_TTL_MS = 5e3;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -70537,6 +70541,7 @@ ${key}`] = { t: now, v: value };
         return card;
       }).catch((error) => {
         this.noteFailure(error);
+        this.shortenCacheEntry(this.cardCache, normalized, TRANSIENT_NULL_TTL_MS);
         logPublicJitenFailure("Jiten lookup", { term: normalized }, error);
         return null;
       });
@@ -70620,7 +70625,7 @@ ${key}`] = { t: now, v: value };
         if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
       }
       await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
-        const card = await this.lookupDetail(item.word, item.requestedTerm).catch((error) => {
+        const card = await this.lookupDetail(item.word, item.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
           this.noteFailure(error);
           logPublicJitenFailure("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
           return null;
@@ -70648,14 +70653,17 @@ ${key}`] = { t: now, v: value };
         if (candidate) candidatesByTerm.set(term, candidate);
       });
       await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
-        const promise = this.lookupDetail(candidate, term);
+        const promise = this.lookupDetail(candidate, term, options.detailTimeoutMs);
         this.remember(this.cardCache, term, promise, Date.now());
         await promise;
       });
       const cards = /* @__PURE__ */ new Map();
       await Promise.all([...candidatesByTerm.keys()].map(async (term) => {
         const card = await this.cardCache.get(term)?.promise.catch(() => null);
-        if (!card) return;
+        if (!card) {
+          this.shortenCacheEntry(this.cardCache, term, TRANSIENT_NULL_TTL_MS);
+          return;
+        }
         cards.set(term, card);
         writePublicJitenCache("card", term, card);
       }));
@@ -70699,28 +70707,33 @@ ${key}`] = { t: now, v: value };
           this.noteFailure(error);
           throw error;
         });
+        this.noteSuccess();
         return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
       });
     }
-    async lookupDetail(word, requestedTerm) {
+    async lookupDetail(word, requestedTerm, timeoutMs = REQUEST_TIMEOUT_MS$1) {
       const key = `${word.wordId}:${word.readingIndex}`;
       const cached = this.detailCache.get(key);
       const now = Date.now();
       if (cached && cached.expiresAt > now) return cached.promise;
       if (cached) this.detailCache.delete(key);
-      const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
+      const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs).then((payload) => {
+        this.noteSuccess();
+        return publicJitenCardFromDetail(payload, requestedTerm, word);
+      }).catch((error) => {
         this.noteFailure(error);
+        this.shortenCacheEntry(this.detailCache, key, TRANSIENT_NULL_TTL_MS);
         logPublicJitenFailure("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key, promise, now);
       return promise;
     }
-    requestJson(endpoint) {
+    requestJson(endpoint, timeoutMs = REQUEST_TIMEOUT_MS$1) {
       const request = this.options.requestJsonImpl ?? requestJson$3;
       return request(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
-        timeoutMs: REQUEST_TIMEOUT_MS$1,
+        timeoutMs,
         timeoutLabel: "Jiten timeout.",
         failureLabel: "Jiten",
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
@@ -70742,6 +70755,13 @@ ${key}`] = { t: now, v: value };
     proxyUrl() {
       return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
     }
+    // Clamp an existing cache entry's lifetime down to a transient-failure
+    // window so a null produced by a timeout/network error cannot masquerade
+    // as an authoritative 10-minute "no such word".
+    shortenCacheEntry(cache2, key, ttlMs) {
+      const entry = cache2.get(key);
+      if (entry) entry.expiresAt = Math.min(entry.expiresAt, Date.now() + ttlMs);
+    }
     remember(cache2, key, promise, now) {
       cache2.set(key, { expiresAt: now + CACHE_TTL_MS$1, promise });
       for (const [entryKey, entry] of cache2) {
@@ -70760,6 +70780,12 @@ ${key}`] = { t: now, v: value };
       if (!isPublicJitenBackoffError(error)) return;
       sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
       sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
+    }
+    // A completed request proves the endpoint is healthy again: stop the
+    // doubling so the NEXT backoff (if any) starts from the initial window
+    // instead of a session-cumulative maximum.
+    noteSuccess() {
+      sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
@@ -79060,6 +79086,7 @@ ${entry.url}`),
         "div",
         { class: "jpdb-reader-newtab-more-menu", role: "menu" },
         this.renderOverflowMenuButton(uiText(language, "settings"), "settings", language),
+        this.renderOverflowMenuLink(uiText(language, "academy"), `${DOCS_BASE_URL}academy/`, language),
         this.renderOverflowMenuLink(uiText(language, "videoPlayer"), VIDEO_PLAYER_PAGE_URL, language),
         this.renderOverflowMenuLink(uiText(language, "pdfReader"), PDF_READER_PAGE_URL, language),
         this.renderOverflowMenuButton(newTabText(language, "stats"), "mode", language, {
@@ -89790,13 +89817,24 @@ ${entry.url}`),
       retainWithoutAcademyProvenance: false,
       academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
     };
-    const card = existing ? mergeStoredYomuSrsCards(existing, incoming) : incoming;
+    const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
     deck.cards[identity.key] = card;
     return {
       card,
       cardCreated: !existing,
       provenanceAdded: !previousProvenance,
       provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+    };
+  }
+  function preserveExistingSchedule(merged, existing) {
+    return {
+      ...merged,
+      dueAt: existing.dueAt,
+      lastReviewAt: existing.lastReviewAt,
+      reviews: existing.reviews,
+      lapses: existing.lapses,
+      intervalDays: existing.intervalDays,
+      ease: existing.ease
     };
   }
   function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {

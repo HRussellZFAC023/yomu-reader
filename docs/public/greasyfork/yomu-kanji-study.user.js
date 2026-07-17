@@ -4107,6 +4107,7 @@
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
+      academy: "Academy",
       newTabPage: "Study",
       localAudio: "Local Audio",
       changelog: "Changelog",
@@ -5512,6 +5513,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
+academy	アカデミー
 newTabPage	学習
 localAudio	ローカル音声
 changelog	変更履歴

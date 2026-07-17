@@ -44,7 +44,7 @@ function pairIntroduction(): ClassActivitySimulatorModel {
         role('aakash', 'aakash', 'Aakash', 'classmate', 'Partner', 'パートナー'),
     ];
     const turns: readonly ClassActivityTurn[] = [
-        learnerText('introduce', 'learner', 'Introduce yourself before Aakash turns over the next atlas card.', '次の地図カードをめくる前に、アーカッシュに自己紹介してください。', 'Your introduction', '自己紹介', [
+        learnerText('introduce', 'learner', 'Introduce yourself before Aakash turns over the next atlas card.', '次の地図カードをめくる前に、アーカッシュさんに自己紹介してください。', 'Your introduction', '自己紹介', [
             ['はじめまして'], ['ヘンリー'], ['イギリスじん'], ['かいしゃいん'], ['よろしく'],
         ], conceptIds[0], 'pair-introduction-details'),
         classmate('aakash-introduction', 'aakash', 'はじめまして。アーカッシュです。エンジニアです。どうぞ よろしく。', 'Aakash introduces himself as an engineer and greets you warmly.'),

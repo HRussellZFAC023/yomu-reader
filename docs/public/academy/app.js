@@ -28661,8 +28661,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     fictionNote: "This is an AI-created fiction, not an account of real people or events.",
     profileNameLabel: "What name would you like Rie-sensei to use?",
     profileNamePlaceholder: "Your name",
-    profileNameDialogue: "こんばんは。雨の中、来てくださってありがとうございます。お名前、なんとお呼びすればいいですか。",
-    profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What name would you like me to use?",
+    profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
+    profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
     profileReasonLabel: "Why are you learning Japanese?",
     profileReasonPlaceholder: "A private note for your journal",
     profileReasonDialogue: "{name}さん、日本語を勉強している理由を教えてください。",
@@ -28767,7 +28767,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     forkSpeakingBody: "教室前 · rehearse and answer aloud.",
     sourceEyebrow: "Week 1",
     sourceTitle: "Ask for one more try",
-    sourceBody: "Rie has spoken too quickly. Choose the classroom phrase that asks her to repeat it.",
+    sourceBody: "Rie spoke a little too quickly. Choose the classroom phrase that asks her to repeat it.",
     sourceForkSoundIntro: "Rie is already talking. Listen once.",
     sourceForkSoundPlay: "Hear Rie",
     sourceForkTextIntro: "The instruction is already on the board.",
@@ -28775,7 +28775,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     sourceForkSpeakingTried: "I tried a reply",
     sourceForkAudioUnavailable: "Audio didn’t play. Continue with the choices.",
     sourceRecordSummary: "Source note",
-    sourceRecordLine: "2023/24 Level 1 · Lesson 1 · classroom-phrases payload · page 2 · printed item 9",
+    sourceRecordLine: "2023/24 Level 1 · Lesson 1 · classroom phrases · page 2 · printed item 9",
     sourceComplete: "Added to your よむ reviews.",
     sourceDirectionsSetup: "Next: まっすぐ · 右",
     sourceContinue: "Meet Aakash outside",
@@ -28835,6 +28835,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     navSettings: "Settings",
     navAudioMuted: "Sound off",
     navAudioOn: "Sound on",
+    utilityLinkHome: "Yomu home",
+    utilityLinkStudy: "Study",
+    utilityLinkSupport: "Support",
+    utilityLinkDiscord: "Discord",
+    utilityLinkGitHub: "GitHub",
     readingShow: "Readings",
     readingHide: "Hide readings",
     dayEndStageLabel: "Classroom at the end of the day",
@@ -28937,8 +28942,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     fictionNote: "これはAIが作ったフィクションで、実在の人物や出来事を描いたものではありません。",
     profileNameLabel: "りえ先生には、なんと呼んでほしいですか。",
     profileNamePlaceholder: "お名前",
-    profileNameDialogue: "こんばんは。雨の中、来てくださってありがとうございます。お名前、なんとお呼びすればいいですか。",
-    profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What name would you like me to use?",
+    profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
+    profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
     profileReasonLabel: "なぜ日本語を勉強していますか。",
     profileReasonPlaceholder: "日記に残す自分だけのメモ",
     profileReasonDialogue: "{name}さん、日本語を勉強している理由を教えてください。",
@@ -29043,7 +29048,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     forkSpeakingBody: "教室前・練習して声で答える。",
     sourceEyebrow: "第1週",
     sourceTitle: "もう一度お願いする",
-    sourceBody: "りえ先生の話す速さが少し速すぎました。繰り返しを頼む教室表現を選んでください。",
+    sourceBody: "りえ先生の話が少し速すぎました。繰り返しを頼む教室表現を選んでください。",
     sourceForkSoundIntro: "りえ先生はもう話しています。一度聞いてみましょう。",
     sourceForkSoundPlay: "りえ先生を聞く",
     sourceForkTextIntro: "指示はもう黒板にあります。",
@@ -29051,7 +29056,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     sourceForkSpeakingTried: "返事を言ってみました",
     sourceForkAudioUnavailable: "音声を再生できませんでした。選択肢へ進んでください。",
     sourceRecordSummary: "出典メモ",
-    sourceRecordLine: "2023/24 レベル1・レッスン1・教室表現ペイロード・2ページ・印刷番号9",
+    sourceRecordLine: "2023/24 レベル1・レッスン1・教室表現・2ページ・印刷番号9",
     sourceComplete: "よむの復習に追加しました。",
     sourceDirectionsSetup: "次：まっすぐ・右",
     sourceContinue: "外でAakashに会う",
@@ -29111,6 +29116,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     navSettings: "設定",
     navAudioMuted: "音声オフ",
     navAudioOn: "音声オン",
+    utilityLinkHome: "よむホーム",
+    utilityLinkStudy: "学習",
+    utilityLinkSupport: "サポート",
+    utilityLinkDiscord: "Discord",
+    utilityLinkGitHub: "GitHub",
     readingShow: "読み方",
     readingHide: "読み方を隠す",
     dayEndStageLabel: "一日の終わりの教室",
@@ -29704,8 +29714,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     controller.setLabel(label);
   }
   let activeTooltip = null;
+  let activeTooltipTrigger = null;
   let tooltipSequence = 0;
+  let lastPointerType = "";
   const tooltipControllers = /* @__PURE__ */ new WeakMap();
+  document.addEventListener("pointerdown", (event) => {
+    lastPointerType = event.pointerType;
+    if (event.pointerType === "touch" && activeTooltipTrigger && event.target instanceof Node && !activeTooltipTrigger.contains(event.target)) activeTooltip?.hide();
+  }, true);
+  document.addEventListener("keydown", () => {
+    lastPointerType = "";
+  }, true);
+  document.addEventListener("click", (event) => {
+    if (lastPointerType !== "touch" || !(event.target instanceof Element)) return;
+    const trigger = event.target.closest("[data-tooltip-touch-preview]");
+    if (!trigger) return;
+    const controller = tooltipControllers.get(trigger);
+    if (!controller || controller.isOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    controller.show();
+  }, true);
   function createTooltipController(trigger) {
     let label = trigger.dataset.tooltip ?? "";
     let tooltip = null;
@@ -29754,7 +29783,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       window.visualViewport?.removeEventListener("scroll", position);
       resizeObserver?.disconnect();
       resizeObserver = null;
-      if (activeTooltip === controller) activeTooltip = null;
+      if (activeTooltip === controller) {
+        activeTooltip = null;
+        activeTooltipTrigger = null;
+      }
     };
     const show = () => {
       if (!label || !trigger.isConnected) return;
@@ -29781,6 +29813,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         tooltip.textContent = label;
       }
       activeTooltip = controller;
+      activeTooltipTrigger = trigger;
       position();
     };
     const controller = {
@@ -29793,13 +29826,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
       },
       show,
-      hide
+      hide,
+      isOpen: () => tooltip !== null
     };
     trigger.addEventListener("pointerenter", (event) => {
       if (event.pointerType !== "touch") show();
     });
-    trigger.addEventListener("pointerleave", hide);
-    trigger.addEventListener("focus", show);
+    trigger.addEventListener("pointerleave", (event) => {
+      if (event.pointerType !== "touch") hide();
+    });
+    trigger.addEventListener("focus", () => {
+      if (lastPointerType !== "touch") show();
+    });
     trigger.addEventListener("blur", hide);
     trigger.addEventListener("click", hide);
     trigger.addEventListener("keydown", (event) => {
@@ -29988,6 +30026,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return button2;
   }
   function setToolLabel$1(button2, label) {
+    button2.dataset.tooltipTouchPreview = "";
     setAcademyTooltip(button2, label);
   }
   function bilingualParagraph$1(value, className) {
@@ -32394,6 +32433,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return item2;
   }
   function setToolLabel(button2, label) {
+    button2.dataset.tooltipTouchPreview = "";
     setAcademyTooltip(button2, label);
   }
   function replaceSlot(host2, mounted, next) {
@@ -33889,6 +33929,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
+      academy: "Academy",
       newTabPage: "Study",
       localAudio: "Local Audio",
       changelog: "Changelog",
@@ -35313,6 +35354,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
+academy	アカデミー
 newTabPage	学習
 localAudio	ローカル音声
 changelog	変更履歴
@@ -66124,7 +66166,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       role("aakash", "aakash", "Aakash", "classmate", "Partner", "パートナー")
     ];
     const turns = [
-      learnerText("introduce", "learner", "Introduce yourself before Aakash turns over the next atlas card.", "次の地図カードをめくる前に、アーカッシュに自己紹介してください。", "Your introduction", "自己紹介", [
+      learnerText("introduce", "learner", "Introduce yourself before Aakash turns over the next atlas card.", "次の地図カードをめくる前に、アーカッシュさんに自己紹介してください。", "Your introduction", "自己紹介", [
         ["はじめまして"],
         ["ヘンリー"],
         ["イギリスじん"],
@@ -210321,7 +210363,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     surface.setAttribute(AUTHORED_VOCABULARY_ATTRIBUTE, encodeAuthoredVocabularyAnnotations([annotation]));
   }
   const vocabularySheetClosers = /* @__PURE__ */ new WeakMap();
-  function renderLibraryIntroduction(language, onContinue) {
+  function renderLibraryIntroduction(language, onContinue, onBack) {
     const screen = libraryScene("academy-library-introduction");
     screen.dataset.academyRoute = "review";
     screen.dataset.currentPlace = "library";
@@ -210341,6 +210383,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const continueButton2 = button$1(language === "ja" ? "席へ" : "Take a seat", "academy-library-dialogue-continue");
     continueButton2.addEventListener("click", onContinue);
     actions.append(continueButton2);
+    if (onBack) {
+      const back = backButton(language);
+      back.classList.add("academy-library-back");
+      back.addEventListener("click", onBack);
+      actions.append(back);
+    }
     card.append(speaker, heading, line2, actions);
     dialogue2.append(portrait, card);
     screen.append(dialogue2);
@@ -216805,6 +216853,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const characters = projectCharacterDirectory(context2.projection);
       const lessonContext = await this.classroomWeekContext(place2, context2);
       let speech;
+      let seenIntroductions = context2.checkpoint.seenIntroductions;
+      const markSeen = (id2) => {
+        seenIntroductions = markIntroductionSeen(seenIntroductions, id2);
+        return seenIntroductions;
+      };
       const screen = renderWorldPlaceScreen({
         language: context2.language,
         place: place2,
@@ -216826,12 +216879,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
           void this.openWorldActivity(route, context2);
         },
         onClaimStamp: (stampId) => void context2.go(context2.checkpoint.route, {
-          seenIntroductions: markIntroductionSeen(context2.checkpoint.seenIntroductions, stampId)
+          seenIntroductions: markSeen(stampId)
         }),
         onIntroductionComplete: (introduction) => {
           this.locationAudio.confirm(place2);
           const update = {
-            seenIntroductions: markIntroductionSeen(context2.checkpoint.seenIntroductions, introduction)
+            seenIntroductions: markSeen(introduction)
           };
           void (context2.save ? context2.save(update) : context2.go(context2.checkpoint.route, update));
         },
@@ -216856,7 +216909,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           if (evaluation) void this.options.evidence.recordWorldPractice?.(evaluation);
           setTimeout(() => {
             void context2.go(context2.checkpoint.route, {
-              seenIntroductions: markIntroductionSeen(context2.checkpoint.seenIntroductions, stampId)
+              seenIntroductions: markSeen(stampId)
             });
           }, 1200);
         },
@@ -216993,7 +217046,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!hasSeenIntroduction(context2.checkpoint.seenIntroductions, libraryIntroduction)) {
         context2.shell.replace(renderLibraryIntroduction(
           context2.language,
-          () => void this.completeLibraryIntroduction(context2, libraryIntroduction)
+          () => void this.completeLibraryIntroduction(context2, libraryIntroduction),
+          () => void context2.back()
         ));
         return;
       }
@@ -217268,34 +217322,69 @@ recommendedJiten	Jiten由来の頻度バッジです。
     utilityToggle.textContent = "•••";
     const actions = element("div", "academy-header-actions");
     const presentation2 = copyButton(options.language, "navPresentationStory", "academy-chrome-button academy-presentation-button");
+    const languageButton = copyButton(options.language, "languageToggle", "academy-chrome-button academy-language-button");
+    const muteButton = copyButton(options.language, "navAudioOn", "academy-chrome-button academy-mute-button");
+    const utilityLinkDefs = [
+      { key: "utilityLinkHome", href: DOCS_BASE_URL },
+      { key: "utilityLinkStudy", href: NEW_TAB_PAGE_URL },
+      { key: "utilityLinkSupport", href: `${DOCS_BASE_URL}support` },
+      { key: "utilityLinkDiscord", href: DISCORD_INVITE_URL, external: true },
+      { key: "utilityLinkGitHub", href: GITHUB_REPOSITORY_URL, external: true }
+    ];
+    const utilityLinks = utilityLinkDefs.map(({ key: key2, href, external }) => {
+      const anchor = element("a", "academy-chrome-button academy-utility-link");
+      anchor.href = href;
+      if (external) {
+        anchor.target = "_blank";
+        anchor.rel = "noopener";
+      }
+      return { anchor, key: key2 };
+    });
     utility.append(utilityToggle, actions);
     header.append(utility);
     const screen = element("main", "academy-screen-host");
     screen.id = "academy-screen";
     screen.tabIndex = -1;
-    actions.append(presentation2);
+    actions.append(
+      presentation2,
+      languageButton,
+      muteButton,
+      element("hr", "academy-utility-divider"),
+      ...utilityLinks.map((link) => link.anchor)
+    );
     const live = element("div", "academy-sr-only");
     live.setAttribute("aria-live", "polite");
     root.append(header, screen, live);
     host2.replaceChildren(root);
     let language = options.language;
     let presentationMode = "story";
+    let muted = false;
     const refreshCopy = () => {
       setAcademyTooltip(utilityToggle, academyText(language, "utilityMenu"));
-      setCopy(presentation2, language, presentationMode === "course" ? "navPresentationCourse" : "navPresentationStory");
+      setCopy(presentation2, language, presentationMode === "course" ? "navPresentationStory" : "navPresentationCourse");
       presentation2.dataset.presentationMode = presentationMode;
       root.dataset.presentationMode = presentationMode;
-      presentation2.setAttribute("aria-pressed", String(presentationMode === "course"));
+      presentation2.removeAttribute("aria-pressed");
       const presentationAction = academyText(
         language,
         presentationMode === "course" ? "navSwitchToStory" : "navSwitchToCourse"
       );
-      presentation2.setAttribute("aria-label", `${presentation2.textContent}. ${presentationAction}`);
+      presentation2.setAttribute("aria-label", presentationAction);
+      setCopy(languageButton, language, "languageToggle");
+      languageButton.lang = language === "ja" ? "en" : "ja";
+      setCopy(muteButton, language, muted ? "navAudioMuted" : "navAudioOn");
+      muteButton.setAttribute("aria-pressed", String(muted));
+      utilityLinks.forEach(({ anchor, key: key2 }) => setCopy(anchor, language, key2));
     };
     presentation2.addEventListener("click", () => {
       utility.open = false;
       options.onPresentationMode(presentationMode === "story" ? "course" : "story");
     }, { signal: lifecycle.signal });
+    languageButton.addEventListener("click", () => {
+      utility.open = false;
+      options.onLanguage();
+    }, { signal: lifecycle.signal });
+    muteButton.addEventListener("click", () => options.onMute(), { signal: lifecycle.signal });
     document.addEventListener("pointerdown", (event) => {
       if (utility.open && event.target instanceof Node && !utility.contains(event.target)) utility.open = false;
     }, { capture: true, signal: lifecycle.signal });
@@ -217332,7 +217421,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         presentationMode = next;
         refreshCopy();
       },
-      setMuted(_next) {
+      setMuted(next) {
+        muted = next;
+        refreshCopy();
       },
       announce(message) {
         live.textContent = "";
@@ -239533,6 +239624,8 @@ ${key2}`] = { t: now, v: value };
   const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$1 = 1500;
+  const JITEN_BACKGROUND_DETAIL_TIMEOUT_MS = 4e3;
+  const TRANSIENT_NULL_TTL_MS = 5e3;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -239574,6 +239667,7 @@ ${key2}`] = { t: now, v: value };
         return card;
       }).catch((error) => {
         this.noteFailure(error);
+        this.shortenCacheEntry(this.cardCache, normalized2, TRANSIENT_NULL_TTL_MS);
         logPublicJitenFailure("Jiten lookup", { term: normalized2 }, error);
         return null;
       });
@@ -239657,7 +239751,7 @@ ${key2}`] = { t: now, v: value };
         if (pending.length < limit) pending.push({ key: key2, word, requestedTerm: card.spelling || word.originalText });
       }
       await mapLimited(pending, DETAIL_CONCURRENCY, async (item2) => {
-        const card = await this.lookupDetail(item2.word, item2.requestedTerm).catch((error) => {
+        const card = await this.lookupDetail(item2.word, item2.requestedTerm, options.detailTimeoutMs ?? JITEN_BACKGROUND_DETAIL_TIMEOUT_MS).catch((error) => {
           this.noteFailure(error);
           logPublicJitenFailure("Jiten parsed detail", { wordId: item2.word.wordId, readingIndex: item2.word.readingIndex }, error);
           return null;
@@ -239685,14 +239779,17 @@ ${key2}`] = { t: now, v: value };
         if (candidate2) candidatesByTerm.set(term, candidate2);
       });
       await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate2]) => {
-        const promise = this.lookupDetail(candidate2, term);
+        const promise = this.lookupDetail(candidate2, term, options.detailTimeoutMs);
         this.remember(this.cardCache, term, promise, Date.now());
         await promise;
       });
       const cards = /* @__PURE__ */ new Map();
       await Promise.all([...candidatesByTerm.keys()].map(async (term) => {
         const card = await this.cardCache.get(term)?.promise.catch(() => null);
-        if (!card) return;
+        if (!card) {
+          this.shortenCacheEntry(this.cardCache, term, TRANSIENT_NULL_TTL_MS);
+          return;
+        }
         cards.set(term, card);
         writePublicJitenCache("card", term, card);
       }));
@@ -239736,28 +239833,33 @@ ${key2}`] = { t: now, v: value };
           this.noteFailure(error);
           throw error;
         });
+        this.noteSuccess();
         return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
       });
     }
-    async lookupDetail(word, requestedTerm) {
+    async lookupDetail(word, requestedTerm, timeoutMs = REQUEST_TIMEOUT_MS$1) {
       const key2 = `${word.wordId}:${word.readingIndex}`;
       const cached = this.detailCache.get(key2);
       const now = Date.now();
       if (cached && cached.expiresAt > now) return cached.promise;
       if (cached) this.detailCache.delete(key2);
-      const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
+      const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`, timeoutMs).then((payload) => {
+        this.noteSuccess();
+        return publicJitenCardFromDetail(payload, requestedTerm, word);
+      }).catch((error) => {
         this.noteFailure(error);
+        this.shortenCacheEntry(this.detailCache, key2, TRANSIENT_NULL_TTL_MS);
         logPublicJitenFailure("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key2, promise, now);
       return promise;
     }
-    requestJson(endpoint) {
+    requestJson(endpoint, timeoutMs = REQUEST_TIMEOUT_MS$1) {
       const request2 = this.options.requestJsonImpl ?? requestJson$1;
       return request2(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
-        timeoutMs: REQUEST_TIMEOUT_MS$1,
+        timeoutMs,
         timeoutLabel: "Jiten timeout.",
         failureLabel: "Jiten",
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
@@ -239779,6 +239881,13 @@ ${key2}`] = { t: now, v: value };
     proxyUrl() {
       return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
     }
+    // Clamp an existing cache entry's lifetime down to a transient-failure
+    // window so a null produced by a timeout/network error cannot masquerade
+    // as an authoritative 10-minute "no such word".
+    shortenCacheEntry(cache2, key2, ttlMs) {
+      const entry2 = cache2.get(key2);
+      if (entry2) entry2.expiresAt = Math.min(entry2.expiresAt, Date.now() + ttlMs);
+    }
     remember(cache2, key2, promise, now) {
       cache2.set(key2, { expiresAt: now + CACHE_TTL_MS$1, promise });
       for (const [entryKey, entry2] of cache2) {
@@ -239797,6 +239906,12 @@ ${key2}`] = { t: now, v: value };
       if (!isPublicJitenBackoffError(error)) return;
       sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
       sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
+    }
+    // A completed request proves the endpoint is healthy again: stop the
+    // doubling so the NEXT backoff (if any) starts from the initial window
+    // instead of a session-cumulative maximum.
+    noteSuccess() {
+      sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
@@ -248672,6 +248787,7 @@ ${entry2.url}`),
         "div",
         { class: "jpdb-reader-newtab-more-menu", role: "menu" },
         this.renderOverflowMenuButton(uiText(language, "settings"), "settings", language),
+        this.renderOverflowMenuLink(uiText(language, "academy"), `${DOCS_BASE_URL}academy/`, language),
         this.renderOverflowMenuLink(uiText(language, "videoPlayer"), VIDEO_PLAYER_PAGE_URL, language),
         this.renderOverflowMenuLink(uiText(language, "pdfReader"), PDF_READER_PAGE_URL, language),
         this.renderOverflowMenuButton(newTabText(language, "stats"), "mode", language, {

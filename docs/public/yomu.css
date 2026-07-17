@@ -3303,8 +3303,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-onboarding .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 44px;
-  min-width: 44px;
+  width: 40px;
+  min-width: 40px;
   height: 24px !important;
   min-height: 24px !important;
   padding: 0;
@@ -3327,7 +3327,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   box-shadow: 0 1px 3px var(--jpdb-reader-shadow);
 }
 .jpdb-reader-onboarding .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 .jpdb-reader-onboarding .jpdb-reader-theme-switch .icon {
   position: relative;
@@ -9331,8 +9331,8 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 44px;
-  min-width: 44px;
+  width: 40px;
+  min-width: 40px;
   height: 24px !important;
   min-height: 24px !important;
   padding: 0;
@@ -9355,7 +9355,7 @@ html.jpdb-reader-doodle-active * {
   box-shadow: 0 1px 3px var(--jpdb-reader-shadow);
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch .icon {
   position: relative;

@@ -9743,8 +9743,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-onboarding .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 44px;
-  min-width: 44px;
+  width: 40px;
+  min-width: 40px;
   height: 24px !important;
   min-height: 24px !important;
   padding: 0;
@@ -9769,7 +9769,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 
 .jpdb-reader-onboarding .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 
 .jpdb-reader-onboarding .jpdb-reader-theme-switch .icon {
@@ -16547,8 +16547,8 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 44px;
-  min-width: 44px;
+  width: 40px;
+  min-width: 40px;
   height: 24px !important;
   min-height: 24px !important;
   padding: 0;
@@ -16573,7 +16573,7 @@ html.jpdb-reader-doodle-active * {
 }
 
 .jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 
 .jpdb-reader-settings .jpdb-reader-theme-switch .icon {
@@ -21991,6 +21991,20 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
 .academy-nav-button:hover {
     border-color: var(--academy-line-strong);
     background: rgba(255, 255, 255, 0.055);
+}
+
+a.academy-chrome-button {
+    display: grid;
+    align-items: center;
+    text-decoration: none;
+}
+
+.academy-utility-divider {
+    width: 100%;
+    height: 1px;
+    margin: 2px 0;
+    border: 0;
+    background: var(--academy-line);
 }
 
 .academy-screen-host {
@@ -45362,6 +45376,304 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
       this (loaded last) wins the cascade tie, same technique as item 9. */
 .academy-world-screen[data-current-place]:not([data-current-place='station']) .academy-world-map-current {
     clip-path: polygon(4% 0, 100% 7%, 96% 93%, 0 100%);
+}
+
+/* 14. The Sensei vocabulary sheet modal was the most generic-app surface
+      left in the study loop: uniform 7px radius, soft blurred drop shadow,
+      plain white fill, hairline rows. Bring it into the living-paper
+      grammar already used by the donation letter (screens.css
+      .academy-donation-paper) and the VN ink tags: asymmetric corners,
+      hard offset shadow, dot-grid paper, a tape strip and folded corner,
+      and the source label as an angled ink tab. Reuses the existing
+      academy-letter-open keyframes — no new motion. */
+.academy-vocabulary-sheet {
+    position: relative;
+    border: 1px solid rgba(76, 66, 48, 0.36);
+    border-radius: 3px 15px 5px 10px;
+    background:
+        radial-gradient(circle at 18% 26%, rgba(118, 94, 56, 0.05) 0 1px, transparent 1.5px) 0 0 / 21px 25px,
+        linear-gradient(90deg, transparent 0 73%, rgba(119, 81, 57, 0.05) 73.2% 73.5%, transparent 73.8%),
+        #fffaf0;
+    box-shadow: 9px 12px 0 rgba(31, 27, 20, 0.25), 0 34px 90px rgba(11, 12, 10, 0.36);
+    animation: academy-letter-open 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Tape strip (top) + folded corner (bottom-right). Absolutely positioned so
+   they never join the sheet's grid flow. */
+.academy-vocabulary-sheet::before {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: clamp(24px, 18%, 120px);
+    width: 88px;
+    height: 13px;
+    background: color-mix(in srgb, var(--library-green, #3f6659) 46%, #fffaf0);
+    clip-path: polygon(6% 12%, 100% 0, 94% 88%, 0 100%);
+    content: "";
+    opacity: 0.75;
+    pointer-events: none;
+    transform: rotate(-1.2deg);
+}
+
+.academy-vocabulary-sheet::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 34px;
+    height: 30px;
+    background: linear-gradient(135deg, rgba(130, 108, 72, 0.16) 0 49%, var(--academy-paper-deep, #ddd0b7) 50%);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    content: "";
+    pointer-events: none;
+}
+
+/* The source label becomes the same angled ink tab as the VN speaker tags. */
+.academy-vocabulary-sheet-source-label {
+    padding: 5px 20px 5px 13px;
+    color: #fff9ed;
+    background: #2b2823;
+    box-shadow: inset 4px 0 0 var(--library-green, #3f6659);
+    clip-path: polygon(0 8%, 93% 0, 100% 70%, 94% 100%, 4% 94%);
+}
+
+/* Rows read as ruled notebook lines, not hairline app dividers. */
+.academy-vocabulary-sheet-list {
+    border-top: 1px solid rgba(63, 102, 89, 0.42);
+    border-bottom: 1px solid rgba(63, 102, 89, 0.42);
+}
+
+.academy-vocabulary-sheet-word {
+    border-bottom: 1px dashed rgba(76, 66, 48, 0.26);
+}
+
+/* Sheet buttons pick up the asymmetric slip corner used everywhere else. */
+.academy-vocabulary-sheet-close,
+.academy-vocabulary-sheet-start,
+.academy-vocabulary-sheet-audio {
+    border-radius: 3px 9px 4px 7px;
+}
+
+.academy-vocabulary-sheet-start {
+    box-shadow: 3px 4px 0 rgba(31, 27, 20, 0.22);
+}
+
+.academy-vocabulary-sheet-journey {
+    border-radius: 2px 8px 3px 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-vocabulary-sheet { animation: none; }
+}
+
+/* 15. Embedded Study mount (Library → Yomu Study): the reader column sat
+      as a raw sheet on the flat charcoal body with only a blurred glow —
+      it read as Reader chrome dropped into the world. Frame + header only;
+      Study internals stay owned by Reader. Warm desk-lamp wash behind,
+      hard page-stack edges on the column, a small tape tab at the top,
+      and a ruled ink line under the Academy chrome. */
+.academy-root:has(.academy-study-mount) {
+    background:
+        radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--academy-warm) 24%, transparent), transparent 62%),
+        linear-gradient(180deg, color-mix(in srgb, var(--academy-night) 86%, #7c6136 14%), var(--academy-night) 72%),
+        var(--academy-night);
+}
+
+.academy-study-mount {
+    border-right: 1px solid rgba(241, 234, 215, 0.16);
+    border-left: 1px solid rgba(241, 234, 215, 0.16);
+    box-shadow:
+        11px 0 0 -4px color-mix(in srgb, var(--academy-paper-deep) 52%, transparent),
+        -9px 0 0 -4px color-mix(in srgb, var(--academy-paper-deep) 36%, transparent),
+        0 0 70px rgba(10, 12, 10, 0.34);
+}
+
+.academy-study-mount::before {
+    position: absolute;
+    z-index: 4;
+    top: 30px;
+    left: 50%;
+    width: 96px;
+    height: 14px;
+    background: color-mix(in srgb, var(--academy-accent) 38%, var(--academy-paper));
+    clip-path: polygon(5% 14%, 100% 0, 96% 86%, 0 100%);
+    content: "";
+    opacity: 0.62;
+    pointer-events: none;
+    transform: translateX(-50%) rotate(-1.4deg);
+}
+
+.academy-study-chrome {
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 52%, transparent);
+    box-shadow: 0 3px 0 -1px rgba(86, 70, 45, 0.18);
+}
+
+/* 16. Start-route and JLPT-band choice slips floated directly over the
+      dark scene — the recurring "light cards in a dark void" gap. Post
+      the stack on a subtle notice backing: a translucent warm ink board
+      with a faint paper edge, hard offset shadow, and one accent tape
+      tab. The slips themselves are untouched. */
+.academy-start-screen .academy-route-choices,
+.academy-band-screen .academy-band-choices {
+    position: relative;
+    margin-top: 14px;
+    padding: 20px 18px 18px;
+    border: 1px solid rgba(241, 234, 215, 0.14);
+    border-radius: 4px 11px 5px 9px;
+    background: color-mix(in srgb, var(--academy-night) 62%, transparent);
+    box-shadow: 6px 7px 0 rgba(8, 10, 9, 0.3);
+}
+
+.academy-start-screen .academy-route-choices::before,
+.academy-band-screen .academy-band-choices::before {
+    position: absolute;
+    top: -7px;
+    left: 26px;
+    width: 74px;
+    height: 13px;
+    background: color-mix(in srgb, var(--academy-accent) 62%, var(--academy-paper));
+    clip-path: polygon(6% 12%, 100% 0, 94% 88%, 0 100%);
+    content: "";
+    opacity: 0.8;
+    pointer-events: none;
+    transform: rotate(-1.6deg);
+}
+
+/* 14. The top-left ••• summary is the ONLY entrance to the course view
+      (syllabus/people/events), yet it renders as a bare unlabeled 44x44
+      glyph square — fresh-eyes players never open it (discoverability
+      area, 2026-07-17). Give it a compact ink-tag caption sourced from its
+      own localized tooltip text (data-tooltip = "Menu"/「メニュー」, kept
+      in sync by setAcademyTooltip), so the affordance is named without new
+      chrome. Stays a single dark ink tag: same border/ink tokens, just an
+      extra 8px-ish caption row under the dots. */
+.academy-utility-toggle {
+    width: auto;
+    min-width: 44px;
+    padding: 5px 11px 7px;
+    grid-auto-flow: row;
+    row-gap: 1px;
+}
+
+.academy-utility-toggle::after {
+    content: attr(data-tooltip);
+    font-size: 0.56rem;
+    font-weight: 740;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    text-transform: uppercase;
+    opacity: 0.88;
+}
+
+/* 17. Completion consequence announce (learner-flow area, 2026-07-17).
+      The 1200ms post-practice hold exists so the success confirmation can
+      be SEEN, but the confirmation rendered as an ~11px muted footnote at
+      the bottom edge of the paper (measured 11.5px/400 at y=778 in a 900px
+      viewport at the cafe), and the stamp flip happened silently top-right.
+      Announce the consequence inside the existing 180-240ms budget: one
+      220ms accent pulse on the success line and on the stamp chip, then a
+      steady legible confirmation state for the rest of the hold. */
+@keyframes academy-practice-complete-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--academy-accent) 62%, transparent); }
+    45% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--academy-accent) 34%, transparent); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.academy-world-screen[data-current-place] [data-practice-complete='true'] [role='status'],
+.academy-world-screen [data-practice-complete='true'] [role='status'],
+[data-practice-complete='true'] [role='status'] {
+    width: fit-content;
+    animation: academy-practice-complete-pulse 220ms ease-out 1;
+    border-left: 3px solid color-mix(in srgb, var(--academy-accent) 78%, var(--academy-paper-ink));
+    padding: 3px 10px 3px 8px;
+    /* Paper chip: the cafe's status escapes its paper and lands on the dark
+       stage (measured x=74 vs paper x=379), where paper ink is invisible.
+       Carrying its own paper keeps the confirmation legible on any surface. */
+    background: color-mix(in srgb, var(--academy-paper) 96%, transparent);
+    box-shadow: 2px 3px 0 rgba(8, 10, 9, 0.24);
+    /* !important: the desktop forced-paper ink rules above pin muted #5d564a
+       at (0,5,0) specificity; the completion announce must win everywhere. */
+    color: color-mix(in srgb, var(--academy-accent) 46%, var(--academy-paper-ink)) !important;
+    font-size: 0.85rem;
+    font-weight: 750;
+}
+
+.academy-world-screen [data-practice-complete='true'] [role='status']::before,
+[data-practice-complete='true'] [role='status']::before {
+    content: '✓ ';
+}
+
+.academy-world-screen:has([data-practice-complete='true']) .academy-world-reward {
+    animation: academy-practice-complete-pulse 220ms ease-out 1;
+    outline: 2px solid color-mix(in srgb, var(--academy-accent) 72%, transparent);
+    outline-offset: 2px;
+}
+
+/* One clear next action: while the confirmation holds, and once this
+   place's stamp is claimed, the Back control (return to campus) becomes
+   the single visually-primary chrome control instead of one more dark
+   chip among equals. */
+.academy-world-screen:has([data-practice-complete='true']) .academy-world-back,
+.academy-world-screen:has(.academy-world-reward[data-item-state='claimed']) .academy-world-back,
+.academy-world-screen:has(.academy-cafe-receipt[data-item-state='claimed']) .academy-world-back {
+    border-color: color-mix(in srgb, var(--academy-accent) 82%, transparent);
+    background: color-mix(in srgb, var(--academy-accent) 30%, var(--academy-night));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--academy-accent) 34%, transparent), 4px 5px 0 rgba(8, 10, 9, 0.32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-practice-complete='true'] [role='status'],
+    .academy-world-screen:has([data-practice-complete='true']) .academy-world-reward {
+        animation: none;
+    }
+}
+
+/* Placement result meters sit on the cream paper card, but their track and
+   the self-reported dashed outline were authored white-based (screens.css)
+   — ~1.03:1 against the paper, i.e. invisible. Re-ink them paper-side so
+   the graded track shows its full extent and the deliberate hollow/dashed
+   self-reported treatment actually reads. */
+.academy-score-meter {
+    background: color-mix(in srgb, var(--academy-paper-ink, #2b2620) 14%, transparent);
+}
+
+.academy-score-meter-hollow {
+    border-color: color-mix(in srgb, var(--academy-paper-ink, #2b2620) 42%, transparent);
+    background: transparent;
+}
+
+/* The scene-motif HUD's sage washi-tape ::before belongs on the cream paper
+   slip. Courtyard, classroom, and street restyle the HUD as a dark ink
+   banner (e.g. world.css courtyard override), where the tape renders as a
+   floating grey-green oval blob above "SPRING · DAY 1" — the "random circle
+   ornament" complaint. Bookshop/station/library/cafe already hide it on
+   their non-paper HUDs; extend the same treatment to the dark-banner trio. */
+.academy-world-screen[data-current-place='courtyard'] .academy-world-hud::before,
+.academy-world-screen[data-current-place='classroom'] .academy-world-hud::before,
+.academy-world-screen[data-current-place='street'] .academy-world-hud::before {
+    display: none;
+}
+
+/* Token-order word pills (courtyard notice board, journal recall) are dark
+   grey chips, but their EN gloss reuses the paper-ink support colour —
+   measured #615b50 on #6b6b6b, a 1.25:1 ratio at 10.5px, i.e. invisible to
+   the kana-zero learner the gloss exists for. Re-ink the gloss chip-side;
+   the JA text on these pills is already white. */
+.academy-world-token-order-option .academy-world-practice-choice-support,
+.academy-world-screen[data-scene-motif] .academy-world-token-order-option .academy-world-practice-choice-support {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* Park (desktop): the generic dialogue rule centres the paper via
+   right: 50% + translateX(50%); park-world.css re-anchors it to the right
+   margin (right: 4%) but never resets the inherited transform, so the whole
+   arrival paper rendered 215px (half its width) past the stage's right edge
+   and overflow: hidden clipped Felix's line mid-sentence (measured right
+   edge 1597px on a 1440px viewport). Drop the centring transform where the
+   park anchor wins. */
+@media (min-width: 761px) {
+    .academy-world-screen[data-current-place='park'] .academy-world-arrival-dialogue {
+        transform: none;
+    }
 }
 .academy-advanced-arrival-screen .academy-panel {
     max-width: min(72rem, calc(100vw - 2rem));

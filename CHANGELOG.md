@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.181] - 2026-07-17
+
+### Fixed
+
+- Unified the hosted PDF, Video, Study, and Academy navigation chrome with the main site, including consistent language/theme controls, Academy links, and a compact accessible theme switch.
+- Restored keyless homepage furigana and pitch enrichment after transient public Jiten failures, with bounded recovery for misaligned surface lookups.
+- Refined Academy utility navigation and destination-labelled presentation controls.
+
+
 ## [1.6.178] - 2026-07-17
 
 ### Fixed

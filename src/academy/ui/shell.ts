@@ -84,15 +84,17 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     let muted = false;
     const refreshCopy = () => {
         setAcademyTooltip(utilityToggle, academyText(language, 'utilityMenu'));
-        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationCourse' : 'navPresentationStory');
+        // Name the destination, so the control answers “where will this take me?”
+        // rather than describing the mode that is already active.
+        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationStory' : 'navPresentationCourse');
         presentation.dataset.presentationMode = presentationMode;
         root.dataset.presentationMode = presentationMode;
-        presentation.setAttribute('aria-pressed', String(presentationMode === 'course'));
+        presentation.removeAttribute('aria-pressed');
         const presentationAction = academyText(
             language,
             presentationMode === 'course' ? 'navSwitchToStory' : 'navSwitchToCourse',
         );
-        presentation.setAttribute('aria-label', `${presentation.textContent}. ${presentationAction}`);
+        presentation.setAttribute('aria-label', presentationAction);
         setCopy(languageButton, language, 'languageToggle');
         // The label names the language the button switches TO, so it must render
         // in that language, not the current one.
