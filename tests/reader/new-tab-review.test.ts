@@ -3234,7 +3234,7 @@ describe('new tab review helpers', () => {
     it('does not copy parent word keywords onto derived kanji cards for 学習能力', () => {
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false });
         const internals = controller as unknown as {
-            kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard;
+            studyPool: { kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard };
         };
         const sourceWord = newTabTestCard({
             spelling: '学習能力',
@@ -3243,7 +3243,7 @@ describe('new tab review helpers', () => {
             cardState: ['locked'],
             kanjiKeyword: 'learning ability',
         });
-        const cards = ['学', '習', '能', '力'].map(kanji => internals.kanjiStudyCardFromSourceCard(sourceWord, kanji));
+        const cards = ['学', '習', '能', '力'].map(kanji => internals.studyPool.kanjiStudyCardFromSourceCard(sourceWord, kanji));
 
         expect(cards.map(card => card.spelling)).toEqual(['学', '習', '能', '力']);
         expect(cards.map(card => card.kanjiKeyword ?? '')).toEqual(['', '', '', '']);
@@ -15785,10 +15785,10 @@ describe('new tab review helpers', () => {
             sourceLabel: string;
             state: { mode: string; revealAnswer: boolean };
             bindRootEvents(root: HTMLElement): void;
-            kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard;
+            studyPool: { kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard };
             renderWord(root: HTMLElement, card: JPDBCard): void;
         };
-        const kanjiCard = internals.kanjiStudyCardFromSourceCard(card, '図');
+        const kanjiCard = internals.studyPool.kanjiStudyCardFromSourceCard(card, '図');
         Object.assign(internals, {
             allWords: [card],
             visibleWords: [kanjiCard],
