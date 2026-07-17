@@ -1,6 +1,6 @@
 import type { AdvancedImmersionQuarantine, AdvancedImmersionSourceSegment } from './types';
 
-export const ADVANCED_IMMERSION_PACKAGE_ID = 'advanced-immersion-n3-n1-01' as const;
+const ADVANCED_IMMERSION_PACKAGE_ID = 'advanced-immersion-n3-n1-01' as const;
 
 export const ADVANCED_IMMERSION_PROVENANCE = Object.freeze({
     packageId: ADVANCED_IMMERSION_PACKAGE_ID,

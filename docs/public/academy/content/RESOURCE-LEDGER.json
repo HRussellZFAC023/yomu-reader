@@ -229,7 +229,7 @@
         "moodleModuleId": 5489594,
         "sourcePackage": {
           "filename": "013-l1-l12.json",
-          "sha256": "b4eb6c44d1043a1936fd2ed0b1ced7c8a0c1f0bccf3dd1477c28546793c95cf0"
+          "sha256": "43f24fa272b9d9399ed7d73b127d775bc16d45fd57570e610fe4e4a27a6ce717"
         },
         "documents": [
           {
@@ -281,7 +281,7 @@
         "scope": "Completed 15-item skill-and-understanding workbook slice; this does not claim delivery of every Lesson 13 archive member or unresolved source media.",
         "sourcePackage": {
           "filename": "014-l1-l13.json",
-          "sha256": "35e0aba3f4755c4e78546fd860342104df0800eefefbddf3c2abbda89524c517"
+          "sha256": "b850d5ac1f97902140b102dd45d26748cc48e8a32e2087cc57a355b068cd1b45"
         },
         "sourceArchive": {
           "sha256": "e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839"
@@ -347,7 +347,7 @@
         "scope": "Completed 11-item reason, why-question, and availability workbook slice; this does not claim delivery of every Lesson 14 archive member, unresolved source media, or unselected Genki prompts.",
         "sourcePackage": {
           "filename": "015-l1-l14.json",
-          "sha256": "2088851b83dcfc88926f3d74ca0e00b8cb40230e789f53ea408526a70519ee3e"
+          "sha256": "3a4b6d494f043aea728bab6dd7b41bc19301137e1dfc56efa7f768eb5ecf6463"
         },
         "sourceArchive": {
           "sha256": "e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb"
@@ -421,7 +421,7 @@
         "scope": "Completed 10-item existence-and-location workbook slice: all eight text-visible Moodle Chapter 10-1 page-2 prompt cues, then two explicitly mapped Genki transfers. This does not claim delivery of every Lesson 16 archive member, image-dependent prompt, or unselected Genki item.",
         "sourcePackage": {
           "filename": "017-l1-l16.json",
-          "sha256": "d524cd54e4c2441e7613f065c3aa51b8bfffd33ed70db2dd773def02bcff8c02"
+          "sha256": "f22a3de005e06cc673bf0e0574638fee3449aefd3f0330375f37236a7ec728a8"
         },
         "sourceArchive": {
           "sha256": "ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba"
@@ -474,7 +474,7 @@
         "scope": "Completed 10-item museum-and-location workbook slice: the Chapter 10-2 topic-and-place teaching pattern, all eight text-visible position prompts, three answer-key-free Moodle visual crops, then two explicitly mapped Genki transfers. This does not claim delivery of every Lesson 17 archive member, image-dependent prompt, or unselected Genki item.",
         "sourcePackage": {
           "filename": "018-l1-l17.json",
-          "sha256": "04fe995f2e56ecab4f504c2c64e31d9952ed087a1503a9c714a75e5fb565f0d0"
+          "sha256": "64b2bf724adccb446cd05443d86152c7010f93e6e38c7986d4a32ce68ebba4dc"
         },
         "sourceArchive": {
           "sha256": "61c9d1b3633f418f55fbb047b2ea941eed7f4a2245ea33a45ef8945656150815"
@@ -593,7 +593,7 @@
         "scope": "Completed 8-item counter-and-fridge information-gap workbook slice: one counter-summary prompt, then Moodle fridge A/B existence, quantity, and report prompts. Minna and Genki remain ordering/support references only; this archive contains no Moodle audio member.",
         "sourcePackage": {
           "filename": "019-l1-l18.json",
-          "sha256": "01b56f04bc5cdb64986669d01cf32a76606f3898b241766277c30ed9bbd0d854"
+          "sha256": "c83ea82297f592a8a36d45a0bb4a4202b8cdf24ee2c7a49a1c9c115ac7f8d744"
         },
         "sourceArchive": {
           "sha256": "2412b5cffe9f22758f583ac773293f1af371ef60e3c979650d10722499c593fa"
@@ -665,7 +665,7 @@
         "scope": "One Moodle-first restaurant-order model sentence plus five exact Chapter 11 listening grids: CD A-43 and CD A-44 are byte-verified, paired to their page-1 worksheet loci, and reviewed for post-attempt-only transcript and answer support. Minna and Genki remain support references only.",
         "sourcePackage": {
           "filename": "020-l1-l19.json",
-          "sha256": "a6063210b4962cc1b39f2e79a8b00de8a28fe2dedcacf20beb02a85e446fe87c"
+          "sha256": "71efeaf9c76f0e8a02b238a99440782fba1cd1ca6e21ee454f9e6c2025f2d199"
         },
         "sourceArchive": {
           "sha256": "fa14f292cf886bb5e5eff9f82f6169956cd151223b98c9c0125e1388d06cbd03"
@@ -752,7 +752,7 @@
         "scope": "Completed six-item Chapter 11-3 frequency worksheet slice and three exact A-45 listening prompts. The original A-45 bytes are paired to their Moodle worksheet loci and reviewed for post-attempt support; the Minna 039 track remains unbound because its chapter-level match is not an exact exercise mapping. Genki duration work remains post-instruction support.",
         "sourcePackage": {
           "filename": "021-l1-l20.json",
-          "sha256": "2b3c8c0baa203870361c321df089c6354e4f3cf6bf51b40983d1506a9d053c12"
+          "sha256": "dd790467c5aa79e4a754b0c0d7aa2b3c5562accb08639693867129be6812bfd2"
         },
         "sourceArchive": {
           "sha256": "0d4a991fc8dcc2f8487f6ce3d44513c5a45306541b35fee5c5ac8e5937f55a0a"
@@ -852,7 +852,7 @@
         "scope": "Completed three-prompt Chapter 11-4 commute-comparison listening slice: page 1 teaches the exact かかります frame, then page 3's verbatim dialogue and disruption-versus-usual labels are paired with byte-verified A-46 in a two-line log. The dialogue and response support are gated until an attempt.",
         "sourcePackage": {
           "filename": "022-l1-l21.json",
-          "sha256": "8ef06397d57ef46717063fcae364992ade0b562f6d8aabda95125cb89be5e9c0"
+          "sha256": "10547640e686ebd5b9c477d0d38ded450d80ac9954679cf0a8359e44b6ae81ec"
         },
         "sourceArchive": {
           "sha256": "d8514ba0c733f2c3eb404987879c1022ccd420a94e3d40dccecee5c75d9a2c4c"
@@ -932,7 +932,7 @@
         "scope": "Completed Moodle-first five-cell katakana-vowel chart slice: page 1 of the completed writing-system chart teaches the exact ア・イ・ウ・エ・オ row, then the parallel list chart corroborates the same row before a Yomu runtime-pronunciation relay. Moodle's archive contains no audio member; the relay audio is explicitly non-Moodle support.",
         "sourcePackage": {
           "filename": "023-l1-l22.json",
-          "sha256": "ef41f2a6433bf92a586ef078524e827bd734386ec621325d0db6b04cb9166bd9"
+          "sha256": "58edb4c41d2c49a2f0d44ab9d0acd0589a2a9afdc5baab7e7ce608f10edd4e5c"
         },
         "sourceArchive": {
           "sha256": "80cae60150ec761d4cfdcd415f2a9f52de8281944d142ab9efce6694d2007396"
@@ -1036,7 +1036,7 @@
         "scope": "Completed Moodle-first five-cell katakana ka-row slice: the worksheet’s exact カ・キ・ク・ケ・コ row is taught before the writing-practice page corroborates it. The learner sorts each heard tile into its source vowel column; Moodle's archive contains no audio member, so Yomu pronunciation is explicitly non-Moodle support.",
         "sourcePackage": {
           "filename": "024-l1-l23.json",
-          "sha256": "f783745ded90660cf752c01a5e0079c18a7b2c320d1efdd759ecc6e580781047"
+          "sha256": "d5796d9847be2d47b932f6a4b31506d8acc334a4e7be9068850da95e90868ae5"
         },
         "sourceArchive": {
           "sha256": "dd558e4dafc7949e9810e87b6dc82f240d994650b40dde97cd8134d40296b112"
@@ -1133,7 +1133,7 @@
         "scope": "Completed Moodle-first ten-cell katakana sa/ta-row slice: the combined worksheet teaches the exact サ・シ・ス・セ・ソ and タ・チ・ツ・テ・ト rows before the two writing-practice pages corroborate each row. The learner routes each heard signal by row and vowel coordinate; Moodle's archive contains no audio member, so Yomu pronunciation is explicitly non-Moodle support.",
         "sourcePackage": {
           "filename": "025-l1-l24.json",
-          "sha256": "f74b82a70ba9e4b755ef5490f5e05d9146521527915baa2c61323913e8cbdf7e"
+          "sha256": "b29ede520d0c9653857a2ce27872d21c5564df75f23de73bdd154aa3cf8deece"
         },
         "sourceArchive": {
           "sha256": "f9fb8c06bd8b1cd257f330ef5caf2e1ca0145249c9d564373ee7aae316709118"
@@ -1244,7 +1244,7 @@
         "scope": "Completed Moodle-first ten-cell katakana na/ha-row slice: the combined worksheet teaches the exact ナ・ニ・ヌ・ネ・ノ and ハ・ヒ・フ・ヘ・ホ rows before the two writing-practice pages corroborate each row. The learner sets each heard signal with a row switch and vowel dial; Moodle's archive contains no audio member, so verified Yomu pronunciation is explicitly non-Moodle support.",
         "sourcePackage": {
           "filename": "026-l1-l25.json",
-          "sha256": "ae6cdf81783440af1e0156ba72dc2e81fe4dccfbf66c9d9423fac2a506ed9a48"
+          "sha256": "1d4ab307fa6a66d6191e511c7c258ffa77bfc572b1f8e53ec285f9e76ab2c6ad"
         },
         "sourceArchive": {
           "sha256": "97e30504a458dba76836e2146f9b67074980cccc1325182f986e2c3add4054a0"
@@ -1355,7 +1355,7 @@
         "scope": "Completed Moodle-first sixteen-cell katakana final-row slice: the combined worksheet teaches the exact マ・ミ・ム・メ・モ, ヤ・ユ・ヨ, ラ・リ・ル・レ・ロ, and ワ・ヲ・ン rows before their two writing-practice pages corroborate the same source order. The learner returns each heard signal to one of the chart’s visible shelf slots; Moodle's archive contains no audio member, so verified Yomu pronunciation is explicitly non-Moodle support.",
         "sourcePackage": {
           "filename": "027-l1-l26.json",
-          "sha256": "381036e7e28cf345ca495ab6cd70be0688120ae5af92ebdd498f0ba43f6df998"
+          "sha256": "b05dab7fcf8a1ceff530d020cd414ac5adfedbbd9f1a1935b9d0349434d776ee"
         },
         "sourceArchive": {
           "sha256": "a399798c6bf91c41042cb52ee69c3f87fbbc2856c6c0a304978ddd5df9aef79e"
@@ -1586,7 +1586,7 @@
         "scope": "Lesson 29 Moodle-first summer-holiday slice: Sensei's Chapter 19-2,3 vocabulary page and Chapter 19-2 grammar page 3 are shown before original B-22 audio. Four neutral speaker-shelf pins reveal reviewed audio details only after an attempt.",
         "sourcePackage": {
           "filename": "030-l2-l03.json",
-          "sha256": "09a3315666809edd8cf36c081b9dc5d033f726e8900073188e46e5a3674c0b17"
+          "sha256": "20552264c4787684cd1cb1ca757d47ce93bd8575bf16fbd79c87f2738b4c47f0"
         },
         "sourceArchive": {
           "sha256": "ece165f86acb0c656b1dda077c1c11a62a8405f2aea0d0a94e295e2da52ccfc9"
@@ -1681,7 +1681,7 @@
         "scope": "Lesson 30 Moodle-first B-24/B-25/Minna 069 listening slice: Sensei's Chapter 20 pages appear before the original recordings. Three neutral B-24 hinges, B-25's three diary items and five typed blanks, and five Minna 069 conversation checks reveal reviewed support only after an attempt.",
         "sourcePackage": {
           "filename": "032-l2-l05.json",
-          "sha256": "d4286e8c46ee6e7581609c02b08d76f0bc9252c26a431f5b2ca50f33471e5d0b"
+          "sha256": "3003db9b0cf9b795b1b46067b143e2e71869f4903c5705ef463f356c42502544"
         },
         "sourceArchive": {
           "sha256": "52acdfde17188471e25cfc90cb3307d5914359f521d60b0d6e083dafbd9edb90"
@@ -2051,7 +2051,7 @@
         "scope": "Lesson 28 Moodle-first plain-style matrix slice: Sensei's exact Chapter 20-1 vocabulary page and verb grammar page 3 are rendered before four bounded column choices. Moodle supplies no source audio and no answer key; completion forms are explicitly Yomu-derived support over the visible source matrix.",
         "sourcePackage": {
           "filename": "031-l2-l04.json",
-          "sha256": "62885898a643f116d8277a7ed5745e89ed45b6bb87023cc41859cf0677141d0c"
+          "sha256": "2a9649cba309665a44f7c8bbc69d10f20e37b09aae31970d0b6b5926df76f1c7"
         },
         "sourceArchive": {
           "sha256": "5648070e673eb0a8214a91fa2fcc48f4d55598e538465af5aa09f7df780a8033"
@@ -2349,7 +2349,7 @@
         "scope": "Lesson 35 Moodle-first vocabulary, とき timing, and exact-listening slice: Sensei's Chapter 23-1 vocabulary page preserves all 16 rows before assessment, while only the 6 rows with source-provided meanings enter Reader/SRS and the other 10 remain quarantined. Exact Chapter 23-1 pages 4 and 5 then retain the verbatim dictionary-form/た-form rule, five examples, Paris contrast, task heading, and four picture prompts before assessment. Learners route each prompt across a before-completion or after-completion threshold, then retrieve Chapter 22 noun-modifying clauses through the five recording-embedded ○/× items in byte-verified Minna 077. Derived timing completions, listening marks, and transcript remain hidden until an attempt.",
         "sourcePackage": {
           "filename": "037-l2-l10.json",
-          "sha256": "8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af"
+          "sha256": "716f456e47d812855f5e5f67a7f704fa93c6a37a2256798588403d36feb28034"
         },
         "sourceArchive": {
           "sha256": "717787bb3eb1af1b75d149b26cef1e1386950430020c3c583b790523d6f0404c"
@@ -2472,7 +2472,7 @@
         "scope": "Lesson 36 Moodle-first occasion-route slice: Sensei's exact New Chapter 23-1 page 1 appears with the verbatim five-form frame, rule, eleven examples, task 1-1 heading, and four sentence pairs before assessment. Learners route each first clause through an affirmative-action or negative-state gate to form one sentence; the source provides no answer key, so all completions are explicitly Yomu-derived and remain hidden until an attempt. Before that assessment, all 16 rows of Sensei's exact New Chapter 23-1 vocabulary sheet are taught in source order; only six source-glossed rows enter Reader and SRS.",
         "sourcePackage": {
           "filename": "038-l2-l11.json",
-          "sha256": "56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6"
+          "sha256": "8f7a382927baacc43f127b43e94c4218e3716e9c3a09c25828d2fe342e55cf00"
         },
         "sourceArchive": {
           "sha256": "0f2f02e0a287a1e34c11347ca3eed5f8cdfe00b4aae8a6cae13c5c5a434ba5c2"
@@ -2752,7 +2752,7 @@
         "scope": "Lesson 38 Moodle-first Chapter 28 slice: all 27 lexical rows and four blank numbered layout rows from Sensei's exact three-page Chapter 28-2 vocabulary sheet are taught before the existing eight 〜し reason-chain prompts and seven-item A-11 meal survey. Only 15 rows with usable printed glosses enter Reader and SRS; ten missing-gloss rows and two semantically unsafe printed cells remain quarantined. Derived completions, the reviewed A-11 transcript, and deterministic key remain hidden until an attempt.",
         "sourcePackage": {
           "filename": "040-l2-l13.json",
-          "sha256": "7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe"
+          "sha256": "f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9"
         },
         "sourceArchive": {
           "id": "archive-000092",
@@ -3149,7 +3149,7 @@
         "scope": "Lesson 41 Moodle-first Chapter 30 prepared-state slice: both canonical Chapter 30-1 vocabulary-sheet pages, the five grammar pages, and the completed information-gap page appear before assessment. The vocabulary sheet is displayed verbatim as the original reference for location and arrangement words; Sensei's purposeful-action rule, place に thing が structure, topic は structure, transitive/intransitive contrast, examples, and selected task headings remain source-first. Learners complete all three task 6 ています／てあります contrasts, all four office-placement rows from task 2, and one non-example Room A placement through selection, choice, and typed reporting. The source provides no answer key for these rows, so all eight reports are explicitly Yomu-derived and hidden until an attempt.",
         "sourcePackage": {
           "filename": "043-l2-l16.json",
-          "sha256": "04ad279a9667497f6419123300eb137f8f4fd4c08fd35cba9ab99427da87e396"
+          "sha256": "1f28c5c28800df738df4e6fa2a3859ff265a4372376200263859c10a7bcc46fe"
         },
         "sourceArchive": {
           "id": "archive-000066",
@@ -3884,7 +3884,7 @@
         "scope": "Lesson 44 Moodle-first Chapter 31 volitional-form slice: all two Chapter 31 teaching pages and both Creating volitional form sheet pages appear before assessment. Eight selected source loci use the printed group-1, group-2, and irregular rows through form selection, ending selection, and typed production. The source provides formation tables but no answer key, so every completion is explicitly Yomu-derived and remains hidden until an attempt.",
         "sourcePackage": {
           "filename": "046-l2-l19.json",
-          "sha256": "5be73c8311e5fab0284cb875eab140b6e110e7691e4cdc8fec58570987232c06"
+          "sha256": "b13b474ee4587785a9f827828c56325ebb4a562ddd81d020d541dc7fe0107354"
         },
         "sourceArchive": {
           "id": "archive-000084",
@@ -4140,7 +4140,7 @@
         "scope": "Lesson 43 Moodle-first Chapter 30-2 slice: all 23 numbered rows and nine blank layout rows of Sensei's exact two-page vocabulary sheet are delivered in source order through after-attempt recall. Six byte-verified grammar and speaking pages are retained as canonical pages for the existing varied preparation, leave-as-is, spoken-contraction, reading, production, kanji, and review activities. The four Moodle audio members have no verified task pairing, transcript, or duration relation and remain quarantined. Minna and Genki set sequence only and contribute no learner-facing wording, answers, or audio.",
         "sourcePackage": {
           "filename": "044-l2-l17.json",
-          "sha256": "a319510a34b185d008fd631849f56539f360bd61f32ad017812b5714fe38c834"
+          "sha256": "91937d1499e3cb3f3b6e812861a609bcce144424638de2d6cff448b76d6c63b6"
         },
         "sourceArchive": {
           "id": "archive-000008",
@@ -4311,7 +4311,7 @@
         "scope": "Moodle-first Chapter 31 intentions-and-arrangements slice: nine byte-verified canonical pages are shown before eight selected source loci. The two-page vocabulary sheet is preserved in source order for Library and local study. No audio member is delivered because all six archive recordings lack a verified original worksheet pairing, transcript, duration, and answer relation.",
         "sourcePackage": {
           "filename": "048-l2-l21.json",
-          "sha256": "8f0468b15ecc934fa007cd19d7dd1a6e40d31fc0545b0e671a07adcc48c6ed4c"
+          "sha256": "f1a50f25404de8556dc6b648ea5c8c4dfc92a8f8265b9caedfb716041c8fbeb7"
         },
         "sourceArchive": {
           "id": "archive-000010",

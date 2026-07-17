@@ -1,8 +1,6 @@
 import type { PrivacySafeLibraryResource } from '../../media/library-media-types';
 import manifestJson from '../../../../public/academy/content/listening/listening-crosswalk.v1.json';
 
-export type ListeningAvailability = 'source-verified' | 'unavailable';
-
 export interface ListeningSourceEvidence {
     readonly corpus: 'soya' | 'moodle' | 'minna';
     readonly repositoryRelativePath: string;
@@ -47,9 +45,9 @@ export interface UnavailableListeningEntry extends ListeningEntryBase {
     readonly expectedDurationSeconds?: number;
 }
 
-export type ListeningCrosswalkEntry = SourceVerifiedListeningEntry | UnavailableListeningEntry;
+type ListeningCrosswalkEntry = SourceVerifiedListeningEntry | UnavailableListeningEntry;
 
-export interface ListeningCrosswalkManifest {
+interface ListeningCrosswalkManifest {
     readonly schema: 'yomu-academy.listening-crosswalk.v1';
     readonly entries: readonly ListeningCrosswalkEntry[];
 }
@@ -77,7 +75,7 @@ export type PackagedListeningResolution =
 const SHA256 = /^[a-f0-9]{64}$/;
 const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
 
-export function parseListeningCrosswalk(value: unknown): ListeningCrosswalkManifest {
+function parseListeningCrosswalk(value: unknown): ListeningCrosswalkManifest {
     if (!isRecord(value) || value.schema !== 'yomu-academy.listening-crosswalk.v1' || !Array.isArray(value.entries)) {
         throw new TypeError('Listening crosswalk must declare the v1 schema and an entries array.');
     }

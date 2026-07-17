@@ -112,7 +112,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
 
 export type AcademyRuntimeAssetId = keyof typeof ACADEMY_RUNTIME_ASSET_REGISTRY;
 
-export interface AcademyLessonAssetBinding {
+interface AcademyLessonAssetBinding {
     readonly sceneAssetId: AcademyRuntimeAssetId;
     readonly sourceSceneReference: string;
     readonly approvedCastAssetIds: Readonly<Record<string, AcademyRuntimeAssetId>>;
@@ -150,7 +150,7 @@ export type AcademyItemAssetId = {
 
 type PurposefulAssetKind = 'background' | 'event-art' | 'item-art';
 
-export type AcademyPurposefulAssetId = {
+type AcademyPurposefulAssetId = {
     [K in AcademyRuntimeAssetId]: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends PurposefulAssetKind ? K : never;
 }[AcademyRuntimeAssetId];
 
@@ -243,14 +243,14 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
  * review candidates separate so an attractive card cannot accidentally become
  * a story or lesson likeness approval.
  */
-export const ACADEMY_APPROVED_CAST_SPRITES = {
+const ACADEMY_APPROVED_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
 
 /** Approved expression and angle coverage that may follow a cast member into VN scenes. */
-export const ACADEMY_APPROVED_CAST_PERFORMANCES = {
+const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     rie: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
         happy: ACADEMY_APPROVED_CHARACTER_SPRITES.rieHappy,
@@ -272,7 +272,7 @@ export const ACADEMY_APPROVED_CAST_PERFORMANCES = {
 } as const;
 
 /** Reference-backed cutouts that may appear only in the learner's journal. */
-export const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
+const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     aakash: assetFile('character.aakash.neutral', 'default'),
     felix: assetFile('character.felix.neutral', 'default'),
@@ -283,7 +283,7 @@ export const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
 
-export type AcademyCastSpritePresentation = 'approved-runtime' | 'journal-review-preview';
+type AcademyCastSpritePresentation = 'approved-runtime' | 'journal-review-preview';
 
 type AcademyCastSpriteAssetId = {
     [K in AcademyRuntimeAssetId]: typeof ACADEMY_RUNTIME_ASSET_REGISTRY[K]['kind'] extends 'character-sprite' ? K : never;

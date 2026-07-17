@@ -33012,6 +33012,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     crypto.getRandomValues(bytes);
     return bytes;
   }
+  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
+  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
+  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
+    return Math.max(floorMs, settings.audioTimeoutMs);
+  }
+  function imageCacheKey(image) {
+    const contentKey = image.dataset?.ocrContentKey;
+    if (contentKey) return contentKey;
+    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
+  function localOcrEndpointUrl(settings) {
+    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+  }
+  function isOcrRequestTimeout(error) {
+    return error instanceof Error && /timed out|timeout/i.test(error.message);
+  }
   const log$n = Logger.scope("OCR");
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
@@ -35874,10 +35890,6 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
   const READER_RASTER_EMPTY_RETRY_MS = 400;
   const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
-  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
-  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
-    return Math.max(floorMs, settings.audioTimeoutMs);
-  }
   const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
   const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
   const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
@@ -35891,7 +35903,6 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log$l = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
@@ -39593,11 +39604,6 @@ ${spelling}`);
         return "contain";
     }
   }
-  function imageCacheKey(image) {
-    const contentKey = image.dataset?.ocrContentKey;
-    if (contentKey) return contentKey;
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
   function ocrResultTextKey(result) {
     return result?.lines.map((line) => line.text).join("\n") ?? "";
   }
@@ -39720,16 +39726,10 @@ ${spelling}`);
   function ocrEngineLabel(settings) {
     return settings.ocrEngine || "auto";
   }
-  function localOcrEndpointUrl(settings) {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-  }
   function isLocalOcrConnectionError(error) {
     if (isLocalOcrUnavailableError(error)) return true;
     if (!(error instanceof Error)) return true;
     return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
-  }
-  function isOcrRequestTimeout(error) {
-    return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
@@ -40164,7 +40164,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.181".trim() ? "1.6.181".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.182".trim() ? "1.6.182".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

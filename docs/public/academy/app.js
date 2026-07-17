@@ -391,13 +391,6 @@
         return this.status;
       });
     }
-    /** Refresh the current account's paid-entitlement projection, best-effort. */
-    refreshEntitlement() {
-      return this.enqueue(async () => {
-        this.entitlement = await this.loadEntitlement();
-        return this.entitlement;
-      });
-    }
     async startPairing() {
       await this.connect();
       if (this.awaitingPairProfile) throw new Error("Pair this device before creating another pairing code.");

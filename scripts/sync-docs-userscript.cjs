@@ -9,7 +9,12 @@ const {
   fail,
   packageVersion,
 } = require('./lib/userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
+const {
+  GREASY_FORK_LIBRARIES,
+  greasyForkLibraryPath,
+  immutableLibraryFileName,
+  immutableReaderCssFileName,
+} = require('./lib/greasyfork-libraries.cjs');
 
 const STUDY_BUILD_DIRECTORY = join(root, 'dist', 'newtab');
 const STUDY_HOST_DIRECTORY = join(root, 'docs', 'public', 'study');
@@ -24,9 +29,18 @@ const STUDY_HOST_FILES = [
 ];
 
 copyBuiltAsset('dist/yomu.css', 'docs/public/yomu.css');
+// Immutable content-addressed copy of the stylesheet: the userscript header's
+// @resource yomuCss URL points here (see annotate-greasyfork-requires.cjs) so
+// the pinned #sha256= can never diverge from the served bytes across releases.
+copyBuiltAsset('dist/yomu.css', `docs/public/${immutableReaderCssFileName(readFileSync(join(root, 'dist/yomu.css'), 'utf8'))}`);
 for (const library of GREASY_FORK_LIBRARIES) {
   const libraryPath = greasyForkLibraryPath(library.fileName);
   copyBuiltAsset(`dist/${libraryPath}`, `docs/public/${libraryPath}`);
+  // Immutable content-addressed companion copy for @require pinning. Old
+  // hashed copies from previous releases stay deployed on purpose: script
+  // managers with an older header must keep validating their pinned URLs.
+  const immutableName = immutableLibraryFileName(library.fileName, readFileSync(join(root, `dist/${libraryPath}`), 'utf8'));
+  copyBuiltAsset(`dist/${libraryPath}`, `docs/public/greasyfork/${immutableName}`);
 }
 prepareStudyBuild();
 syncCanonicalStudyRoute();

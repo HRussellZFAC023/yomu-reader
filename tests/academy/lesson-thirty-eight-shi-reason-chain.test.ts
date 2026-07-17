@@ -224,7 +224,7 @@ describe('Lesson 38 Sensei Chapter 28-2 shi reason chain', () => {
         });
         const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/040-l2-l13.json'));
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe');
+            .toBe('f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9');
         expect(readFileSync(path.resolve('docs/public/academy/content/lessons/040-l2-l13.json'))).toEqual(sourcePackage);
         expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
             .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
@@ -234,7 +234,7 @@ describe('Lesson 38 Sensei Chapter 28-2 shi reason chain', () => {
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l13')).toMatchObject({
             moodleModuleId: 8121266,
-            sourcePackage: { filename: '040-l2-l13.json', sha256: '7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe' },
+            sourcePackage: { filename: '040-l2-l13.json', sha256: 'f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9' },
             sourceArchive: { id: 'archive-000092', sha256: 'f1ce9163abbe23a99c1e0fbe29973c8f3f68630cc6cbcd872a6e91ea75fe4217' },
             audio: { status: 'a11-reviewed-packaged-static-four-members-quarantined', sourceAudioMembers: 5, sourceAudioTracksDelivered: 1 },
             claims: {

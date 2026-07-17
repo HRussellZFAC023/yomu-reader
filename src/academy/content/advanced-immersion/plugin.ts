@@ -67,7 +67,7 @@ export function validateAdvancedImmersion(model: AdvancedImmersionModel): readon
     return issues;
 }
 
-export function gradeAdvancedImmersion(
+function gradeAdvancedImmersion(
     model: AdvancedImmersionModel,
     response: AdvancedImmersionResponse,
 ): GradeResult {
@@ -81,7 +81,7 @@ export function gradeAdvancedImmersion(
     );
 }
 
-export function advancedImmersionReviewSeeds(
+function advancedImmersionReviewSeeds(
     model: AdvancedImmersionModel,
     result: GradeResult,
 ): readonly ReviewSeed[] {

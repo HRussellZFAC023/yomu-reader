@@ -136,7 +136,7 @@ describe('Lesson 42 Sensei Chapter 30 advance preparation', () => {
         }
         const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/044-l2-l17.json'));
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('a319510a34b185d008fd631849f56539f360bd61f32ad017812b5714fe38c834');
+            .toBe('91937d1499e3cb3f3b6e812861a609bcce144424638de2d6cff448b76d6c63b6');
         expect(readFileSync(path.resolve('docs/public/academy/content/lessons/044-l2-l17.json'))).toEqual(sourcePackage);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');

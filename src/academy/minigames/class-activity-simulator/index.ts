@@ -40,7 +40,7 @@ export const classActivitySimulatorPlugin: ActivityPlugin<ClassActivitySimulator
     },
 };
 
-export function validateClassActivitySimulator(model: ClassActivitySimulatorModel): readonly ValidationIssue[] {
+function validateClassActivitySimulator(model: ClassActivitySimulatorModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];
     const payload = model.payload;
     const formats = ['pair', 'group', 'info-gap', 'role-card', 'board', 'race'];
@@ -375,6 +375,5 @@ function button(label: string): HTMLButtonElement {
     return result;
 }
 
-export { createClassActivitySession, scoreClassActivity } from './engine';
-export type { ClassActivitySession, ClassActivityTranscriptEntry } from './engine';
+export { createClassActivitySession } from './engine';
 export type * from './model';

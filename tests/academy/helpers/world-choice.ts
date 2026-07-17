@@ -24,15 +24,6 @@ export function worldChoiceButton(
     return choiceButtons(container)[index] ?? null;
 }
 
-/** Clicks the button rendered for `choiceId` within `container`, if present. */
-export function clickWorldChoice(
-    container: ParentNode,
-    choices: readonly WorldChoiceRef[],
-    choiceId: string,
-): void {
-    worldChoiceButton(container, choices, choiceId)?.click();
-}
-
 /**
  * Finds a choice button by its rendered Japanese label text. The label is
  * already visible content (what a learner reads before answering), so

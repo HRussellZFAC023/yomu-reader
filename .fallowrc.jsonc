@@ -19,6 +19,27 @@
     "scripts/academy-audio-media.mjs",
     "scripts/academy-source-pipeline.mjs",
     "scripts/generate-academy-achievements.mjs",
+    "scripts/academy-lesson-uniqueness-conformance.mjs",
+    "scripts/academy-sprite-migration-ledger.mjs",
+    "scripts/current-place-world-geometry.mjs",
+    // yomu-audio worker ops CLIs (see workers/yomu-audio/TTS-SETUP.md): build
+    // the D1 pitch table and pre-render Academy story voice lines into R2.
+    "scripts/build-pitch-accents-sql.mjs",
+    "scripts/generate-academy-voice-lines.mjs",
+    // Manual Academy world/lesson QA browsers — run directly during content
+    // review, never through the application graph.
+    "scripts/japan-centre-world-browser.mjs",
+    "scripts/lesson-28-cafe-assets-browser.mjs",
+    "scripts/lesson-35-presentation-browser.mjs",
+    "scripts/lesson-36-presentation-browser.mjs",
+    "scripts/lesson-37-38-presentation-browser.mjs",
+    "scripts/lesson-39-presentation-browser.mjs",
+    "scripts/lesson-40-presentation-browser.mjs",
+    "scripts/placement-responsive-browser.mjs",
+    "scripts/station-world-qa.mjs",
+    // Manual YouTube-Music CTA regression repros (fixture + live).
+    "scripts/manual/ytm-cta-fixture-repro.mjs",
+    "scripts/manual/ytm-live-cta-repro.mjs",
     "scripts/qa-audit.mjs",
     "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",
@@ -46,7 +67,12 @@
     // (vite.config.ts greasyfork aliases) — invisible to the import graph.
     "src/reader/app/i18n-companion.ts",
     "src/reader/study/mining-context-companion.ts",
-    "src/reader/study/sources-companion.ts"
+    "src/reader/study/sources-companion.ts",
+    // Deliberately parked seams (headers document the wiring plan): story
+    // voice-line resolution awaits a public cached-line worker endpoint, and
+    // the overflow-destination contract awaits the world-screen overflow menu.
+    "src/academy/audio/voice-lines.ts",
+    "src/academy/routing/overflow-destinations.ts"
   ],
   "usedClassMembers": [
     // AudioDirector consumes BrowserMediaBus through this interface, so static
@@ -76,6 +102,9 @@
     // entry seams that a TypeScript import graph cannot follow.
     "docs/public/study/**",
     "docs/public/yomu.css",
+    // Immutable content-addressed stylesheet copies pinned by the userscript
+    // header's @resource SRI hash (old ones stay deployed for older installs).
+    "docs/public/yomu.*.css",
     "docs/public/yomu.user.js",
     "tests/reader/.vitest-*/**",
     "public/academy/**"

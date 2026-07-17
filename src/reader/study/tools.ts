@@ -46,14 +46,6 @@ export function resetGrammarRuleDataCacheForTests(): void {
     yomuKanjiStudyCompanion()?.resetGrammarRuleDataCacheForTests?.();
 }
 
-export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
-    return yomuKanjiStudyCompanion()?.listLocalGrammarRuleExamples?.() ?? [];
-}
-
-export function listLocalGrammarRules(): LocalGrammarRuleSummary[] {
-    return yomuKanjiStudyCompanion()?.listLocalGrammarRules?.() ?? [];
-}
-
 export function detectGrammarHints(sentence: string): GrammarHint[] {
     return yomuKanjiStudyCompanion()?.detectGrammarHints?.(sentence) ?? [];
 }

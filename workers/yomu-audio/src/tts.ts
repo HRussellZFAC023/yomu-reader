@@ -48,15 +48,15 @@ export interface TtsEnv {
 }
 
 /** Amazon Polly neural ja-JP voices (pitch-aware word audio only). */
-export type PollyJaVoice = "Tomoko" | "Kazuha" | "Takumi";
+type PollyJaVoice = "Tomoko" | "Kazuha" | "Takumi";
 
 /** Azure neural ja-JP voices — the story-voicing palette (Ogg-Opus output). */
-export type AzureJaVoice =
+type AzureJaVoice =
   | "ja-JP-NanamiNeural" | "ja-JP-KeitaNeural" | "ja-JP-AoiNeural"
   | "ja-JP-DaichiNeural" | "ja-JP-MayuNeural" | "ja-JP-NaokiNeural"
   | "ja-JP-ShioriNeural" | "ja-JP-MasaruMultilingualNeural";
 
-export interface CharacterVoice {
+interface CharacterVoice {
   readonly azure: AzureJaVoice;
   /** Fallback voice when only Polly is configured. */
   readonly polly: PollyJaVoice;
@@ -69,7 +69,7 @@ export interface CharacterVoice {
  * cast; prosody offsets split characters sharing a base voice. Any speaker
  * not listed gets the narrator default.
  */
-export const VOICE_REGISTRY: Readonly<Record<string, CharacterVoice>> = {
+const VOICE_REGISTRY: Readonly<Record<string, CharacterVoice>> = {
   narrator: { azure: "ja-JP-NanamiNeural", polly: "Tomoko" },
   rie: { azure: "ja-JP-NanamiNeural", polly: "Tomoko" },
   sophie: { azure: "ja-JP-AoiNeural", polly: "Kazuha" },
@@ -110,14 +110,14 @@ function pollyEnabled(env: TtsEnv): boolean {
   );
 }
 
-export type TtsEngine = "azure" | "polly" | "melotts";
+type TtsEngine = "azure" | "polly" | "melotts";
 
 function azureEnabled(env: TtsEnv): boolean {
   return Boolean(env.AZURE_SPEECH_KEY?.trim()) && Boolean(env.AZURE_SPEECH_REGION?.trim());
 }
 
 /** Line voicing prefers Azure (8 ja voices, native Ogg-Opus = smallest storage). */
-export function lineEngine(env: TtsEnv): TtsEngine | null {
+function lineEngine(env: TtsEnv): TtsEngine | null {
   if (azureEnabled(env)) return "azure";
   if (pollyEnabled(env)) return "polly";
   if (env.AI) return "melotts";
@@ -125,7 +125,7 @@ export function lineEngine(env: TtsEnv): TtsEngine | null {
 }
 
 /** Word audio prefers Polly (the only engine with pitch-accent phonemes). */
-export function ttsEngine(env: TtsEnv): TtsEngine | null {
+function ttsEngine(env: TtsEnv): TtsEngine | null {
   if (pollyEnabled(env)) return "polly";
   if (azureEnabled(env)) return "azure";
   if (env.AI) return "melotts";
@@ -144,7 +144,7 @@ interface PitchRow {
 }
 
 /** Most-attested pitch for (term, reading) from the Kanjium-derived D1 table. */
-export async function lookupPitch(env: TtsEnv, term: string, reading: string): Promise<string> {
+async function lookupPitch(env: TtsEnv, term: string, reading: string): Promise<string> {
   if (!env.AUDIO_DB) return "";
   try {
     const condition = reading ? "WHERE expression = ?1 AND reading = ?2" : "WHERE expression = ?1";
@@ -170,7 +170,7 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-export function wordSsml(term: string, reading: string, pitch: string): { text: string; type: "ssml" | "text" } {
+function wordSsml(term: string, reading: string, pitch: string): { text: string; type: "ssml" | "text" } {
   if (pitch) {
     return {
       type: "ssml",
@@ -186,7 +186,7 @@ export function wordSsml(term: string, reading: string, pitch: string): { text: 
   return { type: "text", text: term };
 }
 
-export function lineSsml(text: string, character: CharacterVoice): { text: string; type: "ssml" | "text" } {
+function lineSsml(text: string, character: CharacterVoice): { text: string; type: "ssml" | "text" } {
   if (!character.prosody) return { type: "text", text };
   const attrs = [
     character.prosody.rate ? `rate="${escapeXml(character.prosody.rate)}"` : "",

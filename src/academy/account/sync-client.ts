@@ -269,14 +269,6 @@ export class AcademySyncClient {
         });
     }
 
-    /** Refresh the current account's paid-entitlement projection, best-effort. */
-    refreshEntitlement(): Promise<AcademyEntitlementView | null> {
-        return this.enqueue(async () => {
-            this.entitlement = await this.loadEntitlement();
-            return this.entitlement;
-        });
-    }
-
     async startPairing(): Promise<AcademyPairingTicket> {
         await this.connect();
         if (this.awaitingPairProfile) throw new Error('Pair this device before creating another pairing code.');

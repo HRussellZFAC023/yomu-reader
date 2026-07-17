@@ -89,7 +89,7 @@ export function prepareAcademyReadingSurface(surface: HTMLElement): boolean {
     return true;
 }
 
-export function isAcademyJapaneseSurface(element: HTMLElement): boolean {
+function isAcademyJapaneseSurface(element: HTMLElement): boolean {
     if (element.matches('script, style, noscript, textarea, input, select, option, button, [aria-hidden="true"]')) return false;
     if (element.classList.contains('academy-assessed-japanese')) return false;
     if (element.dataset.performanceText === 'revealing') return false;

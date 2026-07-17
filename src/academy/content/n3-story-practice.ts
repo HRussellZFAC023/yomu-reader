@@ -79,10 +79,6 @@ export function n3StoryPractice(activityId: string): N3StoryPractice | undefined
     return PRACTICES.find(practice => practice.activityId === activityId);
 }
 
-export function allN3StoryPractices(): readonly N3StoryPractice[] {
-    return PRACTICES;
-}
-
 function practice(
     activityId: string,
     chapterId: string,

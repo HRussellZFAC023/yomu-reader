@@ -2,7 +2,7 @@ import { escapeRegExp } from '../core/string-utils';
 
 export { escapeRegExp };
 
-export function unescapeYouTubeConfigString(value: string): string {
+function unescapeYouTubeConfigString(value: string): string {
     try {
         return JSON.parse(`"${value}"`) as string;
     } catch {

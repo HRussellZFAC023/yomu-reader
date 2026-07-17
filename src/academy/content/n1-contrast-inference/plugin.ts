@@ -30,7 +30,7 @@ import {
   type N1ContrastInferenceResponse,
 } from "./types";
 
-export const n1ContrastInferencePlugin: ActivityPlugin<
+const n1ContrastInferencePlugin: ActivityPlugin<
   N1ContrastInferenceModel,
   N1ContrastInferenceResponse
 > = {
@@ -118,7 +118,7 @@ export function validateN1ContrastInference(
   return issues;
 }
 
-export function gradeN1ContrastInference(
+function gradeN1ContrastInference(
   model: N1ContrastInferenceModel,
   response: N1ContrastInferenceResponse,
 ): GradeResult {
@@ -135,7 +135,7 @@ export function gradeN1ContrastInference(
   );
 }
 
-export function n1ContrastInferenceReviewSeeds(
+function n1ContrastInferenceReviewSeeds(
   model: N1ContrastInferenceModel,
   result: GradeResult,
 ): readonly ReviewSeed[] {

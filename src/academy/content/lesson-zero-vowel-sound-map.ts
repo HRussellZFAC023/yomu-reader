@@ -7,7 +7,7 @@ import {
 } from './lesson-zero-source-material';
 
 export const LESSON_ZERO_VOWEL_SOUND_MAP_ID = 'activity:lesson-zero-vowel-listen';
-export const LESSON_ZERO_VOWEL_SOUND_SOURCE_QUESTION_ID = 'source-question:lesson-zero-hiragana-a-row';
+const LESSON_ZERO_VOWEL_SOUND_SOURCE_QUESTION_ID = 'source-question:lesson-zero-hiragana-a-row';
 
 export function createLessonZeroVowelSoundMap(): KanaSoundMapModel {
     const items = LESSON_ZERO_KANA_SEQUENCE.map(item => Object.freeze({

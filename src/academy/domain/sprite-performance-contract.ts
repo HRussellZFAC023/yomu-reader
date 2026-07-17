@@ -18,7 +18,6 @@ export const SPRITE_EXPRESSIONS = [
     'comedic',
 ] as const;
 export type SpriteExpression = typeof SPRITE_EXPRESSIONS[number];
-export type SpriteAssetStatus = 'approved' | 'review-candidate' | 'missing';
 export type SpriteRasterPath = `/academy/art/characters/${string}`;
 
 export type SpriteAssetCoverage =

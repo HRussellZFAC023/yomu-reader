@@ -14,6 +14,7 @@ import {
 } from './image-preprocess';
 import { fittedObjectSize, imageContentBox, objectPositionOffset } from './ocr-overlay-geometry';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
+import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
 import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
 import {
@@ -176,18 +177,6 @@ const READER_RASTER_MAX_COMMIT_MISMATCHES = 3;
 const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
 const READER_RASTER_EMPTY_RETRY_MS = 400;
 const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
-// The whole-scan deadline reuses audioTimeoutMs (the only user-facing network
-// budget), but that setting defaults to 6 seconds — an audio-sized budget. One
-// OCR attempt spans canvas encode plus up to two Lens transports, and on iPad
-// userscript managers each hop crosses a slow native-messaging bridge, so a 6s
-// ceiling kills healthy scans after the first few pages and strands every later
-// page on "Could not read text" until a reload. Give OCR an attempt floor that
-// distinguishes "slow but working" from "genuinely hung".
-const OCR_MIN_ATTEMPT_TIMEOUT_MS = 30_000;
-
-export function ocrAttemptTimeoutMs(settings: ReaderSettings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS): number {
-    return Math.max(floorMs, settings.audioTimeoutMs);
-}
 const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
 // Mirror capture can spend one timeout fetching, one decoding, then six seconds
 // asking the extension screenshot bridge. Ownership must outlive that whole chain.
@@ -203,7 +192,6 @@ const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
 const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8000;
 const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
 const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
-const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
 const bookwalkerAssetResolver = new BookwalkerAssetResolver();
 const log = Logger.scope('OCR');
 const STALE_OCR_STATE = Symbol('stale-ocr-state');
@@ -4864,15 +4852,6 @@ function videoObjectFit(value: string): string {
     }
 }
 
-export function imageCacheKey(image: HTMLImageElement): string {
-    // Canvas/background reader frames carry a stable per-page content key so the OCR
-    // cache hits when a page is revisited, instead of re-OCRing the re-encoded
-    // data-URL. Ordinary images key on their source URL + intrinsic size as before.
-    const contentKey = image.dataset?.ocrContentKey;
-    if (contentKey) return contentKey;
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-}
-
 function ocrResultTextKey(result: OcrResult | undefined): string {
     return result?.lines.map(line => line.text).join('\n') ?? '';
 }
@@ -5030,20 +5009,12 @@ function ocrEngineLabel(settings: ReaderSettings): string {
     return settings.ocrEngine || 'auto';
 }
 
-export function localOcrEndpointUrl(settings: ReaderSettings): string {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-}
-
 function isLocalOcrConnectionError(error: unknown): boolean {
     if (isLocalOcrUnavailableError(error)) return true;
     if (!(error instanceof Error)) return true;
     return error.name === 'TypeError'
         || error.name === 'AbortError'
         || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
-}
-
-export function isOcrRequestTimeout(error: unknown): boolean {
-    return error instanceof Error && /timed out|timeout/i.test(error.message);
 }
 
 function isLocalOcrUnavailableError(error: unknown): error is LocalOcrUnavailableError {

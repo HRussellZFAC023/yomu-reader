@@ -9,7 +9,7 @@ export type AcademySfxDomain =
     | 'minigame'
     | 'ceremony';
 
-export interface VerifiedShindaySfxAsset {
+interface VerifiedShindaySfxAsset {
     readonly sourceRelativePath: string;
     readonly deliveryKey: string;
     readonly contentType: 'audio/wav';
@@ -175,7 +175,6 @@ export const ACADEMY_SEMANTIC_SFX_CUES = [
 ] as const satisfies readonly AcademySfxCueDefinition[];
 
 export type AcademySemanticSfxCue = typeof ACADEMY_SEMANTIC_SFX_CUES[number]['cue'];
-export type AcademyMappedSfxCue = Extract<typeof ACADEMY_SEMANTIC_SFX_CUES[number], { status: 'mapped' }>;
 
 export const SHINDAY_SFX_CATALOG = Object.freeze({
     version: 1 as const,

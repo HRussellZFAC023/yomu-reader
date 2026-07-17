@@ -9,7 +9,7 @@ const PAIRING_ALPHABET = '023456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const PAIRING_CODE_LENGTH = 20;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-export interface PairingKeyEnvelope {
+interface PairingKeyEnvelope {
     readonly keyVersion: number;
     readonly salt: string;
     readonly nonce: string;
@@ -210,7 +210,7 @@ export async function pruneExpiredPairings(env: Env, clock: Clock): Promise<void
     await env.ACADEMY_DB.prepare('DELETE FROM device_pairings WHERE expires_at < ?1').bind(clock() - 24 * 60 * 60_000).run();
 }
 
-export function normalizePairingCode(value: unknown): string {
+function normalizePairingCode(value: unknown): string {
     if (typeof value !== 'string') throw new HttpError(400, 'Pairing code is required.');
     const compact = value.normalize('NFKC').trim().toUpperCase().replaceAll(/[-\s]/gu, '');
     if (compact.length !== PAIRING_CODE_LENGTH || [...compact].some(character => !PAIRING_ALPHABET.includes(character))) {

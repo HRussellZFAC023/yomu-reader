@@ -21,7 +21,7 @@ const {
   userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl } = require('./lib/greasyfork-libraries.cjs');
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;
@@ -110,34 +110,40 @@ function assertCompanionBuildVersions() {
 }
 
 function assertReaderCssResourceMetadata() {
-  // Tampermonkey-family managers cache @resource content at install time
-  // keyed by URL, so the CSS URL must change every release (?v=<version>) and
-  // carry a #sha256= of the exact dist/yomu.css that sync-docs publishes —
-  // otherwise updated installs silently keep the previous release's sheet.
+  // The @resource URL must be IMMUTABLE (content-addressed) and carry the
+  // matching #sha256=: script managers pin the hash at install time and
+  // re-validate on external refresh, so a mutable URL whose content changes
+  // on the next release fails validation and disables the whole script.
   if (!fileExists(DIST_READER_CSS_PATH)) fail(`${READER_CSS_RELATIVE_PATH} is missing. Run npm run build first.`);
-  const expectedHash = createHash('sha256').update(readText(DIST_READER_CSS_PATH)).digest('base64');
-  const expected = `${readerCssResourceUrl()}#sha256=${expectedHash}`;
+  const content = readText(DIST_READER_CSS_PATH);
+  const expectedHash = createHash('sha256').update(content).digest('base64');
+  const expected = `${immutableReaderCssUrl(content)}#sha256=${expectedHash}`;
   const resourceValue = userscriptMetadataValues(code, 'resource').find(value => value.startsWith('yomuCss'));
   if (!resourceValue) fail('reader CSS @resource metadata is missing.');
   const resourceUrl = resourceValue.replace(/^yomuCss\s+/, '');
   if (resourceUrl !== expected) {
-    fail(`yomuCss @resource must be the current-version, SRI-hashed URL ${expected}; found: ${resourceUrl}`);
+    fail(`yomuCss @resource must be the immutable content-addressed SRI URL ${expected}; found: ${resourceUrl}`);
   }
 }
 
 function assertCompanionRequireSriHashes() {
   // Greasy Fork rejects every listing sync as "unapproved external script"
-  // unless each companion @require URL carries a matching #sha256= fragment.
+  // unless each companion @require URL carries a matching #sha256= fragment —
+  // and the URL must be IMMUTABLE (content-addressed filename) so the pinned
+  // hash keeps matching after future releases redeploy the site. A mutable
+  // companion URL under a pinned hash bricked all Tampermonkey installs the
+  // moment the next release changed the served bytes.
   const requireUrls = userscriptMetadataValues(code, 'require');
   for (const library of GREASY_FORK_LIBRARIES) {
     const libraryPath = greasyForkLibraryPath(library.fileName);
-    const expectedHash = createHash('sha256')
-      .update(readText(join(ROOT, 'dist', libraryPath)))
-      .digest('base64');
-    const requireUrl = requireUrls.find(url => url.includes(`/${library.fileName}`));
+    const content = readText(join(ROOT, 'dist', libraryPath));
+    const expectedHash = createHash('sha256').update(content).digest('base64');
+    const expectedUrl = `${immutableLibraryUrl(library.fileName, content)}#sha256=${expectedHash}`;
+    const baseName = library.fileName.replace(/\.user\.js$/, '');
+    const requireUrl = requireUrls.find(url => url.includes(`/${baseName}.`));
     if (!requireUrl) fail(`userscript is missing the @require for ${libraryPath}.`);
-    if (!requireUrl.endsWith(`#sha256=${expectedHash}`)) {
-      fail(`@require for ${libraryPath} must end with #sha256=${expectedHash} so Greasy Fork accepts the listing sync; found: ${requireUrl}`);
+    if (requireUrl !== expectedUrl) {
+      fail(`@require for ${libraryPath} must be the immutable content-addressed SRI URL ${expectedUrl}; found: ${requireUrl}`);
     }
   }
 }

@@ -117,7 +117,7 @@ export function assessedJapanese(value: string): HTMLSpanElement {
     return span;
 }
 
-export function support(value: string): HTMLSpanElement {
+function support(value: string): HTMLSpanElement {
     const span = document.createElement('span');
     span.className = 'academy-support';
     span.lang = 'en';
@@ -151,7 +151,7 @@ export function showEvaluation(
     host.announce(localized(evaluation.result.feedback.explanation, host));
 }
 
-export function localizedParagraph(value: LocalizedText): HTMLParagraphElement {
+function localizedParagraph(value: LocalizedText): HTMLParagraphElement {
     const paragraph = document.createElement('p');
     paragraph.append(...localizedNodes(value));
     return paragraph;
@@ -172,7 +172,7 @@ export function text(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-export function requireLocalized(
+function requireLocalized(
     value: LocalizedText | undefined,
     path: string,
     issues: ValidationIssue[],

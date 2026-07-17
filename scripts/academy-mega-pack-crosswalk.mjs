@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const MEGA_PACK_CROSSWALK_SCHEMA = 'yomu-academy.source-pipeline.mega-pack-crosswalk/v1';
-export const MEGA_PACK_CROSSWALK_REVISION = 'mega-pack-crosswalk/2026-07-15.1';
+const MEGA_PACK_CROSSWALK_REVISION = 'mega-pack-crosswalk/2026-07-15.1';
 
 const DEFAULT_ROOT = path.join(
     os.homedir(),
@@ -239,12 +239,12 @@ export function validateMegaPackCrosswalk(catalog) {
     return issues;
 }
 
-export function writeMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
+function writeMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
     const json = `${JSON.stringify(catalog, null, 2)}\n`;
     for (const relativePath of outputPaths()) writeFileSync(path.join(repoRoot, relativePath), json, 'utf8');
 }
 
-export function checkMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
+function checkMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
     const expected = `${JSON.stringify(catalog, null, 2)}\n`;
     const stale = outputPaths().filter(relativePath => {
         const output = path.join(repoRoot, relativePath);

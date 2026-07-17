@@ -42,7 +42,7 @@ export interface SourceVocabularySheetModel extends ActivityModel {
     };
 }
 
-export type SourceVocabularySheetDirection = 'japanese-to-english' | 'english-to-japanese';
+type SourceVocabularySheetDirection = 'japanese-to-english' | 'english-to-japanese';
 export type SourceVocabularySheetResponse = string | Readonly<{ answer: string }>;
 
 export const sourceVocabularySheetPlugin: ActivityPlugin<SourceVocabularySheetModel, SourceVocabularySheetResponse> = {
@@ -106,7 +106,7 @@ function lapseResult(model: SourceVocabularySheetModel, revealed: boolean) {
     };
 }
 
-export function sourceVocabularyDirection(model: SourceVocabularySheetModel): SourceVocabularySheetDirection {
+function sourceVocabularyDirection(model: SourceVocabularySheetModel): SourceVocabularySheetDirection {
     return model.provenance.locus.row % 2 === 1 ? 'japanese-to-english' : 'english-to-japanese';
 }
 

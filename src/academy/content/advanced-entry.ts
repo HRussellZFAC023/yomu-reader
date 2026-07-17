@@ -4,7 +4,7 @@ import { ACADEMY_LEARNER_MODELS } from '../personalization';
 import type { LearningCandidate, NextLearningAction } from '../personalization/contracts';
 import { createLessonThirtyTwoMinna074ListeningBeat } from './lesson-thirty-two-minna-074-listening';
 
-export const N3_ADVANCED_ENTRY_LESSON_ID = 'authored-week:l2-l07';
+const N3_ADVANCED_ENTRY_LESSON_ID = 'authored-week:l2-l07';
 export const N3_ADVANCED_ENTRY_SOURCE_ID = 'moodle:6974653:2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0:audio:minna074-mondai-2';
 
 export type AdvancedEntryMode = 'guided' | 'test-out' | 'repair' | 'independent';

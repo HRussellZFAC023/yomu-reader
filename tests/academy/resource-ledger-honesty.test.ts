@@ -39,7 +39,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 8121270,
             sourcePackage: {
                 filename: '044-l2-l17.json',
-                sha256: 'a319510a34b185d008fd631849f56539f360bd61f32ad017812b5714fe38c834',
+                sha256: '91937d1499e3cb3f3b6e812861a609bcce144424638de2d6cff448b76d6c63b6',
             },
             audio: { sourceAudioMembers: 4, sourceAudioTracksDelivered: 0 },
             claims: { sourceVocabularyRowsProjected: 23, worksheetPagesRendered: 8, sourceAnswerKeysExposed: 0 },
@@ -61,7 +61,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 5489594,
             sourcePackage: {
                 filename: '013-l1-l12.json',
-                sha256: 'b4eb6c44d1043a1936fd2ed0b1ced7c8a0c1f0bccf3dd1477c28546793c95cf0',
+                sha256: '43f24fa272b9d9399ed7d73b127d775bc16d45fd57570e610fe4e4a27a6ce717',
             },
             claims: { sourceRoundsDelivered: 22, answerVisibility: 'after-attempt' },
         });
@@ -89,7 +89,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 5489595,
             sourcePackage: {
                 filename: '014-l1-l13.json',
-                sha256: '35e0aba3f4755c4e78546fd860342104df0800eefefbddf3c2abbda89524c517',
+                sha256: 'b850d5ac1f97902140b102dd45d26748cc48e8a32e2087cc57a355b068cd1b45',
             },
             sourceArchive: { sha256: 'e06668d27acd438d5b0e546042a4aa2dc063ba8e75595f96190d7aa4a844a839' },
             scope: expect.stringMatching(/15-item skill-and-understanding workbook slice/i),
@@ -129,7 +129,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 6097314,
             sourcePackage: {
                 filename: '015-l1-l14.json',
-                sha256: '2088851b83dcfc88926f3d74ca0e00b8cb40230e789f53ea408526a70519ee3e',
+                sha256: '3a4b6d494f043aea728bab6dd7b41bc19301137e1dfc56efa7f768eb5ecf6463',
             },
             sourceArchive: { sha256: 'e30252905f7a07c7651519eae7c1b306de5b85e3082aae17a4442e02087cf9cb' },
             scope: expect.stringMatching(/11-item reason, why-question, and availability workbook slice/i),
@@ -174,7 +174,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 5881257,
             sourcePackage: {
                 filename: '017-l1-l16.json',
-                sha256: 'd524cd54e4c2441e7613f065c3aa51b8bfffd33ed70db2dd773def02bcff8c02',
+                sha256: 'f22a3de005e06cc673bf0e0574638fee3449aefd3f0330375f37236a7ec728a8',
             },
             sourceArchive: { sha256: 'ab7585b4d14d945535b90b6c64509e9c1b34caa96f0659b83b23920e893f46ba' },
             scope: expect.stringMatching(/10-item existence-and-location workbook slice/i),
@@ -218,7 +218,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 5489600,
             sourcePackage: {
                 filename: '018-l1-l17.json',
-                sha256: '04fe995f2e56ecab4f504c2c64e31d9952ed087a1503a9c714a75e5fb565f0d0',
+                sha256: '64b2bf724adccb446cd05443d86152c7010f93e6e38c7986d4a32ce68ebba4dc',
             },
             sourceArchive: { sha256: '61c9d1b3633f418f55fbb047b2ea941eed7f4a2245ea33a45ef8945656150815' },
             scope: expect.stringMatching(/10-item museum-and-location workbook slice/i),
@@ -282,7 +282,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 6200250,
             sourcePackage: {
                 filename: '019-l1-l18.json',
-                sha256: '01b56f04bc5cdb64986669d01cf32a76606f3898b241766277c30ed9bbd0d854',
+                sha256: 'c83ea82297f592a8a36d45a0bb4a4202b8cdf24ee2c7a49a1c9c115ac7f8d744',
             },
             sourceArchive: { sha256: '2412b5cffe9f22758f583ac773293f1af371ef60e3c979650d10722499c593fa' },
             scope: expect.stringMatching(/8-item counter-and-fridge information-gap workbook slice/i),
@@ -328,7 +328,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 6223185,
             sourcePackage: {
                 filename: '020-l1-l19.json',
-                sha256: 'a6063210b4962cc1b39f2e79a8b00de8a28fe2dedcacf20beb02a85e446fe87c',
+                sha256: '71efeaf9c76f0e8a02b238a99440782fba1cd1ca6e21ee454f9e6c2025f2d199',
             },
             sourceArchive: { sha256: 'fa14f292cf886bb5e5eff9f82f6169956cd151223b98c9c0125e1388d06cbd03' },
             claims: {
@@ -370,7 +370,7 @@ describe('Academy resource-ledger claim honesty', () => {
             moodleModuleId: 6310077,
             sourcePackage: {
                 filename: '021-l1-l20.json',
-                sha256: '2b3c8c0baa203870361c321df089c6354e4f3cf6bf51b40983d1506a9d053c12',
+                sha256: 'dd790467c5aa79e4a754b0c0d7aa2b3c5562accb08639693867129be6812bfd2',
             },
             sourceArchive: { sha256: '0d4a991fc8dcc2f8487f6ce3d44513c5a45306541b35fee5c5ac8e5937f55a0a' },
             claims: {
@@ -411,7 +411,7 @@ describe('Academy resource-ledger claim honesty', () => {
 
         expect(lesson).toMatchObject({
             moodleModuleId: 6375062,
-            sourcePackage: { filename: '022-l1-l21.json', sha256: '8ef06397d57ef46717063fcae364992ade0b562f6d8aabda95125cb89be5e9c0' },
+            sourcePackage: { filename: '022-l1-l21.json', sha256: '10547640e686ebd5b9c477d0d38ded450d80ac9954679cf0a8359e44b6ae81ec' },
             claims: {
                 sourcePromptsDelivered: 3,
                 sourceRoundsDelivered: 3,
@@ -442,7 +442,7 @@ describe('Academy resource-ledger claim honesty', () => {
 
         expect(lesson).toMatchObject({
             moodleModuleId: 5489603,
-            sourcePackage: { filename: '023-l1-l22.json', sha256: 'ef41f2a6433bf92a586ef078524e827bd734386ec621325d0db6b04cb9166bd9' },
+            sourcePackage: { filename: '023-l1-l22.json', sha256: '58edb4c41d2c49a2f0d44ab9d0acd0589a2a9afdc5baab7e7ce608f10edd4e5c' },
             audio: {
                 status: 'not-present-in-moodle-archive',
                 sourceAudioMembers: 0,

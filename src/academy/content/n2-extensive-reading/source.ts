@@ -1,6 +1,6 @@
 import type { N2ExtensiveReadingModel } from './types';
 
-export const N2_EXTENSIVE_READING_PACKAGE_ID = 'n2-extensive-reading-01' as const;
+const N2_EXTENSIVE_READING_PACKAGE_ID = 'n2-extensive-reading-01' as const;
 
 export const N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS = Object.freeze([
     '「最近の若者の言葉の乱れが気になる」という嘆きは、いつの時代にも聞かれるものだ。新しい流行語や若者言葉、いわゆる「スラング」が次々と生まれ、大人はそれに眉をひそめる。しかし、言語学的な視点から見れば、言葉が変化するのは極めて自然な現象であり、むしろ言語が生きている証拠だと言える。',

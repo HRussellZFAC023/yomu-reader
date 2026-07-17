@@ -2,10 +2,9 @@
 // Google Lens protobuf + upload), the image→payload converters they feed, and the
 // low-level request plumbing (userscript GM bridge + fetch fallbacks with timeouts)
 // they all share. This is one cohesive closure family: the recognizers close over the
-// transport helpers, so they move together. A few controller-scoped helpers
-// (imageCacheKey, ocrAttemptTimeoutMs, localOcrEndpointUrl, isOcrRequestTimeout) are
-// still owned by the controller and imported back — the class body depends on them
-// too, so they stay put and this module reaches up for them (a call-time-only cycle).
+// transport helpers, so they move together. The handful of helpers shared with the
+// controller (imageCacheKey, ocrAttemptTimeoutMs, localOcrEndpointUrl,
+// isOcrRequestTimeout) live in the ocr-shared leaf so neither module imports the other.
 import { isAbortError } from '../core/errors';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { getUserscriptHttpRequest } from '../userscript/index';
@@ -29,7 +28,7 @@ import {
     isOcrRequestTimeout,
     localOcrEndpointUrl,
     ocrAttemptTimeoutMs,
-} from './controller';
+} from './ocr-shared';
 
 const log = Logger.scope('OCR');
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';

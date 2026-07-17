@@ -28,9 +28,9 @@ export const CURRENT_WORLD_AUDIO_PLACE_IDS = [
     'station-platform',
 ] as const satisfies readonly WorldPlaceId[];
 
-export type CurrentWorldAudioPlaceId = typeof CURRENT_WORLD_AUDIO_PLACE_IDS[number];
+type CurrentWorldAudioPlaceId = typeof CURRENT_WORLD_AUDIO_PLACE_IDS[number];
 
-export interface WorldLocationAudioProfile {
+interface WorldLocationAudioProfile {
     readonly place: WorldPlaceId;
     readonly music: ThemeSlot;
     readonly arrival: ShindayVnSoundId;
@@ -77,7 +77,7 @@ export const WORLD_EXPANSION_AUDIO_PROFILES = Object.freeze({
     bookshop: profile('bookshop', 'mystery.page', { ambience: 'ambience.library', object: 'object.menu-page' }),
 } satisfies Readonly<Record<'bookshop', WorldLocationAudioProfile>>);
 
-export function worldLocationAudioProfile(place: WorldPlaceId): WorldLocationAudioProfile | undefined {
+function worldLocationAudioProfile(place: WorldPlaceId): WorldLocationAudioProfile | undefined {
     return WORLD_LOCATION_AUDIO_PROFILES[place as CurrentWorldAudioPlaceId]
         ?? WORLD_EXPANSION_AUDIO_PROFILES[place as keyof typeof WORLD_EXPANSION_AUDIO_PROFILES];
 }

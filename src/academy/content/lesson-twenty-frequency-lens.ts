@@ -18,7 +18,7 @@ const CUES = [
     ['いちねん／かのじょ に プレゼント を あげます（7）', 'いちねんに ７かい かのじょに プレゼントを あげます。', 'seven'],
 ] as const;
 
-export function createLessonTwentyFrequencyLensModel(): FrequencyLensModel {
+function createLessonTwentyFrequencyLensModel(): FrequencyLensModel {
     assertExactPackageSources();
     const rounds = CUES.map(([sourceCue, answerExpression, correctCountId], index) => Object.freeze({
         id: `sensei-frequency-${index + 1}`,

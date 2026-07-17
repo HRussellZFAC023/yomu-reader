@@ -179,7 +179,7 @@ describe('Library SRS l2-l13 exact vocabulary frontier', () => {
     it('pins mirrors, offline assets, ledger claims, and mutation rejection', () => {
         const sourcePackage = readFileSync('public/academy/content/lessons/040-l2-l13.json');
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe');
+            .toBe('f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9');
         expect(readFileSync('docs/public/academy/content/lessons/040-l2-l13.json')).toEqual(sourcePackage);
         for (const [filename, sha256] of SOURCE_PAGES) {
             const page = readFileSync(`public/academy/content/lessons/l2-l13/${filename}`);
@@ -197,7 +197,7 @@ describe('Library SRS l2-l13 exact vocabulary frontier', () => {
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l13'))
             .toMatchObject({
-                sourcePackage: { sha256: '7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe' },
+                sourcePackage: { sha256: 'f27348cf956989ae936dc7eec1cba694aee319f136dee9d45b33a4a6d296dfe9' },
                 audio: {
                     sourceAudioMembers: 5,
                     sourceAudioTracksDelivered: 1,

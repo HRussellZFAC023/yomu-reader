@@ -209,7 +209,7 @@ describe('Lesson 41 Sensei Chapter 30 prepared-state audit', () => {
         });
         const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/043-l2-l16.json'));
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('04ad279a9667497f6419123300eb137f8f4fd4c08fd35cba9ab99427da87e396');
+            .toBe('1f28c5c28800df738df4e6fa2a3859ff265a4372376200263859c10a7bcc46fe');
         expect(readFileSync(path.resolve('docs/public/academy/content/lessons/043-l2-l16.json'))).toEqual(sourcePackage);
         expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
             .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
@@ -219,7 +219,7 @@ describe('Lesson 41 Sensei Chapter 30 prepared-state audit', () => {
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l16')).toMatchObject({
             moodleModuleId: 8121269,
-            sourcePackage: { filename: '043-l2-l16.json', sha256: '04ad279a9667497f6419123300eb137f8f4fd4c08fd35cba9ab99427da87e396' },
+            sourcePackage: { filename: '043-l2-l16.json', sha256: '1f28c5c28800df738df4e6fa2a3859ff265a4372376200263859c10a7bcc46fe' },
             sourceArchive: { id: 'archive-000066', sha256: 'bae6d71c2784284c17a6bea25cbcc4a4fb75d410193f27c9ce2484d4efd53d32' },
             audio: { status: 'quarantined-unresolved-pairing', sourceAudioMembers: 3, sourceAudioTracksDelivered: 0 },
             claims: {

@@ -7,7 +7,7 @@ import type { N3StoryPractice } from './n3-story-practice';
  * completed authored scene and the exact activities whose evidence may supply
  * its practice concepts. New plot cannot enter by adding a replay row.
  */
-export const OPENING_ARC_REPLAY_SCENES: readonly ReplaySceneDefinition[] = Object.freeze([
+const OPENING_ARC_REPLAY_SCENES: readonly ReplaySceneDefinition[] = Object.freeze([
     replayScene(
         'replay:blank-atlas:arrival-greetings',
         'scene:blank-atlas:arrival-greetings',

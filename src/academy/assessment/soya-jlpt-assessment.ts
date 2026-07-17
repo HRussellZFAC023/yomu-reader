@@ -17,13 +17,13 @@ import {
 
 export const SOYA_JLPT_ASSESSMENT_ID = 'academy-soya-jlpt-placement:v1' as const;
 export const JLPT_BANDS_ASCENDING: readonly JlptBand[] = ['n5', 'n4', 'n3', 'n2', 'n1'];
-export const JLPT_RECEPTIVE_SKILLS: readonly ReceptivePlacementSkill[] = [
+const JLPT_RECEPTIVE_SKILLS: readonly ReceptivePlacementSkill[] = [
     'language-knowledge',
     'reading',
     'listening',
 ];
 
-export const SOYA_JLPT_STORY_CONTINUITY = Object.freeze({
+const SOYA_JLPT_STORY_CONTINUITY = Object.freeze({
     mode: 'preserve' as const,
     preserveChronology: true,
     markScenesSeen: false,
@@ -72,7 +72,7 @@ export function soyaJlptItemsForBand(band: JlptBand): readonly PlacementItem[] {
     return ORIENTATION_MOCK_ITEMS.filter(item => item.band === band);
 }
 
-export function resolveSoyaJlptAudio(item: PlacementItem): PlacementAudioDelivery | undefined {
+function resolveSoyaJlptAudio(item: PlacementItem): PlacementAudioDelivery | undefined {
     const registered = ORIENTATION_MOCK_ITEMS.find(candidate => candidate.id === item.id);
     if (!registered || registered.referenceId !== item.referenceId) {
         throw new TypeError(`Unknown Soya JLPT assessment item: ${item.id}`);

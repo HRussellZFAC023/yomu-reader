@@ -88,25 +88,6 @@ export function renderCampusScreen(
     });
 }
 
-/** @deprecated The app now renders all non-Library places through `renderWorldPlaceScreen`. */
-export function renderLocationScreen(
-    language: AcademyLanguage,
-    location: Exclude<CampusLocation, 'library' | 'lab'>,
-    onBack: () => void,
-): HTMLElement {
-    return renderWorldPlaceScreen({
-        language,
-        place: location,
-        route: location,
-        progress: { completedScenes: [], completedEncounterIds: [], metCharacterIds: ['rie', 'aakash'] },
-        onTravel: () => undefined,
-        onActivity: () => undefined,
-        onClaimStamp: () => undefined,
-        onPracticeComplete: () => undefined,
-        onBack,
-    });
-}
-
 /** A location-first screen. `campus` is only a route; the learner is in 中庭. */
 export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement {
     const place = projectCurrentWorldPlace(options);

@@ -2,9 +2,9 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { readJson, writeJsonAtomic } from './io.mjs';
 
-export const LESSON_SOURCE_OWNERSHIP_SCHEMA = 'yomu-academy.lesson-source-ownership/v1';
+const LESSON_SOURCE_OWNERSHIP_SCHEMA = 'yomu-academy.lesson-source-ownership/v1';
 
-export const SHARED_SOURCE_PAYLOAD_DECLARATIONS = Object.freeze([
+const SHARED_SOURCE_PAYLOAD_DECLARATIONS = Object.freeze([
     declaration('d3dcff38773db8f1632dc546a7bc32e8602a58a4b44e3e3127a5cda130f938b3', 'l1-l04', ['l1-l05'], 'The Chapter 2 listening PDF is paired with both the Lesson 4 keychain task and the Lesson 5 lost-and-found task.'),
     declaration('ad23b0a9e01427e364f0c15de11bbdc74bd4c021fd00dc9e88e8852732092c0e', 'l1-l06', ['l1-l08'], 'The Chapter 3 listening PDF is paired with both the counter task and the later cafe-schedule listening task.'),
     declaration('b2143f1f2ce2469fe7e54d8f778d75956ae6c060bc44e2c39421bde470b8ac0b', 'l1-l15', ['l1-l16'], 'The Chapter 10-1 grammar worksheet is retained as documented carry-forward source material in adjacent lesson archives.'),

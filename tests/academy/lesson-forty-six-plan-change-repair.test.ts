@@ -111,7 +111,7 @@ describe('Lesson 46 Sensei Chapter 31 plan-change repair', () => {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l21')).toMatchObject({
-            sourcePackage: { sha256: '8f0468b15ecc934fa007cd19d7dd1a6e40d31fc0545b0e671a07adcc48c6ed4c' },
+            sourcePackage: { sha256: 'f1a50f25404de8556dc6b648ea5c8c4dfc92a8f8265b9caedfb716041c8fbeb7' },
             audio: { sourceAudioMembers: 6, sourceAudioTracksDelivered: 0 },
             claims: { worksheetPagesRendered: 9, sourceVocabularyRowsProjected: 24, sourceLociAssessed: 8 },
             offline: { precache: expect.not.arrayContaining([expect.stringMatching(/\.mp3$/u)]) },

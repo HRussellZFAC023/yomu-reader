@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app/pages';
+import { JITEN_BACKGROUND_DETAIL_TIMEOUT_MS } from '../../src/reader/dictionaries/jiten-public-vocabulary';
 import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { AudioPlayer, decodeJpdbAudioBlob, findAudioUrl, findAudioUrls, formatAudioUrl, getAudioCandidates, isUnavailableJapanesePod101Audio, jpdbAudioRequest, normalizeJpdbAudioIds, ShuffledAudioDeck } from '../../src/reader/audio/player';
@@ -29486,7 +29487,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], { publicLookupLimit: 2 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空', '読む'], { detailLimit: 2 });
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空', '読む'], { detailLimit: 2, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([firstPublicCard, secondPublicCard]);
@@ -29905,7 +29906,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(fallbackCard)], { publicLookupLimit: 1 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
@@ -30179,7 +30180,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords(tokens, { publicLookupLimit: 1 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(jitenLookup).not.toHaveBeenCalledWith('の');
             expect(search).not.toHaveBeenCalled();
@@ -30420,7 +30421,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(fallbackCard, 'コツ')], internals.backgroundPitchEnrichmentOptions());
 
-            expect(lookupMany).toHaveBeenCalledWith(['コツ'], { detailLimit: 1 });
+            expect(lookupMany).toHaveBeenCalledWith(['コツ'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(word.dataset.vid).toBe('424200');
             expect(word.dataset.cardSource).toBe('jiten');
@@ -30765,7 +30766,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichOcrTokensBeforeRender([testTokenForCard(fallbackCard, '未解析語')]);
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語'], { detailLimit: 1 });
+            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(publicSearch).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
         } finally {
@@ -33093,7 +33094,7 @@ describe('reader helpers', () => {
 
         try {
             await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(publicCard);
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);

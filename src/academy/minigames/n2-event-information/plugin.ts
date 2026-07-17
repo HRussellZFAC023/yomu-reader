@@ -74,7 +74,7 @@ export function validateN2EventInformation(model: N2EventInformationModel): read
     return issues;
 }
 
-export function gradeN2EventInformation(
+function gradeN2EventInformation(
     model: N2EventInformationModel,
     response: N2EventInformationResponse,
 ): GradeResult {
@@ -90,7 +90,7 @@ export function gradeN2EventInformation(
     return gradeFromScore(score, model.payload.passScore, errorTags, model.payload.feedback);
 }
 
-export function n2EventInformationReviewSeeds(
+function n2EventInformationReviewSeeds(
     model: N2EventInformationModel,
     result: GradeResult,
 ): readonly ReviewSeed[] {

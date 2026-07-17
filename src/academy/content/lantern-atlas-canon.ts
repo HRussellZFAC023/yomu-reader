@@ -1,7 +1,7 @@
 import legacySeasonSource from './story-sources/season-one-fiction.json';
 
-export const LANTERN_ATLAS_CANON_ID = 'story:lantern-atlas:v1';
-export const LANTERN_ATLAS_FINAL_CHAPTER_ID = 's4e12-next-page';
+const LANTERN_ATLAS_CANON_ID = 'story:lantern-atlas:v1';
+const LANTERN_ATLAS_FINAL_CHAPTER_ID = 's4e12-next-page';
 
 export interface LanternAtlasCanonChapter {
     readonly id: string;

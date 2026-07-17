@@ -87,7 +87,6 @@ const MOODLE_SHA256 = '14bf6fe4ba20b651eebe5639f9e87b2492592dc6ec92893ccd162e782
 const WORKSHEET_SURFACE_SHA256 = 'eb21bacb07cd59fd5491708dbe05dc52a113833ba37869601c28986fc624bed4';
 const A45_SHA256 = '7a7f9cf7c9d0a10932007df1528f10fdfd7c0f38fe59bb938aa7a6952ccc47c8';
 const MINNA_039_SHA256 = 'bca7547d5207c2a6b2abe6fd2df8716a1858fd02bbdf34d6195291900c75389d';
-const GENKI_SHA256 = '6b8d397d95313e5fe17eb8de2d5cebb557f6365ee835309caff3d7c6a25fa5fa';
 
 const EXPECTED_CUES = [
     'いちにち／いぬ と さんぽ を します（２）',
@@ -308,6 +307,3 @@ function responseFrom(form: HTMLFormElement, model: FrequencyLensModel): Frequen
     })) };
 }
 
-export const LESSON_TWENTY_FREQUENCY_LENS_CONSTANTS = Object.freeze({
-    MOODLE_SHA256, A45_SHA256, MINNA_039_SHA256, GENKI_SHA256,
-});

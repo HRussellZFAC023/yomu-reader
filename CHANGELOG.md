@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.183] - 2026-07-18
+
+### Fixed
+
+- Tampermonkey installs no longer stop running everywhere after a new release: companion libraries and the reader stylesheet are now published at immutable content-addressed URLs, so the integrity hashes pinned in the userscript header can never mismatch the served files. Previously each release changed the bytes behind the already-pinned companion URLs, and Tampermonkey silently disabled the whole script on every site; affected installs heal automatically on their next script-update check.
+
 ## [1.6.182] - 2026-07-17
 
 ### Fixed

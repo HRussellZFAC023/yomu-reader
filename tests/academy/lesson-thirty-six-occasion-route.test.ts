@@ -199,7 +199,7 @@ describe('Lesson 36 Sensei Chapter 23-1 occasion route', () => {
         expect(hostedImage).toEqual(sourceImage);
         const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/038-l2-l11.json'));
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6');
+            .toBe('8f7a382927baacc43f127b43e94c4218e3716e9c3a09c25828d2fe342e55cf00');
         expect(readFileSync(path.resolve('docs/public/academy/content/lessons/038-l2-l11.json'))).toEqual(sourcePackage);
         expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
             .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
@@ -209,7 +209,7 @@ describe('Lesson 36 Sensei Chapter 23-1 occasion route', () => {
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l11')).toMatchObject({
             moodleModuleId: 6974661,
-            sourcePackage: { filename: '038-l2-l11.json', sha256: '56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6' },
+            sourcePackage: { filename: '038-l2-l11.json', sha256: '8f7a382927baacc43f127b43e94c4218e3716e9c3a09c25828d2fe342e55cf00' },
             audio: { status: 'no-audio-members-in-exact-package', sourceAudioMembers: 0, sourceAudioTracksDelivered: 0 },
             claims: {
                 sourcePromptsDelivered: 4,

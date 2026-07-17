@@ -7,7 +7,7 @@ import {
 } from './cold-production-audit';
 
 export const AAKASH_RAINY_DIRECTIONS_SCENE_ID = 'scene:aakash-rainy-directions';
-export const AAKASH_DIRECTIONS_CONCEPT_ID = 'concept:directions-straight-right';
+const AAKASH_DIRECTIONS_CONCEPT_ID = 'concept:directions-straight-right';
 
 export const AAKASH_DIRECTIONS_CONTENT = {
     context: {

@@ -240,7 +240,7 @@ describe('Library SRS l2-l10 exact vocabulary frontier', () => {
     it('pins mirrors and ledger claims while rejecting unsupported source mutations', () => {
         const sourcePackage = readFileSync('public/academy/content/lessons/037-l2-l10.json');
         expect(createHash('sha256').update(sourcePackage).digest('hex'))
-            .toBe('8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af');
+            .toBe('716f456e47d812855f5e5f67a7f704fa93c6a37a2256798588403d36feb28034');
         expect(readFileSync('docs/public/academy/content/lessons/037-l2-l10.json')).toEqual(sourcePackage);
         expect(readFileSync('docs/public/academy/content/RESOURCE-LEDGER.json'))
             .toEqual(readFileSync('public/academy/content/RESOURCE-LEDGER.json'));
@@ -249,7 +249,7 @@ describe('Library SRS l2-l10 exact vocabulary frontier', () => {
         };
         expect(ledger.worksheetDigitisation.additionalSlices.find(slice => slice.lessonId === 'l2-l10'))
             .toMatchObject({
-                sourcePackage: { sha256: '8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af' },
+                sourcePackage: { sha256: '716f456e47d812855f5e5f67a7f704fa93c6a37a2256798588403d36feb28034' },
                 claims: {
                     sourceVocabularyRowsPreserved: 16,
                     sourceVocabularyRowsRoutedToStudy: 6,

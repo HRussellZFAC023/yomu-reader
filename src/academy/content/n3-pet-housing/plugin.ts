@@ -30,7 +30,7 @@ import {
     type N3PetHousingResponse,
 } from './types';
 
-export const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingResponse> = {
+const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingResponse> = {
     kind: N3_PET_HOUSING_ACTIVITY_KIND,
     validate: validateN3PetHousing,
     render: renderN3PetHousing,
@@ -71,7 +71,7 @@ export function validateN3PetHousing(model: N3PetHousingModel): readonly Validat
     return issues;
 }
 
-export function gradeN3PetHousing(model: N3PetHousingModel, response: N3PetHousingResponse): GradeResult {
+function gradeN3PetHousing(model: N3PetHousingModel, response: N3PetHousingResponse): GradeResult {
     const answers = parseResponse(model, response);
     const missed = model.payload.questions.filter(question => answers.get(question.id) !== question.correctOptionId);
     return gradeFromScore(
@@ -82,7 +82,7 @@ export function gradeN3PetHousing(model: N3PetHousingModel, response: N3PetHousi
     );
 }
 
-export function n3PetHousingReviewSeeds(model: N3PetHousingModel, result: GradeResult): readonly ReviewSeed[] {
+function n3PetHousingReviewSeeds(model: N3PetHousingModel, result: GradeResult): readonly ReviewSeed[] {
     const targets = result.outcome === 'pass'
         ? model.payload.reviewTargets
         : model.payload.reviewTargets.filter(target => target.repairFor.some(tag => result.errorTags.includes(tag)));

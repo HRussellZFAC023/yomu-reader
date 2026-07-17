@@ -30,7 +30,7 @@ import {
     type N2PolicyScopeResponse,
 } from './types';
 
-export const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicyScopeResponse> = {
+const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicyScopeResponse> = {
     kind: N2_POLICY_SCOPE_ACTIVITY_KIND,
     validate: validateN2PolicyScope,
     render: renderN2PolicyScope,
@@ -68,7 +68,7 @@ export function validateN2PolicyScope(model: N2PolicyScopeModel): readonly Valid
     return issues;
 }
 
-export function gradeN2PolicyScope(model: N2PolicyScopeModel, response: N2PolicyScopeResponse): GradeResult {
+function gradeN2PolicyScope(model: N2PolicyScopeModel, response: N2PolicyScopeResponse): GradeResult {
     const answers = parseResponse(model, response);
     const missed = model.payload.questions.filter(question => answers.get(question.id) !== question.correctOptionId);
     return gradeFromScore(
@@ -79,7 +79,7 @@ export function gradeN2PolicyScope(model: N2PolicyScopeModel, response: N2Policy
     );
 }
 
-export function n2PolicyScopeReviewSeeds(model: N2PolicyScopeModel, result: GradeResult): readonly ReviewSeed[] {
+function n2PolicyScopeReviewSeeds(model: N2PolicyScopeModel, result: GradeResult): readonly ReviewSeed[] {
     const targets = result.outcome === 'pass'
         ? model.payload.reviewTargets
         : model.payload.reviewTargets.filter(target => target.repairFor.some(tag => result.errorTags.includes(tag)));

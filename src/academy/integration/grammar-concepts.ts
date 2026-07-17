@@ -5,7 +5,7 @@ import {
     type GrammarLevel,
 } from '../../reader/study/grammar-registry';
 
-export const ACADEMY_GRAMMAR_CONCEPT_PREFIX = 'concept:grammar:';
+const ACADEMY_GRAMMAR_CONCEPT_PREFIX = 'concept:grammar:';
 
 export interface AcademyGrammarConcept {
     readonly conceptId: string;

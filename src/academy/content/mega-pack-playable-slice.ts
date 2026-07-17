@@ -4,7 +4,7 @@ import type { MegaPackActivityBeat, MegaPackPlayableChapterId } from './mega-pac
 import { createMegaPackReaderBeat } from './mega-pack-reader';
 import { createMegaPackWritingSystemBeats } from './mega-pack-writing-system';
 
-export const MEGA_PACK_PLAYABLE_SLICE_ID = 'mega-pack-foundations-slice-01';
+const MEGA_PACK_PLAYABLE_SLICE_ID = 'mega-pack-foundations-slice-01';
 
 export interface MegaPackPlayableChapter {
     readonly id: MegaPackPlayableChapterId;

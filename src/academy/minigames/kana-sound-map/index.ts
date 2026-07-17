@@ -23,4 +23,3 @@ export const kanaSoundMapPlugin: ActivityPlugin<KanaSoundMapModel, KanaSoundMapR
 
 export * from './engine';
 export * from './manifest';
-export { renderKanaSoundMap } from './view';

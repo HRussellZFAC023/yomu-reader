@@ -75,7 +75,7 @@ function indexModules(manifest) {
     return index;
 }
 
-export function parseAnchor(value, kind) {
+function parseAnchor(value, kind) {
     if (typeof value !== 'string' || /no verified|original academy sequence/iu.test(value)) return null;
     if (kind === 'minna' && /katakana strand|kanji strand|term preview|food and quantity vocabulary/iu.test(value)) {
         return { sourceId: 'japanese-minna:strand', kind: 'strand', range: null, label: value };

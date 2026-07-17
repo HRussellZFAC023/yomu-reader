@@ -81,7 +81,7 @@ export function validateN2ExtensiveReading(model: N2ExtensiveReadingModel): read
     return issues;
 }
 
-export function gradeN2ExtensiveReading(model: N2ExtensiveReadingModel, response: N2ExtensiveReadingResponse): GradeResult {
+function gradeN2ExtensiveReading(model: N2ExtensiveReadingModel, response: N2ExtensiveReadingResponse): GradeResult {
     const answers = parseAnswers(model, response);
     const missed = model.payload.questions.filter(question => answers.get(question.id) !== question.correctOptionId);
     return gradeFromScore(
@@ -92,7 +92,7 @@ export function gradeN2ExtensiveReading(model: N2ExtensiveReadingModel, response
     );
 }
 
-export function n2ExtensiveReadingReviewSeeds(model: N2ExtensiveReadingModel, result: GradeResult): readonly ReviewSeed[] {
+function n2ExtensiveReadingReviewSeeds(model: N2ExtensiveReadingModel, result: GradeResult): readonly ReviewSeed[] {
     const targets = result.outcome === 'pass'
         ? model.payload.reviewTargets
         : model.payload.reviewTargets.filter(target => target.repairFor.some(tag => result.errorTags.includes(tag)));

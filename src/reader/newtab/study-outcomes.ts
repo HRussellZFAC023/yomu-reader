@@ -9,14 +9,6 @@ export type StudyStepOutcome = 'correct' | 'wrong' | 'skipped';
 
 export type StudyStepOutcomes = Partial<Record<NewTabStudyStepKind, StudyStepOutcome>>;
 
-// The DOM summary strip uses 'none' where a step has no recorded outcome, so the
-// icon layer never has to branch on undefined. Kept separate from the logic
-// vocabulary above to keep the map values plain strings for the data attribute.
-export type StudySummaryState = StudyStepOutcome | 'none';
-
-export function studySummaryState(outcome: StudyStepOutcome | undefined): StudySummaryState {
-    return outcome ?? 'none';
-}
 
 // Map the aggregate mini-outcomes onto ONE of the grade buttons the final reveal
 // actually renders (5-button nothing/something/hard/okay/easy, or 2-button

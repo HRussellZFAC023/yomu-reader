@@ -31,7 +31,7 @@ import {
     type N3N4SleepBridgeResponse,
 } from './types';
 
-export const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4SleepBridgeResponse> = {
+const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4SleepBridgeResponse> = {
     kind: N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND,
     validate: validateN3N4SleepBridge,
     render: renderN3N4SleepBridge,
@@ -71,13 +71,13 @@ export function validateN3N4SleepBridge(model: N3N4SleepBridgeModel): readonly V
     return issues;
 }
 
-export function gradeN3N4SleepBridge(model: N3N4SleepBridgeModel, response: N3N4SleepBridgeResponse): GradeResult {
+function gradeN3N4SleepBridge(model: N3N4SleepBridgeModel, response: N3N4SleepBridgeResponse): GradeResult {
     const answers = parseResponse(model, response);
     const missed = model.payload.questions.filter(question => answers.get(question.id) !== question.correctOptionId);
     return gradeFromScore((model.payload.questions.length - missed.length) / model.payload.questions.length, model.payload.passScore, missed.map(question => question.errorTag), model.payload.feedback);
 }
 
-export function n3N4SleepBridgeReviewSeeds(model: N3N4SleepBridgeModel, result: GradeResult): readonly ReviewSeed[] {
+function n3N4SleepBridgeReviewSeeds(model: N3N4SleepBridgeModel, result: GradeResult): readonly ReviewSeed[] {
     const targets = result.outcome === 'pass'
         ? model.payload.reviewTargets
         : model.payload.reviewTargets.filter(target => target.repairFor.some(tag => result.errorTags.includes(tag)));

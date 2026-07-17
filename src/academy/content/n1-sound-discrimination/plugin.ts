@@ -71,7 +71,7 @@ export function validateN1SoundDiscrimination(model: N1SoundDiscriminationModel)
     return issues;
 }
 
-export function gradeN1SoundDiscrimination(
+function gradeN1SoundDiscrimination(
     model: N1SoundDiscriminationModel,
     response: N1SoundDiscriminationResponse,
 ): GradeResult {
@@ -85,7 +85,7 @@ export function gradeN1SoundDiscrimination(
     );
 }
 
-export function n1SoundDiscriminationReviewSeeds(
+function n1SoundDiscriminationReviewSeeds(
     model: N1SoundDiscriminationModel,
     result: GradeResult,
 ): readonly ReviewSeed[] {

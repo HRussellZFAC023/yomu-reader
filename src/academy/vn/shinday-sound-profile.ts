@@ -115,7 +115,7 @@ export const SHINDAY_VN_SOUND_CUES = Object.freeze({
     ),
 } satisfies Readonly<Record<ShindayVnSoundId, VnSoundCue>>);
 
-export interface ShindayVnAudioTreatment {
+interface ShindayVnAudioTreatment {
     readonly music: VnMusicCue;
     readonly ambience: ShindayVnAmbienceId;
     readonly unavailableAmbienceFallback: 'theme-or-silence';

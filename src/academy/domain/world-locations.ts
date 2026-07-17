@@ -2194,6 +2194,3 @@ function rotatingPeople(people: readonly string[], progress: WorldProgress, plac
     return [...visible.slice(offset), ...visible.slice(0, offset)];
 }
 
-export function worldSceneSources(scene: AcademyPlateId): Readonly<{ wide: string; mobile: string }> {
-    return ACADEMY_ASSETS.locations[scene];
-}

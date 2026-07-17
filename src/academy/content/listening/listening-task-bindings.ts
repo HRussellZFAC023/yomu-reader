@@ -1,7 +1,7 @@
 import manifestJson from '../../../../public/academy/content/listening/listening-task-bindings.v1.json';
 import { resolvePackagedAcademyListeningLocator } from './listening-crosswalk';
 
-export interface ListeningTaskBinding {
+interface ListeningTaskBinding {
     readonly packageId: string;
     readonly sourceQuestionId: string;
     readonly locator: string;

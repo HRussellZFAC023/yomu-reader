@@ -22,7 +22,7 @@ interface AccountIdRow {
 }
 
 /** Return the purchase behind a paid invite, while preserving seed sessions. */
-export async function sessionEntitlement(env: Env, session: ActiveSession): Promise<SessionEntitlementRow | null> {
+async function sessionEntitlement(env: Env, session: ActiveSession): Promise<SessionEntitlementRow | null> {
     const row = await env.ACADEMY_DB.prepare(
         'SELECT i.kind AS invite_kind, p.id, p.status, p.amount_pence, p.fulfilled_at, '
         + 'p.redeemed_by_account_id, p.redeemed_at FROM invites i '

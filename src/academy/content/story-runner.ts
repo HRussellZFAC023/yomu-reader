@@ -7,7 +7,7 @@ import type {
     StoryPlayableArc,
 } from './story-runtime';
 
-export const STORY_CURSOR_PREFIX = 'story-run:v1:';
+const STORY_CURSOR_PREFIX = 'story-run:v1:';
 
 export type StoryLanguageBand = 'foundation' | 'n5' | 'n4' | 'n3' | 'n2' | 'n1' | 'ngPlus';
 export type StoryActivityOutcome = 'pass' | 'lapse';

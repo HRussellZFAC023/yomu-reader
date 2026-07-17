@@ -12,8 +12,6 @@ import {
     type AcademyRouteTransition,
 } from './route-history';
 
-export const AAKASH_CONTINUATION_ROUTE: AcademyRoute = 'campus';
-
 export const UNGROUNDED_ACTIVITY_ROUTES: ReadonlySet<AcademyRoute> = new Set(
     ACADEMY_ROUTES.filter(route => academyRouteKind(route) === 'legacy-ungrounded-activity'),
 );

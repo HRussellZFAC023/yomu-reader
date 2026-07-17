@@ -1,4 +1,4 @@
-export type FullscreenDocument = Document & {
+type FullscreenDocument = Document & {
     webkitFullscreenElement?: Element | null;
     mozFullScreenElement?: Element | null;
     msFullscreenElement?: Element | null;

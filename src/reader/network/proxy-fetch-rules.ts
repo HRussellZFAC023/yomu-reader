@@ -216,7 +216,7 @@ function isCrossOriginJpdbApiPage(): boolean {
     }
 }
 
-export function isHostedGithubPagesApp(): boolean {
+function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
         const current = new URL(location.href);

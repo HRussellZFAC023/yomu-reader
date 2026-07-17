@@ -61,7 +61,22 @@ function allowedRequireUrls() {
 function isAllowedRequireUrl(url) {
   const bareUrl = urlWithoutHash(url);
   const allowed = allowedRequireUrls();
-  return allowed.includes(url) || (hasTampermonkeySriHash(url) && allowed.includes(bareUrl));
+  return allowed.includes(url)
+    || (hasTampermonkeySriHash(url) && (allowed.includes(bareUrl) || isImmutableFirstPartyLibraryUrl(bareUrl)));
+}
+
+// Content-addressed first-party companion publication URLs
+// (…/greasyfork/<known-basename>.<12-hex-content-hash>.user.js). These are the
+// immutable forms of the same first-party libraries; the byte-level integrity
+// is enforced separately by the mandatory #sha256= fragment (checked above)
+// and by verify-userscript's exact-URL assertion against dist content.
+function isImmutableFirstPartyLibraryUrl(bareUrl) {
+  const { GREASY_FORK_LIBRARIES, greasyForkLibraryDir } = require('./greasyfork-libraries.cjs');
+  return GREASY_FORK_LIBRARIES.some(library => {
+    const baseName = library.fileName.replace(/\.user\.js$/, '');
+    const pattern = new RegExp(`^https://yomureader\\.com/${greasyForkLibraryDir}/${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.[0-9a-f]{12}\\.user\\.js$`);
+    return pattern.test(bareUrl);
+  });
 }
 
 function assertNoRemoteExecutableMetadata(code) {

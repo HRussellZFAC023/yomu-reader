@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { readJson, writeJsonAtomic } from '../io.mjs';
 
 export const MEGA_PACK_STREAM_SCHEMA = 'yomu-academy.source-pipeline.mega-pack-stream/v1';
-export const MEGA_PACK_STREAM_REVISION = 'mega-pack-stream/2026-07-14.1';
+const MEGA_PACK_STREAM_REVISION = 'mega-pack-stream/2026-07-14.1';
 
 const INSTRUCTIONAL_KINDS = new Set([
     'data', 'document', 'ebook', 'interactive', 'spreadsheet', 'subtitle', 'text', 'web', 'word-document',
@@ -131,7 +131,7 @@ const SOURCE_DEFINITIONS = Object.freeze([
     }),
 ]);
 
-export function buildMegaPackStreamCatalog(ledger, { ledgerSha256 = null } = {}) {
+function buildMegaPackStreamCatalog(ledger, { ledgerSha256 = null } = {}) {
     if (ledger?.schema !== 'yomu-academy.library.private-ledger/v1' || !Array.isArray(ledger.entries)) {
         throw new TypeError('A private Japanese-library ledger is required.');
     }

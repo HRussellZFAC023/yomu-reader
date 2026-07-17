@@ -7,7 +7,7 @@ import { createActivityRuntime } from '../../src/academy/domain/activity-runtime
 import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
 
-const PACKAGE_SHA256 = '5be73c8311e5fab0284cb875eab140b6e110e7691e4cdc8fec58570987232c06';
+const PACKAGE_SHA256 = 'b13b474ee4587785a9f827828c56325ebb4a562ddd81d020d541dc7fe0107354';
 
 function model(): StateInspectionModel {
     return createLessonFortyFourVolitionalPlanBeat().activity as StateInspectionModel;

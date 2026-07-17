@@ -44,36 +44,6 @@ function expectRenderedAnkiPopoverScrollCss(): void {
     );
 }
 
-export function expectRenderedAnkiInlineLaneCss(): void {
-    expectCssToMatch(
-        /\.jpdb-reader-source-card\s*>\s*\.jpdb-reader-anki-card-preview\s*\{[^}]*background:\s*transparent;/,
-        /\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*border-left:\s*2px solid/,
-    );
-    expectCssNotToMatch(/\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*border:\s*1px solid/);
-    expectRenderedAnkiDividerCss();
-}
-
-export function expectReadableAnkiLabelCss(): void {
-    expectReadableAnkiSummaryCss();
-    expectCssToMatch(/\.jpdb-reader-anki-field\s*>\s*strong,\s*\.jpdb-reader-anki-context\s*>\s*strong\s*\{[^}]*color:\s*var\(--jpdb-reader-muted\);/);
-    expectCssNotToMatch(
-        /\.jpdb-reader-anki-field\s*>\s*strong,[^}]*text-transform:\s*uppercase;/,
-        /\.jpdb-reader-anki-audio-merge span\s*\{[^}]*text-transform:\s*uppercase;/,
-    );
-}
-
-export function expectCappedRenderedAnkiMediaCss(): void {
-    expectCssToMatch(
-        /\.jpdb-reader-anki-rendered-side-body\s*\{[^}]*font-size:\s*14px;/,
-        /\.jpdb-reader-anki-rendered-side-body\s+:is\(img,\s*video,\s*canvas,\s*svg\)\s*\{[^}]*max-height:\s*min\(70vh,\s*420px\);/,
-        /\.jpdb-reader-anki-rendered-side-body :where\(\*\)\s*\{[^}]*font-size:\s*min\(1em,\s*30px\);/,
-        /\.jpdb-reader-anki-rendered-side-body audio\[data-anki-media-name\]\s*\{[^}]*display:\s*none;/,
-        /\.jpdb-reader-anki-sound svg\s*\{[^}]*stroke-width:\s*2\.6;/,
-        /\.jpdb-reader-anki-sound\s*\{[^}]*background:\s*color-mix\(in srgb,\s*var\(--jpdb-reader-surface\)\s*78%,\s*var\(--jpdb-reader-state-known\)\s*22%\);/,
-    );
-    expectCssNotToMatch(/\.jpdb-reader-anki-rendered-side-body\s+\*\s*\{[^}]*max-height:/);
-}
-
 function expectRenderedAnkiDividerCss(): void {
     expectCssToMatch(
         /\.jpdb-reader-anki-rendered-side\s*\+\s*\.jpdb-reader-anki-rendered-side\s*\{[^}]*border-top:\s*1px solid/,

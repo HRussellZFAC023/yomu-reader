@@ -15,4 +15,3 @@ export const phraseKarutaPlugin: ActivityPlugin<PhraseKarutaModel, PhraseKarutaR
 
 export * from './engine';
 export * from './manifest';
-export { renderPhraseKaruta } from './view';
