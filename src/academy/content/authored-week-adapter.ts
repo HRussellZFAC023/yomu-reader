@@ -24,43 +24,43 @@ import { grammarConceptForAuthoredQuestion } from '../integration/grammar-concep
 import { assertAuthoredWeekPedagogy } from './authored-week-pedagogy';
 
 export const AUTHORED_WEEK_HASHES = {
-    'l1-l01': '5eef8e5cb2bb45393c8abea6567555dd124447aaf5414842c4aca691fad3af43',
-    'l1-l02': '57d02d2eeb20f058b22a86ef16883d38d4d2d009056017afa5b7bd4aa73f1588',
-    'l1-l03': 'c499a9155aa3bd4c1f36062988090090a13e35bc61481e558421b58e7ac62843',
-    'l1-l04': '8662206ba0a6a622ffb9a6a80d4ae3ab780dfb09e1477d7a0ddde6e91c0cff36',
-    'l1-l05': '5fdc4404e31965453d4eaa4c88836866467fe726a73f2fcad22736fcf6aab22c',
-    'l1-l06': '1e351c61a8610319b985a82a316f8fc120a66ff4ae9282231ceb01a092faa87d',
-    'l1-l07': '3811f7a4d9cc8327355efc46105dfb0a3a0873a73c12506b9e6a712c0add3ca9',
-    'l1-l08': '6d19a8b5bcd1b1c57b61a1479e1287b86c00a6b4e6b77469415b71e2ca7e3f8f',
-    'l1-l09': 'a0a7ca069c1878da27dc962aaea3b86137bb3b49cada013b7f66f4f79c7bd979',
-    'l1-l10': 'cb61a0d2cc3c43edec4c8bec1c99b3678a90fa14f3f6fcc75ad3879b6ee8fb34',
-    'l1-l11': 'b47229d7a7a9ed81a1f2877a792c744b30fb134ff20a3a8d8ad8c7d215501a9e',
-    'l1-l12': 'b4eb6c44d1043a1936fd2ed0b1ced7c8a0c1f0bccf3dd1477c28546793c95cf0',
-    'l1-l13': '35e0aba3f4755c4e78546fd860342104df0800eefefbddf3c2abbda89524c517',
-    'l1-l14': '2088851b83dcfc88926f3d74ca0e00b8cb40230e789f53ea408526a70519ee3e',
-    'l1-l15': '636a68cede9810f882e78058804d7685b0617158268e52e3a94e6ff520e0d27c',
-    'l1-l16': 'd524cd54e4c2441e7613f065c3aa51b8bfffd33ed70db2dd773def02bcff8c02',
-    'l1-l17': '04fe995f2e56ecab4f504c2c64e31d9952ed087a1503a9c714a75e5fb565f0d0',
-    'l1-l18': '01b56f04bc5cdb64986669d01cf32a76606f3898b241766277c30ed9bbd0d854',
-    'l1-l19': 'a6063210b4962cc1b39f2e79a8b00de8a28fe2dedcacf20beb02a85e446fe87c',
-    'l1-l20': '07320d09f3b56bbbe8494b9e076e8594c76a187d6b2d582f4e069655df147300',
-    'l1-l21': '8ef06397d57ef46717063fcae364992ade0b562f6d8aabda95125cb89be5e9c0',
-    'l1-l22': 'ef41f2a6433bf92a586ef078524e827bd734386ec621325d0db6b04cb9166bd9',
-    'l1-l23': 'f783745ded90660cf752c01a5e0079c18a7b2c320d1efdd759ecc6e580781047',
-    'l1-l24': 'f74b82a70ba9e4b755ef5490f5e05d9146521527915baa2c61323913e8cbdf7e',
-    'l1-l25': 'ae6cdf81783440af1e0156ba72dc2e81fe4dccfbf66c9d9423fac2a506ed9a48',
-    'l1-l26': '381036e7e28cf345ca495ab6cd70be0688120ae5af92ebdd498f0ba43f6df998',
+    'l1-l01': '0b3540669711fd2019edac4aa8b0afa54b7c931808a0707ecc6f941e048daf50',
+    'l1-l02': '5f2f04b5c575539d0bfe4112c9c456e0c21e7b49d2e6a01332f051b0c978dbbd',
+    'l1-l03': 'f2e11d7100e1a1269a54e07fc01ccbc7c653229f423b5df593402874d82e1c6c',
+    'l1-l04': 'f9b8a577870c194f74f8c93f6d3b04b5f20dcbc69ce20bd9c6f06800a4ea9a2e',
+    'l1-l05': '081c109eb3fd3f0f721a690b03ff580165666d391afc3370608862945f26132d',
+    'l1-l06': '3cd7bcd1c86f0ef37ccc3c7dc16136847bf0c21290a2f15ab7b460d358895a43',
+    'l1-l07': 'b924df28e1e398ce8bf1cc2b4f6eaf4e661e287301698ce23b4590f4c55cb7a8',
+    'l1-l08': 'a2f403ae5b9e494bb33a8368258ae9e6aeb7bbf126cfa79affe20b30ccf186d2',
+    'l1-l09': 'c52c094e16cece56193b8a07574163242159396cdb6575fdaa7083266881b435',
+    'l1-l10': '5ea1b7b013a85a00c0155cb1f5c8f8ae144fde850afcd5a34aacc40a602b8f32',
+    'l1-l11': 'e7af6535f51233a4693ebdf37df61b4afe8c3125c774f754001fed7a351662f9',
+    'l1-l12': '43f24fa272b9d9399ed7d73b127d775bc16d45fd57570e610fe4e4a27a6ce717',
+    'l1-l13': 'b850d5ac1f97902140b102dd45d26748cc48e8a32e2087cc57a355b068cd1b45',
+    'l1-l14': '3a4b6d494f043aea728bab6dd7b41bc19301137e1dfc56efa7f768eb5ecf6463',
+    'l1-l15': 'ca255f81d24b5163b6265ce3d7ae2e0a2fbe42cc321071054bd5a43f9233e1ff',
+    'l1-l16': 'f22a3de005e06cc673bf0e0574638fee3449aefd3f0330375f37236a7ec728a8',
+    'l1-l17': '64b2bf724adccb446cd05443d86152c7010f93e6e38c7986d4a32ce68ebba4dc',
+    'l1-l18': '6a9de53879f0688c1f15600163811038ddd25afef7944dc078ef2e8c37f9ac5d',
+    'l1-l19': '71efeaf9c76f0e8a02b238a99440782fba1cd1ca6e21ee454f9e6c2025f2d199',
+    'l1-l20': 'dd790467c5aa79e4a754b0c0d7aa2b3c5562accb08639693867129be6812bfd2',
+    'l1-l21': 'a70940430542e776156a1a3e174330c4d89d99ca06a0013bf4c1feaacda506d3',
+    'l1-l22': '58edb4c41d2c49a2f0d44ab9d0acd0589a2a9afdc5baab7e7ce608f10edd4e5c',
+    'l1-l23': 'd5796d9847be2d47b932f6a4b31506d8acc334a4e7be9068850da95e90868ae5',
+    'l1-l24': 'b29ede520d0c9653857a2ce27872d21c5564df75f23de73bdd154aa3cf8deece',
+    'l1-l25': '1d4ab307fa6a66d6191e511c7c258ffa77bfc572b1f8e53ec285f9e76ab2c6ad',
+    'l1-l26': 'b05dab7fcf8a1ceff530d020cd414ac5adfedbbd9f1a1935b9d0349434d776ee',
     'l2-l02': '2f74245cbe3348792351a54194e5e56584773a86caf16b301b4f28597a625f2f',
-    'l2-l03': '8b4a0a0ca0d3a8bfa6c90555d4106500823b7ffea3d4bd6d27176bd6b7c12522',
-    'l2-l04': '62885898a643f116d8277a7ed5745e89ed45b6bb87023cc41859cf0677141d0c',
-    'l2-l05': 'd4286e8c46ee6e7581609c02b08d76f0bc9252c26a431f5b2ca50f33471e5d0b',
+    'l2-l03': '20552264c4787684cd1cb1ca757d47ce93bd8575bf16fbd79c87f2738b4c47f0',
+    'l2-l04': '2a9649cba309665a44f7c8bbc69d10f20e37b09aae31970d0b6b5926df76f1c7',
+    'l2-l05': '3003db9b0cf9b795b1b46067b143e2e71869f4903c5705ef463f356c42502544',
     'l2-l06': 'f511c246dd35cc6b13486b0b96bb048bfe23a41cca5a61f5272f9bb0ca6a5b38',
-    'l2-l07': 'df132cbf7246235c268883f2b09018af990e8b221f8ab75a2041b9d3d61dfea3',
-    'l2-l08': 'b4ea67831a52cff003ebc89d2604999bbf51cf7d722e1db82f5740cfe2cf0852',
+    'l2-l07': '7edfa0f5430e384f00d6ac2a695c7fa3d8271e266585e2d7c4d889fe5a964a99',
+    'l2-l08': '99e60d70579c368a1611bdb6058bdd9e4ee0ccee350c8e0f25c8c4cffc4c22fd',
     'l2-l09': '951cedfa65d24865c12731438d63679c27b5e65fed8efd9abb4984370ac929fd',
     'l2-l10': '8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af',
     'l2-l11': '56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6',
-    'l2-l12': 'eeb8c16bb319e8a3e06fe128e7149afc8362eedc5848e99e0b24669d23c423d4',
+    'l2-l12': '55b200a9a89971ed0f4272bfc53c95c8e318677d9c649d41dc90ad909044af30',
     'l2-l13': '7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe',
     'l2-l14': 'd698fdb60de1a60efbb893e0e7bb02094c1332c0a514b1eb8f08d63f02e8b2cb',
     'l2-l15': 'abefe9aae6730274afc8bc184eec221c64e7848df84ae5fb8cb235487c6c6da9',
@@ -77,7 +77,7 @@ export const AUTHORED_WEEK_HASHES = {
     'l2-l26': '42a67ed9eea0dd6d8c336c7813c1e3ade22b885ca78c6ec02e3cdebdda170afe',
     'l2-l27': '06148a863fd7e75864ca04d90eb90800d28eb728904bc8b62b330b6038355776',
     'l2-l28': 'bf518f6d5141a0ae5195a83ac563789c48774d03e947742080cd8ac039a6a79d',
-    'l2-l29': 'edfb9aab702282ed7a173ab72d3649b746ef30e8f73acf817165a382ae43cef2',
+    'l2-l29': 'df75b67e6ba13033c76edc83f75630594128a3a35679e7768fa1e0a1cc993817',
     'l2-l30': '4c0690c2c041497cb102b6ab9d94edbf3bbb7238710ba24c8fdf326e3d6a19bb',
     'l2-l31': '89545b660280f0570a73c4ae2e66a2c39cab803adea1de638a931048b3114dcf',
     'l2-l32': '2c62cac30744372dbc1790806410e647c86baca7695803c3806372f69d09ee23',
@@ -121,7 +121,7 @@ export interface LearnerAuthoredChoice {
     readonly answerSupport: AnswerSupportContract;
     readonly teachingSupport?: import('../domain/activity-runtime').ActivityTeachingSupport;
     readonly listening?: LearnerListeningSource;
-    readonly provenance: { readonly packageId: AuthoredWeekId; readonly sourceQuestionId: string };
+    readonly provenance: LearnerAuthoredExerciseProvenance;
 }
 
 export interface LearnerListeningSource {
@@ -142,7 +142,20 @@ export interface LearnerAuthoredText {
     readonly options: readonly [];
     readonly answerSupport: AnswerSupportContract;
     readonly teachingSupport?: import('../domain/activity-runtime').ActivityTeachingSupport;
-    readonly provenance: { readonly packageId: AuthoredWeekId; readonly sourceQuestionId: string };
+    readonly provenance: LearnerAuthoredExerciseProvenance;
+}
+
+export interface LearnerAuthoredExerciseProvenance {
+    readonly packageId: AuthoredWeekId;
+    readonly sourceQuestionId: string;
+    readonly authoredSource?: {
+        readonly exerciseId: string;
+        readonly sourceQuestionId?: string;
+        readonly sourcePromptExact?: string;
+        readonly sourceOrder?: number;
+        readonly locator?: Readonly<Record<string, unknown>>;
+        readonly provenance?: Readonly<Record<string, unknown>>;
+    };
 }
 
 export type LearnerAuthoredActivity = LearnerAuthoredChoice | LearnerAuthoredText | SourceVocabularySheetModel;
@@ -165,6 +178,14 @@ interface Overlay {
     readonly repair: { readonly en: string; readonly ja: string };
     readonly example: { readonly en: string; readonly ja: string };
     readonly review: ReviewSeed['content'];
+}
+
+interface AdaptedExercise {
+    readonly exercise: AuthoredChoiceExercise | AuthoredExactExercise;
+    readonly sourceQuestionId: string;
+    readonly mapping?: Overlay;
+    readonly curriculumPhase?: LearnerAuthoredCurriculumPhase;
+    readonly authoredSource?: NonNullable<LearnerAuthoredExerciseProvenance['authoredSource']>;
 }
 
 const overlays: Readonly<Record<string, Overlay>> = {
@@ -315,20 +336,40 @@ export function adaptAuthoredWeek(input: unknown, source: AuthoredWeekSource): L
             const packagedListening = parsePackagedListeningChoice(id, value, path);
             const choice = parseChoiceExercise(normalized, path) ?? packagedListening?.exercise;
             const exact = choice || !supportsGroundedExact ? undefined : parseExactExercise(normalized, path);
-            const exercise = choice ?? exact;
-            if (!exercise) continue;
-            const sourceQuestionId = `${id}/${exercise.id}`;
-            if (seen.has(sourceQuestionId)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId}.`);
-            seen.add(sourceQuestionId);
-            const mapping = overlays[sourceQuestionId] ?? derivedOverlay(id, exercise);
-            if (!mapping) throw new TypeError(`Missing explicit overlay for ${sourceQuestionId}.`);
-            const activity = exercise.kind === 'choice'
-                ? toChoiceActivity(id, exercise, sourceQuestionId, mapping, component.teachingSupport, packagedListening?.listening)
-                : toTextActivity(id, exercise, sourceQuestionId, mapping, component.teachingSupport);
-            activities.push(activity);
-            answers.set(activity.id, { kind: exercise.kind === 'choice' ? 'choice' : 'text', exercise, mapping } as
-                | { kind: 'choice'; exercise: AuthoredChoiceExercise; mapping: Overlay }
-                | { kind: 'text'; exercise: AuthoredExactExercise; mapping: Overlay });
+            const adapted: readonly AdaptedExercise[] = choice || exact
+                ? [{ exercise: choice ?? exact!, sourceQuestionId: `${id}/${(choice ?? exact)!.id}` }]
+                : adaptSupportedSourceExercise(id, normalized, path);
+            for (const item of adapted) {
+                const { exercise, sourceQuestionId } = item;
+                if (seen.has(sourceQuestionId)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId}.`);
+                seen.add(sourceQuestionId);
+                const mapping = item.mapping ?? overlays[sourceQuestionId] ?? derivedOverlay(id, exercise);
+                if (!mapping) throw new TypeError(`Missing explicit overlay for ${sourceQuestionId}.`);
+                const activity = exercise.kind === 'choice'
+                    ? toChoiceActivity(
+                        id,
+                        exercise,
+                        sourceQuestionId,
+                        mapping,
+                        component.teachingSupport,
+                        packagedListening?.listening,
+                        item.curriculumPhase,
+                        item.authoredSource,
+                    )
+                    : toTextActivity(
+                        id,
+                        exercise,
+                        sourceQuestionId,
+                        mapping,
+                        component.teachingSupport,
+                        item.curriculumPhase,
+                        item.authoredSource,
+                    );
+                activities.push(activity);
+                answers.set(activity.id, { kind: exercise.kind === 'choice' ? 'choice' : 'text', exercise, mapping } as
+                    | { kind: 'choice'; exercise: AuthoredChoiceExercise; mapping: Overlay }
+                    | { kind: 'text'; exercise: AuthoredExactExercise; mapping: Overlay });
+            }
         }
     }
     const media = authored.components.flatMap(component => component.audio ? [{
@@ -396,11 +437,15 @@ function toSourceVocabularyActivities(
             prompt: sheet.sourceInstructions,
             answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
             teachingSupport: {
-                kind: 'vocabulary' as const,
-                title: { ja: 'ことばを見てから', en: 'See the word first' },
+                kind: 'context' as const,
+                title: { ja: '思い出すコツ', en: 'Recall strategy' },
                 entries: [{
-                    japanese: item.ja,
-                    ...(item.reading !== item.ja ? { reading: item.reading } : {}),
+                    japanese: locus.row % 2 === 1
+                        ? 'まず意味を思い出してから、短く答えましょう。'
+                        : '意味から、ことばの音や形を思い出しましょう。',
+                    translation: locus.row % 2 === 1
+                        ? 'Recall the meaning first, then answer briefly.'
+                        : 'Use the meaning to recall the word\'s sound or shape.',
                 }],
             },
             provenance: {
@@ -446,6 +491,351 @@ function normalizeLegacyChoice(packageId: AuthoredWeekId, value: unknown, path: 
     return { ...exercise, options };
 }
 
+function adaptSupportedSourceExercise(
+    packageId: AuthoredWeekId,
+    value: unknown,
+    path: string,
+): readonly AdaptedExercise[] {
+    const candidate = recordField(value, path);
+    if (candidate.kind !== 'cloze' && candidate.kind !== 'matching' && candidate.kind !== 'ordering') return [];
+    if (candidate.autoGraded === false) return [];
+    if (candidate.autoGraded !== true) throw new TypeError(`${path}.autoGraded must be true or false.`);
+    switch (candidate.kind) {
+        case 'cloze':
+            return adaptClozeExercise(packageId, candidate, path);
+        case 'matching':
+            return adaptMatchingExercise(packageId, candidate, path);
+        case 'ordering':
+            return adaptOrderingExercise(packageId, candidate, path);
+    }
+}
+
+function adaptClozeExercise(
+    packageId: AuthoredWeekId,
+    candidate: Readonly<Record<string, unknown>>,
+    path: string,
+): readonly AdaptedExercise[] {
+    const id = textField(candidate.id, `${path}.id`);
+    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Fill the gap.');
+    const japanese = textField(candidate.japanese, `${path}.japanese`);
+    const explanation = textField(candidate.explanation, `${path}.explanation`);
+    const reviewTag = optionalTextField(candidate.reviewTag, `${path}.reviewTag`);
+    const blanks = arrayField(candidate.blanks, `${path}.blanks`);
+    if (!blanks.length) throw new TypeError(`${path}.blanks must contain at least one blank.`);
+    const blankIds = new Set<string>();
+    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
+    const authoredSource = authoredSourceProvenance(candidate, id, path);
+    return blanks.map((value, index) => {
+        const blankPath = `${path}.blanks[${index}]`;
+        const blank = recordField(value, blankPath);
+        const blankId = textField(blank.id, `${blankPath}.id`);
+        if (blankIds.has(blankId)) throw new TypeError(`Duplicate cloze blank id ${packageId}/${id}/${blankId}.`);
+        blankIds.add(blankId);
+        const wrongAnswers = wrongAnswerTriggers(candidate.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
+        const answer = exactAnswerField(blank.answer, `${blankPath}.answer`, wrongAnswers);
+        const sourceQuestionId = `${packageId}/${id}${blanks.length === 1 ? '' : `:${blankId}`}`;
+        const exercisePrompt = sourcePrompt(
+            prompt,
+            safeClozeSource(japanese, answer.primary),
+            blanks.length === 1 ? undefined : {
+                en: `Blank ${index + 1} of ${blanks.length}`,
+                ja: `${index + 1} / ${blanks.length}`,
+            },
+        );
+        const exercise: AuthoredExactExercise = {
+            id: blanks.length === 1 ? id : `${id}:${blankId}`,
+            kind: 'exact',
+            prompt: exercisePrompt,
+            explanation,
+            ...(reviewTag ? { reviewTag } : {}),
+            autoGraded: true,
+            answer,
+        };
+        return {
+            exercise,
+            sourceQuestionId,
+            mapping: sourceExerciseOverlay(
+                packageId,
+                `${reviewTag ?? id}:${blankId}`,
+                answer.primary,
+                explanation,
+                explanation,
+            ),
+            curriculumPhase,
+            authoredSource,
+        };
+    });
+}
+
+function adaptMatchingExercise(
+    packageId: AuthoredWeekId,
+    candidate: Readonly<Record<string, unknown>>,
+    path: string,
+): readonly AdaptedExercise[] {
+    if (candidate.pluginTarget !== 'academy-drag-sort') {
+        throw new TypeError(`${path}.pluginTarget must be academy-drag-sort for an auto-graded matching exercise.`);
+    }
+    const id = textField(candidate.id, `${path}.id`);
+    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Match each item to its answer.');
+    const explanation = textField(candidate.explanation, `${path}.explanation`);
+    const sourceItems = textArrayField(candidate.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = recordField(candidate.answers, `${path}.answers`);
+    const values = textArrayField(answers.values, `${path}.answers.values`);
+    if (sourceItems.length < 2 || sourceItems.length !== values.length) {
+        throw new TypeError(`${path} must have the same number of source items and matching answers.`);
+    }
+    if (new Set(values).size !== values.length) {
+        throw new TypeError(`${path}.answers.values must be unique for deterministic matching.`);
+    }
+    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
+    const authoredSource = authoredSourceProvenance(candidate, id, path);
+    return sourceItems.map((sourceItem, itemIndex) => {
+        const exerciseId = `${id}:match-${itemIndex + 1}`;
+        const displayedAnswers = rotate(values, (itemIndex * 2) + 1);
+        const exercise: AuthoredChoiceExercise = {
+            id: exerciseId,
+            kind: 'choice',
+            prompt: sourcePrompt(prompt, sourceItem, {
+                en: `Item ${itemIndex + 1} of ${sourceItems.length}`,
+                ja: `${itemIndex + 1} / ${sourceItems.length}`,
+            }),
+            explanation,
+            autoGraded: true,
+            options: displayedAnswers.map((answer, optionIndex) => ({
+                id: `match-option-${optionIndex + 1}`,
+                label: { en: answer, ja: answer },
+                correct: answer === values[itemIndex],
+            })),
+        };
+        return {
+            exercise,
+            sourceQuestionId: `${packageId}/${exerciseId}`,
+            mapping: sourceExerciseOverlay(packageId, id, values[itemIndex], explanation, sourceItem),
+            curriculumPhase,
+            authoredSource,
+        };
+    });
+}
+
+function adaptOrderingExercise(
+    packageId: AuthoredWeekId,
+    candidate: Readonly<Record<string, unknown>>,
+    path: string,
+): readonly AdaptedExercise[] {
+    if (candidate.pluginTarget !== 'academy-sequence') {
+        throw new TypeError(`${path}.pluginTarget must be academy-sequence for an auto-graded ordering exercise.`);
+    }
+    const id = textField(candidate.id, `${path}.id`);
+    const prompt = localizedField(candidate.prompt, `${path}.prompt`, 'Put the items in order.');
+    const explanation = textField(candidate.explanation, `${path}.explanation`);
+    const curriculumPhase = sourceCurriculumPhase(candidate, path, 'guided-practice');
+    const authoredSource = authoredSourceProvenance(candidate, id, path);
+    if (candidate.tiles !== undefined || candidate.answer !== undefined) {
+        const tiles = textArrayField(candidate.tiles, `${path}.tiles`);
+        if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
+            throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
+        }
+        const answer = exactAnswerField(candidate.answer, `${path}.answer`);
+        const displayedTiles = rotate(tiles, 1);
+        const exercise: AuthoredExactExercise = {
+            id,
+            kind: 'exact',
+            prompt: sourcePrompt(prompt, {
+                en: `Tiles: ${displayedTiles.join(' / ')}`,
+                ja: `カード: ${displayedTiles.join(' / ')}`,
+            }),
+            explanation,
+            autoGraded: true,
+            answer,
+        };
+        return [{
+            exercise,
+            sourceQuestionId: `${packageId}/${id}`,
+            mapping: sourceExerciseOverlay(packageId, id, answer.primary, explanation, prompt.en),
+            curriculumPhase,
+            authoredSource,
+        }];
+    }
+
+    const sourceItems = textArrayField(candidate.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = recordField(candidate.answers, `${path}.answers`);
+    const values = textArrayField(answers.values, `${path}.answers.values`);
+    if (!sourceItems.length || sourceItems.length !== values.length) {
+        throw new TypeError(`${path} must have the same number of ordering cues and answers.`);
+    }
+    const workedExample = optionalTextField(candidate.workedExampleExact, `${path}.workedExampleExact`);
+    return sourceItems.map((sourceItem, index) => {
+        const exerciseId = `${id}:item-${index + 1}`;
+        const exercisePrompt = sourcePrompt(
+            prompt,
+            sourceItem,
+            workedExample ? { en: `Source example: ${workedExample}`, ja: `例: ${workedExample}` } : undefined,
+        );
+        const exercise: AuthoredExactExercise = {
+            id: exerciseId,
+            kind: 'exact',
+            prompt: exercisePrompt,
+            explanation,
+            autoGraded: true,
+            answer: { primary: values[index], alternatives: [] },
+        };
+        return {
+            exercise,
+            sourceQuestionId: `${packageId}/${exerciseId}`,
+            mapping: sourceExerciseOverlay(packageId, id, values[index], explanation, sourceItem),
+            curriculumPhase,
+            authoredSource,
+        };
+    });
+}
+
+function sourcePrompt(
+    prompt: LocalizedText,
+    source: string | LocalizedText,
+    scaffold?: LocalizedText,
+): LocalizedText {
+    const sourceText = typeof source === 'string' ? { en: source, ja: source } : source;
+    return {
+        en: [prompt.en, sourceText.en, scaffold?.en].filter(Boolean).join('\n'),
+        ja: [prompt.ja, sourceText.ja, scaffold?.ja].filter(Boolean).join('\n'),
+    };
+}
+
+function exactAnswerField(
+    value: unknown,
+    path: string,
+    rejected: ReadonlySet<string> = new Set(),
+): AuthoredExactExercise['answer'] {
+    const answer = recordField(value, path);
+    const primary = textField(answer.primary, `${path}.primary`);
+    const alternatives = answer.alternatives === undefined
+        ? []
+        : textArrayField(answer.alternatives, `${path}.alternatives`);
+    return {
+        primary,
+        alternatives: alternatives.filter(candidate => !rejected.has(normalizeExactAnswer(candidate))),
+    };
+}
+
+function wrongAnswerTriggers(value: unknown, path: string): ReadonlySet<string> {
+    if (value === undefined) return new Set();
+    return new Set(arrayField(value, path).map((candidate, index) => {
+        const item = recordField(candidate, `${path}[${index}]`);
+        return normalizeExactAnswer(textField(item.trigger, `${path}[${index}].trigger`));
+    }));
+}
+
+function safeClozeSource(source: string, primary: string): string {
+    const normalizedPrimary = normalizeExactAnswer(primary);
+    if (normalizeExactAnswer(source) === normalizedPrimary) return '＿＿＿';
+    const arrow = source.indexOf('→');
+    if (arrow >= 0) {
+        if (normalizeExactAnswer(source.slice(arrow + 1)) === normalizedPrimary) {
+            return `${source.slice(0, arrow + 1)} ＿＿＿`;
+        }
+        if (normalizeExactAnswer(source.slice(0, arrow)) === normalizedPrimary) return '＿＿＿';
+    }
+    return source;
+}
+
+function textArrayField(value: unknown, path: string): readonly string[] {
+    return arrayField(value, path).map((candidate, index) => textField(candidate, `${path}[${index}]`));
+}
+
+function rotate<T>(values: readonly T[], offset: number): readonly T[] {
+    const split = offset % values.length;
+    return [...values.slice(split), ...values.slice(0, split)];
+}
+
+function optionalTextField(value: unknown, path: string): string | undefined {
+    return value === undefined ? undefined : textField(value, path);
+}
+
+function sourceCurriculumPhase(
+    candidate: Readonly<Record<string, unknown>>,
+    path: string,
+    fallback: LearnerAuthoredCurriculumPhase,
+): LearnerAuthoredCurriculumPhase {
+    const curriculumPhase = candidate.curriculumPhase;
+    if (curriculumPhase !== undefined) {
+        if (typeof curriculumPhase !== 'string') throw new TypeError(`${path}.curriculumPhase is not supported.`);
+        switch (curriculumPhase) {
+            case 'context':
+            case 'instruction':
+            case 'guided-practice':
+            case 'assessed-recognition':
+            case 'assessed-production':
+                return curriculumPhase;
+            default:
+                throw new TypeError(`${path}.curriculumPhase is not supported.`);
+        }
+    }
+    const phase = candidate.phase;
+    if (phase === undefined) return fallback;
+    if (typeof phase !== 'string') throw new TypeError(`${path}.phase is not supported.`);
+    switch (phase) {
+        case 'context':
+        case 'instruction':
+        case 'guided-practice':
+        case 'constrained-practice':
+        case 'assessed-production':
+        case 'supported-production':
+        case 'transfer':
+        case 'prestudy':
+            return learnerCurriculumPhase(phase, fallback);
+        default:
+            throw new TypeError(`${path}.phase is not supported.`);
+    }
+}
+
+function authoredSourceProvenance(
+    candidate: Readonly<Record<string, unknown>>,
+    exerciseId: string,
+    path: string,
+): NonNullable<LearnerAuthoredExerciseProvenance['authoredSource']> {
+    const sourceQuestionId = optionalTextField(candidate.sourceQuestionId, `${path}.sourceQuestionId`);
+    const sourcePromptExact = optionalTextField(
+        candidate.sourcePromptExact ?? candidate.sourceCueExact,
+        `${path}.${candidate.sourcePromptExact !== undefined ? 'sourcePromptExact' : 'sourceCueExact'}`,
+    );
+    const sourceOrder = candidate.sourceOrder === undefined
+        ? undefined
+        : finiteNumberField(candidate.sourceOrder, `${path}.sourceOrder`);
+    const locator = candidate.source === undefined ? undefined : { ...recordField(candidate.source, `${path}.source`) };
+    const provenance = candidate.provenance === undefined
+        ? undefined
+        : { ...recordField(candidate.provenance, `${path}.provenance`) };
+    return {
+        exerciseId,
+        ...(sourceQuestionId ? { sourceQuestionId } : {}),
+        ...(sourcePromptExact ? { sourcePromptExact } : {}),
+        ...(sourceOrder !== undefined ? { sourceOrder } : {}),
+        ...(locator ? { locator } : {}),
+        ...(provenance ? { provenance } : {}),
+    };
+}
+
+function finiteNumberField(value: unknown, path: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${path} must be finite.`);
+    return value;
+}
+
+function sourceExerciseOverlay(
+    packageId: AuthoredWeekId,
+    conceptKey: string,
+    expression: string,
+    explanation: string,
+    meaning: string,
+): Overlay {
+    return {
+        conceptId: `concept:${packageId}:${conceptKey}`,
+        feedback: { en: explanation, ja: `答えを確認しましょう：${expression}。` },
+        repair: { en: 'Try once more using the source wording and scaffold.', ja: 'もとの文とヒントを見て、もう一度答えましょう。' },
+        example: { en: `Source target: ${expression}`, ja: `答えの例：${expression}` },
+        review: { expression, meanings: [meaning] },
+    };
+}
+
 function toChoiceActivity(
     packageId: AuthoredWeekId,
     exercise: AuthoredChoiceExercise,
@@ -453,6 +843,8 @@ function toChoiceActivity(
     mapping: Overlay,
     teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
     listening?: LearnerAuthoredChoice['listening'],
+    curriculumPhase?: LearnerAuthoredCurriculumPhase,
+    authoredSource?: NonNullable<LearnerAuthoredExerciseProvenance['authoredSource']>,
 ): LearnerAuthoredChoice {
     const correct = exercise.options.filter(option => option.correct);
     if (correct.length !== 1) throw new TypeError(`${sourceQuestionId} must have exactly one correct option.`);
@@ -468,13 +860,13 @@ function toChoiceActivity(
         sourceQuestionId,
         conceptIds: [mapping.conceptId],
         responseKind: 'choice',
-        curriculumPhase: learnerCurriculumPhase(exercise.phase, 'assessed-recognition'),
+        curriculumPhase: curriculumPhase ?? learnerCurriculumPhase(exercise.phase, 'assessed-recognition'),
         prompt: exercise.prompt,
         options,
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         teachingSupport,
         ...(listening ? { listening } : {}),
-        provenance: { packageId, sourceQuestionId },
+        provenance: { packageId, sourceQuestionId, ...(authoredSource ? { authoredSource } : {}) },
     };
 }
 
@@ -550,6 +942,8 @@ function toTextActivity(
     sourceQuestionId: string,
     mapping: Overlay,
     teachingSupport: import('../domain/activity-runtime').ActivityTeachingSupport,
+    curriculumPhase?: LearnerAuthoredCurriculumPhase,
+    authoredSource?: NonNullable<LearnerAuthoredExerciseProvenance['authoredSource']>,
 ): LearnerAuthoredText {
     return {
         id: `authored:${sourceQuestionId}`,
@@ -557,12 +951,12 @@ function toTextActivity(
         sourceQuestionId,
         conceptIds: [mapping.conceptId],
         responseKind: 'text',
-        curriculumPhase: learnerCurriculumPhase(exercise.phase, 'assessed-production'),
+        curriculumPhase: curriculumPhase ?? learnerCurriculumPhase(exercise.phase, 'assessed-production'),
         prompt: exercise.prompt,
         options: [],
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         teachingSupport,
-        provenance: { packageId, sourceQuestionId },
+        provenance: { packageId, sourceQuestionId, ...(authoredSource ? { authoredSource } : {}) },
     };
 }
 

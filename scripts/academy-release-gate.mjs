@@ -433,6 +433,7 @@ async function assertInputThemeResilience(page, viewport, name) {
                         textFill: style.webkitTextFillColor,
                         caret: style.caretColor,
                         colorScheme: style.colorScheme,
+                        fontSize: Number.parseFloat(style.fontSize),
                     };
                 });
         }, theme);
@@ -450,6 +451,10 @@ async function assertInputThemeResilience(page, viewport, name) {
     assert(dark.color === light.color && dark.background === light.background && dark.textFill === light.textFill && dark.caret === light.caret,
         `${viewport.name}/${name}: Reader theme injection changes Academy input colours`, { styles });
     assert(dark.colorScheme === 'light' && light.colorScheme === 'light', `${viewport.name}/${name}: Academy input does not retain a light colour scheme`, { styles });
+    if (viewport.name === 'mobile') {
+        assert(dark.fontSize >= 16 && light.fontSize >= 16,
+            `${viewport.name}/${name}: Academy input can trigger mobile viewport zoom`, { styles });
+    }
     const contrast = inputContrast(dark.color, dark.background);
     assert(contrast >= 4.5, `${viewport.name}/${name}: Academy input text contrast falls below AA`, { contrast, input: dark });
 }

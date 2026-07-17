@@ -7,6 +7,7 @@ import {
     type ActivityPlugin,
     type ValidationIssue,
 } from '../domain/activity-runtime';
+import { normalizeJapaneseStudyAnswer } from '../../reader/newtab/japanese-input';
 
 export interface SourceVocabularySheetModel extends ActivityModel {
     readonly kind: 'academy-source-vocabulary-sheet';
@@ -41,31 +42,25 @@ export interface SourceVocabularySheetModel extends ActivityModel {
     };
 }
 
-export type SourceVocabularySheetResponse = 'remembered' | 'reveal';
+export type SourceVocabularySheetDirection = 'japanese-to-english' | 'english-to-japanese';
+export type SourceVocabularySheetResponse = string | Readonly<{ answer: string }>;
 
 export const sourceVocabularySheetPlugin: ActivityPlugin<SourceVocabularySheetModel, SourceVocabularySheetResponse> = {
     kind: 'academy-source-vocabulary-sheet',
     validate,
     render,
     grade(model, response) {
-        if (response !== 'remembered' && response !== 'reveal') {
-            throw new TypeError('A source vocabulary recall decision is required.');
-        }
-        const passed = response === 'remembered';
-        return {
-            outcome: passed ? 'pass' : 'lapse',
-            score: passed ? 1 : 0,
-            errorTags: passed ? [] : [`source-vocabulary:${model.provenance.componentId}:repair`],
-            feedback: {
-                explanation: passed
-                    ? { ja: '思い出してから、先生の行を確認しました。', en: 'You recalled the row before checking the teacher sheet.' }
-                    : { ja: '先生の行を確認しました。もう一度、意味を隠して思い出しましょう。', en: 'The teacher row is now visible. Hide it and recall it once more.' },
-                ...(passed ? {} : {
-                    repairPrompt: { ja: '語と読みを声に出してから、意味をもう一度思い出してください。', en: 'Say the word and reading, then recall the meaning once more.' },
-                    nearbyExample: { ja: model.payload.support.words, en: model.payload.support.meaning },
-                }),
-            },
-        };
+        if (response === 'reveal') return lapseResult(model, true);
+        // Retain persisted and direct legacy evaluations. The live activity no
+        // longer offers this self-reported route.
+        if (response === 'remembered') return passResult();
+
+        const answer = responseText(response);
+        if (!answer) throw new TypeError('A source vocabulary answer is required.');
+        const passed = sourceVocabularyDirection(model) === 'japanese-to-english'
+            ? acceptedEnglishAnswers(model).has(normalizeEnglishAnswer(answer))
+            : acceptedJapaneseAnswers(model).has(normalizeJapaneseStudyAnswer(answer));
+        return passed ? passResult() : lapseResult(model, false);
     },
     toReviewSeeds(model, result) {
         return [{
@@ -83,6 +78,81 @@ export const sourceVocabularySheetPlugin: ActivityPlugin<SourceVocabularySheetMo
         }];
     },
 };
+
+function passResult() {
+    return {
+        outcome: 'pass' as const,
+        score: 1,
+        errorTags: [],
+        feedback: { explanation: { ja: '正解です。', en: 'Correct.' } },
+    };
+}
+
+function lapseResult(model: SourceVocabularySheetModel, revealed: boolean) {
+    const repairPrompt = sourceVocabularyDirection(model) === 'japanese-to-english'
+        ? { ja: 'ことばを見て、英語の意味をもう一度入力してください。', en: 'Look at the word, then type its English meaning again.' }
+        : { ja: '意味を見て、日本語の単語か読み方をもう一度入力してください。', en: 'Look at the meaning, then type the Japanese word or reading again.' };
+    return {
+        outcome: 'lapse' as const,
+        score: 0,
+        errorTags: [`source-vocabulary:${model.provenance.componentId}:repair`],
+        feedback: {
+            explanation: revealed
+                ? { ja: '先生の行を確認しました。もう一度答えましょう。', en: 'The teacher row is visible. Try it once more.' }
+                : { ja: 'まだ違います。先生の行を確認して、もう一度答えましょう。', en: 'Not quite. Check the teacher row and try again.' },
+            repairPrompt,
+            nearbyExample: { ja: model.payload.support.words, en: model.payload.support.meaning },
+        },
+    };
+}
+
+export function sourceVocabularyDirection(model: SourceVocabularySheetModel): SourceVocabularySheetDirection {
+    return model.provenance.locus.row % 2 === 1 ? 'japanese-to-english' : 'english-to-japanese';
+}
+
+function responseText(response: SourceVocabularySheetResponse): string {
+    if (typeof response === 'string') return response.trim();
+    return typeof response?.answer === 'string' ? response.answer.trim() : '';
+}
+
+function acceptedEnglishAnswers(model: SourceVocabularySheetModel): ReadonlySet<string> {
+    return new Set([model.payload.support.meaning, model.payload.exact.meaning]
+        .filter((value): value is string => typeof value === 'string')
+        .flatMap(value => {
+            const variants = [value, ...value.split(/(?:\s*[/;,]\s*|\r?\n+)/u)];
+            return variants.flatMap(variant => [
+                variant,
+                variant.replace(/\s*(?:\([^)]*\)|\[[^\]]*\])/gu, ' '),
+            ]);
+        })
+        .map(normalizeEnglishAnswer)
+        .filter(Boolean));
+}
+
+function acceptedJapaneseAnswers(model: SourceVocabularySheetModel): ReadonlySet<string> {
+    return new Set([
+        model.payload.support.words,
+        model.payload.support.reading,
+        model.payload.exact.pronunciation,
+    ].filter((value): value is string => typeof value === 'string')
+        .map(normalizeVocabularyJapaneseAnswer)
+        .filter(Boolean));
+}
+
+function normalizeVocabularyJapaneseAnswer(value: string): string {
+    return normalizeJapaneseStudyAnswer(value
+        .replace(/^\s*\*?review\s*/iu, '')
+        .replace(/^[\-\u2010-\u2015]+/u, ''));
+}
+
+function normalizeEnglishAnswer(value: string): string {
+    return value
+        .normalize('NFKD')
+        .replace(/\p{Mark}+/gu, '')
+        .toLocaleLowerCase('en')
+        .replace(/[^a-z0-9]+/gu, ' ')
+        .trim();
+}
 
 function validate(model: SourceVocabularySheetModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];
@@ -130,17 +200,22 @@ function render(
     submit: (response: SourceVocabularySheetResponse) => Promise<ActivityEvaluation>,
 ): ActivityController {
     const lifecycle = new AbortController();
+    const direction = sourceVocabularyDirection(model);
     const root = document.createElement('section');
     root.className = 'academy-activity academy-kit academy-source-vocabulary-sheet';
     root.dataset.activityId = model.id;
     root.dataset.sourceQuestionId = model.sourceQuestionId;
     root.dataset.sourcePage = String(model.provenance.locus.page);
     root.dataset.sourceRow = String(model.provenance.locus.row);
+    root.dataset.direction = direction;
 
     const heading = document.createElement('h2');
     heading.tabIndex = -1;
-    heading.append(localized(model.prompt.ja, 'ja', 'academy-japanese'));
-    heading.append(localized(model.prompt.en, 'en', 'academy-support'));
+    const instruction = direction === 'japanese-to-english'
+        ? { ja: '英語の意味を入力しましょう。', en: 'Type the English meaning.' }
+        : { ja: '日本語の単語か読み方を入力しましょう。', en: 'Type the Japanese word or reading.' };
+    heading.append(localized(instruction.ja, 'ja', 'academy-japanese'));
+    heading.append(localized(instruction.en, 'en', 'academy-support'));
 
     const source = document.createElement('p');
     source.className = 'academy-source-record';
@@ -149,36 +224,56 @@ function render(
         : `Teacher worksheet · page ${model.provenance.locus.page} · row ${model.provenance.locus.row}`;
     source.dataset.jpdbReaderSurfaceIgnore = '';
 
-    const word = document.createElement('p');
-    word.className = 'academy-japanese academy-source-vocabulary-word';
-    word.lang = 'ja';
-    word.textContent = model.payload.exact.words;
-    word.dataset.yomuRuntimeSurface = 'academy-activity';
-    word.dataset.yomuFuriganaMode = 'all';
-
-    const sourceReading = model.payload.exact.pronunciation
+    const cue = direction === 'japanese-to-english'
+        ? japaneseCue(model)
+        : englishCue(model);
+    const sourceReading = direction === 'japanese-to-english' && model.payload.exact.pronunciation
         ? revealedField('Source pronunciation', '先生の発音表記', model.payload.exact.pronunciation, 'source')
         : null;
-    const actions = document.createElement('div');
-    actions.className = 'academy-activity-actions';
-    const remembered = action(host.language === 'ja' ? '思い出せた' : 'I remembered', 'remembered');
-    const reveal = action(host.language === 'ja' ? '答えを確認' : 'Reveal meaning', 'reveal');
-    actions.append(remembered, reveal);
+
+    const form = document.createElement('form');
+    form.className = 'academy-source-vocabulary-form academy-activity-actions';
+    const label = document.createElement('label');
+    label.htmlFor = `${model.id}-answer`;
+    label.textContent = direction === 'japanese-to-english'
+        ? (host.language === 'ja' ? '英語の意味' : 'English meaning')
+        : (host.language === 'ja' ? '日本語のことば・読み方' : 'Japanese word or reading');
+    const input = document.createElement('input');
+    input.id = label.htmlFor;
+    input.name = 'source-vocabulary-answer';
+    input.type = 'text';
+    input.required = true;
+    input.autocomplete = 'off';
+    input.autocapitalize = 'off';
+    input.spellcheck = false;
+    input.className = 'academy-source-vocabulary-input';
+    input.dataset.sourceVocabularyAnswer = '';
+    const help = document.createElement('p');
+    help.className = 'academy-source-vocabulary-help';
+    help.textContent = direction === 'english-to-japanese'
+        ? (host.language === 'ja' ? 'ローマ字でも入力できます。' : 'Romaji is accepted.')
+        : (host.language === 'ja' ? '短い英語で答えてください。' : 'Use the worksheet meaning.');
+    help.dataset.jpdbReaderSurfaceIgnore = '';
+    const check = action(host.language === 'ja' ? '確認' : 'Check', 'answer');
+    check.type = 'submit';
+    const reveal = action(host.language === 'ja' ? '答えを確認' : 'Reveal answer', 'reveal');
+    form.append(label, input, help, check, reveal);
 
     const feedback = document.createElement('div');
     feedback.className = 'academy-activity-feedback';
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
-    root.append(heading, source, word);
+    root.append(heading, source, cue);
     if (sourceReading) root.append(sourceReading);
-    root.append(actions, feedback);
+    root.append(form, feedback);
     host.replace(root);
 
     let pending = false;
     const commit = (response: SourceVocabularySheetResponse): void => {
         if (pending) return;
         pending = true;
-        setDisabled(actions, true);
+        setDisabled(form, true);
+        feedback.setAttribute('role', 'status');
         feedback.textContent = host.language === 'ja' ? '確認しています…' : 'Checking…';
         void submit(response).then(evaluation => {
             root.dataset.outcome = evaluation.result.outcome;
@@ -190,30 +285,56 @@ function render(
             feedback.prepend(summary);
             pending = evaluation.result.outcome === 'pass';
             if (!pending) {
-                setDisabled(actions, false);
+                setDisabled(form, false);
                 reveal.disabled = true;
-                remembered.focus();
+                input.select();
             }
         }).catch(() => {
             pending = false;
-            setDisabled(actions, false);
+            setDisabled(form, false);
             feedback.textContent = host.language === 'ja'
                 ? '答えを保存できませんでした。もう一度お試しください。'
                 : 'Your answer was not saved. Try again.';
             feedback.setAttribute('role', 'alert');
-            (response === 'remembered' ? remembered : reveal).focus();
+            (response === 'reveal' ? reveal : input).focus();
         });
     };
-    remembered.addEventListener('click', () => commit('remembered'), { signal: lifecycle.signal });
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!input.value.trim()) return;
+        commit({ answer: input.value });
+    }, { signal: lifecycle.signal });
     reveal.addEventListener('click', () => commit('reveal'), { signal: lifecycle.signal });
-
     return {
-        focus() { remembered.focus(); },
+        focus() { input.focus(); },
         dispose() {
             lifecycle.abort();
             root.remove();
         },
     };
+}
+
+function japaneseCue(model: SourceVocabularySheetModel): HTMLElement {
+    const word = document.createElement('p');
+    word.className = 'academy-japanese academy-source-vocabulary-word';
+    word.lang = 'ja';
+    word.textContent = model.payload.exact.words;
+    word.dataset.fieldProvenance = 'source';
+    word.dataset.yomuRuntimeSurface = 'academy-activity';
+    word.dataset.yomuFuriganaMode = 'all';
+    return word;
+}
+
+function englishCue(model: SourceVocabularySheetModel): HTMLElement {
+    const meaning = document.createElement('p');
+    meaning.className = 'academy-support academy-source-vocabulary-meaning';
+    meaning.lang = 'en';
+    meaning.textContent = model.payload.support.meaning;
+    meaning.dataset.fieldProvenance = model.payload.fieldProvenance.meaning === 'source-provided'
+        ? 'source'
+        : 'yomu-support';
+    meaning.dataset.jpdbReaderSurfaceIgnore = '';
+    return meaning;
 }
 
 function revealedAnswer(model: SourceVocabularySheetModel): HTMLElement {
@@ -222,6 +343,7 @@ function revealedAnswer(model: SourceVocabularySheetModel): HTMLElement {
     const reading = model.payload.exact.pronunciation ?? model.payload.support.reading;
     const meaning = model.payload.exact.meaning ?? model.payload.support.meaning;
     root.append(
+        revealedField('Source word', '先生のことば', model.payload.exact.words, 'source'),
         revealedField(
             model.payload.exact.pronunciation ? 'Source pronunciation' : 'Yomu reading support',
             model.payload.exact.pronunciation ? '先生の発音表記' : 'よむの読み方サポート',
@@ -233,25 +355,32 @@ function revealedAnswer(model: SourceVocabularySheetModel): HTMLElement {
             model.payload.exact.meaning ? '先生の意味' : 'よむの意味サポート',
             meaning,
             model.payload.exact.meaning ? 'source' : 'yomu-support',
+            'en',
         ),
     );
     return root;
 }
 
-function revealedField(en: string, ja: string, value: string, provenance: 'source' | 'yomu-support'): HTMLElement {
+function revealedField(
+    en: string,
+    ja: string,
+    value: string,
+    provenance: 'source' | 'yomu-support',
+    lang: 'en' | 'ja' = 'ja',
+): HTMLElement {
     const row = document.createElement('p');
     row.className = 'academy-source-vocabulary-field';
     row.dataset.fieldProvenance = provenance;
     const label = document.createElement('strong');
     label.textContent = `${ja} / ${en}: `;
     const content = document.createElement('span');
-    content.lang = 'ja';
+    content.lang = lang;
     content.textContent = value;
     row.append(label, content);
     return row;
 }
 
-function action(label: string, response: SourceVocabularySheetResponse): HTMLButtonElement {
+function action(label: string, response: 'answer' | 'remembered' | 'reveal'): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'academy-button academy-button-primary';
@@ -270,7 +399,8 @@ function localized(value: string, lang: 'en' | 'ja', className: string): HTMLSpa
 }
 
 function setDisabled(root: ParentNode, disabled: boolean): void {
-    root.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = disabled; });
+    root.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button')
+        .forEach(control => { control.disabled = disabled; });
 }
 
 function positiveInteger(value: unknown): value is number {

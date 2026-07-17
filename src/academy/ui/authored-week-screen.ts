@@ -174,8 +174,9 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         showingComplete = false;
         showingAuthoredActivity = true;
         const activity = options.week.activities[currentIndex];
-        const teachingSupport = authoredTeachingSupport(activity);
-        if (showSupport) {
+        const hasTeachingSupport = activity.kind !== 'academy-source-vocabulary-sheet';
+        if (showSupport && hasTeachingSupport) {
+            const teachingSupport = authoredTeachingSupport(activity);
             const supportView = teachingSupportView(teachingSupport, options.language);
             const navigation = lessonNavigation(options.language, {
                 back: currentIndex > 0 ? () => {
@@ -192,11 +193,18 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
             return;
         }
         const questionHost = element('div', 'academy-authored-week-question-host');
-        const returnToSupport = lessonNavigation(options.language, {
-            back: () => renderCurrent(true),
-            backLabel: options.language === 'ja' ? '学習サポート' : 'Review support',
-        }, lifecycle.signal);
-        activityHost.replaceChildren(returnToSupport, questionHost);
+        const backAction = hasTeachingSupport
+            ? { back: () => renderCurrent(true), backLabel: options.language === 'ja' ? '学習サポート' : 'Review support' }
+            : currentIndex > 0
+                ? {
+                    back: () => { currentIndex -= 1; renderCurrent(true); },
+                    backLabel: options.language === 'ja' ? '前の問題' : 'Previous question',
+                }
+                : null;
+        if (backAction) {
+            const returnNavigation = lessonNavigation(options.language, backAction, lifecycle.signal);
+            activityHost.replaceChildren(returnNavigation, questionHost);
+        } else activityHost.replaceChildren(questionHost);
         if (activity.kind === 'academy-source-vocabulary-sheet') {
             const runtime = options.runtime ?? createAcademyActivityRuntime();
             let passed = false;

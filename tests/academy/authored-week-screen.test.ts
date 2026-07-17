@@ -282,13 +282,15 @@ describe('authored week learner screen', () => {
 
         expect(screen.currentActivityId).toBe(sourceRow.id);
         expect(screen.element.textContent).not.toContain('today');
-        openQuestion(screen.element);
+        expect(screen.element.querySelector('[data-source-vocabulary-answer]')).not.toBeNull();
         screen.element.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="reveal"]')!.click();
         await vi.waitFor(() => expect(screen.element.textContent).toContain('today'));
         expect(onEvaluation).toHaveBeenCalledTimes(1);
         expect(screen.element.querySelector('.academy-authored-week-next')).toBeNull();
 
-        screen.element.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="remembered"]')!.click();
+        const input = screen.element.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = 'today';
+        screen.element.querySelector<HTMLFormElement>('.academy-source-vocabulary-form')!.requestSubmit();
         await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-next')).not.toBeNull());
         expect(onEvaluation).toHaveBeenCalledTimes(2);
         screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();

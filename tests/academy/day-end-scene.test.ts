@@ -14,6 +14,7 @@ describe('Academy day-end scene', () => {
         expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src).toContain(ACADEMY_ASSETS.locations.classroom.wide);
         expect(screen.querySelector<HTMLImageElement>('[data-character="rie"] img')?.src).toContain(ACADEMY_ASSETS.rie);
         expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Rie-sensei');
+        screen.querySelector<HTMLElement>('.academy-vn-japanese')?.click();
         await vi.waitFor(() => {
             expect(screen.querySelector('.academy-vn-japanese')?.textContent).toBe('今日はここまでにしましょう。またね。');
             expect(screen.querySelector('.academy-vn-translation')?.textContent).toBe('Let’s stop here for today. See you.');

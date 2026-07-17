@@ -435,7 +435,7 @@ describe('Academy VN stage', () => {
         expect(text.textContent).toBe('一');
         expect(translation.dataset.waitingForLine).toBe('');
 
-        vi.advanceTimersByTime(120);
+        vi.advanceTimersByTime(240);
         expect(text.textContent?.startsWith('一行')).toBe(true);
         expect(text.textContent).not.toContain('二行目');
 
@@ -443,6 +443,28 @@ describe('Academy VN stage', () => {
         expect(text.textContent).toBe('一行目から\n二行目へ進みます。');
         expect(text.dataset.performanceText).toBeUndefined();
         expect(translation.dataset.waitingForLine).toBeUndefined();
+    });
+
+    it('gives spoken text a short lead-in and pauses at sentence boundaries', () => {
+        vi.useFakeTimers();
+        const stage = createAcademyVnStage({ reducedMotion: false });
+        stage.setLine({
+            id: 'line:cadence',
+            japanese: 'はい。次です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+
+        const text = stage.element.querySelector<HTMLElement>('.academy-vn-japanese')!;
+        expect(text.textContent).toBe('は');
+        vi.advanceTimersByTime(100);
+        expect(text.textContent).toBe('は');
+        vi.advanceTimersByTime(160);
+        expect(text.textContent).toContain('。');
+        const atBoundary = text.textContent;
+        vi.advanceTimersByTime(250);
+        expect(text.textContent).toBe(atBoundary);
+        vi.runAllTimers();
+        expect(text.textContent).toBe('はい。次です。');
     });
 
     it('routes only verified semantic SFX after learner interaction', () => {

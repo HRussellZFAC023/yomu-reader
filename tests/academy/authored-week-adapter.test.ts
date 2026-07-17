@@ -10,24 +10,24 @@ import { parseChoiceExercise } from '../../src/academy/content/authored-week-sch
 import { auditAuthoredActivityContracts } from '../../src/academy/content/cold-production-audit';
 
 const FIXTURES = [
-    ['002-l1-l01.json', 'l1-l01', 9, 1],
-    ['003-l1-l02.json', 'l1-l02', 10, 1],
-    ['004-l1-l03.json', 'l1-l03', 11, 1],
-    ['005-l1-l04.json', 'l1-l04', 9, 1],
-    ['006-l1-l05.json', 'l1-l05', 9, 1],
-    ['007-l1-l06.json', 'l1-l06', 11, 1],
-    ['008-l1-l07.json', 'l1-l07', 9, 1],
-    ['009-l1-l08.json', 'l1-l08', 25, 1],
-    ['010-l1-l09.json', 'l1-l09', 25, 1],
-    ['011-l1-l10.json', 'l1-l10', 10, 1],
-    ['012-l1-l11.json', 'l1-l11', 11, 0],
-    ['013-l1-l12.json', 'l1-l12', 12, 0],
+    ['002-l1-l01.json', 'l1-l01', 12, 1],
+    ['003-l1-l02.json', 'l1-l02', 13, 1],
+    ['004-l1-l03.json', 'l1-l03', 14, 1],
+    ['005-l1-l04.json', 'l1-l04', 10, 1],
+    ['006-l1-l05.json', 'l1-l05', 12, 1],
+    ['007-l1-l06.json', 'l1-l06', 17, 1],
+    ['008-l1-l07.json', 'l1-l07', 12, 1],
+    ['009-l1-l08.json', 'l1-l08', 29, 1],
+    ['010-l1-l09.json', 'l1-l09', 27, 1],
+    ['011-l1-l10.json', 'l1-l10', 13, 1],
+    ['012-l1-l11.json', 'l1-l11', 13, 0],
+    ['013-l1-l12.json', 'l1-l12', 14, 0],
     ['014-l1-l13.json', 'l1-l13', 13, 0],
     ['015-l1-l14.json', 'l1-l14', 12, 0],
-    ['016-l1-l15.json', 'l1-l15', 9, 1],
-    ['017-l1-l16.json', 'l1-l16', 31, 1],
-    ['018-l1-l17.json', 'l1-l17', 19, 1],
-    ['019-l1-l18.json', 'l1-l18', 9, 1],
+    ['016-l1-l15.json', 'l1-l15', 13, 1],
+    ['017-l1-l16.json', 'l1-l16', 34, 1],
+    ['018-l1-l17.json', 'l1-l17', 22, 1],
+    ['019-l1-l18.json', 'l1-l18', 12, 1],
 ] as const;
 
 function fixture(file: string, id: AuthoredWeekId) {
@@ -108,6 +108,208 @@ describe('authored week recovery adapter', () => {
         expect(JSON.stringify(activity)).not.toContain('わたしはテニスがすきです');
         expect(week.evaluate(activity.id, 'わたしは テニスが すきです。').result.outcome).toBe('pass');
         expect(week.evaluate(activity.id, 'コーヒーがすきです').result.outcome).toBe('lapse');
+    });
+
+    it('projects every authored cloze blank as an answer-hidden text activity', () => {
+        const loaded = fixture('002-l1-l01.json', 'l1-l01');
+        const source = loaded.json as {
+            components: Array<{ exercises?: Array<{
+                id: string;
+                kind: string;
+                prompt: { en: string; ja: string };
+                japanese: string;
+                blanks: Array<{ id: string; answer: { primary: string } }>;
+            }> }>;
+        };
+        const cloze = source.components.flatMap(component => component.exercises ?? [])
+            .find(exercise => exercise.id === 'ex-grammar-no' && exercise.kind === 'cloze')!;
+        const week = adaptAuthoredWeek(loaded.json, { ...loaded.source, sha256: loaded.expectedHash });
+        const activities = cloze.blanks.map(blank => week.activities.find(activity =>
+            activity.sourceQuestionId === `l1-l01/${cloze.id}:${blank.id}`)!);
+
+        expect(activities).toHaveLength(2);
+        activities.forEach((activity, index) => {
+            expect(activity).toMatchObject({
+                kind: 'text',
+                curriculumPhase: 'guided-practice',
+                provenance: {
+                    packageId: 'l1-l01',
+                    authoredSource: { exerciseId: cloze.id },
+                },
+            });
+            expect(activity.prompt.en).toContain(cloze.prompt.en);
+            expect(activity.prompt.ja).toContain(cloze.prompt.ja);
+            expect(activity.prompt.ja).toContain(cloze.japanese);
+            expect(JSON.stringify(activity)).not.toMatch(/"correct"|"answer"|"modelAnswer"/i);
+            expect(week.evaluate(activity.id, cloze.blanks[index].answer.primary).result.outcome).toBe('pass');
+            expect(week.evaluate(activity.id, 'ちがいます').result.outcome).toBe('lapse');
+        });
+    });
+
+    it('maps source matching and ordering through existing choice and text grading contracts', () => {
+        const loaded = fixture('021-l1-l20.json', 'l1-l20');
+        const source = loaded.json as {
+            components: Array<{ exercises?: Array<{
+                id: string;
+                kind: string;
+                prompt: { en: string; ja: string };
+                sourceQuestionId?: string;
+                sourcePromptExact?: string;
+                source?: Readonly<Record<string, unknown>>;
+                sourceItemsExact?: string[];
+                workedExampleExact?: string;
+                tiles?: string[];
+                answer?: { primary: string };
+                answers?: { values: string[] };
+            }> }>;
+        };
+        const exercises = source.components.flatMap(component => component.exercises ?? []);
+        const matching = exercises.find(exercise => exercise.id === 'ex-l20-hw-review-2')!;
+        const tileOrdering = exercises.find(exercise => exercise.id === 'ex-l20-sensei-frequency-1')!;
+        const cueOrdering = exercises.find(exercise => exercise.id === 'ex-l20-hw-review-4')!;
+        const week = adaptAuthoredWeek(loaded.json, { ...loaded.source, sha256: loaded.expectedHash });
+
+        const matches = week.activities.filter(activity =>
+            activity.sourceQuestionId.startsWith('l1-l20/ex-l20-hw-review-2:match-'));
+        expect(matches).toHaveLength(matching.sourceItemsExact!.length);
+        expect(matches[0]).toMatchObject({
+            kind: 'choice',
+            curriculumPhase: 'guided-practice',
+            provenance: {
+                authoredSource: {
+                    exerciseId: matching.id,
+                    sourceQuestionId: matching.sourceQuestionId,
+                    sourcePromptExact: matching.sourcePromptExact,
+                    locator: matching.source,
+                },
+            },
+        });
+        expect(matches[0].prompt.en).toContain(matching.prompt.en);
+        expect(matches[0].prompt.ja).toContain(matching.sourceItemsExact![0]);
+        const displayedAnswers = matches[0].kind === 'choice'
+            ? matches[0].options.map(option => option.label.ja)
+            : [];
+        expect([...displayedAnswers].sort()).toEqual([...matching.answers!.values].sort());
+        expect(displayedAnswers).not.toEqual(matching.answers!.values);
+        const correctOption = matches[0].kind === 'choice'
+            ? matches[0].options.find(option => option.label.ja === matching.answers!.values[0])!
+            : undefined;
+        const wrongOption = matches[0].kind === 'choice'
+            ? matches[0].options.find(option => option.label.ja !== matching.answers!.values[0])!
+            : undefined;
+        expect(week.evaluate(matches[0].id, correctOption!.id).result.outcome).toBe('pass');
+        expect(week.evaluate(matches[0].id, wrongOption!.id).result.outcome).toBe('lapse');
+
+        const sequence = week.activities.find(activity =>
+            activity.sourceQuestionId === `l1-l20/${tileOrdering.id}`)!;
+        expect(sequence).toMatchObject({
+            kind: 'text',
+            curriculumPhase: 'guided-practice',
+            provenance: { authoredSource: { sourceQuestionId: tileOrdering.sourceQuestionId } },
+        });
+        tileOrdering.tiles!.forEach(tile => expect(sequence.prompt.ja).toContain(tile));
+        expect(sequence.prompt.ja).not.toContain(tileOrdering.tiles!.join(' / '));
+        expect(JSON.stringify(sequence)).not.toContain(tileOrdering.answer!.primary);
+        expect(week.evaluate(sequence.id, tileOrdering.answer!.primary).result.outcome).toBe('pass');
+
+        const orderedCues = week.activities.filter(activity =>
+            activity.sourceQuestionId.startsWith(`l1-l20/${cueOrdering.id}:item-`));
+        expect(orderedCues).toHaveLength(cueOrdering.sourceItemsExact!.length);
+        expect(orderedCues[0].prompt.ja).toContain(cueOrdering.sourceItemsExact![0]);
+        expect(orderedCues[0].prompt.ja).toContain(cueOrdering.workedExampleExact!);
+        expect(week.evaluate(orderedCues[0].id, cueOrdering.answers!.values[0]).result.outcome).toBe('pass');
+        expect(week.activities.some(activity => activity.sourceQuestionId.includes('ex-l20-sensei-short-dialogue')))
+            .toBe(false);
+    });
+
+    it('quarantines contradictory cloze metadata and redacts model answers from prompts', () => {
+        const loaded = fixture('020-l1-l19.json', 'l1-l19');
+        const week = adaptAuthoredWeek(loaded.json, { ...loaded.source, sha256: loaded.expectedHash });
+        const particle = week.activities.find(activity =>
+            activity.sourceQuestionId === 'l1-l19/ex-l1plus-l09-grammar-cloze')!;
+        const copiedSentence = week.activities.find(activity =>
+            activity.sourceQuestionId === 'l1-l19/ex-l1plus-l09-grammar-build')!;
+
+        expect(week.evaluate(particle.id, 'に').result.outcome).toBe('pass');
+        expect(week.evaluate(particle.id, 'を').result.outcome).toBe('lapse');
+        expect(copiedSentence.prompt.ja).not.toContain('毎日 一時間 日本語を べんきょうします。');
+        expect(copiedSentence.prompt.ja).toContain('＿＿＿');
+    });
+
+    it('does not redact short answers embedded inside legitimate cloze clues', () => {
+        const loaded = fixture('006-l1-l05.json', 'l1-l05');
+        const week = adaptAuthoredWeek(loaded.json, loaded.source);
+        const rendered = week.activities.map(activity => activity.prompt.ja).join('\n');
+
+        expect(rendered).toContain('かいしゃいん');
+        expect(rendered).not.toContain('＿＿＿いしゃいん');
+    });
+
+    it('projects every supported structured exercise in the registered authored corpus', () => {
+        let sourceExerciseCount = 0;
+        let projectedActivityCount = 0;
+        const lessonRoot = path.resolve('public/academy/content/lessons');
+        for (const file of fs.readdirSync(lessonRoot).filter(candidate => /^\d{3}-.*\.json$/u.test(candidate))) {
+            const fixturePath = path.join(lessonRoot, file);
+            const bytes = fs.readFileSync(fixturePath);
+            const source = JSON.parse(bytes.toString('utf8')) as {
+                id?: string;
+                components?: Array<{ exercises?: Array<{
+                    id: string;
+                    kind: string;
+                    autoGraded?: boolean;
+                    pluginTarget?: string;
+                    blanks?: unknown[];
+                    sourceItemsExact?: unknown[];
+                    tiles?: unknown[];
+                }> }>;
+            };
+            if (!source.id || !(source.id in AUTHORED_WEEK_HASHES)) continue;
+            const supported = (source.components ?? []).flatMap(component => component.exercises ?? []).filter(exercise =>
+                exercise.autoGraded === true && (
+                    exercise.kind === 'cloze'
+                    || (exercise.kind === 'matching' && exercise.pluginTarget === 'academy-drag-sort')
+                    || (exercise.kind === 'ordering' && exercise.pluginTarget === 'academy-sequence')
+                ));
+            if (!supported.length) continue;
+            const expectedActivities = supported.reduce((count, exercise) => count + (
+                exercise.kind === 'cloze' ? exercise.blanks!.length
+                    : exercise.kind === 'matching' ? exercise.sourceItemsExact!.length
+                        : exercise.tiles ? 1 : exercise.sourceItemsExact!.length
+            ), 0);
+            const week = adaptAuthoredWeek(source, {
+                path: fixturePath,
+                sha256: createHash('sha256').update(bytes).digest('hex'),
+            });
+            const supportedIds = new Set(supported.map(exercise => exercise.id));
+            const projected = week.activities.filter(activity =>
+                activity.kind !== 'academy-source-vocabulary-sheet'
+                && Boolean(activity.provenance.authoredSource
+                    && supportedIds.has(activity.provenance.authoredSource.exerciseId)));
+
+            expect(projected, source.id).toHaveLength(expectedActivities);
+            expect(JSON.stringify(projected), source.id).not.toMatch(/"correct"|"answer"|"modelAnswer"/i);
+            sourceExerciseCount += supported.length;
+            projectedActivityCount += projected.length;
+        }
+
+        expect({ sourceExerciseCount, projectedActivityCount }).toEqual({
+            sourceExerciseCount: 89,
+            projectedActivityCount: 116,
+        });
+    });
+
+    it('rejects malformed auto-graded cloze data instead of silently dropping it', () => {
+        const loaded = fixture('002-l1-l01.json', 'l1-l01');
+        const malformed = structuredClone(loaded.json) as {
+            components: Array<{ exercises?: Array<{ id: string; kind: string; blanks?: Array<{ id: string }> }> }>;
+        };
+        const cloze = malformed.components.flatMap(component => component.exercises ?? [])
+            .find(exercise => exercise.kind === 'cloze' && exercise.blanks!.length > 1)!;
+        cloze.blanks![1].id = cloze.blanks![0].id;
+
+        expect(() => adaptAuthoredWeek(malformed, { ...loaded.source, sha256: loaded.expectedHash }))
+            .toThrow(/duplicate cloze blank id/i);
     });
 
     it('keeps constrained listening retrieval out of production and exposes the l1-l20 comparison ladder', () => {

@@ -28,7 +28,86 @@ describe('source vocabulary sheet activity plugin', () => {
         });
     });
 
-    it('conceals support fields until commitment, labels fallback provenance, and retries a reveal', async () => {
+    it('grades alternating directions by source row and keeps legacy evaluations valid', () => {
+        const runtime = createAcademyActivityRuntime();
+
+        expect(runtime.evaluate(model(), ' TODAY! ')).toMatchObject({
+            result: { outcome: 'pass', score: 1 },
+            reviewSeeds: [{ reason: 'new-learning', content: { expression: 'きょう', meanings: ['today'] } }],
+        });
+        expect(runtime.evaluate(model(), 'tomorrow')).toMatchObject({
+            result: { outcome: 'lapse', score: 0 },
+            reviewSeeds: [{ reason: 'repair' }],
+        });
+
+        const production = japaneseProductionModel();
+        expect(runtime.evaluate(production, { answer: 'kyou' }).result.outcome).toBe('pass');
+        expect(runtime.evaluate(production, '今日').result.outcome).toBe('pass');
+        expect(runtime.evaluate(production, 'today').result.outcome).toBe('lapse');
+        const qualifiedMeaning = modelWithMeaning('Japanese café (place)');
+        expect(runtime.evaluate(qualifiedMeaning, 'japanese cafe').result.outcome).toBe('pass');
+        expect(runtime.evaluate(model(), 'remembered').result.outcome).toBe('pass');
+        expect(runtime.evaluate(modelWithMeaning('tedious, dull, boring'), 'boring').result.outcome).toBe('pass');
+        expect(runtime.evaluate(sourceRomanizationModel(), 'o misete kudasai').result.outcome).toBe('pass');
+    });
+
+    it('renders an objectively graded Japanese-to-English form without exposing the meaning', async () => {
+        const runtime = createAcademyActivityRuntime();
+        const host = document.createElement('div');
+        document.body.append(host);
+        const evaluations: string[] = [];
+        const controller = runtime.mount(model(), {
+            language: 'en',
+            replace(view) { host.replaceChildren(view); },
+            announce() {},
+        }, evaluation => { evaluations.push(evaluation.result.outcome); });
+
+        expect(host.querySelector('.academy-source-vocabulary-sheet')?.getAttribute('data-direction'))
+            .toBe('japanese-to-english');
+        expect(host.textContent).toContain('Type the English meaning.');
+        expect(host.textContent).toContain('きょう');
+        expect(host.textContent).not.toContain('today');
+        expect(host.querySelector('[data-field-provenance="source"]')?.textContent).toBe('きょう');
+        expect(host.querySelector('[data-source-vocabulary-response="remembered"]')).toBeNull();
+
+        const input = host.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = ' TODAY! ';
+        host.querySelector<HTMLFormElement>('form')!.requestSubmit();
+        await vi.waitFor(() => expect(host.querySelector('.academy-source-vocabulary-sheet')?.getAttribute('data-outcome')).toBe('pass'));
+        expect(evaluations).toEqual(['pass']);
+        controller.dispose();
+    });
+
+    it('conceals the Japanese answer on even rows and accepts romaji through the live form', async () => {
+        const runtime = createAcademyActivityRuntime();
+        const host = document.createElement('div');
+        document.body.append(host);
+        const evaluations: string[] = [];
+        const controller = runtime.mount(japaneseProductionModel(), {
+            language: 'en',
+            replace(view) { host.replaceChildren(view); },
+            announce() {},
+        }, evaluation => { evaluations.push(evaluation.result.outcome); });
+
+        expect(host.querySelector('.academy-source-vocabulary-sheet')?.getAttribute('data-direction'))
+            .toBe('english-to-japanese');
+        expect(host.textContent).toContain('today');
+        expect(host.textContent).toContain('Romaji is accepted.');
+        expect(host.textContent).not.toContain('今日');
+        expect(host.textContent).not.toContain('きょう');
+        expect(host.querySelector('.academy-source-vocabulary-meaning')?.getAttribute('data-field-provenance'))
+            .toBe('yomu-support');
+
+        const input = host.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = 'kyou';
+        host.querySelector<HTMLFormElement>('form')!.requestSubmit();
+        await vi.waitFor(() => expect(host.querySelector('.academy-source-vocabulary-sheet')?.getAttribute('data-outcome')).toBe('pass'));
+        expect(evaluations).toEqual(['pass']);
+        expect(host.textContent).toContain('今日');
+        controller.dispose();
+    });
+
+    it('labels fallback provenance and keeps reveal as a lapse followed by typed repair', async () => {
         const runtime = createAcademyActivityRuntime();
         const host = document.createElement('div');
         document.body.append(host);
@@ -51,7 +130,9 @@ describe('source vocabulary sheet activity plugin', () => {
         expect(host.querySelector('[data-field-provenance="yomu-support"]')).not.toBeNull();
         expect(host.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="reveal"]')?.disabled).toBe(true);
 
-        host.querySelector<HTMLButtonElement>('[data-source-vocabulary-response="remembered"]')!.click();
+        const input = host.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = 'today';
+        host.querySelector<HTMLFormElement>('form')!.requestSubmit();
         await vi.waitFor(() => expect(host.querySelector('.academy-source-vocabulary-sheet')?.getAttribute('data-outcome')).toBe('pass'));
         expect(evaluations).toEqual(['lapse', 'pass']);
         controller.dispose();
@@ -120,6 +201,49 @@ function model(): SourceVocabularySheetModel {
             exact: { words: 'きょう', pronunciation: null, meaning: null },
             support: { words: 'きょう', reading: 'きょう', meaning: 'today' },
             fieldProvenance: { words: 'source-provided', reading: 'yomu-support', meaning: 'yomu-support' },
+        },
+    };
+}
+
+function japaneseProductionModel(): SourceVocabularySheetModel {
+    const base = model();
+    const sourceQuestionId = 'moodle-vocabulary:source:p1:row-2';
+    return {
+        ...base,
+        id: 'authored:l1-l08/source-time:p1:r2',
+        sourceQuestionId,
+        provenance: {
+            ...base.provenance,
+            sourceQuestionId,
+            locus: { page: 1, row: 2 },
+        },
+        payload: {
+            exact: { words: '今日', pronunciation: null, meaning: null },
+            support: { words: '今日', reading: 'きょう', meaning: 'today' },
+            fieldProvenance: { words: 'source-provided', reading: 'yomu-support', meaning: 'yomu-support' },
+        },
+    };
+}
+
+function modelWithMeaning(meaning: string): SourceVocabularySheetModel {
+    const base = model();
+    return {
+        ...base,
+        payload: {
+            ...base.payload,
+            support: { ...base.payload.support, meaning },
+        },
+    };
+}
+
+function sourceRomanizationModel(): SourceVocabularySheetModel {
+    const base = japaneseProductionModel();
+    return {
+        ...base,
+        payload: {
+            ...base.payload,
+            exact: { words: '〜を みせてください', pronunciation: '-o misete kudasai', meaning: 'please show me' },
+            support: { words: '〜を みせてください', reading: '〜を みせてください', meaning: 'please show me' },
         },
     };
 }

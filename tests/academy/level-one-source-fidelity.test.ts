@@ -10,6 +10,11 @@ const GENKI_ROOT = '/Users/heru/Documents/Japanese/Resource Packs/genki-study-re
 const LESSONS_ROOT = '/Users/heru/Documents/Japanese/Lessons';
 const VOCABULARY_ROOT = '/Users/heru/Documents/Japanese/Vocabulary';
 const REQUESTED_SOURCE_ROOTS = [GENKI_ROOT, LESSONS_ROOT, VOCABULARY_ROOT] as const;
+const PUBLIC_SOURCE_REFERENCES = [
+    'japanese-resources://Resource Packs/genki-study-resources-master 2',
+    'japanese-resources://Lessons',
+    'japanese-resources://Vocabulary',
+] as const;
 const PUBLIC_CATALOG_PATH = path.join(
     REPOSITORY_ROOT,
     'public/academy/content/source-pipeline/catalog.v2.json',
@@ -453,7 +458,7 @@ describe('Level 1 source fidelity and production readiness', () => {
                 'supplemental-enrichment',
             ]);
             const roots = array(audit.roots).map(value => record(value));
-            expect(roots.map(root => root.path), filename).toEqual(REQUESTED_SOURCE_ROOTS);
+            expect(roots.map(root => root.path), filename).toEqual(PUBLIC_SOURCE_REFERENCES);
             expect(roots[0].treeSha256AtAudit, filename)
                 .toBe('a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de');
             expect(roots[1].treeSha256AtAudit, filename)

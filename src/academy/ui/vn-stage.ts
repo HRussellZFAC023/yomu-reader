@@ -333,7 +333,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         let visibleCharacters = 1;
         japanese.dataset.performanceText = 'revealing';
         japanese.textContent = characters[0] ?? '';
-        const baseDelayMs = Math.max(30, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+        const baseDelayMs = Math.max(38, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
         const revealNext = (): void => {
             if (typeof window === 'undefined') {
                 textRevealTimer = undefined;
@@ -359,7 +359,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         };
         textRevealTimer = window.setTimeout(
             revealNext,
-            textRevealCharacterDelay(characters[0] ?? '', baseDelayMs),
+            120 + textRevealCharacterDelay(characters[0] ?? '', baseDelayMs),
         );
     }
 
@@ -755,13 +755,15 @@ function setSceneInert(
 }
 
 function textRevealDuration(text: string): number {
-    return Math.max(240, Math.min(1200, [...text].length * 38));
+    return Math.max(280, Math.min(1600, [...text].length * 42));
 }
 
 function textRevealCharacterDelay(character: string, baseDelayMs: number): number {
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 300;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 110;
-    if (/\s/u.test(character)) return Math.max(18, baseDelayMs - 10);
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 360;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 125;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 190;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 150;
+    if (/\s/u.test(character)) return Math.max(22, baseDelayMs - 8);
     return baseDelayMs;
 }
 

@@ -6051,27 +6051,243 @@
   function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
+  const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
+  const ROMAJI_LONG_MARK_RE = /([a-z])[-\u2010\u2011]/giu;
+  const STUDY_ANSWER_PUNCTUATION_RE = /[\u3001\u3002\uff0c\uff0e,.!\uff01?\uff1f\u30fb\u300c\u300d\u300e\u300f\uff08\uff09()\uff3b\uff3d[\]\u3014\u3015\u3010\u3011\u2026\u2025:\uff1a;\uff1b\u301c~"'\u201c\u201d\u2018\u2019]/gu;
+  const ROMAJI_KANA = {
+    a: "あ",
+    i: "い",
+    u: "う",
+    e: "え",
+    o: "お",
+    ka: "か",
+    ki: "き",
+    ku: "く",
+    ke: "け",
+    ko: "こ",
+    sa: "さ",
+    shi: "し",
+    si: "し",
+    su: "す",
+    se: "せ",
+    so: "そ",
+    ta: "た",
+    chi: "ち",
+    ti: "ち",
+    tsu: "つ",
+    tu: "つ",
+    te: "て",
+    to: "と",
+    na: "な",
+    ni: "に",
+    nu: "ぬ",
+    ne: "ね",
+    no: "の",
+    ha: "は",
+    hi: "ひ",
+    fu: "ふ",
+    hu: "ふ",
+    he: "へ",
+    ho: "ほ",
+    ma: "ま",
+    mi: "み",
+    mu: "む",
+    me: "め",
+    mo: "も",
+    ya: "や",
+    yu: "ゆ",
+    yo: "よ",
+    ra: "ら",
+    ri: "り",
+    ru: "る",
+    re: "れ",
+    ro: "ろ",
+    wa: "わ",
+    wo: "を",
+    ga: "が",
+    gi: "ぎ",
+    gu: "ぐ",
+    ge: "げ",
+    go: "ご",
+    za: "ざ",
+    ji: "じ",
+    zi: "じ",
+    zu: "ず",
+    ze: "ぜ",
+    zo: "ぞ",
+    da: "だ",
+    dji: "ぢ",
+    di: "ぢ",
+    dzu: "づ",
+    du: "づ",
+    de: "で",
+    do: "ど",
+    ba: "ば",
+    bi: "び",
+    bu: "ぶ",
+    be: "べ",
+    bo: "ぼ",
+    pa: "ぱ",
+    pi: "ぴ",
+    pu: "ぷ",
+    pe: "ぺ",
+    po: "ぽ",
+    kya: "きゃ",
+    kyu: "きゅ",
+    kyo: "きょ",
+    gya: "ぎゃ",
+    gyu: "ぎゅ",
+    gyo: "ぎょ",
+    sha: "しゃ",
+    shu: "しゅ",
+    sho: "しょ",
+    sya: "しゃ",
+    syu: "しゅ",
+    syo: "しょ",
+    ja: "じゃ",
+    ju: "じゅ",
+    jo: "じょ",
+    jya: "じゃ",
+    jyu: "じゅ",
+    jyo: "じょ",
+    cha: "ちゃ",
+    chu: "ちゅ",
+    cho: "ちょ",
+    cya: "ちゃ",
+    cyu: "ちゅ",
+    cyo: "ちょ",
+    nya: "にゃ",
+    nyu: "にゅ",
+    nyo: "にょ",
+    hya: "ひゃ",
+    hyu: "ひゅ",
+    hyo: "ひょ",
+    bya: "びゃ",
+    byu: "びゅ",
+    byo: "びょ",
+    pya: "ぴゃ",
+    pyu: "ぴゅ",
+    pyo: "ぴょ",
+    mya: "みゃ",
+    myu: "みゅ",
+    myo: "みょ",
+    rya: "りゃ",
+    ryu: "りゅ",
+    ryo: "りょ",
+    fa: "ふぁ",
+    fi: "ふぃ",
+    fe: "ふぇ",
+    fo: "ふぉ",
+    she: "しぇ",
+    je: "じぇ",
+    che: "ちぇ",
+    tsa: "つぁ",
+    tsi: "つぃ",
+    tse: "つぇ",
+    tso: "つぉ",
+    thi: "てぃ",
+    thu: "てゅ",
+    the: "てぇ",
+    tho: "てょ",
+    dhi: "でぃ",
+    dhu: "でゅ",
+    dhe: "でぇ",
+    dho: "でょ",
+    wi: "うぃ",
+    we: "うぇ",
+    ye: "いぇ",
+    xa: "ぁ",
+    xi: "ぃ",
+    xu: "ぅ",
+    xe: "ぇ",
+    xo: "ぉ",
+    la: "ぁ",
+    li: "ぃ",
+    lu: "ぅ",
+    le: "ぇ",
+    lo: "ぉ",
+    xya: "ゃ",
+    xyu: "ゅ",
+    xyo: "ょ",
+    lya: "ゃ",
+    lyu: "ゅ",
+    lyo: "ょ",
+    xtsu: "っ",
+    ltsu: "っ",
+    va: "ゔぁ",
+    vi: "ゔぃ",
+    vu: "ゔ",
+    ve: "ゔぇ",
+    vo: "ゔぉ"
+  };
+  function convertRomajiToKana(value) {
+    return value.normalize("NFKC").replace(/[\u2018\u2019\u02bc]/gu, "'").replace(ROMAJI_LONG_MARK_RE, "$1ー").replace(ROMAJI_RUN_RE, (run) => transliterateRomajiRun(run.toLowerCase()));
+  }
+  function normalizeJapaneseStudyAnswer(value) {
+    return hiraganaFromKatakana(convertRomajiToKana(value)).replace(/[\s\u3000]/gu, "").replace(STUDY_ANSWER_PUNCTUATION_RE, "").toLowerCase();
+  }
+  function transliterateRomajiRun(run) {
+    let output = "";
+    let index = 0;
+    while (index < run.length) {
+      const current = run[index] ?? "";
+      const next = run[index + 1] ?? "";
+      if (current === "n" && next === "'") {
+        output += "ん";
+        index += 2;
+        continue;
+      }
+      if (run.slice(index, index + 3) === "tch") {
+        output += "っ";
+        index += 1;
+        continue;
+      }
+      if (isGeminatedConsonant(current, next)) {
+        output += "っ";
+        index += 1;
+        continue;
+      }
+      if (current === "n" && (!next || next === "n" || !/[aeiouy]/u.test(next))) {
+        output += "ん";
+        index += 1;
+        continue;
+      }
+      const match = longestRomajiMatch(run, index);
+      if (match) {
+        output += match.kana;
+        index += match.length;
+        continue;
+      }
+      output += current;
+      index += 1;
+    }
+    return output;
+  }
+  function longestRomajiMatch(run, index) {
+    for (const length of [4, 3, 2, 1]) {
+      const romaji = run.slice(index, index + length);
+      const kana = ROMAJI_KANA[romaji];
+      if (kana) return { kana, length };
+    }
+    return null;
+  }
+  function isGeminatedConsonant(current, next) {
+    return Boolean(current && current === next && /[bcdfghjklmpqrstvwxyz]/u.test(current) && current !== "n");
+  }
+  function hiraganaFromKatakana(value) {
+    return value.replace(/[\u30a1-\u30f6]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
+  }
   const sourceVocabularySheetPlugin = {
     kind: "academy-source-vocabulary-sheet",
     validate: validate$q,
     render: render$r,
     grade(model2, response) {
-      if (response !== "remembered" && response !== "reveal") {
-        throw new TypeError("A source vocabulary recall decision is required.");
-      }
-      const passed = response === "remembered";
-      return {
-        outcome: passed ? "pass" : "lapse",
-        score: passed ? 1 : 0,
-        errorTags: passed ? [] : [`source-vocabulary:${model2.provenance.componentId}:repair`],
-        feedback: {
-          explanation: passed ? { ja: "思い出してから、先生の行を確認しました。", en: "You recalled the row before checking the teacher sheet." } : { ja: "先生の行を確認しました。もう一度、意味を隠して思い出しましょう。", en: "The teacher row is now visible. Hide it and recall it once more." },
-          ...passed ? {} : {
-            repairPrompt: { ja: "語と読みを声に出してから、意味をもう一度思い出してください。", en: "Say the word and reading, then recall the meaning once more." },
-            nearbyExample: { ja: model2.payload.support.words, en: model2.payload.support.meaning }
-          }
-        }
-      };
+      if (response === "reveal") return lapseResult(model2, true);
+      if (response === "remembered") return passResult();
+      const answer2 = responseText(response);
+      if (!answer2) throw new TypeError("A source vocabulary answer is required.");
+      const passed = sourceVocabularyDirection(model2) === "japanese-to-english" ? acceptedEnglishAnswers(model2).has(normalizeEnglishAnswer(answer2)) : acceptedJapaneseAnswers(model2).has(normalizeJapaneseStudyAnswer(answer2));
+      return passed ? passResult() : lapseResult(model2, false);
     },
     toReviewSeeds(model2, result) {
       return [{
@@ -6087,6 +6303,56 @@
       }];
     }
   };
+  function passResult() {
+    return {
+      outcome: "pass",
+      score: 1,
+      errorTags: [],
+      feedback: { explanation: { ja: "正解です。", en: "Correct." } }
+    };
+  }
+  function lapseResult(model2, revealed) {
+    const repairPrompt = sourceVocabularyDirection(model2) === "japanese-to-english" ? { ja: "ことばを見て、英語の意味をもう一度入力してください。", en: "Look at the word, then type its English meaning again." } : { ja: "意味を見て、日本語の単語か読み方をもう一度入力してください。", en: "Look at the meaning, then type the Japanese word or reading again." };
+    return {
+      outcome: "lapse",
+      score: 0,
+      errorTags: [`source-vocabulary:${model2.provenance.componentId}:repair`],
+      feedback: {
+        explanation: revealed ? { ja: "先生の行を確認しました。もう一度答えましょう。", en: "The teacher row is visible. Try it once more." } : { ja: "まだ違います。先生の行を確認して、もう一度答えましょう。", en: "Not quite. Check the teacher row and try again." },
+        repairPrompt,
+        nearbyExample: { ja: model2.payload.support.words, en: model2.payload.support.meaning }
+      }
+    };
+  }
+  function sourceVocabularyDirection(model2) {
+    return model2.provenance.locus.row % 2 === 1 ? "japanese-to-english" : "english-to-japanese";
+  }
+  function responseText(response) {
+    if (typeof response === "string") return response.trim();
+    return typeof response?.answer === "string" ? response.answer.trim() : "";
+  }
+  function acceptedEnglishAnswers(model2) {
+    return new Set([model2.payload.support.meaning, model2.payload.exact.meaning].filter((value) => typeof value === "string").flatMap((value) => {
+      const variants = [value, ...value.split(/(?:\s*[/;,]\s*|\r?\n+)/u)];
+      return variants.flatMap((variant) => [
+        variant,
+        variant.replace(/\s*(?:\([^)]*\)|\[[^\]]*\])/gu, " ")
+      ]);
+    }).map(normalizeEnglishAnswer).filter(Boolean));
+  }
+  function acceptedJapaneseAnswers(model2) {
+    return new Set([
+      model2.payload.support.words,
+      model2.payload.support.reading,
+      model2.payload.exact.pronunciation
+    ].filter((value) => typeof value === "string").map(normalizeVocabularyJapaneseAnswer).filter(Boolean));
+  }
+  function normalizeVocabularyJapaneseAnswer(value) {
+    return normalizeJapaneseStudyAnswer(value.replace(/^\s*\*?review\s*/iu, "").replace(/^[\-\u2010-\u2015]+/u, ""));
+  }
+  function normalizeEnglishAnswer(value) {
+    return value.normalize("NFKD").replace(/\p{Mark}+/gu, "").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
+  }
   function validate$q(model2) {
     const issues = [];
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
@@ -6128,45 +6394,62 @@
   }
   function render$r(model2, host2, submit) {
     const lifecycle = new AbortController();
+    const direction = sourceVocabularyDirection(model2);
     const root = document.createElement("section");
     root.className = "academy-activity academy-kit academy-source-vocabulary-sheet";
     root.dataset.activityId = model2.id;
     root.dataset.sourceQuestionId = model2.sourceQuestionId;
     root.dataset.sourcePage = String(model2.provenance.locus.page);
     root.dataset.sourceRow = String(model2.provenance.locus.row);
+    root.dataset.direction = direction;
     const heading = document.createElement("h2");
     heading.tabIndex = -1;
-    heading.append(localized$g(model2.prompt.ja, "ja", "academy-japanese"));
-    heading.append(localized$g(model2.prompt.en, "en", "academy-support"));
+    const instruction = direction === "japanese-to-english" ? { ja: "英語の意味を入力しましょう。", en: "Type the English meaning." } : { ja: "日本語の単語か読み方を入力しましょう。", en: "Type the Japanese word or reading." };
+    heading.append(localized$g(instruction.ja, "ja", "academy-japanese"));
+    heading.append(localized$g(instruction.en, "en", "academy-support"));
     const source2 = document.createElement("p");
     source2.className = "academy-source-record";
     source2.textContent = host2.language === "ja" ? `先生のワークシート · ${model2.provenance.locus.page}ページ · ${model2.provenance.locus.row}行目` : `Teacher worksheet · page ${model2.provenance.locus.page} · row ${model2.provenance.locus.row}`;
     source2.dataset.jpdbReaderSurfaceIgnore = "";
-    const word = document.createElement("p");
-    word.className = "academy-japanese academy-source-vocabulary-word";
-    word.lang = "ja";
-    word.textContent = model2.payload.exact.words;
-    word.dataset.yomuRuntimeSurface = "academy-activity";
-    word.dataset.yomuFuriganaMode = "all";
-    const sourceReading = model2.payload.exact.pronunciation ? revealedField("Source pronunciation", "先生の発音表記", model2.payload.exact.pronunciation, "source") : null;
-    const actions = document.createElement("div");
-    actions.className = "academy-activity-actions";
-    const remembered = action$5(host2.language === "ja" ? "思い出せた" : "I remembered", "remembered");
-    const reveal = action$5(host2.language === "ja" ? "答えを確認" : "Reveal meaning", "reveal");
-    actions.append(remembered, reveal);
+    const cue = direction === "japanese-to-english" ? japaneseCue(model2) : englishCue(model2);
+    const sourceReading = direction === "japanese-to-english" && model2.payload.exact.pronunciation ? revealedField("Source pronunciation", "先生の発音表記", model2.payload.exact.pronunciation, "source") : null;
+    const form = document.createElement("form");
+    form.className = "academy-source-vocabulary-form academy-activity-actions";
+    const label = document.createElement("label");
+    label.htmlFor = `${model2.id}-answer`;
+    label.textContent = direction === "japanese-to-english" ? host2.language === "ja" ? "英語の意味" : "English meaning" : host2.language === "ja" ? "日本語のことば・読み方" : "Japanese word or reading";
+    const input2 = document.createElement("input");
+    input2.id = label.htmlFor;
+    input2.name = "source-vocabulary-answer";
+    input2.type = "text";
+    input2.required = true;
+    input2.autocomplete = "off";
+    input2.autocapitalize = "off";
+    input2.spellcheck = false;
+    input2.className = "academy-source-vocabulary-input";
+    input2.dataset.sourceVocabularyAnswer = "";
+    const help = document.createElement("p");
+    help.className = "academy-source-vocabulary-help";
+    help.textContent = direction === "english-to-japanese" ? host2.language === "ja" ? "ローマ字でも入力できます。" : "Romaji is accepted." : host2.language === "ja" ? "短い英語で答えてください。" : "Use the worksheet meaning.";
+    help.dataset.jpdbReaderSurfaceIgnore = "";
+    const check = action$5(host2.language === "ja" ? "確認" : "Check", "answer");
+    check.type = "submit";
+    const reveal = action$5(host2.language === "ja" ? "答えを確認" : "Reveal answer", "reveal");
+    form.append(label, input2, help, check, reveal);
     const feedback2 = document.createElement("div");
     feedback2.className = "academy-activity-feedback";
     feedback2.setAttribute("role", "status");
     feedback2.setAttribute("aria-live", "polite");
-    root.append(heading, source2, word);
+    root.append(heading, source2, cue);
     if (sourceReading) root.append(sourceReading);
-    root.append(actions, feedback2);
+    root.append(form, feedback2);
     host2.replace(root);
     let pending = false;
     const commit = (response) => {
       if (pending) return;
       pending = true;
-      setDisabled$1(actions, true);
+      setDisabled$1(form, true);
+      feedback2.setAttribute("role", "status");
       feedback2.textContent = host2.language === "ja" ? "確認しています…" : "Checking…";
       void submit(response).then((evaluation) => {
         root.dataset.outcome = evaluation.result.outcome;
@@ -6178,23 +6461,27 @@
         feedback2.prepend(summary);
         pending = evaluation.result.outcome === "pass";
         if (!pending) {
-          setDisabled$1(actions, false);
+          setDisabled$1(form, false);
           reveal.disabled = true;
-          remembered.focus();
+          input2.select();
         }
       }).catch(() => {
         pending = false;
-        setDisabled$1(actions, false);
+        setDisabled$1(form, false);
         feedback2.textContent = host2.language === "ja" ? "答えを保存できませんでした。もう一度お試しください。" : "Your answer was not saved. Try again.";
         feedback2.setAttribute("role", "alert");
-        (response === "remembered" ? remembered : reveal).focus();
+        (response === "reveal" ? reveal : input2).focus();
       });
     };
-    remembered.addEventListener("click", () => commit("remembered"), { signal: lifecycle.signal });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!input2.value.trim()) return;
+      commit({ answer: input2.value });
+    }, { signal: lifecycle.signal });
     reveal.addEventListener("click", () => commit("reveal"), { signal: lifecycle.signal });
     return {
       focus() {
-        remembered.focus();
+        input2.focus();
       },
       dispose() {
         lifecycle.abort();
@@ -6202,12 +6489,32 @@
       }
     };
   }
+  function japaneseCue(model2) {
+    const word = document.createElement("p");
+    word.className = "academy-japanese academy-source-vocabulary-word";
+    word.lang = "ja";
+    word.textContent = model2.payload.exact.words;
+    word.dataset.fieldProvenance = "source";
+    word.dataset.yomuRuntimeSurface = "academy-activity";
+    word.dataset.yomuFuriganaMode = "all";
+    return word;
+  }
+  function englishCue(model2) {
+    const meaning = document.createElement("p");
+    meaning.className = "academy-support academy-source-vocabulary-meaning";
+    meaning.lang = "en";
+    meaning.textContent = model2.payload.support.meaning;
+    meaning.dataset.fieldProvenance = model2.payload.fieldProvenance.meaning === "source-provided" ? "source" : "yomu-support";
+    meaning.dataset.jpdbReaderSurfaceIgnore = "";
+    return meaning;
+  }
   function revealedAnswer(model2) {
     const root = document.createElement("div");
     root.className = "academy-source-vocabulary-answer";
     const reading = model2.payload.exact.pronunciation ?? model2.payload.support.reading;
     const meaning = model2.payload.exact.meaning ?? model2.payload.support.meaning;
     root.append(
+      revealedField("Source word", "先生のことば", model2.payload.exact.words, "source"),
       revealedField(
         model2.payload.exact.pronunciation ? "Source pronunciation" : "Yomu reading support",
         model2.payload.exact.pronunciation ? "先生の発音表記" : "よむの読み方サポート",
@@ -6218,19 +6525,20 @@
         model2.payload.exact.meaning ? "Source meaning" : "Yomu meaning support",
         model2.payload.exact.meaning ? "先生の意味" : "よむの意味サポート",
         meaning,
-        model2.payload.exact.meaning ? "source" : "yomu-support"
+        model2.payload.exact.meaning ? "source" : "yomu-support",
+        "en"
       )
     );
     return root;
   }
-  function revealedField(en, ja, value, provenance2) {
+  function revealedField(en, ja, value, provenance2, lang = "ja") {
     const row = document.createElement("p");
     row.className = "academy-source-vocabulary-field";
     row.dataset.fieldProvenance = provenance2;
     const label = document.createElement("strong");
     label.textContent = `${ja} / ${en}: `;
     const content = document.createElement("span");
-    content.lang = "ja";
+    content.lang = lang;
     content.textContent = value;
     row.append(label, content);
     return row;
@@ -6252,8 +6560,8 @@
     return span;
   }
   function setDisabled$1(root, disabled) {
-    root.querySelectorAll("button").forEach((button2) => {
-      button2.disabled = disabled;
+    root.querySelectorAll("input, button").forEach((control2) => {
+      control2.disabled = disabled;
     });
   }
   function positiveInteger$7(value) {
@@ -8874,43 +9182,43 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return lapse;
   }
   const AUTHORED_WEEK_HASHES = {
-    "l1-l01": "5eef8e5cb2bb45393c8abea6567555dd124447aaf5414842c4aca691fad3af43",
-    "l1-l02": "57d02d2eeb20f058b22a86ef16883d38d4d2d009056017afa5b7bd4aa73f1588",
-    "l1-l03": "c499a9155aa3bd4c1f36062988090090a13e35bc61481e558421b58e7ac62843",
-    "l1-l04": "8662206ba0a6a622ffb9a6a80d4ae3ab780dfb09e1477d7a0ddde6e91c0cff36",
-    "l1-l05": "5fdc4404e31965453d4eaa4c88836866467fe726a73f2fcad22736fcf6aab22c",
-    "l1-l06": "1e351c61a8610319b985a82a316f8fc120a66ff4ae9282231ceb01a092faa87d",
-    "l1-l07": "3811f7a4d9cc8327355efc46105dfb0a3a0873a73c12506b9e6a712c0add3ca9",
-    "l1-l08": "6d19a8b5bcd1b1c57b61a1479e1287b86c00a6b4e6b77469415b71e2ca7e3f8f",
-    "l1-l09": "a0a7ca069c1878da27dc962aaea3b86137bb3b49cada013b7f66f4f79c7bd979",
-    "l1-l10": "cb61a0d2cc3c43edec4c8bec1c99b3678a90fa14f3f6fcc75ad3879b6ee8fb34",
-    "l1-l11": "b47229d7a7a9ed81a1f2877a792c744b30fb134ff20a3a8d8ad8c7d215501a9e",
-    "l1-l12": "b4eb6c44d1043a1936fd2ed0b1ced7c8a0c1f0bccf3dd1477c28546793c95cf0",
-    "l1-l13": "35e0aba3f4755c4e78546fd860342104df0800eefefbddf3c2abbda89524c517",
-    "l1-l14": "2088851b83dcfc88926f3d74ca0e00b8cb40230e789f53ea408526a70519ee3e",
-    "l1-l15": "636a68cede9810f882e78058804d7685b0617158268e52e3a94e6ff520e0d27c",
-    "l1-l16": "d524cd54e4c2441e7613f065c3aa51b8bfffd33ed70db2dd773def02bcff8c02",
-    "l1-l17": "04fe995f2e56ecab4f504c2c64e31d9952ed087a1503a9c714a75e5fb565f0d0",
-    "l1-l18": "01b56f04bc5cdb64986669d01cf32a76606f3898b241766277c30ed9bbd0d854",
-    "l1-l19": "a6063210b4962cc1b39f2e79a8b00de8a28fe2dedcacf20beb02a85e446fe87c",
-    "l1-l20": "07320d09f3b56bbbe8494b9e076e8594c76a187d6b2d582f4e069655df147300",
-    "l1-l21": "8ef06397d57ef46717063fcae364992ade0b562f6d8aabda95125cb89be5e9c0",
-    "l1-l22": "ef41f2a6433bf92a586ef078524e827bd734386ec621325d0db6b04cb9166bd9",
-    "l1-l23": "f783745ded90660cf752c01a5e0079c18a7b2c320d1efdd759ecc6e580781047",
-    "l1-l24": "f74b82a70ba9e4b755ef5490f5e05d9146521527915baa2c61323913e8cbdf7e",
-    "l1-l25": "ae6cdf81783440af1e0156ba72dc2e81fe4dccfbf66c9d9423fac2a506ed9a48",
-    "l1-l26": "381036e7e28cf345ca495ab6cd70be0688120ae5af92ebdd498f0ba43f6df998",
+    "l1-l01": "0b3540669711fd2019edac4aa8b0afa54b7c931808a0707ecc6f941e048daf50",
+    "l1-l02": "5f2f04b5c575539d0bfe4112c9c456e0c21e7b49d2e6a01332f051b0c978dbbd",
+    "l1-l03": "f2e11d7100e1a1269a54e07fc01ccbc7c653229f423b5df593402874d82e1c6c",
+    "l1-l04": "f9b8a577870c194f74f8c93f6d3b04b5f20dcbc69ce20bd9c6f06800a4ea9a2e",
+    "l1-l05": "081c109eb3fd3f0f721a690b03ff580165666d391afc3370608862945f26132d",
+    "l1-l06": "3cd7bcd1c86f0ef37ccc3c7dc16136847bf0c21290a2f15ab7b460d358895a43",
+    "l1-l07": "b924df28e1e398ce8bf1cc2b4f6eaf4e661e287301698ce23b4590f4c55cb7a8",
+    "l1-l08": "a2f403ae5b9e494bb33a8368258ae9e6aeb7bbf126cfa79affe20b30ccf186d2",
+    "l1-l09": "c52c094e16cece56193b8a07574163242159396cdb6575fdaa7083266881b435",
+    "l1-l10": "5ea1b7b013a85a00c0155cb1f5c8f8ae144fde850afcd5a34aacc40a602b8f32",
+    "l1-l11": "e7af6535f51233a4693ebdf37df61b4afe8c3125c774f754001fed7a351662f9",
+    "l1-l12": "43f24fa272b9d9399ed7d73b127d775bc16d45fd57570e610fe4e4a27a6ce717",
+    "l1-l13": "b850d5ac1f97902140b102dd45d26748cc48e8a32e2087cc57a355b068cd1b45",
+    "l1-l14": "3a4b6d494f043aea728bab6dd7b41bc19301137e1dfc56efa7f768eb5ecf6463",
+    "l1-l15": "ca255f81d24b5163b6265ce3d7ae2e0a2fbe42cc321071054bd5a43f9233e1ff",
+    "l1-l16": "f22a3de005e06cc673bf0e0574638fee3449aefd3f0330375f37236a7ec728a8",
+    "l1-l17": "64b2bf724adccb446cd05443d86152c7010f93e6e38c7986d4a32ce68ebba4dc",
+    "l1-l18": "6a9de53879f0688c1f15600163811038ddd25afef7944dc078ef2e8c37f9ac5d",
+    "l1-l19": "71efeaf9c76f0e8a02b238a99440782fba1cd1ca6e21ee454f9e6c2025f2d199",
+    "l1-l20": "dd790467c5aa79e4a754b0c0d7aa2b3c5562accb08639693867129be6812bfd2",
+    "l1-l21": "a70940430542e776156a1a3e174330c4d89d99ca06a0013bf4c1feaacda506d3",
+    "l1-l22": "58edb4c41d2c49a2f0d44ab9d0acd0589a2a9afdc5baab7e7ce608f10edd4e5c",
+    "l1-l23": "d5796d9847be2d47b932f6a4b31506d8acc334a4e7be9068850da95e90868ae5",
+    "l1-l24": "b29ede520d0c9653857a2ce27872d21c5564df75f23de73bdd154aa3cf8deece",
+    "l1-l25": "1d4ab307fa6a66d6191e511c7c258ffa77bfc572b1f8e53ec285f9e76ab2c6ad",
+    "l1-l26": "b05dab7fcf8a1ceff530d020cd414ac5adfedbbd9f1a1935b9d0349434d776ee",
     "l2-l02": "2f74245cbe3348792351a54194e5e56584773a86caf16b301b4f28597a625f2f",
-    "l2-l03": "8b4a0a0ca0d3a8bfa6c90555d4106500823b7ffea3d4bd6d27176bd6b7c12522",
-    "l2-l04": "62885898a643f116d8277a7ed5745e89ed45b6bb87023cc41859cf0677141d0c",
-    "l2-l05": "d4286e8c46ee6e7581609c02b08d76f0bc9252c26a431f5b2ca50f33471e5d0b",
+    "l2-l03": "20552264c4787684cd1cb1ca757d47ce93bd8575bf16fbd79c87f2738b4c47f0",
+    "l2-l04": "2a9649cba309665a44f7c8bbc69d10f20e37b09aae31970d0b6b5926df76f1c7",
+    "l2-l05": "3003db9b0cf9b795b1b46067b143e2e71869f4903c5705ef463f356c42502544",
     "l2-l06": "f511c246dd35cc6b13486b0b96bb048bfe23a41cca5a61f5272f9bb0ca6a5b38",
-    "l2-l07": "df132cbf7246235c268883f2b09018af990e8b221f8ab75a2041b9d3d61dfea3",
-    "l2-l08": "b4ea67831a52cff003ebc89d2604999bbf51cf7d722e1db82f5740cfe2cf0852",
+    "l2-l07": "7edfa0f5430e384f00d6ac2a695c7fa3d8271e266585e2d7c4d889fe5a964a99",
+    "l2-l08": "99e60d70579c368a1611bdb6058bdd9e4ee0ccee350c8e0f25c8c4cffc4c22fd",
     "l2-l09": "951cedfa65d24865c12731438d63679c27b5e65fed8efd9abb4984370ac929fd",
     "l2-l10": "8f2ce673a3b21b958fd512304aa4b08c18679d9982f3b0e6ad2f043108e880af",
     "l2-l11": "56e2fcdb5952819c2a3958121d23cdd3e75fd8c8eec0a6593165ae990be3dfd6",
-    "l2-l12": "eeb8c16bb319e8a3e06fe128e7149afc8362eedc5848e99e0b24669d23c423d4",
+    "l2-l12": "55b200a9a89971ed0f4272bfc53c95c8e318677d9c649d41dc90ad909044af30",
     "l2-l13": "7fd25568ae5a57f7ce553fedce51594edbea77c6360efaa92f8492a61af5bcfe",
     "l2-l14": "d698fdb60de1a60efbb893e0e7bb02094c1332c0a514b1eb8f08d63f02e8b2cb",
     "l2-l15": "abefe9aae6730274afc8bc184eec221c64e7848df84ae5fb8cb235487c6c6da9",
@@ -8927,7 +9235,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "l2-l26": "42a67ed9eea0dd6d8c336c7813c1e3ade22b885ca78c6ec02e3cdebdda170afe",
     "l2-l27": "06148a863fd7e75864ca04d90eb90800d28eb728904bc8b62b330b6038355776",
     "l2-l28": "bf518f6d5141a0ae5195a83ac563789c48774d03e947742080cd8ac039a6a79d",
-    "l2-l29": "edfb9aab702282ed7a173ab72d3649b746ef30e8f73acf817165a382ae43cef2",
+    "l2-l29": "df75b67e6ba13033c76edc83f75630594128a3a35679e7768fa1e0a1cc993817",
     "l2-l30": "4c0690c2c041497cb102b6ab9d94edbf3bbb7238710ba24c8fdf326e3d6a19bb",
     "l2-l31": "89545b660280f0570a73c4ae2e66a2c39cab803adea1de638a931048b3114dcf",
     "l2-l32": "2c62cac30744372dbc1790806410e647c86baca7695803c3806372f69d09ee23",
@@ -9079,16 +9387,34 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const packagedListening = parsePackagedListeningChoice(id2, value, path);
         const choice2 = parseChoiceExercise(normalized2, path) ?? packagedListening?.exercise;
         const exact2 = choice2 || !supportsGroundedExact ? void 0 : parseExactExercise(normalized2, path);
-        const exercise = choice2 ?? exact2;
-        if (!exercise) continue;
-        const sourceQuestionId2 = `${id2}/${exercise.id}`;
-        if (seen.has(sourceQuestionId2)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId2}.`);
-        seen.add(sourceQuestionId2);
-        const mapping2 = overlays[sourceQuestionId2] ?? derivedOverlay(id2, exercise);
-        if (!mapping2) throw new TypeError(`Missing explicit overlay for ${sourceQuestionId2}.`);
-        const activity2 = exercise.kind === "choice" ? toChoiceActivity(id2, exercise, sourceQuestionId2, mapping2, component.teachingSupport, packagedListening?.listening) : toTextActivity(id2, exercise, sourceQuestionId2, mapping2, component.teachingSupport);
-        activities.push(activity2);
-        answers.set(activity2.id, { kind: exercise.kind === "choice" ? "choice" : "text", exercise, mapping: mapping2 });
+        const adapted = choice2 || exact2 ? [{ exercise: choice2 ?? exact2, sourceQuestionId: `${id2}/${(choice2 ?? exact2).id}` }] : adaptSupportedSourceExercise(id2, normalized2, path);
+        for (const item2 of adapted) {
+          const { exercise, sourceQuestionId: sourceQuestionId2 } = item2;
+          if (seen.has(sourceQuestionId2)) throw new TypeError(`Duplicate exercise id ${sourceQuestionId2}.`);
+          seen.add(sourceQuestionId2);
+          const mapping2 = item2.mapping ?? overlays[sourceQuestionId2] ?? derivedOverlay(id2, exercise);
+          if (!mapping2) throw new TypeError(`Missing explicit overlay for ${sourceQuestionId2}.`);
+          const activity2 = exercise.kind === "choice" ? toChoiceActivity(
+            id2,
+            exercise,
+            sourceQuestionId2,
+            mapping2,
+            component.teachingSupport,
+            packagedListening?.listening,
+            item2.curriculumPhase,
+            item2.authoredSource
+          ) : toTextActivity(
+            id2,
+            exercise,
+            sourceQuestionId2,
+            mapping2,
+            component.teachingSupport,
+            item2.curriculumPhase,
+            item2.authoredSource
+          );
+          activities.push(activity2);
+          answers.set(activity2.id, { kind: exercise.kind === "choice" ? "choice" : "text", exercise, mapping: mapping2 });
+        }
       }
     }
     const media = authored.components.flatMap((component) => component.audio ? [{
@@ -9150,11 +9476,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         prompt: sheet2.sourceInstructions,
         answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
         teachingSupport: {
-          kind: "vocabulary",
-          title: { ja: "ことばを見てから", en: "See the word first" },
+          kind: "context",
+          title: { ja: "思い出すコツ", en: "Recall strategy" },
           entries: [{
-            japanese: item2.ja,
-            ...item2.reading !== item2.ja ? { reading: item2.reading } : {}
+            japanese: locus.row % 2 === 1 ? "まず意味を思い出してから、短く答えましょう。" : "意味から、ことばの音や形を思い出しましょう。",
+            translation: locus.row % 2 === 1 ? "Recall the meaning first, then answer briefly." : "Use the meaning to recall the word's sound or shape."
           }]
         },
         provenance: {
@@ -9197,7 +9523,292 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
     return { ...exercise, options };
   }
-  function toChoiceActivity(packageId, exercise, sourceQuestionId2, mapping2, teachingSupport, listening) {
+  function adaptSupportedSourceExercise(packageId, value, path) {
+    const candidate2 = recordField$1(value, path);
+    if (candidate2.kind !== "cloze" && candidate2.kind !== "matching" && candidate2.kind !== "ordering") return [];
+    if (candidate2.autoGraded === false) return [];
+    if (candidate2.autoGraded !== true) throw new TypeError(`${path}.autoGraded must be true or false.`);
+    switch (candidate2.kind) {
+      case "cloze":
+        return adaptClozeExercise(packageId, candidate2, path);
+      case "matching":
+        return adaptMatchingExercise(packageId, candidate2, path);
+      case "ordering":
+        return adaptOrderingExercise(packageId, candidate2, path);
+    }
+  }
+  function adaptClozeExercise(packageId, candidate2, path) {
+    const id2 = textField(candidate2.id, `${path}.id`);
+    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Fill the gap.");
+    const japanese2 = textField(candidate2.japanese, `${path}.japanese`);
+    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
+    const reviewTag = optionalTextField(candidate2.reviewTag, `${path}.reviewTag`);
+    const blanks = arrayField(candidate2.blanks, `${path}.blanks`);
+    if (!blanks.length) throw new TypeError(`${path}.blanks must contain at least one blank.`);
+    const blankIds = /* @__PURE__ */ new Set();
+    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
+    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
+    return blanks.map((value, index) => {
+      const blankPath = `${path}.blanks[${index}]`;
+      const blank = recordField$1(value, blankPath);
+      const blankId = textField(blank.id, `${blankPath}.id`);
+      if (blankIds.has(blankId)) throw new TypeError(`Duplicate cloze blank id ${packageId}/${id2}/${blankId}.`);
+      blankIds.add(blankId);
+      const wrongAnswers = wrongAnswerTriggers(candidate2.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
+      const answer2 = exactAnswerField(blank.answer, `${blankPath}.answer`, wrongAnswers);
+      const sourceQuestionId2 = `${packageId}/${id2}${blanks.length === 1 ? "" : `:${blankId}`}`;
+      const exercisePrompt = sourcePrompt(
+        prompt2,
+        safeClozeSource(japanese2, answer2.primary),
+        blanks.length === 1 ? void 0 : {
+          en: `Blank ${index + 1} of ${blanks.length}`,
+          ja: `${index + 1} / ${blanks.length}`
+        }
+      );
+      const exercise = {
+        id: blanks.length === 1 ? id2 : `${id2}:${blankId}`,
+        kind: "exact",
+        prompt: exercisePrompt,
+        explanation: explanation2,
+        ...reviewTag ? { reviewTag } : {},
+        autoGraded: true,
+        answer: answer2
+      };
+      return {
+        exercise,
+        sourceQuestionId: sourceQuestionId2,
+        mapping: sourceExerciseOverlay(
+          packageId,
+          `${reviewTag ?? id2}:${blankId}`,
+          answer2.primary,
+          explanation2,
+          explanation2
+        ),
+        curriculumPhase,
+        authoredSource
+      };
+    });
+  }
+  function adaptMatchingExercise(packageId, candidate2, path) {
+    if (candidate2.pluginTarget !== "academy-drag-sort") {
+      throw new TypeError(`${path}.pluginTarget must be academy-drag-sort for an auto-graded matching exercise.`);
+    }
+    const id2 = textField(candidate2.id, `${path}.id`);
+    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Match each item to its answer.");
+    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
+    const sourceItems = textArrayField(candidate2.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = recordField$1(candidate2.answers, `${path}.answers`);
+    const values = textArrayField(answers.values, `${path}.answers.values`);
+    if (sourceItems.length < 2 || sourceItems.length !== values.length) {
+      throw new TypeError(`${path} must have the same number of source items and matching answers.`);
+    }
+    if (new Set(values).size !== values.length) {
+      throw new TypeError(`${path}.answers.values must be unique for deterministic matching.`);
+    }
+    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
+    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
+    return sourceItems.map((sourceItem, itemIndex) => {
+      const exerciseId = `${id2}:match-${itemIndex + 1}`;
+      const displayedAnswers = rotate(values, itemIndex * 2 + 1);
+      const exercise = {
+        id: exerciseId,
+        kind: "choice",
+        prompt: sourcePrompt(prompt2, sourceItem, {
+          en: `Item ${itemIndex + 1} of ${sourceItems.length}`,
+          ja: `${itemIndex + 1} / ${sourceItems.length}`
+        }),
+        explanation: explanation2,
+        autoGraded: true,
+        options: displayedAnswers.map((answer2, optionIndex) => ({
+          id: `match-option-${optionIndex + 1}`,
+          label: { en: answer2, ja: answer2 },
+          correct: answer2 === values[itemIndex]
+        }))
+      };
+      return {
+        exercise,
+        sourceQuestionId: `${packageId}/${exerciseId}`,
+        mapping: sourceExerciseOverlay(packageId, id2, values[itemIndex], explanation2, sourceItem),
+        curriculumPhase,
+        authoredSource
+      };
+    });
+  }
+  function adaptOrderingExercise(packageId, candidate2, path) {
+    if (candidate2.pluginTarget !== "academy-sequence") {
+      throw new TypeError(`${path}.pluginTarget must be academy-sequence for an auto-graded ordering exercise.`);
+    }
+    const id2 = textField(candidate2.id, `${path}.id`);
+    const prompt2 = localizedField(candidate2.prompt, `${path}.prompt`, "Put the items in order.");
+    const explanation2 = textField(candidate2.explanation, `${path}.explanation`);
+    const curriculumPhase = sourceCurriculumPhase(candidate2, path, "guided-practice");
+    const authoredSource = authoredSourceProvenance(candidate2, id2, path);
+    if (candidate2.tiles !== void 0 || candidate2.answer !== void 0) {
+      const tiles = textArrayField(candidate2.tiles, `${path}.tiles`);
+      if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
+        throw new TypeError(`${path}.tiles must contain at least two unique source tiles.`);
+      }
+      const answer2 = exactAnswerField(candidate2.answer, `${path}.answer`);
+      const displayedTiles = rotate(tiles, 1);
+      const exercise = {
+        id: id2,
+        kind: "exact",
+        prompt: sourcePrompt(prompt2, {
+          en: `Tiles: ${displayedTiles.join(" / ")}`,
+          ja: `カード: ${displayedTiles.join(" / ")}`
+        }),
+        explanation: explanation2,
+        autoGraded: true,
+        answer: answer2
+      };
+      return [{
+        exercise,
+        sourceQuestionId: `${packageId}/${id2}`,
+        mapping: sourceExerciseOverlay(packageId, id2, answer2.primary, explanation2, prompt2.en),
+        curriculumPhase,
+        authoredSource
+      }];
+    }
+    const sourceItems = textArrayField(candidate2.sourceItemsExact, `${path}.sourceItemsExact`);
+    const answers = recordField$1(candidate2.answers, `${path}.answers`);
+    const values = textArrayField(answers.values, `${path}.answers.values`);
+    if (!sourceItems.length || sourceItems.length !== values.length) {
+      throw new TypeError(`${path} must have the same number of ordering cues and answers.`);
+    }
+    const workedExample = optionalTextField(candidate2.workedExampleExact, `${path}.workedExampleExact`);
+    return sourceItems.map((sourceItem, index) => {
+      const exerciseId = `${id2}:item-${index + 1}`;
+      const exercisePrompt = sourcePrompt(
+        prompt2,
+        sourceItem,
+        workedExample ? { en: `Source example: ${workedExample}`, ja: `例: ${workedExample}` } : void 0
+      );
+      const exercise = {
+        id: exerciseId,
+        kind: "exact",
+        prompt: exercisePrompt,
+        explanation: explanation2,
+        autoGraded: true,
+        answer: { primary: values[index], alternatives: [] }
+      };
+      return {
+        exercise,
+        sourceQuestionId: `${packageId}/${exerciseId}`,
+        mapping: sourceExerciseOverlay(packageId, id2, values[index], explanation2, sourceItem),
+        curriculumPhase,
+        authoredSource
+      };
+    });
+  }
+  function sourcePrompt(prompt2, source2, scaffold) {
+    const sourceText = typeof source2 === "string" ? { en: source2, ja: source2 } : source2;
+    return {
+      en: [prompt2.en, sourceText.en, scaffold?.en].filter(Boolean).join("\n"),
+      ja: [prompt2.ja, sourceText.ja, scaffold?.ja].filter(Boolean).join("\n")
+    };
+  }
+  function exactAnswerField(value, path, rejected = /* @__PURE__ */ new Set()) {
+    const answer2 = recordField$1(value, path);
+    const primary = textField(answer2.primary, `${path}.primary`);
+    const alternatives = answer2.alternatives === void 0 ? [] : textArrayField(answer2.alternatives, `${path}.alternatives`);
+    return {
+      primary,
+      alternatives: alternatives.filter((candidate2) => !rejected.has(normalizeExactAnswer(candidate2)))
+    };
+  }
+  function wrongAnswerTriggers(value, path) {
+    if (value === void 0) return /* @__PURE__ */ new Set();
+    return new Set(arrayField(value, path).map((candidate2, index) => {
+      const item2 = recordField$1(candidate2, `${path}[${index}]`);
+      return normalizeExactAnswer(textField(item2.trigger, `${path}[${index}].trigger`));
+    }));
+  }
+  function safeClozeSource(source2, primary) {
+    const normalizedPrimary = normalizeExactAnswer(primary);
+    if (normalizeExactAnswer(source2) === normalizedPrimary) return "＿＿＿";
+    const arrow = source2.indexOf("→");
+    if (arrow >= 0) {
+      if (normalizeExactAnswer(source2.slice(arrow + 1)) === normalizedPrimary) {
+        return `${source2.slice(0, arrow + 1)} ＿＿＿`;
+      }
+      if (normalizeExactAnswer(source2.slice(0, arrow)) === normalizedPrimary) return "＿＿＿";
+    }
+    return source2;
+  }
+  function textArrayField(value, path) {
+    return arrayField(value, path).map((candidate2, index) => textField(candidate2, `${path}[${index}]`));
+  }
+  function rotate(values, offset) {
+    const split = offset % values.length;
+    return [...values.slice(split), ...values.slice(0, split)];
+  }
+  function optionalTextField(value, path) {
+    return value === void 0 ? void 0 : textField(value, path);
+  }
+  function sourceCurriculumPhase(candidate2, path, fallback) {
+    const curriculumPhase = candidate2.curriculumPhase;
+    if (curriculumPhase !== void 0) {
+      if (typeof curriculumPhase !== "string") throw new TypeError(`${path}.curriculumPhase is not supported.`);
+      switch (curriculumPhase) {
+        case "context":
+        case "instruction":
+        case "guided-practice":
+        case "assessed-recognition":
+        case "assessed-production":
+          return curriculumPhase;
+        default:
+          throw new TypeError(`${path}.curriculumPhase is not supported.`);
+      }
+    }
+    const phase = candidate2.phase;
+    if (phase === void 0) return fallback;
+    if (typeof phase !== "string") throw new TypeError(`${path}.phase is not supported.`);
+    switch (phase) {
+      case "context":
+      case "instruction":
+      case "guided-practice":
+      case "constrained-practice":
+      case "assessed-production":
+      case "supported-production":
+      case "transfer":
+      case "prestudy":
+        return learnerCurriculumPhase(phase, fallback);
+      default:
+        throw new TypeError(`${path}.phase is not supported.`);
+    }
+  }
+  function authoredSourceProvenance(candidate2, exerciseId, path) {
+    const sourceQuestionId2 = optionalTextField(candidate2.sourceQuestionId, `${path}.sourceQuestionId`);
+    const sourcePromptExact = optionalTextField(
+      candidate2.sourcePromptExact ?? candidate2.sourceCueExact,
+      `${path}.${candidate2.sourcePromptExact !== void 0 ? "sourcePromptExact" : "sourceCueExact"}`
+    );
+    const sourceOrder = candidate2.sourceOrder === void 0 ? void 0 : finiteNumberField(candidate2.sourceOrder, `${path}.sourceOrder`);
+    const locator = candidate2.source === void 0 ? void 0 : { ...recordField$1(candidate2.source, `${path}.source`) };
+    const provenance2 = candidate2.provenance === void 0 ? void 0 : { ...recordField$1(candidate2.provenance, `${path}.provenance`) };
+    return {
+      exerciseId,
+      ...sourceQuestionId2 ? { sourceQuestionId: sourceQuestionId2 } : {},
+      ...sourcePromptExact ? { sourcePromptExact } : {},
+      ...sourceOrder !== void 0 ? { sourceOrder } : {},
+      ...locator ? { locator } : {},
+      ...provenance2 ? { provenance: provenance2 } : {}
+    };
+  }
+  function finiteNumberField(value, path) {
+    if (typeof value !== "number" || !Number.isFinite(value)) throw new TypeError(`${path} must be finite.`);
+    return value;
+  }
+  function sourceExerciseOverlay(packageId, conceptKey, expression, explanation2, meaning) {
+    return {
+      conceptId: `concept:${packageId}:${conceptKey}`,
+      feedback: { en: explanation2, ja: `答えを確認しましょう：${expression}。` },
+      repair: { en: "Try once more using the source wording and scaffold.", ja: "もとの文とヒントを見て、もう一度答えましょう。" },
+      example: { en: `Source target: ${expression}`, ja: `答えの例：${expression}` },
+      review: { expression, meanings: [meaning] }
+    };
+  }
+  function toChoiceActivity(packageId, exercise, sourceQuestionId2, mapping2, teachingSupport, listening, curriculumPhase, authoredSource) {
     const correct2 = exercise.options.filter((option2) => option2.correct);
     if (correct2.length !== 1) throw new TypeError(`${sourceQuestionId2} must have exactly one correct option.`);
     const optionIds = /* @__PURE__ */ new Set();
@@ -9212,13 +9823,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sourceQuestionId: sourceQuestionId2,
       conceptIds: [mapping2.conceptId],
       responseKind: "choice",
-      curriculumPhase: learnerCurriculumPhase(exercise.phase, "assessed-recognition"),
+      curriculumPhase: curriculumPhase ?? learnerCurriculumPhase(exercise.phase, "assessed-recognition"),
       prompt: exercise.prompt,
       options,
       answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
       teachingSupport,
       ...listening ? { listening } : {},
-      provenance: { packageId, sourceQuestionId: sourceQuestionId2 }
+      provenance: { packageId, sourceQuestionId: sourceQuestionId2, ...authoredSource ? { authoredSource } : {} }
     };
   }
   function parsePackagedListeningChoice(packageId, value, path) {
@@ -9277,19 +9888,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "boolean") throw new TypeError(`${path} must be boolean.`);
     return value;
   }
-  function toTextActivity(packageId, exercise, sourceQuestionId2, mapping2, teachingSupport) {
+  function toTextActivity(packageId, exercise, sourceQuestionId2, mapping2, teachingSupport, curriculumPhase, authoredSource) {
     return {
       id: `authored:${sourceQuestionId2}`,
       kind: "text",
       sourceQuestionId: sourceQuestionId2,
       conceptIds: [mapping2.conceptId],
       responseKind: "text",
-      curriculumPhase: learnerCurriculumPhase(exercise.phase, "assessed-production"),
+      curriculumPhase: curriculumPhase ?? learnerCurriculumPhase(exercise.phase, "assessed-production"),
       prompt: exercise.prompt,
       options: [],
       answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
       teachingSupport,
-      provenance: { packageId, sourceQuestionId: sourceQuestionId2 }
+      provenance: { packageId, sourceQuestionId: sourceQuestionId2, ...authoredSource ? { authoredSource } : {} }
     };
   }
   function learnerCurriculumPhase(phase, fallback) {
@@ -32424,7 +33035,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       let visibleCharacters = 1;
       japanese2.dataset.performanceText = "revealing";
       japanese2.textContent = characters[0] ?? "";
-      const baseDelayMs = Math.max(30, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
+      const baseDelayMs = Math.max(38, Math.round(textRevealDuration(currentLine.japanese) / characters.length));
       const revealNext = () => {
         if (typeof window === "undefined") {
           textRevealTimer = void 0;
@@ -32445,7 +33056,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
       textRevealTimer = window.setTimeout(
         revealNext,
-        textRevealCharacterDelay(characters[0] ?? "", baseDelayMs)
+        120 + textRevealCharacterDelay(characters[0] ?? "", baseDelayMs)
       );
     }
     function finishTextReveal(lineId) {
@@ -32795,12 +33406,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!inert) snapshots.clear();
   }
   function textRevealDuration(text2) {
-    return Math.max(240, Math.min(1200, [...text2].length * 38));
+    return Math.max(280, Math.min(1600, [...text2].length * 42));
   }
   function textRevealCharacterDelay(character, baseDelayMs) {
-    if (/[。！？!?]/u.test(character)) return baseDelayMs + 300;
-    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 110;
-    if (/\s/u.test(character)) return Math.max(18, baseDelayMs - 10);
+    if (/[。！？!?]/u.test(character)) return baseDelayMs + 360;
+    if (/[、，,：:；;]/u.test(character)) return baseDelayMs + 125;
+    if (/[\n\r]/u.test(character)) return baseDelayMs + 190;
+    if (/[…―—]/u.test(character)) return baseDelayMs + 150;
+    if (/\s/u.test(character)) return Math.max(22, baseDelayMs - 8);
     return baseDelayMs;
   }
   function prefersReducedMotion() {
@@ -56799,13 +57412,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$s(sourceOrder, id2, sourcePrompt, contextJa, contextEn, correctPositionId, answerSentence) {
+  function round$s(sourceOrder, id2, sourcePrompt2, contextJa, contextEn, correctPositionId, answerSentence) {
     const pronoun = correctPositionId === "speaker" ? "これ" : correctPositionId === "listener" ? "それ" : "あれ";
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l04:lesson-2-workbook-2:slot-${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       context: { ja: contextJa, en: contextEn },
       correctPositionId,
       pronoun,
@@ -60438,12 +61051,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function round$r(sourceOrder, id2, sourcePrompt, correctA, correctB, acceptedAnswers, meaning) {
+  function round$r(sourceOrder, id2, sourcePrompt2, correctA, correctB, acceptedAnswers, meaning) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l05:lesson-1-workbook-4:slot-${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       correctA,
       correctB,
       acceptedAnswers: Object.freeze([...acceptedAnswers]),
@@ -64825,13 +65438,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return Object.freeze(model2);
   }
-  function locationRound(sourceOrder, id2, sourcePrompt, context2, correctPositionId, acceptedAnswers) {
+  function locationRound(sourceOrder, id2, sourcePrompt2, context2, correctPositionId, acceptedAnswers) {
     return Object.freeze({
       mode: "location-choice",
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId(sourceOrder),
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       context: context2,
       correctPositionId,
       acceptedAnswers: Object.freeze([...acceptedAnswers]),
@@ -64840,13 +65453,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTag: `l1-l06-place-owner-${id2}`
     });
   }
-  function ownerRound(sourceOrder, id2, sourcePrompt, context2, correctPointer, correctItem, acceptedAnswers, sourceReply) {
+  function ownerRound(sourceOrder, id2, sourcePrompt2, context2, correctPointer, correctItem, acceptedAnswers, sourceReply) {
     return Object.freeze({
       mode: "owner-phrase",
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId(sourceOrder),
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       context: context2,
       correctPointer,
       correctItem,
@@ -71085,14 +71698,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTag: `l1-l08-source-time-${id2}`
     };
   }
-  function typedRound$2(sourceOrder, id2, sourcePrompt, acceptedAnswers, answerExpression) {
+  function typedRound$2(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression) {
     const slot = sourceOrder - 3;
     return {
       mode: "typed-clock",
       id: id2,
       sourceOrder,
       sourceQuestionId: `genki-2e:l1-l08:lesson-1-workbook-2:slot-${slot}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       acceptedAnswers,
       answerExpression,
       conceptId: `concept:l1-l08:source-time:${id2}`,
@@ -74692,7 +75305,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function genkiProblem(slot, prompt2, cue, acceptedAnswers) {
     return Object.freeze({ slot, prompt: prompt2, cue, acceptedAnswers: Object.freeze(acceptedAnswers) });
   }
-  function pairRound(sourceOrder, id2, sourcePrompt, correctTomorrowId, correctYesterdayId) {
+  function pairRound(sourceOrder, id2, sourcePrompt2, correctTomorrowId, correctYesterdayId) {
     const tomorrow = requiredWeekday(correctTomorrowId);
     const yesterday = requiredWeekday(correctYesterdayId);
     return Object.freeze({
@@ -74700,7 +75313,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:${MOODLE_SHA256$2}:p1:section-1:item-${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options: WEEKDAYS,
       correctTomorrowId,
       correctYesterdayId,
@@ -74715,7 +75328,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     });
   }
-  function choiceRound(sourceOrder, id2, sourcePrompt, correctPolarity, correctDayId, copula) {
+  function choiceRound(sourceOrder, id2, sourcePrompt2, correctPolarity, correctDayId, copula) {
     const day = requiredWeekday(correctDayId);
     const prefix = correctPolarity === "hai" ? "はい、" : correctPolarity === "iie" ? "いいえ、" : "";
     return Object.freeze({
@@ -74723,7 +75336,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:${MOODLE_SHA256$2}:p2:section-2:item-${sourceOrder - 2}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       correctPolarity,
       dayOptions: WEEKDAYS,
       correctDayId,
@@ -74740,14 +75353,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function typedRound$1(problem2) {
-    const sourcePrompt = problem2.cue ? `${problem2.prompt}
+    const sourcePrompt2 = problem2.cue ? `${problem2.prompt}
 (${problem2.cue})` : problem2.prompt;
     return Object.freeze({
       mode: "typed-past",
       id: `genki-${problem2.slot}`,
       sourceOrder: problem2.slot + 7,
       sourceQuestionId: `${GENKI_TASK_ID$6}:slot-${problem2.slot}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       acceptedAnswers: problem2.acceptedAnswers,
       answerExpression: problem2.acceptedAnswers[0],
       conceptId: `concept:l1-l09:weekly-plan:genki-${problem2.slot}`,
@@ -78498,14 +79111,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: createLessonTenDailyRoutineWorkbookModel()
     });
   }
-  function tenseRound(sourceOrder, id2, sourcePrompt, labels, correctLabel, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function tenseRound(sourceOrder, id2, sourcePrompt2, labels, correctLabel, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     const options = labels.map((label, index) => option$o(`option-${index + 1}`, label));
     return roundBase(
       sourceOrder,
       id2,
       `moodle-worksheet:${GRAMMAR_CHECK_SHA256}:p1:section-2:item-${sourceOrder}`,
       "Moodle · HW Chapter 4 Grammar check · page 1, section 2",
-      sourcePrompt,
+      sourcePrompt2,
       answerExpression,
       hintJa,
       hintEn,
@@ -78518,13 +79131,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     );
   }
-  function shortRound(sourceOrder, id2, sourcePrompt, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function shortRound(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `moodle-worksheet:${GRAMMAR_CHECK_SHA256}:p2:section-3:item-${sourceOrder - 5}`,
       "Moodle · HW Chapter 4 Grammar check · page 2, section 3",
-      sourcePrompt,
+      sourcePrompt2,
       answerExpression,
       hintJa,
       hintEn,
@@ -78533,13 +79146,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { mode: "short-answer", acceptedAnswers }
     );
   }
-  function timeRound(sourceOrder, id2, sourcePrompt, question2, answerSuffix, correctOptionId, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function timeRound(sourceOrder, id2, sourcePrompt2, question2, answerSuffix, correctOptionId, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `minna-no-nihongo:${MINNA_SHA256$9}:pdf-p55:printed-p35:practice-b-5:item-${sourceOrder - 9}`,
       "Minna no Nihongo I · Lesson 4 · Practice B 5",
-      sourcePrompt,
+      sourcePrompt2,
       answerExpression,
       hintJa,
       hintEn,
@@ -78548,13 +79161,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { mode: "routine-time", question: question2, answerSuffix, options: TIME_OPTIONS, correctOptionId }
     );
   }
-  function sentenceRound(sourceOrder, id2, sourcePrompt, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
+  function sentenceRound(sourceOrder, id2, sourcePrompt2, acceptedAnswers, answerExpression, hintJa, hintEn, exampleJa, exampleEn) {
     return roundBase(
       sourceOrder,
       id2,
       `japanese-genki-interactive:${GENKI_SHA256$t}:workbook-5:item-${sourceOrder - 13}`,
       "Genki Study Resources 2e · Lesson 3 workbook 5",
-      sourcePrompt,
+      sourcePrompt2,
       answerExpression,
       hintJa,
       hintEn,
@@ -78563,13 +79176,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { mode: "sentence", acceptedAnswers }
     );
   }
-  function roundBase(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, hintJa, hintEn, exampleJa, exampleEn, modeFields) {
+  function roundBase(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, hintJa, hintEn, exampleJa, exampleEn, modeFields) {
     return {
       id: id2,
       sourceOrder,
       sourceQuestionId: sourceQuestionId2,
       sourceLabel: sourceLabel2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       answerExpression,
       conceptId: `concept:l1-l10:daily-routine:${id2}`,
       errorTag: `l1-l10-daily-routine-${id2}`,
@@ -83232,11 +83845,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonFourteenReasonWorkbookBeat() {
     return Object.freeze({ id: "reason-workbook", narrative: { ja: "リエが理由カードを並べ、トムが「どうして」と「から」でつなげます。", en: "Rie lays out reason cards while Tom links them with why and because." }, activity: createLessonFourteenReasonWorkbookModel() });
   }
-  function choice$6(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, mode, labels) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, mode, options: labels.map((label, index) => option$l(index === 0 ? "answer" : `distractor-${index}`, label)), correctOptionId: "answer", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c(mode) });
+  function choice$6(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, mode, labels) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, mode, options: labels.map((label, index) => option$l(index === 0 ? "answer" : `distractor-${index}`, label)), correctOptionId: "answer", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c(mode) });
   }
-  function typed$4(sourceOrder, id2, sourcePrompt, answerExpression, acceptedAnswers) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$2}:slot-${sourceOrder - 8}`, sourceLabel: "Genki I - Lesson 6 - workbook 7", sourcePrompt, answerExpression, acceptedAnswers, mode: "typed", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c("typed") });
+  function typed$4(sourceOrder, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$2}:slot-${sourceOrder - 8}`, sourceLabel: "Genki I - Lesson 6 - workbook 7", sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers, mode: "typed", conceptId: `concept:l1-l14:reason:${sourceOrder}`, errorTag: `l1-l14-reason-${sourceOrder}`, hint: hints$c("typed") });
   }
   function option$l(id2, label) {
     return Object.freeze({ id: id2, label });
@@ -83301,11 +83914,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonSixteenExistenceLocationWorkbookBeat() {
     return Object.freeze({ id: "existence-location-workbook", narrative: { ja: "アーカーシュとジェニーが、場所カードと人・物カードを分けて文にします。", en: "Aakash and Jenny sort place cards with people and things before making sentences." }, activity: createLessonSixteenExistenceLocationWorkbookModel() });
   }
-  function classify(sourceOrder, id2, sourcePrompt, answerExpression, nounClass) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `moodle:5881257:b2143f1f:p2:q3:${sourceOrder}`, sourceLabel: "Moodle - Chapter 10-1: Existence of people and things - page 2", sourcePrompt, answerExpression, mode: "classify", nounClass, verb: nounClass === "animate" ? "います" : "あります", conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(nounClass) });
+  function classify(sourceOrder, id2, sourcePrompt2, answerExpression, nounClass) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `moodle:5881257:b2143f1f:p2:q3:${sourceOrder}`, sourceLabel: "Moodle - Chapter 10-1: Existence of people and things - page 2", sourcePrompt: sourcePrompt2, answerExpression, mode: "classify", nounClass, verb: nounClass === "animate" ? "います" : "あります", conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(nounClass) });
   }
-  function typed$3(sourceOrder, slot, id2, sourcePrompt, answerExpression, acceptedAnswers) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$1}:slot-${slot}`, sourceLabel: "Genki I - Lesson 4 - workbook 1", sourcePrompt, answerExpression, mode: "typed", acceptedAnswers, conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(slot === 4 ? "animate" : "inanimate") });
+  function typed$3(sourceOrder, slot, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: `${GENKI_TASK_ID$1}:slot-${slot}`, sourceLabel: "Genki I - Lesson 4 - workbook 1", sourcePrompt: sourcePrompt2, answerExpression, mode: "typed", acceptedAnswers, conceptId: `concept:l1-l16:existence:${sourceOrder}`, errorTag: `l1-l16-existence-${sourceOrder}`, hint: hints$b(slot === 4 ? "animate" : "inanimate") });
   }
   function teaching$3(sourceQuestionId2, sourceLabel2, pattern, en, ja, example) {
     return Object.freeze({ sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, pattern, explanation: { en, ja }, example });
@@ -83427,13 +84040,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: createLessonSeventeenMuseumLocationWorkbookModel()
     });
   }
-  function frame(sourceOrder, id2, sourcePrompt, answerExpression, position, verb) {
+  function frame(sourceOrder, id2, sourcePrompt2, answerExpression, position, verb) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:5489600:b7ab822e:p1:q1:${sourceOrder}`,
       sourceLabel: "Moodle - Chapter 10-2: positions - page 1",
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       answerExpression,
       mode: "frame-choice",
       position,
@@ -83443,27 +84056,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
       hint: positionHints(position, verb)
     });
   }
-  function reply(sourceOrder, id2, sourcePrompt, answerExpression) {
+  function reply(sourceOrder, id2, sourcePrompt2, answerExpression) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `moodle:5489600:b7ab822e:p3:q4:${sourceOrder - 4}`,
       sourceLabel: "Moodle - Chapter 10-2: positions - page 3",
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       answerExpression,
       mode: "reply-choice",
       conceptId: `concept:l1-l17:location:${sourceOrder}`,
       errorTag: `l1-l17-location-${sourceOrder}`,
-      hint: replyHints(sourcePrompt)
+      hint: replyHints(sourcePrompt2)
     });
   }
-  function typed$2(sourceOrder, slot, id2, sourcePrompt, answerExpression, acceptedAnswers) {
+  function typed$2(sourceOrder, slot, id2, sourcePrompt2, answerExpression, acceptedAnswers) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${GENKI_TASK_ID}:slot-${slot}`,
       sourceLabel: "Genki I - Lesson 4 - workbook 2",
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       answerExpression,
       acceptedAnswers,
       mode: "typed",
@@ -83496,8 +84109,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { en: verb === "います" ? "The target is living, so use います." : "The target is a thing, so use あります.", ja: verb === "います" ? "対象は生き物なので「います」を使います。" : "対象は物なので「あります」を使います。" }
     ]);
   }
-  function replyHints(sourcePrompt) {
-    const asksWho = sourcePrompt.endsWith("だれ");
+  function replyHints(sourcePrompt2) {
+    const asksWho = sourcePrompt2.endsWith("だれ");
     return Object.freeze([
       { en: "Keep the location from the prompt in mind.", ja: "問題の位置を確認します。" },
       { en: asksWho ? "だれ asks for a person." : "なに asks for a thing.", ja: asksWho ? "「だれ」は人をたずねます。" : "「なに」は物をたずねます。" },
@@ -83563,18 +84176,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonEighteenFridgeInventoryWorkbookBeat() {
     return Object.freeze({ id: "fridge-inventory-workbook", narrative: { ja: "シンとピーターが、二つの冷蔵庫メモを見せずに読みます。Moodleの質問を一つずつ聞き、数を報告します。", en: "Shin and Peter read two fridge notes without showing them. They ask the Moodle questions one at a time, then report each quantity." }, activity: createLessonEighteenFridgeInventoryWorkbookModel() });
   }
-  function choice$5(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, options, mode, concept) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers: [answerExpression], options, mode, conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a(mode, sourcePrompt) });
+  function choice$5(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, options, mode, concept) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers: [answerExpression], options, mode, conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a(mode, sourcePrompt2) });
   }
-  function typed$1(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers, concept) {
-    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt, answerExpression, acceptedAnswers, mode: "report-typed", conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a("report-typed", sourcePrompt) });
+  function typed$1(sourceOrder, id2, sourceQuestionId2, sourceLabel2, sourcePrompt2, answerExpression, acceptedAnswers, concept) {
+    return Object.freeze({ id: id2, sourceOrder, sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, sourcePrompt: sourcePrompt2, answerExpression, acceptedAnswers, mode: "report-typed", conceptId: `concept:l1-l18:${concept}:${sourceOrder}`, errorTag: `l1-l18-fridge-${sourceOrder}`, hint: hints$a("report-typed", sourcePrompt2) });
   }
   function teaching$1(sourceQuestionId2, sourceLabel2, pattern, en, ja, example) {
     return Object.freeze({ sourceQuestionId: sourceQuestionId2, sourceLabel: sourceLabel2, pattern, explanation: { en, ja }, example });
   }
-  function hints$a(mode, sourcePrompt) {
-    const fish = sourcePrompt.includes("さかな");
-    const beer = sourcePrompt.includes("ビール");
+  function hints$a(mode, sourcePrompt2) {
+    const fish = sourcePrompt2.includes("さかな");
+    const beer = sourcePrompt2.includes("ビール");
     return Object.freeze([
       { en: "Read the noun and its question word before choosing the ending.", ja: "答えの前に、名詞と質問の言葉を読みます。" },
       { en: mode === "existence-choice" ? "Decide whether the source fridge has the item." : fish ? "Fish use 匹, so listen for びき here." : beer ? "Beer bottles use 本, so listen for ぼん here." : "General food and drink use the つ count in this source exchange.", ja: mode === "existence-choice" ? "元の冷蔵庫に、その物があるかを決めます。" : fish ? "さかなは「匹」なので、ここでは「びき」です。" : beer ? "ビールは「本」なので、ここでは「ぼん」です。" : "このやり取りの普通の食べ物・飲み物は「つ」で数えます。" },
@@ -107068,7 +107681,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$q(id2, sourceOrder, interaction, payloadSha256, sourcePrompt, answerExpression, options, hints2) {
+  function round$q(id2, sourceOrder, interaction, payloadSha256, sourcePrompt2, answerExpression, options, hints2) {
     const sourceTask = payloadSha256 === DESHOU_SHA256 ? "grammar" : "review";
     const sourceItem = sourceItemFor(sourceOrder);
     return Object.freeze({
@@ -107079,7 +107692,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceItem,
       sourcePage: 1,
       sourceQuestionId: `moodle:${MODULE_ID$H}:${payloadSha256}:pdf-p1:example-${sourceItem}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -131654,12 +132267,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$n(id2, sourceOrder, sourcePrompt, answerExpression, hints2) {
+  function round$n(id2, sourceOrder, sourcePrompt2, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$f}:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       answerExpression,
       acceptedAnswers: [answerExpression],
       conceptId: `concept:l2-l06:opinion-transformation:${sourceOrder}`,
@@ -132002,12 +132615,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$m(id2, sourceOrder, sourcePrompt, correctOptionId, answerExpression, options, hints2) {
+  function round$m(id2, sourceOrder, sourcePrompt2, correctOptionId, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$d}:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       correctOptionId,
       answerExpression,
@@ -134428,12 +135041,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$l(id2, sourceOrder, sourcePrompt, noun, options, correctOptionId, answerExpression, hints2) {
+  function round$l(id2, sourceOrder, sourcePrompt2, noun, options, correctOptionId, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$c}:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       noun,
       options,
       correctOptionId,
@@ -137476,7 +138089,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$k(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
+  function round$k(id2, sourceOrder, sourcePage, sourceItem, sourcePrompt2, phraseTail, options, correctOptionId, correctParticle, answerExpression, hints2) {
     const sourceTask = sourcePage === 1 ? 1 : 4;
     return Object.freeze({
       id: id2,
@@ -137485,7 +138098,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$b}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       phraseTail,
       options,
       correctOptionId,
@@ -140939,7 +141552,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$j(id2, sourceOrder, sourcePrompt, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
+  function round$j(id2, sourceOrder, sourcePrompt2, beforeForm, afterForm, correctTiming, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -140947,7 +141560,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: 7,
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$9}:pdf-p5:task-7:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       beforeForm,
       afterForm,
       correctTiming,
@@ -144133,7 +144746,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$i(id2, sourceOrder, sourcePrompt, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
+  function round$i(id2, sourceOrder, sourcePrompt2, affirmativeClause, negativeClause, mainClause, correctMode, answerExpression, hints2) {
     return Object.freeze({
       id: id2,
       sourceOrder,
@@ -144141,7 +144754,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: "1-1",
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$7}:pdf-p1:task-1-1:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       affirmativeClause,
       negativeClause,
       mainClause,
@@ -147420,7 +148033,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$h(id2, sourceOrder, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$h(id2, sourceOrder, interaction, sourcePrompt2, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -147429,7 +148042,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: 2,
       sourceItem: sourceOrder,
       sourceQuestionId: `${SOURCE_PREFIX$6}:pdf-p1:task-2:q${sourceOrder}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -151170,7 +151783,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$g(id2, sourcePage, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$g(id2, sourcePage, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
     const sourceOrder = sourcePage === 1 ? sourceItem : sourceItem + 4;
     return Object.freeze({
       id: id2,
@@ -151180,7 +151793,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask: sourcePage,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$3}:pdf-p${sourcePage}:task-${sourcePage}:q${sourceItem}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -154166,7 +154779,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$f(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$f(id2, sourceTask, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor$1(sourceTask, sourceItem);
     const sourcePage = sourceTask === 5 ? 3 : 2;
     return Object.freeze({
@@ -154177,7 +154790,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX$1}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -156533,7 +157146,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$e(id2, sourceTask, sourceItem, interaction, sourcePrompt, answerExpression, options, hints2) {
+  function round$e(id2, sourceTask, sourceItem, interaction, sourcePrompt2, answerExpression, options, hints2) {
     const sourceOrder = sourceOrderFor(sourceTask, sourceItem);
     const sourcePage = sourceTask === 1 ? 1 : sourceTask === 3 ? 2 : 3;
     return Object.freeze({
@@ -156544,7 +157157,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `${SOURCE_PREFIX}:pdf-p${sourcePage}:task-${sourceTask}:q${sourceItem}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -158932,7 +159545,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$d(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, hints2) {
+  function round$d(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, hints2) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -158941,7 +159554,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -162140,7 +162753,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$c(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$c(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -162149,7 +162762,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -164557,7 +165170,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
+  function round$b(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -164566,7 +165179,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -166481,8 +167094,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
-    return Object.freeze({ id: id2, interaction, sourceOrder, sourcePage, sourceTask, sourceItem, sourceQuestionId: sourceQuestionId2, sourcePrompt, options, answerValue: answerExpression, answerExpression, acceptedAnswers: [answerExpression], conceptId: `concept:l2-l19:volitional:${sourceOrder}`, errorTag: `l2-l19-volitional-${sourceOrder}`, hints: roundHints });
+  function round$a(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
+    return Object.freeze({ id: id2, interaction, sourceOrder, sourcePage, sourceTask, sourceItem, sourceQuestionId: sourceQuestionId2, sourcePrompt: sourcePrompt2, options, answerValue: answerExpression, answerExpression, acceptedAnswers: [answerExpression], conceptId: `concept:l2-l19:volitional:${sourceOrder}`, errorTag: `l2-l19-volitional-${sourceOrder}`, hints: roundHints });
   }
   function question$3(payloadSha256, page, task2, item2) {
     return `moodle:${MODULE_ID$c}:${payloadSha256}:pdf-p${page}:task-${task2}:q${item2}`;
@@ -168778,7 +169391,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$9(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$9(id2, sourceOrder, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -168787,7 +169400,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -171619,7 +172232,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$8(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -171628,7 +172241,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -173563,7 +174176,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$7(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints, alternatives = []) {
+  function round$7(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints, alternatives = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -173572,7 +174185,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -175540,7 +176153,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$6(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -175549,7 +176162,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -177321,7 +177934,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$5(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -177330,7 +177943,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -179108,7 +179721,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt, answerExpression, options, roundHints) {
+  function round$4(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, sourceQuestionId2, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -179117,7 +179730,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestionId2,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -180832,7 +181445,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options, roundHints) {
+  function round$3(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt2, answerExpression, options, roundHints) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -180841,7 +181454,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: `moodle:${MODULE_ID$5}:${HOMEWORK_SHA256}:pdf-p${sourcePage}:${locus}`,
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
@@ -182154,7 +182767,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activity: Object.freeze(activity2)
     });
   }
-  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt, answerExpression, options = []) {
+  function round$2(id2, sourceOrder, sourcePage, sourceTask, sourceItem, interaction, locus, sourcePrompt2, answerExpression, options = []) {
     return Object.freeze({
       id: id2,
       interaction,
@@ -182163,14 +182776,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sourceTask,
       sourceItem,
       sourceQuestionId: sourceQuestion(sourcePage, locus),
-      sourcePrompt,
+      sourcePrompt: sourcePrompt2,
       options,
       answerValue: answerExpression,
       answerExpression,
       acceptedAnswers: [answerExpression],
       conceptId: `concept:l2-l34:reading:${sourceOrder}`,
       errorTag: `l2-l34-reading-${sourceOrder}`,
-      hints: readingHints(sourcePrompt, answerExpression)
+      hints: readingHints(sourcePrompt2, answerExpression)
     });
   }
   function sourceQuestion(page, locus) {
@@ -182182,11 +182795,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       label: Object.freeze({ ja: value, en: value })
     });
   }
-  function readingHints(sourcePrompt, answer2) {
+  function readingHints(sourcePrompt2, answer2) {
     return [
       Object.freeze({
-        ja: `先生の原本で「${sourcePrompt}」を探します。`,
-        en: `Find ${sourcePrompt} on Sensei’s original page.`
+        ja: `先生の原本で「${sourcePrompt2}」を探します。`,
+        en: `Find ${sourcePrompt2} on Sensei’s original page.`
       }),
       Object.freeze({
         ja: "「読み方」か「読める」の欄を見ます。",
@@ -190897,232 +191510,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const LESSON_ZERO_CLASSROOM_SOURCE_IDS = Object.freeze(
     Array.from({ length: 14 }, (_, index) => `source-question:classroom-phrase-${String(index + 1).padStart(2, "0")}`)
   );
-  const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
-  const ROMAJI_LONG_MARK_RE = /([a-z])[-\u2010\u2011]/giu;
-  const STUDY_ANSWER_PUNCTUATION_RE = /[\u3001\u3002\uff0c\uff0e,.!\uff01?\uff1f\u30fb\u300c\u300d\u300e\u300f\uff08\uff09()\uff3b\uff3d[\]\u3014\u3015\u3010\u3011\u2026\u2025:\uff1a;\uff1b\u301c~"'\u201c\u201d\u2018\u2019]/gu;
-  const ROMAJI_KANA = {
-    a: "あ",
-    i: "い",
-    u: "う",
-    e: "え",
-    o: "お",
-    ka: "か",
-    ki: "き",
-    ku: "く",
-    ke: "け",
-    ko: "こ",
-    sa: "さ",
-    shi: "し",
-    si: "し",
-    su: "す",
-    se: "せ",
-    so: "そ",
-    ta: "た",
-    chi: "ち",
-    ti: "ち",
-    tsu: "つ",
-    tu: "つ",
-    te: "て",
-    to: "と",
-    na: "な",
-    ni: "に",
-    nu: "ぬ",
-    ne: "ね",
-    no: "の",
-    ha: "は",
-    hi: "ひ",
-    fu: "ふ",
-    hu: "ふ",
-    he: "へ",
-    ho: "ほ",
-    ma: "ま",
-    mi: "み",
-    mu: "む",
-    me: "め",
-    mo: "も",
-    ya: "や",
-    yu: "ゆ",
-    yo: "よ",
-    ra: "ら",
-    ri: "り",
-    ru: "る",
-    re: "れ",
-    ro: "ろ",
-    wa: "わ",
-    wo: "を",
-    ga: "が",
-    gi: "ぎ",
-    gu: "ぐ",
-    ge: "げ",
-    go: "ご",
-    za: "ざ",
-    ji: "じ",
-    zi: "じ",
-    zu: "ず",
-    ze: "ぜ",
-    zo: "ぞ",
-    da: "だ",
-    dji: "ぢ",
-    di: "ぢ",
-    dzu: "づ",
-    du: "づ",
-    de: "で",
-    do: "ど",
-    ba: "ば",
-    bi: "び",
-    bu: "ぶ",
-    be: "べ",
-    bo: "ぼ",
-    pa: "ぱ",
-    pi: "ぴ",
-    pu: "ぷ",
-    pe: "ぺ",
-    po: "ぽ",
-    kya: "きゃ",
-    kyu: "きゅ",
-    kyo: "きょ",
-    gya: "ぎゃ",
-    gyu: "ぎゅ",
-    gyo: "ぎょ",
-    sha: "しゃ",
-    shu: "しゅ",
-    sho: "しょ",
-    sya: "しゃ",
-    syu: "しゅ",
-    syo: "しょ",
-    ja: "じゃ",
-    ju: "じゅ",
-    jo: "じょ",
-    jya: "じゃ",
-    jyu: "じゅ",
-    jyo: "じょ",
-    cha: "ちゃ",
-    chu: "ちゅ",
-    cho: "ちょ",
-    cya: "ちゃ",
-    cyu: "ちゅ",
-    cyo: "ちょ",
-    nya: "にゃ",
-    nyu: "にゅ",
-    nyo: "にょ",
-    hya: "ひゃ",
-    hyu: "ひゅ",
-    hyo: "ひょ",
-    bya: "びゃ",
-    byu: "びゅ",
-    byo: "びょ",
-    pya: "ぴゃ",
-    pyu: "ぴゅ",
-    pyo: "ぴょ",
-    mya: "みゃ",
-    myu: "みゅ",
-    myo: "みょ",
-    rya: "りゃ",
-    ryu: "りゅ",
-    ryo: "りょ",
-    fa: "ふぁ",
-    fi: "ふぃ",
-    fe: "ふぇ",
-    fo: "ふぉ",
-    she: "しぇ",
-    je: "じぇ",
-    che: "ちぇ",
-    tsa: "つぁ",
-    tsi: "つぃ",
-    tse: "つぇ",
-    tso: "つぉ",
-    thi: "てぃ",
-    thu: "てゅ",
-    the: "てぇ",
-    tho: "てょ",
-    dhi: "でぃ",
-    dhu: "でゅ",
-    dhe: "でぇ",
-    dho: "でょ",
-    wi: "うぃ",
-    we: "うぇ",
-    ye: "いぇ",
-    xa: "ぁ",
-    xi: "ぃ",
-    xu: "ぅ",
-    xe: "ぇ",
-    xo: "ぉ",
-    la: "ぁ",
-    li: "ぃ",
-    lu: "ぅ",
-    le: "ぇ",
-    lo: "ぉ",
-    xya: "ゃ",
-    xyu: "ゅ",
-    xyo: "ょ",
-    lya: "ゃ",
-    lyu: "ゅ",
-    lyo: "ょ",
-    xtsu: "っ",
-    ltsu: "っ",
-    va: "ゔぁ",
-    vi: "ゔぃ",
-    vu: "ゔ",
-    ve: "ゔぇ",
-    vo: "ゔぉ"
-  };
-  function convertRomajiToKana(value) {
-    return value.normalize("NFKC").replace(/[\u2018\u2019\u02bc]/gu, "'").replace(ROMAJI_LONG_MARK_RE, "$1ー").replace(ROMAJI_RUN_RE, (run) => transliterateRomajiRun(run.toLowerCase()));
-  }
-  function normalizeJapaneseStudyAnswer(value) {
-    return hiraganaFromKatakana(convertRomajiToKana(value)).replace(/[\s\u3000]/gu, "").replace(STUDY_ANSWER_PUNCTUATION_RE, "").toLowerCase();
-  }
-  function transliterateRomajiRun(run) {
-    let output = "";
-    let index = 0;
-    while (index < run.length) {
-      const current = run[index] ?? "";
-      const next = run[index + 1] ?? "";
-      if (current === "n" && next === "'") {
-        output += "ん";
-        index += 2;
-        continue;
-      }
-      if (run.slice(index, index + 3) === "tch") {
-        output += "っ";
-        index += 1;
-        continue;
-      }
-      if (isGeminatedConsonant(current, next)) {
-        output += "っ";
-        index += 1;
-        continue;
-      }
-      if (current === "n" && (!next || next === "n" || !/[aeiouy]/u.test(next))) {
-        output += "ん";
-        index += 1;
-        continue;
-      }
-      const match = longestRomajiMatch(run, index);
-      if (match) {
-        output += match.kana;
-        index += match.length;
-        continue;
-      }
-      output += current;
-      index += 1;
-    }
-    return output;
-  }
-  function longestRomajiMatch(run, index) {
-    for (const length of [4, 3, 2, 1]) {
-      const romaji = run.slice(index, index + length);
-      const kana = ROMAJI_KANA[romaji];
-      if (kana) return { kana, length };
-    }
-    return null;
-  }
-  function isGeminatedConsonant(current, next) {
-    return Boolean(current && current === next && /[bcdfghjklmpqrstvwxyz]/u.test(current) && current !== "n");
-  }
-  function hiraganaFromKatakana(value) {
-    return value.replace(/[\u30a1-\u30f6]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
-  }
   const MODES$1 = ["recognition", "listening", "typing", "drawing"];
   function createLessonZeroKanaGame(options) {
     const root = document.createElement("section");
@@ -209959,8 +210346,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       showingComplete = false;
       showingAuthoredActivity = true;
       const activity2 = options.week.activities[currentIndex];
-      const teachingSupport = authoredTeachingSupport(activity2);
-      if (showSupport) {
+      const hasTeachingSupport = activity2.kind !== "academy-source-vocabulary-sheet";
+      if (showSupport && hasTeachingSupport) {
+        const teachingSupport = authoredTeachingSupport(activity2);
         const supportView = teachingSupportView(teachingSupport, options.language);
         const navigation = lessonNavigation(options.language, {
           back: currentIndex > 0 ? () => {
@@ -209977,11 +210365,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       const questionHost = element("div", "academy-authored-week-question-host");
-      const returnToSupport = lessonNavigation(options.language, {
-        back: () => renderCurrent(true),
-        backLabel: options.language === "ja" ? "学習サポート" : "Review support"
-      }, lifecycle.signal);
-      activityHost.replaceChildren(returnToSupport, questionHost);
+      const backAction = hasTeachingSupport ? { back: () => renderCurrent(true), backLabel: options.language === "ja" ? "学習サポート" : "Review support" } : currentIndex > 0 ? {
+        back: () => {
+          currentIndex -= 1;
+          renderCurrent(true);
+        },
+        backLabel: options.language === "ja" ? "前の問題" : "Previous question"
+      } : null;
+      if (backAction) {
+        const returnNavigation = lessonNavigation(options.language, backAction, lifecycle.signal);
+        activityHost.replaceChildren(returnNavigation, questionHost);
+      } else activityHost.replaceChildren(questionHost);
       if (activity2.kind === "academy-source-vocabulary-sheet") {
         const runtime2 = options.runtime ?? createAcademyActivityRuntime();
         let passed = false;
