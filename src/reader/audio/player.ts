@@ -439,6 +439,37 @@ export class AudioPlayer {
         return await this.playPreparedAudio(audio, requestId, () => true, { userGesture: true });
     }
 
+    // Plays the first workable URL from an ordered candidate list through the
+    // same blob-prep + Web Audio CSP fallback as playMediaUrl. Immersion example
+    // audio routes here: its pre-fetched page-media blob (registered via the
+    // userscript bridge) is recovered by the Web Audio path when a strict
+    // media-src (claude.ai, chatgpt.com) refuses the blob URL on a media element.
+    async playMediaCandidates(urls: string[], options: { playbackRate?: number; isCurrent?: () => boolean } = {}): Promise<boolean> {
+        const settings = this.getSettings();
+        this.ensureAudioEnabled(settings);
+        if (!canAttemptAudiblePlayback(true)) return false;
+        const isCurrent = options.isCurrent ?? (() => true);
+        const candidates = orderedMediaCandidates(urls);
+        if (!candidates.length) return false;
+        const requestId = ++this.playRequestId;
+        this.stopCurrent();
+        let lastError: unknown;
+        for (const url of candidates) {
+            if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+            try {
+                const playableUrl = await this.prepareDirectMediaUrl(url, settings);
+                if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+                const audio = await this.createReadyAudio(playableUrl);
+                if (options.playbackRate && Number.isFinite(options.playbackRate)) audio.playbackRate = options.playbackRate;
+                if (await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture: true })) return true;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        if (lastError) throw lastError instanceof Error ? lastError : new Error(String(lastError));
+        return false;
+    }
+
     private async prepareDirectMediaUrl(audioUrl: string, settings: ReaderSettings): Promise<string> {
         if (!shouldFetchDirectMediaAsBlob(audioUrl)) return audioUrl;
         return await this.fetchAudioAsBlobUrl(audioUrl, audioUrl, settings.audioTimeoutMs, settings.audioSelectionMode);
@@ -1150,6 +1181,18 @@ function implicitJitenTtsSource(settings: ReaderSettings): AudioSourceSetting {
         voice: configured?.voice ?? '',
         enabled: true,
     };
+}
+
+function orderedMediaCandidates(urls: string[]): string[] {
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    for (const value of urls) {
+        const url = value?.trim();
+        if (!url || seen.has(url)) continue;
+        seen.add(url);
+        candidates.push(url);
+    }
+    return candidates;
 }
 
 function audioErrorMessage(error: unknown): string {

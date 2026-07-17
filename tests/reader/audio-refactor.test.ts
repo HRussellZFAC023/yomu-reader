@@ -770,6 +770,69 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('recovers a media-src-blocked candidate through the Web Audio fallback in playMediaCandidates', async () => {
+        const previousActivation = Object.getOwnPropertyDescriptor(navigator, 'userActivation');
+        Object.defineProperty(navigator, 'userActivation', {
+            configurable: true,
+            value: { hasBeenActive: true, isActive: true },
+        });
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('NotSupportedError'));
+        const previousAudioContext = Object.getOwnPropertyDescriptor(window, 'AudioContext');
+        let decodedBytes = -1;
+        let started = 0;
+        class WorkingAudioContext {
+            state = 'running';
+            currentTime = 0;
+            resume(): Promise<void> { return Promise.resolve(); }
+            close(): Promise<void> { return Promise.resolve(); }
+            async decodeAudioData(buffer: ArrayBuffer): Promise<AudioBuffer> {
+                decodedBytes = buffer.byteLength;
+                return { length: 3 } as unknown as AudioBuffer;
+            }
+            createBufferSource() {
+                const node: { buffer: AudioBuffer | null; connect: () => void; start: () => void; onended: null | (() => void) } = {
+                    buffer: null,
+                    connect() { return undefined; },
+                    start() { started += 1; node.onended?.(); },
+                    onended: null,
+                };
+                return node as unknown as AudioBufferSourceNode;
+            }
+            get destination() { return {} as AudioDestinationNode; }
+        }
+        Object.defineProperty(window, 'AudioContext', { configurable: true, value: WorkingAudioContext });
+        const previousCreate = (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+        const previousRevoke = (URL as { revokeObjectURL?: (url: string) => void }).revokeObjectURL;
+        let objectUrlSeq = 0;
+        URL.createObjectURL = () => `blob:http://localhost/immersion-${++objectUrlSeq}`;
+        URL.revokeObjectURL = () => undefined;
+        const fetchMock = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const sourceBlob = new Blob([new Uint8Array([1, 2, 3, 4, 5, 6])], { type: 'audio/mpeg' });
+            Object.defineProperty(sourceBlob, 'arrayBuffer', { configurable: true, value: async () => new Uint8Array([1, 2, 3, 4, 5, 6]).buffer });
+            const blobUrl = await createPageMediaUrl(sourceBlob, 'https://media.test/line.mp3');
+            const player = new AudioPlayer(() => ({ ...DEFAULT_SETTINGS, audioEnabled: true }));
+
+            await expect(player.playMediaCandidates([blobUrl], { playbackRate: 1.5 })).resolves.toBe(true);
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(decodedBytes).toBe(6);
+            expect(started).toBe(1);
+        } finally {
+            if (previousActivation) Object.defineProperty(navigator, 'userActivation', previousActivation);
+            else delete (navigator as unknown as { userActivation?: Navigator['userActivation'] }).userActivation;
+            if (previousAudioContext) Object.defineProperty(window, 'AudioContext', previousAudioContext);
+            else delete (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext;
+            if (previousCreate) URL.createObjectURL = previousCreate;
+            else delete (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+            if (previousRevoke) URL.revokeObjectURL = previousRevoke;
+            else delete (URL as { revokeObjectURL?: (url: string) => void }).revokeObjectURL;
+            play.mockRestore();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('stops waiting when media playback never starts', async () => {
         vi.useFakeTimers();
         const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => new Promise(() => undefined));

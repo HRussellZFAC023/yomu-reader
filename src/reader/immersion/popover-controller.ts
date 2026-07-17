@@ -104,10 +104,6 @@ interface HeldExampleImage {
 }
 
 export class ImmersionPopoverController {
-    private audioElement?: HTMLAudioElement;
-    private audioKey = '';
-    private audioLoadingKey = '';
-    private audioRequestId = 0;
     private hoverAudioPlayedKeys = new Set<string>();
     private activeMiningContext?: MiningContext;
     private contextByCardKey = new Map<string, StoredMiningContext>();
@@ -459,8 +455,7 @@ export class ImmersionPopoverController {
     }
 
     stopAudio(): void {
-        this.audioRequestId++;
-        this.clearAudio();
+        this.options.audio.stop();
     }
 
     private async fetchExamples(card: JPDBCard, options: ImmersionSearchOptions): Promise<ImmersionKitSearchResult> {
@@ -921,60 +916,25 @@ export class ImmersionPopoverController {
         const source = this.exampleAudioSource(example, quiet);
         if (!source) return;
 
-        let requestId = 0;
         try {
-            requestId = this.startExampleAudioRequest(source.key);
-            if (!requestId) return;
-            await this.playFetchedExampleAudio(source, requestId, isCurrent);
+            // Pre-fetch the media through the userscript bridge so its bytes are
+            // registered as a page-media blob; the shared AudioPlayer then plays
+            // it with a Web Audio fallback for strict media-src hosts.
+            const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
+                .catch(() => '');
+            if (!isCurrent()) return;
+            await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
+                playbackRate: settings.immersionKitPlaybackRate,
+                isCurrent,
+            });
         } catch (error) {
-            this.handleExampleAudioError(example, quiet, requestId, error);
+            this.handleExampleAudioError(example, quiet, error);
         }
     }
 
-    private async playFetchedExampleAudio(
-        source: ExampleAudioSource,
-        requestId: number,
-        isCurrent: () => boolean,
-    ): Promise<void> {
-        const settings = this.options.getSettings();
-        const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-            .catch(() => '');
-        const candidates = uniqueExampleAudioCandidates([blobSrc, ...source.urls]);
-        let lastError: unknown;
-        for (const src of candidates) {
-            if (!this.isExampleAudioRequestCurrent(requestId, source.key, isCurrent)) {
-                this.clearAudioRequestIfCurrent(requestId, source.key);
-                return;
-            }
-            const audio = this.attachExampleAudio(src);
-            try {
-                await this.playAttachedExampleAudio(audio, isCurrent);
-                return;
-            } catch (error) {
-                lastError = error;
-                if (this.audioElement === audio) this.clearAudio();
-            }
-        }
-        throw lastError instanceof Error ? lastError : new Error('No playable Immersion Kit audio candidate.');
-    }
-
-    private async playAttachedExampleAudio(audio: HTMLAudioElement, isCurrent: () => boolean): Promise<void> {
-        if (!isCurrent()) {
-            this.clearAudio();
-            return;
-        }
-        await audio.play();
-        if (!isCurrent()) this.clearAudio();
-    }
-
-    private handleExampleAudioError(example: ImmersionKitExample, quiet: boolean, requestId: number, error: unknown): void {
-        if (this.shouldClearAudioAfterExampleError(requestId)) this.clearAudio();
+    private handleExampleAudioError(example: ImmersionKitExample, quiet: boolean, error: unknown): void {
         log.warn('Immersion example audio failed', { provider: immersionExampleProviderLabel(example, 'en'), sourceTitle: example.sourceTitle, quiet }, error);
         if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, 'audioSourceReturnedNoAudio'));
-    }
-
-    private shouldClearAudioAfterExampleError(requestId: number): boolean {
-        return !requestId || requestId === this.audioRequestId;
     }
 
     private exampleAudioSource(example: ImmersionKitExample, quiet: boolean): ExampleAudioSource | null {
@@ -985,54 +945,9 @@ export class ImmersionPopoverController {
         return null;
     }
 
-    private startExampleAudioRequest(key: string): number {
-        if (this.isAudioBusy(key)) return 0;
-        const requestId = ++this.audioRequestId;
-        this.clearAudio();
-        this.audioKey = key;
-        this.audioLoadingKey = key;
-        this.options.audio.stop();
-        return requestId;
-    }
-
-    private isExampleAudioRequestCurrent(requestId: number, key: string, isCurrent: () => boolean): boolean {
-        return requestId === this.audioRequestId && this.audioKey === key && isCurrent();
-    }
-
-    private clearAudioRequestIfCurrent(requestId: number, key: string): void {
-        if (requestId === this.audioRequestId && this.audioKey === key) this.clearAudio();
-    }
-
-    private attachExampleAudio(src: string): HTMLAudioElement {
-        const audio = new Audio(src);
-        audio.preload = 'auto';
-        audio.playbackRate = this.options.getSettings().immersionKitPlaybackRate;
-        this.audioElement = audio;
-        this.audioLoadingKey = '';
-        const cleanup = () => {
-            if (this.audioElement !== audio) return;
-            this.clearAudio();
-        };
-        audio.addEventListener('ended', cleanup, { once: true });
-        audio.addEventListener('error', cleanup, { once: true });
-        return audio;
-    }
-
     private mediaUrls(example: ImmersionKitExample, kind: 'image' | 'sound'): string[] {
         const client = this.options.client as ImmersionKitClient & { mediaUrls?: (example: ImmersionKitExample, kind: 'image' | 'sound') => string[] };
         return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
-    }
-
-    private clearAudio(): void {
-        this.audioElement?.pause();
-        this.audioElement = undefined;
-        this.audioKey = '';
-        this.audioLoadingKey = '';
-    }
-
-    private isAudioBusy(key: string): boolean {
-        if (this.audioLoadingKey === key) return true;
-        return Boolean(this.audioElement && this.audioKey === key && !this.audioElement.ended);
     }
 }
 
@@ -1181,18 +1096,6 @@ function renderExampleSentenceHtml(sentenceHtml: string, primarySubtitle = false
         return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
     }
     return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-}
-
-function uniqueExampleAudioCandidates(values: string[]): string[] {
-    const seen = new Set<string>();
-    const candidates: string[] = [];
-    for (const value of values) {
-        const url = value.trim();
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        candidates.push(url);
-    }
-    return candidates;
 }
 
 function shouldCacheParsedExampleSentenceTokens(tokens: JPDBToken[]): boolean {

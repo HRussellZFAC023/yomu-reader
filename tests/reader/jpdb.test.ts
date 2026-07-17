@@ -17729,28 +17729,9 @@ describe('reader helpers', () => {
         expect(playSpy).toHaveBeenCalledWith(example);
     });
 
-    it('plays Immersion Kit popup audio from fetched blob URLs instead of direct media URLs', async () => {
-        const constructed: string[] = [];
-        const played: string[] = [];
-        class FakeAudio {
-            preload = '';
-            playbackRate = 1;
-            ended = false;
-
-            constructor(public src: string) {
-                constructed.push(src);
-            }
-
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-
-            pause(): void {}
-            addEventListener(): void {}
-        }
+    it('routes Immersion Kit popup audio through the shared player with the fetched blob first', async () => {
         const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
-        vi.stubGlobal('Audio', FakeAudio);
+        const playMediaCandidates = vi.fn(async (_urls: string[], _options?: { playbackRate?: number; isCurrent?: () => boolean }) => true);
         const example = {
             id: 'anime_test_000001',
             sentence: 'これは発音です',
@@ -17774,7 +17755,7 @@ describe('reader helpers', () => {
                 mediaUrls: vi.fn((_: unknown, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/line.mp3'] : []),
                 fetchBlobUrl,
             } as unknown as ImmersionKitClient,
-            audio: { play: vi.fn(async () => undefined), stop: vi.fn() } as never,
+            audio: { playMediaCandidates, stop: vi.fn() } as never,
             parseJapanese: vi.fn(async () => []),
             canParseJapanese: () => false,
             parsePopoverJapanese: vi.fn(),
@@ -17785,44 +17766,23 @@ describe('reader helpers', () => {
             toast: vi.fn(),
         });
 
-        try {
-            await (controller as unknown as {
-                playExampleAudio(example: ImmersionKitExample): Promise<void>;
-            }).playExampleAudio(example);
+        await (controller as unknown as {
+            playExampleAudio(example: ImmersionKitExample): Promise<void>;
+        }).playExampleAudio(example);
 
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
-            expect(constructed).toEqual(['blob:http://localhost/line.mp3']);
-            expect(played).toEqual(['blob:http://localhost/line.mp3']);
-        } finally {
-            vi.unstubAllGlobals();
-        }
+        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+        expect(playMediaCandidates).toHaveBeenCalledWith(
+            ['blob:http://localhost/line.mp3', 'https://media.test/line.mp3'],
+            { playbackRate: DEFAULT_SETTINGS.immersionKitPlaybackRate, isCurrent: expect.any(Function) },
+        );
     });
 
-    it('falls back to direct Immersion Kit popup audio URLs when blob hydration fails', async () => {
-        const constructed: string[] = [];
-        const played: string[] = [];
-        class FakeAudio {
-            preload = '';
-            playbackRate = 1;
-            ended = false;
-
-            constructor(public src: string) {
-                constructed.push(src);
-            }
-
-            play(): Promise<void> {
-                played.push(this.src);
-                return Promise.resolve();
-            }
-
-            pause(): void {}
-            addEventListener(): void {}
-        }
+    it('still passes the direct Immersion Kit URL to the shared player when blob hydration fails', async () => {
         const fetchBlobUrl = vi.fn(async () => {
             throw new Error('proxy offline');
         });
+        const playMediaCandidates = vi.fn(async (_urls: string[], _options?: { playbackRate?: number; isCurrent?: () => boolean }) => true);
         const toast = vi.fn();
-        vi.stubGlobal('Audio', FakeAudio);
         const example = {
             id: 'anime_kakegurui_000006996',
             sentence: 'この塔には謎が多すぎる',
@@ -17846,7 +17806,7 @@ describe('reader helpers', () => {
                 mediaUrls: vi.fn((_: unknown, kind: 'image' | 'sound') => kind === 'sound' ? ['https://media.test/kakegurui.mp3'] : []),
                 fetchBlobUrl,
             } as unknown as ImmersionKitClient,
-            audio: { play: vi.fn(async () => undefined), stop: vi.fn() } as never,
+            audio: { playMediaCandidates, stop: vi.fn() } as never,
             parseJapanese: vi.fn(async () => []),
             canParseJapanese: () => false,
             parsePopoverJapanese: vi.fn(),
@@ -17857,18 +17817,13 @@ describe('reader helpers', () => {
             toast,
         });
 
-        try {
-            await (controller as unknown as {
-                playExampleAudio(example: ImmersionKitExample): Promise<void>;
-            }).playExampleAudio(example);
+        await (controller as unknown as {
+            playExampleAudio(example: ImmersionKitExample): Promise<void>;
+        }).playExampleAudio(example);
 
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/kakegurui.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
-            expect(constructed).toEqual(['https://media.test/kakegurui.mp3']);
-            expect(played).toEqual(['https://media.test/kakegurui.mp3']);
-            expect(toast).not.toHaveBeenCalled();
-        } finally {
-            vi.unstubAllGlobals();
-        }
+        expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/kakegurui.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+        expect(playMediaCandidates.mock.calls[0]?.[0]).toEqual(['', 'https://media.test/kakegurui.mp3']);
+        expect(toast).not.toHaveBeenCalled();
     });
 
     it('renders a dictionary-only kanji drilldown fallback when the Kanji/Study companion is missing', async () => {
