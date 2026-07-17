@@ -58,15 +58,17 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     let presentationMode: AcademyPresentationMode = 'story';
     const refreshCopy = () => {
         setAcademyTooltip(utilityToggle, academyText(language, 'utilityMenu'));
-        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationCourse' : 'navPresentationStory');
+        // The control names its DESTINATION (the view a click opens), not the
+        // current mode, so the collapsed ••• menu reads as "go to the course
+        // view" instead of restating where the learner already is.
+        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationStory' : 'navPresentationCourse');
         presentation.dataset.presentationMode = presentationMode;
         root.dataset.presentationMode = presentationMode;
-        presentation.setAttribute('aria-pressed', String(presentationMode === 'course'));
         const presentationAction = academyText(
             language,
             presentationMode === 'course' ? 'navSwitchToStory' : 'navSwitchToCourse',
         );
-        presentation.setAttribute('aria-label', `${presentation.textContent}. ${presentationAction}`);
+        presentation.setAttribute('aria-label', presentationAction);
     };
     presentation.addEventListener('click', () => {
         utility.open = false;

@@ -101,23 +101,23 @@ describe('Academy human interface', () => {
             'academy-chrome-button academy-presentation-button',
         ]);
         const presentation = host.querySelector<HTMLButtonElement>('.academy-presentation-button')!;
-        expect(presentation.textContent).toBe('Story view');
-        expect(presentation.getAttribute('aria-pressed')).toBe('false');
-        expect(presentation.getAttribute('aria-label')).toBe('Story view. Switch to course view');
+        // Destination-named: in story mode the control names the course view it opens.
+        expect(presentation.textContent).toBe('Course view');
+        expect(presentation.getAttribute('aria-pressed')).toBeNull();
+        expect(presentation.getAttribute('aria-label')).toBe('Switch to course view');
         expect(host.querySelector('.academy-root')?.getAttribute('data-presentation-mode')).toBe('story');
         presentation.click();
         expect(onPresentationMode).toHaveBeenCalledWith('course');
         shell.setPresentationMode('course');
-        expect(presentation.textContent).toBe('Course view');
-        expect(presentation.getAttribute('aria-pressed')).toBe('true');
-        expect(presentation.getAttribute('aria-label')).toBe('Course view. Switch to story view');
+        expect(presentation.textContent).toBe('Story view');
+        expect(presentation.getAttribute('aria-label')).toBe('Switch to story view');
         expect(host.querySelector('.academy-root')?.getAttribute('data-presentation-mode')).toBe('course');
         shell.setClassBoardAccess('available');
         expect(host.querySelector('.academy-settings-button')).toBeNull();
         const shellStyles = fs.readFileSync(path.resolve('src/academy/styles/shell.css'), 'utf8');
         expect(shellStyles).toMatch(/\.academy-chrome-button\s*\{[^}]*width:\s*100%[^}]*border-radius:\s*5px 10px 6px 8px[^}]*text-align:\s*left/s);
         shell.setLanguage('ja');
-        expect(host.querySelector('.academy-presentation-button')?.textContent).toBe('コースビュー');
+        expect(host.querySelector('.academy-presentation-button')?.textContent).toBe('物語ビュー');
         const utility = host.querySelector<HTMLDetailsElement>('.academy-utility')!;
         utility.open = true;
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
