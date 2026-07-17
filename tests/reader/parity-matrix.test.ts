@@ -134,7 +134,7 @@ describe('provider parity matrix', () => {
         try {
             const internals = controller as unknown as {
                 state: { mode: string };
-                applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[];
+                studyPool: { applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[] };
             };
             internals.state.mode = 'word';
             const pool = [
@@ -142,7 +142,7 @@ describe('provider parity matrix', () => {
                 matrixCard({ vid: 2, spelling: '図書', reading: 'としょ', cardState: ['locked'] }),
                 matrixCard({ vid: 3, spelling: 'ばっちり', reading: 'ばっちり', cardState: ['locked'] }),
             ];
-            const queue = internals.applyKanjiUnlockQueue(pool);
+            const queue = internals.studyPool.applyKanjiUnlockQueue(pool);
             // The due word stays; the locked word becomes its kanji cards;
             // the kana-only locked word studies as a word.
             expect(queue.map(card => card.spelling)).toEqual(['勉強', '図', '書', 'ばっちり']);
@@ -157,11 +157,11 @@ describe('provider parity matrix', () => {
         try {
             const internals = controller as unknown as {
                 state: { mode: string };
-                applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[];
+                studyPool: { applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[] };
             };
             internals.state.mode = 'word';
             const pool = [matrixCard({ vid: 2, spelling: '図書', reading: 'としょ', cardState: ['locked'] })];
-            expect(internals.applyKanjiUnlockQueue(pool).map(card => card.spelling)).toEqual(['図書']);
+            expect(internals.studyPool.applyKanjiUnlockQueue(pool).map(card => card.spelling)).toEqual(['図書']);
         } finally {
             controller.destroy();
         }
