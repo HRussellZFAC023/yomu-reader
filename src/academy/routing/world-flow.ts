@@ -171,6 +171,16 @@ class WorldFlow implements AcademyRouteFlow {
         const characters = projectCharacterDirectory(context.projection);
         const lessonContext = await this.classroomWeekContext(place, context);
         let speech: { dispose(): void } | undefined;
+        // `context.checkpoint` is a render-time snapshot. Handlers below can fire
+        // in sequence within ONE render (arrival dialogue -> practice completion),
+        // and a later write based on the stale snapshot would drop introductions
+        // the earlier handler already saved — live symptom: finishing a practice
+        // resurrected the first-visit arrival dialogue. Track the working list.
+        let seenIntroductions = context.checkpoint.seenIntroductions;
+        const markSeen = (id: string): readonly string[] => {
+            seenIntroductions = markIntroductionSeen(seenIntroductions, id);
+            return seenIntroductions;
+        };
         const screen = renderWorldPlaceScreen({
             language: context.language,
             place,
@@ -192,14 +202,14 @@ class WorldFlow implements AcademyRouteFlow {
                 void this.openWorldActivity(route, context);
             },
             onClaimStamp: stampId => void context.go(context.checkpoint.route, {
-                seenIntroductions: markIntroductionSeen(context.checkpoint.seenIntroductions, stampId),
+                seenIntroductions: markSeen(stampId),
             }),
             onIntroductionComplete: introduction => {
                 this.locationAudio.confirm(place);
                 // The arrival dialogue is local state, not a navigation event.
                 // Saving it in place preserves Back's existing route frame.
                 const update = {
-                    seenIntroductions: markIntroductionSeen(context.checkpoint.seenIntroductions, introduction),
+                    seenIntroductions: markSeen(introduction),
                 };
                 void (context.save
                     ? context.save(update)
@@ -228,7 +238,7 @@ class WorldFlow implements AcademyRouteFlow {
                 // confirmation to be seen before swapping the screen out.
                 setTimeout(() => {
                     void context.go(context.checkpoint.route, {
-                        seenIntroductions: markIntroductionSeen(context.checkpoint.seenIntroductions, stampId),
+                        seenIntroductions: markSeen(stampId),
                     });
                 }, 1200);
             },
@@ -379,6 +389,7 @@ class WorldFlow implements AcademyRouteFlow {
             context.shell.replace(renderLibraryIntroduction(
                 context.language,
                 () => void this.completeLibraryIntroduction(context, libraryIntroduction),
+                () => void context.back(),
             ));
             return;
         }

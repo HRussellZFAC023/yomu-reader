@@ -32,6 +32,7 @@ export interface VocabularySheetOptions {
 export function renderLibraryIntroduction(
     language: AcademyLanguage,
     onContinue: () => void,
+    onBack?: () => void,
 ): HTMLElement {
     const screen = libraryScene('academy-library-introduction');
     screen.dataset.academyRoute = 'review';
@@ -54,6 +55,14 @@ export function renderLibraryIntroduction(
     const continueButton = button(language === 'ja' ? '席へ' : 'Take a seat', 'academy-library-dialogue-continue');
     continueButton.addEventListener('click', onContinue);
     actions.append(continueButton);
+    if (onBack) {
+        // Every sibling location offers ← Back on arrival; the library must
+        // not require committing to the intro before the exit appears.
+        const back = backButton(language);
+        back.classList.add('academy-library-back');
+        back.addEventListener('click', onBack);
+        actions.append(back);
+    }
     card.append(speaker, heading, line, actions);
     dialogue.append(portrait, card);
     screen.append(dialogue);
