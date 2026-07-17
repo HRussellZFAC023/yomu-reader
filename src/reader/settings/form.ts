@@ -1,4 +1,4 @@
-import { ACADEMY_SRS_LABEL, ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
@@ -9,7 +9,7 @@ import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTL
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
-import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
+import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { FONT_FAMILY_PRESETS } from './font-presets';
 import { renderRowOrderTools, renderSourceRowsList } from './form-source-rows';
@@ -47,8 +47,59 @@ const PROXY_WORKER_SOURCE_URL = `${GITHUB_REPOSITORY_URL}/blob/main/workers/jpdb
 const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type StringReaderSettingName = { [K in keyof ReaderSettings & string]: ReaderSettings[K] extends string ? K : never }[keyof ReaderSettings & string];
-type ColorInputField = readonly [StringReaderSettingName, string];
+type ColorInputField = readonly [StringReaderSettingName, SettingsTextKey];
 type PageScanMode = 'off' | 'auto' | 'manual';
+type SettingsOptionTable<V extends string = string> = readonly (readonly [V, SettingsTextKey])[];
+
+// Turn a value→i18n-key option table into localized [value, label] pairs. Shared
+// by renderSettingsForm (first paint) and localizeSettingsForm (language switch).
+function localizedOptions<V extends string>(text: SettingsText, table: SettingsOptionTable<V>): [V, string][] {
+    return table.map(([value, key]) => [value, text(key)]);
+}
+
+function settingsText(language: InterfaceLanguage): SettingsText {
+    return key => uiText(language, key);
+}
+
+// Option lists whose labels mix i18n keys with brand literals or runtime values;
+// kept as functions (not tables) so both render and localize build them alike.
+function newTabSourceOptions(text: SettingsText): [ReaderSettings['newTabSource'], string][] {
+    return [
+        ['auto', text('newTabAuto')],
+        ['yomu-local', text('newTabYomuLocal')],
+        ['jpdb', text('newTabApiSrs')],
+        ['bunpro', text('newTabBunpro')],
+        ['anki', 'Anki'],
+        ['dictionary', text('dictionaryFallback')],
+    ];
+}
+
+function immersionKitExampleSourceOptions(text: SettingsText): [ImmersionExampleSource, string][] {
+    return [
+        ['immersion-kit', text('immersionKit')],
+        ['nadeshiko', 'Nadeshiko'],
+        ['combined', text('immersionKitAndNadeshiko')],
+    ];
+}
+
+function ocrEngineOptions(text: SettingsText): [ReaderSettings['ocrEngine'], string][] {
+    return [
+        ['auto', text('automatic')],
+        ['MangaOCR', text('ocrEngineMangaOcr')],
+        ['PaddleOCR', 'PaddleOCR'],
+        ['AppleVision', text('ocrEngineAppleVision')],
+    ];
+}
+
+function colorSourceSelectOptions(text: SettingsText, apiLabel: string): [string, string][] {
+    return [
+        ['status', text('colorSourceStatus').replace('JPDB', apiLabel)],
+        ['jpdb', text('colorSourceJpdb').replace('JPDB', apiLabel)],
+        ['anki', text('colorSourceAnki')],
+        ['pitch', text('colorSourcePitch')],
+        ['off', text('colorSourceNone')],
+    ];
+}
 const DISABLED_SETTINGS_CONTROL_DESCRIPTION_ID = 'jpdb-reader-disabled-control-description';
 const API_KEY_INPUT_ATTRIBUTES = {
     autocapitalize: 'off',
@@ -63,22 +114,6 @@ const API_KEY_INPUT_ATTRIBUTES = {
 } as const;
 const API_KEY_INPUT_ATTRIBUTE_HTML = ' autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
 const AUTOFILL_IGNORE_ATTRIBUTE_HTML = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
-const NEW_TAB_STUDY_STEP_LABELS: Record<NewTabStudyChallengeStep, string> = {
-    'kanji-doodle': 'Kanji drawing',
-    word: 'Word meaning',
-    'recall-cloze': 'Write in sentence',
-    'listen-pitch': 'Pitch listening',
-    speaking: 'Speaking',
-    'type-word': 'Type the word',
-};
-const NEW_TAB_STUDY_STEP_HELP: Record<NewTabStudyChallengeStep, string> = {
-    'kanji-doodle': 'Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.',
-    word: 'Japanese front, meaning and reading on reveal.',
-    'recall-cloze': 'Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.',
-    'listen-pitch': 'Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.',
-    speaking: 'Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.',
-    'type-word': 'Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.',
-};
 const NEW_TAB_STUDY_STEP_LABEL_KEYS: Record<NewTabStudyChallengeStep, SettingsTextKey> = {
     'kanji-doodle': 'newTabStudyStepKanji',
     word: 'newTabStudyStepWord',
@@ -96,52 +131,54 @@ const NEW_TAB_STUDY_STEP_HELP_KEYS: Record<NewTabStudyChallengeStep, SettingsTex
     'type-word': 'newTabStudyStepTypeHelp',
 };
 const DEFAULT_SETTINGS_PANEL = 'appearance';
-const SETTINGS_TABS: readonly { panel: string; label: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
-    { panel: 'appearance', label: 'Appearance', active: true },
-    { panel: 'backup', label: 'Backup & sync', labelKey: 'backupSync' },
-    { panel: 'api', label: 'API' },
-    { panel: 'dictionaries', label: 'Sources', labelKey: 'sources' },
-    { panel: 'media', label: 'Media' },
-    { panel: 'mining', label: 'Mining' },
-    { panel: 'newTab', label: 'Study' },
-    { panel: 'shortcuts', label: 'Shortcuts' },
-    { panel: 'help', label: 'Help' },
+const SETTINGS_TABS: readonly { panel: string; labelKey?: SettingsTextKey; active?: boolean }[] = [
+    { panel: 'appearance', active: true },
+    { panel: 'backup', labelKey: 'backupSync' },
+    { panel: 'api' },
+    { panel: 'dictionaries', labelKey: 'sources' },
+    { panel: 'media' },
+    { panel: 'mining' },
+    { panel: 'newTab' },
+    { panel: 'shortcuts' },
+    { panel: 'help' },
 ];
+// Each colour field's i18n key equals its control name, so a localize pass can
+// re-label it from SETTINGS_CONTROL_LABELS while render sources the same key.
 const WORD_COLOR_FIELDS = [
-    ['wordColorNew', 'New and in deck'],
-    ['wordColorLearning', 'Learning'],
-    ['wordColorKnown', 'Known and never forget'],
-    ['wordColorDue', 'Due'],
-    ['wordColorFailed', 'Failed'],
-    ['wordColorIgnored', 'Ignored, suspended, and blacklisted'],
+    ['wordColorNew', 'wordColorNew'],
+    ['wordColorLearning', 'wordColorLearning'],
+    ['wordColorKnown', 'wordColorKnown'],
+    ['wordColorDue', 'wordColorDue'],
+    ['wordColorFailed', 'wordColorFailed'],
+    ['wordColorIgnored', 'wordColorIgnored'],
 ] as const satisfies readonly ColorInputField[];
 const PITCH_COLOR_FIELDS = [
-    ['pitchColorHeiban', 'Heiban (flat)'],
-    ['pitchColorAtamadaka', 'Atamadaka (head-high)'],
-    ['pitchColorNakadaka', 'Nakadaka (middle-high)'],
-    ['pitchColorOdaka', 'Odaka (tail-high)'],
-    ['pitchColorUnknown', 'Unknown'],
+    ['pitchColorHeiban', 'pitchColorHeiban'],
+    ['pitchColorAtamadaka', 'pitchColorAtamadaka'],
+    ['pitchColorNakadaka', 'pitchColorNakadaka'],
+    ['pitchColorOdaka', 'pitchColorOdaka'],
+    ['pitchColorUnknown', 'pitchColorUnknown'],
 ] as const satisfies readonly ColorInputField[];
 // No ocrBackgroundColor field: the highlight background is derived from the
 // accent color on every normalize (accessibleOcrBackgroundColor), so a picker
 // for it was a dead control whose pick was silently discarded.
 const OCR_COLOR_FIELDS = [
-    ['ocrTextColor', 'Image text color'],
-    ['ocrOutlineColor', 'Image text outline'],
+    ['ocrTextColor', 'ocrTextColor'],
+    ['ocrOutlineColor', 'ocrOutlineColor'],
 ] as const satisfies readonly ColorInputField[];
 const SUBTITLE_COLOR_FIELDS = [
-    ['subtitleTextColor', 'Subtitle color'],
-    ['subtitleOutlineColor', 'Subtitle outline'],
-    ['subtitleBackgroundColor', 'Subtitle background'],
+    ['subtitleTextColor', 'subtitleTextColor'],
+    ['subtitleOutlineColor', 'subtitleOutlineColor'],
+    ['subtitleBackgroundColor', 'subtitleBackgroundColor'],
 ] as const satisfies readonly ColorInputField[];
 const COLOR_CHANNEL_FIELDS = [
-    ['wordHighlightColorSource', 'Word highlight color'],
-    ['wordUnderlineColorSource', 'Word underline color'],
-    ['wordTextColorSource', 'Word text color'],
-    ['subtitleHighlightColorSource', 'Subtitle highlight color'],
-    ['subtitleUnderlineColorSource', 'Subtitle underline color'],
-    ['subtitleTextColorSource', 'Subtitle text color'],
-] as const satisfies readonly [ColorSourceSettingName, string][];
+    ['wordHighlightColorSource', 'wordHighlightColorSource'],
+    ['wordUnderlineColorSource', 'wordUnderlineColorSource'],
+    ['wordTextColorSource', 'wordTextColorSource'],
+    ['subtitleHighlightColorSource', 'subtitleHighlightColorSource'],
+    ['subtitleUnderlineColorSource', 'subtitleUnderlineColorSource'],
+    ['subtitleTextColorSource', 'subtitleTextColorSource'],
+] as const satisfies readonly [ColorSourceSettingName, SettingsTextKey][];
 
 function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiText>[1]): string {
     return escapeHtml(uiText(language, key));
@@ -212,9 +249,9 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderAutofillTrap()}
             <div class="jpdb-reader-settings-head">
                 <div class="jpdb-reader-settings-drag-handle"></div>
-                <h2>${SETTINGS_TITLE}</h2>
+                <h2>${escapedUiText(settings.interfaceLanguage, 'settingsTitle')}</h2>
             </div>
-            ${renderSettingsTabs()}
+            ${renderSettingsTabs(settings.interfaceLanguage)}
             ${renderSettingsSearch(settings.interfaceLanguage)}
             <div class="jpdb-reader-settings-scroll">
             ${renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl)}
@@ -233,14 +270,14 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderShortcutSettingsPanel(settings)}
             ${renderHelpSettingsPanel(settings)}
             </div>
-            ${renderSettingsFooter()}
+            ${renderSettingsFooter(settings.interfaceLanguage)}
         `;
 }
 
-function renderSettingsTabs(): string {
+function renderSettingsTabs(language: InterfaceLanguage): string {
     return `
-            <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="Settings sections">
-                ${SETTINGS_TABS.map(tab => settingsTabButton(tab.panel, tab.label, Boolean(tab.active))).join('')}
+            <div class="jpdb-reader-settings-tabs" role="tablist" aria-label="${escapedUiText(language, 'settingsSections')}">
+                ${SETTINGS_TABS.map(tab => settingsTabButton(tab.panel, uiText(language, tab.labelKey ?? (tab.panel as SettingsTextKey)), Boolean(tab.active))).join('')}
             </div>
     `;
 }
@@ -267,38 +304,40 @@ function renderSettingsSearch(language: InterfaceLanguage): string {
 }
 
 function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl: string): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     const jpdbStatus = renderJpdbStatusLine(settings);
     const bunproStatus = renderBunproStatusLine(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-api" role="tabpanel" data-settings-panel="api" data-legend-key="api" hidden>
-                <legend>API</legend>
+                <legend>${escapedUiText(language, 'api')}</legend>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">API access</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'apiAccess')}</div>
                     <div class="grid">
-                        ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
-                        ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
-                        ${input('apiCredentialBunpro', `Bunpro frontend API token <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">Bunpro settings</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
+                        ${input('apiCredentialJiten', `${escapedUiText(language, 'apiCredentialJiten')} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jitenSettings')}</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialJpdb', `${escapedUiText(language, 'apiCredentialJpdb')} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language, 'jpdbSettings')}</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialBunpro', `${escapedUiText(language, 'apiCredentialBunpro')} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language, 'bunproSettings')}</a>`, settings.bunproFrontendApiToken, 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input', placeholder: 'frontend_api_token' })}
                         <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language, 'apiAccessHelp')}</div>
                 </div>
                 ${jpdbStatus}
                 ${bunproStatus}
                 <div data-jpdb-decks>
                     ${renderJpdbDeckControls(settings, [], hasJpdbApiCredential(settings), settings.interfaceLanguage)}
                 </div>
-                ${checkbox('jpdbMiningEnabled', 'Allow API review/deck changes', settings.jpdbMiningEnabled)}
-                ${checkbox('bunproMiningEnabled', 'Allow Bunpro review/mining', settings.bunproMiningEnabled)}
-                ${checkbox('addToForq', 'Also copy JPDB adds to forq', settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
-                ${checkbox('enableReviews', 'Show review buttons', settings.enableReviews)}
-                ${select('apiGradingProvider', 'Preferred grading service', settings.apiGradingProvider === 'bunpro' ? 'jiten' : settings.apiGradingProvider, [['jiten', 'Jiten'], ['jpdb', 'JPDB']])}
-                <div class="jpdb-reader-help" data-grading-provider-help>Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.</div>
+                ${checkbox('jpdbMiningEnabled', text('jpdbMiningEnabled'), settings.jpdbMiningEnabled)}
+                ${checkbox('bunproMiningEnabled', text('bunproMiningEnabled'), settings.bunproMiningEnabled)}
+                ${checkbox('addToForq', text('addToForq'), settings.jpdbMiningEnabled && settings.addToForq, { disabled: !settings.jpdbMiningEnabled })}
+                ${checkbox('enableReviews', text('enableReviews'), settings.enableReviews)}
+                ${select('apiGradingProvider', text('apiGradingProvider'), settings.apiGradingProvider === 'bunpro' ? 'jiten' : settings.apiGradingProvider, [['jiten', 'Jiten'], ['jpdb', 'JPDB']])}
+                <div class="jpdb-reader-help" data-grading-provider-help>${escapedUiText(language, 'apiGradingProviderHelp')}</div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Dictionary site enhancements</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'jpdbPageEnhancements')}</div>
                     <div class="grid">
-                        ${checkbox('jpdbPageEnhancementsEnabled', 'Enhance dictionary pages', settings.jpdbPageEnhancementsEnabled)}
-                        ${checkbox('jpdbPageWordEnhancementsEnabled', 'Add sources to word/search pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
-                        ${checkbox('jpdbPageKanjiEnhancementsEnabled', 'Add sources to kanji pages', settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox('jpdbPageEnhancementsEnabled', text('jpdbPageEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled)}
+                        ${checkbox('jpdbPageWordEnhancementsEnabled', text('jpdbPageWordEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageWordEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
+                        ${checkbox('jpdbPageKanjiEnhancementsEnabled', text('jpdbPageKanjiEnhancementsEnabled'), settings.jpdbPageEnhancementsEnabled && settings.jpdbPageKanjiEnhancementsEnabled, { disabled: !settings.jpdbPageEnhancementsEnabled })}
                     </div>
                     <div class="jpdb-reader-help">Adds your dictionaries, Immersion Kit, kanji practice, and other sources to jpdb.io and jiten.moe vocabulary, kanji, and parse pages. Toggle individual sources under Dictionaries and Reading.</div>
                 </div>
@@ -307,27 +346,28 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
 }
 
 function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
+    const text = settingsText(settings.interfaceLanguage);
     return `
             <fieldset id="jpdb-reader-settings-panel-appearance" role="tabpanel" data-settings-panel="appearance" data-legend-key="appearance">
-                <legend>Appearance</legend>
+                <legend>${escapedUiText(settings.interfaceLanguage, 'appearance')}</legend>
                 <div class="grid">
-                    ${select('interfaceLanguage', 'Settings language', settings.interfaceLanguage, [['auto', 'Automatic'], ['en', 'English'], ['ja', '日本語']])}
-                    ${themeSegmentedControl(settings.theme)}
-                    ${select('popupMode', 'Popup mode', settings.popupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
-                    ${select('hoverPopupMode', 'Hover popup mode', settings.hoverPopupMode, [['auto', 'Auto'], ['sheet', 'Bottom sheet'], ['popover', 'Popover']])}
+                    ${select('interfaceLanguage', text('settingsLanguage'), settings.interfaceLanguage, localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS))}
+                    ${themeSegmentedControl(settings.theme, text)}
+                    ${select('popupMode', text('popupMode'), settings.popupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
+                    ${select('hoverPopupMode', text('hoverPopupMode'), settings.hoverPopupMode, localizedOptions(text, POPUP_MODE_OPTIONS))}
                     ${renderStickyBottomSheetControl(settings)}
-                    ${checkbox('popoverBackdropEnabled', 'Dim page behind popover', settings.popoverBackdropEnabled)}
-                    ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
-                    ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
-                    ${select('popoverHeightMode', 'Popover height behavior', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
-                    ${fontFamilyControl('readerFontFamily', 'Reader interface font', settings.readerFontFamily)}
-                    ${fontFamilyControl('popupFontFamily', 'Popup Japanese font', settings.popupFontFamily)}
-                    ${input('popupFontWeight', 'Popup Japanese weight', String(settings.popupFontWeight), 'number', { min: 300, max: 900, step: 10 })}
-                    ${input('accentColor', 'Accent color', sanitizeAccentColor(settings.accentColor), 'color')}
+                    ${checkbox('popoverBackdropEnabled', text('popoverBackdropEnabled'), settings.popoverBackdropEnabled)}
+                    ${input('popoverWidth', text('popoverWidth'), String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
+                    ${input('popoverHeight', text('popoverHeight'), String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
+                    ${select('popoverHeightMode', text('popoverHeightMode'), settings.popoverHeightMode, localizedOptions(text, POPOVER_HEIGHT_MODE_OPTIONS))}
+                    ${fontFamilyControl('readerFontFamily', text('readerFontFamily'), settings.readerFontFamily, text)}
+                    ${fontFamilyControl('popupFontFamily', text('popupFontFamily'), settings.popupFontFamily, text)}
+                    ${input('popupFontWeight', text('popupFontWeight'), String(settings.popupFontWeight), 'number', { min: 300, max: 900, step: 10 })}
+                    ${input('accentColor', text('accentColor'), sanitizeAccentColor(settings.accentColor), 'color')}
                 </div>
                 ${renderWordColorSettingsSubsection(settings)}
                 ${renderColorChannelSettingsSubsection(settings)}
-                ${renderAppearancePreview()}
+                ${renderAppearancePreview(settings.interfaceLanguage)}
             </fieldset>
     `;
 }
@@ -336,93 +376,96 @@ function renderStickyBottomSheetControl(settings: ReaderSettings): string {
     const unavailable = settings.popupMode === 'popover';
     return `
                     <div data-sticky-bottom-sheet-field ${unavailable ? 'hidden' : ''}>
-                        ${checkbox('stickyBottomSheet', 'Keep sheet open after lookup', settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
+                        ${checkbox('stickyBottomSheet', uiText(settings.interfaceLanguage, 'stickyBottomSheet'), settings.stickyBottomSheet && !unavailable, { disabled: unavailable })}
                     </div>`;
 }
 
 function renderNewTabSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-newtab" role="tabpanel" data-settings-panel="newTab" data-legend-key="newTab" hidden>
-                <legend>Study</legend>
+                <legend>${escapedUiText(settings.interfaceLanguage, 'newTab')}</legend>
                 ${renderNewTabSettingsSubsection(settings)}
             </fieldset>
     `;
 }
 
 function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Study</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'newTab')}</div>
                     <div class="grid jpdb-reader-settings-cgrid">
                         ${runningAsBrowserExtension() ? checkbox('newTabEnabled', 'Set Study as the new tab', settings.newTabEnabled) : ''}
-                        ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
+                        ${checkbox('newTabAnkiEnabled', text('newTabAnkiEnabled'), settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`], ['yomu-local', ACADEMY_SRS_LABEL], ['jpdb', 'API SRS (Jiten / JPDB)'], ['bunpro', 'Bunpro'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
-                        ${checkbox('yomuLocalSrsEnabled', `Enable ${ACADEMY_SRS_LABEL}`, settings.yomuLocalSrsEnabled)}
-                        ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
+                        ${select('newTabSource', text('newTabSource'), settings.newTabSource, newTabSourceOptions(text))}
+                        ${checkbox('yomuLocalSrsEnabled', text('yomuLocalSrsEnabled'), settings.yomuLocalSrsEnabled)}
+                        ${select('newTabJpdbReviewMode', text('newTabJpdbReviewMode'), settings.newTabJpdbReviewMode, localizedOptions(text, NEW_TAB_JPDB_REVIEW_MODE_OPTIONS))}
                         <div data-review-config ${settings.enableReviews ? '' : 'hidden'}>
-                            ${select('twoButtonReviews', 'Review rating scale', settings.twoButtonReviews ? 'true' : 'false', [['false', 'Five point: NOTHING to EASY'], ['true', 'Two point: FAIL / PASS']])}
+                            ${select('twoButtonReviews', text('reviewRatingScale'), settings.twoButtonReviews ? 'true' : 'false', localizedOptions(text, TWO_BUTTON_REVIEW_OPTIONS))}
                         </div>
-                        ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
+                        ${select('newTabKanjiKeywordSource', text('newTabKanjiKeywordSource'), settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings, text))}
                     </div>
                     ${renderNewTabStudyStepOrderEditor(settings)}
                     <div class="grid jpdb-reader-settings-tgrid jpdb-reader-settings-study-options">
-                        ${checkbox('newTabParsingEnabled', 'Parse sentences on Study', settings.newTabParsingEnabled)}
-                        ${checkbox('newTabKanjiUnlockEnabled', 'Study kanji before unlocking words', settings.newTabKanjiUnlockEnabled)}
-                        ${checkbox('newTabStopAtBatchEnd', 'Stop at the end of each batch', settings.newTabStopAtBatchEnd)}
-                        ${checkbox('newTabSwipeReviews', 'Swipe cards to grade (left = fail, right = pass)', settings.newTabSwipeReviews)}
-                        ${checkbox('newTabShortcutHintsEnabled', 'Show Study keyboard shortcut hints', settings.newTabShortcutHintsEnabled)}
-                        ${checkbox('newTabFrontSentenceEnabled', 'Show sentence on word fronts', settings.newTabFrontSentenceEnabled)}
-                        ${checkbox('newTabKanjiAutogradeEnabled', 'Autograde kanji drawing', settings.newTabKanjiAutogradeEnabled)}
-                        ${checkbox('newTabKanjiAutoSubmit', 'Submit kanji grade after autograde', settings.newTabKanjiAutoSubmit)}
-                        ${checkbox('newTabOfflineEnabled', 'Cache Study for offline use', settings.newTabOfflineEnabled)}
+                        ${checkbox('newTabParsingEnabled', text('newTabParsingEnabled'), settings.newTabParsingEnabled)}
+                        ${checkbox('newTabKanjiUnlockEnabled', text('newTabKanjiUnlockEnabled'), settings.newTabKanjiUnlockEnabled)}
+                        ${checkbox('newTabStopAtBatchEnd', text('newTabStopAtBatchEnd'), settings.newTabStopAtBatchEnd)}
+                        ${checkbox('newTabSwipeReviews', text('newTabSwipeReviews'), settings.newTabSwipeReviews)}
+                        ${checkbox('newTabShortcutHintsEnabled', text('newTabShortcutHintsEnabled'), settings.newTabShortcutHintsEnabled)}
+                        ${checkbox('newTabFrontSentenceEnabled', text('newTabFrontSentenceEnabled'), settings.newTabFrontSentenceEnabled)}
+                        ${checkbox('newTabKanjiAutogradeEnabled', text('newTabKanjiAutogradeEnabled'), settings.newTabKanjiAutogradeEnabled)}
+                        ${checkbox('newTabKanjiAutoSubmit', text('newTabKanjiAutoSubmit'), settings.newTabKanjiAutoSubmit)}
+                        ${checkbox('newTabOfflineEnabled', text('newTabOfflineEnabled'), settings.newTabOfflineEnabled)}
                     </div>
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
-                        ${input('newTabOfflineLimit', 'Offline review cache limit', String(settings.newTabOfflineLimit), 'number', { min: 0, max: 500, step: 10 })}
-                        ${input('newTabDailyGoalMinutes', 'Daily study goal (minutes, 0 = off)', String(settings.newTabDailyGoalMinutes), 'number', { min: 0, max: 1440, step: 5 })}
-                        <label>Study address<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
+                        ${input('newTabOfflineLimit', text('newTabOfflineLimit'), String(settings.newTabOfflineLimit), 'number', { min: 0, max: 500, step: 10 })}
+                        ${input('newTabDailyGoalMinutes', text('newTabDailyGoalMinutes'), String(settings.newTabDailyGoalMinutes), 'number', { min: 0, max: 1440, step: 5 })}
+                        <label>${escapedUiText(language, 'newTabUrl')}<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
-                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>Open Study</a>
-                        <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">Copy address</button>
+                        <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>${escapedUiText(language, 'openNewTabPage')}</a>
+                        <button class="jpdb-reader-btn" type="button" data-action="copy-newtab-url">${escapedUiText(language, 'copyAddress')}</button>
                     </div>
-                    <div class="jpdb-reader-help" data-newtab-address-help>Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.</div>
-                    <div class="jpdb-reader-help" data-newtab-offline-help>Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.</div>
+                    <div class="jpdb-reader-help" data-newtab-address-help>${escapedUiText(language, 'newTabAddressHelp')}</div>
+                    <div class="jpdb-reader-help" data-newtab-offline-help>${escapedUiText(language, 'newTabOfflineHelp')}</div>
                 </div>
     `;
 }
 
 function renderNewTabStudyStepOrderEditor(settings: ReaderSettings): string {
     const disabled = new Set(settings.newTabStudyDisabledSteps);
+    const language = settings.interfaceLanguage;
     return `
                         <div class="jpdb-reader-settings-study-steps" data-source-editor data-study-step-editor>
-                            <div class="jpdb-reader-settings-label-text" data-study-step-editor-title>Study steps</div>
-                            <div class="jpdb-reader-help" data-study-step-editor-help>Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.</div>
+                            <div class="jpdb-reader-settings-label-text" data-study-step-editor-title>${escapedUiText(language, 'newTabStudySteps')}</div>
+                            <div class="jpdb-reader-help" data-study-step-editor-help>${escapedUiText(language, 'newTabStudyStepsHelp')}</div>
                             <div class="jpdb-reader-order-head jpdb-reader-study-step-head">
-                                <span data-study-step-head="enabled">On</span>
-                                <span data-study-step-head="step">Step</span>
-                                <span data-study-step-head="details">Details</span>
-                                <span data-study-step-head="order">Order</span>
+                                <span data-study-step-head="enabled">${escapedUiText(language, 'enabledHeader')}</span>
+                                <span data-study-step-head="step">${escapedUiText(language, 'newTabStudyStepHeader')}</span>
+                                <span data-study-step-head="details">${escapedUiText(language, 'detailsHeader')}</span>
+                                <span data-study-step-head="order">${escapedUiText(language, 'orderHeader')}</span>
                             </div>
-                            ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step))).join('')}
+                            ${settings.newTabStudyStepOrder.map((step, index) => renderNewTabStudyStepRow(step, index, !disabled.has(step), language)).join('')}
                             <input name="newTabStudyTourSeen" type="hidden" value="${settings.newTabStudyTourSeen ? 'true' : 'false'}">
                         </div>
     `;
 }
 
-function renderNewTabStudyStepRow(step: NewTabStudyChallengeStep, index: number, enabled: boolean): string {
+function renderNewTabStudyStepRow(step: NewTabStudyChallengeStep, index: number, enabled: boolean, language: InterfaceLanguage): string {
     return `
                             <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml(step)}">
                                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                                     <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml(step)}" ${enabled ? 'checked' : ''}>
                                     <span>${index + 1}</span>
                                 </label>
-                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapeHtml(NEW_TAB_STUDY_STEP_LABELS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml(NEW_TAB_STUDY_STEP_HELP[step])}</div>
+                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_HELP_KEYS[step])}</div>
                                 ${renderRowOrderTools({
                                     upAction: 'dictionary-source-up',
                                     downAction: 'dictionary-source-down',
-                                    labels: { drag: 'Drag to reorder', up: 'Move up', down: 'Move down' },
+                                    labels: { drag: uiText(language, 'dragToReorder'), up: uiText(language, 'moveUp'), down: uiText(language, 'moveDown') },
                                     leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml(step)}">`,
                                 })}
                             </div>
@@ -490,7 +533,7 @@ function isNewTabAnkiDeckDisabled(deck: string, disabledDecks: string[]): boolea
 }
 
 function renderWordColorSettingsSubsection(settings: ReaderSettings): string {
-    return renderColorSettingsSubsection('Word colors', WORD_COLOR_FIELDS, settings);
+    return renderColorSettingsSubsection('wordColors', WORD_COLOR_FIELDS, settings);
 }
 
 export function canonicalNewTabAnkiDisabledDecks(deckNames: string[]): string[] {
@@ -508,66 +551,172 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
     return Boolean(parent && deck.startsWith(`${parent}::`));
 }
 
-const FURIGANA_HIDE_GROUPS: Array<[ReaderSettings['furiganaHiddenStateGroups'][number], string]> = [
-    ['known', 'Known'],
-    ['due', 'Due'],
-    ['failed', 'Failed'],
-    ['learning', 'Learning'],
-    ['new', 'New'],
+const FURIGANA_HIDE_GROUPS: readonly ReaderSettings['furiganaHiddenStateGroups'][number][] = [
+    'known',
+    'due',
+    'failed',
+    'learning',
+    'new',
 ];
 
-const APPEARANCE_PRESET_OPTIONS: Array<[string, string]> = [
-    ['', 'Keep current custom settings'],
-    ['balanced', 'Balanced reading'],
-    ['new-only', 'Focus on new words'],
-    ['underline-new', 'Minimal highlights'],
-    ['no-colors', 'Plain text'],
-];
+// Single-source option taxonomies: each entry maps an option value to its i18n
+// key. renderSettingsForm localizes them on first paint (no English flash before
+// localizeSettingsForm runs) and localizeSettingsForm re-applies the same table
+// on live language switches — one source, two consumers.
+const INTERFACE_LANGUAGE_OPTIONS = [
+    ['auto', 'automatic'],
+    ['en', 'english'],
+    ['ja', 'japanese'],
+] as const satisfies SettingsOptionTable;
 
-const FURIGANA_MODE_OPTIONS: Array<[ReaderSettings['furiganaMode'], string]> = [
-    ['known-status', 'Hide familiar words'],
-    ['difficult-kanji', 'Hard kanji only'],
-    ['hover', 'Show on hover'],
-    ['all', 'Show on every parsed word'],
-    ['off', 'Off'],
-];
+const POPUP_MODE_OPTIONS = [
+    ['auto', 'auto'],
+    ['sheet', 'bottomSheet'],
+    ['popover', 'popover'],
+] as const satisfies SettingsOptionTable;
 
-const WORD_COLOR_STATE_OPTIONS: Array<[ReaderSettings['wordColorStates'], string]> = [
-    ['all', 'Use all learning states'],
-    ['new-only', 'Only new / not-in-deck words'],
-];
+const POPOVER_HEIGHT_MODE_OPTIONS = [
+    ['available', 'popoverHeightAvailable'],
+    ['fixed', 'popoverHeightFixed'],
+] as const satisfies SettingsOptionTable;
 
-const CLAMPED_ROW_READINGS_OPTIONS: Array<[ReaderSettings['clampedRowReadings'], string]> = [
-    ['show', 'Show (row grows)'],
-    ['hover', 'Hover only'],
-];
+const PARSER_PROVIDER_OPTIONS = [
+    ['local', 'parserProviderLocal'],
+    ['jiten', 'parserProviderJiten'],
+    ['jpdb', 'parserProviderJpdb'],
+    ['auto', 'parserProviderAuto'],
+] as const satisfies SettingsOptionTable;
+
+const NEW_TAB_JPDB_REVIEW_MODE_OPTIONS = [
+    ['auto', 'newTabJpdbReviewAuto'],
+    ['live-review', 'newTabLiveReview'],
+    ['api-vocabulary', 'newTabApiVocabulary'],
+] as const satisfies SettingsOptionTable;
+
+const TWO_BUTTON_REVIEW_OPTIONS = [
+    ['false', 'fivePoint'],
+    ['true', 'twoPoint'],
+] as const satisfies SettingsOptionTable;
+
+const APPEARANCE_PRESET_OPTIONS = [
+    ['', 'appearancePresetCustom'],
+    ['balanced', 'appearancePresetBalanced'],
+    ['new-only', 'appearancePresetNewOnly'],
+    ['underline-new', 'appearancePresetUnderlineNew'],
+    ['no-colors', 'appearancePresetNoColors'],
+] as const satisfies SettingsOptionTable;
+
+const FURIGANA_MODE_OPTIONS = [
+    ['known-status', 'furiganaHideKnown'],
+    ['difficult-kanji', 'furiganaDifficultKanji'],
+    ['hover', 'furiganaHoverOnly'],
+    ['all', 'furiganaAllParsed'],
+    ['off', 'off'],
+] as const satisfies readonly (readonly [ReaderSettings['furiganaMode'], SettingsTextKey])[];
+
+const WORD_COLOR_STATE_OPTIONS = [
+    ['all', 'wordColorStatesAll'],
+    ['new-only', 'wordColorStatesNewOnly'],
+] as const satisfies readonly (readonly [ReaderSettings['wordColorStates'], SettingsTextKey])[];
+
+const CLAMPED_ROW_READINGS_OPTIONS = [
+    ['show', 'clampedRowReadingsShow'],
+    ['hover', 'clampedRowReadingsHover'],
+] as const satisfies readonly (readonly [ReaderSettings['clampedRowReadings'], SettingsTextKey])[];
+
+const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
+    ['all', 'audioAutoPlayAll'],
+    ['hover', 'audioAutoPlayHover'],
+    ['tap', 'audioAutoPlayTap'],
+] as const satisfies SettingsOptionTable;
+
+const AUDIO_SELECTION_MODE_OPTIONS = [
+    ['first', 'firstAudio'],
+    ['random', 'randomAudio'],
+] as const satisfies SettingsOptionTable;
+
+const AUDIO_TTS_MODE_OPTIONS = [
+    ['fallback', 'audioTtsFallback'],
+    ['source-order', 'audioTtsSourceOrder'],
+] as const satisfies SettingsOptionTable;
+
+const IMMERSION_KIT_CATEGORY_OPTIONS = [
+    ['all', 'allCategories'],
+    ['anime', 'anime'],
+    ['drama', 'drama'],
+    ['games', 'games'],
+] as const satisfies SettingsOptionTable;
+
+const IMMERSION_KIT_SORT_OPTIONS = [
+    ['sentence_length:asc', 'shortestFirst'],
+    ['sentence_length:desc', 'longestFirst'],
+] as const satisfies SettingsOptionTable;
+
+const SUBTITLE_CONTROLS_MODE_OPTIONS = [
+    ['auto', 'showWhenNeeded'],
+    ['hidden', 'hideControls'],
+    ['always', 'alwaysVisible'],
+] as const satisfies SettingsOptionTable;
+
+const OCR_PROVIDER_OPTIONS = [
+    ['google-lens', 'googleLens'],
+    ['cloud-vision', 'cloudVision'],
+    ['local-service', 'localOcr'],
+    ['off', 'off'],
+] as const satisfies SettingsOptionTable;
+
+const OCR_OVERLAY_THEME_OPTIONS = [
+    ['auto', 'ocrOverlayThemeAuto'],
+    ['light', 'ocrOverlayThemeLight'],
+    ['dark', 'ocrOverlayThemeDark'],
+] as const satisfies SettingsOptionTable;
+
+const OCR_MAX_IMAGES_PER_PAGE_OPTIONS = [
+    ['3', 'lightWork'],
+    ['8', 'normal'],
+    ['16', 'more'],
+] as const satisfies SettingsOptionTable;
+
+const OCR_MIN_IMAGE_AREA_OPTIONS = [
+    ['80000', 'largeOnly'],
+    ['45000', 'normal'],
+    ['15000', 'includeSmall'],
+] as const satisfies SettingsOptionTable;
+
+const OCR_MAX_IMAGE_PIXELS_OPTIONS = [
+    ['640000', 'faster'],
+    ['1200000', 'balanced'],
+    ['2000000', 'sharper'],
+] as const satisfies SettingsOptionTable;
 
 function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS
-        .map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group)))
+        .map(group => checkbox(`furiganaHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
         .join('');
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>${escapedUiText(language, 'hideFuriganaFor')}</legend>${boxes}</fieldset>`;
 }
 
 function renderWordColorHiddenStateGroupControls(settings: ReaderSettings): string {
     // Per-state colour/highlight opt-out (e.g. "no highlight on known words"),
     // the colour analogue of the furigana hide groups. Always shown in the colour
     // subsection: it stays meaningful whenever any colour channel is active.
+    const language = settings.interfaceLanguage;
     const selected = new Set(settings.wordColorHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS
-        .map(([group, label]) => checkbox(`colorHide-${group}`, label, selected.has(group)))
+        .map(group => checkbox(`colorHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
         .join('');
-    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>Hide color for</legend>${boxes}</fieldset>`;
+    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText(language, 'hideColorFor')}</legend>${boxes}</fieldset>`;
 }
 
 // UT-47: a live sample sentence that mirrors the furigana/colour options.
 // data-settings-preview-lookup keeps localizeSettingsForm's
 // unwrapReaderWords pass from stripping the sample word spans.
-function renderAppearancePreview(): string {
+function renderAppearancePreview(language: InterfaceLanguage): string {
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
-                    <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
+                    <div class="jpdb-reader-local-title" data-settings-preview-title>${escapedUiText(language, 'preview')}</div>
                     <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
 }
@@ -585,24 +734,26 @@ export function appearancePreviewHtml(): string {
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
-    return renderColorSettingsSubsection('Pitch accent colors', PITCH_COLOR_FIELDS, settings);
+    return renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings);
 }
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
+    const text = settingsText(settings.interfaceLanguage);
+    const options = colorSourceSelectOptions(text, combinedApiCredentialLabel(settings));
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Color channels</div>
+                    <div class="jpdb-reader-local-title">${escapeHtml(text('colorChannels'))}</div>
                     <div class="grid">
-                        ${COLOR_CHANNEL_FIELDS.map(([name, label]) => select(name, label, settingsColorSourceValue(settings, name), colorSourceOptions(settings))).join('')}
+                        ${COLOR_CHANNEL_FIELDS.map(([name, key]) => select(name, text(key), settingsColorSourceValue(settings, name), options)).join('')}
                     </div>
                 </div>
     `;
 }
 
-function renderColorSettingsSubsection(title: string, fields: readonly ColorInputField[], settings: ReaderSettings): string {
+function renderColorSettingsSubsection(titleKey: SettingsTextKey, fields: readonly ColorInputField[], settings: ReaderSettings): string {
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapeHtml(title)}</div>
+                    <div class="jpdb-reader-local-title">${escapedUiText(settings.interfaceLanguage, titleKey)}</div>
                     <div class="grid jpdb-reader-color-grid">
                         ${renderColorInputs(fields, settings)}
                     </div>
@@ -611,11 +762,13 @@ function renderColorSettingsSubsection(title: string, fields: readonly ColorInpu
 }
 
 function renderColorInputs(fields: readonly ColorInputField[], settings: ReaderSettings): string {
-    return fields.map(([name, label]) => input(name, label, settings[name], 'color')).join('');
+    const text = settingsText(settings.interfaceLanguage);
+    return fields.map(([name, key]) => input(name, text(key), settings[name], 'color')).join('');
 }
 
 function renderAudioSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     const autoPlayMode = settings.audioAutoPlayMode === 'off' ? 'all' : settings.audioAutoPlayMode;
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
@@ -629,8 +782,8 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
                     ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
-                    ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, [['first', uiText(language, 'firstAudio')], ['random', uiText(language, 'randomAudio')]])}
-                    ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, [['fallback', uiText(language, 'audioTtsFallback')], ['source-order', uiText(language, 'audioTtsSourceOrder')]])}
+                    ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS))}
+                    ${select('audioTtsMode', uiText(language, 'audioTtsMode'), settings.audioTtsMode, localizedOptions(text, AUDIO_TTS_MODE_OPTIONS))}
                     ${input('audioTimeoutMs', uiText(language, 'audioTimeoutMs'), String(settings.audioTimeoutMs), 'number', { min: 1000, max: 30000, step: 500 })}
                     ${input('corsProxyUrl', uiText(language, 'corsProxyUrl'), settings.corsProxyUrl, 'url', { placeholder: 'https://your-worker.workers.dev' })}
                 </div>
@@ -644,11 +797,7 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
 }
 
 function audioAutoPlayModeSelect(language: InterfaceLanguage, value: Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, disabled: boolean): string {
-    const options: [Exclude<ReaderSettings['audioAutoPlayMode'], 'off'>, string][] = [
-        ['all', uiText(language, 'audioAutoPlayAll')],
-        ['hover', uiText(language, 'audioAutoPlayHover')],
-        ['tap', uiText(language, 'audioAutoPlayTap')],
-    ];
+    const options = localizedOptions(settingsText(language), AUDIO_AUTO_PLAY_MODE_OPTIONS);
     return `<label>${escapedUiText(language, 'audioAutoPlayMode')}<select name="audioAutoPlayMode" ${disabled ? 'disabled' : ''}>${options.map(([optionValue, text]) =>
         `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
     ).join('')}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ''}</label>`;
@@ -688,6 +837,7 @@ function renderProxySetupGuide(language: InterfaceLanguage): string {
 
 function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-immersion-kit" role="tabpanel" data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
                 <legend>${escapedUiText(language, 'immersionKit')}</legend>
@@ -699,10 +849,10 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('immersionKitExactMatch', uiText(language, 'immersionKitExactMatch'), settings.immersionKitExactMatch)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, [['immersion-kit', uiText(language, 'immersionKit')], ['nadeshiko', 'Nadeshiko'], ['combined', uiText(language, 'immersionKitAndNadeshiko')]])}
+                    ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, immersionKitExampleSourceOptions(text))}
                     ${renderNadeshikoApiKeyField(settings)}
-                    ${select('immersionKitCategory', uiText(language, 'immersionKitCategory'), settings.immersionKitCategory, [['all', uiText(language, 'allCategories')], ['anime', uiText(language, 'anime')], ['drama', uiText(language, 'drama')], ['games', uiText(language, 'games')]])}
-                    ${select('immersionKitSort', uiText(language, 'immersionKitSort'), settings.immersionKitSort, [['sentence_length:asc', uiText(language, 'shortestFirst')], ['sentence_length:desc', uiText(language, 'longestFirst')]])}
+                    ${select('immersionKitCategory', uiText(language, 'immersionKitCategory'), settings.immersionKitCategory, localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS))}
+                    ${select('immersionKitSort', uiText(language, 'immersionKitSort'), settings.immersionKitSort, localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS))}
                     ${radioGroup('immersionKitLimitEnabled', uiText(language, 'immersionKitLimitEnabled'), settings.immersionKitLimitEnabled ? 'on' : 'off', [['off', uiText(language, 'allExamples')], ['on', uiText(language, 'limitExamples')]])}
                     ${input('immersionKitLimit', uiText(language, 'immersionKitLimit'), String(settings.immersionKitLimit), 'number', { min: 1, max: 12, step: 1 })}
                     ${input('immersionKitMinLength', uiText(language, 'immersionKitMinLength'), String(settings.immersionKitMinLength), 'number', { min: 0, max: 120, step: 1 })}
@@ -740,43 +890,45 @@ function popupLookupEnabledSetting(settings: ReaderSettings): boolean {
 }
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     const pageScanMode = pageScanModeFromSettings(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
-                <legend>Reader</legend>
+                <legend>${escapedUiText(language, 'reader')}</legend>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-popup-lookup-title>Popup lookup</div>
+                    <div class="jpdb-reader-local-title" data-popup-lookup-title>${escapedUiText(language, 'popupLookup')}</div>
                     <div class="grid">
-                        ${checkbox('popupLookupEnabled', 'Show Yomu lookup popup', popupLookupEnabledSetting(settings))}
+                        ${checkbox('popupLookupEnabled', text('popupLookupEnabled'), popupLookupEnabledSetting(settings))}
                     </div>
-                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Off for another reader's popups. Yomu tools stay on.</div>
+                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">${escapedUiText(language, 'popupLookupHelp')}</div>
                 </div>
                 <div class="grid">
-                    ${checkbox('lookupOnClick', 'Look up on tap or click', settings.lookupOnClick)}
-                    ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
-                    ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
-                    ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
-                    ${radioGroup('pageScanMode', uiText(settings.interfaceLanguage, 'pageScanMode'), pageScanMode, [
-                        ['off', uiText(settings.interfaceLanguage, 'pageScanModeOff')],
-                        ['auto', uiText(settings.interfaceLanguage, 'pageScanModeAuto')],
-                        ['manual', uiText(settings.interfaceLanguage, 'pageScanModeManual')],
+                    ${checkbox('lookupOnClick', text('lookupOnClick'), settings.lookupOnClick)}
+                    ${checkbox('lookupOnHover', text('lookupOnHover'), settings.lookupOnHover)}
+                    ${checkbox('lookupOnMiddleMouse', text('lookupOnMiddleMouse'), settings.lookupOnMiddleMouse)}
+                    ${checkbox('showFloatingButton', text('showFloatingButton'), settings.showFloatingButton)}
+                    ${radioGroup('pageScanMode', text('pageScanMode'), pageScanMode, [
+                        ['off', text('pageScanModeOff')],
+                        ['auto', text('pageScanModeAuto')],
+                        ['manual', text('pageScanModeManual')],
                     ])}
                     <div class="jpdb-reader-shortcut-group" data-page-scan-manual-shortcut ${pageScanMode === 'manual' ? '' : 'hidden'}>
-                        <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', uiText(settings.interfaceLanguage, 'manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
+                        <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
-                    ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
-                    ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
-                    ${select('clampedRowReadings', 'Readings on clamped rows', settings.clampedRowReadings, CLAMPED_ROW_READINGS_OPTIONS)}
+                    ${select('appearancePreset', 'Quick setup', '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
+                    ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
+                    ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
-                    ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
+                    ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
-                    ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
-                    ${checkbox('suppressRedundantWordUi', 'Hide JPDB-redundant styling', settings.suppressRedundantWordUi)}
-                    ${checkbox('sheetCloseButtonOnLeft', 'Sheet close button on left', settings.sheetCloseButtonOnLeft)}
+                    ${checkbox('showPitchAccent', text('showPitchAccent'), settings.showPitchAccent)}
+                    ${checkbox('suppressRedundantWordUi', text('suppressRedundantWordUi'), settings.suppressRedundantWordUi)}
+                    ${checkbox('sheetCloseButtonOnLeft', text('sheetCloseButtonOnLeft'), settings.sheetCloseButtonOnLeft)}
                 </div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}
-                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">Set a hover key. Blank means plain hover.</div>
+                <div id="settings-help-reader" class="jpdb-reader-help" data-help-key="readerHelp">${escapedUiText(language, 'readerHelp')}</div>
             </fieldset>
     `;
 }
@@ -787,13 +939,15 @@ function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
 }
 
 function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-hover-lookup-title>Hover lookup</div>
+                    <div class="jpdb-reader-local-title" data-hover-lookup-title>${escapedUiText(language, 'hoverLookupSettings')}</div>
                     <div class="grid">
-                        ${shortcutInput('shortcuts.hoverLookup', 'Hold while hovering', settings.shortcuts.hoverLookup, 'Blank means hover without a key')}
-                        ${input('hoverOpenDelayMs', 'Hover open delay (ms)', String(settings.hoverOpenDelayMs), 'number')}
-                        ${input('hoverCloseDelayMs', 'Hover close delay (ms)', String(settings.hoverCloseDelayMs), 'number')}
+                        ${shortcutInput('shortcuts.hoverLookup', text('holdWhileHovering'), settings.shortcuts.hoverLookup, uiText(language, 'blankPlainHover'))}
+                        ${input('hoverOpenDelayMs', text('hoverOpenDelayMs'), String(settings.hoverOpenDelayMs), 'number')}
+                        ${input('hoverCloseDelayMs', text('hoverCloseDelayMs'), String(settings.hoverCloseDelayMs), 'number')}
                     </div>
                 </div>
     `;
@@ -802,7 +956,7 @@ function renderHoverLookupSettingsSubsection(settings: ReaderSettings): string {
 function renderKanjiSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-kanji" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="kanji" hidden>
-                <legend>Kanji</legend>
+                <legend>${escapedUiText(settings.interfaceLanguage, 'kanji')}</legend>
                 <div class="jpdb-reader-kanji-priorities" data-source-editor>
                     ${renderKanjiSourceRows(settings)}
                 </div>
@@ -827,80 +981,84 @@ function hiddenBooleanSetting(name: string, enabled: boolean): string {
 function renderImageSettingsPanel(settings: ReaderSettings): string {
     const localOcrHidden = settings.ocrProvider === 'local-service' ? '' : 'hidden';
     const cloudOcrHidden = settings.ocrProvider === 'cloud-vision' ? '' : 'hidden';
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
-                <legend>Image text (OCR)</legend>
+                <legend>${escapedUiText(language, 'images')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${radioGroup('ocrInteractionMode', uiText(settings.interfaceLanguage, 'ocrInteractionMode'), ocrInteractionModeFromSettings(settings), [
-                        ['auto', uiText(settings.interfaceLanguage, 'ocrInteractionModeAuto')],
-                        ['manual', uiText(settings.interfaceLanguage, 'ocrInteractionModeManual')],
-                        ['off', uiText(settings.interfaceLanguage, 'ocrInteractionModeOff')],
+                    ${radioGroup('ocrInteractionMode', text('ocrInteractionMode'), ocrInteractionModeFromSettings(settings), [
+                        ['auto', text('ocrInteractionModeAuto')],
+                        ['manual', text('ocrInteractionModeManual')],
+                        ['off', text('ocrInteractionModeOff')],
                     ])}
-                    ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
-                    ${checkbox('ocrVideoPauseFrames', 'Auto-read paused video frames', settings.ocrVideoPauseFrames)}
-                    ${checkbox('ocrInvertDarkPanels', 'Read light text on dark panels', settings.ocrInvertDarkPanels)}
+                    ${checkbox('ocrShowTextOverlay', text('ocrShowTextOverlay'), settings.ocrShowTextOverlay)}
+                    ${checkbox('ocrVideoPauseFrames', text('ocrVideoPauseFrames'), settings.ocrVideoPauseFrames)}
+                    ${checkbox('ocrInvertDarkPanels', text('ocrInvertDarkPanels'), settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
-                    ${select('ocrOverlayTheme', 'OCR overlay theme', settings.ocrOverlayTheme, [['auto', 'Match app theme'], ['light', 'Light overlay'], ['dark', 'Dark overlay']])}
-                    ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
-                    ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
-                    ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
+                    ${select('ocrProvider', text('ocrProvider'), settings.ocrProvider, localizedOptions(text, OCR_PROVIDER_OPTIONS))}
+                    ${select('ocrOverlayTheme', text('ocrOverlayTheme'), settings.ocrOverlayTheme, localizedOptions(text, OCR_OVERLAY_THEME_OPTIONS))}
+                    ${select('ocrMaxImagesPerPage', text('ocrMaxImagesPerPage'), String(settings.ocrMaxImagesPerPage), localizedOptions(text, OCR_MAX_IMAGES_PER_PAGE_OPTIONS))}
+                    ${select('ocrMinImageArea', text('ocrMinImageArea'), String(settings.ocrMinImageArea), localizedOptions(text, OCR_MIN_IMAGE_AREA_OPTIONS))}
+                    ${select('ocrMaxImagePixels', text('ocrMaxImagePixels'), String(settings.ocrMaxImagePixels), localizedOptions(text, OCR_MAX_IMAGE_PIXELS_OPTIONS))}
                     ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
-                    ${input('ocrBackgroundOpacity', 'Image highlight opacity', String(settings.ocrBackgroundOpacity), 'number')}
-                    ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
-                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: run OCR locally. Start a MangaOCR/Apple Vision HTTP server, then enter its URL. Most users should keep Google Lens.</div>
-                    <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR (best for manga)'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision (macOS)']])}</div>
-                    <label data-local-ocr ${localOcrHidden}>Local OCR server URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
-                    <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled).</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    ${input('ocrBackgroundOpacity', text('ocrBackgroundOpacity'), String(settings.ocrBackgroundOpacity), 'number')}
+                    ${input('ocrFontScale', text('ocrFontScale'), String(settings.ocrFontScale), 'number')}
+                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">${escapedUiText(language, 'ocrLocalHelp')}</div>
+                    <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', text('ocrEngine'), settings.ocrEngine, ocrEngineOptions(text))}</div>
+                    <label data-local-ocr ${localOcrHidden}>${escapedUiText(language, 'ocrEndpointUrl')}<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">${escapedUiText(language, 'ocrCloudHelp')}</div>
+                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language, 'cloudVisionApiKey')}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                     <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
                     <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
                 </div>
-                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
+                <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">${escapedUiText(language, 'ocrHelp')}</div>
             </fieldset>
     `;
 }
 
 function renderVideoSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-video" role="tabpanel" data-settings-panel="media" data-legend-key="video" hidden>
-                <legend>Video</legend>
+                <legend>${escapedUiText(language, 'video')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox('subtitlePlayerEnabled', 'Enable video subtitle player', settings.subtitlePlayerEnabled)}
-                    ${checkbox('subtitleAutoDetect', 'Auto-detect page subtitles', settings.subtitleAutoDetect)}
-                    ${checkbox('subtitleOverlayVisible', 'Show subtitle overlay', settings.subtitleOverlayVisible)}
-                    ${checkbox('subtitleSecondaryVisible', 'Show native subtitles when available', settings.subtitleSecondaryVisible)}
-                    ${checkbox('subtitleNativeBlurred', 'Blur native subtitles until hover', settings.subtitleNativeBlurred)}
-                    ${checkbox('subtitleKaraokeMode', 'Karaoke word timing', settings.subtitleKaraokeMode)}
-                    ${checkbox('subtitleTranscriptVisible', 'Open transcript panel by default', settings.subtitleTranscriptVisible)}
-                    ${checkbox('subtitlePausePanel', 'Open side panel when paused', settings.subtitlePausePanel)}
-                    ${checkbox('subtitleShadowAutoPause', 'Auto-pause after each shadow line', settings.subtitleShadowAutoPause)}
-                    ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
-                    ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
-                    ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox('subtitleMiningPause', 'Pause video on subtitle click', settings.subtitleMiningPause)}
-                    ${checkbox('subtitleHoverPause', 'Pause video on subtitle hover lookup', settings.subtitleHoverPause)}
+                    ${checkbox('subtitlePlayerEnabled', text('subtitlePlayerEnabled'), settings.subtitlePlayerEnabled)}
+                    ${checkbox('subtitleAutoDetect', text('subtitleAutoDetect'), settings.subtitleAutoDetect)}
+                    ${checkbox('subtitleOverlayVisible', text('subtitleOverlayVisible'), settings.subtitleOverlayVisible)}
+                    ${checkbox('subtitleSecondaryVisible', text('subtitleSecondaryVisible'), settings.subtitleSecondaryVisible)}
+                    ${checkbox('subtitleNativeBlurred', text('subtitleNativeBlurred'), settings.subtitleNativeBlurred)}
+                    ${checkbox('subtitleKaraokeMode', text('subtitleKaraokeMode'), settings.subtitleKaraokeMode)}
+                    ${checkbox('subtitleTranscriptVisible', text('subtitleTranscriptVisible'), settings.subtitleTranscriptVisible)}
+                    ${checkbox('subtitlePausePanel', text('subtitlePausePanel'), settings.subtitlePausePanel)}
+                    ${checkbox('subtitleShadowAutoPause', text('subtitleShadowAutoPause'), settings.subtitleShadowAutoPause)}
+                    ${checkbox('subtitleTranscriptAutoScroll', text('subtitleTranscriptAutoScroll'), settings.subtitleTranscriptAutoScroll)}
+                    ${checkbox('subtitleAutoCopyLine', text('subtitleAutoCopyLine'), settings.subtitleAutoCopyLine)}
+                    ${checkbox('subtitleCopyIncludeTranslation', text('subtitleCopyIncludeTranslation'), settings.subtitleCopyIncludeTranslation)}
+                    ${checkbox('subtitleMiningPause', text('subtitleMiningPause'), settings.subtitleMiningPause)}
+                    ${checkbox('subtitleHoverPause', text('subtitleHoverPause'), settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${input('subtitleTranscriptAutoScrollResumeSeconds', 'Resume transcript auto-scroll after manual scroll (s)', String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
-                    ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
-                    ${input('subtitleFontSize', 'Subtitle font size (px)', String(settings.subtitleFontSize), 'number')}
-                    ${input('subtitleBottomOffset', 'Subtitle bottom offset (%)', String(settings.subtitleBottomOffset), 'number')}
+                    ${input('subtitleTranscriptAutoScrollResumeSeconds', text('subtitleTranscriptAutoScrollResumeSeconds'), String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
+                    ${select('subtitleControlsMode', text('subtitleControlsMode'), settings.subtitleControlsMode, localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS))}
+                    ${input('subtitleFontSize', text('subtitleFontSize'), String(settings.subtitleFontSize), 'number')}
+                    ${input('subtitleBottomOffset', text('subtitleBottomOffset'), String(settings.subtitleBottomOffset), 'number')}
                     ${renderColorInputs(SUBTITLE_COLOR_FIELDS, settings)}
-                    ${input('subtitleBackgroundOpacity', 'Subtitle background opacity', String(settings.subtitleBackgroundOpacity), 'number')}
-                    ${fontFamilyControl('subtitleFontFamily', 'Subtitle font family', settings.subtitleFontFamily)}
-                    ${input('subtitleFontWeight', 'Subtitle font weight', String(settings.subtitleFontWeight), 'number')}
-                    ${input('subtitleSeekPadding', 'Subtitle seek padding (s)', String(settings.subtitleSeekPadding), 'number')}
+                    ${input('subtitleBackgroundOpacity', text('subtitleBackgroundOpacity'), String(settings.subtitleBackgroundOpacity), 'number')}
+                    ${fontFamilyControl('subtitleFontFamily', text('subtitleFontFamily'), settings.subtitleFontFamily, text)}
+                    ${input('subtitleFontWeight', text('subtitleFontWeight'), String(settings.subtitleFontWeight), 'number')}
+                    ${input('subtitleSeekPadding', text('subtitleSeekPadding'), String(settings.subtitleSeekPadding), 'number')}
                 </div>
-                ${renderSubtitlePreview()}
+                ${renderSubtitlePreview(language)}
             </fieldset>
     `;
 }
 
-function renderSubtitlePreview(): string {
+function renderSubtitlePreview(language: InterfaceLanguage): string {
     return `
                 <div class="jpdb-reader-subtitle-preview" data-subtitle-preview>
                     <div class="jpdb-subtitle-primary">
@@ -909,22 +1067,24 @@ function renderSubtitlePreview(): string {
                         <span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka" data-settings-preview-lookup="を" data-sentence="新しい言葉を読む" tabindex="-1">を</span>
                         <span class="jpdb-reader-word jpdb-due jpdb-pitch-odaka" data-settings-preview-lookup="読む" data-sentence="新しい言葉を読む" tabindex="-1">読む</span>
                     </div>
-                    <div class="jpdb-subtitle-secondary">Live subtitle preview</div>
+                    <div class="jpdb-subtitle-secondary">${escapedUiText(language, 'subtitlePreview')}</div>
                 </div>
     `;
 }
 
 function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
-                <legend>YouTube</legend>
+                <legend>${escapedUiText(language, 'youTube')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox('youtubeImmersionEnabled', 'Japanese YouTube only', settings.youtubeImmersionEnabled)}
-                    ${checkbox('preferJapaneseSiteLanguage', 'Prefer Japanese site language and location', settings.preferJapaneseSiteLanguage)}
-                    ${checkbox('youtubeShowChannelRecommendations', 'Show Japanese channel suggestions', settings.youtubeShowChannelRecommendations)}
-                    ${checkbox('youtubeShowFilterNotice', 'Show hidden-video notice', settings.youtubeShowFilterNotice)}
+                    ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
+                    ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
+                    ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
+                    ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
                 </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>Prefer Japanese UI and Japan-local content.</div>
+                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
             </fieldset>
     `;
 }
@@ -938,26 +1098,23 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
-                <legend>Sources</legend>
-                <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
+                <legend>${escapedUiText(language, 'sources')}</legend>
+                <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.</div>
-                    ${select('parserProvider', 'Parsing source', settings.parserProvider, [
-                        ['local', 'Local dictionaries (offline)'],
-                        ['jiten', 'Jiten API'],
-                        ['jpdb', 'JPDB API'],
-                        ['auto', 'Automatic (Jiten/JPDB)'],
-                    ])}
+                    <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
+                    ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
                 </div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor data-definition-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.</div>
-                    ${checkbox('showLookupPillFrequency', 'Show site frequency in pills', settings.showLookupPillFrequency)}
+                    <div class="jpdb-reader-local-title">${escapedUiText(language, 'lookupPills')}</div>
+                    <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
+                    ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installedDictionariesFromPreferences(settings.dictionaryPreferences)))}
                     </div>
@@ -966,22 +1123,23 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
-                <div class="jpdb-reader-help" data-help-key="backupMovedHelp">Backup, sync, and settings/dictionary import-export live in the Backup &amp; sync section.</div>
+                <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>
             </fieldset>
     `;
 }
 
 function renderBackupSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-backup" role="tabpanel" data-settings-panel="backup" data-legend-key="backupSync" hidden>
-                <legend>Backup &amp; sync</legend>
-                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.</div>
+                <legend>${escapedUiText(language, 'backupSync')}</legend>
+                <div class="jpdb-reader-help" data-help-key="backupSyncHelp">${escapedUiText(language, 'backupSyncHelp')}</div>
                 ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">Import dictionaries</button>
-                    <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">Export dictionaries</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">${escapedUiText(language, 'importSettings')}</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">${escapedUiText(language, 'exportSettings')}</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-dictionary">${escapedUiText(language, 'importDictionaries')}</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">${escapedUiText(language, 'exportDictionaries')}</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
@@ -1007,32 +1165,35 @@ function renderCloudSettingsSyncSection(settings: ReaderSettings): string {
 }
 
 function renderShortcutSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
+    const pressKeys = uiText(language, 'pressKeys');
     return `
             <fieldset id="jpdb-reader-settings-panel-shortcuts" role="tabpanel" data-settings-panel="shortcuts" data-legend-key="shortcuts" hidden>
-                <legend>Shortcuts</legend>
+                <legend>${escapedUiText(language, 'shortcuts')}</legend>
                 <div class="grid">
-                    ${shortcutInput('shortcuts.scanPage', 'Scan page', settings.shortcuts.scanPage)}
-                    ${shortcutInput('shortcuts.hoverLookup', 'Hold while hovering', settings.shortcuts.hoverLookup, 'Blank means hover without a key')}
-                    ${shortcutInput('shortcuts.openSettings', 'Open settings', settings.shortcuts.openSettings)}
-                    ${shortcutInput('shortcuts.playAudio', 'Play audio', settings.shortcuts.playAudio)}
-                    ${shortcutInput('shortcuts.closePopup', 'Close popup', settings.shortcuts.closePopup)}
-                    ${shortcutInput('shortcuts.previousLookupWord', 'Previous word', settings.shortcuts.previousLookupWord)}
-                    ${shortcutInput('shortcuts.nextLookupWord', 'Next word', settings.shortcuts.nextLookupWord)}
-                    ${shortcutInput('shortcuts.previousSubtitle', 'Previous subtitle', settings.shortcuts.previousSubtitle)}
-                    ${shortcutInput('shortcuts.nextSubtitle', 'Next subtitle', settings.shortcuts.nextSubtitle)}
-                    ${shortcutInput('shortcuts.copySubtitle', 'Copy subtitle', settings.shortcuts.copySubtitle)}
-                    ${shortcutInput('shortcuts.toggleOcr', 'Toggle image reading', settings.shortcuts.toggleOcr)}
-                    ${shortcutInput('shortcuts.toggleSubtitleOverlay', 'Toggle subtitle overlay', settings.shortcuts.toggleSubtitleOverlay)}
-                    ${shortcutInput('shortcuts.toggleYoutubeImmersion', 'Toggle YouTube filter', settings.shortcuts.toggleYoutubeImmersion)}
-                    ${shortcutInput('shortcuts.scanImages', 'Read images now', settings.shortcuts.scanImages)}
-                    ${shortcutInput('shortcuts.massReviewVisible', 'Mass review visible words (Jiten)', settings.shortcuts.massReviewVisible)}
-                    ${shortcutInput('shortcuts.studyReveal', 'Study: reveal card', settings.shortcuts.studyReveal)}
-                    ${shortcutInput('shortcuts.studyRevealAlternate', 'Study: reveal card (alternate)', settings.shortcuts.studyRevealAlternate)}
-                    ${shortcutInput('shortcuts.studyUndo', 'Study: undo last review', settings.shortcuts.studyUndo)}
-                    ${shortcutInput('shortcuts.studyPrevious', 'Study: previous card', settings.shortcuts.studyPrevious)}
-                    ${shortcutInput('shortcuts.studyPreviousAlternate', 'Study: previous card (alternate)', settings.shortcuts.studyPreviousAlternate)}
-                    ${shortcutInput('shortcuts.studyNext', 'Study: next card', settings.shortcuts.studyNext)}
-                    ${shortcutInput('shortcuts.studyNextAlternate', 'Study: next card (alternate)', settings.shortcuts.studyNextAlternate)}
+                    ${shortcutInput('shortcuts.scanPage', text('scanPage'), settings.shortcuts.scanPage, pressKeys)}
+                    ${shortcutInput('shortcuts.hoverLookup', text('holdWhileHovering'), settings.shortcuts.hoverLookup, uiText(language, 'blankPlainHover'))}
+                    ${shortcutInput('shortcuts.openSettings', text('openSettings'), settings.shortcuts.openSettings, pressKeys)}
+                    ${shortcutInput('shortcuts.playAudio', text('playAudio'), settings.shortcuts.playAudio, pressKeys)}
+                    ${shortcutInput('shortcuts.closePopup', text('closePopup'), settings.shortcuts.closePopup, pressKeys)}
+                    ${shortcutInput('shortcuts.previousLookupWord', text('previousLookupWord'), settings.shortcuts.previousLookupWord, pressKeys)}
+                    ${shortcutInput('shortcuts.nextLookupWord', text('nextLookupWord'), settings.shortcuts.nextLookupWord, pressKeys)}
+                    ${shortcutInput('shortcuts.previousSubtitle', text('previousSubtitle'), settings.shortcuts.previousSubtitle, pressKeys)}
+                    ${shortcutInput('shortcuts.nextSubtitle', text('nextSubtitle'), settings.shortcuts.nextSubtitle, pressKeys)}
+                    ${shortcutInput('shortcuts.copySubtitle', text('copySubtitle'), settings.shortcuts.copySubtitle, pressKeys)}
+                    ${shortcutInput('shortcuts.toggleOcr', text('toggleImageReading'), settings.shortcuts.toggleOcr, pressKeys)}
+                    ${shortcutInput('shortcuts.toggleSubtitleOverlay', text('toggleSubtitleOverlay'), settings.shortcuts.toggleSubtitleOverlay, pressKeys)}
+                    ${shortcutInput('shortcuts.toggleYoutubeImmersion', text('toggleYoutubeImmersion'), settings.shortcuts.toggleYoutubeImmersion, pressKeys)}
+                    ${shortcutInput('shortcuts.scanImages', text('readImagesNow'), settings.shortcuts.scanImages, pressKeys)}
+                    ${shortcutInput('shortcuts.massReviewVisible', text('massReviewVisible'), settings.shortcuts.massReviewVisible, pressKeys)}
+                    ${shortcutInput('shortcuts.studyReveal', text('studyReveal'), settings.shortcuts.studyReveal, pressKeys)}
+                    ${shortcutInput('shortcuts.studyRevealAlternate', text('studyRevealAlternate'), settings.shortcuts.studyRevealAlternate, pressKeys)}
+                    ${shortcutInput('shortcuts.studyUndo', text('studyUndo'), settings.shortcuts.studyUndo, pressKeys)}
+                    ${shortcutInput('shortcuts.studyPrevious', text('studyPrevious'), settings.shortcuts.studyPrevious, pressKeys)}
+                    ${shortcutInput('shortcuts.studyPreviousAlternate', text('studyPreviousAlternate'), settings.shortcuts.studyPreviousAlternate, pressKeys)}
+                    ${shortcutInput('shortcuts.studyNext', text('studyNext'), settings.shortcuts.studyNext, pressKeys)}
+                    ${shortcutInput('shortcuts.studyNextAlternate', text('studyNextAlternate'), settings.shortcuts.studyNextAlternate, pressKeys)}
                     ${renderReviewShortcutInputs(settings)}
                 </div>
             </fieldset>
@@ -1040,28 +1201,29 @@ function renderShortcutSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderHelpSettingsPanel(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
     return `
             <fieldset id="jpdb-reader-settings-panel-help" role="tabpanel" data-settings-panel="help" data-legend-key="help" hidden>
-                <legend>Help</legend>
+                <legend>${escapedUiText(language, 'help')}</legend>
                 ${renderHelpLinksPanel(settings.interfaceLanguage)}
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title" data-diagnostics-title>Diagnostics</div>
+                    <div class="jpdb-reader-local-title" data-diagnostics-title>${escapedUiText(language, 'diagnostics')}</div>
                     <div class="grid">
-                        ${checkbox('enableLogging', 'Enable console logging', settings.enableLogging)}
+                        ${checkbox('enableLogging', uiText(language, 'enableLogging'), settings.enableLogging)}
                     </div>
-                    <div class="jpdb-reader-help" data-diagnostics-help>Print diagnostics to the console.</div>
+                    <div class="jpdb-reader-help" data-diagnostics-help>${escapedUiText(language, 'diagnosticsHelp')}</div>
                 </div>
             </fieldset>
     `;
 }
 
-function renderSettingsFooter(): string {
+function renderSettingsFooter(language: InterfaceLanguage): string {
     return `
             <div class="footer">
                 <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
                 <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml(CURRENT_YOMU_VERSION)}</div>
-                <button class="jpdb-reader-btn" type="button" data-action="cancel">Cancel</button>
-                <button class="jpdb-reader-btn add" type="submit">Save</button>
+                <button class="jpdb-reader-btn" type="button" data-action="cancel">${escapedUiText(language, 'cancel')}</button>
+                <button class="jpdb-reader-btn add" type="submit">${escapedUiText(language, 'save')}</button>
             </div>
     `;
 }
@@ -1072,7 +1234,7 @@ function fontFamilyControl(name: FontFamilySettingName, label: string, value: st
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
             ${select(name, label, selectedValue, fontFamilyOptions(text))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? '' : 'hidden'}>
-                Custom font stack
+                ${escapeHtml(text ? text('customFontFamily') : 'Custom font stack')}
                 <input name="${name}Custom" type="text" value="${escapeHtml(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
             </label>
         </div>
@@ -1093,14 +1255,15 @@ function fontFamilyOptions(text?: SettingsText): [string, string][] {
     ];
 }
 
-function themeSegmentedControl(value: ReaderSettings['theme']): string {
+function themeSegmentedControl(value: ReaderSettings['theme'], text: SettingsText): string {
     const isDark = value === 'dark';
+    const switchLabel = escapeHtml(isDark ? text('switchToLightTheme') : text('switchToDarkTheme'));
     return `
         <div class="jpdb-reader-theme-field" data-theme-field>
-            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>Theme</span>
+            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml(text('theme'))}</span>
             <input type="hidden" name="theme" value="${escapeHtml(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
-                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${isDark ? 'Switch to light theme' : 'Switch to dark theme'}">
+                <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${switchLabel}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${switchLabel}">
                     <span class="check">
                         <span class="icon">
                             <span class="vpi-sun sun" aria-hidden="true"></span>
@@ -1365,134 +1528,42 @@ function localizeSettingsSelects(form: HTMLFormElement, text: SettingsText): voi
 }
 
 function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
-    setSelectOptionLabels(form, 'interfaceLanguage', [
-        ['auto', text('automatic')],
-        ['en', text('english')],
-        ['ja', text('japanese')],
-    ]);
+    setSelectOptionLabels(form, 'interfaceLanguage', localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS));
     form.querySelector<HTMLElement>('[data-theme-title]')?.replaceChildren(text('theme'));
-    setSelectOptionLabels(form, 'popupMode', [
-        ['auto', text('auto')],
-        ['sheet', text('bottomSheet')],
-        ['popover', text('popover')],
-    ]);
-    setSelectOptionLabels(form, 'hoverPopupMode', [
-        ['auto', text('auto')],
-        ['sheet', text('bottomSheet')],
-        ['popover', text('popover')],
-    ]);
-    setSelectOptionLabels(form, 'popoverHeightMode', [
-        ['available', text('popoverHeightAvailable')],
-        ['fixed', text('popoverHeightFixed')],
-    ]);
+    setSelectOptionLabels(form, 'popupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'hoverPopupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'popoverHeightMode', localizedOptions(text, POPOVER_HEIGHT_MODE_OPTIONS));
     setSelectOptionLabels(form, 'readerFontFamily', fontFamilyOptions(text));
     setSelectOptionLabels(form, 'popupFontFamily', fontFamilyOptions(text));
-    setSelectOptionLabels(form, 'parserProvider', [
-        ['local', text('parserProviderLocal')],
-        ['jiten', text('parserProviderJiten')],
-        ['jpdb', text('parserProviderJpdb')],
-        ['auto', text('parserProviderAuto')],
-    ]);
-    setSelectOptionLabels(form, 'newTabSource', [
-        ['auto', text('newTabAuto')],
-        ['jpdb', text('newTabApiSrs')],
-        ['bunpro', text('newTabBunpro')],
-        ['yomu-local', text('newTabYomuLocal')],
-        ['anki', 'Anki'],
-        ['dictionary', text('dictionaryFallback')],
-    ]);
-    setSelectOptionLabels(form, 'newTabJpdbReviewMode', [
-        ['auto', text('newTabJpdbReviewAuto')],
-        ['live-review', text('newTabLiveReview')],
-        ['api-vocabulary', text('newTabApiVocabulary')],
-    ]);
+    setSelectOptionLabels(form, 'parserProvider', localizedOptions(text, PARSER_PROVIDER_OPTIONS));
+    setSelectOptionLabels(form, 'newTabSource', newTabSourceOptions(text));
+    setSelectOptionLabels(form, 'newTabJpdbReviewMode', localizedOptions(text, NEW_TAB_JPDB_REVIEW_MODE_OPTIONS));
     setSelectOptionLabels(form, 'newTabKanjiKeywordSource', kanjiKeywordSourceOptions(apiCredentialSettingsFromForm(form), text));
-    setSelectOptionLabels(form, 'twoButtonReviews', [
-        ['false', text('fivePoint')],
-        ['true', text('twoPoint')],
-    ]);
+    setSelectOptionLabels(form, 'twoButtonReviews', localizedOptions(text, TWO_BUTTON_REVIEW_OPTIONS));
 }
 
 function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText): void {
     localizeColorSourceSelects(form, text);
-    setSelectOptionLabels(form, 'appearancePreset', [
-        ['', text('appearancePresetCustom')],
-        ['balanced', text('appearancePresetBalanced')],
-        ['new-only', text('appearancePresetNewOnly')],
-        ['underline-new', text('appearancePresetUnderlineNew')],
-        ['no-colors', text('appearancePresetNoColors')],
-    ]);
-    setSelectOptionLabels(form, 'wordColorStates', [
-        ['all', text('wordColorStatesAll')],
-        ['new-only', text('wordColorStatesNewOnly')],
-    ]);
-    setSelectOptionLabels(form, 'clampedRowReadings', [
-        ['show', text('clampedRowReadingsShow')],
-        ['hover', text('clampedRowReadingsHover')],
-    ]);
-    setSelectOptionLabels(form, 'furiganaMode', [
-        ['auto', text('automatic')],
-        ['known-status', text('furiganaHideKnown')],
-        ['difficult-kanji', text('furiganaDifficultKanji')],
-        ['hover', text('furiganaHoverOnly')],
-        ['all', text('furiganaAllParsed')],
-        ['off', text('off')],
-    ]);
+    setSelectOptionLabels(form, 'appearancePreset', localizedOptions(text, APPEARANCE_PRESET_OPTIONS));
+    setSelectOptionLabels(form, 'wordColorStates', localizedOptions(text, WORD_COLOR_STATE_OPTIONS));
+    setSelectOptionLabels(form, 'clampedRowReadings', localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS));
+    setSelectOptionLabels(form, 'furiganaMode', localizedOptions(text, FURIGANA_MODE_OPTIONS));
 }
 
 function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): void {
-    const apiLabel = apiCredentialLabelFromForm(form);
-    [
-        'wordHighlightColorSource',
-        'wordUnderlineColorSource',
-        'wordTextColorSource',
-        'subtitleHighlightColorSource',
-        'subtitleUnderlineColorSource',
-        'subtitleTextColorSource',
-    ].forEach(name => setSelectOptionLabels(form, name, [
-        ['status', text('colorSourceStatus').replace('JPDB', apiLabel)],
-        ['jpdb', text('colorSourceJpdb').replace('JPDB', apiLabel)],
-        ['anki', text('colorSourceAnki')],
-        ['pitch', text('colorSourcePitch')],
-        ['off', text('colorSourceNone')],
-    ]));
+    const options = colorSourceSelectOptions(text, apiCredentialLabelFromForm(form));
+    COLOR_CHANNEL_FIELDS.forEach(([name]) => setSelectOptionLabels(form, name, options));
 }
 
 function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
-    setSelectOptionLabels(form, 'audioAutoPlayMode', [
-        ['all', text('audioAutoPlayAll')],
-        ['hover', text('audioAutoPlayHover')],
-        ['tap', text('audioAutoPlayTap')],
-    ]);
-    setSelectOptionLabels(form, 'audioSelectionMode', [
-        ['first', text('firstAudio')],
-        ['random', text('randomAudio')],
-    ]);
-    setSelectOptionLabels(form, 'audioTtsMode', [
-        ['fallback', text('audioTtsFallback')],
-        ['source-order', text('audioTtsSourceOrder')],
-    ]);
-    setSelectOptionLabels(form, 'immersionKitCategory', [
-        ['all', text('allCategories')],
-        ['anime', text('anime')],
-        ['drama', text('drama')],
-        ['games', text('games')],
-    ]);
-    setSelectOptionLabels(form, 'immersionKitExampleSource', [
-        ['immersion-kit', text('immersionKit')],
-        ['nadeshiko', 'Nadeshiko'],
-        ['combined', text('immersionKitAndNadeshiko')],
-    ]);
-    setSelectOptionLabels(form, 'immersionKitSort', [
-        ['sentence_length:asc', text('shortestFirst')],
-        ['sentence_length:desc', text('longestFirst')],
-    ]);
+    setSelectOptionLabels(form, 'audioAutoPlayMode', localizedOptions(text, AUDIO_AUTO_PLAY_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'audioSelectionMode', localizedOptions(text, AUDIO_SELECTION_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'audioTtsMode', localizedOptions(text, AUDIO_TTS_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'immersionKitCategory', localizedOptions(text, IMMERSION_KIT_CATEGORY_OPTIONS));
+    setSelectOptionLabels(form, 'immersionKitExampleSource', immersionKitExampleSourceOptions(text));
+    setSelectOptionLabels(form, 'immersionKitSort', localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS));
     localizeOcrSettingsSelects(form, text);
-    setSelectOptionLabels(form, 'subtitleControlsMode', [
-        ['auto', text('showWhenNeeded')],
-        ['hidden', text('hideControls')],
-        ['always', text('alwaysVisible')],
-    ]);
+    setSelectOptionLabels(form, 'subtitleControlsMode', localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS));
     setSelectOptionLabels(form, 'subtitleTranscriptPlacement', [
         ['right', text('right')],
         ['left', text('left')],
@@ -1502,38 +1573,12 @@ function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText)
 }
 
 function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
-    setSelectOptionLabels(form, 'ocrProvider', [
-        ['google-lens', text('googleLens')],
-        ['cloud-vision', text('cloudVision')],
-        ['local-service', text('localOcr')],
-        ['off', text('off')],
-    ]);
-    setSelectOptionLabels(form, 'ocrOverlayTheme', [
-        ['auto', text('ocrOverlayThemeAuto')],
-        ['light', text('ocrOverlayThemeLight')],
-        ['dark', text('ocrOverlayThemeDark')],
-    ]);
-    setSelectOptionLabels(form, 'ocrMaxImagesPerPage', [
-        ['3', text('lightWork')],
-        ['8', text('normal')],
-        ['16', text('more')],
-    ]);
-    setSelectOptionLabels(form, 'ocrMinImageArea', [
-        ['80000', text('largeOnly')],
-        ['45000', text('normal')],
-        ['15000', text('includeSmall')],
-    ]);
-    setSelectOptionLabels(form, 'ocrMaxImagePixels', [
-        ['640000', text('faster')],
-        ['1200000', text('balanced')],
-        ['2000000', text('sharper')],
-    ]);
-    setSelectOptionLabels(form, 'ocrEngine', [
-        ['auto', text('automatic')],
-        ['MangaOCR', text('ocrEngineMangaOcr')],
-        ['PaddleOCR', 'PaddleOCR'],
-        ['AppleVision', text('ocrEngineAppleVision')],
-    ]);
+    setSelectOptionLabels(form, 'ocrProvider', localizedOptions(text, OCR_PROVIDER_OPTIONS));
+    setSelectOptionLabels(form, 'ocrOverlayTheme', localizedOptions(text, OCR_OVERLAY_THEME_OPTIONS));
+    setSelectOptionLabels(form, 'ocrMaxImagesPerPage', localizedOptions(text, OCR_MAX_IMAGES_PER_PAGE_OPTIONS));
+    setSelectOptionLabels(form, 'ocrMinImageArea', localizedOptions(text, OCR_MIN_IMAGE_AREA_OPTIONS));
+    setSelectOptionLabels(form, 'ocrMaxImagePixels', localizedOptions(text, OCR_MAX_IMAGE_PIXELS_OPTIONS));
+    setSelectOptionLabels(form, 'ocrEngine', ocrEngineOptions(text));
 }
 
 function localizeMiningSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
@@ -1985,7 +2030,7 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 
 const HIDE_STATE_GROUP_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] =
-    FURIGANA_HIDE_GROUPS.flatMap(([group]) => {
+    FURIGANA_HIDE_GROUPS.flatMap(group => {
         const key = CARD_STATE_LABEL_KEYS[group];
         return [
             [`furiganaHide-${group}`, key],
@@ -2224,17 +2269,20 @@ function setExternalButtonLabel(element: HTMLElement | null | undefined, label: 
 function renderReviewShortcutInputs(settings: ReaderSettings): string {
     const fivePointHidden = !settings.enableReviews || settings.twoButtonReviews;
     const passFailHidden = !settings.enableReviews || !settings.twoButtonReviews;
+    const language = settings.interfaceLanguage;
+    const text = settingsText(language);
+    const pressKeys = uiText(language, 'pressKeys');
     return `
         <div class="jpdb-reader-shortcut-group" data-review-scale="five" ${fivePointHidden ? 'hidden' : ''}>
-            ${shortcutInput('shortcuts.gradeNothing', 'Grade NOTHING', settings.shortcuts.gradeNothing)}
-            ${shortcutInput('shortcuts.gradeSomething', 'Grade SOMETHING', settings.shortcuts.gradeSomething)}
-            ${shortcutInput('shortcuts.gradeHard', 'Grade HARD', settings.shortcuts.gradeHard)}
-            ${shortcutInput('shortcuts.gradeOkay', 'Grade OKAY', settings.shortcuts.gradeOkay)}
-            ${shortcutInput('shortcuts.gradeEasy', 'Grade EASY', settings.shortcuts.gradeEasy)}
+            ${shortcutInput('shortcuts.gradeNothing', text('gradeNothing'), settings.shortcuts.gradeNothing, pressKeys)}
+            ${shortcutInput('shortcuts.gradeSomething', text('gradeSomething'), settings.shortcuts.gradeSomething, pressKeys)}
+            ${shortcutInput('shortcuts.gradeHard', text('gradeHard'), settings.shortcuts.gradeHard, pressKeys)}
+            ${shortcutInput('shortcuts.gradeOkay', text('gradeOkay'), settings.shortcuts.gradeOkay, pressKeys)}
+            ${shortcutInput('shortcuts.gradeEasy', text('gradeEasy'), settings.shortcuts.gradeEasy, pressKeys)}
         </div>
         <div class="jpdb-reader-shortcut-group" data-review-scale="pass-fail" ${passFailHidden ? 'hidden' : ''}>
-            ${shortcutInput('shortcuts.gradeFail', 'Pass/fail: FAIL', settings.shortcuts.gradeFail)}
-            ${shortcutInput('shortcuts.gradePass', 'Pass/fail: PASS', settings.shortcuts.gradePass)}
+            ${shortcutInput('shortcuts.gradeFail', text('gradeFail'), settings.shortcuts.gradeFail, pressKeys)}
+            ${shortcutInput('shortcuts.gradePass', text('gradePass'), settings.shortcuts.gradePass, pressKeys)}
         </div>
     `;
 }
