@@ -3788,7 +3788,32 @@ export function healTextMirrorPageVisibility(): void {
             continue;
         }
         healStuckHiddenTextMirror(host);
+        healLateClipConstrainedStamp(host);
     }
+}
+
+// Clip classification runs at token-apply time, but framework chrome
+// (m.youtube hydration) often gets its clipping styles AFTER the mirror
+// rendered — the row classifies un-clipped once and the render-signature
+// short-circuit means it is never re-examined. A detached reading then sits
+// visible inside a closed ellipsis clip: its absolute width:max-content box
+// spills sideways, raises the row's scrollWidth, and iOS ellipsizes the
+// native base (共有 → 共…). Re-examine on every scan settle: cheap
+// (memoized constrained-row facts) and idempotent.
+function healLateClipConstrainedStamp(host: HTMLElement): void {
+    const mirror = currentTextMirror(host);
+    if (!mirror || mirror.dataset.yomuDetachedReadings !== 'true') return;
+    let stamped: HTMLElement | null = host;
+    for (let depth = 0; stamped && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, stamped = composedParentElement(stamped)) {
+        if (stamped.dataset.yomuClipConstrained) return;
+    }
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (!clipRow) return;
+    const decoration = host.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') as DecorationState | null;
+    clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? undefined, clipRow)
+        ? 'content'
+        : 'true';
+    openSafeDetachedReadingClips(host);
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
