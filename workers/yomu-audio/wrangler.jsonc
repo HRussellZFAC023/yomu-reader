@@ -25,7 +25,7 @@
     {
       "binding": "AUDIO_DB",
       "database_name": "yomu-audio-db",
-      "database_id": "PENDING_D1_CREATE",
+      "database_id": "43109397-9e95-40a2-bf40-1605bd52e6d1",
       "migrations_dir": "./migrations"
     }
   ],

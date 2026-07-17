@@ -32,6 +32,8 @@ export interface TtsEnv {
   AWS_ACCESS_KEY_ID?: string;
   AWS_SECRET_ACCESS_KEY?: string;
   AWS_POLLY_REGION?: string;
+  AZURE_SPEECH_KEY?: string;
+  AZURE_SPEECH_REGION?: string;
   VOICE_ADMIN_TOKEN?: string;
   AI?: { run(model: string, inputs: Record<string, unknown>): Promise<unknown> };
   AUDIO_BUCKET?: {
@@ -45,36 +47,53 @@ export interface TtsEnv {
   };
 }
 
-/** Amazon Polly neural ja-JP voices. Neural is required for natural output. */
+/** Amazon Polly neural ja-JP voices (pitch-aware word audio only). */
 export type PollyJaVoice = "Tomoko" | "Kazuha" | "Takumi";
 
+/** Azure neural ja-JP voices — the story-voicing palette (Ogg-Opus output). */
+export type AzureJaVoice =
+  | "ja-JP-NanamiNeural" | "ja-JP-KeitaNeural" | "ja-JP-AoiNeural"
+  | "ja-JP-DaichiNeural" | "ja-JP-MayuNeural" | "ja-JP-NaokiNeural"
+  | "ja-JP-ShioriNeural" | "ja-JP-MasaruMultilingualNeural";
+
 export interface CharacterVoice {
-  readonly voice: PollyJaVoice;
-  /** SSML prosody attributes widening the 3-voice palette per character. */
+  readonly azure: AzureJaVoice;
+  /** Fallback voice when only Polly is configured. */
+  readonly polly: PollyJaVoice;
+  /** SSML prosody offsets giving each cast member a distinct read. */
   readonly prosody?: { readonly rate?: string; readonly pitch?: string };
 }
 
 /**
- * Academy cast → voice. Three neural ja-JP voices exist on Polly today, so
- * distinctness beyond three speakers comes from measured prosody offsets
- * (keep offsets subtle or the result stops sounding natural). Any speaker
+ * Academy cast → voice. Eight real Azure ja-JP neural voices carry the 20+
+ * cast; prosody offsets split characters sharing a base voice. Any speaker
  * not listed gets the narrator default.
  */
 export const VOICE_REGISTRY: Readonly<Record<string, CharacterVoice>> = {
-  narrator: { voice: "Tomoko" },
-  rie: { voice: "Tomoko" },
-  sophie: { voice: "Kazuha" },
-  jenny: { voice: "Kazuha", prosody: { pitch: "+6%" } },
-  mika: { voice: "Kazuha", prosody: { rate: "94%" } },
-  jodi: { voice: "Tomoko", prosody: { pitch: "-4%", rate: "96%" } },
-  henry: { voice: "Takumi" },
-  aakash: { voice: "Takumi", prosody: { pitch: "-5%" } },
-  alex: { voice: "Takumi", prosody: { rate: "94%" } },
-  tom: { voice: "Takumi", prosody: { pitch: "+5%", rate: "104%" } },
-  sam: { voice: "Takumi", prosody: { pitch: "+8%" } },
-  shin: { voice: "Takumi", prosody: { rate: "92%", pitch: "-3%" } },
-  christian: { voice: "Takumi", prosody: { pitch: "-8%", rate: "97%" } },
-  felix: { voice: "Takumi", prosody: { pitch: "+3%" } },
+  narrator: { azure: "ja-JP-NanamiNeural", polly: "Tomoko" },
+  rie: { azure: "ja-JP-NanamiNeural", polly: "Tomoko" },
+  sophie: { azure: "ja-JP-AoiNeural", polly: "Kazuha" },
+  jenny: { azure: "ja-JP-MayuNeural", polly: "Kazuha" },
+  mika: { azure: "ja-JP-ShioriNeural", polly: "Kazuha" },
+  jodi: { azure: "ja-JP-NanamiNeural", polly: "Tomoko", prosody: { pitch: "-6%", rate: "95%" } },
+  stasi: { azure: "ja-JP-MayuNeural", polly: "Kazuha", prosody: { pitch: "-4%" } },
+  ruparna: { azure: "ja-JP-ShioriNeural", polly: "Kazuha", prosody: { rate: "97%", pitch: "+4%" } },
+  rose: { azure: "ja-JP-AoiNeural", polly: "Kazuha", prosody: { pitch: "+6%", rate: "104%" } },
+  angel: { azure: "ja-JP-MayuNeural", polly: "Kazuha", prosody: { pitch: "+7%" } },
+  nanako: { azure: "ja-JP-AoiNeural", polly: "Kazuha", prosody: { rate: "93%" } },
+  mira: { azure: "ja-JP-ShioriNeural", polly: "Kazuha", prosody: { pitch: "-3%", rate: "101%" } },
+  henry: { azure: "ja-JP-KeitaNeural", polly: "Takumi" },
+  aakash: { azure: "ja-JP-DaichiNeural", polly: "Takumi" },
+  alex: { azure: "ja-JP-NaokiNeural", polly: "Takumi" },
+  tom: { azure: "ja-JP-KeitaNeural", polly: "Takumi", prosody: { pitch: "+6%", rate: "105%" } },
+  sam: { azure: "ja-JP-DaichiNeural", polly: "Takumi", prosody: { pitch: "+7%", rate: "103%" } },
+  shin: { azure: "ja-JP-NaokiNeural", polly: "Takumi", prosody: { rate: "92%", pitch: "-3%" } },
+  christian: { azure: "ja-JP-MasaruMultilingualNeural", polly: "Takumi" },
+  felix: { azure: "ja-JP-KeitaNeural", polly: "Takumi", prosody: { pitch: "-6%", rate: "96%" } },
+  robert: { azure: "ja-JP-DaichiNeural", polly: "Takumi", prosody: { pitch: "-7%", rate: "95%" } },
+  peter: { azure: "ja-JP-NaokiNeural", polly: "Takumi", prosody: { pitch: "+4%" } },
+  shaun: { azure: "ja-JP-MasaruMultilingualNeural", polly: "Takumi", prosody: { rate: "94%", pitch: "-4%" } },
+  xingyu: { azure: "ja-JP-KeitaNeural", polly: "Takumi", prosody: { pitch: "+3%", rate: "99%" } },
 };
 
 const DEFAULT_REGION = "eu-central-1";
@@ -89,16 +108,30 @@ function pollyEnabled(env: TtsEnv): boolean {
   );
 }
 
-export type TtsEngine = "polly" | "melotts";
+export type TtsEngine = "azure" | "polly" | "melotts";
 
-export function ttsEngine(env: TtsEnv): TtsEngine | null {
+function azureEnabled(env: TtsEnv): boolean {
+  return Boolean(env.AZURE_SPEECH_KEY?.trim()) && Boolean(env.AZURE_SPEECH_REGION?.trim());
+}
+
+/** Line voicing prefers Azure (8 ja voices, native Ogg-Opus = smallest storage). */
+export function lineEngine(env: TtsEnv): TtsEngine | null {
+  if (azureEnabled(env)) return "azure";
   if (pollyEnabled(env)) return "polly";
   if (env.AI) return "melotts";
   return null;
 }
 
+/** Word audio prefers Polly (the only engine with pitch-accent phonemes). */
+export function ttsEngine(env: TtsEnv): TtsEngine | null {
+  if (pollyEnabled(env)) return "polly";
+  if (azureEnabled(env)) return "azure";
+  if (env.AI) return "melotts";
+  return null;
+}
+
 export function ttsEnabled(env: TtsEnv): boolean {
-  return ttsEngine(env) !== null;
+  return ttsEngine(env) !== null || lineEngine(env) !== null;
 }
 
 interface PitchRow {
@@ -190,6 +223,33 @@ async function synthesizePolly(
   return response.arrayBuffer();
 }
 
+async function synthesizeAzure(
+  env: TtsEnv,
+  voice: string,
+  text: string,
+  prosody?: { rate?: string; pitch?: string },
+): Promise<ArrayBuffer> {
+  const region = env.AZURE_SPEECH_REGION!.trim();
+  const inner = prosody
+    ? `<prosody${prosody.rate ? ` rate="${prosody.rate}"` : ""}${prosody.pitch ? ` pitch="${prosody.pitch}"` : ""}>${escapeXml(text)}</prosody>`
+    : escapeXml(text);
+  const ssml = `<speak version="1.0" xml:lang="ja-JP"><voice name="${voice}">${inner}</voice></speak>`;
+  const response = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+    method: "POST",
+    headers: {
+      "ocp-apim-subscription-key": env.AZURE_SPEECH_KEY!.trim(),
+      "content-type": "application/ssml+xml",
+      "x-microsoft-outputformat": "ogg-48khz-16bit-mono-opus",
+      "user-agent": "yomu-audio",
+    },
+    body: ssml,
+  });
+  if (!response.ok) {
+    throw new Error(`azure_failed_${response.status}:${(await response.text()).slice(0, 200)}`);
+  }
+  return response.arrayBuffer();
+}
+
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -212,23 +272,29 @@ async function sha256Hex(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function engineContentType(engine: TtsEngine): string {
+  // Azure emits Ogg-Opus (smallest); Polly mp3; MeloTTS RIFF/WAV.
+  return engine === "azure" ? "audio/ogg" : engine === "polly" ? "audio/mpeg" : "audio/wav";
+}
+
 async function cachedSynthesis(
   env: TtsEnv,
   key: string,
+  contentType: string,
   make: () => Promise<ArrayBuffer>,
 ): Promise<{ audio: ArrayBuffer; cached: boolean }> {
   const existing = await env.AUDIO_BUCKET?.get(key);
   if (existing) return { audio: await existing.arrayBuffer(), cached: true };
   const audio = await make();
-  await env.AUDIO_BUCKET?.put(key, audio, { httpMetadata: { contentType: "audio/mpeg" } });
+  await env.AUDIO_BUCKET?.put(key, audio, { httpMetadata: { contentType } });
   return { audio, cached: false };
 }
 
-function audioResponse(audio: ArrayBuffer, cached: boolean, extra: Record<string, string> = {}): Response {
+function audioResponse(audio: ArrayBuffer, cached: boolean, contentType: string, extra: Record<string, string> = {}): Response {
   return new Response(audio, {
     status: 200,
     headers: {
-      "content-type": "audio/mpeg",
+      "content-type": contentType,
       "access-control-allow-origin": "*",
       "cache-control": "public, max-age=31536000, immutable",
       "x-yomu-tts-cache": cached ? "hit" : "miss",
@@ -263,10 +329,17 @@ export async function handleWordTts(url: URL, env: TtsEnv): Promise<Response> {
   const payload = wordSsml(term, reading, pitch);
   const key = engine === "polly"
     ? `${WORD_TTS_PREFIX}/${voice}/${await sha256Hex(`${term} ${reading} ${pitch}`)}.mp3`
-    : `${WORD_TTS_PREFIX}/melotts/${await sha256Hex(reading || term)}.mp3`;
-  const { audio, cached } = await cachedSynthesis(env, key, () =>
-    engine === "polly" ? synthesizePolly(env, voice, payload) : synthesizeMelo(env, reading || term));
-  return audioResponse(audio, cached, {
+    : engine === "azure"
+      ? `${WORD_TTS_PREFIX}/azure/${await sha256Hex(reading || term)}.opus`
+      : `${WORD_TTS_PREFIX}/melotts/${await sha256Hex(reading || term)}.wav`;
+  const contentType = engineContentType(engine);
+  const { audio, cached } = await cachedSynthesis(env, key, contentType, () =>
+    engine === "polly"
+      ? synthesizePolly(env, voice, payload)
+      : engine === "azure"
+        ? synthesizeAzure(env, "ja-JP-NanamiNeural", reading || term)
+        : synthesizeMelo(env, reading || term));
+  return audioResponse(audio, cached, contentType, {
     "x-yomu-tts-engine": engine,
     "x-yomu-tts-pitch": pitch ? "accented" : reading && reading !== term ? "ruby" : "plain",
   });
@@ -288,10 +361,11 @@ export async function handleLineTts(request: Request, url: URL, env: TtsEnv): Pr
   const payload = lineSsml(text, character);
   const key = engine === "polly"
     ? `${LINE_TTS_PREFIX}/${speaker}/${await sha256Hex(`${character.voice} ${payload.text}`)}.mp3`
-    : `${LINE_TTS_PREFIX}/melotts/${await sha256Hex(text)}.mp3`;
-  const { audio, cached } = await cachedSynthesis(env, key, () =>
+    : `${LINE_TTS_PREFIX}/melotts/${await sha256Hex(text)}.wav`;
+  const contentType = engineContentType(engine);
+  const { audio, cached } = await cachedSynthesis(env, key, contentType, () =>
     engine === "polly" ? synthesizePolly(env, character.voice, payload) : synthesizeMelo(env, text));
-  return audioResponse(audio, cached, {
+  return audioResponse(audio, cached, contentType, {
     "x-yomu-tts-engine": engine,
     "x-yomu-tts-speaker": speaker,
     "x-yomu-tts-voice": engine === "polly" ? character.voice : "melotts-ja",
