@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeDarkPassResult, type LuminanceField } from '../../src/reader/ocr/controller';
+import { mergeDarkPassResult, type LuminanceField } from '../../src/reader/ocr/image-preprocess';
 import type { OcrLine, OcrResult } from '../../src/reader/ocr/response';
 
 // The dark-panel second pass must ADD recovered white-on-black text without
