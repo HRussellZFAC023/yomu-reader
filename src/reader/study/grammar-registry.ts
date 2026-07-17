@@ -1,4 +1,4 @@
-import { GRAMMAR_PATTERN_DATA, GRAMMAR_RULE_EXAMPLES } from './grammar-data';
+import { GRAMMAR_PATTERN_DATA } from './grammar-data';
 
 export type GrammarLevel = 'Core' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type GrammarConfidence = 'high' | 'medium';
@@ -41,7 +41,9 @@ function parseGrammarRule(row: string): YomuGrammarRule {
         priority: parseInt(priority, 36),
         confidence: confidence === 'h' ? 'high' : 'medium',
         url: expandGrammarGuideUrl(url),
-        examples: Object.freeze([...(GRAMMAR_RULE_EXAMPLES[ruleId] ?? [])]),
+        // Per-rule examples ship only as test fixtures (tests/reader/fixtures/
+        // grammar-rule-examples.ts); the reader render path uses remote copy JSON.
+        examples: Object.freeze([]),
     });
 }
 

@@ -3,7 +3,8 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { grammarRuleText, resetJaGrammarRuleCopyCacheForTests } from '../../src/reader/app/i18n';
-import { detectGrammarHints, listLocalGrammarRuleExamples, listLocalGrammarRules, renderGrammarHints, resetGrammarRuleDataCacheForTests, type GrammarHint } from '../../src/reader/study/tools';
+import { detectGrammarHints, renderGrammarHints, resetGrammarRuleDataCacheForTests, type GrammarHint } from '../../src/reader/study/tools';
+import { listLocalGrammarRuleExamples, listLocalGrammarRules } from './fixtures/grammar-rule-examples';
 
 const ENGLISH_WORD_RE = /\b[A-Za-z]{3,}\b/u;
 const EN_GRAMMAR_RULE_COPY = fs.readFileSync(path.resolve('docs/public/data/en-grammar-rule-copy.json'), 'utf8');
