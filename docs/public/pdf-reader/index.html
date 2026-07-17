@@ -337,6 +337,14 @@
       transition: opacity .18s ease;
     }
 
+    /* Invisible enlarged tap area; the switch itself must stay a slim pill on
+       every pointer type (a 44px visual blob breaks the shared nav look). */
+    .VPSwitch.VPSwitchAppearance::after {
+      content: "";
+      position: absolute;
+      inset: -11px -5px;
+    }
+
     .VPSwitch .sun::before { content: "☀"; }
     .VPSwitch .moon::before { content: "☾"; }
     .VPSwitch[aria-checked="false"] .sun,
@@ -365,12 +373,20 @@
         height: 44px;
       }
 
-      .VPSwitch.VPSwitchAppearance,
       .toolbar-button.icon-button {
         width: 44px;
         min-width: 44px;
         height: 44px;
         min-height: 44px;
+      }
+
+      /* The generic 44px button floor above must not fatten the theme switch;
+         its ::after overlay already provides the 44px touch target. */
+      .VPSwitch.VPSwitchAppearance {
+        width: 40px;
+        min-width: 40px;
+        height: 24px;
+        min-height: 24px;
       }
     }
 
@@ -705,6 +721,7 @@
         <strong>Yomu PDF</strong>
       </a>
       <div class="top-actions">
+        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <div class="VPNavBarAppearance appearance">
           <button class="VPSwitch VPSwitchAppearance" type="button" role="switch" data-theme-toggle aria-label="Switch to light theme" aria-checked="false" title="Switch to light theme">
             <span class="check">
@@ -715,7 +732,6 @@
             </span>
           </button>
         </div>
-        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <details class="overflow-menu" data-overflow-menu>
           <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
             <span class="more-icon" aria-hidden="true"></span>
@@ -723,6 +739,7 @@
           <div class="overflow-panel">
             <button type="button" data-settings-trigger>Settings</button>
             <a href="../newtab/index.html" data-menu-study>Study</a>
+            <a href="../academy/" data-menu-academy>Academy</a>
             <a href="../video-player/index.html" data-menu-video>Video Player</a>
             <a href="../pdf-reader/index.html" data-menu-pdf-reader>PDF Reader</a>
             <a href="../newtab/index.html?mode=stats" data-menu-stats>Stats</a>
@@ -882,6 +899,7 @@
         settings: 'Settings',
         openSettings: 'Open settings',
         study: 'Study',
+        academy: 'Academy',
         videoPlayer: 'Video Player',
         pdfReader: 'PDF Reader',
         stats: 'Stats',
@@ -923,6 +941,7 @@
         settings: '設定',
         openSettings: '設定を開く',
         study: '学習',
+        academy: 'アカデミー',
         videoPlayer: '動画プレイヤー',
         pdfReader: 'PDFリーダー',
         stats: '統計',
@@ -1073,6 +1092,7 @@
         settingsTrigger.setAttribute('aria-label', t.openSettings);
       }
       document.querySelector('[data-menu-study]')?.replaceChildren(t.study);
+      document.querySelector('[data-menu-academy]')?.replaceChildren(t.academy);
       document.querySelector('[data-menu-video]')?.replaceChildren(t.videoPlayer);
       document.querySelector('[data-menu-pdf-reader]')?.replaceChildren(t.pdfReader);
       document.querySelector('[data-menu-stats]')?.replaceChildren(t.stats);

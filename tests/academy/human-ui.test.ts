@@ -69,10 +69,12 @@ describe('Academy human interface', () => {
         document.body.append(host);
         const onPresentationMode = vi.fn();
         const onNavigate = vi.fn();
+        const onLanguage = vi.fn();
+        const onMute = vi.fn();
         const shell = createAcademyShell(host, {
             language: 'en',
-            onLanguage: vi.fn(),
-            onMute: vi.fn(),
+            onLanguage,
+            onMute,
             onNavigate,
             onPresentationMode,
         });
@@ -99,7 +101,32 @@ describe('Academy human interface', () => {
             .map(button => button.className);
         expect(menuOrder).toEqual([
             'academy-chrome-button academy-presentation-button',
+            'academy-chrome-button academy-language-button',
+            'academy-chrome-button academy-mute-button',
         ]);
+        const linkOrder = [...host.querySelectorAll<HTMLAnchorElement>('.academy-header-actions a')]
+            .map(link => [link.textContent, link.getAttribute('href'), link.target] as const);
+        expect(linkOrder).toEqual([
+            ['Yomu home', 'https://yomureader.com/', ''],
+            ['Study', 'https://yomureader.com/study/', ''],
+            ['Support', 'https://yomureader.com/support', ''],
+            ['Discord', 'https://discord.gg/jD6NPURewD', '_blank'],
+            ['GitHub', 'https://github.com/HRussellZFAC023/yomu-reader', '_blank'],
+        ]);
+        expect(host.querySelectorAll('.academy-header-actions .academy-utility-divider')).toHaveLength(1);
+        const languageButton = host.querySelector<HTMLButtonElement>('.academy-language-button')!;
+        expect(languageButton.textContent).toBe('日本語');
+        expect(languageButton.lang).toBe('ja');
+        languageButton.click();
+        expect(onLanguage).toHaveBeenCalledTimes(1);
+        const muteButton = host.querySelector<HTMLButtonElement>('.academy-mute-button')!;
+        expect(muteButton.textContent).toBe('Sound on');
+        expect(muteButton.getAttribute('aria-pressed')).toBe('false');
+        muteButton.click();
+        expect(onMute).toHaveBeenCalledTimes(1);
+        shell.setMuted(true);
+        expect(muteButton.textContent).toBe('Sound off');
+        expect(muteButton.getAttribute('aria-pressed')).toBe('true');
         const presentation = host.querySelector<HTMLButtonElement>('.academy-presentation-button')!;
         // Destination-named: in story mode the control names the course view it opens.
         expect(presentation.textContent).toBe('Course view');

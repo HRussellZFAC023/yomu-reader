@@ -1,5 +1,6 @@
-import type { AcademyLanguage } from '../../reader/app/academy-copy';
+import type { AcademyCopyKey, AcademyLanguage } from '../../reader/app/academy-copy';
 import { academyText } from '../../reader/app/academy-copy';
+import { DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL } from '../../reader/app/constants';
 import type { AcademyPresentationMode } from '../routing/route-history';
 import { copyButton, element, setCopy } from './dom';
 import { setAcademyTooltip } from './tooltip';
@@ -43,12 +44,36 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     utilityToggle.textContent = '•••';
     const actions = element('div', 'academy-header-actions');
     const presentation = copyButton(options.language, 'navPresentationStory', 'academy-chrome-button academy-presentation-button');
+    const languageButton = copyButton(options.language, 'languageToggle', 'academy-chrome-button academy-language-button');
+    const muteButton = copyButton(options.language, 'navAudioOn', 'academy-chrome-button academy-mute-button');
+    const utilityLinkDefs: { key: AcademyCopyKey; href: string; external?: boolean }[] = [
+        { key: 'utilityLinkHome', href: DOCS_BASE_URL },
+        { key: 'utilityLinkStudy', href: NEW_TAB_PAGE_URL },
+        { key: 'utilityLinkSupport', href: `${DOCS_BASE_URL}support` },
+        { key: 'utilityLinkDiscord', href: DISCORD_INVITE_URL, external: true },
+        { key: 'utilityLinkGitHub', href: GITHUB_REPOSITORY_URL, external: true },
+    ];
+    const utilityLinks = utilityLinkDefs.map(({ key, href, external }) => {
+        const anchor = element('a', 'academy-chrome-button academy-utility-link');
+        anchor.href = href;
+        if (external) {
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+        }
+        return { anchor, key };
+    });
     utility.append(utilityToggle, actions);
     header.append(utility);
     const screen = element('main', 'academy-screen-host');
     screen.id = 'academy-screen';
     screen.tabIndex = -1;
-    actions.append(presentation);
+    actions.append(
+        presentation,
+        languageButton,
+        muteButton,
+        element('hr', 'academy-utility-divider'),
+        ...utilityLinks.map(link => link.anchor),
+    );
     const live = element('div', 'academy-sr-only');
     live.setAttribute('aria-live', 'polite');
     root.append(header, screen, live);
@@ -56,24 +81,35 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
 
     let language = options.language;
     let presentationMode: AcademyPresentationMode = 'story';
+    let muted = false;
     const refreshCopy = () => {
         setAcademyTooltip(utilityToggle, academyText(language, 'utilityMenu'));
-        // The control names its DESTINATION (the view a click opens), not the
-        // current mode, so the collapsed ••• menu reads as "go to the course
-        // view" instead of restating where the learner already is.
-        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationStory' : 'navPresentationCourse');
+        setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationCourse' : 'navPresentationStory');
         presentation.dataset.presentationMode = presentationMode;
         root.dataset.presentationMode = presentationMode;
+        presentation.setAttribute('aria-pressed', String(presentationMode === 'course'));
         const presentationAction = academyText(
             language,
             presentationMode === 'course' ? 'navSwitchToStory' : 'navSwitchToCourse',
         );
-        presentation.setAttribute('aria-label', presentationAction);
+        presentation.setAttribute('aria-label', `${presentation.textContent}. ${presentationAction}`);
+        setCopy(languageButton, language, 'languageToggle');
+        // The label names the language the button switches TO, so it must render
+        // in that language, not the current one.
+        languageButton.lang = language === 'ja' ? 'en' : 'ja';
+        setCopy(muteButton, language, muted ? 'navAudioMuted' : 'navAudioOn');
+        muteButton.setAttribute('aria-pressed', String(muted));
+        utilityLinks.forEach(({ anchor, key }) => setCopy(anchor, language, key));
     };
     presentation.addEventListener('click', () => {
         utility.open = false;
         options.onPresentationMode(presentationMode === 'story' ? 'course' : 'story');
     }, { signal: lifecycle.signal });
+    languageButton.addEventListener('click', () => {
+        utility.open = false;
+        options.onLanguage();
+    }, { signal: lifecycle.signal });
+    muteButton.addEventListener('click', () => options.onMute(), { signal: lifecycle.signal });
     document.addEventListener('pointerdown', event => {
         if (utility.open && event.target instanceof Node && !utility.contains(event.target)) utility.open = false;
     }, { capture: true, signal: lifecycle.signal });
@@ -101,7 +137,7 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         setLearnerActionsVisible(_visible) {},
         setClassBoardAccess(_access) {},
         setPresentationMode(next) { presentationMode = next; refreshCopy(); },
-        setMuted(_next) {},
+        setMuted(next) { muted = next; refreshCopy(); },
         announce(message) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = message; }); },
         dispose() { lifecycle.abort(); document.documentElement.lang = previousDocumentLanguage; root.remove(); },
     };

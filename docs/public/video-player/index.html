@@ -26,6 +26,21 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="color-scheme" content="light dark">
+  <script>
+    /* Prime the page theme before paint so dark readers do not flash white. */
+    (() => {
+      try {
+        const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
+        const stored = (settings && settings.theme) || localStorage.getItem('yomu-page-theme');
+        const pref = stored === 'dark' || stored === 'light' || stored === 'auto' ? stored : 'auto';
+        const theme = pref === 'auto'
+          ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : pref;
+        document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
+        document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
+      } catch {}
+    })();
+  </script>
   <style>
     :root {
       color-scheme: light dark;
@@ -198,7 +213,7 @@
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
-      z-index: 20;
+      z-index: 40;
       display: grid;
       gap: 2px;
       min-width: 190px;
@@ -329,6 +344,14 @@
       transition: opacity .18s ease;
     }
 
+    /* Invisible enlarged tap area; the switch itself must stay a slim pill on
+       every pointer type (a 44px visual blob breaks the shared nav look). */
+    .VPSwitch.VPSwitchAppearance::after {
+      content: "";
+      position: absolute;
+      inset: -11px -5px;
+    }
+
     .VPSwitch .sun::before { content: "☀"; }
     .VPSwitch .moon::before { content: "☾"; }
     .VPSwitch[aria-checked="false"] .sun,
@@ -356,11 +379,13 @@
         height: 44px;
       }
 
+      /* The generic 44px button floor above must not fatten the theme switch;
+         its ::after overlay already provides the 44px touch target. */
       .VPSwitch.VPSwitchAppearance {
-        width: 44px;
-        min-width: 44px;
-        height: 44px;
-        min-height: 44px;
+        width: 40px;
+        min-width: 40px;
+        height: 24px;
+        min-height: 24px;
       }
     }
 
@@ -797,6 +822,7 @@
         <strong>Yomu Video</strong>
       </a>
       <div class="top-actions">
+        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <div class="VPNavBarAppearance appearance">
           <button class="VPSwitch VPSwitchAppearance" type="button" role="switch" data-theme-toggle aria-label="Switch to light theme" aria-checked="false" title="Switch to light theme">
             <span class="check">
@@ -807,7 +833,6 @@
             </span>
           </button>
         </div>
-        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
         <details class="overflow-menu" data-overflow-menu>
           <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
             <span class="more-icon" aria-hidden="true"></span>
@@ -815,6 +840,7 @@
           <div class="overflow-panel">
             <button type="button" data-settings-trigger>Settings</button>
             <a href="../newtab/index.html" data-menu-study>Study</a>
+            <a href="../academy/" data-menu-academy>Academy</a>
             <a href="../video-player/index.html" data-menu-video>Video Player</a>
             <a href="../pdf-reader/index.html" data-menu-pdf-reader>PDF Reader</a>
             <a href="../newtab/index.html?mode=stats" data-menu-stats>Stats</a>
@@ -942,6 +968,7 @@
           settings: 'Settings',
           openSettings: 'Open settings',
           study: 'Study',
+          academy: 'Academy',
           videoPlayer: 'Video Player',
           pdfReader: 'PDF Reader',
           stats: 'Stats',
@@ -984,6 +1011,7 @@
           settings: '設定',
           openSettings: '設定を開く',
           study: '学習',
+          academy: 'アカデミー',
           videoPlayer: '動画プレイヤー',
           pdfReader: 'PDFリーダー',
           stats: '統計',
@@ -1168,6 +1196,7 @@
           settingsTrigger.setAttribute('aria-label', text.openSettings);
         }
         document.querySelector('[data-menu-study]')?.replaceChildren(text.study);
+        document.querySelector('[data-menu-academy]')?.replaceChildren(text.academy);
         document.querySelector('[data-menu-video]')?.replaceChildren(text.videoPlayer);
         document.querySelector('[data-menu-pdf-reader]')?.replaceChildren(text.pdfReader);
         document.querySelector('[data-menu-stats]')?.replaceChildren(text.stats);

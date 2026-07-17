@@ -177,6 +177,20 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     background: rgba(255, 255, 255, 0.055);
 }
 
+a.academy-chrome-button {
+    display: grid;
+    align-items: center;
+    text-decoration: none;
+}
+
+.academy-utility-divider {
+    width: 100%;
+    height: 1px;
+    margin: 2px 0;
+    border: 0;
+    background: var(--academy-line);
+}
+
 .academy-screen-host {
     position: relative;
     min-height: 100dvh;

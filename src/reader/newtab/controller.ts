@@ -1460,6 +1460,7 @@ export class NewTabController {
         const nextLanguage = nextExplicitUiLanguage(language);
         return el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
             this.renderOverflowMenuButton(uiText(language, 'settings'), 'settings', language),
+            this.renderOverflowMenuLink(uiText(language, 'academy'), `${DOCS_BASE_URL}academy/`, language),
             this.renderOverflowMenuLink(uiText(language, 'videoPlayer'), VIDEO_PLAYER_PAGE_URL, language),
             this.renderOverflowMenuLink(uiText(language, 'pdfReader'), PDF_READER_PAGE_URL, language),
             this.renderOverflowMenuButton(newTabText(language, 'stats'), 'mode', language, {
