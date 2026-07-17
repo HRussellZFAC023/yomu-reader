@@ -863,6 +863,8 @@ function historyEntry(
 }
 
 function setToolLabel(button: HTMLButtonElement, label: string): void {
+    // Icon-only glyphs (記/読/訳): first touch tap previews the label, second acts.
+    button.dataset.tooltipTouchPreview = '';
     setAcademyTooltip(button, label);
 }
 

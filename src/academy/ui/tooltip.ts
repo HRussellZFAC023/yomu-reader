@@ -20,11 +20,40 @@ interface TooltipController {
     setLabel(label: string): void;
     show(): void;
     hide(): void;
+    isOpen(): boolean;
 }
 
 let activeTooltip: TooltipController | null = null;
+let activeTooltipTrigger: HTMLElement | null = null;
 let tooltipSequence = 0;
+let lastPointerType = '';
 const tooltipControllers = new WeakMap<HTMLElement, TooltipController>();
+
+/**
+ * Touch parity for icon-only controls (記/読/訳): hover previews on desktop,
+ * so on touch the FIRST tap shows the same preview and the SECOND tap acts.
+ * Opt-in via data-tooltip-touch-preview so labeled buttons keep one-tap.
+ */
+document.addEventListener('pointerdown', event => {
+    lastPointerType = event.pointerType;
+    if (
+        event.pointerType === 'touch'
+        && activeTooltipTrigger
+        && event.target instanceof Node
+        && !activeTooltipTrigger.contains(event.target)
+    ) activeTooltip?.hide();
+}, true);
+document.addEventListener('keydown', () => { lastPointerType = ''; }, true);
+document.addEventListener('click', event => {
+    if (lastPointerType !== 'touch' || !(event.target instanceof Element)) return;
+    const trigger = event.target.closest<HTMLElement>('[data-tooltip-touch-preview]');
+    if (!trigger) return;
+    const controller = tooltipControllers.get(trigger);
+    if (!controller || controller.isOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    controller.show();
+}, true);
 
 function createTooltipController(trigger: HTMLElement): TooltipController {
     let label = trigger.dataset.tooltip ?? '';
@@ -81,7 +110,10 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
         window.visualViewport?.removeEventListener('scroll', position);
         resizeObserver?.disconnect();
         resizeObserver = null;
-        if (activeTooltip === controller) activeTooltip = null;
+        if (activeTooltip === controller) {
+            activeTooltip = null;
+            activeTooltipTrigger = null;
+        }
     };
 
     const show = () => {
@@ -109,6 +141,7 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
             tooltip.textContent = label;
         }
         activeTooltip = controller;
+        activeTooltipTrigger = trigger;
         position();
     };
 
@@ -123,12 +156,19 @@ function createTooltipController(trigger: HTMLElement): TooltipController {
         },
         show,
         hide,
+        isOpen: () => tooltip !== null,
     };
     trigger.addEventListener('pointerenter', event => {
         if ((event as PointerEvent).pointerType !== 'touch') show();
     });
-    trigger.addEventListener('pointerleave', hide);
-    trigger.addEventListener('focus', show);
+    trigger.addEventListener('pointerleave', event => {
+        // Touch pointers "leave" at the end of every tap; hiding here would
+        // close the first-tap preview before its confirming second tap.
+        if ((event as PointerEvent).pointerType !== 'touch') hide();
+    });
+    trigger.addEventListener('focus', () => {
+        if (lastPointerType !== 'touch') show();
+    });
     trigger.addEventListener('blur', hide);
     trigger.addEventListener('click', hide);
     trigger.addEventListener('keydown', event => {

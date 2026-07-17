@@ -240,6 +240,8 @@ function toolButton(glyph: string): HTMLButtonElement {
 }
 
 function setToolLabel(button: HTMLButtonElement, label: string): void {
+    // Icon-only glyphs (読/訳): first touch tap previews the label, second acts.
+    button.dataset.tooltipTouchPreview = '';
     setAcademyTooltip(button, label);
 }
 
