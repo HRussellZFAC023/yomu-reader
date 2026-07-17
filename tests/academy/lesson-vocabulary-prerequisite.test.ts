@@ -10,7 +10,10 @@ import {
     libraryVocabularyReviewSeeds,
 } from '../../src/academy/content/library-vocabulary-sheet';
 import { EXACT_LIBRARY_VOCABULARY_PACKAGE_IDS } from '../../src/academy/content/lesson-27-31-library-vocabulary';
-import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
+import {
+    ACADEMY_LESSON_CONTENT_REGISTRY,
+    getAuthoredWeekRegistration,
+} from '../../src/academy/content/lesson-content-registry';
 import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
 
 describe('Sensei vocabulary prerequisites', () => {
@@ -34,8 +37,7 @@ describe('Sensei vocabulary prerequisites', () => {
     });
 
     it('keeps an absent Moodle sheet explicit instead of projecting new vocabulary', async () => {
-        const registration = ACADEMY_LESSON_CONTENT_REGISTRY.find(candidate =>
-            candidate.kind === 'authored-week' && candidate.packageId === 'l1-l11')!;
+        const registration = getAuthoredWeekRegistration('l1-l11');
         const prerequisite = await loadSenseiVocabularyPrerequisite(
             'authored-week:l1-l11',
             committedAuthoredWeekFetcher(registration),
@@ -59,8 +61,7 @@ describe('Sensei vocabulary prerequisites', () => {
         ['l2-l08', 18],
         ['l2-l09', 20],
     ] as const)('loads each delivered exact L2 prerequisite through %s', async (packageId, count) => {
-        const registration = ACADEMY_LESSON_CONTENT_REGISTRY.find(candidate =>
-            candidate.kind === 'authored-week' && candidate.packageId === packageId)!;
+        const registration = getAuthoredWeekRegistration(packageId);
         const prerequisite = await loadSenseiVocabularyPrerequisite(
             `authored-week:${packageId}`,
             committedAuthoredWeekFetcher(registration),
