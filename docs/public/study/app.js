@@ -5863,12 +5863,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function closestRubyFragileConstrainedRow(element) {
     let current = element;
-    for (let depth = 0; current && depth < 10; depth += 1) {
+    for (let depth = 0; current && depth < 12; depth += 1) {
       const facts = constrainedRowStyleFacts(current);
       if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
-      current = current.parentElement;
+      current = composedAncestorElement(current);
     }
     return null;
+  }
+  function composedAncestorElement(element) {
+    if (element.assignedSlot) return element.assignedSlot;
+    if (element.parentElement) return element.parentElement;
+    const root = element.getRootNode();
+    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
   function contentClipRowShowsRestReadings(decoration, clipRow) {
     if (decoration !== "prose-full") return false;
@@ -9919,8 +9925,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DETACHED_READING_CLEARANCE_PX = 3;
   const pendingDetachedReadingSurfaces = /* @__PURE__ */ new Set();
   function detachedReadingCollisionSurface(root) {
-    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedParentElement(root) ?? root : root;
-    return composedParentElement(owner) ?? owner;
+    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
+    return composedAncestorElement(owner) ?? owner;
   }
   function settleDetachedReadingLanes(readings2, bases) {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
@@ -10010,8 +10016,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
   }
   function detachedReadingIsClipped(reading, rect) {
-    let ancestor = composedParentElement(reading);
-    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedParentElement(ancestor)) {
+    let ancestor = composedAncestorElement(reading);
+    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedAncestorElement(ancestor)) {
       const style = safeComputedStyle(ancestor);
       const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
       if (!clips) continue;
@@ -10019,12 +10025,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP || rect.left < box.left - DETACHED_READING_COLLISION_SLOP || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
     }
     return false;
-  }
-  function composedParentElement(element) {
-    if (element.assignedSlot) return element.assignedSlot;
-    if (element.parentElement) return element.parentElement;
-    const root = element.getRootNode();
-    return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
   function hideUnsafeDetachedReading(reading) {
     reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
@@ -10036,8 +10036,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   }
   function detachedReadingRestHidden(reading) {
-    const row = reading.closest('[data-yomu-clip-constrained="true"]');
-    return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
+    for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
+      if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
+    }
+    return false;
   }
   function reconcilePendingDetachedReadingLanes() {
     const surfaces = [...pendingDetachedReadingSurfaces];
@@ -10052,14 +10054,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function uniqueElements$1(elements) {
     return [...new Set(elements)];
   }
-  const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
+  const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
   const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
   function openSafeDetachedReadingClips(element) {
     let current = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (!current.querySelector(".jpdb-reader-detached-furi")) continue;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+      if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
       if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
         restoreDetachedReadingClip(current);
         continue;
@@ -10889,7 +10891,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
-    if (!renderTarget.suppressRuby) {
+    {
       const clipRow = closestRubyFragileConstrainedRow(target.parent);
       if (clipRow) {
         clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) ? "content" : "true";
@@ -40153,7 +40155,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.169".trim() ? "1.6.169".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.170".trim() ? "1.6.170".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

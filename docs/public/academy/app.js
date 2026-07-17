@@ -14332,12 +14332,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function closestRubyFragileConstrainedRow(element2) {
     let current = element2;
-    for (let depth = 0; current && depth < 10; depth += 1) {
+    for (let depth = 0; current && depth < 12; depth += 1) {
       const facts = constrainedRowStyleFacts(current);
       if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
-      current = current.parentElement;
+      current = composedAncestorElement(current);
     }
     return null;
+  }
+  function composedAncestorElement(element2) {
+    if (element2.assignedSlot) return element2.assignedSlot;
+    if (element2.parentElement) return element2.parentElement;
+    const root = element2.getRootNode();
+    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
   function contentClipRowShowsRestReadings(decoration, clipRow) {
     if (decoration !== "prose-full") return false;
@@ -18644,8 +18650,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const DETACHED_READING_CLEARANCE_PX = 3;
   const pendingDetachedReadingSurfaces = /* @__PURE__ */ new Set();
   function detachedReadingCollisionSurface(root) {
-    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedParentElement(root) ?? root : root;
-    return composedParentElement(owner) ?? owner;
+    const owner = root.matches(READER_TEXT_MIRROR_SELECTOR) ? composedAncestorElement(root) ?? root : root;
+    return composedAncestorElement(owner) ?? owner;
   }
   function settleDetachedReadingLanes(readings, bases) {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
@@ -18735,8 +18741,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
   }
   function detachedReadingIsClipped(reading, rect) {
-    let ancestor = composedParentElement(reading);
-    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedParentElement(ancestor)) {
+    let ancestor = composedAncestorElement(reading);
+    for (let depth = 0; ancestor && depth < 12; depth += 1, ancestor = composedAncestorElement(ancestor)) {
       const style = safeComputedStyle(ancestor);
       const clips = [style.overflow, style.overflowX, style.overflowY].some((value) => value === "hidden" || value === "clip");
       if (!clips) continue;
@@ -18744,12 +18750,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (rect.top < box.top - DETACHED_READING_COLLISION_SLOP || rect.bottom > box.bottom + DETACHED_READING_COLLISION_SLOP || rect.left < box.left - DETACHED_READING_COLLISION_SLOP || rect.right > box.right + DETACHED_READING_COLLISION_SLOP) return true;
     }
     return false;
-  }
-  function composedParentElement(element2) {
-    if (element2.assignedSlot) return element2.assignedSlot;
-    if (element2.parentElement) return element2.parentElement;
-    const root = element2.getRootNode();
-    return root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
   function hideUnsafeDetachedReading(reading) {
     reading.dataset.yomuDetachedReadingHidden = "unsafe-lane";
@@ -18761,8 +18761,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     reading.style.setProperty("display", detachedReadingRestHidden(reading) ? "none" : "block", "important");
   }
   function detachedReadingRestHidden(reading) {
-    const row = reading.closest('[data-yomu-clip-constrained="true"]');
-    return Boolean(row && row.dataset.yomuDetachedReadingOverflow !== "true");
+    for (let row = reading, depth = 0; row && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, row = composedAncestorElement(row)) {
+      if (row.dataset.yomuClipConstrained === "true") return row.dataset.yomuDetachedReadingOverflow !== "true";
+    }
+    return false;
   }
   function reconcilePendingDetachedReadingLanes() {
     const surfaces = [...pendingDetachedReadingSurfaces];
@@ -18777,14 +18779,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueElements(elements) {
     return [...new Set(elements)];
   }
-  const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 6;
+  const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
   const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
   function openSafeDetachedReadingClips(element2) {
     let current = element2;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (!current.querySelector(".jpdb-reader-detached-furi")) continue;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+      if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
       if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
         restoreDetachedReadingClip(current);
         continue;
@@ -19614,7 +19616,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
     const renderTarget = target.decoration === "interactive-passive" && interactivePassiveControl(target.parent) ? { ...target, suppressRuby: true } : targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
-    if (!renderTarget.suppressRuby) {
+    {
       const clipRow = closestRubyFragileConstrainedRow(target.parent);
       if (clipRow) {
         clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) ? "content" : "true";

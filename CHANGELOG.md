@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.170] - 2026-07-17
+
+### Fixed
+
+- Detached furigana no longer widens truncating labels or floats away from its word: readings inside a clipped row that cannot safely grow are now rest-hidden on every channel (they remain available on hover and in the popover), fixing the mobile YouTube Shorts action labels rendering as 共… / 高く評… and the floating reading over the watch-page view counter. The clip detection also looks through web-component boundaries so component-based sites resolve the same rows.
+
 ## [1.6.169] - 2026-07-17
 
 ### Fixed
