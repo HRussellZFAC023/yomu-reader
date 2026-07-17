@@ -3,6 +3,7 @@ import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
+import { currentFullscreenElement } from '../core/fullscreen';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
@@ -597,12 +598,6 @@ const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     'input[name="r"]',
 ].join(',');
 
-type FullscreenDocument = Document & {
-    webkitFullscreenElement?: Element | null;
-    mozFullScreenElement?: Element | null;
-    msFullscreenElement?: Element | null;
-};
-
 interface CardPopoverHydrationContext {
     popover: HTMLElement;
     card: JPDBCard;
@@ -618,15 +613,6 @@ interface MountedCardCompletionContext extends Omit<CardPopoverHydrationContext,
     mounted: MountedCardShell;
     fallbackAnkiLookup: AnkiLookupResult;
     loadRenderData: () => CardRenderDataLoad;
-}
-
-function currentFullscreenElement(): Element | null {
-    const fullscreenDocument = document as FullscreenDocument;
-    return document.fullscreenElement
-        ?? fullscreenDocument.webkitFullscreenElement
-        ?? fullscreenDocument.mozFullScreenElement
-        ?? fullscreenDocument.msFullscreenElement
-        ?? null;
 }
 
 function fullscreenPopoverMountParent(anchor?: HTMLElement): HTMLElement | undefined {

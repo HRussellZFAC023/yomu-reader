@@ -1,4 +1,5 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
+import { currentFullscreenElement } from '../core/fullscreen';
 import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
     compactTextLength,
@@ -323,25 +324,10 @@ function hasOpenYouTubeMobileBottomSheet(): boolean {
     return false;
 }
 
-type FullscreenDocument = Document & {
-    webkitFullscreenElement?: Element | null;
-    mozFullScreenElement?: Element | null;
-    msFullscreenElement?: Element | null;
-};
-
 type FullscreenVideoElement = HTMLVideoElement & {
     webkitDisplayingFullscreen?: boolean;
     webkitPresentationMode?: string;
 };
-
-function currentFullscreenElement(): Element | null {
-    const fullscreenDocument = document as FullscreenDocument;
-    return document.fullscreenElement
-        ?? fullscreenDocument.webkitFullscreenElement
-        ?? fullscreenDocument.mozFullScreenElement
-        ?? fullscreenDocument.msFullscreenElement
-        ?? null;
-}
 
 function subtitleViewportRect(): DOMRect {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
