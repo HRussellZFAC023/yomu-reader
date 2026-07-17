@@ -2,9 +2,9 @@ import type { AcademyLanguage } from '../reader/app/academy-copy';
 import { ACADEMY_ACCOUNT_ACTION_EVENT, academyAccountActionDetail } from './account/actions';
 import { AcademySyncClient, createSyncingLearnerEventRepository } from './account/sync-client';
 import { createAccessGateway, type AccessGateway } from './access/gateway';
-import { BrowserSpeechPronunciationService } from './audio/browser-speech';
 import { AudioDirector } from './audio/director';
 import { createAuthorizedAcademyAudioDirector } from './audio/runtime';
+import { WorkerTtsPronunciationService } from './audio/worker-tts';
 import { createLearnerEvidence, type LearnerEvidence } from './evidence/learner-evidence';
 import { createYomuLocalReviewService } from './integration/yomu-local-review';
 import { createCanonicalKanjiWritingService } from './integration/yomu-kanji-writing';
@@ -85,7 +85,7 @@ export class AcademyApp {
         this.kanjiWriting = options.kanjiWriting ?? createCanonicalKanjiWritingService();
         this.databaseName = options.databaseName;
         this.audio = options.audio ?? createAuthorizedAcademyAudioDirector(safeLocalStorage());
-        this.pronunciation = options.pronunciation ?? new BrowserSpeechPronunciationService(this.audio);
+        this.pronunciation = options.pronunciation ?? new WorkerTtsPronunciationService(this.audio);
         this.shell = createAcademyShell(host, {
             language: this.language,
             onLanguage: () => this.toggleLanguage(),
