@@ -1,5 +1,11 @@
 (function() {
   "use strict";
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   function promiseWithTimeout(promise, timeoutMs, message) {
     let timeoutId = 0;
     const timeout = new Promise((_resolve, reject) => {
@@ -4073,7 +4079,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
+      if (isPromiseLike(value)) return { kind: "fallback" };
       if (!isMissingSentinel(value)) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -4104,7 +4110,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) {
+        if (!isPromiseLike(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -4131,7 +4137,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -4535,9 +4541,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         resolve();
       }
     });
-  }
-  function isPromiseLike$1(value) {
-    return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
     if (typeof GM_getValue === "function") return GM_getValue;
@@ -4960,7 +4963,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function canDirectFetchAnkiConnect(url) {
-    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref());
   }
   function canDirectFetchAnkiConnectFrom(url, currentHref) {
     const current = readAnkiUrl(currentHref);
@@ -4979,7 +4982,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isHttpUrl(url) {
     return url.protocol === "http:" || url.protocol === "https:";
   }
-  function safeLocationHref$1() {
+  function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
   }
   function resolvedAnkiDeckName(deckOverride, settings) {
@@ -13010,6 +13013,12 @@ ${item.sequence ?? ""}`;
       return url;
     }
   }
+  function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function isNonNullObject(value) {
+    return typeof value === "object" && value !== null;
+  }
   const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
   const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
   function glossaryValueToText(value) {
@@ -13033,7 +13042,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$b(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -13063,9 +13072,6 @@ ${item.sequence ?? ""}`;
   }
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
-  }
-  function isRecord$b(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
     "br",
@@ -13130,7 +13136,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$a(value)) return "";
+    if (!isRecord(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -13429,9 +13435,6 @@ ${item.sequence ?? ""}`;
   }
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
-  }
-  function isRecord$a(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -19161,9 +19164,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function ankiEaseFromGrade(grade) {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
   }
-  function safeLocationHref() {
-    return typeof location === "undefined" ? "" : location.href;
-  }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
@@ -19587,7 +19587,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return value;
     }
   }
-  function uniqueStrings$2(values, options = {}) {
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
     for (const value of values) {
@@ -19601,10 +19604,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return result;
   }
   function uniqueNonEmptyStrings(values) {
-    return uniqueStrings$2(values, { dropEmpty: true });
+    return uniqueStrings(values, { dropEmpty: true });
   }
   function uniqueTrimmedStrings(values) {
-    return uniqueStrings$2(values, { trim: true, dropEmpty: true });
+    return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
   const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
   const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
@@ -19822,7 +19825,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function jpdbAudioIdMatchesVoice(audioId, prefixes) {
     const normalized = audioId.trim().toLowerCase();
-    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp$5(prefix)}\\d+/`).test(normalized));
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp(prefix)}\\d+/`).test(normalized));
   }
   async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
     const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
@@ -19842,7 +19845,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
   }
   async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
-    const queries = uniqueStrings$2([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    const queries = uniqueStrings([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
     for (const query of queries) {
       const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
       const response = await requestAudioUrl(url, "text", timeoutMs, {
@@ -19926,16 +19929,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function jpdbVocabularyAudioLookupUrls(card) {
     const urls = [];
     if (card.vid > 0) urls.push(jpdbVocabularyUrl(card.vid, card.spelling, card.reading));
-    for (const query of uniqueStrings$2([card.spelling, card.reading].filter(Boolean))) {
+    for (const query of uniqueStrings([card.spelling, card.reading].filter(Boolean))) {
       urls.push(`${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`);
     }
-    return uniqueStrings$2(urls);
+    return uniqueStrings(urls);
   }
   function jpdbVocabularyUrl(vid, spelling, reading) {
     return `${JPDB_VOCABULARY_BASE_URL$1}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
   }
   function extractJpdbVocabularyAudioIds(html, card, sourceUrl = "") {
-    return uniqueStrings$2(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
+    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
   }
   function jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl = "") {
     const resultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary") && jpdbVocabularyBlockMatchesCard(block, card));
@@ -20193,7 +20196,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return urls;
   }
   function commonsSearchApiUrl(term, source) {
-    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$5(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$5(term)}[0123456789]*.ogg/i`;
+    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
     return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
   }
   function commonsSearchTitles(response) {
@@ -20213,10 +20216,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Object.values(filePages).map((filePage) => filePage.imageinfo?.[0]).filter((image) => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? "", term, source))).map((image) => image?.url ?? "");
   }
   function findHtmlElementById(html, tag, id) {
-    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$5(id)}\\1`, "i"));
+    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, "i"));
   }
   function htmlAttributeValue(html, attribute) {
-    const match = new RegExp(`\\b${escapeRegExp$5(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
+    const match = new RegExp(`\\b${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
     return match?.[2] ?? null;
   }
   function findHtmlElementByClass(html, tag, className) {
@@ -20280,7 +20283,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   function getHtmlAttribute(attributes, name) {
-    const match = new RegExp(`\\b${escapeRegExp$5(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+    const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
     return match ? decodeHtmlAttribute(match[2]) : null;
   }
   function decodeHtmlAttribute(value) {
@@ -20292,9 +20295,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
     if (!filename) return false;
     if (source === "lingua-libre") {
-      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$5(fileUser)}-${escapeRegExp$5(term)}\\.wav$`, "i").test(filename);
+      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp(fileUser)}-${escapeRegExp(term)}\\.wav$`, "i").test(filename);
     }
-    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$5(term)}\\d*\\.ogg$`, "i").test(filename);
+    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp(term)}\\d*\\.ogg$`, "i").test(filename);
   }
   function normalizeAudioUrl(value, sourceUrl) {
     try {
@@ -20386,9 +20389,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     link.href = origin;
     if (rel === "preconnect") link.crossOrigin = "anonymous";
     document.head?.append(link);
-  }
-  function escapeRegExp$5(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   let activationTrackingInstalled = false;
   let pageHasUserActivation = false;
@@ -25291,7 +25291,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function metaKeyword(doc, kanji) {
     const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-    const match = new RegExp(`${escapeRegExp$4(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+    const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
     return cleanText$1(match?.[1] ?? "");
   }
   function cleanInfoTableValue(cell) {
@@ -25300,9 +25300,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isMissingSectionValue(value, section) {
     const normalized = value.trim().toLowerCase();
     return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
-  }
-  function escapeRegExp$4(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function requestText$4(url, proxyUrl = "", options = {}) {
     const method = options.method ?? "GET";
@@ -29937,7 +29934,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return context;
   }
   function storedMiningContextRecord(value, expectedTerm) {
-    if (!isRecord$9(value)) return null;
+    if (!isNonNullObject(value)) return null;
     return text$1(value.term) === expectedTerm ? value : null;
   }
   function storedMiningSourceKind(value) {
@@ -29955,9 +29952,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isMiningSourceKind(value) {
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function isRecord$9(value) {
-    return Boolean(value && typeof value === "object");
   }
   function optionalText(value) {
     const normalized = text$1(value);
@@ -31778,6 +31772,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function ocrRuntimeActive(settings) {
     return settings.ocrEnabled && !settings.annotationsPaused;
   }
+  function isAbortError(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
@@ -32568,9 +32565,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         finish(new Error("Screenshot decode failed."));
       }
     });
-  }
-  function isPromiseLike(value) {
-    return Boolean(value && typeof value.then === "function");
   }
   const BOOKWALKER_CONTENT_SESSION_PATHS = /* @__PURE__ */ new Set([
     "/browserWebApi/c",
@@ -33926,10 +33920,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const source = normalizeFallbackTerm(text2);
     if (!source) return [];
     const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+    return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
   }
   function fallbackLookupTermsForCard(card) {
-    const terms = uniqueStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
     return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
   }
   function isUsefulFallbackLookupCandidate(candidate) {
@@ -33948,22 +33942,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
     const [source, ...candidates] = terms;
     const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueStrings$1(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
+    return uniqueNonEmptyStrings(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
   }
   function hasAmbiguousContinuativeStemCandidate(source) {
     return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
   }
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  function uniqueStrings$1(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.filter((value) => {
-      if (!value) return false;
-      if (seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
   }
   const KANA_ONLY_RE$1 = /^[぀-ヿー]+$/u;
   const KANA_CHAR_RE = /^[぀-ヿー]$/u;
@@ -39435,7 +39420,7 @@ ${spelling}`);
       controller.abort();
     }, timeout);
     return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: data, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError$3(error)) throw new Error("OCR timed out.");
+      if (timedOut || isAbortError(error)) throw new Error("OCR timed out.");
       throw error;
     }).finally(() => window.clearTimeout(timeoutId));
   }
@@ -39483,7 +39468,7 @@ ${spelling}`);
       controller.abort();
     }, timeout);
     return fetch(url, { ...init, signal: controller.signal }).catch((error) => {
-      if (timedOut || isAbortError$3(error)) throw new Error(timeoutMessage);
+      if (timedOut || isAbortError(error)) throw new Error(timeoutMessage);
       throw error;
     }).finally(() => window.clearTimeout(timeoutId));
   }
@@ -39721,9 +39706,6 @@ ${spelling}`);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
-  }
-  function isAbortError$3(error) {
-    return error instanceof Error && error.name === "AbortError";
   }
   function safeHost$1(value) {
     try {
@@ -40155,7 +40137,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.170".trim() ? "1.6.170".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.171".trim() ? "1.6.171".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -41616,9 +41598,9 @@ ${spelling}`);
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord$8(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord(body) && Array.isArray(body.files) ? body.files : [];
     const first2 = files[0];
-    return isRecord$8(first2) && typeof first2.id === "string" ? first2 : null;
+    return isRecord(first2) && typeof first2.id === "string" ? first2 : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -41760,7 +41742,7 @@ ${spelling}`);
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord$8(parsed) ? parsed : null;
+      return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -41770,7 +41752,7 @@ ${spelling}`);
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord$8(parsed) ? parsed : null;
+      return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -41850,12 +41832,12 @@ ${spelling}`);
     } catch {
       return null;
     }
-    if (!isRecord$8(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord$8(parsed.settings)) return null;
+    if (!isRecord(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord$8(value) && typeof value.id === "string") return value;
+    if (isRecord(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -41866,9 +41848,6 @@ ${spelling}`);
   }
   function randomBoundary() {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
-  }
-  function isRecord$8(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function renderAnkiTagsEditor(value, language) {
     const tags = ankiTagList(value);
@@ -41908,7 +41887,7 @@ ${spelling}`);
     renderAnkiTagChips(editor, tags, language);
   }
   function ankiTagList(value) {
-    return uniqueStrings$2(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
+    return uniqueStrings(value.split(/[\s,]+/u).map((tag) => tag.trim()).filter(Boolean));
   }
   function renderAnkiTagChipHtml(tags, language) {
     return tags.map((tag) => `
@@ -41995,7 +41974,7 @@ ${spelling}`);
     `;
   }
   function renderAnkiLibraryOptions(options, value, language = "en") {
-    const values = uniqueStrings$2([value, ...options].filter(Boolean));
+    const values = uniqueStrings([value, ...options].filter(Boolean));
     const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
     return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language, "scanAnkiFirst")}</option>`;
   }
@@ -42005,7 +41984,7 @@ ${spelling}`);
   function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, scannedFields = [], language = settings.interfaceLanguage, confidenceByRole = {}) {
     const model = modelName.trim();
     const mapping = model ? settings.ankiFieldMappings[model] ?? {} : {};
-    const fields = uniqueStrings$2([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
+    const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
     const options = (selected = "") => [
       `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language, "notMapped")}</option>`,
       ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
@@ -42670,7 +42649,7 @@ ${spelling}`);
   }
   function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language) {
     const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
-    const decks = uniqueStrings$2([...deckNames, ...disabled]).map((deck) => deck.trim()).filter(Boolean);
+    const decks = uniqueStrings([...deckNames, ...disabled]).map((deck) => deck.trim()).filter(Boolean);
     if (!decks.length) return "";
     return `
                             <div class="jpdb-reader-newtab-anki-decks-head">
@@ -46730,6 +46709,10 @@ ${spelling}`);
     uiList,
     uiText
   });
+  function currentFullscreenElement() {
+    const fullscreenDocument = document;
+    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+  }
   function clampNumber(value, min, max2) {
     return Math.min(Math.max(value, min), Math.max(min, max2));
   }
@@ -47857,8 +47840,8 @@ ${spelling}`);
   function isSubtitleOverlayVideoVisible(rect) {
     const visible = rectViewportIntersection(rect);
     if (visible.width < SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH || visible.height < SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT) return false;
-    const area = rectArea$1(rect);
-    return area > 0 && rectArea$1(visible) / area >= SUBTITLE_MIN_VISIBLE_VIDEO_RATIO;
+    const area = rectArea(rect);
+    return area > 0 && rectArea(visible) / area >= SUBTITLE_MIN_VISIBLE_VIDEO_RATIO;
   }
   function overlayAxisStart(start, end, viewportSize, minSize, overflow) {
     if (!overflow) return start;
@@ -47880,7 +47863,7 @@ ${spelling}`);
     return rectViewportIntersectionArea$1(video.getBoundingClientRect());
   }
   function rectViewportIntersectionArea$1(rect) {
-    return rectArea$1(rectViewportIntersection(rect));
+    return rectArea(rectViewportIntersection(rect));
   }
   function rectViewportIntersection(rect) {
     const left = clampNumber(rect.left, 0, window.innerWidth);
@@ -47889,7 +47872,7 @@ ${spelling}`);
     const bottom = clampNumber(rect.bottom, top, window.innerHeight);
     return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
   }
-  function rectArea$1(rect) {
+  function rectArea(rect) {
     return Math.max(0, rect.width) * Math.max(0, rect.height);
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
@@ -48730,9 +48713,6 @@ ${spelling}`);
     const bottom = Math.max(top, Math.min(viewportHeight, rect.bottom));
     return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
-  function rectArea(rect) {
-    return Math.max(0, rect.width) * Math.max(0, rect.height);
-  }
   function scheduleYouTubePlayerResize(width, height, mode) {
     if (!isYouTubePage$1()) return;
     if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
@@ -49187,6 +49167,26 @@ ${spelling}`);
   function isYouTubePage$1() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
   }
+  function unescapeYouTubeConfigString(value) {
+    try {
+      return JSON.parse(`"${value}"`);
+    } catch {
+      return value;
+    }
+  }
+  function readYouTubeConfigStringFromScripts(key) {
+    const escapedKey = escapeRegExp(key);
+    const patterns = [
+      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
+      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+    ];
+    for (const script of Array.from(document.scripts)) {
+      const text2 = script.textContent ?? "";
+      const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
+      if (raw) return unescapeYouTubeConfigString(raw);
+    }
+    return "";
+  }
   const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
   const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
   async function discoverYouTubeCaptionTracks() {
@@ -49576,7 +49576,7 @@ ${spelling}`);
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord$7(source)) return track.youtubeTrack ?? source;
+    if (!isNonNullObject(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -49584,7 +49584,7 @@ ${spelling}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord$7(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isNonNullObject(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -49594,11 +49594,8 @@ ${spelling}`);
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord$7(raw)) return null;
+    if (!isNonNullObject(raw)) return null;
     return raw.source ?? null;
-  }
-  function isRecord$7(value) {
-    return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
     if (track.kind !== "youtube") return null;
@@ -49782,26 +49779,6 @@ ${spelling}`);
     if (typeof value === "string" && value) return value;
     return readYouTubeConfigStringFromScripts(key);
   }
-  function readYouTubeConfigStringFromScripts(key) {
-    const escapedKey = escapeRegExp$3(key);
-    const patterns = [
-      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
-    ];
-    for (const script of Array.from(document.scripts)) {
-      const text2 = script.textContent ?? "";
-      const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
-      if (raw) return unescapeYouTubeConfigString$1(raw);
-    }
-    return "";
-  }
-  function unescapeYouTubeConfigString$1(value) {
-    try {
-      return JSON.parse(`"${value}"`);
-    } catch {
-      return value;
-    }
-  }
   function youtubeTrackUrlScore(value) {
     if (!value) return 0;
     try {
@@ -49818,9 +49795,6 @@ ${spelling}`);
       params.has("signature") ? 2 : 0,
       params.has("kind") ? 1 : 0
     ].reduce((sum, item) => sum + item, 0);
-  }
-  function escapeRegExp$3(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
@@ -50480,14 +50454,14 @@ ${spelling}`);
   }
   function compactSyntheticTranslationTrackLabel(label, language) {
     const prefix = uiText(language, "translation");
-    const match = label.match(new RegExp(`^${escapeRegExp$2(prefix)}\\s*\\((.+)\\)$`, "iu"));
+    const match = label.match(new RegExp(`^${escapeRegExp(prefix)}\\s*\\((.+)\\)$`, "iu"));
     if (!match) return "";
     return `${prefix}: ${compactTrackSourceLabel(match[1] ?? "")}`;
   }
   function compactAutoGeneratedTrackLabel(label, language) {
     const localizedAuto = uiText(language, "autoGeneratedSubtitle");
     const patterns = [
-      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp$2(localizedAuto)}$`, "u"),
+      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp(localizedAuto)}$`, "u"),
       /^(.+?)\s+\u00b7\s+auto-generated$/iu
     ];
     const match = patterns.map((pattern) => label.match(pattern)).find(Boolean);
@@ -50495,9 +50469,6 @@ ${spelling}`);
   }
   function compactTrackSourceLabel(label) {
     return label.replace(/\s+\u00b7\s+auto-generated$/iu, "").replace(/\s+\u00b7\s+.+$/u, "").trim();
-  }
-  function escapeRegExp$2(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function trackRoleText(isPrimary, isSecondary, language) {
     return [
@@ -52453,10 +52424,6 @@ ${spelling}`);
     }
     return false;
   }
-  function currentFullscreenElement() {
-    const fullscreenDocument = document;
-    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-  }
   function subtitleViewportRect() {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
   }
@@ -52777,7 +52744,7 @@ ${spelling}`);
   }
   function subtitleFilesFromHostEvent(event) {
     const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
-    const detail = isRecord$6(rawDetail) ? rawDetail : {};
+    const detail = isNonNullObject(rawDetail) ? rawDetail : {};
     const explicitJobs = [
       ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
       ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
@@ -52862,9 +52829,6 @@ ${spelling}`);
     if (!output) return;
     if (suffix === "weight") output.textContent = String(Math.round(value));
     else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
-  }
-  function isRecord$6(value) {
-    return Boolean(value && typeof value === "object");
   }
   class SubtitlePlayerController {
     constructor(options) {
@@ -60912,28 +60876,15 @@ ${spelling}`);
   function readYouTubeConfigSourceFromScripts() {
     const data = {};
     for (const key of ["INNERTUBE_API_KEY", "INNERTUBE_CLIENT_NAME", "INNERTUBE_CLIENT_VERSION", "VISITOR_DATA"]) {
-      const value = readYouTubeConfigScriptValue(key);
+      const value = readYouTubeConfigStringFromScripts(key);
       if (value) data[key] = value;
     }
     const context = readYouTubeConfigScriptObject("INNERTUBE_CONTEXT");
     if (context) data.INNERTUBE_CONTEXT = context;
     return Object.keys(data).length ? { data_: data } : void 0;
   }
-  function readYouTubeConfigScriptValue(key) {
-    const escapedKey = escapeRegExp$1(key);
-    const patterns = [
-      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
-    ];
-    for (const script of Array.from(document.scripts)) {
-      const text2 = script.textContent ?? "";
-      const raw = patterns.map((pattern) => text2.match(pattern)?.[1]).find(Boolean);
-      if (raw) return unescapeYouTubeConfigString(raw);
-    }
-    return "";
-  }
   function readYouTubeConfigScriptObject(key) {
-    const escapedKey = escapeRegExp$1(key);
+    const escapedKey = escapeRegExp(key);
     const pattern = new RegExp(`"${escapedKey}"\\s*:\\s*(\\{.+?\\})\\s*,\\s*"`, "su");
     for (const script of Array.from(document.scripts)) {
       const text2 = script.textContent ?? "";
@@ -60946,13 +60897,6 @@ ${spelling}`);
       }
     }
     return null;
-  }
-  function unescapeYouTubeConfigString(value) {
-    try {
-      return JSON.parse(`"${value}"`);
-    } catch {
-      return value;
-    }
   }
   function readYouTubeInnerTubeContext(ytcfg) {
     return recordValue(readYouTubeConfigValue(ytcfg, "INNERTUBE_CONTEXT")) ?? defaultYouTubeInnerTubeContext(ytcfg);
@@ -61124,7 +61068,7 @@ ${spelling}`);
   }
   function youTubeSapisidCookie() {
     for (const name of ["SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID"]) {
-      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp$1(name)}=([^;\\s]+)`, "u"));
+      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp(name)}=([^;\\s]+)`, "u"));
       if (match?.[1]) return match[1];
     }
     return "";
@@ -61201,9 +61145,6 @@ ${spelling}`);
   }
   function recordValue(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-  function escapeRegExp$1(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function randomStarterYouTubeChannelRecommendations(limit) {
     const channels = starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
@@ -64505,7 +64446,7 @@ ${component.reading}`;
       });
       return Promise.race([
         lookup,
-        delay$2(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
+        delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
           log$d.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
           return { entries: [], completed: false };
         })
@@ -64520,7 +64461,7 @@ ${component.reading}`;
       }), []);
     }
     async loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries) {
-      await Promise.race([localMetaEntries, delay$2(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+      await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
       return this.loadPublicPitch(card);
     }
     loadJpdbVocabularyInfo(card) {
@@ -64875,7 +64816,7 @@ ${component.reading}`;
   function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
     return Promise.race([
       promise,
-      delay$2(timeoutMs).then(() => {
+      delay(timeoutMs).then(() => {
         log$d.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
         return fallback;
       })
@@ -64917,9 +64858,6 @@ ${component.reading}`;
     const source = value.trim();
     const reading = source.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)]/g, "$2").trim();
     return reading === source ? "" : reading;
-  }
-  function delay$2(ms) {
-    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
   function isLocalKanjiDictionaryCard(card) {
     const characters = Array.from(card.spelling.trim());
@@ -65861,7 +65799,7 @@ ${component.reading}`;
       try {
         await publishFactoryResetSignal(resetSignal);
         await this.dependencies.invalidateRuntimeStores();
-        await delay$1(FACTORY_RESET_PREPARE_DELAY_MS);
+        await delay(FACTORY_RESET_PREPARE_DELAY_MS);
         const deletedStorageValues = await clearManagedStoredValues();
         await deleteSettingsStorage();
         await this.assertSettingsStorageDeleted();
@@ -65928,17 +65866,6 @@ ${component.reading}`;
       window.clearTimeout(this.remoteGuardReleaseTimer);
       this.remoteGuardReleaseTimer = void 0;
     }
-  }
-  function delay$1(ms) {
-    return new Promise((resolve) => window.setTimeout(resolve, ms));
-  }
-  function isAbortError$2(error) {
-    return errorName$1(error) === "AbortError";
-  }
-  function errorName$1(error) {
-    if (!error || typeof error !== "object") return "";
-    const name = error.name;
-    return typeof name === "string" ? name : "";
   }
   const API_BASE$1 = "https://apiv2express.immersionkit.com";
   const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
@@ -66111,11 +66038,11 @@ ${component.reading}`;
     }
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError$2(error)) throw error;
+        if (isAbortError(error)) throw error;
         log$b.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
         log$b.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
@@ -66282,7 +66209,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$5(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record, provider = "immersion-kit") {
     const id = text(record.id);
@@ -66323,18 +66250,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$5(data) ? data : null;
+    return isRecord(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$5(includes) ? includes.media : void 0;
-    return isRecord$5(media) ? media : {};
+    const media = isRecord(includes) ? includes.media : void 0;
+    return isRecord(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$5(value)) return null;
+    if (!isRecord(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids = nadeshikoExampleIds(value);
@@ -66371,7 +66298,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$5(value) ? value : {};
+    return isRecord(value) ? value : {};
   }
   function nadeshikoSourceTitle(record, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -66390,7 +66317,7 @@ ${component.reading}`;
   }
   function nestedText(record, key, fields) {
     const value = record[key];
-    return isRecord$5(value) ? firstText(value, fields) : "";
+    return isRecord(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -66427,9 +66354,6 @@ ${component.reading}`;
   }
   function text(value) {
     return typeof value === "string" ? value.trim() : "";
-  }
-  function isRecord$5(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function titleSlugFromId(id) {
     const parts = id.split("_");
@@ -66525,7 +66449,7 @@ ${component.reading}`;
       try {
         return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
       } catch (error) {
-        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -66550,7 +66474,7 @@ ${component.reading}`;
       statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
       timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
     }).catch((error) => {
-      if (isAbortError$2(error)) throw error;
+      if (isAbortError(error)) throw error;
       if (isImmersionKitRateLimitError(error)) throw error;
       if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
         throw new Error(uiText(language, "immersionKitSearchBlocked"));
@@ -67008,7 +66932,7 @@ ${component.reading}`;
       return true;
     }
     shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError$2(error) || !controller.signal.aborted) return false;
+      if (!isAbortError(error) || !controller.signal.aborted) return false;
       clearImmersionLoadingState(container);
       return true;
     }
@@ -67277,7 +67201,7 @@ ${component.reading}`;
                 handleAbort();
                 return;
               }
-              if (isAbortError$2(error)) {
+              if (isAbortError(error)) {
                 fail(error);
                 return;
               }
@@ -67304,7 +67228,7 @@ ${component.reading}`;
         const examples = await this.options.client.search(query, settings, searchOptions);
         return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
       } catch (error) {
-        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
         return null;
       }
     }
@@ -68653,14 +68577,11 @@ ${component.reading}`;
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$1(error)) throw new Error("JPDB request timed out.");
+      if (isAbortError(error)) throw new Error("JPDB request timed out.");
       throw error;
     } finally {
       window.clearTimeout(timeoutId);
     }
-  }
-  function isAbortError$1(error) {
-    return error instanceof DOMException && error.name === "AbortError";
   }
   function jpdbApiFetchCandidates(url, proxyUrl) {
     const configuredProxy = configuredProxyFetchUrl(url, proxyUrl);
@@ -68753,9 +68674,6 @@ ${component.reading}`;
   }
   function retryableReadDelayMs() {
     return isTestRuntime$1() ? 0 : RETRYABLE_READ_DELAY_MS;
-  }
-  function delay(ms) {
-    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
   function isTestRuntime$1() {
     return typeof process !== "undefined" && (process.env?.VITEST === "true" || process.env?.NODE_ENV === "test");
@@ -69185,14 +69103,11 @@ ${component.reading}`;
       const waitMs = Math.max(0, this.nextStart - now);
       this.nextStart = Math.max(now, this.nextStart) + this.gapMs;
       release();
-      if (waitMs > 0) await wait(waitMs);
+      if (waitMs > 0) await delay(waitMs);
     }
   }
   function listedDeckVocabularyRequestGapMs() {
     return isTestRuntime() ? 0 : LISTED_DECK_VOCABULARY_REQUEST_GAP_MS;
-  }
-  function wait(ms) {
-    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
   function isTestRuntime() {
     return typeof process !== "undefined" && (process.env?.VITEST === "true" || process.env?.NODE_ENV === "test");
@@ -70534,9 +70449,6 @@ ${component.reading}`;
     const queryString = params.toString();
     return queryString ? `${url}?${queryString}` : url;
   }
-  function isAbortError(error) {
-    return error instanceof DOMException && error.name === "AbortError";
-  }
   const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
   const DEFAULT_LIMIT = 240;
   function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT_LIMIT } = {}) {
@@ -70857,9 +70769,9 @@ ${key}`] = { t: now, v: value };
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
-    if (!isRecord$4(payload)) return null;
+    if (!isNonNullObject(payload)) return null;
     const wordId = finiteInteger(payload.wordId) ?? fallback.wordId;
-    const mainReading = isRecord$4(payload.mainReading) ? payload.mainReading : {};
+    const mainReading = isNonNullObject(payload.mainReading) ? payload.mainReading : {};
     const annotatedReading = stringValue(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
@@ -70914,7 +70826,7 @@ ${key}`] = { t: now, v: value };
     };
   }
   function normalizePublicParseWord(value) {
-    if (!isRecord$4(value)) return null;
+    if (!isNonNullObject(value)) return null;
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
@@ -71053,11 +70965,8 @@ ${key}`] = { t: now, v: value };
   function endpointUrl(baseUrl, endpoint) {
     return `${(baseUrl ?? JITEN_PUBLIC_API_BASE_URL).replace(/\/+$/u, "")}/${endpoint.replace(/^\/+/u, "")}`;
   }
-  function isRecord$4(value) {
-    return Boolean(value && typeof value === "object");
-  }
   function arrayRecords(value) {
-    return Array.isArray(value) ? value.filter(isRecord$4) : [];
+    return Array.isArray(value) ? value.filter(isNonNullObject) : [];
   }
   function stringArray$1(value) {
     if (typeof value === "string") return [value];
@@ -71082,11 +70991,11 @@ ${key}`] = { t: now, v: value };
     log$7.warn(message, context, error);
   }
   function errorName(error) {
-    return isRecord$4(error) && typeof error.name === "string" ? error.name : "";
+    return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
   }
   function errorMessage(error) {
     if (error instanceof Error) return error.message;
-    return isRecord$4(error) && typeof error.message === "string" ? error.message : "";
+    return isNonNullObject(error) && typeof error.message === "string" ? error.message : "";
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
   const CARD_STATES = /* @__PURE__ */ new Set([
@@ -71853,9 +71762,6 @@ ${normalizedReading}`;
   }
   function cleanMeaning(value) {
     return cleanText$1(value).replace(/^\d+\.\s*/, "");
-  }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function uniqueBy(values, key) {
     const seen = /* @__PURE__ */ new Set();
@@ -75213,13 +75119,13 @@ ${options.version}`;
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$3(value)) return [];
+    if (!isRecord(value)) return [];
     const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$3(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review) => review !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -75232,7 +75138,7 @@ ${options.version}`;
         minutes: numberValue(value[5]) / 6e4
       };
     }
-    if (!isRecord$3(value)) return null;
+    if (!isRecord(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -75338,9 +75244,6 @@ ${options.version}`;
   function numberValue(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
-  }
-  function isRecord$3(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function renderNewTabStatsContent(options) {
     const selectedSource = resolvedStatsSourceId(options.snapshot, options.selectedSource);
@@ -77325,14 +77228,14 @@ ${options.version}`;
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$2(value)) return [];
+    if (!isRecord(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$2(value)) return [];
+    if (!isRecord(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }
@@ -77341,9 +77244,6 @@ ${options.version}`;
   }
   function isExampleRecord(value) {
     return ["data-sc-content", "data-content", "class", "className"].some((key) => typeof value[key] === "string" && /example|sentence|\u4f8b\u6587/iu.test(value[key]));
-  }
-  function isRecord$2(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function splitJapaneseSentences(value) {
     return value.replace(/\r\n?/gu, "\n").split(/(?<=[\u3002\uff01\uff1f!?])\s*|\n+/u).map((sentence) => sentence.trim()).filter((sentence) => sentence.length >= 4 && sentence.length <= 220);
@@ -84342,17 +84242,22 @@ ${entry.url}`),
       return Boolean(examples.length) && cardKey(this.visibleWords[this.index]) === key && meaning.isConnected && this.isVocabularyStudyMode(this.state.mode) && this.state.revealAnswer;
     }
     renderNewTabImmersionCard(card, examples, index) {
+      return this.renderNewTabImmersionCardVariant(card, examples[index], index, examples.length, "word");
+    }
+    renderNewTabImmersionCardVariant(card, example, index, total, variant) {
       const settings = this.dependencies.getSettings();
-      const example = examples[index];
       const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-      const hasAudio = audioUrls.length > 0;
+      const isKanji2 = variant === "kanji";
       const node = el(
         "div",
-        { class: "jpdb-reader-newtab-immersion" },
-        this.renderNewTabImmersionToolbar(example, index, examples.length, hasAudio),
-        this.renderNewTabImmersionExampleBody(card, example, settings, index, examples.length, audioUrls)
+        isKanji2 ? {
+          class: "jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion",
+          dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling }
+        } : { class: "jpdb-reader-newtab-immersion" },
+        this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, isKanji2 ? { showSource: true } : {}),
+        this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls)
       );
-      this.highlightNewTabImmersionTarget(node, card);
+      if (!isKanji2) this.highlightNewTabImmersionTarget(node, card);
       return node;
     }
     async parseNewTabImmersionExample(root, card, key) {
@@ -85026,17 +84931,7 @@ ${entry.url}`),
       this.highlightNewTabParsedTarget(immersion, "[data-immersion-sentence-render]", card);
     }
     renderNewTabKanjiImmersionCard(card, example, index, total) {
-      const settings = this.dependencies.getSettings();
-      const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-      return el(
-        "div",
-        {
-          class: "jpdb-reader-newtab-immersion jpdb-reader-newtab-kanji-immersion",
-          dataset: { newtabKanjiImmersion: true, newtabKanji: card.spelling }
-        },
-        this.renderNewTabImmersionToolbar(example, index, total, audioUrls.length > 0, { showSource: true }),
-        this.renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls)
-      );
+      return this.renderNewTabImmersionCardVariant(card, example, index, total, "kanji");
     }
     loadUchisenDetails(kanji) {
       const settings = this.dependencies.getSettings();
@@ -89490,7 +89385,7 @@ ${entry.url}`),
     };
   }
   function normalizeBunproStatsResponse(raw, due) {
-    const source = isRecord$1(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
+    const source = isNonNullObject(raw) ? { ...objectAt(raw, "facts") ?? {}, ...raw } : raw;
     return {
       providerId: "bunpro",
       fetchedAt: Date.now(),
@@ -89609,12 +89504,12 @@ ${entry.url}`),
     return arrays.find((items) => items.length) ?? (Array.isArray(raw) ? raw : []);
   }
   function collectBunproQuizIndexEntries(raw) {
-    if (!isRecord$1(raw)) return [];
+    if (!isNonNullObject(raw)) return [];
     const entries2 = [...readArray(raw, ["pending_attempt"]), ...readArray(raw, ["pending_wrapup"])];
     return entries2.map((entry) => flattenBunproQuizIndexEntry(entry)).filter((entry) => entry !== null);
   }
   function flattenBunproQuizIndexEntry(entry) {
-    if (!isRecord$1(entry)) return null;
+    if (!isNonNullObject(entry)) return null;
     const review = objectAt(entry, "data");
     if (!review) return null;
     const attributes = objectAt(review, "attributes") ?? {};
@@ -89651,14 +89546,14 @@ ${entry.url}`),
     const wantedKind = type.includes("vocab") ? "vocab" : "grammar_point";
     const included = readArray(entry, ["included"]);
     for (const item of included) {
-      if (!isRecord$1(item) || readString(item, ["type"]) !== wantedKind) continue;
+      if (!isNonNullObject(item) || readString(item, ["type"]) !== wantedKind) continue;
       const attributes = objectAt(item, "attributes");
       if (attributes) return attributes;
     }
     return {};
   }
   function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
-    const record = isRecord$1(raw) ? raw : {};
+    const record = isNonNullObject(raw) ? raw : {};
     const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
     const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText(hit.expression) === normalizedLookupText(expression));
     if (!hits.length) return null;
@@ -89683,18 +89578,18 @@ ${entry.url}`),
   }
   function reviewableRecord(raw) {
     const unwrapped = unwrapBunproData(raw);
-    if (!isRecord$1(unwrapped)) return null;
+    if (!isNonNullObject(unwrapped)) return null;
     const attributes = objectAt(unwrapped, "attributes");
     return attributes ? { ...unwrapped, ...attributes } : unwrapped;
   }
   function unwrapBunproData(value) {
-    if (!isRecord$1(value)) return value;
+    if (!isNonNullObject(value)) return value;
     const data = value.data;
-    if (isRecord$1(data) && !Array.isArray(data)) return data;
+    if (isNonNullObject(data) && !Array.isArray(data)) return data;
     const review = value.review;
-    if (isRecord$1(review)) return review;
+    if (isNonNullObject(review)) return review;
     const item = value.item;
-    if (isRecord$1(item)) return item;
+    if (isNonNullObject(item)) return item;
     return value;
   }
   function normalizeBunproKind(value, fallback) {
@@ -89749,19 +89644,19 @@ ${entry.url}`),
     return Number.isFinite(parsed) ? parsed : null;
   }
   function readFirstNumber(value, keys) {
-    const record = isRecord$1(value) ? value : null;
+    const record = isNonNullObject(value) ? value : null;
     if (!record) return void 0;
     for (const key of keys) {
       const number = Number(record[key]);
       if (Number.isFinite(number)) return number;
     }
     const data = record.data;
-    if (isRecord$1(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
+    if (isNonNullObject(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
     const attributes = objectAt(record, "attributes");
     return attributes ? readFirstNumber(attributes, keys) : void 0;
   }
   function readBoolean(value, keys) {
-    const record = isRecord$1(value) ? value : null;
+    const record = isNonNullObject(value) ? value : null;
     if (!record) return false;
     for (const key of keys) {
       const raw = record[key];
@@ -89769,12 +89664,12 @@ ${entry.url}`),
       if (raw === 1 || raw === "1" || raw === "true") return true;
     }
     const data = record.data;
-    if (isRecord$1(data) && !Array.isArray(data)) return readBoolean(data, keys);
+    if (isNonNullObject(data) && !Array.isArray(data)) return readBoolean(data, keys);
     const attributes = objectAt(record, "attributes");
     return attributes ? readBoolean(attributes, keys) : false;
   }
   function readString(value, keys) {
-    const record = isRecord$1(value) ? value : null;
+    const record = isNonNullObject(value) ? value : null;
     if (!record) return "";
     for (const key of keys) {
       const raw = record[key];
@@ -89782,11 +89677,11 @@ ${entry.url}`),
       if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
     }
     const data = record.data;
-    if (isRecord$1(data) && !Array.isArray(data)) return readString(data, keys);
+    if (isNonNullObject(data) && !Array.isArray(data)) return readString(data, keys);
     return "";
   }
   function readStringList(value, keys) {
-    const record = isRecord$1(value) ? value : null;
+    const record = isNonNullObject(value) ? value : null;
     if (!record) return [];
     for (const key of keys) {
       const raw = record[key];
@@ -89796,23 +89691,20 @@ ${entry.url}`),
     return [];
   }
   function readArray(value, keys) {
-    const record = isRecord$1(value) ? value : null;
+    const record = isNonNullObject(value) ? value : null;
     if (!record) return [];
     for (const key of keys) {
       const raw = record[key];
       if (Array.isArray(raw)) return raw;
     }
     const data = record.data;
-    if (isRecord$1(data) && !Array.isArray(data)) return readArray(data, keys);
+    if (isNonNullObject(data) && !Array.isArray(data)) return readArray(data, keys);
     return [];
   }
   function objectAt(value, key) {
-    if (!isRecord$1(value)) return null;
+    if (!isNonNullObject(value)) return null;
     const nested = value[key];
-    return isRecord$1(nested) && !Array.isArray(nested) ? nested : null;
-  }
-  function isRecord$1(value) {
-    return Boolean(value && typeof value === "object");
+    return isNonNullObject(nested) && !Array.isArray(nested) ? nested : null;
   }
   function normalizeStoredYomuSrsDeck(value) {
     if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
@@ -90013,9 +89905,6 @@ ${entry.url}`),
   function nonNegativeInteger(value) {
     return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
   }
-  function isRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-  }
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
   let localDeckMutation = Promise.resolve();
   class LocalYomuSrsRepository {
@@ -90173,12 +90062,12 @@ ${entry.url}`),
         id: identity.key,
         expression: identity.expression,
         reading: identity.reading,
-        meanings: uniqueStrings(item.meanings ?? []),
+        meanings: uniqueTrimmedStrings(item.meanings ?? []),
         sentence: item.sentence?.trim() || void 0,
         sourceProviderId: item.sourceProviderId,
         sourceCardId: item.sourceCardId,
         sourceUrl: item.sourceUrl,
-        tags: uniqueStrings(item.tags ?? []),
+        tags: uniqueTrimmedStrings(item.tags ?? []),
         dueAt: item.dueAt ?? now,
         lastReviewAt: null,
         createdAt: now,
@@ -90289,7 +90178,7 @@ ${entry.url}`),
     };
   }
   function meaningsFromGlosses(glosses) {
-    const normalized = uniqueStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
+    const normalized = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
     return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
   }
   function localCardState(card, now) {
@@ -90308,9 +90197,6 @@ ${entry.url}`),
     const date = new Date(now);
     date.setHours(0, 0, 0, 0);
     return date.getTime();
-  }
-  function uniqueStrings(values) {
-    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
   }
   function normalizedQueueLimit(limit) {
     if (Number.isNaN(limit) || limit <= 0) return 0;

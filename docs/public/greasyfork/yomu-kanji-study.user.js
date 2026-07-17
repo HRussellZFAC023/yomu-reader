@@ -31,6 +31,9 @@
   function isManagedStorageKey(key) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   const APP_NAME = "よむ";
   const ACADEMY_SRS_LABEL = "Academy";
   const APP_SLUG = "yomu";
@@ -731,9 +734,6 @@
     } catch {
       return false;
     }
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
     if (typeof GM_getValue === "function") return GM_getValue;
@@ -1695,6 +1695,9 @@
   }
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
@@ -7467,9 +7470,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const normalized = value.trim().toLowerCase();
     return normalized === "" || normalized === "missing" || section?.querySelector(".keyword-missing") !== null;
   }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
   function requestText$2(url, proxyUrl = "", options = {}) {
     const method = options.method ?? "GET";
     const body = requestTextBody(options.payload);
@@ -11018,6 +11018,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
   }
+  function isNonNullObject(value) {
+    return typeof value === "object" && value !== null;
+  }
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
@@ -11243,7 +11246,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return context;
   }
   function storedMiningContextRecord(value, expectedTerm) {
-    if (!isRecord(value)) return null;
+    if (!isNonNullObject(value)) return null;
     return text(value.term) === expectedTerm ? value : null;
   }
   function storedMiningSourceKind(value) {
@@ -11261,9 +11264,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isMiningSourceKind(value) {
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function isRecord(value) {
-    return Boolean(value && typeof value === "object");
   }
   function optionalText(value) {
     const normalized = text(value);

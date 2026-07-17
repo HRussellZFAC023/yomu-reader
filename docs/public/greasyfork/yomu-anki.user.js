@@ -1,5 +1,8 @@
 (function() {
   "use strict";
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   async function runLimited(items, concurrency, worker) {
     if (!items.length) return;
     const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
@@ -3875,9 +3878,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return false;
     }
   }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
-  }
   function asyncGmGetValue() {
     if (typeof GM_getValue === "function") return GM_getValue;
     const modern = globalThis.GM?.getValue;
@@ -4112,7 +4112,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function canDirectFetchAnkiConnect(url) {
-    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref());
   }
   function canDirectFetchAnkiConnectFrom(url, currentHref) {
     const current = readAnkiUrl(currentHref);
@@ -4131,7 +4131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isHttpUrl(url) {
     return url.protocol === "http:" || url.protocol === "https:";
   }
-  function safeLocationHref$1() {
+  function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
   }
   function resolvedAnkiDeckName(deckOverride, settings) {
@@ -5447,6 +5447,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return "";
   }
   Logger.scope("Yomitan");
+  function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
   const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
   function glossaryValueToText(value) {
     return glossaryValueToProfileText(value, {
@@ -5460,7 +5463,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$1(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -5490,9 +5493,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
-  }
-  function isRecord$1(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
     "br",
@@ -5856,9 +5856,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
-  }
-  function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -8497,9 +8494,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function ankiEaseFromGrade(grade) {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
   }
-  function safeLocationHref() {
-    return typeof location === "undefined" ? "" : location.href;
-  }
   function safeDocumentTitle() {
     return typeof document === "undefined" ? "" : document.title;
   }
@@ -8844,6 +8838,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } catch {
       return value;
     }
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
@@ -9567,9 +9564,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       seen.add(key);
       return true;
     });
-  }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   let activationTrackingInstalled = false;
   function installPageActivationTracking() {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.171] - 2026-07-17
+
+### Changed
+
+- Consolidated duplicated internal helpers into shared modules: the YouTube configuration scraper, string/async/object utilities, abort-error detection (now also recognizing DOMException-based aborts), fullscreen detection, and the new-tab immersion carousel now each live in one place instead of up to seven copies. Behavior is unchanged and the core script shrank slightly.
+
 ## [1.6.170] - 2026-07-17
 
 ### Fixed

@@ -1,5 +1,12 @@
 (function() {
   "use strict";
+  function isNonNullObject(value) {
+    return typeof value === "object" && value !== null;
+  }
+  function currentFullscreenElement() {
+    const fullscreenDocument = document;
+    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+  }
   const CARD_STATES = /* @__PURE__ */ new Set([
     "new",
     "learning",
@@ -583,6 +590,9 @@
   function isManagedStorageKey(key) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   const APP_NAME = "よむ";
   const ACADEMY_SRS_LABEL = "Academy";
   const APP_SLUG = "yomu";
@@ -998,9 +1008,6 @@
     } catch {
       return false;
     }
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
@@ -6480,8 +6487,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isSubtitleOverlayVideoVisible(rect) {
     const visible = rectViewportIntersection(rect);
     if (visible.width < SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH || visible.height < SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT) return false;
-    const area = rectArea$1(rect);
-    return area > 0 && rectArea$1(visible) / area >= SUBTITLE_MIN_VISIBLE_VIDEO_RATIO;
+    const area = rectArea(rect);
+    return area > 0 && rectArea(visible) / area >= SUBTITLE_MIN_VISIBLE_VIDEO_RATIO;
   }
   function overlayAxisStart(start, end, viewportSize, minSize, overflow) {
     if (!overflow) return start;
@@ -6503,7 +6510,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rectViewportIntersectionArea$1(video.getBoundingClientRect());
   }
   function rectViewportIntersectionArea$1(rect) {
-    return rectArea$1(rectViewportIntersection(rect));
+    return rectArea(rectViewportIntersection(rect));
   }
   function rectViewportIntersection(rect) {
     const left = clampNumber(rect.left, 0, window.innerWidth);
@@ -6512,7 +6519,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const bottom = clampNumber(rect.bottom, top, window.innerHeight);
     return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
   }
-  function rectArea$1(rect) {
+  function rectArea(rect) {
     return Math.max(0, rect.width) * Math.max(0, rect.height);
   }
   const TRANSCRIPT_PANEL_MARGIN = 10;
@@ -7353,9 +7360,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const bottom = Math.max(top, Math.min(viewportHeight, rect.bottom));
     return Math.max(0, right - left) * Math.max(0, bottom - top);
   }
-  function rectArea(rect) {
-    return Math.max(0, rect.width) * Math.max(0, rect.height);
-  }
   function scheduleYouTubePlayerResize(width, height, mode) {
     if (!isYouTubePage$1()) return;
     if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
@@ -7810,6 +7814,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isYouTubePage$1() {
     return /(^|\.)youtube\.com$/i.test(location.hostname);
   }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
     const result = [];
@@ -7825,6 +7832,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function uniqueNonEmptyStrings(values) {
     return uniqueStrings(values, { dropEmpty: true });
+  }
+  function unescapeYouTubeConfigString(value) {
+    try {
+      return JSON.parse(`"${value}"`);
+    } catch {
+      return value;
+    }
+  }
+  function readYouTubeConfigStringFromScripts(key) {
+    const escapedKey = escapeRegExp(key);
+    const patterns = [
+      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
+      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
+    ];
+    for (const script of Array.from(document.scripts)) {
+      const text = script.textContent ?? "";
+      const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
+      if (raw) return unescapeYouTubeConfigString(raw);
+    }
+    return "";
   }
   const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
   const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
@@ -8215,7 +8242,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord$1(source)) return track.youtubeTrack ?? source;
+    if (!isNonNullObject(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -8223,7 +8250,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord$1(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isNonNullObject(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -8233,11 +8260,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord$1(raw)) return null;
+    if (!isNonNullObject(raw)) return null;
     return raw.source ?? null;
-  }
-  function isRecord$1(value) {
-    return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
     if (track.kind !== "youtube") return null;
@@ -8421,26 +8445,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (typeof value === "string" && value) return value;
     return readYouTubeConfigStringFromScripts(key);
   }
-  function readYouTubeConfigStringFromScripts(key) {
-    const escapedKey = escapeRegExp$2(key);
-    const patterns = [
-      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
-    ];
-    for (const script of Array.from(document.scripts)) {
-      const text = script.textContent ?? "";
-      const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
-      if (raw) return unescapeYouTubeConfigString$1(raw);
-    }
-    return "";
-  }
-  function unescapeYouTubeConfigString$1(value) {
-    try {
-      return JSON.parse(`"${value}"`);
-    } catch {
-      return value;
-    }
-  }
   function youtubeTrackUrlScore(value) {
     if (!value) return 0;
     try {
@@ -8457,9 +8461,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       params.has("signature") ? 2 : 0,
       params.has("kind") ? 1 : 0
     ].reduce((sum, item) => sum + item, 0);
-  }
-  function escapeRegExp$2(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
@@ -9119,14 +9120,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function compactSyntheticTranslationTrackLabel(label, language) {
     const prefix = uiText(language, "translation");
-    const match = label.match(new RegExp(`^${escapeRegExp$1(prefix)}\\s*\\((.+)\\)$`, "iu"));
+    const match = label.match(new RegExp(`^${escapeRegExp(prefix)}\\s*\\((.+)\\)$`, "iu"));
     if (!match) return "";
     return `${prefix}: ${compactTrackSourceLabel(match[1] ?? "")}`;
   }
   function compactAutoGeneratedTrackLabel(label, language) {
     const localizedAuto = uiText(language, "autoGeneratedSubtitle");
     const patterns = [
-      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp$1(localizedAuto)}$`, "u"),
+      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp(localizedAuto)}$`, "u"),
       /^(.+?)\s+\u00b7\s+auto-generated$/iu
     ];
     const match = patterns.map((pattern) => label.match(pattern)).find(Boolean);
@@ -9134,9 +9135,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function compactTrackSourceLabel(label) {
     return label.replace(/\s+\u00b7\s+auto-generated$/iu, "").replace(/\s+\u00b7\s+.+$/u, "").trim();
-  }
-  function escapeRegExp$1(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function trackRoleText(isPrimary, isSecondary, language) {
     return [
@@ -10739,10 +10737,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return false;
   }
-  function currentFullscreenElement() {
-    const fullscreenDocument = document;
-    return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-  }
   function subtitleViewportRect() {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
   }
@@ -11063,7 +11057,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function subtitleFilesFromHostEvent(event) {
     const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
-    const detail = isRecord(rawDetail) ? rawDetail : {};
+    const detail = isNonNullObject(rawDetail) ? rawDetail : {};
     const explicitJobs = [
       ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
       ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
@@ -11148,9 +11142,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!output) return;
     if (suffix === "weight") output.textContent = String(Math.round(value));
     else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
-  }
-  function isRecord(value) {
-    return Boolean(value && typeof value === "object");
   }
   class SubtitlePlayerController {
     constructor(options) {
@@ -19198,25 +19189,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function readYouTubeConfigSourceFromScripts() {
     const data = {};
     for (const key of ["INNERTUBE_API_KEY", "INNERTUBE_CLIENT_NAME", "INNERTUBE_CLIENT_VERSION", "VISITOR_DATA"]) {
-      const value = readYouTubeConfigScriptValue(key);
+      const value = readYouTubeConfigStringFromScripts(key);
       if (value) data[key] = value;
     }
     const context = readYouTubeConfigScriptObject("INNERTUBE_CONTEXT");
     if (context) data.INNERTUBE_CONTEXT = context;
     return Object.keys(data).length ? { data_: data } : void 0;
-  }
-  function readYouTubeConfigScriptValue(key) {
-    const escapedKey = escapeRegExp(key);
-    const patterns = [
-      new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
-      new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
-    ];
-    for (const script of Array.from(document.scripts)) {
-      const text = script.textContent ?? "";
-      const raw = patterns.map((pattern) => text.match(pattern)?.[1]).find(Boolean);
-      if (raw) return unescapeYouTubeConfigString(raw);
-    }
-    return "";
   }
   function readYouTubeConfigScriptObject(key) {
     const escapedKey = escapeRegExp(key);
@@ -19232,13 +19210,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     return null;
-  }
-  function unescapeYouTubeConfigString(value) {
-    try {
-      return JSON.parse(`"${value}"`);
-    } catch {
-      return value;
-    }
   }
   function readYouTubeInnerTubeContext(ytcfg) {
     return recordValue(readYouTubeConfigValue(ytcfg, "INNERTUBE_CONTEXT")) ?? defaultYouTubeInnerTubeContext(ytcfg);
@@ -19487,9 +19458,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function recordValue(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function randomStarterYouTubeChannelRecommendations(limit) {
     const channels = starterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);

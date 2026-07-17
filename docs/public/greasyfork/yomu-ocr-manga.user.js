@@ -1408,6 +1408,19 @@
   function isManagedStorageKey(key) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
+  function promiseWithTimeout(promise, timeoutMs, message) {
+    let timeoutId = 0;
+    const timeout = new Promise((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([
+      promise,
+      timeout
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
   const APP_NAME = "よむ";
   const ACADEMY_SRS_LABEL = "Academy";
   const DOCS_ORIGIN = "https://yomureader.com";
@@ -1716,7 +1729,7 @@
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
+      if (isPromiseLike(value)) return { kind: "fallback" };
       if (!isMissingSentinel(value)) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -1747,7 +1760,7 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) {
+        if (!isPromiseLike(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -1762,7 +1775,7 @@
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -1813,9 +1826,6 @@
     } catch {
       return false;
     }
-  }
-  function isPromiseLike$1(value) {
-    return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
@@ -2720,6 +2730,9 @@
   function ocrRuntimeActive(settings) {
     return settings.ocrEnabled && !settings.annotationsPaused;
   }
+  function isAbortError(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
@@ -3509,9 +3522,6 @@
         finish(new Error("Screenshot decode failed."));
       }
     });
-  }
-  function isPromiseLike(value) {
-    return Boolean(value && typeof value.then === "function");
   }
   const BOOKWALKER_CONTENT_SESSION_PATHS = /* @__PURE__ */ new Set([
     "/browserWebApi/c",
@@ -6196,16 +6206,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
-  function promiseWithTimeout(promise, timeoutMs, message) {
-    let timeoutId = 0;
-    const timeout = new Promise((_resolve, reject) => {
-      timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-    });
-    return Promise.race([
-      promise,
-      timeout
-    ]).finally(() => window.clearTimeout(timeoutId));
-  }
   function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -7441,6 +7441,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
+  function uniqueStrings(values, options = {}) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const normalized = options.trim ? value?.trim() : value;
+      if (normalized === void 0 || normalized === null) continue;
+      if (options.dropEmpty && !normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  }
+  function uniqueNonEmptyStrings(values) {
+    return uniqueStrings(values, { dropEmpty: true });
+  }
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
@@ -7762,7 +7778,7 @@ ${candidate.depth}`;
     const source = normalizeFallbackTerm(text);
     if (!source) return [];
     const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+    return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
   }
   function isUsefulFallbackLookupCandidate(candidate) {
     return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
@@ -7776,15 +7792,6 @@ ${candidate.depth}`;
     if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
     if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
     return 3;
-  }
-  function uniqueStrings(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.filter((value) => {
-      if (!value) return false;
-      if (seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
   }
   function stableHash32(value) {
     let hash = 2166136261;
@@ -12473,9 +12480,6 @@ ${spelling}`);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
-  }
-  function isAbortError(error) {
-    return error instanceof Error && error.name === "AbortError";
   }
   function safeHost(value) {
     try {

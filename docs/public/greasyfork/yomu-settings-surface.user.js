@@ -1048,6 +1048,9 @@
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
   }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   const entries = [];
   const registeredKeys = /* @__PURE__ */ new Set();
   function registerManagedState(entry) {
@@ -1438,9 +1441,6 @@
     } catch {
       return false;
     }
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
     if (typeof GM_getValue === "function") return GM_getValue;
@@ -4069,7 +4069,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.170".trim() ? "1.6.170".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.171".trim() ? "1.6.171".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -8219,6 +8219,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { value: JAPANESE_SERIF_FONT_FAMILY, labelKey: "fontPresetJapaneseSerif", fallbackLabel: "Japanese serif" },
     { value: DEFAULT_READER_FONT_FAMILY, labelKey: "fontPresetSystemUi", fallbackLabel: "System UI" }
   ];
+  function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
   const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
   const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
   const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
@@ -8274,9 +8277,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord$1(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord(body) && Array.isArray(body.files) ? body.files : [];
     const first = files[0];
-    return isRecord$1(first) && typeof first.id === "string" ? first : null;
+    return isRecord(first) && typeof first.id === "string" ? first : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -8418,7 +8421,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord$1(parsed) ? parsed : null;
+      return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -8428,7 +8431,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord$1(parsed) ? parsed : null;
+      return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -8508,12 +8511,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
       return null;
     }
-    if (!isRecord$1(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord$1(parsed.settings)) return null;
+    if (!isRecord(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord$1(value) && typeof value.id === "string") return value;
+    if (isRecord(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -8524,9 +8527,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function randomBoundary() {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
-  }
-  function isRecord$1(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();
@@ -12624,9 +12624,6 @@ ${item.sequence ?? ""}`;
   }
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
-  }
-  function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function renderDictionaryScopedStyles(dictionaries, preferences = []) {
     const rank = dictionaryRank(preferences);
