@@ -1,0 +1,1074 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+    DEFAULT_SETTINGS,
+    registerSubtitleControllerCleanup,
+    withSubtitleRequestStubs,
+    mockElementRect,
+    makeSubtitleSettings,
+    controllerInternals,
+    createSubtitleController,
+    installController,
+    createInstalledSubtitleController,
+    attachVideo,
+    setupTranscriptCueController,
+    openSingleCueTranscript,
+    pointerEvent,
+    requestSubtitleText,
+    withViewport,
+    SubtitlePlayerController,
+} from './fixtures';
+
+describe('SubtitlePlayerController — subtitle transport & track pairing', () => {
+    registerSubtitleControllerCleanup();
+
+    afterEach(() => {
+        vi.useRealTimers();
+        document.body.innerHTML = '';
+    });
+
+    it('requests YouTube timedtext through the userscript bridge before page fetch', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => new Response('<timedtext><body><p t="1000" d="1000">今日は</p></body></timedtext>', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({ status: 200, responseText: '<timedtext><body><p t="1000" d="1000">今日は</p></body></timedtext>', response: '' });
+        });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://www.youtube.com/api/timedtext?v=abc123&lang=ja&fmt=srv3');
+
+            expect(text).toContain('timedtext');
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('loads cross-origin subtitle files with anonymous CORS before the userscript bridge', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nToday I read.\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('GM bridge should not be needed'));
+        });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://krussdomi.com/cat-player/player') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://subst.krussdomi.com/show/episode.en.vtt');
+
+            expect(text).toContain('WEBVTT');
+            expect(fetchMock).toHaveBeenCalledWith('https://subst.krussdomi.com/show/episode.en.vtt', expect.objectContaining({
+                credentials: 'omit',
+            }));
+            expect(gmRequest).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('falls back to the userscript bridge when anonymous CORS cannot load a subtitle file', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        const fetchMock = vi.fn(async () => { throw new Error('CORS blocked'); });
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({ status: 200, responseText: 'WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n今日は読む。\n', response: '' });
+        });
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://player.example/watch') as unknown as Location,
+        });
+        Object.defineProperty(globalThis, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('GM_xmlhttpRequest', gmRequest);
+
+        try {
+            const text = await requestSubtitleText('https://subs.example/show/episode.ja.vtt');
+
+            expect(text).toContain('今日は読む');
+            expect(fetchMock).toHaveBeenCalledWith('https://subs.example/show/episode.ja.vtt', expect.objectContaining({
+                credentials: 'omit',
+            }));
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('retries once after both subtitle transports are interrupted', async () => {
+        const fetchMock = vi.fn()
+            .mockRejectedValueOnce(new TypeError('network connection lost'))
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n回復した字幕。\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('train tunnel'));
+        });
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/show/episode.ja.vtt')).resolves.toContain('回復した字幕');
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('rejects an unexpected partial response and retries the full subtitle payload once', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 -->', { status: 206 }))
+            .mockResolvedValueOnce(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n完全な字幕。\n', { status: 200 }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onerror?.(new Error('partial bridge response interrupted'));
+        });
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/show/episode.ja.vtt')).resolves.toContain('完全な字幕');
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(gmRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    it('recovers from a userscript timeout without retrying indefinitely', async () => {
+        const fetchMock = vi.fn(async () => { throw new TypeError('page fetch interrupted'); });
+        const gmRequest = vi.fn()
+            .mockImplementationOnce((details: Parameters<UserscriptHttpRequest>[0]) => details.ontimeout?.())
+            .mockImplementationOnce((details: Parameters<UserscriptHttpRequest>[0]) => details.onload?.({
+                status: 200,
+                responseText: '<timedtext><body><p t="1000" d="1000">復旧</p></body></timedtext>',
+                response: '',
+            }));
+
+        await withSubtitleRequestStubs('https://www.youtube.com/watch?v=abc123', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://www.youtube.com/api/timedtext?v=abc123&lang=ja&fmt=srv3')).resolves.toContain('復旧');
+            expect(gmRequest).toHaveBeenCalledTimes(2);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('does not retry or bridge a permanent missing subtitle response', async () => {
+        const fetchMock = vi.fn(async () => new Response('Not found', { status: 404 }));
+        const gmRequest = vi.fn();
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            await expect(requestSubtitleText('https://subs.example/missing.vtt')).rejects.toThrow('Subtitle request failed (404).');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(gmRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    it('destroys the mounted subtitle runtime and stops its timer', async () => {
+        vi.useFakeTimers();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+
+        controller.init();
+        expect(document.querySelector('.jpdb-subtitle-player')).not.toBeNull();
+
+        controller.destroy();
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
+    });
+
+    it('reuses the latched reference rect during a resize drag instead of re-measuring without inset', () => {
+        withViewport(1600, 900, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                const video = attachVideo(controller, { rect: new DOMRect(0, 0, 960, 540) });
+                const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+                const internals = controllerInternals<{
+                    video: HTMLVideoElement;
+                    cues: Array<typeof cue>;
+                    currentCue: typeof cue;
+                    openLinesPanel: () => void;
+                    positionTranscriptPanel: (options?: { skipInset?: boolean }) => void;
+                    transcriptLayoutReferenceVideoRect: (w: number, h: number) => DOMRect;
+                    transcriptLayoutReferenceRect?: DOMRect;
+                    transcriptPanelSize: { sideWidth?: number };
+                    applyVideoInsetForTranscriptLayout: (
+                        layout: { width: number },
+                        rect: DOMRect,
+                        options?: { resizeEventMode?: 'immediate' | 'none' | 'settled' },
+                    ) => boolean;
+                }>(controller);
+                internals.video = video;
+                internals.cues = [cue];
+                internals.currentCue = cue;
+                internals.openLinesPanel();
+
+                // Count the expensive measure-without-inset reference computation.
+                const realReference = internals.transcriptLayoutReferenceVideoRect.bind(internals);
+                let referenceMeasures = 0;
+                internals.transcriptLayoutReferenceVideoRect = (w: number, h: number) => {
+                    referenceMeasures += 1;
+                    return realReference(w, h);
+                };
+                const realInset = internals.applyVideoInsetForTranscriptLayout.bind(internals);
+                const dragInsetWidths: number[] = [];
+                const dragResizeEventModes: Array<'immediate' | 'none' | 'settled' | undefined> = [];
+                internals.applyVideoInsetForTranscriptLayout = (layout, rect, options) => {
+                    dragInsetWidths.push(Math.round(layout.width));
+                    dragResizeEventModes.push(options?.resizeEventMode);
+                    return realInset(layout, rect, options);
+                };
+
+                // Prime the latched reference rect (as a real first layout would).
+                internals.positionTranscriptPanel();
+                expect(referenceMeasures).toBeGreaterThan(0);
+                expect(internals.transcriptLayoutReferenceRect).toBeTruthy();
+
+                // Resize-drag frames (skipInset) must NOT re-measure: they reuse the
+                // latched reference, avoiding the inset style-toggle + double layout.
+                // They still need to re-apply the video inset, otherwise the YouTube
+                // video frame stays fixed while the side panel grows and only snaps
+                // after pointer-up. Drag frames suppress the synthetic resize
+                // event nudge so YouTube/mobile listeners are not spammed.
+                dragInsetWidths.length = 0;
+                dragResizeEventModes.length = 0;
+                const beforeDrag = referenceMeasures;
+                internals.transcriptPanelSize.sideWidth = 520;
+                internals.positionTranscriptPanel({ skipInset: true });
+                internals.transcriptPanelSize.sideWidth = 580;
+                internals.positionTranscriptPanel({ skipInset: true });
+                internals.transcriptPanelSize.sideWidth = 640;
+                internals.positionTranscriptPanel({ skipInset: true });
+                expect(referenceMeasures).toBe(beforeDrag);
+                expect(dragInsetWidths).toEqual([520, 580, 640]);
+                expect(dragResizeEventModes).toEqual(['none', 'none', 'none']);
+
+                // A normal (non-drag) reposition still re-measures.
+                dragResizeEventModes.length = 0;
+                internals.positionTranscriptPanel();
+                expect(referenceMeasures).toBe(beforeDrag + 1);
+                expect(dragResizeEventModes).toEqual(['immediate']);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('reserves new YouTube player space while resizing the stable side panel', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=resize123') as unknown as Location,
+        });
+
+        type TestTranscriptPanelLayout = {
+            placement: 'left' | 'right' | 'bottom';
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+            viewportWidth: number;
+            viewportHeight: number;
+            margin: number;
+            maxWidth: number;
+        };
+        const videoRect = new DOMRect(24, 68, 1108, 623.25);
+
+        try {
+            withViewport(1600, 1000, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    attachVideo(controller, { rect: videoRect });
+                    const internals = controllerInternals<{
+                        stableYouTubeSideTranscriptDrawerLayout: (
+                            placement: 'right',
+                            options: {
+                                viewportWidth: number;
+                                viewportHeight: number;
+                                anchorTop: number;
+                                compactPanel: boolean;
+                                preferredPlacement: 'right';
+                                size?: { sideWidth?: number };
+                            },
+                            rect: DOMRect,
+                        ) => TestTranscriptPanelLayout | null;
+                        applyStableYouTubeTranscriptLayout: (layout: TestTranscriptPanelLayout, rect: DOMRect) => boolean;
+                    }>(controller);
+                    const options = {
+                        viewportWidth: 1600,
+                        viewportHeight: 1000,
+                        anchorTop: 68,
+                        compactPanel: false,
+                        preferredPlacement: 'right' as const,
+                    };
+
+                    const defaultLayout = internals.stableYouTubeSideTranscriptDrawerLayout('right', options, videoRect);
+                    expect(defaultLayout?.width).toBe(458);
+
+                    const resizedLayout = internals.stableYouTubeSideTranscriptDrawerLayout('right', {
+                        ...options,
+                        size: { sideWidth: 578 },
+                    }, videoRect);
+                    expect(resizedLayout).toMatchObject({ placement: 'right', left: 1022, width: 578 });
+                    expect(resizedLayout?.maxWidth).toBeGreaterThan(578);
+
+                    expect(internals.applyStableYouTubeTranscriptLayout(resizedLayout!, videoRect)).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-right')).toBe(true);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-youtube-stable-player-width')).toBe('988px');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('uses generic inset instead of YouTube stable layout for hosted Yomu Video side panels', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('http://127.0.0.1:5174/yomu-reader/video-player/index.html') as unknown as Location,
+        });
+
+        type TestTranscriptPanelLayout = {
+            placement: 'left' | 'right' | 'bottom';
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+            viewportWidth: number;
+            viewportHeight: number;
+            margin: number;
+            maxWidth: number;
+        };
+
+        try {
+            withViewport(1600, 900, () => {
+                document.body.innerHTML = '<section class="player-shell" data-yomu-video-frame><video controls></video></section>';
+                const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                const videoRect = new DOMRect(400, 60, 1000, 562.5);
+                mockElementRect(frame, videoRect);
+                mockElementRect(video, videoRect);
+
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                try {
+                    attachVideo(controller, { video, rect: videoRect });
+                    const internals = controllerInternals<{
+                        applyVideoInsetForTranscriptLayout: (
+                            layout: TestTranscriptPanelLayout,
+                            rect: DOMRect,
+                            options?: { resizeEventMode?: 'none' },
+                        ) => boolean;
+                    }>(controller);
+                    const changed = internals.applyVideoInsetForTranscriptLayout({
+                        placement: 'right',
+                        left: 1030,
+                        top: 60,
+                        width: 560,
+                        height: 830,
+                        viewportWidth: 1600,
+                        viewportHeight: 900,
+                        margin: 10,
+                        maxWidth: 980,
+                    }, videoRect, { resizeEventMode: 'none' });
+
+                    expect(changed).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-youtube-stable-side')).toBe(false);
+                    expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('570px');
+                    expect(frame.style.width).toBe('620px');
+                } finally {
+                    controller.destroy();
+                }
+            });
+        } finally {
+            document.body.innerHTML = '';
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('closes the bottom transcript drawer when a handle tap loses pointer capture', () => {
+        vi.useFakeTimers();
+        withViewport(390, 844, () => {
+            const { controller } = createInstalledSubtitleController({
+                subtitleTranscriptPlacement: 'bottom',
+                subtitleTranscriptAutoScroll: false,
+            });
+            try {
+                attachVideo(controller, { rect: new DOMRect(36, 238, 318, 179) });
+                openSingleCueTranscript(controller, '今日は読む。');
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+                expect(panel.hidden).toBe(false);
+                expect(panel.dataset.transcriptPlacement).toBe('bottom');
+
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientX: 296, clientY: 854, pointerType: 'touch' }));
+                handle.dispatchEvent(new Event('lostpointercapture', { bubbles: true }));
+                vi.runOnlyPendingTimers();
+
+                expect(panel.hidden).toBe(true);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('pauses transcript auto-follow after a manual scroll and resumes after the window', () => {
+        const nowDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        let now = 10_000;
+        const scrollSpy = vi.fn();
+        Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (cb: FrameRequestCallback) => { cb(now); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+
+        try {
+            // The resume window is the configurable setting (seconds); the
+            // controller reads it live from the same settings object each call.
+            const { controller, settings } = createSubtitleController(
+                makeSubtitleSettings({
+                    subtitleOverlayVisible: true,
+                    subtitleTranscriptAutoScroll: true,
+                    subtitleTranscriptAutoScrollResumeSeconds: 5,
+                }),
+            );
+            installController(controller);
+            const internals = controllerInternals<{
+                transcriptPanel: HTMLElement;
+                panelMode: 'lines' | 'tracks';
+                noteTranscriptScrollIntent: () => void;
+                noteTranscriptScroll: () => void;
+                scrollTranscriptToActive: () => void;
+            }>(controller);
+            internals.panelMode = 'lines';
+            internals.transcriptPanel.hidden = false;
+            internals.transcriptPanel.innerHTML = '<div class="jpdb-subtitle-list-scroll"><div class="jpdb-subtitle-list-row active" data-row-index="5"></div></div>';
+
+            // Baseline: advancing the active cue snaps the list to it.
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(1);
+
+            // The auto-scroll's own scroll event (inside the programmatic
+            // window) must NOT be counted as a manual scroll.
+            internals.noteTranscriptScroll();
+            now += 100;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // A real manual scroll (past the programmatic window) pauses follow:
+            // the next cue advance must NOT yank the list back.
+            now += 400;
+            internals.noteTranscriptScrollIntent();
+            internals.noteTranscriptScroll();
+            now += 100;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // Still paused just before the 5s window elapses.
+            now += 4700;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(2);
+
+            // After the configured resume window, follow resumes.
+            now += 400;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(3);
+
+            // A larger configured window keeps follow paused longer: a manual
+            // scroll then a 4s gap no longer resumes when the window is 10s.
+            settings.subtitleTranscriptAutoScrollResumeSeconds = 10;
+            now += 1000;
+            internals.noteTranscriptScrollIntent();
+            internals.noteTranscriptScroll();
+            now += 4000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(3);
+            now += 6500;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(4);
+
+            // The old saved default was 4s, which was too eager on YouTube;
+            // treat that legacy value as the safer 30s default during playback.
+            settings.subtitleTranscriptAutoScrollResumeSeconds = 4;
+            now += 1000;
+            internals.noteTranscriptScrollIntent();
+            internals.noteTranscriptScroll();
+            now += 5000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(4);
+            now += 25000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(5);
+        } finally {
+            if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        }
+    });
+
+    it('offers a jump-back control when manual transcript scrolling pauses auto-follow', () => {
+        const nowDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        let now = 10_000;
+        const scrollSpy = vi.fn();
+        Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (cb: FrameRequestCallback) => { cb(now); return 1; },
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollSpy });
+
+        const cues = [
+            { start: 0, end: 1, text: '一番', transcriptEligible: true },
+            { start: 1, end: 2, text: '二番', transcriptEligible: true },
+        ];
+        const { controller, internals } = setupTranscriptCueController<typeof cues[number], {
+            currentCue: typeof cues[number];
+            noteTranscriptScrollIntent: () => void;
+            noteTranscriptScroll: () => void;
+            scrollTranscriptToActive: () => void;
+        }>(cues, {
+            currentCue: cues[0],
+            selectedTrackId: 'file-0',
+            settings: { subtitleTranscriptAutoScroll: true, subtitleTranscriptAutoScrollResumeSeconds: 30 },
+        });
+
+        try {
+            internals.openLinesPanel();
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const jump = panel.querySelector<HTMLButtonElement>('[data-action="jump-current"]')!;
+            expect(jump).toBeTruthy();
+
+            scrollSpy.mockClear();
+            now += 500;
+            internals.noteTranscriptScrollIntent();
+            internals.noteTranscriptScroll();
+
+            expect(panel.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(true);
+            internals.currentCue = cues[1]!;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).not.toHaveBeenCalled();
+
+            jump.click();
+
+            expect(panel.classList.contains('jpdb-subtitle-auto-scroll-paused')).toBe(false);
+            expect(scrollSpy).toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor);
+            else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        }
+    });
+
+    it('ignores stale secondary cues after moving the same track to Japanese', async () => {
+        vi.useFakeTimers();
+        const scrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+            configurable: true,
+            value: vi.fn(),
+        });
+
+        try {
+            const { controller } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleSecondaryVisible: true,
+            });
+            attachVideo(controller, { currentTime: 0.5 });
+
+            const internals = controllerInternals<{
+                tracks: Array<{ id: string; label: string; kind: 'native'; language: string; track: TextTrack }>;
+                selectSecondaryTrack: (id: string) => Promise<void>;
+                selectTrack: (id: string) => Promise<void>;
+                selectedTrackId: string;
+                secondaryTrackId: string;
+                cues: Array<{ text: string }>;
+                secondaryCues: Array<{ text: string }>;
+                secondaryCue?: { text: string };
+                updateFromLoadedCues: () => void;
+            }>(controller);
+
+            const trackState = {
+                mode: 'disabled',
+                cues: [] as Array<{ startTime: number; endTime: number; text: string }>,
+            };
+            const track = trackState as unknown as TextTrack;
+
+            internals.tracks = [{
+                id: 'native-0',
+                label: 'English captions',
+                kind: 'native',
+                language: 'en',
+                track,
+            }];
+
+            const secondarySelection = internals.selectSecondaryTrack('native-0');
+            const primarySelection = internals.selectTrack('native-0');
+
+            trackState.cues = [{ startTime: 0, endTime: 2, text: 'Hello there' }];
+            await vi.advanceTimersByTimeAsync(1000);
+            await Promise.all([secondarySelection, primarySelection]);
+
+            internals.updateFromLoadedCues();
+
+            expect(internals.selectedTrackId).toBe('native-0');
+            expect(internals.secondaryTrackId).toBe('');
+            expect(internals.cues.map(cue => cue.text)).toEqual(['Hello there']);
+            expect(internals.secondaryCues).toEqual([]);
+            expect(internals.secondaryCue).toBeUndefined();
+            expect(document.querySelector('.jpdb-subtitle-secondary')).toBeNull();
+        } finally {
+            if (scrollIntoViewDescriptor) {
+                Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollIntoViewDescriptor);
+            } else {
+                delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+            }
+        }
+    });
+
+    it('auto-pairs Japanese YouTube captions as primary with English captions as the native overlay', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleOverlayVisible: false,
+            subtitleSecondaryVisible: false,
+            apiKey: '',
+            localDictionariesEnabled: false,
+        };
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'youtube';
+                language: string;
+                autoGenerated?: boolean;
+                sourceType?: 'asr' | 'translation';
+                sourceLanguage?: string;
+                targetLanguage?: string;
+                url?: string;
+            }>;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
+            selectTrack: (id: string) => Promise<void>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        };
+        internals.tracks = [
+            {
+                id: 'youtube-en',
+                label: 'English (en) · auto-translated from 日本語 (自動生成)',
+                kind: 'youtube',
+                language: 'en',
+                autoGenerated: true,
+                sourceType: 'translation',
+                sourceLanguage: 'ja',
+                targetLanguage: 'en',
+            },
+            {
+                id: 'youtube-ja',
+                label: '日本語 (自動生成) (ja)',
+                kind: 'youtube',
+                language: 'ja',
+                autoGenerated: true,
+                sourceType: 'asr',
+            },
+        ];
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        internals.selectSecondaryTrack = async id => {
+            internals.secondaryTrackId = id;
+        };
+
+        internals.finishYouTubeTrackDiscovery(2, false);
+
+        expect(internals.selectedTrackId).toBe('youtube-ja');
+        expect(internals.secondaryTrackId).toBe('youtube-en');
+    });
+
+    it('recovers a secondary YouTube translation track when translated timedtext is empty', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=native-overlay') as unknown as Location,
+        });
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const href = input instanceof Request ? input.url : String(input);
+            const url = new URL(href);
+            if (url.hostname === 'translate.googleapis.com') {
+                expect(url.searchParams.get('sl')).toBe('ja');
+                expect(url.searchParams.get('tl')).toBe('en');
+                return new Response(JSON.stringify({ sentences: [{ trans: 'I read today.' }] }), {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                });
+            }
+            if (url.pathname === '/api/timedtext') {
+                return new Response(
+                    url.searchParams.has('tlang') ? '' : '<transcript><text start="1" dur="2">今日は読む。</text></transcript>',
+                    { status: 200, headers: { 'content-type': 'text/xml' } },
+                );
+            }
+            return new Response('', { status: 404 });
+        });
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: fetchMock,
+        });
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleSecondaryVisible: true,
+        });
+        const internals = controllerInternals<{
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'youtube';
+                language: string;
+                sourceType: 'asr' | 'translation';
+                sourceLanguage?: string;
+                targetLanguage?: string;
+                url: string;
+                loadingState?: string;
+            }>;
+            secondaryTrackId: string;
+            secondaryCues: Array<{ start: number; end: number; text: string }>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            {
+                id: 'youtube-ja',
+                label: '日本語 (ja) · auto-generated',
+                kind: 'youtube',
+                language: 'ja',
+                sourceType: 'asr',
+                sourceLanguage: 'ja',
+                url: 'https://www.youtube.com/api/timedtext?v=native-overlay&lang=ja',
+            },
+            {
+                id: 'youtube-en',
+                label: 'English (en) · auto-translated from 日本語',
+                kind: 'youtube',
+                language: 'en',
+                sourceType: 'translation',
+                sourceLanguage: 'ja',
+                targetLanguage: 'en',
+                url: 'https://www.youtube.com/api/timedtext?v=native-overlay&lang=ja&tlang=en',
+            },
+        ];
+
+        try {
+            await internals.selectSecondaryTrack('youtube-en');
+
+            expect(internals.secondaryTrackId).toBe('youtube-en');
+            expect(internals.secondaryCues).toMatchObject([{ start: 1, end: 3, text: 'I read today.' }]);
+            expect(internals.tracks[1]?.loadingState).toBe('ready');
+            expect(fetchMock.mock.calls.some(([input]) => (input instanceof Request ? input.url : String(input)).includes('translate.googleapis.com'))).toBe(true);
+        } finally {
+            controller.destroy();
+            Object.defineProperty(globalThis, 'fetch', {
+                configurable: true,
+                value: originalFetch,
+            });
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('synthesizes and auto-selects a translated Japanese track when YouTube only offers English captions', () => {
+        const { controller } = createSubtitleController(makeSubtitleSettings({ interfaceLanguage: 'en' as const }));
+        const internals = controllerInternals<{
+            tracks: Array<{ id: string; label: string; kind: string; language?: string; autoGenerated?: boolean; translatedFromTrackId?: string }>;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
+            selectTrack: (id: string) => Promise<void>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            { id: 'youtube-en', label: 'English (auto-generated)', kind: 'youtube', language: 'en', autoGenerated: true },
+        ];
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        internals.selectSecondaryTrack = async id => {
+            internals.secondaryTrackId = id;
+        };
+
+        internals.finishYouTubeTrackDiscovery(1, false);
+
+        const synthetic = internals.tracks.find(track => track.translatedFromTrackId === 'youtube-en');
+        expect(synthetic).toBeTruthy();
+        expect(synthetic?.language).toBe('ja');
+        expect(internals.selectedTrackId).toBe(synthetic?.id);
+        expect(internals.secondaryTrackId).toBe('youtube-en');
+    });
+
+    it('replaces a selected synthetic translation when a real Japanese YouTube track appears later', () => {
+        const { controller } = createSubtitleController(makeSubtitleSettings({ interfaceLanguage: 'en' as const }));
+        const internals = controllerInternals<{
+            tracks: Array<{ id: string; label: string; kind: string; language?: string; autoGenerated?: boolean; translatedFromTrackId?: string }>;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
+            selectTrack: (id: string) => Promise<void>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            { id: 'youtube-en', label: 'English (auto-generated)', kind: 'youtube', language: 'en', autoGenerated: true },
+        ];
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        internals.selectSecondaryTrack = async id => {
+            internals.secondaryTrackId = id;
+        };
+        internals.finishYouTubeTrackDiscovery(1, false);
+        expect(internals.selectedTrackId).toBe('translated-youtube-en');
+
+        internals.tracks.push({ id: 'youtube-ja', label: '日本語', kind: 'youtube', language: 'ja' });
+        internals.finishYouTubeTrackDiscovery(1, false);
+
+        expect(internals.selectedTrackId).toBe('youtube-ja');
+    });
+
+    it('does not apply an empty native cue load after the controller is destroyed', async () => {
+        vi.useFakeTimers();
+        try {
+            const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+            const syncControls = vi.fn();
+            const internals = controllerInternals<{
+                addNativeTrack: (track: TextTrack) => void;
+                syncControls: () => void;
+            }>(controller);
+            internals.syncControls = syncControls;
+            internals.addNativeTrack({
+                label: 'English',
+                language: 'en',
+                kind: 'subtitles',
+                mode: 'disabled',
+                cues: [],
+                addEventListener: () => undefined,
+            } as unknown as TextTrack);
+            syncControls.mockClear();
+
+            controller.destroy();
+            await vi.advanceTimersByTimeAsync(1_000);
+
+            expect(syncControls).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('surfaces a translated Japanese option for English-only native tracks and keeps it across rescans', () => {
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<{
+            tracks: Array<{ id: string; label: string; kind: string; language?: string; track?: TextTrack; translatedFromTrackId?: string }>;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            addNativeTrack: (track: TextTrack) => void;
+            removeStaleNativeTracks: (video: HTMLVideoElement) => void;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        const nativeTrack = {
+            label: 'English',
+            language: 'en',
+            kind: 'subtitles',
+            mode: 'disabled',
+            cues: [],
+            addEventListener: () => undefined,
+        } as unknown as TextTrack;
+
+        internals.addNativeTrack(nativeTrack);
+
+        const synthetic = internals.tracks.find(track => track.translatedFromTrackId);
+        expect(synthetic).toBeTruthy();
+        expect(synthetic?.language).toBe('ja');
+        expect(internals.selectedTrackId).toBe(synthetic?.id);
+        expect(internals.secondaryTrackId).toBe(internals.tracks[0]?.id);
+
+        // A rescan of the same video must not cull the synthetic (it has no
+        // TextTrack of its own) while its source is still alive.
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'textTracks', { value: [nativeTrack], configurable: true });
+        internals.removeStaleNativeTracks(video);
+        expect(internals.tracks.some(track => track.translatedFromTrackId)).toBe(true);
+
+        // Once the source disappears, the synthetic goes with it.
+        const emptyVideo = document.createElement('video');
+        Object.defineProperty(emptyVideo, 'textTracks', { value: [], configurable: true });
+        internals.removeStaleNativeTracks(emptyVideo);
+        expect(internals.tracks.some(track => track.translatedFromTrackId)).toBe(false);
+    });
+
+    it('lets a real Japanese native track take primary over an auto-selected synthetic translation', () => {
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<{
+            tracks: Array<{ id: string; translatedFromTrackId?: string }>;
+            selectedTrackId: string;
+            addNativeTrack: (track: TextTrack) => void;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        const makeTrack = (label: string, language: string) => ({
+            label,
+            language,
+            kind: 'subtitles',
+            mode: 'disabled',
+            cues: [],
+            addEventListener: () => undefined,
+        }) as unknown as TextTrack;
+
+        internals.addNativeTrack(makeTrack('English', 'en'));
+        expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.translatedFromTrackId).toBeTruthy();
+
+        internals.addNativeTrack(makeTrack('日本語', 'ja'));
+        expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.translatedFromTrackId).toBeUndefined();
+        expect(internals.selectedTrackId).not.toBe('');
+    });
+
+    it('keeps the synthetic translated option when the page subtitle listing is rediscovered', () => {
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<{
+            tracks: Array<{ id: string; label: string; kind: string; language?: string; url?: string; sourceKey?: string; translatedFromTrackId?: string }>;
+            selectedTrackId: string;
+            finishPageSubtitleTrackDiscovery: (changes: { added: number; updated: number; removed: number }) => void;
+            removeStalePageSubtitleTracks: (sources: Array<{ url: string; label: string; language?: string; sourceKey: string }>) => number;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.selectTrack = async id => {
+            internals.selectedTrackId = id;
+        };
+        const source = { url: 'https://news.example.com/captions/en.vtt', label: 'English', language: 'en', sourceKey: 'track:en' };
+        internals.tracks = [
+            { id: 'remote-0', label: source.label, kind: 'remote', language: source.language, url: source.url, sourceKey: source.sourceKey },
+        ];
+
+        internals.finishPageSubtitleTrackDiscovery({ added: 1, updated: 0, removed: 0 });
+
+        const synthetic = internals.tracks.find(track => track.translatedFromTrackId === 'remote-0');
+        expect(synthetic).toBeTruthy();
+        expect(internals.selectedTrackId).toBe(synthetic?.id);
+
+        // The next discovery pass lists the same page source; the synthetic has
+        // no sourceKey/url of its own and must not be culled as stale.
+        const removed = internals.removeStalePageSubtitleTracks([source]);
+        expect(removed).toBe(0);
+        expect(internals.tracks.some(track => track.translatedFromTrackId)).toBe(true);
+
+        // When the page source disappears, the synthetic cascades away with it.
+        internals.removeStalePageSubtitleTracks([]);
+        expect(internals.tracks.some(track => track.translatedFromTrackId)).toBe(false);
+    });
+
+    it('clears auto-detected subtitles when a CIJ video route changes', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://cijapanese.com/video/560') as unknown as Location,
+        });
+
+        try {
+            const { controller } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+            });
+            const internals = controllerInternals<{
+                syncSubtitleSourceContext: () => boolean;
+                tracks: Array<{ id: string; label: string; kind: 'remote' | 'file'; language?: string; url?: string; sourceKey?: string; cues?: Array<{ text: string }> }>;
+                selectedTrackId: string;
+                cues: Array<{ text: string }>;
+                currentCue?: { text: string };
+            }>(controller);
+            internals.tracks = [
+                {
+                    id: 'remote-0',
+                    label: 'Old CIJ video',
+                    kind: 'remote',
+                    language: 'ja',
+                    url: 'https://cijapanese.com/media/old.vtt',
+                    sourceKey: 'track:https://cijapanese.com/media/old.vtt',
+                },
+                {
+                    id: 'file-primary',
+                    label: 'Manual file',
+                    kind: 'file',
+                    cues: [{ text: '手動字幕' }],
+                },
+            ];
+            internals.selectedTrackId = 'remote-0';
+            internals.cues = [{ text: '前の動画の字幕' }];
+            internals.currentCue = { text: '前の動画の字幕' };
+
+            expect(internals.syncSubtitleSourceContext()).toBe(false);
+
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: new URL('https://cijapanese.com/video/652') as unknown as Location,
+            });
+
+            expect(internals.syncSubtitleSourceContext()).toBe(true);
+            expect(internals.tracks).toMatchObject([{ id: 'file-primary', kind: 'file' }]);
+            expect(internals.selectedTrackId).toBe('');
+            expect(internals.cues).toEqual([]);
+            expect(internals.currentCue).toBeUndefined();
+            expect(document.querySelector('.jpdb-subtitle-primary')).toBeNull();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+});
