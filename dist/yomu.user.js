@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.194
+// @version 1.6.195
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.a840a8c582c2.user.js#sha256=qECoxYLCw/GcVV2tAlggw4Qdq8rgHC9ClNezxj1/9H4=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.2f10675e993c.user.js#sha256=LxBnXpk8NXjkSOp8nlHwSMJOoJ4f4Ugb5WoZdVW9Gkk=
 // @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
 // @resource yomuCss  https://yomureader.com/yomu.b2961b03bd43.css#sha256=spYbA71DZOP0+ogjRg8S8Hru6V4jZEknOtmVdbBeQfA=
 // @connect api.jiten.moe
@@ -19142,6 +19142,30 @@ function liveFrequencyEnabled(settings, provider) {
   const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
   return frequencyEnabled && lookupEnabled;
 }
+function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+  const ranks = {};
+  const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+  if (jitenRank) {
+  ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+  }
+  const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+  if (jpdb) ranks.jpdb = jpdb;
+  return ranks;
+}
+function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+  const text2 = frequency.trim();
+  const match = /([\d,]+)/.exec(text2);
+  const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+  if (!Number.isInteger(rank) || rank <= 0) return null;
+  return {
+  provider: "jpdb",
+  rank,
+  spelling: kanji,
+  reading: kanji,
+  source: "kanji",
+  display: /^top\b/i.test(text2) ? text2 : void 0
+  };
+}
 function cardFrequencyRanks(card, isJpdbBackedCard) {
   const rank = frequencyRank(card.frequencyRank);
   if (!rank) return {};
@@ -31132,7 +31156,7 @@ function renderLookupLinkPill(options, context, language, query, link, mergedLiv
   if (!url) return "";
   const title = lookupLinkPillTitle(options, language, link);
   const rank = linkPillLiveRank(link, mergedLiveRanks);
-  const label = rank ? `${link.label} #${rank}` : link.label;
+  const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
   if (options.inert) {
   return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
   }
@@ -31225,10 +31249,9 @@ function renderCopyPill(language, query, style = lookupPillStyle("copy"), inert 
 function frequencyPillsByLookupId(options) {
   const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
   const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
-  const state = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
-  if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
-  mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds);
-  }
+  const kanjiQuery = options.overrideQuery && isSingleKanji(options.overrideQuery) ? options.overrideQuery.trim() : null;
+  const state = localFrequencyPills(options, mergeIntoLinkPill && !kanjiQuery, enabledLinkIds);
+  mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds, kanjiQuery);
   return { pills: state.pills, mergedLiveRanks: state.mergedLiveRanks };
 }
 function localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds) {
@@ -31248,7 +31271,7 @@ function mergeLocalFrequencyEntry(options, state, entry, localLabel, mergeIntoLi
   const provider = localFrequencyProvider(entry.dictionary);
   const rank = extractFrequency(entry.data);
   if (provider && rank && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
-  state.mergedLiveRanks.set(provider, rank);
+  state.mergedLiveRanks.set(provider, { rank });
   state.localProviders.add(provider);
   return;
   }
@@ -31257,14 +31280,15 @@ function mergeLocalFrequencyEntry(options, state, entry, localLabel, mergeIntoLi
   state.pills.set(localFrequencyLookupPillId(entry.dictionary), html);
   if (provider) state.localProviders.add(provider);
 }
-function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds) {
+function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds, kanjiQuery) {
   for (const link of options.settings.dictionaryLookupLinks) {
   if (link.action !== "frequency-live" || !link.enabled) continue;
   const provider = liveFrequencyProvider(link);
-  if (!provider || state.localProviders.has(provider)) continue;
-  const rank = liveFrequencyRank(options, provider);
+  if (!provider || !kanjiQuery && state.localProviders.has(provider)) continue;
+  const rank = liveFrequencyEvidence(options, provider);
   if (!rank) continue;
-  if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, rank);
+  if (kanjiQuery ? rank.source !== "kanji" || rank.spelling !== kanjiQuery : rank.source === "kanji") continue;
+  if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
   }
 }
 function localFrequencyEnabled(settings, dictionary) {
@@ -31281,8 +31305,8 @@ function localFrequencyLookupPillId(dictionary) {
 function liveFrequencyProvider(link) {
   return frequencyProviderForLookupId(link.id);
 }
-function liveFrequencyRank(options, provider) {
-  return options.frequencyRanks?.[provider]?.rank ?? null;
+function liveFrequencyEvidence(options, provider) {
+  return options.frequencyRanks?.[provider] ?? null;
 }
 function localFrequencyProvider(dictionary) {
   const normalized = dictionary.toLowerCase();
@@ -36403,8 +36427,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.194"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.194"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.195"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.195"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36522,7 +36546,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.194"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.195"}`;
   } catch {
   return null;
   }
@@ -42225,7 +42249,7 @@ class ReaderApp {
   return this.settings.jpdbKanjiEnabled && this.jpdbKanji ? this.jpdbKanji.lookup(kanji).catch(() => null) : Promise.resolve(null);
   }
   jitenKanjiDetailPromise(kanji) {
-  return this.settings.jpdbKanjiEnabled && this.isJitenApiActive() ? this.jiten.lookupKanji(kanji).catch(() => null) : Promise.resolve(null);
+  return this.settings.jpdbKanjiEnabled ? this.jiten.lookupKanji(kanji).catch(() => null) : Promise.resolve(null);
   }
   isJitenApiActive() {
   return hasJitenApiCredential(this.settings);
@@ -42336,7 +42360,7 @@ class ReaderApp {
   }
   startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language, pageTarget) {
   this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);
-  void this.renderKanjiDetailsInto(popover, detailsPromises, kanji, language);
+  void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
   if (this.settings.kanjivgEnabled) {
     void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
   }
@@ -42398,7 +42422,7 @@ class ReaderApp {
   updateKanjiMiningControls(popover, controls) {
   updateKanjiMiningControlsMount(popover, controls, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
   }
-  async renderKanjiDetailsInto(popover, detailsPromises, kanji, language) {
+  async renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language) {
   let jpdbInfo = null;
   let jitenInfo = null;
   let kanjiEntries = [];
@@ -42417,6 +42441,21 @@ class ReaderApp {
     setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language) : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
     this.repositionActivePopover();
   };
+  const renderKanjiPillRanks = () => {
+    if (!popover.isConnected) return;
+    const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
+    if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
+    updateHeadingWordPills(popover, {
+      card,
+      jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+      settings: this.settings,
+      metaEntries: [],
+      overrideQuery: kanji,
+      frequencyRanks,
+      isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
+      dictionaryLabel: (name) => this.dictionaryLabel(name)
+    });
+  };
   const renderRtk = () => {
     if (!popover.isConnected || !rtkMount?.isConnected) return;
     const companion = this.kanjiCompanion;
@@ -42434,6 +42473,7 @@ class ReaderApp {
     jpdbInfo = info;
     if (!popover.isConnected) return;
     renderKeyword();
+    renderKanjiPillRanks();
     if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
     if (jpdbMount?.isConnected) {
       setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
@@ -42444,6 +42484,7 @@ class ReaderApp {
     jitenInfo = info;
     if (!popover.isConnected) return;
     renderKeyword();
+    renderKanjiPillRanks();
     if (jpdbMount?.isConnected) {
       setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
     }

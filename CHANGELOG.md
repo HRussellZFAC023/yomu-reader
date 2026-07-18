@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.195] - 2026-07-18
+
+### Fixed
+
+- Kanji popovers now show each provider's own kanji frequency on the lookup pills, for example Jiten #516 next to JPDB Top 300-400, instead of showing no rank at all.
+- Jiten kanji details (keyword, readings, facts, and the new pill rank) no longer require a Jiten API key; keyless lookups ride the built-in Yomu edge proxy.
+
 ## [1.6.194] - 2026-07-18
 
 ### Changed

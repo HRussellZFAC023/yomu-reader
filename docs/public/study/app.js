@@ -64349,6 +64349,30 @@ ${component.reading}`;
     const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
     return frequencyEnabled && lookupEnabled;
   }
+  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+    const ranks = {};
+    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+    if (jitenRank) {
+      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+    }
+    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+    if (jpdb) ranks.jpdb = jpdb;
+    return ranks;
+  }
+  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+    const text2 = frequency.trim();
+    const match = /([\d,]+)/.exec(text2);
+    const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+    if (!Number.isInteger(rank) || rank <= 0) return null;
+    return {
+      provider: "jpdb",
+      rank,
+      spelling: kanji,
+      reading: kanji,
+      source: "kanji",
+      display: /^top\b/i.test(text2) ? text2 : void 0
+    };
+  }
   function cardFrequencyRanks(card, isJpdbBackedCard) {
     const rank = frequencyRank(card.frequencyRank);
     if (!rank) return {};
@@ -89604,7 +89628,7 @@ ${entry.url}`),
     if (!url) return "";
     const title = lookupLinkPillTitle(options, language, link);
     const rank = linkPillLiveRank(link, mergedLiveRanks);
-    const label = rank ? `${link.label} #${rank}` : link.label;
+    const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
       return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
     }
@@ -89692,10 +89716,9 @@ ${entry.url}`),
   function frequencyPillsByLookupId(options) {
     const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
     const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
-    const state2 = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
-    if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
-      mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds);
-    }
+    const kanjiQuery = options.overrideQuery && isSingleKanji(options.overrideQuery) ? options.overrideQuery.trim() : null;
+    const state2 = localFrequencyPills(options, mergeIntoLinkPill && !kanjiQuery, enabledLinkIds);
+    mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds, kanjiQuery);
     return { pills: state2.pills, mergedLiveRanks: state2.mergedLiveRanks };
   }
   function localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds) {
@@ -89715,7 +89738,7 @@ ${entry.url}`),
     const provider = localFrequencyProvider(entry.dictionary);
     const rank = extractFrequency(entry.data);
     if (provider && rank && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
-      state2.mergedLiveRanks.set(provider, rank);
+      state2.mergedLiveRanks.set(provider, { rank });
       state2.localProviders.add(provider);
       return;
     }
@@ -89724,14 +89747,15 @@ ${entry.url}`),
     state2.pills.set(localFrequencyLookupPillId(entry.dictionary), html);
     if (provider) state2.localProviders.add(provider);
   }
-  function mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds) {
+  function mergeLiveFrequencyRanks(options, state2, mergeIntoLinkPill, enabledLinkIds, kanjiQuery) {
     for (const link of options.settings.dictionaryLookupLinks) {
       if (link.action !== "frequency-live" || !link.enabled) continue;
       const provider = liveFrequencyProvider(link);
-      if (!provider || state2.localProviders.has(provider)) continue;
-      const rank = liveFrequencyRank(options, provider);
+      if (!provider || !kanjiQuery && state2.localProviders.has(provider)) continue;
+      const rank = liveFrequencyEvidence(options, provider);
       if (!rank) continue;
-      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state2.mergedLiveRanks.set(provider, rank);
+      if (kanjiQuery ? rank.source !== "kanji" || rank.spelling !== kanjiQuery : rank.source === "kanji") continue;
+      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state2.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
     }
   }
   function localFrequencyEnabled(settings, dictionary) {
@@ -89748,8 +89772,8 @@ ${entry.url}`),
   function liveFrequencyProvider(link) {
     return frequencyProviderForLookupId(link.id);
   }
-  function liveFrequencyRank(options, provider) {
-    return options.frequencyRanks?.[provider]?.rank ?? null;
+  function liveFrequencyEvidence(options, provider) {
+    return options.frequencyRanks?.[provider] ?? null;
   }
   function localFrequencyProvider(dictionary) {
     const normalized = dictionary.toLowerCase();
@@ -91575,7 +91599,7 @@ ${entry.url}`),
       const actionId = button.dataset.kanjiActionId ?? "";
       if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
     }
-    async renderKanjiLookupDetails(popover, _card, kanji, requestId = this.lookupRenderRequest) {
+    async renderKanjiLookupDetails(popover, card, kanji, requestId = this.lookupRenderRequest) {
       let jpdbInfo = null;
       let jitenInfo = null;
       let rtkInfo = null;
@@ -91591,6 +91615,21 @@ ${entry.url}`),
         if (!this.isCurrentLookupRender(popover, requestId)) return;
         const mount = popover.querySelector("[data-kanji-keyword-mount]");
         if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+      };
+      const renderKanjiPillRanks = () => {
+        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
+        if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
+        updateHeadingWordPills(popover, {
+          card,
+          jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+          settings: this.settings,
+          metaEntries: [],
+          overrideQuery: kanji,
+          frequencyRanks,
+          isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
+          dictionaryLabel: (name) => this.dictionaryLabel(name)
+        });
       };
       const renderRtk = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -91634,6 +91673,7 @@ ${entry.url}`),
           jpdbInfo = info;
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKeyword();
+          renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
           if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
           updateKanjiLookupMiningControls(
@@ -91647,6 +91687,7 @@ ${entry.url}`),
           jitenInfo = info;
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKeyword();
+          renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
           if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
         }),
@@ -91678,7 +91719,9 @@ ${entry.url}`),
     kanjiLookupDetailPromises(kanji) {
       return {
         jpdbInfo: this.settings.jpdbKanjiEnabled ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, "JPDB kanji lookup timed out.") : Promise.resolve(null),
-        jitenInfo: this.settings.jpdbKanjiEnabled && this.isJitenApiActive() ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, "Jiten kanji lookup timed out.") : Promise.resolve(null),
+        // Keyless requests ride the built-in edge proxy (the kanji endpoint is
+        // on the shared-proxy allowlist), so no Jiten API credential is required.
+        jitenInfo: this.settings.jpdbKanjiEnabled ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, "Jiten kanji lookup timed out.") : Promise.resolve(null),
         kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.lookupDetailWithTimeout(
           this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences),
           [],

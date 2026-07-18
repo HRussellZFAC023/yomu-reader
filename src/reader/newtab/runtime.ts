@@ -47,6 +47,7 @@ import { JpdbClient } from '../jpdb/jpdb';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
+import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
@@ -1258,7 +1259,7 @@ export class NewTabRuntime {
         if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
     }
 
-    private async renderKanjiLookupDetails(popover: HTMLElement, _card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
+    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
         let jpdbInfo: JpdbKanjiInfo | null = null;
         let jitenInfo: JitenKanjiInfo | null = null;
         let rtkInfo: RtkInfo | null = null;
@@ -1278,6 +1279,23 @@ export class NewTabRuntime {
             if (mount?.isConnected) setInnerHtml(mount, jitenInfo
                 ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage)
                 : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+        };
+        // Merge each provider's own KANJI frequency into the heading pills
+        // (Jiten's kanji API rank, JPDB's "Top 300-400" band) once it arrives.
+        const renderKanjiPillRanks = () => {
+            if (!this.isCurrentLookupRender(popover, requestId)) return;
+            const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
+            if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
+            updateHeadingWordPills(popover, {
+                card,
+                jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+                settings: this.settings,
+                metaEntries: [],
+                overrideQuery: kanji,
+                frequencyRanks,
+                isJpdbBackedCard: value => this.parser.isJpdbBackedCard(value),
+                dictionaryLabel: name => this.dictionaryLabel(name),
+            });
         };
         const renderRtk = () => {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -1325,6 +1343,7 @@ export class NewTabRuntime {
                 jpdbInfo = info;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
+                renderKanjiPillRanks();
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
                 if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
                 updateKanjiLookupMiningControls(
@@ -1338,6 +1357,7 @@ export class NewTabRuntime {
                 jitenInfo = info;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
+                renderKanjiPillRanks();
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
                 if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
             }),
@@ -1372,7 +1392,9 @@ export class NewTabRuntime {
             jpdbInfo: this.settings.jpdbKanjiEnabled
                 ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, 'JPDB kanji lookup timed out.')
                 : Promise.resolve(null),
-            jitenInfo: this.settings.jpdbKanjiEnabled && this.isJitenApiActive()
+            // Keyless requests ride the built-in edge proxy (the kanji endpoint is
+            // on the shared-proxy allowlist), so no Jiten API credential is required.
+            jitenInfo: this.settings.jpdbKanjiEnabled
                 ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, 'Jiten kanji lookup timed out.')
                 : Promise.resolve(null),
             kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji

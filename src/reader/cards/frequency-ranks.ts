@@ -2,7 +2,7 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 
 export type FrequencyProvider = 'jiten' | 'jpdb';
-export type FrequencyRankSource = 'card' | 'live-search';
+export type FrequencyRankSource = 'card' | 'live-search' | 'kanji';
 
 export interface ProviderFrequencyRank {
     provider: FrequencyProvider;
@@ -10,6 +10,9 @@ export interface ProviderFrequencyRank {
     spelling: string;
     reading: string;
     source: FrequencyRankSource;
+    // Verbatim site wording when the provider does not expose a plain rank
+    // (JPDB kanji pages say "Top 300-400"); pills render this instead of "#rank".
+    display?: string;
 }
 
 export type ProviderFrequencyRanks = Partial<Record<FrequencyProvider, ProviderFrequencyRank>>;
@@ -26,6 +29,40 @@ export function liveFrequencyEnabled(settings: ReaderSettings, provider: Frequen
     );
     const lookupEnabled = settings.dictionaryLookupLinks.some(link => link.enabled && link.id === provider);
     return frequencyEnabled && lookupEnabled;
+}
+
+// Kanji popovers show KANJI frequency (Jiten's kanji API exposes a numeric rank,
+// JPDB's kanji page a "Top 300-400" band), never the word rank of the card the
+// kanji was opened from — word-pills only merges kanji-source evidence whose
+// spelling matches the displayed kanji.
+export function kanjiFrequencyRanks(
+    kanji: string,
+    jitenKanjiRank: number | null | undefined,
+    jpdbKanjiFrequency: string | null | undefined,
+): ProviderFrequencyRanks {
+    const ranks: ProviderFrequencyRanks = {};
+    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+    if (jitenRank) {
+        ranks.jiten = { provider: 'jiten', rank: jitenRank, spelling: kanji, reading: kanji, source: 'kanji' };
+    }
+    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? '');
+    if (jpdb) ranks.jpdb = jpdb;
+    return ranks;
+}
+
+function jpdbKanjiFrequencyEvidence(kanji: string, frequency: string): ProviderFrequencyRank | null {
+    const text = frequency.trim();
+    const match = /([\d,]+)/.exec(text);
+    const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ''), 10) : NaN;
+    if (!Number.isInteger(rank) || rank <= 0) return null;
+    return {
+        provider: 'jpdb',
+        rank,
+        spelling: kanji,
+        reading: kanji,
+        source: 'kanji',
+        display: /^top\b/i.test(text) ? text : undefined,
+    };
 }
 
 export function cardFrequencyRanks(card: JPDBCard, isJpdbBackedCard: (card: JPDBCard) => boolean): ProviderFrequencyRanks {

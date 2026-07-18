@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderWordPills } from '../../src/reader/sources/word-pills';
+import { kanjiFrequencyRanks } from '../../src/reader/cards/frequency-ranks';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 type LoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
@@ -217,5 +218,45 @@ describe('provider-specific frequency evidence', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('kanji frequency pill evidence', () => {
+    const pills = (overrideQuery: string | undefined, frequencyRanks: unknown) => renderWordPills({
+        card: jitenCard(),
+        jpdbUrl: 'https://jpdb.io/kanji/%E8%82%89',
+        settings: DEFAULT_SETTINGS,
+        overrideQuery,
+        frequencyRanks,
+        isJpdbBackedCard: () => false,
+        dictionaryLabel: name => name,
+    } as Parameters<typeof renderWordPills>[0]);
+
+    it('extracts both providers from kanji details', () => {
+        const ranks = kanjiFrequencyRanks('肉', 516, 'Top 300-400');
+        expect(ranks.jiten).toMatchObject({ rank: 516, source: 'kanji', spelling: '肉' });
+        expect(ranks.jpdb).toMatchObject({ rank: 300, source: 'kanji', display: 'Top 300-400' });
+        expect(kanjiFrequencyRanks('肉', null, 'unranked')).toEqual({});
+    });
+
+    it('shows each provider kanji rank on the kanji popover pills', () => {
+        const html = pills('肉', kanjiFrequencyRanks('肉', 516, 'Top 300-400'));
+        expect(html).toContain('Jiten #516');
+        expect(html).toContain('JPDB Top 300-400');
+    });
+
+    it('does not merge word-rank evidence onto a kanji popover', () => {
+        const html = pills('肉', {
+            jiten: { provider: 'jiten', rank: 891, spelling: '日本', reading: 'にほん', source: 'card' },
+            jpdb: { provider: 'jpdb', rank: 2456, spelling: '日本', reading: 'にほん', source: 'live-search' },
+        });
+        expect(html).not.toContain('#891');
+        expect(html).not.toContain('#2456');
+    });
+
+    it('does not merge kanji-rank evidence onto a word popover', () => {
+        const html = pills(undefined, kanjiFrequencyRanks('肉', 516, 'Top 300-400'));
+        expect(html).not.toContain('#516');
+        expect(html).not.toContain('Top 300-400');
     });
 });

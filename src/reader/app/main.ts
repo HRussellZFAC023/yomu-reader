@@ -9,6 +9,7 @@ import { installReaderControlPointerActivation as installControlPointerActivatio
 import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
+import { kanjiFrequencyRanks } from '../cards/frequency-ranks';
 import type { ProviderFrequencyRanks } from '../cards/frequency-ranks';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
@@ -6672,7 +6673,9 @@ export class ReaderApp {
     }
 
     private jitenKanjiDetailPromise(kanji: string): Promise<JitenKanjiInfo | null> {
-        return this.settings.jpdbKanjiEnabled && this.isJitenApiActive()
+        // Keyless requests ride the built-in edge proxy (the kanji endpoint is on
+        // the shared-proxy allowlist), so no Jiten API credential is required.
+        return this.settings.jpdbKanjiEnabled
             ? this.jiten.lookupKanji(kanji).catch(() => null)
             : Promise.resolve(null);
     }
@@ -6799,7 +6802,7 @@ export class ReaderApp {
 
     private startKanjiProgressiveRender(popover: HTMLElement, detailsPromises: KanjiDetailPromises, card: JPDBCard, kanji: string, language: InterfaceLanguage, pageTarget?: JpdbTermTarget): void {
         this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);
-        void this.renderKanjiDetailsInto(popover, detailsPromises, kanji, language);
+        void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
         if (this.settings.kanjivgEnabled) {
             void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
         }
@@ -6876,6 +6879,7 @@ export class ReaderApp {
     private async renderKanjiDetailsInto(
         popover: HTMLElement,
         detailsPromises: KanjiDetailPromises,
+        card: JPDBCard,
         kanji: string,
         language: InterfaceLanguage,
     ): Promise<void> {
@@ -6901,6 +6905,23 @@ export class ReaderApp {
                 : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
             this.repositionActivePopover();
         };
+        // Merge each provider's own KANJI frequency into the heading pills
+        // (Jiten's kanji API rank, JPDB's "Top 300-400" band) once it arrives.
+        const renderKanjiPillRanks = () => {
+            if (!popover.isConnected) return;
+            const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
+            if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
+            updateHeadingWordPills(popover, {
+                card,
+                jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+                settings: this.settings,
+                metaEntries: [],
+                overrideQuery: kanji,
+                frequencyRanks,
+                isJpdbBackedCard: value => this.isJpdbBackedCard(value),
+                dictionaryLabel: name => this.dictionaryLabel(name),
+            });
+        };
         const renderRtk = () => {
             if (!popover.isConnected || !rtkMount?.isConnected) return;
             const companion = this.kanjiCompanion;
@@ -6919,6 +6940,7 @@ export class ReaderApp {
             jpdbInfo = info;
             if (!popover.isConnected) return;
             renderKeyword();
+            renderKanjiPillRanks();
             if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
             if (jpdbMount?.isConnected) {
                 setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
@@ -6929,6 +6951,7 @@ export class ReaderApp {
             jitenInfo = info;
             if (!popover.isConnected) return;
             renderKeyword();
+            renderKanjiPillRanks();
             if (jpdbMount?.isConnected) {
                 setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
             }
