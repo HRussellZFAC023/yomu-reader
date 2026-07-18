@@ -207,6 +207,17 @@ export class CardRenderDataLoader {
         const bunproDefinitionRequested = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
         const bunproDataRequested = bunproDefinitionRequested || liveFrequencyEnabled(settings, 'bunpro');
         const bunproDataLookup = this.lookupBunproDataResult(card, bunproDataRequested);
+        // Definition/frequency hydration may continue for the client's full
+        // network timeout, but it must not hold the ordinary pitch channel
+        // hostage when Bunpro is slow or unavailable. Four seconds matches the
+        // visible definition budget; local/JPDB pitch can then paint normally.
+        const boundedBunproPitchData = this.withFallback(
+            card,
+            CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
+            'Bunpro pitch evidence',
+            bunproDataLookup,
+            { info: null, status: { state: 'timeout' } } as BunproDefinitionHydrationResult,
+        );
         const bunproDefinitionLookup = bunproDefinitionRequested
             ? bunproDataLookup
             : Promise.resolve({
@@ -220,7 +231,7 @@ export class CardRenderDataLoader {
         // Bunpro is supplemental pitch evidence. Wait until local/JPDB pitch
         // has had its normal priority window, then append Bunpro variants so a
         // fast Bunpro response can never make the public lookup skip itself.
-        const pitchAccent = Promise.all([basePitchAccent, bunproDataLookup]).then(([publicPitch, result]) => {
+        const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
             if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
             return publicPitch;
         });

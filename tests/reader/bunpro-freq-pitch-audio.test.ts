@@ -38,6 +38,16 @@ function bunproSource(voice = ''): AudioSourceSetting {
 function bunproLoader(
     settings: Partial<ReaderSettings>,
     publicPitch: () => Promise<string[]> = async () => [],
+    bunproDetail: () => Promise<unknown> = async () => ({
+        data: { attributes: {
+            pitch_accent_stress: 'HLLL',
+            frequency_anime: 793,
+            frequency_novels: 6182,
+            frequency_netflix: 778,
+            frequency_dictionary: 40271,
+        } },
+        included: [],
+    }),
 ): CardRenderDataLoader {
     return new CardRenderDataLoader({
         getSettings: () => ({
@@ -65,16 +75,7 @@ function bunproLoader(
                 id: 42,
                 attributes: { id: 42, title: '人間', kana: 'にんげん', slug: '人間', meaning: 'human being' },
             }] } })),
-            getVocab: vi.fn(async () => ({
-                data: { attributes: {
-                    pitch_accent_stress: 'HLLL',
-                    frequency_anime: 793,
-                    frequency_novels: 6182,
-                    frequency_netflix: 778,
-                    frequency_dictionary: 40271,
-                } },
-                included: [],
-            })),
+            getVocab: vi.fn(bunproDetail),
             getGrammarPoint: vi.fn(async () => ({})),
         },
         isJpdbBackedCard: () => false,
@@ -143,6 +144,25 @@ describe('Bunpro pitch accent stress', () => {
         publicPitch.resolve(['LHHH']);
         await load.pitchAccent;
         expect(c.pitchAccent).toEqual(['LHHH', 'HLLL']);
+    });
+
+    it('does not let a stalled Bunpro request delay ordinary pitch beyond the visible detail budget', async () => {
+        vi.useFakeTimers();
+        try {
+            const pendingBunpro = deferred<unknown>();
+            const c = card('人間', 'にんげん');
+            const load = bunproLoader(
+                { bunproDefinitionsEnabled: true, showPitchAccent: true },
+                async () => ['LHHH'],
+                () => pendingBunpro.promise,
+            ).load(c);
+
+            await vi.advanceTimersByTimeAsync(4_001);
+            await expect(load.pitchAccent).resolves.toEqual(['LHHH']);
+            expect(c.pitchAccent).toEqual(['LHHH']);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
 

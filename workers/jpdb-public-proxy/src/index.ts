@@ -6,6 +6,7 @@ const FALLBACK_CORS_HEADERS =
 const SENSITIVE_REQUEST_KEY_RE =
   /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = new Set(["GET", "HEAD"]);
+const BUNPRO_AUDIO_CDN_HOST = "dk3kgylsgq3k1.cloudfront.net";
 const PUBLIC_PROXY_ALLOWED_REQUEST_HEADERS = new Set([
   "accept",
   "accept-language",
@@ -13,7 +14,7 @@ const PUBLIC_PROXY_ALLOWED_REQUEST_HEADERS = new Set([
   "range",
   "x-forcecaf",
 ]);
-const PUBLIC_PROXY_ALLOWLIST_VERSION = "2026-06-29";
+const PUBLIC_PROXY_ALLOWLIST_VERSION = "2026-07-19";
 // Transient gateway / connection / TLS failures where a single retry helps.
 // Deliberately EXCLUDES 500 (the app itself errored) and 503 (the server is
 // explicitly overloaded / rate-limiting) — retrying those just piles more load
@@ -286,6 +287,7 @@ interface Env {
 }
 
 type PublicProxyTargetKind =
+  | "bunpro-audio"
   | "immersion-kit-search"
   | "jiten-kanji"
   | "jiten-tts"
@@ -353,6 +355,7 @@ function statusResponse(request: Request, env: Env): Response {
       "uchisen.com",
       "d1pra95f92lrn3.cloudfront.net",
       "d1vjc5dkcd3yh2.cloudfront.net",
+      BUNPRO_AUDIO_CDN_HOST,
     ].sort(),
     policy: {
       anonymousOnly: true,
@@ -521,6 +524,7 @@ function publicProxyTargetKind(target: URL): PublicProxyTargetKind | null {
       target.hostname === "d1vjc5dkcd3yh2.cloudfront.net") &&
     path.startsWith("/audio/")
   ) return "known-public-audio";
+  if (target.hostname === BUNPRO_AUDIO_CDN_HOST && path.startsWith("/audio/")) return "bunpro-audio";
   if (target.hostname === "uchisen.com" && path.startsWith("/kanji/")) return "uchisen-kanji";
   if (target.hostname === "ik.imagekit.io" && path.startsWith("/uchisen/generated/saved/")) return "uchisen-image";
   if (

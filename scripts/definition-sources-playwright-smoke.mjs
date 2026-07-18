@@ -307,6 +307,17 @@ async function openSourceCards(root) {
 
 function summarizeSourceDom(node) {
     const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();
+    const exampleFrame = source => {
+        const group = source?.querySelector('.jpdb-reader-jpdb-examples-group');
+        if (!group) return null;
+        const style = getComputedStyle(group);
+        return {
+            parentClassName: group.parentElement?.className ?? '',
+            borderTopWidth: Number.parseFloat(style.borderTopWidth),
+            borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+            backgroundColor: style.backgroundColor,
+        };
+    };
     const sourceNodes = Array.from(node.querySelectorAll('.jpdb-reader-source-card'));
     const sourceIds = sourceNodes.map(source => source.getAttribute('data-source') ?? '').filter(Boolean);
     const sourceTitles = sourceNodes
@@ -339,6 +350,7 @@ function summarizeSourceDom(node) {
         bunproExampleReading: Boolean(bunpro?.querySelector('.jpdb-reader-jpdb-examples-group rt.jpdb-reader-furi')),
         bunproExampleAvailability: bunpro?.querySelector('.jpdb-reader-jpdb-examples-group')?.getAttribute('data-examples-availability') ?? '',
         bunproSharedExampleRowCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-examples > .jpdb-reader-jpdb-example').length ?? 0,
+        bunproExampleFrame: exampleFrame(bunpro),
         bunproImmersionCardCount: bunpro?.querySelectorAll('.jpdb-reader-example-card').length ?? 0,
         bunproParseableRubyCount: bunpro?.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-parseable rt.jpdb-reader-furi').length ?? 0,
         bunproHasInlineKanaBrackets: /（[ぁ-ゖァ-ヺー・]+）/u.test(bunproText),
@@ -350,12 +362,14 @@ function summarizeSourceDom(node) {
         jpdbUsedIn: jpdbText.includes('復習会'),
         jpdbComposedOf: jpdbText.includes('again; restore') && jpdbText.includes('learn'),
         jpdbExampleSentence: /毎日.*復習.*する/u.test(jpdbText),
+        jpdbExampleFrame: exampleFrame(jpdb),
         jpdbAudioButtonCount: jpdb?.querySelectorAll('.jpdb-reader-jpdb-example-audio').length ?? 0,
         jitenMeaning: jitenText.includes('review; revision'),
         jitenReading: jitenText.includes('ふくしゅう'),
         jitenUsedIn: jitenText.includes('復習会'),
         jitenComposedOf: jitenText.includes('again; restore') && jitenText.includes('learn'),
         jitenExampleSentence: /毎日.*復習.*する/u.test(jitenText),
+        jitenExampleFrame: exampleFrame(jiten),
         jitenAudioButtonCount: jiten?.querySelectorAll('.jpdb-reader-jiten-audio').length ?? 0,
         hasJitenLocalFallbackCard: Boolean(jiten?.querySelector('.jpdb-reader-jiten-local-definitions, .jpdb-reader-jiten-local-entry')),
         hasOpenInJitenButton: Boolean(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')) || /Jitenで開く|Open in Jiten/.test(jitenText),
@@ -414,6 +428,13 @@ function assertBunproSurface(scenario, dom, surface, expected) {
     assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
     assert(dom.bunproSharedExampleRowCount >= 1 && dom.bunproImmersionCardCount === 0,
         `${scenario.label} ${surface}: Bunpro examples did not use the shared Jiten/JPDB row layout`, dom);
+    assert(dom.bunproExampleFrame?.parentClassName.includes('jpdb-reader-jpdb-extras')
+        && dom.bunproExampleFrame.borderTopWidth === 0
+        && dom.bunproExampleFrame.borderRadius === 0,
+    `${scenario.label} ${surface}: Bunpro examples retained a nested card frame`, dom);
+    assert(dom.bunproExampleFrame.backgroundColor === dom.jitenExampleFrame?.backgroundColor
+        && dom.bunproExampleFrame.backgroundColor === dom.jpdbExampleFrame?.backgroundColor,
+    `${scenario.label} ${surface}: Bunpro examples did not match Jiten/JPDB background treatment`, dom);
     assert(dom.bunproParseableRubyCount >= 1 && !dom.bunproHasInlineKanaBrackets,
         `${scenario.label} ${surface}: Bunpro Japanese text did not hand furigana ownership to Yomu`, dom);
     assert(['一般 #178', 'アニメ #793', '小説 #6,182', 'Netflix #778', '辞書 #40,271']

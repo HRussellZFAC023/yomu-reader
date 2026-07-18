@@ -4938,7 +4938,7 @@ function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
     // here so Bunpro, Jiten, and JPDB examples all reveal Yomu annotations
     // when the shared example group opens.
     if (isInsideOwnedReaderRoot(target.parent)
-        && target.parent.closest('.jpdb-reader-example-sentence')) return Boolean(target.suppressRuby);
+        && target.parent.closest('[data-provider-example-sentence]')) return Boolean(target.suppressRuby);
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
 

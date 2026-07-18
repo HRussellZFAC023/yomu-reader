@@ -66,7 +66,7 @@ function renderProviderExample(example: ProviderExampleView): string {
             <div class="${classes('jpdb-reader-jpdb-example-row', example.rowClassName, hasAudio ? 'has-audio' : '')}">
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ''}
                 <div class="${classes('jpdb-reader-jpdb-example-text', example.textClassName)}">
-                    <div class="${classes('jpdb-reader-example-sentence jpdb-reader-parseable', example.sentenceClassName)}">${example.sentenceHtml}</div>
+                    <div class="${classes('jpdb-reader-example-sentence jpdb-reader-parseable', example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
                     ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.translation)}</div>` : ''}
                 </div>
             </div>

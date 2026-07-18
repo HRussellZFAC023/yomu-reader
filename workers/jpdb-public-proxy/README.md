@@ -1,6 +1,6 @@
 # Yomu JPDB Public Proxy
 
-Cloudflare Worker CORS proxy for public resources used by Yomu. It is intentionally narrow: anonymous `GET`/`HEAD` requests to allowlisted JPDB, Jiten, Jisho, ImmersionKit, Uchisen, and known public audio URLs only. It rejects credential headers, sensitive URL parameters, private-network targets, arbitrary hosts, and write methods.
+Cloudflare Worker CORS proxy for public resources used by Yomu. It is intentionally narrow: anonymous `GET`/`HEAD` requests to allowlisted JPDB, Jiten, Jisho, ImmersionKit, Uchisen, Bunpro pronunciation, and other known public audio URLs only. It rejects credential headers, sensitive URL parameters, private-network targets, arbitrary hosts, and write methods.
 
 It accepts:
 

@@ -81,6 +81,46 @@ describe("Yomu public proxy Worker", () => {
     }
   });
 
+  it("proxies Bunpro's public audio path while rejecting other paths on its CDN", async () => {
+    const upstreamFetch = vi.fn((_request: Request) =>
+      Promise.resolve(new Response("bunpro-audio", {
+        status: 200,
+        headers: { "content-type": "audio/mpeg" },
+      })),
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+    const audioUrl = "https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/pronunciation/%E4%BA%BA%E9%96%93-female.mp3";
+
+    try {
+      const allowed = await PublicProxyWorker.fetch(
+        new Request(`https://yomu-jpdb-public-proxy.example/?url=${encodeURIComponent(audioUrl)}`, {
+          headers: { accept: "audio/mpeg", origin: "https://yomureader.com" },
+        }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+      expect(allowed.status).toBe(200);
+      expect(allowed.headers.get("content-type")).toBe("audio/mpeg");
+      expect(await allowed.text()).toBe("bunpro-audio");
+      expect(upstreamFetch).toHaveBeenCalledTimes(1);
+      const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as Request;
+      expect(upstreamRequest.url).toBe(audioUrl);
+      expect(upstreamRequest.headers.has("accept")).toBe(false);
+      expect(upstreamRequest.headers.has("origin")).toBe(false);
+
+      const rejected = await PublicProxyWorker.fetch(
+        new Request(`https://yomu-jpdb-public-proxy.example/?url=${encodeURIComponent("https://dk3kgylsgq3k1.cloudfront.net/private/account.json")}`),
+        {},
+        { waitUntil: vi.fn() },
+      );
+      expect(rejected.status).toBe(400);
+      expect(rejected.headers.get("x-yomu-proxy-error")).toBe("target-not-allowlisted");
+      expect(upstreamFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("retries transient Jisho upstream failures with minimal headers", async () => {
     const upstreamFetch = vi.fn((_request: Request) =>
       Promise.resolve(new Response("<audio></audio>", { status: 200 })),
@@ -426,11 +466,15 @@ describe("Yomu public proxy Worker", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     const body = await response.json() as {
       status: string;
+      allowlistVersion: string;
+      allowedHosts: string[];
       policy: { anonymousOnly: boolean; arbitraryTargets: boolean };
       analytics: { structuredLogs: boolean; logsTargetQueries: boolean; logsRequestHeaders: boolean };
       budget: { limit: number; count: number; remaining: number };
     };
     expect(body.status).toBe("ok");
+    expect(body.allowlistVersion).toBe("2026-07-19");
+    expect(body.allowedHosts).toContain("dk3kgylsgq3k1.cloudfront.net");
     expect(body.policy).toMatchObject({ anonymousOnly: true, arbitraryTargets: false });
     expect(body.analytics).toMatchObject({ structuredLogs: true, logsTargetQueries: false, logsRequestHeaders: false });
     expect(body.budget).toMatchObject({ limit: 10, count: 0, remaining: 10 });

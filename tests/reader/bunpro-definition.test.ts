@@ -248,6 +248,8 @@ describe('Bunpro example sentences', () => {
         expect(html).toContain('data-study-sentence="クラスメイトは楽譜を読むことができる。"');
         expect(html).toContain('My classmate can read music.');
         expect(html).toContain('jpdb-reader-example-target');
+        expect(html).toContain('</article>\n            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">');
+        expect(html.indexOf('jpdb-reader-bunpro-extras')).toBeLessThan(html.indexOf('data-example-provider="bunpro"'));
         expect(html).not.toContain('Used in vocabulary');
         expect(html).not.toContain('Composed of');
     });
@@ -263,6 +265,7 @@ describe('Bunpro example sentences', () => {
 
         // The sentence is rendered inside the shared parseable container.
         expect(html).toContain('jpdb-reader-example-sentence jpdb-reader-parseable');
+        expect(html).toContain('data-provider-example-sentence');
         // Non-target text is plain: no baked ruby, no full-width kana parens.
         expect(html).not.toContain('（がくふ）');
         expect(html).not.toContain('がくふ');
@@ -330,9 +333,10 @@ describe('Bunpro example sentences', () => {
         // Word audio button hot-links the detail recording.
         expect(html).toContain('data-action="bunpro-audio"');
         expect(html).toContain('data-audio-url="https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3"');
-        // Multi-list frequency tags render alongside the dict tags.
-        expect(html).toContain('General #157');
-        expect(html).toContain('Anime #494');
+        // Frequency is owned by the shared word-pill row, not duplicated as
+        // provider-specific tags inside the Bunpro definition card.
+        expect(html).not.toContain('General #157');
+        expect(html).not.toContain('Anime #494');
         // JMdict related/antonym render via the shared related-words pattern.
         expect(html).toContain('Related words');
         expect(html).toContain('jpdb-reader-jpdb-used-in-group');

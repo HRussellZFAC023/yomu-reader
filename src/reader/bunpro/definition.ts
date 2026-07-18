@@ -397,13 +397,13 @@ export function renderBunproDefinitionSource(
         info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml(info.jlptLevel)}</span>` : '',
         ...info.partOfSpeech.slice(0, 4).map(value => `<span class="jpdb-reader-dict-tag">${escapeHtml(value)}</span>`),
         registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml(registerTag)}</span>` : '',
-        ...info.frequencies.map(entry => `<span class="jpdb-reader-dict-tag jpdb-reader-bunpro-frequency-tag">${escapeHtml(`${bunproFrequencyLabel(entry.list, language)} #${entry.rank}`)}</span>`),
     ].filter(Boolean).join('');
     const accepted = info.kind === 'grammar'
         ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8)
         : [];
     const nuanceLabel = japanese ? 'ニュアンス' : 'Nuance';
     const glosses = distinctBunproGlosses(info);
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
@@ -415,10 +415,8 @@ export function renderBunproDefinitionSource(
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'acceptedInputs'))}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
                 ${renderBunproStructures(info, language)}
                 ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproCaution'))}</strong><div>${escapeHtml(info.caution)}</div></div>` : ''}
-                ${renderBunproExamples(info, sourceAttributes, language)}
-                ${renderBunproRelatedWords(info, sourceAttributes, language)}
-                ${renderBunproRelatedGrammar(info, sourceAttributes, language)}
             </article>
+            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
         </details>
     `;
 }
@@ -440,19 +438,6 @@ function renderBunproHeadword(card: JPDBCard, info: BunproDefinitionInfo, langua
         className: 'jpdb-reader-bunpro-headword-target',
     });
     return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
-}
-
-function bunproFrequencyLabel(list: string, language: InterfaceLanguage): string {
-    const japanese = resolveUiLanguage(language) === 'ja';
-    const labels: Record<string, [string, string]> = {
-        general: ['General', '一般'],
-        anime: ['Anime', 'アニメ'],
-        novels: ['Novels', '小説'],
-        netflix: ['Netflix', 'Netflix'],
-        dictionary: ['Dictionary', '辞書'],
-    };
-    const label = labels[list];
-    return label ? label[japanese ? 1 : 0] : list;
 }
 
 // Japanese gloss text (the nuance) carries inline 漢字（かな） annotations;
