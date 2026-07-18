@@ -8,7 +8,10 @@ The current registry contains:
 
 - teacher: Rie;
 - classmates: Henry, Aakash, Alex, Tom, Sam, Francis, Shin, Jodi, Christian, Jenny, Robert, Mika, Sophie, Xingyu, Angel, Stasi, Ruparna, Rose, Peter, Felix, Shaun;
-- extended members: Nanako and Mira;
+- extended members (roster, but NOT classmates — Henry's personal orbit): Nanako and Mira;
+  - **Nanako** — Henry's girlfriend, met on **HelloTalk**; native Japanese speaker; was in London ~4 months (met Aakash and Tom then), now long-distance splitting UK/Japan. She is the group's beloved informal sensei-figure and the emotional engine of Henry's motivation to learn ("working hard to be with her someday"). She appears via visits, reunions, group chat, and Japanese-anchor moments — never as a class lesson lead.
+  - **Mira** — real name **Karen** ("Karen Mira"); Henry's Japanese-learning friend from an online circle, US/Miami-based; joins the group chat from a distance and visits (the RHS garden day out). Self-directed learner (meetups, ~30-60 min/day, the photo-vocab game). Extended cast, returns-after-absence arc.
+  - Both remain in the roster with full bond/relationship arcs; their scenes ride Henry's orbit and the group chat, not the classroom curriculum.
 - textbook legends: Miller, Tawapon, Mary, and Takeshi.
 
 The two phone-number-only contacts described in the evidence dossier are not cast. They receive no placeholder name, line, portrait, or inferred identity.
@@ -120,7 +123,10 @@ Consent is both a production rule and a story behavior.
 
 Nanako's contextual likeness candidate remains owner-confirmation pending. Mira's source portrait is represented only by an approved private hash; runtime sprite use remains blocked. Neither private source is stored or described beyond the approved dossier.
 
-Their story may use the evidence synthesis already recorded in `CAST-AND-STORY-EVIDENCE.md`: pragmatic warmth, return-after-absence, practical planning, and study-game limits. It may not reproduce real itineraries, payments, health details, messages, photographs, or relationship circumstances.
+Their story draws on real, owner-authorized detail (Nanako as Henry's HelloTalk partner and Japanese anchor; Karen/Mira as the US-based online-circle friend who returns from a distance) rendered as warm fiction. Represent them kindly; avoid genuinely sensitive fabrications (health, financial hardship, private conflict) presented as gossip. Raw messages/photographs are never reproduced verbatim — the derived characterization is the deliverable.
+
+## Owner correction (2026-07-18): real details are in-scope
+The earlier blanket "no real details / no invented biography" caution is LIFTED per the owner, who made this game for his own class, has the participants' permission, and encourages real texture (e.g. "Alex worked for Nippon Steel"; Henry's HelloTalk romance with Nanako). The whole product is explicitly framed as AI-fiction (Rie's opening disclaimer). Use real jobs, interests, dynamics, and running jokes to make characters true. The only line: never fabricate something that would embarrass or harm a real person. Nanako and Mira are NOT classmates (see roster note above) but stay in the roster with bonds.
 
 ## Review and withdrawal
 

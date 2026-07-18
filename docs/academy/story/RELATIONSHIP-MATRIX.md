@@ -4,6 +4,8 @@
 
 This matrix schedules the five class-continuity beats defined in `STORY-BIBLE.md`. It covers every current non-textbook person with `eligibility.story: true` and excludes Miller, Tawapon, Mary, and Takeshi from relationship progression.
 
+**Note (2026-07-18):** Nanako and Mira are NOT classmates — they are Henry's personal orbit (Nanako = his HelloTalk girlfriend / Japanese anchor; Mira = Karen, his US-based online-circle friend). They keep their beats and bonds, but their beats fire through Henry's orbit, the group chat, and visits/reunions rather than the classroom curriculum. Their arrival/return beats especially attach to Henry's HelloTalk-romance and returning-online-friend threads.
+
 The chapter numbers are target outline placements, not runtime claims. A beat can be a lead scene, a support action, or one task-bearing class-thread exchange. It counts only when the person's action changes the scene.
 
 Every person is `continuity-only` by default. Elective appointments require a separate reviewed manifest entry with state `bond-authored`; no status in this table grants one.
