@@ -201,6 +201,7 @@ import {
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
+import { NewTabReviewSubmitter } from './review-submitter';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
 import { NewTabImmersionAudioPlayer } from './immersion-audio';
@@ -894,6 +895,11 @@ export class NewTabController {
     // `this.dependencies`, which is a parameter property not yet set during
     // field initialization.
     private readonly statsController: NewTabStatsController;
+    // Cycle-9 provider unification: the two grade ladders (submitReviewTarget /
+    // submitQueuedGrade) dispatch through one adapter table here. Assigned in the
+    // constructor body — the review-source clients are read off `this.dependencies`,
+    // a parameter property not yet set during field initialization.
+    private readonly reviewSubmitter: NewTabReviewSubmitter;
 
     constructor(
         private readonly dependencies: NewTabControllerDependencies,
@@ -944,6 +950,17 @@ export class NewTabController {
             kanjiVG: this.dependencies.kanjiVG,
             dictionaries: this.dependencies.dictionaries,
             localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => this.localSearchWithTimeout(promise, fallback),
+        });
+        this.reviewSubmitter = new NewTabReviewSubmitter({
+            getSettings: () => this.dependencies.getSettings(),
+            text: key => this.text(key),
+            jpdb: this.dependencies.jpdb,
+            jiten: this.dependencies.jiten,
+            srsAdapters: this.dependencies.srsAdapters,
+            publishGradedCardState: card => this.publishGradedCardState(card),
+            armJitenUndo: card => this.armJitenUndo(card),
+            reviewLiveJpdb: (card, grade) => this.submitLiveJpdbGrade(card, grade),
+            reviewAnki: (card, grade) => this.submitAnkiGrade(card, grade),
         });
         this.gradeQueue = new NewTabGradeQueue({
             offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
@@ -9225,59 +9242,22 @@ export class NewTabController {
         return null;
     }
 
-    private async submitReviewTarget(card: JPDBCard, target: NewTabReviewTarget, grade: JPDBGrade): Promise<void> {
-        if (target === 'jpdb-live') {
-            this.submitLiveJpdbGrade(card, grade);
-            return;
-        }
-        if (target === 'anki') {
-            await this.submitAnkiGrade(card, grade);
-            return;
-        }
-        if (target === 'jiten-api') {
-            await this.submitJitenApiGrade(card, grade);
-            return;
-        }
-        if (target === 'bunpro-api' || target === 'yomu-local') {
-            await this.submitSrsAdapterGrade(card, target, grade);
-            return;
-        }
-        await this.submitJpdbApiGrade(card, grade);
+    // Thin delegation: the per-provider grade routing now lives in one
+    // table-driven adapter dispatch (NewTabReviewSubmitter). submitGrade and
+    // submitSelectedLookupTarget still call this to grade a single target.
+    private submitReviewTarget(card: JPDBCard, target: NewTabReviewTarget, grade: JPDBGrade): Promise<void> {
+        return this.reviewSubmitter.submitTarget(card, target, grade);
     }
 
-    private async submitSrsAdapterGrade(card: JPDBCard, target: 'bunpro-api' | 'yomu-local', grade: JPDBGrade): Promise<void> {
-        const source: NewTabSrsAdapterSource = target === 'bunpro-api' ? 'bunpro' : 'yomu-local';
-        const adapter = this.dependencies.srsAdapters?.[source];
-        if (!adapter || !adapter.hasCredential()) throw new Error(this.text('couldNotSubmitGrade'));
-        await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
-        this.publishGradedCardState(card);
-    }
-
-    private newTabCardToSrsReviewable(card: JPDBCard, source: NewTabSrsAdapterSource): YomuSrsReviewable {
-        const expression = card.spelling.trim();
-        const reading = newTabCardReading(card).trim() || expression;
-        const providerCardId = source === 'bunpro'
-            ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card)
-            : card.sourceCardKey || cardKey(card);
-        return {
-            providerId: source,
-            providerCardId,
-            providerReviewId: source === 'bunpro' ? card.bunproReviewId || providerCardId : providerCardId,
-            providerReviewableId: source === 'bunpro' ? stringifyPositiveNumber(card.bunproReviewableId) : undefined,
-            reviewSession: source === 'bunpro' && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
-                id: card.bunproReviewSessionId,
-                inputMode: card.bunproReviewInputMode,
-                endpoint: card.bunproReviewEndpoint,
-            } : undefined,
-            kind: source === 'bunpro' ? bunproReviewableKind(card.bunproReviewableType) : 'vocabulary',
-            expression,
-            reading,
-            meanings: card.meanings,
-            state: card.cardState,
-            srsLevel: source === 'bunpro' ? card.bunproSrsLevel : undefined,
-            dueAt: card.dueAt,
-            lastReviewAt: card.lastReviewAt,
-            raw: card,
+    // Arm the one-shot Jiten undo affordance from the submitter's review path
+    // (server-reversible). gradeCurrentCard re-arms this for its own path; this
+    // covers the queue-flush path, which has no gradeCurrentCard wrapper.
+    private armJitenUndo(card: JPDBCard): void {
+        this.lastUndoableReview = {
+            card,
+            at: Date.now(),
+            serverUndo: typeof this.dependencies.jiten?.undoReview === 'function',
+            counted: true,
         };
     }
 
@@ -9315,38 +9295,6 @@ export class NewTabController {
         } catch {
             // Best-effort: the live grade itself already landed on jpdb.io.
         }
-    }
-
-    private async submitJpdbApiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (card.source !== 'jpdb' && card.reviewSource !== 'jpdb-api') throw new Error(this.text('couldNotSubmitGrade'));
-        const settings = this.dependencies.getSettings();
-        if (!settings.jpdbMiningEnabled) throw new Error(this.text('apiSrsActionsDisabled'));
-        if (!hasJpdbApiCredential(settings)) throw new Error(this.text('addJpdbApiKeyReview'));
-        await this.dependencies.jpdb.reviewCard(card, grade);
-        this.publishGradedCardState(card);
-    }
-
-    private async submitJitenApiGrade(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (!isJitenSrsCard(card)) throw new Error(this.text('couldNotSubmitGrade'));
-        const settings = this.dependencies.getSettings();
-        if (!settings.jpdbMiningEnabled) throw new Error(this.text('apiSrsActionsDisabled'));
-        if (!hasJitenApiCredential(settings)) throw new Error(this.text('addJitenApiKeyReview'));
-        if (typeof this.dependencies.jiten?.reviewCard !== 'function') throw new Error(this.text('couldNotSubmitGrade'));
-        await this.dependencies.jiten.reviewCard(card, grade);
-        // Jiten reviews are server-reversible — record the undo here too so
-        // every submit path (not only gradeCurrentCard) arms the affordance.
-        this.lastUndoableReview = {
-            card,
-            at: Date.now(),
-            serverUndo: typeof this.dependencies.jiten.undoReview === 'function',
-            counted: true,
-        };
-        // Parity with the JPDB path (jpdb.reviewCard refreshes internally):
-        // pull the post-review state so the review summary reflects reality.
-        if (typeof this.dependencies.jiten.refreshCardState === 'function') {
-            await this.dependencies.jiten.refreshCardState(card).catch(() => undefined);
-        }
-        this.publishGradedCardState(card);
     }
 
     private renderBatchComplete(root: HTMLElement): void {
@@ -9391,13 +9339,11 @@ export class NewTabController {
             this.restoreLocallyUndoneCard(root, last);
             return;
         }
-        const jiten = this.dependencies.jiten;
         try {
-            await jiten?.undoReview?.(last.card);
-            if (typeof jiten?.refreshCardState === 'function') {
-                await jiten.refreshCardState(last.card).catch(() => undefined);
-            }
-            this.publishGradedCardState(last.card);
+            // The provider-side reversal (undoReview + state refresh + broadcast)
+            // is the Jiten adapter's undo; the controller keeps the local
+            // card-restoration and toast around it.
+            await this.reviewSubmitter.undoServerReview(last.card);
             this.dependencies.toast?.(this.text('reviewUndone'));
             this.restoreUndoneCardToFront(root, last.card);
         } catch (error) {
@@ -9531,25 +9477,10 @@ export class NewTabController {
         this.refreshSessionProgressSoon();
     }
 
-    private async submitQueuedGrade(item: QueuedNewTabGrade): Promise<boolean> {
-        // Defensive migration guard for queues written before Bunpro grading
-        // became live-session-only. NewTabGradeQueue also removes these while
-        // reading, but never submit one if a caller bypasses that storage path.
-        if (item.target === 'bunpro-api') return false;
-        if (item.target === 'anki') {
-            await this.submitAnkiGrade(item.card, item.grade);
-            return true;
-        }
-        if (item.target === 'jiten-api') {
-            await this.submitJitenApiGrade(item.card, item.grade);
-            return true;
-        }
-        if (item.target === 'yomu-local') {
-            await this.submitSrsAdapterGrade(item.card, item.target, item.grade);
-            return true;
-        }
-        await this.submitJpdbApiGrade(item.card, item.grade);
-        return true;
+    // Thin delegation to the same table-driven adapter dispatch the live grade
+    // path uses; the Bunpro migration guard is handled inside the submitter.
+    private submitQueuedGrade(item: QueuedNewTabGrade): Promise<boolean> {
+        return this.reviewSubmitter.submitQueued(item);
     }
 
     private advanceAfterGrade(root: HTMLElement, card: JPDBCard, grade?: JPDBGrade): void | Promise<void> {
@@ -10378,17 +10309,8 @@ function optionalPositiveNumber(value: string | undefined): number | undefined {
     return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
 }
 
-function stringifyPositiveNumber(value: number | undefined): string | undefined {
-    return value !== undefined && Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : undefined;
-}
-
 function bunproReviewableType(kind: YomuSrsReviewableKind): JPDBCard['bunproReviewableType'] {
     if (kind === 'grammar' || kind === 'vocabulary' || kind === 'sentence') return kind;
-    return 'unknown';
-}
-
-function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
-    if (type === 'grammar' || type === 'vocabulary' || type === 'sentence') return type;
     return 'unknown';
 }
 
