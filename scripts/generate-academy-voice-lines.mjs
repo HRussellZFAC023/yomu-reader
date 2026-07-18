@@ -30,6 +30,40 @@ if (!token && !dryRun) {
   process.exit(1);
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryDelay(response, attempt) {
+  const retryAfter = response?.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+    const date = Date.parse(retryAfter);
+    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  }
+  return Math.min(1_000 * (2 ** attempt), 8_000);
+}
+
+async function fetchWithRetry(url, options, label, maxAttempts = 6) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === maxAttempts - 1) return response;
+      await response.body?.cancel();
+      const delay = retryDelay(response, attempt);
+      console.warn(`RETRY ${attempt + 1}/${maxAttempts - 1} ${label}: HTTP ${response.status} in ${delay}ms`);
+      await sleep(delay);
+    } catch (error) {
+      if (attempt === maxAttempts - 1) throw error;
+      const delay = retryDelay(null, attempt);
+      const code = error?.cause?.code ?? error?.code ?? error?.name ?? "network error";
+      console.warn(`RETRY ${attempt + 1}/${maxAttempts - 1} ${label}: ${code} in ${delay}ms`);
+      await sleep(delay);
+    }
+  }
+  throw new Error(`retry budget exhausted for ${label}`);
+}
+
 const SOURCES = [
   "src/academy/domain/world-locations.ts",
   "src/academy/content/aakash-meet.ts",
@@ -63,7 +97,19 @@ async function main() {
     const id = createHash("sha256").update(`${speaker}${text}`).digest("hex").slice(0, 24);
     const url = `${worker}/voice/line?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}`;
     if (!dryRun) {
-      const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+      let response;
+      try {
+        response = await fetchWithRetry(
+          url,
+          { headers: { authorization: `Bearer ${token}` } },
+          `${speaker}: ${text.slice(0, 24)}`,
+        );
+      } catch (error) {
+        failed += 1;
+        const code = error?.cause?.code ?? error?.code ?? error?.name ?? "network error";
+        console.error(`FAILED ${code} ${speaker}: ${text.slice(0, 40)}`);
+        continue;
+      }
       if (!response.ok) {
         failed += 1;
         console.error(`FAILED ${response.status} ${speaker}: ${text.slice(0, 40)}`);

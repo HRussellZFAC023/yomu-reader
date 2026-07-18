@@ -13,6 +13,7 @@
     }
   ],
   "vars": {
+    "AZURE_SPEECH_REGION": "uksouth",
     "AWS_POLLY_ENABLED": "false",
     "AWS_POLLY_REGION": "eu-central-1",
     "AUDIO_MANIFEST_KEY": "index/audio-index.json",
