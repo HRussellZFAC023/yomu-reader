@@ -1,0 +1,675 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e11-storm-route-variant",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 11,
+  "title": {
+    "en": "The Storm Route Variant",
+    "ja": "嵐の迂回ルート"
+  },
+  "synopsis": "A fictional overnight storm strips every sign off the exhibition route. Alex arrives unhurried and re-routes from memory, delivering the biggest facts in his flattest voice; Aakash supplies the commuter back way around a flooded corner. The learner re-narrates the recovered route in order and decides how to back a plan that changed without apology.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "alex",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#alex",
+        "docs/academy/story/CAST-AND-CONSENT.md#alex"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "real-event claim",
+        "departure framed as the brave or correct climax"
+      ]
+    },
+    {
+      "castId": "aakash",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#aakash",
+        "docs/academy/story/CAST-AND-CONSENT.md#aakash"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "energetic invitation overriding a stated no"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e10-instructions-for-a-cloud",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l16"
+          ],
+          "function": "locate-and-reroute-under-changed-conditions"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-eleven-first-meeting-alex"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:storm-route-variant:signs-gone",
+      "mode": "live",
+      "locationId": "location:street",
+      "timeState": "evening",
+      "weatherState": "storm-clearing",
+      "goal": "Meet Alex on the sign-stripped street and rebuild the route he walked, in order.",
+      "dramaticQuestion": "When the signs are gone, is a re-route a crisis or just the next set of steps?",
+      "learnerNeed": "A te-form sequence of directions with place particles, recovered under changed conditions.",
+      "curriculum": {
+        "sectionId": "reroute-in-order",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:storm-route-variant:signs-down",
+          "beatId": "beat:storm-route-variant:arrival-image",
+          "cueId": "cue:street-empty-signposts",
+          "description": "The exhibition street after the storm: every signpost stands bare, its route plate torn away. Puddles hold the last of the wind. One figure walks up without hurrying, a folded paper map in his coat pocket."
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-signs-flat",
+          "beatId": "beat:storm-route-variant:arrival-report",
+          "speakerId": "alex",
+          "intent": "Deliver the biggest fact of the night — every sign is gone — in the flattest possible voice.",
+          "attentionTarget": "the row of stripped signposts",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、どうも。看板、ぜんぶ飛びました。嵐です。",
+              "reading": "あ、どうも。かんばん、ぜんぶとびました。あらしです。",
+              "english": "Oh, hi. The signs all blew away. It was a storm."
+            },
+            "n5": {
+              "japanese": "あ、どうも。嵐で、看板がぜんぶ飛びました。まあ、よくあることです。",
+              "reading": "あ、どうも。あらしで、かんばんがぜんぶとびました。まあ、よくあることです。",
+              "english": "Oh, hi. The signs all blew away in the storm. Well, it happens."
+            },
+            "n4": {
+              "japanese": "あ、どうも。ゆうべの嵐で、案内の看板、ぜんぶ持っていかれました。まあ、こういうこともありますよ。",
+              "reading": "あ、どうも。ゆうべのあらしで、あんないのかんばん、ぜんぶもっていかれました。まあ、こういうこともありますよ。",
+              "english": "Oh, hi. Last night's storm carried off every route sign. Well, these things happen."
+            },
+            "n3": {
+              "japanese": "どうも。ゆうべの嵐で、案内板がひとつ残らず飛ばされまして。まあ、たまにあることです。",
+              "reading": "どうも。ゆうべのあらしで、あんないばんがひとつのこらずとばされまして。まあ、たまにあることです。",
+              "english": "Hi. Last night's storm blew off the route boards without exception. Well, it happens now and then."
+            },
+            "n2": {
+              "japanese": "どうも。昨夜の嵐で、案内の看板は一枚残らず飛ばされたようでして。まあ、珍しくもないですが。",
+              "reading": "どうも。さくやのあらしで、あんないのかんばんはいちまいのこらずとばされたようでして。まあ、めずらしくもないですが。",
+              "english": "Hi. Looks like last night's storm took every last route sign. Well, nothing unusual, really."
+            },
+            "n1": {
+              "japanese": "いや、どうも。昨夜の嵐でね、案内板はきれいさっぱり飛ばされたらしいです。まあ、こういうのは初めてでもないので。",
+              "reading": "いや、どうも。さくやのあらしでね、あんないばんはきれいさっぱりとばされたらしいです。まあ、こういうのははじめてでもないので。",
+              "english": "Ah, hi. Last night's storm seems to have cleaned every route board clean off. Well — it's not my first time with this sort of thing."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-past-experience",
+          "beatId": "beat:storm-route-variant:experience",
+          "speakerId": "alex",
+          "intent": "Narrate a past travel experience to frame a lost route as a solvable inconvenience, not a crisis.",
+          "attentionTarget": "the folded map in his pocket",
+          "variants": {
+            "foundation": {
+              "japanese": "前に、富士山でも道に迷ったことがあります。だから、大丈夫です。",
+              "reading": "まえに、ふじさんでもみちにまよったことがあります。だから、だいじょうぶです。",
+              "english": "Before, I got lost on Mount Fuji too. So, it's fine."
+            },
+            "n5": {
+              "japanese": "前に、富士山で道に迷ったことがあります。看板がなくても、なんとかなります。",
+              "reading": "まえに、ふじさんでみちにまよったことがあります。かんばんがなくても、なんとかなります。",
+              "english": "I once got lost on Mount Fuji. Even without signs, you manage."
+            },
+            "n4": {
+              "japanese": "富士山でも一度、道しるべを見失ったことがあってね。看板がなくても、だいたい何とかなるんですよ。",
+              "reading": "ふじさんでもいちど、みちしるべをみうしなったことがあってね。かんばんがなくても、だいたいなんとかなるんですよ。",
+              "english": "I lost the trail markers on Mount Fuji once, you know. Even without signs, it mostly works out."
+            },
+            "n3": {
+              "japanese": "富士山でも一度、道しるべを見失ったことがありまして。看板がなくても、なんとかなるものです。",
+              "reading": "ふじさんでもいちど、みちしるべをみうしなったことがありまして。かんばんがなくても、なんとかなるものです。",
+              "english": "I lost the trail markers on Fuji once, actually. Even without signs, one manages, somehow."
+            },
+            "n2": {
+              "japanese": "以前、富士山で道しるべを見失ったこともありますし。看板の一枚や二枚なくても、どうにかなるものですよ。",
+              "reading": "いぜん、ふじさんでみちしるべをみうしなったこともありますし。かんばんのいちまいやにまいなくても、どうにかなるものですよ。",
+              "english": "I've lost the trail markers on Fuji before, too. A sign or two missing — it works out, one way or another."
+            },
+            "n1": {
+              "japanese": "昔、富士山で道しるべごと見失ったこともありましてね。看板がなかろうと、まあ、たいていどうにかなるものです。",
+              "reading": "むかし、ふじさんでみちしるべごとみうしなったこともありましてね。かんばんがなかろうと、まあ、たいていどうにかなるものです。",
+              "english": "Years back I lost the trail markers entirely on Fuji, you know. Signs or no signs, it generally works out somehow."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-reroute-sequence",
+          "beatId": "beat:storm-route-variant:sequence-want",
+          "speakerId": "alex",
+          "intent": "State how he reached the street as an ordered te-form sequence, ending on the calm clause 'long, but quiet'.",
+          "attentionTarget": "the direction he came from",
+          "variants": {
+            "foundation": {
+              "japanese": "地図を見て、駅を出て、橋を渡って、ここまで歩きました。長いですが、静かでした。",
+              "reading": "ちずをみて、えきをでて、はしをわたって、ここまであるきました。ながいですが、しずかでした。",
+              "english": "I looked at the map, left the station, crossed the bridge, and walked here. Long, but quiet."
+            },
+            "n5": {
+              "japanese": "地図を見てから、駅を出て、橋を渡って、ここまで歩いてきました。長かったですが、静かでした。",
+              "reading": "ちずをみてから、えきをでて、はしをわたって、ここまであるいてきました。ながかったですが、しずかでした。",
+              "english": "After checking the map, I left the station, crossed the bridge, and walked here. It was long, but quiet."
+            },
+            "n4": {
+              "japanese": "まず地図で確かめて、駅を出て、橋を渡って、あとはまっすぐ歩いてきました。長かったけど、静かでよかったですよ。",
+              "reading": "まずちずでたしかめて、えきをでて、はしをわたって、あとはまっすぐあるいてきました。ながかったけど、しずかでよかったですよ。",
+              "english": "First I checked on the map, left the station, crossed the bridge, then just walked straight. Long, but nicely quiet."
+            },
+            "n3": {
+              "japanese": "地図を確かめてから、駅を出て、橋を渡って、そのまま歩いてきました。長い道でしたが、静かでね。",
+              "reading": "ちずをたしかめてから、えきをでて、はしをわたって、そのままあるいてきました。ながいみちでしたが、しずかでね。",
+              "english": "I checked the map, left the station, crossed the bridge, and walked on from there. A long way, but quiet."
+            },
+            "n2": {
+              "japanese": "とりあえず地図で確認してから、駅を出て、橋を渡って、あとはまっすぐ歩いてきただけです。長かったですが、まあ静かで。",
+              "reading": "とりあえずちずでかくにんしてから、えきをでて、はしをわたって、あとはまっすぐあるいてきただけです。ながかったですが、まあしずかで。",
+              "english": "I just checked the map to be sure, left the station, crossed the bridge, and walked straight the rest of the way. Long, but quiet enough."
+            },
+            "n1": {
+              "japanese": "ひとまず地図で当たりをつけて、駅を出て、橋を渡って、あとはまっすぐ歩いてきた、それだけの話です。長い道でしたけど、かえって静かでね。",
+              "reading": "ひとまずちずであたりをつけて、えきをでて、はしをわたって、あとはまっすぐあるいてきた、それだけのはなしです。ながいみちでしたけど、かえってしずかでね。",
+              "english": "I got my bearings off the map, left the station, crossed the bridge, and walked straight in — that's all there was to it. A long way, but quiet, if anything."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:storm-route-variant:before-reroute",
+          "beatId": "beat:storm-route-variant:sequence-attempt",
+          "resume": "Alex has narrated the route once. The learner rebuilds it step by step, in order, from map to street."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:storm-route-variant:reroute",
+          "beatId": "beat:storm-route-variant:sequence-attempt",
+          "hook": {
+            "lessonId": "l1-l16",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e11-storm-route-variant-reroute"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e11-storm-route-variant-reroute"
+          },
+          "resumeContext": "The signs are gone; the learner chains the recovered directions with te-form and place particles — check the map, leave the station, cross the bridge, walk straight — and re-narrates the route in order.",
+          "onReady": "checkpoint:storm-route-variant:after-reroute",
+          "onRepair": "node:storm-route-variant:reroute-repair",
+          "onDefer": "checkpoint:storm-route-variant:before-reroute"
+        },
+        {
+          "kind": "stage",
+          "id": "node:storm-route-variant:reroute-repair",
+          "beatId": "beat:storm-route-variant:sequence-repair",
+          "cueId": "cue:route-one-step-returns",
+          "description": "The steps already placed stay pinned along the street. Only the one connector that slipped out of order returns for another attempt."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:storm-route-variant:after-reroute",
+          "beatId": "beat:storm-route-variant:sequence-response",
+          "resume": "The route is rebuilt in order. Alex checks it against the way he actually came."
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-reroute-confirmed",
+          "beatId": "beat:storm-route-variant:sequence-consequence",
+          "speakerId": "alex",
+          "intent": "Confirm the learner's sequence flatly, treating a rebuilt route as unremarkable rather than a rescue.",
+          "attentionTarget": "the re-ordered route line",
+          "variants": {
+            "foundation": {
+              "japanese": "はい、それです。その順番で来ました。合ってます。",
+              "reading": "はい、それです。そのじゅんばんできました。あってます。",
+              "english": "Yes, that's it. I came in that order. It's right."
+            },
+            "n5": {
+              "japanese": "はい、その通りです。その順番で歩いてきました。ちゃんと合ってますよ。",
+              "reading": "はい、そのとおりです。そのじゅんばんであるいてきました。ちゃんとあってますよ。",
+              "english": "Yes, exactly. I walked it in that order. It's quite right."
+            },
+            "n4": {
+              "japanese": "はい、その順番です。ちゃんと覚えてましたね。私もその通りに来ました。",
+              "reading": "はい、そのじゅんばんです。ちゃんとおぼえてましたね。わたしもそのとおりにきました。",
+              "english": "Yes, that order. You remembered it well. I came exactly that way."
+            },
+            "n3": {
+              "japanese": "はい、その順番であってます。よく覚えてましたね。私もそう来ましたよ。",
+              "reading": "はい、そのじゅんばんであってます。よくおぼえてましたね。わたしもそうきましたよ。",
+              "english": "Yes, that order's right. You remembered it well. I came that way too."
+            },
+            "n2": {
+              "japanese": "ええ、その順番で合ってます。よく覚えてらっしゃる。私もまさにその通りに来たんです。",
+              "reading": "ええ、そのじゅんばんであってます。よくおぼえてらっしゃる。わたしもまさにそのとおりにきたんです。",
+              "english": "Yes, that order's correct. You've remembered it well. I came exactly that way myself."
+            },
+            "n1": {
+              "japanese": "ええ、その順番で合ってますよ。よく覚えてらっしゃる。私もまさにそうやって来たわけです。",
+              "reading": "ええ、そのじゅんばんであってますよ。よくおぼえてらっしゃる。わたしもまさにそうやってきたわけです。",
+              "english": "Yes, that order's right. You've remembered it well. That's exactly how I came, in fact."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:storm-route-variant:reroute-drawn",
+          "beatId": "beat:storm-route-variant:exit-image",
+          "cueId": "cue:route-line-to-flooded-corner",
+          "description": "A thin route line joins the rebuilt steps along the street — and runs straight into a corner where standing water fills the underpass. The line stops at the water's edge."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:storm-route-variant:the-back-way"
+      }
+    },
+    {
+      "id": "scene:storm-route-variant:the-back-way",
+      "mode": "live",
+      "locationId": "location:street",
+      "timeState": "evening",
+      "weatherState": "storm-clearing",
+      "goal": "Let Aakash supply the back way around the flooded corner and let Alex change course without apology.",
+      "dramaticQuestion": "Can a plan change out loud, mid-route, and be stated as a decision rather than a failure?",
+      "learnerNeed": "A stance on how to back a route that just changed — confirm the new sequence, or trust the flat report.",
+      "curriculum": {
+        "sectionId": "back-the-changed-route",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:storm-route-variant:flooded-corner",
+          "beatId": "beat:storm-route-variant:obstruction-image",
+          "cueId": "cue:flooded-underpass-corner",
+          "description": "The rebuilt route ends at the flooded underpass. Water sits across the whole corner. A second figure comes up the street from the far side, already gesturing past the water toward a narrow side lane."
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:aakash-back-way",
+          "beatId": "beat:storm-route-variant:contribution",
+          "speakerId": "aakash",
+          "intent": "Supply the commuter back way calmly — the classmate who once needed a route now hands one over, with place particles and clear turns.",
+          "attentionTarget": "the narrow side lane past the bakery",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、そこ、水です。でも、うらの道があります。パン屋で右に曲がって、すぐです。",
+              "reading": "あ、そこ、みずです。でも、うらのみちがあります。パンやでみぎにまがって、すぐです。",
+              "english": "Oh, that's water. But there's a back way. Turn right at the bakery — it's right there."
+            },
+            "n5": {
+              "japanese": "あ、そこは水でだめです。でも、裏の道を知っています。パン屋で右に曲がると、すぐ着きますよ。",
+              "reading": "あ、そこはみずでだめです。でも、うらのみちをしっています。パンやでみぎにまがると、すぐつきますよ。",
+              "english": "Ah, that corner's out — it's flooded. But I know a back way. Turn right at the bakery and you're there in no time."
+            },
+            "n4": {
+              "japanese": "そこ、水でだめですね。でも、裏道があるんです。パン屋の角で右に曲がって、まっすぐ行けば、すぐですよ。",
+              "reading": "そこ、みずでだめですね。でも、うらみちがあるんです。パンやのかどでみぎにまがって、まっすぐいけば、すぐですよ。",
+              "english": "That corner's no good — flooded. But there's a back lane. Turn right at the bakery corner, go straight, and it's right there."
+            },
+            "n3": {
+              "japanese": "あ、その角は水でだめだ。でも、裏の道があるんですよ。パン屋で右に曲がって、まっすぐ行けば、すぐです。",
+              "reading": "あ、そのかどはみずでだめだ。でも、うらのみちがあるんですよ。パンやでみぎにまがって、まっすぐいけば、すぐです。",
+              "english": "Ah, that corner's out, it's flooded. But there's a back way. Turn right at the bakery, straight on, and you're there."
+            },
+            "n2": {
+              "japanese": "その角、水浸しですね。でも、抜け道を知ってます。パン屋の角で右に折れて、そのまま行けば、すぐ着きますよ。",
+              "reading": "そのかど、みずびたしですね。でも、ぬけみちをしってます。パンやのかどでみぎにおれて、そのままいけば、すぐつきますよ。",
+              "english": "That corner's under water. But I know a shortcut. Turn right at the bakery corner, keep going, and you arrive in no time."
+            },
+            "n1": {
+              "japanese": "あー、その角は水浸しか。でも、抜け道があるんですよ。パン屋の角を右に折れて、あとはまっすぐ。それでじき着きます。",
+              "reading": "あー、そのかどはみずびたしか。でも、ぬけみちがあるんですよ。パンやのかどをみぎにおれて、あとはまっすぐ。それでじきつきます。",
+              "english": "Ah — that corner's underwater, is it. But there's a shortcut. Take the bakery corner right, then straight on. You'll be there in no time."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-decided-plan",
+          "beatId": "beat:storm-route-variant:decided-plan",
+          "speakerId": "alex",
+          "intent": "State the reroute as a settled plan with kotoninarimashita, and frame changing course as reason-giving, not apology.",
+          "attentionTarget": "the side lane, now the way in",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、今日はその道で行くことになりました。急に変わっても、いいんです。",
+              "reading": "じゃあ、きょうはそのみちでいくことになりました。きゅうにかわっても、いいんです。",
+              "english": "Then it's settled — today we go by that road. Even if it changes suddenly, that's fine."
+            },
+            "n5": {
+              "japanese": "じゃあ、今夜はその裏道で行くことになりました。道が変わっても、べつにいいんです。",
+              "reading": "じゃあ、こんやはそのうらみちでいくことになりました。みちがかわっても、べつにいいんです。",
+              "english": "Then it's settled — tonight we go by that back lane. A road changing is nothing to mind."
+            },
+            "n4": {
+              "japanese": "じゃあ、今夜はその裏道で行くことになりました。予定が変わるのは、謝ることじゃないですから。",
+              "reading": "じゃあ、こんやはそのうらみちでいくことになりました。よていがかわるのは、あやまることじゃないですから。",
+              "english": "Then it's settled — tonight we take that back lane. A plan changing isn't something to apologize for."
+            },
+            "n3": {
+              "japanese": "じゃあ、今夜はその道で行くことになりました。まあ、道を変えるのは、謝ることでもないですしね。",
+              "reading": "じゃあ、こんやはそのみちでいくことになりました。まあ、みちをかえるのは、あやまることでもないですしね。",
+              "english": "Then it's settled — tonight we go that way. Changing the route isn't really anything to apologize for."
+            },
+            "n2": {
+              "japanese": "では、今夜はその裏道で行くことになりました。まあ、途中で道を変えるくらい、謝るような話でもないですから。",
+              "reading": "では、こんやはそのうらみちでいくことになりました。まあ、とちゅうでみちをかえるくらい、あやまるようなはなしでもないですから。",
+              "english": "So it's settled — tonight we go by that back lane. Changing course partway is hardly a thing to apologize over."
+            },
+            "n1": {
+              "japanese": "じゃあ、今夜はその抜け道で行くことになりました。途中で進む道を変えるのは、べつに詫びるようなことじゃないですしね。",
+              "reading": "じゃあ、こんやはそのぬけみちでいくことになりました。とちゅうですすむみちをかえるのは、べつにわびるようなことじゃないですしね。",
+              "english": "So it's settled — tonight we go by that shortcut. Changing the road you're on partway is nothing to apologize for, really."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:storm-route-variant:how-to-back-it",
+          "beatId": "beat:storm-route-variant:stance",
+          "question": "How do you back the changed route?",
+          "options": [
+            {
+              "id": "option:storm-route-variant:say-it-back",
+              "action": "Say the new turns back in order so everyone has the same sequence.",
+              "japaneseByBand": {
+                "foundation": "じゃあ、パン屋で右で、まっすぐですね。行きましょう。",
+                "n5": "じゃあ、パン屋で右に曲がって、まっすぐですね。行きましょう。",
+                "n4": "じゃあ、パン屋の角で右、それからまっすぐ、ですね。みんなで行きましょう。",
+                "n3": "パン屋で右に曲がって、あとはまっすぐ、ですね。じゃあ、行きましょうか。",
+                "n2": "パン屋の角を右に折れて、あとはまっすぐ、ということですね。では、行きましょう。",
+                "n1": "パン屋の角で右、あとはまっすぐ、ってことですね。じゃ、行きましょうか。"
+              },
+              "records": [
+                "information",
+                "support-style"
+              ],
+              "next": "checkpoint:storm-route-variant:before-close"
+            },
+            {
+              "id": "option:storm-route-variant:trust-the-flat-report",
+              "action": "Take his flat report at face value and simply fall in behind him.",
+              "japaneseByBand": {
+                "foundation": "アレックスさんが大丈夫と言うなら、大丈夫です。行きましょう。",
+                "n5": "アレックスさんが大丈夫と言うなら、大丈夫でしょう。ついて行きます。",
+                "n4": "アレックスさんが大丈夫って言うなら、大丈夫ですよ。ついて行きます。",
+                "n3": "アレックスさんが大丈夫と言うなら、大丈夫でしょう。黙ってついて行きますよ。",
+                "n2": "アレックスさんが大丈夫と言うんだから、大丈夫でしょう。何も言わず、ついて行きます。",
+                "n1": "アレックスさんが大丈夫って言うんなら、まあ大丈夫でしょう。黙ってついて行きますよ。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:storm-route-variant:before-close"
+            }
+          ],
+          "convergence": "checkpoint:storm-route-variant:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:storm-route-variant:before-close",
+          "beatId": "beat:storm-route-variant:close-attempt",
+          "resume": "The learner has backed the changed route. Alex answers by putting the whole re-route to rest — flatly."
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:alex-consequence",
+          "beatId": "beat:storm-route-variant:close-consequence",
+          "speakerId": "alex",
+          "intent": "Close on the calmest clause of all — a quiet, unstressed foreshadow that he is used to changing course and being away.",
+          "attentionTarget": "the lit doorway at the lane's end",
+          "variants": {
+            "foundation": {
+              "japanese": "はい、着きました。私は、よく道を変えます。仕事で、いろんな所へ行くので。",
+              "reading": "はい、つきました。わたしは、よくみちをかえます。しごとで、いろんなところへいくので。",
+              "english": "Yes, we're here. I change routes a lot. Because I go all sorts of places for work."
+            },
+            "n5": {
+              "japanese": "はい、着きました。私はよく道を変えます。仕事で、あちこち行くので。",
+              "reading": "はい、つきました。わたしはよくみちをかえます。しごとで、あちこちいくので。",
+              "english": "Yes, we're here. I change routes a lot. I go here and there for work, so."
+            },
+            "n4": {
+              "japanese": "はい、着きましたね。私はわりと道を変えるほうです。仕事で、あちこち行くので、慣れてるんですよ。",
+              "reading": "はい、つきましたね。わたしはわりとみちをかえるほうです。しごとで、あちこちいくので、なれてるんですよ。",
+              "english": "Yes, we made it. I'm rather the type to change routes. I travel around for work, so I'm used to it."
+            },
+            "n3": {
+              "japanese": "はい、着きました。私、けっこう道を変えるんです。仕事であちこち行くので、まあ慣れてまして。",
+              "reading": "はい、つきました。わたし、けっこうみちをかえるんです。しごとであちこちいくので、まあなれてまして。",
+              "english": "Yes, we're here. I change routes fairly often. I go all over for work, so — well, I'm used to it."
+            },
+            "n2": {
+              "japanese": "ええ、着きました。私はどうも、道を変えることに抵抗がなくて。仕事であちこち回るものですから、慣れてるんでしょうね。",
+              "reading": "ええ、つきました。わたしはどうも、みちをかえることにていこうがなくて。しごとであちこちまわるものですから、なれてるんでしょうね。",
+              "english": "Yes, we're here. I've somehow no resistance to changing routes. I move around a lot for work, so I suppose I'm used to it."
+            },
+            "n1": {
+              "japanese": "はい、着きました。……私はどうも、進む道を変えるのに未練がない質でしてね。仕事であちこち回るものだから、慣れてしまったんでしょう。",
+              "reading": "はい、つきました。……わたしはどうも、すすむみちをかえるのにみれんがないたちでしてね。しごとであちこちまわるものだから、なれてしまったんでしょう。",
+              "english": "Yes, we're here. …I'm the sort who feels no real pull to hold onto the road I'm on, somehow. I move around so much for work, I suppose I've just gotten used to it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:storm-route-variant:aakash-arrived",
+          "beatId": "beat:storm-route-variant:warmth",
+          "speakerId": "aakash",
+          "intent": "Land the back way with easy warmth, offering the route as something to keep rather than a one-time rescue.",
+          "attentionTarget": "the side lane behind them",
+          "variants": {
+            "foundation": {
+              "japanese": "着きましたね。この道、雨の日はいつも使います。",
+              "reading": "つきましたね。このみち、あめのひはいつもつかいます。",
+              "english": "We made it. This lane — I always use it on rainy days."
+            },
+            "n5": {
+              "japanese": "着きましたね。この裏道、雨の日はいつも使うんですよ。",
+              "reading": "つきましたね。このうらみち、あめのひはいつもつかうんですよ。",
+              "english": "We made it. This back lane — I always use it on rainy days."
+            },
+            "n4": {
+              "japanese": "ほら、着いた。この裏道、雨の日はいつも使ってるんです。覚えておくと便利ですよ。",
+              "reading": "ほら、ついた。このうらみち、あめのひはいつもつかってるんです。おぼえておくとべんりですよ。",
+              "english": "See, we made it. This back lane — I use it every rainy day. Worth remembering, it's handy."
+            },
+            "n3": {
+              "japanese": "ね、着きましたよ。この裏道、雨の日はいつも通るんです。覚えておくといいですよ。",
+              "reading": "ね、つきましたよ。このうらみち、あめのひはいつもとおるんです。おぼえておくといいですよ。",
+              "english": "See, we're here. This back lane — I always take it on rainy days. Worth keeping in mind."
+            },
+            "n2": {
+              "japanese": "ほら、着きました。この抜け道、雨の日はいつも通るんですよ。覚えておくと便利です。",
+              "reading": "ほら、つきました。このぬけみち、あめのひはいつもとおるんですよ。おぼえておくとべんりです。",
+              "english": "See, we're here. This shortcut — I always take it on rainy days. Handy to keep in mind."
+            },
+            "n1": {
+              "japanese": "ほら、着いた。この抜け道、雨の日はいつも通ってるんですよ。覚えておくと、なにかと便利です。",
+              "reading": "ほら、ついた。このぬけみち、あめのひはいつもとおってるんですよ。おぼえておくと、なにかとべんりです。",
+              "english": "See, we made it. This shortcut — I take it every rainy day. Keep it in mind and it comes in handy all sorts of ways."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:storm-route-variant:door-reached",
+          "beatId": "beat:storm-route-variant:scene-exit-image",
+          "cueId": "cue:route-line-redrawn-to-door",
+          "description": "The route line redraws itself: it turns at the bakery, runs down the side lane, and ends at a lit doorway. The old flooded corner is simply left off the map, no longer a problem to solve."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:timetable-understatement",
+      "state": "seed",
+      "ownerIds": [
+        "alex"
+      ],
+      "meaningNow": "Alex delivers the night's biggest facts — every sign gone, the route changed, that he is often away — in his calmest, most itemised clauses; the class begins learning to listen for the load-bearing clause under the flat tone.",
+      "useNumber": 1,
+      "maximumUses": 4,
+      "optionalFallback": "Alex simply reports the storm and the reroute plainly, and the class follows the recovered directions."
+    },
+    {
+      "id": "callback:rain-route",
+      "state": "echo",
+      "ownerIds": [
+        "aakash"
+      ],
+      "meaningNow": "The classmate who once needed help finding a route now calmly supplies the alternate way through, handing over his commuter back way around the flooded corner.",
+      "priorUse": {
+        "packageId": "s1e03-route-zero",
+        "sceneId": "scene:route-zero:rainy-route",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 4,
+      "optionalFallback": "A classmate who knows the neighbourhood offers the back lane past the bakery, and the group takes it."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:storm-route-variant:changed-route",
+      "kind": "story",
+      "description": "The class accepts a mid-route change around the flooded corner, treating the reroute as a stated decision rather than a failure, with the old corner simply left off the map."
+    },
+    {
+      "id": "outcome:storm-route-variant:alex-arrival",
+      "kind": "bond",
+      "castId": "alex",
+      "chapter": 11,
+      "beat": "arrival",
+      "description": "Alex is introduced through his register-as-personality: he re-routes a sign-stripped path from memory and delivers the biggest facts in his flattest voice, seeding the timetable-understatement pattern and a quiet, unstressed foreshadow of his later departures."
+    },
+    {
+      "id": "outcome:storm-route-variant:aakash-contribution",
+      "kind": "bond",
+      "castId": "aakash",
+      "chapter": 11,
+      "beat": "contribution",
+      "description": "Aakash's bounded route knowledge helps someone else's scene: he supplies the commuter back way around the flooded corner, echoing his rain-route seed as competence handed over rather than needed."
+    },
+    {
+      "id": "outcome:storm-route-variant:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l16",
+      "description": "Locate-and-reroute-under-changed-conditions evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:aakash-walks-the-back-way-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-reroute-step"
+    ],
+    "withdrawnContentFallback": "Use the same locate-and-reroute evidence with neutral nameplates: a storm strips the route signs, an unhurried classmate re-narrates the recovered path in order, and a second classmate supplies a back way around one flooded corner."
+  }
+}

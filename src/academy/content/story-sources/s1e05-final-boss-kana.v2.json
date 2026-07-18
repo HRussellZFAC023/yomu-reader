@@ -1,0 +1,654 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e05-final-boss-kana",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 5,
+  "title": {
+    "en": "Final Boss: One Small Card",
+    "ja": "ラスボスは、小さな一枚"
+  },
+  "synopsis": "Tom brings an oversized katakana \"final boss\" game to the class, all spectacle and dramatic battle framing. Running it means reading the cards at speed, counting the pieces, and following his live commands. But the giant boss card refuses to win, and Felix is the only one still watching a tiny paper cat clipped to the smallest, least dramatic card. When the marked card is finally read, it settles the game — and Tom hands the spectacle over to another person's quiet find.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "tom",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom",
+        "docs/academy/story/dossiers/tom.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed game IP or named franchise creature",
+        "showman who never softens into handing over the win"
+      ]
+    },
+    {
+      "castId": "felix",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#felix",
+        "docs/academy/story/CAST-AND-CONSENT.md#felix"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cats used as his whole personality or invented biography"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e04-welcome-frequency",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l07"
+          ],
+          "function": "read-or-select-a-katakana-item-without-translation-first-prompting"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-five-first-meeting-tom"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:final-boss-kana:the-boss-table",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "rain-dark",
+      "goal": "Run Tom's oversized katakana game by reading the cards, counting the pieces, and following his commands.",
+      "dramaticQuestion": "Will the game be won by the biggest, most dramatic card, or by reading the cards at all?",
+      "learnerNeed": "A live play loop that forces katakana to be read by shape, pieces to be counted, and spoken commands to be followed — with no English gloss to lean on.",
+      "curriculum": {
+        "sectionId": "read-and-run-the-game",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:final-boss-kana:oversized-game",
+          "beatId": "beat:final-boss-kana:arrival-image",
+          "cueId": "cue:boss-table-unveiled",
+          "description": "Tom clears the front desk and lays out an oversized card game. Five big katakana cards stand in a row, three round tokens beside them. One card towers over the rest, hand-labelled ボス. On the battered game box, a small photo sticker of a dog is captioned チェスナットさん. Clipped to the smallest, plainest card at the edge is a folded paper cat, easy to miss."
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:tom-frame-boss",
+          "beatId": "beat:final-boss-kana:host-want",
+          "speakerId": "tom",
+          "intent": "Unveil the game as a dramatic final-boss battle and issue the first command to start play by drawing one card.",
+          "attentionTarget": "the towering ボス card at the centre of the row",
+          "variants": {
+            "foundation": {
+              "japanese": "今日はゲームをします。これがボスです。大きいカードですね。じゃあ、カードを一枚、ひいてください。",
+              "reading": "きょうはゲームをします。これがボスです。おおきいカードですね。じゃあ、カードをいちまい、ひいてください。",
+              "english": "Today we're playing a game. This is the boss. A big card, right? Okay — draw one card, please."
+            },
+            "n5": {
+              "japanese": "今日はゲームをしましょう。これがボスカードです。ほら、こんなに大きい。じゃあ、まずカードを一枚ひいてください。",
+              "reading": "きょうはゲームをしましょう。これがボスカードです。ほら、こんなにおおきい。じゃあ、まずカードをいちまいひいてください。",
+              "english": "Let's play a game today. This is the boss card. Look — this big. So, first, please draw one card."
+            },
+            "n4": {
+              "japanese": "今日はゲーム、いきましょう。これがラスボスのカード。ね、でかいでしょ。とりあえず、カードを一枚ひいてみてください。",
+              "reading": "きょうはゲーム、いきましょう。これがラスボスのカード。ね、でかいでしょ。とりあえず、カードをいちまいひいてみてください。",
+              "english": "Let's do a game today. This is the final-boss card. See, it's huge, right? For now, try drawing one card."
+            },
+            "n3": {
+              "japanese": "さあ、今日はゲームです。これがいわゆるラスボスのカードで…ほら、この大きさ。まずは一枚、引いてみてください。",
+              "reading": "さあ、きょうはゲームです。これがいわゆるラスボスのカードで…ほら、このおおきさ。まずはいちまい、ひいてみてください。",
+              "english": "Right, today it's a game. This here is your so-called final-boss card and… look, the size of it. First off, try drawing one."
+            },
+            "n2": {
+              "japanese": "はい、今日はゲームいきますよ。これがね、最終ボスのカード。この存在感、伝わります?とりあえず一枚、引いてみてください。",
+              "reading": "はい、きょうはゲームいきますよ。これがね、さいしゅうボスのカード。このそんざいかん、つたわります?とりあえずいちまい、ひいてみてください。",
+              "english": "Right, we're doing a game today. This one — the final-boss card. You feel the presence on it? Anyway, try drawing one card."
+            },
+            "n1": {
+              "japanese": "というわけで、今日はゲームです。で、これがいわゆる最終ボスのカード。…どうです、この圧。まあ何はともあれ、まず一枚引いてみてください。",
+              "reading": "というわけで、きょうはゲームです。で、これがいわゆるさいしゅうボスのカード。…どうです、このあつ。まあなにはともあれ、まずいちまいひいてみてください。",
+              "english": "So, that's the plan — today it's a game. And this is your so-called final-boss card. …Feel that pressure coming off it? Anyway, whatever else, just draw one first."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:tom-count-pieces",
+          "beatId": "beat:final-boss-kana:counters-command",
+          "speakerId": "tom",
+          "intent": "Run the game by counting every piece for the sheer fun of it, then command the room to read the cards closely.",
+          "attentionTarget": "the row of katakana cards, the three tokens, and the two players",
+          "variants": {
+            "foundation": {
+              "japanese": "カードは五枚あります。トークンは三つ。プレイヤーは二人ですね。みなさん、カードをよく見てください。",
+              "reading": "カードはごまいあります。トークンはみっつ。プレイヤーはふたりですね。みなさん、カードをよくみてください。",
+              "english": "There are five cards. Three tokens. Two players, right? Everyone, please look closely at the cards."
+            },
+            "n5": {
+              "japanese": "カードは全部で五枚。トークンが三つで、プレイヤーは二人です。じゃあ、カードをよく見てください。",
+              "reading": "カードはぜんぶでごまい。トークンがみっつで、プレイヤーはふたりです。じゃあ、カードをよくみてください。",
+              "english": "Five cards in all. Three tokens, and two players. So — please look closely at the cards."
+            },
+            "n4": {
+              "japanese": "カードは五枚、トークンは三つ、プレイヤーは二人ね。はい、まずカードをよく見てみてください。",
+              "reading": "カードはごまい、トークンはみっつ、プレイヤーはふたりね。はい、まずカードをよくみてみてください。",
+              "english": "Five cards, three tokens, two players, yeah. Okay, first, take a good look at the cards."
+            },
+            "n3": {
+              "japanese": "カードが五枚に、トークンが三つ、プレイヤーは二人…って数えると、ちょうどですね。じゃ、一回カードをよく見てください。",
+              "reading": "カードがごまいに、トークンがみっつ、プレイヤーはふたり…ってかぞえると、ちょうどですね。じゃ、いっかいカードをよくみてください。",
+              "english": "Five cards, three tokens, two players… count it up and it's exactly right. So, take a proper look at the cards for a sec."
+            },
+            "n2": {
+              "japanese": "カード五枚、トークン三つ、プレイヤー二人。…つい全部数えちゃうんですよね。ま、それはさておき、カードをよく見てみてください。",
+              "reading": "カードごまい、トークンみっつ、プレイヤーふたり。…ついぜんぶかぞえちゃうんですよね。ま、それはさておき、カードをよくみてみてください。",
+              "english": "Five cards, three tokens, two players. …I can't help counting the lot, honestly. Anyway, that aside — take a good look at the cards."
+            },
+            "n1": {
+              "japanese": "カードが五枚、トークンが三つ、プレイヤーは二人と。…こういうの、つい全部数えちゃう質でして。まあいいや、とりあえずカード、じっくり見てみてください。",
+              "reading": "カードがごまい、トークンがみっつ、プレイヤーはふたりと。…こういうの、ついぜんぶかぞえちゃうたちでして。まあいいや、とりあえずカード、じっくりみてみてください。",
+              "english": "Five cards, three tokens, two players. …I'm the type who ends up counting every last thing, sorry. Never mind — for now, give the cards a proper look."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:felix-quiet-notice",
+          "beatId": "beat:final-boss-kana:obstruction",
+          "speakerId": "felix",
+          "intent": "While the room stares at the giant boss card, quietly point out that only the smallest card carries a marker — a folded paper cat.",
+          "attentionTarget": "the folded paper cat clipped to the smallest card at the edge",
+          "variants": {
+            "foundation": {
+              "japanese": "あの…この小さいカード、猫がついています。紙の猫。ここだけ、しるしがあります。",
+              "reading": "あの…このちいさいカード、ねこがついています。かみのねこ。ここだけ、しるしがあります。",
+              "english": "Um… this small card has a cat on it. A paper cat. Only this one has a marker."
+            },
+            "n5": {
+              "japanese": "あの、この小さいカードだけ、紙の猫がついてますね。ここだけ印がある。",
+              "reading": "あの、このちいさいカードだけ、かみのねこがついてますね。ここだけしるしがある。",
+              "english": "Um, only this small card has a paper cat on it. This is the only one with a marker."
+            },
+            "n4": {
+              "japanese": "ねえ、この一番小さいカード、紙の猫がついてない?ここだけ印があるんですけど。",
+              "reading": "ねえ、このいちばんちいさいカード、かみのねこがついてない?ここだけしるしがあるんですけど。",
+              "english": "Hey, this smallest card — hasn't it got a paper cat on it? This is the only one with a marker, though."
+            },
+            "n3": {
+              "japanese": "あれ、この小さいカードだけ、紙の猫が挟んであるんですよね。…ここだけ、なんか印がついてる。",
+              "reading": "あれ、このちいさいカードだけ、かみのねこがはさんであるんですよね。…ここだけ、なんかしるしがついてる。",
+              "english": "Huh, only this small card has a paper cat tucked into it. …This is the only one with some kind of marker."
+            },
+            "n2": {
+              "japanese": "…あの、この一番地味なカードにだけ、紙の猫が挟まってるんですよ。ここだけ印がある、っていうのが、ちょっと気になって。",
+              "reading": "…あの、このいちばんじみなカードにだけ、かみのねこがはさまってるんですよ。ここだけしるしがある、っていうのが、ちょっときになって。",
+              "english": "…Um, only this plainest card has a paper cat tucked into it. The fact that it's the only one marked is nagging at me a bit."
+            },
+            "n1": {
+              "japanese": "…ねえ、気づきました?この一番地味なカードにだけ、小さい紙の猫が挟んであるんですよ。ほかは何もないのに、ここだけ印がついてる。",
+              "reading": "…ねえ、きづきました?このいちばんじみなカードにだけ、ちいさいかみのねこがはさんであるんですよ。ほかはなにもないのに、ここだけしるしがついてる。",
+              "english": "…Hey, did you notice? Only this plainest card has a little paper cat tucked into it. Nothing on any of the others, but this one alone is marked."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:final-boss-kana:before-read",
+          "beatId": "beat:final-boss-kana:read-attempt",
+          "resume": "The five katakana cards, three tokens, and two players are laid out. Tom's commands to draw and look are on the table, and the learner steps in to read and run the game."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:final-boss-kana:read-and-select",
+          "beatId": "beat:final-boss-kana:read-attempt",
+          "hook": {
+            "lessonId": "l1-l07",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e05-final-boss-kana-read-and-select"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e05-final-boss-kana-read-and-select"
+          },
+          "resumeContext": "Five katakana cards are face up (ボス and four others, including a small plain one reading ネコ). The learner runs the play loop by reading each card by shape rather than reaching for an English gloss, counting the pieces with the right counters (〜まい for cards, 〜つ/〜こ for tokens, 〜り/〜にん for players), and following Tom's spoken commands (ひいてください / みてください) to select the card he names.",
+          "onReady": "checkpoint:final-boss-kana:after-read",
+          "onRepair": "node:final-boss-kana:read-repair",
+          "onDefer": "checkpoint:final-boss-kana:before-read"
+        },
+        {
+          "kind": "stage",
+          "id": "node:final-boss-kana:read-repair",
+          "beatId": "beat:final-boss-kana:read-repair",
+          "cueId": "cue:one-card-turned-face-up",
+          "description": "Only the card that was misread turns back face up on its own; the cards already read correctly stay where the learner placed them. No English gloss appears — just the katakana, a little larger, waiting to be read again."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:final-boss-kana:after-read",
+          "beatId": "beat:final-boss-kana:read-response",
+          "resume": "The cards have been read and counted, and Tom's named card was selected by reading it. The boss card is finally drawn — and the game does not end."
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:tom-boss-not-enough",
+          "beatId": "beat:final-boss-kana:consequence",
+          "speakerId": "tom",
+          "intent": "Admit that drawing the giant boss card, the whole centrepiece of his spectacle, does not win the game.",
+          "attentionTarget": "the huge ボス card, now drawn but resolving nothing",
+          "variants": {
+            "foundation": {
+              "japanese": "ボスカードをひきました。でも…ゲームは終わりません。大きいカードだけでは、勝てませんね。",
+              "reading": "ボスカードをひきました。でも…ゲームはおわりません。おおきいカードだけでは、かてませんね。",
+              "english": "We drew the boss card. But… the game isn't over. You can't win with just the big card."
+            },
+            "n5": {
+              "japanese": "ボスカードは引けました。でも、ゲームは終わらないんです。大きいカードだけじゃ、勝てないみたいで。",
+              "reading": "ボスカードはひけました。でも、ゲームはおわらないんです。おおきいカードだけじゃ、かてないみたいで。",
+              "english": "We got the boss card. But the game doesn't end. Seems you can't win with just the big card."
+            },
+            "n4": {
+              "japanese": "ボスは引けたんですよ。でも…終わらない。でかいカードだけじゃ勝てないっぽいんですよね。",
+              "reading": "ボスはひけたんですよ。でも…おわらない。でかいカードだけじゃかてないっぽいんですよね。",
+              "english": "We drew the boss all right. But… it doesn't end. Looks like the big card alone doesn't win it."
+            },
+            "n3": {
+              "japanese": "ラスボス、ちゃんと引けたんです。なのに終わらない。…どうも、でかいカード一枚じゃ勝てないみたいで。",
+              "reading": "ラスボス、ちゃんとひけたんです。なのにおわらない。…どうも、でかいカードいちまいじゃかてないみたいで。",
+              "english": "We properly drew the final boss. And still it doesn't end. …Turns out one big card just doesn't win it, apparently."
+            },
+            "n2": {
+              "japanese": "ボスは引けたんです。引けたのに、終わらないんですよ。この派手なカード一枚だけじゃ、どうも勝ちにならないらしくて。",
+              "reading": "ボスはひけたんです。ひけたのに、おわらないんですよ。このはでなカードいちまいだけじゃ、どうもかちにならないらしくて。",
+              "english": "We drew the boss. Drew it, and still it doesn't end. Just this one flashy card, it seems, doesn't add up to a win."
+            },
+            "n1": {
+              "japanese": "ボス、ちゃんと引けたんですよ。引けたのに、いっこうに終わらない。…どうやら、この一番派手なカードを出したところで、勝ちにはならないみたいなんですよね。",
+              "reading": "ボス、ちゃんとひけたんですよ。ひけたのに、いっこうにおわらない。…どうやら、このいちばんはでなカードをだしたところで、かちにはならないみたいなんですよね。",
+              "english": "We properly drew the boss, I'm telling you. Drew it, and it just won't end. …Seems like playing the flashiest card of the lot gets you exactly nowhere near a win."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:final-boss-kana:boss-card-unresolved",
+          "beatId": "beat:final-boss-kana:changed-image",
+          "cueId": "cue:boss-drawn-cat-still-marks-small-card",
+          "description": "The ボス card stands drawn and enormous at the centre, and the game sits stalled around it. At the edge of the table, unmoved, the folded paper cat still marks the smallest, plainest card."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:final-boss-kana:one-small-card"
+      }
+    },
+    {
+      "id": "scene:final-boss-kana:one-small-card",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "rain-dark",
+      "goal": "Let the game be settled by reading the smallest, paper-cat-marked card instead of by the biggest gesture.",
+      "dramaticQuestion": "Will spectacle make room for another person's quiet find, or keep insisting on the boss?",
+      "learnerNeed": "A stance on who reads the one small card that actually decides the game, once reading it — not drawing the boss — is what matters.",
+      "curriculum": {
+        "sectionId": "the-card-that-decides",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:final-boss-kana:crowd-on-boss",
+          "beatId": "beat:final-boss-kana:regroup-image",
+          "cueId": "cue:small-card-ignored-at-edge",
+          "description": "The class has crowded in around the giant ボス card, arguing about how to beat it. At the edge of the table, the small card with the folded paper cat sits untouched, its plain katakana facing up and unread."
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:felix-paper-cat-find",
+          "beatId": "beat:final-boss-kana:find-want",
+          "speakerId": "felix",
+          "intent": "Turn the class from the giant card back to the small one the paper cat marks, and ask for it to be read by its katakana.",
+          "attentionTarget": "the folded paper cat and the small card it marks, reading ネコ",
+          "variants": {
+            "foundation": {
+              "japanese": "みんな、大きいカードを見ています。でも、猫はこっち。この小さいカードを読んでください。「ネコ」です。",
+              "reading": "みんな、おおきいカードをみています。でも、ねこはこっち。このちいさいカードをよんでください。「ネコ」です。",
+              "english": "Everyone's looking at the big card. But the cat points here. Please read this small card — it says \"neko.\""
+            },
+            "n5": {
+              "japanese": "みんな大きいカードばっかり見てるけど、猫の印はこっちなんですよ。この小さいカード、読んでみてください。「ネコ」って。",
+              "reading": "みんなおおきいカードばっかりみてるけど、ねこのしるしはこっちなんですよ。このちいさいカード、よんでみてください。「ネコ」って。",
+              "english": "Everyone's only looking at the big card, but the cat marker is over here. Try reading this small one — it says \"neko.\""
+            },
+            "n4": {
+              "japanese": "みんなでかいカードばっかり見てるでしょ。でも猫の印はこっち。この小さいの、読んでみて。「ネコ」ってあるんです。",
+              "reading": "みんなでかいカードばっかりみてるでしょ。でもねこのしるしはこっち。このちいさいの、よんでみて。「ネコ」ってあるんです。",
+              "english": "Everyone's only looking at the big card, right? But the cat marker's over here. Try reading this small one — it says \"neko.\""
+            },
+            "n3": {
+              "japanese": "みんな派手なほうばっかり見てるけど…猫が指してるの、こっちなんですよね。この地味なカード、読んでみてください。ほら、「ネコ」。",
+              "reading": "みんなはでなほうばっかりみてるけど…ねこがさしてるの、こっちなんですよね。このじみなカード、よんでみてください。ほら、「ネコ」。",
+              "english": "Everyone's only looking at the flashy one, but… what the cat's pointing at is over here. Try reading this plain card. Look — \"neko.\""
+            },
+            "n2": {
+              "japanese": "みんな派手なカードに気を取られてますけど、猫が示してるのはこっちなんですよ。この一番地味なやつ、読んでみてください。「ネコ」って書いてある。",
+              "reading": "みんなはでなカードにきをとられてますけど、ねこがしめしてるのはこっちなんですよ。このいちばんじみなやつ、よんでみてください。「ネコ」ってかいてある。",
+              "english": "Everyone's caught up with the flashy card, but what the cat marks is this one. Try reading the plainest one here — it says \"neko.\""
+            },
+            "n1": {
+              "japanese": "みんな派手なほうに気を取られてますけどね、猫の印が指してるのは、ずっとこっちなんですよ。この一番地味なカード、読んでみてください。…ほら、「ネコ」。それだけ。",
+              "reading": "みんなはでなほうにきをとられてますけどね、ねこのしるしがさしてるのは、ずっとこっちなんですよ。このいちばんじみなカード、よんでみてください。…ほら、「ネコ」。それだけ。",
+              "english": "Everyone's caught up with the flashy one, but the cat marker has been pointing over here the whole time. Try reading this plainest card. …Look — \"neko.\" That's all it is."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:tom-make-room",
+          "beatId": "beat:final-boss-kana:turn",
+          "speakerId": "tom",
+          "intent": "Feel the pull of his own spectacle, then let it go and agree that the small marked card is the one to read.",
+          "attentionTarget": "his own giant ボス card, then the small ネコ card Felix marks",
+          "variants": {
+            "foundation": {
+              "japanese": "え、ボスじゃなくて?…この大きいカード、かっこいいのに。…でも、Felixさんが正しいですね。小さいカードを読みましょう。",
+              "reading": "え、ボスじゃなくて?…このおおきいカード、かっこいいのに。…でも、Felixさんがただしいですね。ちいさいカードをよみましょう。",
+              "english": "Huh, not the boss? …But this big card's so cool. …No, Felix is right. Let's read the small card."
+            },
+            "n5": {
+              "japanese": "え、ボスじゃないんですか。…この大きいカード、せっかくかっこいいのに。…いや、Felixさんが正しい。小さいほうを読みましょう。",
+              "reading": "え、ボスじゃないんですか。…このおおきいカード、せっかくかっこいいのに。…いや、Felixさんがただしい。ちいさいほうをよみましょう。",
+              "english": "Huh, it's not the boss? …And this big card's so cool, too. …No, Felix is right. Let's read the small one."
+            },
+            "n4": {
+              "japanese": "え、ボスじゃなくて?この派手なやつ、見せ場だったのに…。まあでも、Felixさんが正しい。小さいの、読みましょう。",
+              "reading": "え、ボスじゃなくて?このはでなやつ、みせばだったのに…。まあでも、Felixさんがただしい。ちいさいの、よみましょう。",
+              "english": "Huh, not the boss? This flashy one was meant to be the big moment… Well, but Felix is right. Let's read the small one."
+            },
+            "n3": {
+              "japanese": "えっ、ボスじゃない?…せっかくこの一番かっこいいカード、用意したんですけどね。…いや、Felixさんが正しい。小さいほう、読みましょうか。",
+              "reading": "えっ、ボスじゃない?…せっかくこのいちばんかっこいいカード、よういしたんですけどね。…いや、Felixさんがただしい。ちいさいほう、よみましょうか。",
+              "english": "Wha, not the boss? …And I went to the trouble of setting up the coolest card of all. …No, Felix is right. Shall we read the small one."
+            },
+            "n2": {
+              "japanese": "え、ボスじゃないの?…この見せ場、けっこう自信あったんだけどなあ。…まあ、いいや。Felixさんの言う通りです。地味なほう、読みましょう。",
+              "reading": "え、ボスじゃないの?…このみせば、けっこうじしんあったんだけどなあ。…まあ、いいや。Felixさんのいうとおりです。じみなほう、よみましょう。",
+              "english": "Huh, not the boss? …I was actually pretty proud of this big moment, you know. …Ah well. Felix is right. Let's read the plain one."
+            },
+            "n1": {
+              "japanese": "えっ、まさかのボスじゃない?…いや、この一番派手なカード、我ながら会心の演出だったんですけどね。…はいはい、分かりました。Felixさんが正しい。地味なほう、読みましょう。",
+              "reading": "えっ、まさかのボスじゃない?…いや、このいちばんはでなカード、われながらかいしんのえんしゅつだったんですけどね。…はいはい、わかりました。Felixさんがただしい。じみなほう、よみましょう。",
+              "english": "Wait, of all things, not the boss? …I mean, this flashiest card was, even if I say so myself, a stroke of staging genius. …All right, all right, I get it. Felix is right. Let's read the plain one."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:final-boss-kana:who-reads",
+          "beatId": "beat:final-boss-kana:settle-stance",
+          "question": "The small ネコ card decides the game. How should it be read out?",
+          "options": [
+            {
+              "id": "option:final-boss-kana:read-it-now",
+              "action": "Read the small ネコ card yourself and play it as the answer.",
+              "japaneseByBand": {
+                "foundation": "自分で読みます。この「ネコ」のカードを出します。",
+                "n5": "自分で読みます。この「ネコ」のカードを答えにします。",
+                "n4": "自分で読んでみます。この「ネコ」のカード、これを答えにしましょう。",
+                "n3": "自分で読んでみます。この「ネコ」のカードを、答えとして出しますね。",
+                "n2": "自分で読んでみますね。この地味な「ネコ」のカードを、答えとして出します。",
+                "n1": "自分で読んでみます。この一番地味な「ネコ」のカードを、そのまま答えにしましょう。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:final-boss-kana:before-settle"
+            },
+            {
+              "id": "option:final-boss-kana:hand-to-felix",
+              "action": "Give the turn to Felix, who found the marker, and let him read the card aloud.",
+              "japaneseByBand": {
+                "foundation": "Felixさんが見つけました。Felixさん、読んでください。",
+                "n5": "見つけたのはFelixさんです。Felixさん、読んでください。",
+                "n4": "見つけたのFelixさんだから、Felixさんが読んでよ。",
+                "n3": "見つけたのはFelixさんですし、ここはFelixさんに読んでもらいましょう。",
+                "n2": "見つけたのはFelixさんなんだから、ここはFelixさんに読んでもらいましょうよ。",
+                "n1": "見つけたのはFelixさんなんだし、ここはやっぱり、Felixさんに読んでもらうのが筋でしょう。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:final-boss-kana:before-settle"
+            }
+          ],
+          "convergence": "checkpoint:final-boss-kana:before-settle"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:final-boss-kana:before-settle",
+          "beatId": "beat:final-boss-kana:settle-attempt",
+          "resume": "The stance is set on who reads the small ネコ card. It is read aloud, face up, and the game is finally settled by that one small card."
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:tom-small-card-wins",
+          "beatId": "beat:final-boss-kana:consequence",
+          "speakerId": "tom",
+          "intent": "Name the outcome plainly: the smallest card, read correctly, wins — not the biggest gesture.",
+          "attentionTarget": "the small ネコ card now face up as the winning card, paper cat resting on it",
+          "variants": {
+            "foundation": {
+              "japanese": "読めました。「ネコ」。これで勝ちです。一番小さいカードでしたね。大きいカードじゃなくて、読んだカードが勝ちます。",
+              "reading": "よめました。「ネコ」。これでかちです。いちばんちいさいカードでしたね。おおきいカードじゃなくて、よんだカードがかちます。",
+              "english": "We read it. \"Neko.\" That's the win. It was the smallest card. Not the big card — the card you read wins."
+            },
+            "n5": {
+              "japanese": "読めましたね。「ネコ」。これで勝ちです。一番小さいカードでした。大きいカードじゃなくて、ちゃんと読んだカードが勝つんですね。",
+              "reading": "よめましたね。「ネコ」。これでかちです。いちばんちいさいカードでした。おおきいカードじゃなくて、ちゃんとよんだカードがかつんですね。",
+              "english": "We read it. \"Neko.\" That's the win. It was the smallest card. Not the big card — the card you actually read is the one that wins."
+            },
+            "n4": {
+              "japanese": "読めた。「ネコ」。はい、これで勝ち。一番ちっちゃいカードでしたよ。派手なやつじゃなくて、読めたカードが勝つんだよなあ。",
+              "reading": "よめた。「ネコ」。はい、これでかち。いちばんちっちゃいカードでしたよ。はでなやつじゃなくて、よめたカードがかつんだよなあ。",
+              "english": "Read it. \"Neko.\" Right, that's the win. It was the tiniest card, you know. Not the flashy one — the card you could read is what wins."
+            },
+            "n3": {
+              "japanese": "ちゃんと読めましたね。「ネコ」。これで勝ちです。一番地味な、小さいカードでした。…結局、でかいカードじゃなくて、読めたカードが勝つんですよ。",
+              "reading": "ちゃんとよめましたね。「ネコ」。これでかちです。いちばんじみな、ちいさいカードでした。…けっきょく、でかいカードじゃなくて、よめたカードがかつんですよ。",
+              "english": "You read it properly. \"Neko.\" That's the win. It was the plainest, smallest card. …In the end, it's not the big card that wins — it's the one you could read."
+            },
+            "n2": {
+              "japanese": "読めましたね。「ネコ」。これで勝ち。一番地味で、一番小さいカードでした。…派手なひと押しじゃなくて、静かに読んだ一枚が勝つ。そういうゲームだったんです。",
+              "reading": "よめましたね。「ネコ」。これでかち。いちばんじみで、いちばんちいさいカードでした。…はでなひとおしじゃなくて、しずかによんだいちまいがかつ。そういうゲームだったんです。",
+              "english": "You read it. \"Neko.\" That's the win. The plainest, smallest card of the lot. …Not the flashy push — the one card you quietly read is what wins. That's the game it was, all along."
+            },
+            "n1": {
+              "japanese": "ちゃんと読めましたね。「ネコ」。はい、これで勝ちです。よりによって一番地味で、一番小さいカード。…結局、一番派手なひと押しじゃなくて、静かに一枚読めたほうが勝つ。そういう作りだったんですよ、これ。",
+              "reading": "ちゃんとよめましたね。「ネコ」。はい、これでかちです。よりによっていちばんじみで、いちばんちいさいカード。…けっきょく、いちばんはでなひとおしじゃなくて、しずかにいちまいよめたほうがかつ。そういうつくりだったんですよ、これ。",
+              "english": "You read it properly. \"Neko.\" Right, that's the win. Of all things, the plainest and smallest card. …In the end, it's not the flashiest push that wins — it's quietly reading one card. That's how this thing was built, it turns out."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:final-boss-kana:felix-lucky",
+          "beatId": "beat:final-boss-kana:changed-action",
+          "speakerId": "felix",
+          "intent": "Take quiet delight that the small marker was the whole game, and wave off his own noticing as luck rather than skill.",
+          "attentionTarget": "the paper cat resting on the winning small card",
+          "variants": {
+            "foundation": {
+              "japanese": "よかった。猫が、正しかったですね。ぼく、運がよかっただけです。",
+              "reading": "よかった。ねこが、ただしかったですね。ぼく、うんがよかっただけです。",
+              "english": "Good. The cat was right. I just got lucky."
+            },
+            "n5": {
+              "japanese": "よかった、猫が正しかった。…ぼく、ただ運がよかっただけですよ。",
+              "reading": "よかった、ねこがただしかった。…ぼく、ただうんがよかっただけですよ。",
+              "english": "Good, the cat was right. …I just happened to be lucky, that's all."
+            },
+            "n4": {
+              "japanese": "よかった〜、猫が正解だった。いや、たまたま見えただけですけどね。",
+              "reading": "よかった〜、ねこがせいかいだった。いや、たまたまみえただけですけどね。",
+              "english": "Oh good, the cat was the right call. Nah, I just happened to spot it, though."
+            },
+            "n3": {
+              "japanese": "よかった、猫が正しかったんだ。…いや、たまたま目についただけなんですけどね。",
+              "reading": "よかった、ねこがただしかったんだ。…いや、たまたまめについただけなんですけどね。",
+              "english": "Oh good, the cat was right after all. …I mean, it just happened to catch my eye, that's all."
+            },
+            "n2": {
+              "japanese": "よかった、猫のほうが正しかった。…といっても、たまたま目に入っただけなんですけど。",
+              "reading": "よかった、ねこのほうがただしかった。…といっても、たまたまめにはいっただけなんですけど。",
+              "english": "Oh good, the cat was the right one. …Though it just happened to fall into my eye, is all."
+            },
+            "n1": {
+              "japanese": "よかった、ちゃんと猫のほうが正しかった。…まあ、たまたま目に入っただけで、別に狙ったわけじゃないんですけどね。",
+              "reading": "よかった、ちゃんとねこのほうがただしかった。…まあ、たまたまめにはいっただけで、べつにねらったわけじゃないんですけどね。",
+              "english": "Oh good, the cat really was the right one. …Well, it just happened to catch my eye — it's not like I was aiming for it or anything."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:final-boss-kana:paper-cat-on-winner",
+          "beatId": "beat:final-boss-kana:exit-image",
+          "cueId": "cue:paper-cat-rests-on-small-winning-card",
+          "description": "The giant ボス card is set aside, face down. In the middle of the table sits the small card reading ネコ, face up, the folded paper cat resting on top of it. On the game box, the little dog sticker captioned チェスナットさん watches over the whole thing."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:paper-cat",
+      "state": "seed",
+      "ownerIds": [
+        "tom",
+        "felix",
+        "stasi"
+      ],
+      "meaningNow": "A tiny paper cat marks the least dramatic clue in Tom's oversized game — the smallest card, not the biggest gesture, is what matters. Reading the marked card, rather than drawing the boss, is what settles the game.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "The game is simply decided by a small marked card that has to be read, rather than by the biggest card being drawn; the paper marker can be a neutral clip if the cat motif is withdrawn."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:final-boss-kana:small-card-decides",
+      "kind": "story",
+      "description": "Tom's oversized katakana final-boss game is won not by drawing the giant boss card but by reading the smallest, paper-cat-marked card (ネコ); the boss card is set aside and the marked small card stays face up as the decider."
+    },
+    {
+      "id": "outcome:final-boss-kana:tom-arrival",
+      "kind": "bond",
+      "castId": "tom",
+      "chapter": 5,
+      "beat": "arrival",
+      "description": "Tom arrives as the class's methodical-showman: he stages an oversized final-boss spectacle and counts every piece for fun, then, in the same evening, lets that spectacle make room for Felix's quiet find — softening from performing the big gesture toward handing the win to the smallest true thing."
+    },
+    {
+      "id": "outcome:final-boss-kana:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l07",
+      "description": "Read-or-select-a-katakana-item-without-translation-first evidence returns through the registered transfer activity, alongside counters and light commands run as a live play loop; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:felix-watches-the-marker-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-read-and-select"
+    ],
+    "withdrawnContentFallback": "Run the same read-and-run play loop and small-marked-card resolution with neutral nameplates and a generic pair who read katakana, count the pieces, and settle the game on the smallest marked card after the boss card fails to win."
+  }
+}

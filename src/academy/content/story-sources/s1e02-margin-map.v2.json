@@ -1,0 +1,651 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e02-margin-map",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 2,
+  "title": {
+    "en": "Map in the Margins",
+    "ja": "余白の地図"
+  },
+  "synopsis": "Henry has re-labelled the whole atlas route overnight in his own dense private cipher, a beautiful system only he can read. When Aakash cannot find the station on it, the class edits the idea without rejecting its maker: the learner re-labels one point in plain kana and gives a reason with から, Henry hears the human note a beat late, and his clever marks are kept as a margin key beside a route anyone can now read.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "henry",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "invented employer, job title, or work history",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "aakash",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#aakash",
+        "docs/academy/story/CAST-AND-CONSENT.md#aakash"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e01-the-blank-atlas",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l01",
+            "l1-l02"
+          ],
+          "function": "introduce-a-person-and-label-a-useful-object-in-plain-kana"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-two-first-meeting-henry"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:margin-map:the-private-cipher",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Meet Henry through the dense private cipher he used to re-label the whole route, and reach the point where his careful system cannot be read by anyone else.",
+      "dramaticQuestion": "When a clever tool is unreadable to the room, can the class fix the point everyone needs without erasing the maker's work?",
+      "learnerNeed": "A re-labelling turn where writing one point in plain kana and giving a reason matters more than admiring the cipher.",
+      "curriculum": {
+        "sectionId": "relabel-in-plain-kana",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:margin-map:cipher-route",
+          "beatId": "beat:margin-map:arrival-image",
+          "cueId": "cue:atlas-route-covered-in-private-marks",
+          "description": "Overnight the atlas's first route has been covered end to end in tiny hand-drawn marks: doubled strokes, small hooks, single and double circles. It is dense, even, and clearly a system. A folded slip in the corner is labelled KEY in the same unreadable hand."
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:henry-presents",
+          "beatId": "beat:margin-map:host-want",
+          "speakerId": "henry",
+          "intent": "Proudly present the whole route re-tagged in his own private mark system, certain that once the key is learned the entire map reads at a glance.",
+          "attentionTarget": "the route covered in his dense personal marks",
+          "variants": {
+            "foundation": {
+              "japanese": "見てください。道に、ぜんぶ印をつけました。ぼくのシステムです。",
+              "reading": "みてください。みちに、ぜんぶしるしをつけました。ぼくのシステムです。",
+              "english": "Please look. I marked every point on the route. It's my own system."
+            },
+            "n5": {
+              "japanese": "見てください。ゆうべ、道の点にぜんぶ印をつけたんです。ぼくのシステムで、キーを覚えたら、全部読めます。",
+              "reading": "みてください。ゆうべ、みちのてんにぜんぶしるしをつけたんです。ぼくのシステムで、キーをおぼえたら、ぜんぶよめます。",
+              "english": "Please look. Last night I marked every point on the route. It's my system — once you learn the key, you can read all of it."
+            },
+            "n4": {
+              "japanese": "見てください。ゆうべ、道の点を全部、自分の印で書き直したんです。キーさえ覚えれば、この地図、まるごと読めますよ。",
+              "reading": "みてください。ゆうべ、みちのてんをぜんぶ、じぶんのしるしでかきなおしたんです。キーさえおぼえれば、このちず、まるごとよめますよ。",
+              "english": "Look at this. Last night I rewrote every point on the route in my own marks. Just learn the key and you can read this whole map."
+            },
+            "n3": {
+              "japanese": "見てください。ゆうべ、道の点を全部、自分専用の印に置き換えたんです。キーさえ頭に入れば、この地図、端から端まで読めるはずで。",
+              "reading": "みてください。ゆうべ、みちのてんをぜんぶ、じぶんせんようのしるしにおきかえたんです。キーさえあたまにはいれば、このちず、はしからはしまでよめるはずで。",
+              "english": "Look. Last night I swapped every point on the route out for my own private marks. Once the key's in your head, you should be able to read this map end to end."
+            },
+            "n2": {
+              "japanese": "ちょっと見てください。ゆうべのうちに、道の点を全部、自分用の記号で振り直しておいたんです。キーさえ押さえてもらえれば、この地図はまるごと読める仕組みで。",
+              "reading": "ちょっとみてください。ゆうべのうちに、みちのてんをぜんぶ、じぶんようのきごうでふりなおしておいたんです。キーさえおさえてもらえれば、このちずはまるごとよめるしくみで。",
+              "english": "Take a look at this. Overnight I re-tagged every point on the route with my own symbols. As long as you've got the key down, the whole map is readable — that's the design."
+            },
+            "n1": {
+              "japanese": "まあ見てくださいよ。ゆうべのうちに、道の点という点を、全部自分用の記号に振り直しておいたんです。キーさえ一度押さえてしまえば、この地図、端から端まで一気に読み解ける——そういう仕組みにしてあって。",
+              "reading": "まあみてくださいよ。ゆうべのうちに、みちのてんというてんを、ぜんぶじぶんようのきごうにふりなおしておいたんです。キーさえいちどおさえてしまえば、このちず、はしからはしまでいっきによみとける——そういうしくみにしてあって。",
+              "english": "Just look at this. Overnight I went and re-tagged every single point on the route with my own symbols. Once you've got the key down just once, the whole map decodes in one go, end to end — that's how I've set it up."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:aakash-cant-use",
+          "beatId": "beat:margin-map:obstruction",
+          "speakerId": "aakash",
+          "intent": "Genuinely admire the work, then try to actually use the map and hit the wall: he cannot find which mark is the station or where to get off.",
+          "attentionTarget": "the marks where the station should be",
+          "variants": {
+            "foundation": {
+              "japanese": "すごいですね、Henryさん。でも…駅はどれですか。ぼく、読めません。",
+              "reading": "すごいですね、ヘンリーさん。でも…えきはどれですか。ぼく、よめません。",
+              "english": "That's amazing, Henry. But… which one is the station? I can't read it."
+            },
+            "n5": {
+              "japanese": "すごいですね。でも、Henryさん、駅の印はどれですか。どこで降りるか、ぼくには分かりません。",
+              "reading": "すごいですね。でも、ヘンリーさん、えきのしるしはどれですか。どこでおりるか、ぼくにはわかりません。",
+              "english": "It's impressive. But Henry, which mark is the station? I can't tell where to get off."
+            },
+            "n4": {
+              "japanese": "いや、すごいですよ。でも待って、駅ってどの印ですか。これだと、どこで降りればいいか、ぼく全然読めないんですけど。",
+              "reading": "いや、すごいですよ。でもまって、えきってどのしるしですか。これだと、どこでおりればいいか、ぼくぜんぜんよめないんですけど。",
+              "english": "No, it's genuinely impressive. But hold on — which mark is the station? Like this, I can't read where I'm supposed to get off at all."
+            },
+            "n3": {
+              "japanese": "いやほんと、力作ですよ。…でも、駅ってどれです？ぼく、この印だと、どこで降りるのか一個も読めないんですよね。",
+              "reading": "いやほんと、りきさくですよ。…でも、えきってどれです？ぼく、このしるしだと、どこでおりるのかいっこもよめないんですよね。",
+              "english": "Honestly, it's a real piece of work. …But which one's the station? With these marks, I can't read a single stop off it."
+            },
+            "n2": {
+              "japanese": "いや、たいしたもんですよ、これ。…ただ、駅ってどの印なんです？正直、これだと、どこで降りたらいいのか、ぼくには一つも読み取れなくて。",
+              "reading": "いや、たいしたもんですよ、これ。…ただ、えきってどのしるしなんです？しょうじき、これだと、どこでおりたらいいのか、ぼくにはひとつもよみとれなくて。",
+              "english": "No, this is quite something. …Only — which mark is the station? Honestly, like this I can't make out a single stop where I'd get off."
+            },
+            "n1": {
+              "japanese": "いやあ、たいした労作ですよ、ほんとに。…ただね、肝心の駅ってのが、どの印なんです？正直に言うと、これ、ぼくにはどこで降りればいいのか一つも読み取れなくてね。",
+              "reading": "いやあ、たいしたろうさくですよ、ほんとに。…ただね、かんじんのえきってのが、どのしるしなんです？しょうじきにいうと、これ、ぼくにはどこでおりればいいのかひとつもよみとれなくてね。",
+              "english": "Honestly, it's a real labour of love. …Only — the station, the one thing that matters, which mark even is it? To be honest, I can't read a single stop off this to save my life."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:henry-defends",
+          "beatId": "beat:margin-map:pressure",
+          "speakerId": "henry",
+          "intent": "Under the question, explain the whole cipher's logic instead of just pointing to the station — walk through the rule set past the human need.",
+          "attentionTarget": "the doubled strokes, hooks, and circles as he explains each rule",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、かんたんです。駅は二本線です。線が二本だと、乗る場所。フックは、乗り換えで…",
+              "reading": "あ、かんたんです。えきはにほんせんです。せんがにほんだと、のるばしょ。フックは、のりかえで…",
+              "english": "Oh, easy. The station is the double line. Two lines means a boarding place. The hook means a transfer, and—"
+            },
+            "n5": {
+              "japanese": "あ、それは簡単ですよ。駅は二本線なんです。線が二本なら乗る場所、一本なら歩く場所で。小さいフックは乗り換えを表していて…",
+              "reading": "あ、それはかんたんですよ。えきはにほんせんなんです。せんがにほんならのるばしょ、いっぽんならあるくばしょで。ちいさいフックはのりかえをあらわしていて…",
+              "english": "Oh, that's easy. The station's the double line. Two lines means a boarding spot, one line means a walking spot. And the little hook stands for a transfer—"
+            },
+            "n4": {
+              "japanese": "あ、それはね、簡単なんですよ。駅は二本線。線が二本なら電車に乗る点で、一本なら歩く点。で、この小さいフックが乗り換えを表してて、丸で囲んだのが始発で…",
+              "reading": "あ、それはね、かんたんなんですよ。えきはにほんせん。せんがにほんならでんしゃにのるてんで、いっぽんならあるくてん。で、このちいさいフックがのりかえをあらわしてて、まるでかこんだのがしはつで…",
+              "english": "Oh, that — that's simple, actually. Station's the double line. Two lines is a train-boarding point, one line's a walking point. And this little hook stands for a transfer, and the circled one is the first train—"
+            },
+            "n3": {
+              "japanese": "あ、それ簡単で。駅は二本線なんですよ。線が二本なら乗る点、一本なら歩く点。フックが乗り換えで、丸がついてたら始発で、二重丸なら終点で…って、キーさえ分かれば全部つながるんです。",
+              "reading": "あ、それかんたんで。えきはにほんせんなんですよ。せんがにほんならのるてん、いっぽんならあるくてん。フックがのりかえで、まるがついてたらしはつで、にじゅうまるならしゅうてんで…って、キーさえわかればぜんぶつながるんです。",
+              "english": "Oh, that's easy. The station's the double line. Two lines is a boarding point, one's a walking point. The hook's a transfer, a circle means first train, a double circle's the terminus, and — once you get the key it all links up."
+            },
+            "n2": {
+              "japanese": "あ、それなら簡単ですよ。駅は二本線。線が二本なら乗る点、一本なら歩く点で。フックが乗り換え、丸が始発、二重丸が終点——ね、規則さえ一度飲み込んでもらえれば、あとは全部これで説明がつくんです。",
+              "reading": "あ、それならかんたんですよ。えきはにほんせん。せんがにほんならのるてん、いっぽんならあるくてんで。フックがのりかえ、まるがしはつ、にじゅうまるがしゅうてん——ね、きそくさえいちどのみこんでもらえれば、あとはぜんぶこれでせつめいがつくんです。",
+              "english": "Oh, if that's all, it's simple. Station's the double line. Two lines a boarding point, one a walking point. Hook's a transfer, circle's first train, double circle's terminus — see, once you swallow the rules just once, everything after that is explained by this."
+            },
+            "n1": {
+              "japanese": "あ、それなら話は早いですよ。駅は二本線でしょう、線が二本なら乗る点、一本なら歩く点。で、フックが乗り換え、丸が始発、二重丸が終点で——要するに、規則を一度体系として飲み込んでもらいさえすれば、この地図はどこを取っても矛盾なく説明がつく、という…",
+              "reading": "あ、それならはなしははやいですよ。えきはにほんせんでしょう、せんがにほんならのるてん、いっぽんならあるくてん。で、フックがのりかえ、まるがしはつ、にじゅうまるがしゅうてんで——ようするに、きそくをいちどたいけいとしてのみこんでもらいさえすれば、このちずはどこをとってもむじゅんなくせつめいがつく、という…",
+              "english": "Oh, if that's it, this'll be quick. Station's the double line, right — two lines a boarding point, one a walking point. Then the hook's a transfer, circle's first train, double circle's terminus — in short, so long as you just swallow the rule set as a system once, this map explains itself without contradiction wherever you look, is the thing—"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:margin-map:before-relabel",
+          "beatId": "beat:margin-map:relabel-attempt",
+          "resume": "The route is covered in Henry's private cipher and the one point everyone needs — the station — is buried in it. The learner steps in to re-label that single point in plain kana and say why."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:margin-map:relabel",
+          "beatId": "beat:margin-map:relabel-attempt",
+          "hook": {
+            "lessonId": "l1-l02",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e02-margin-map-plain-label"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e02-margin-map-plain-label"
+          },
+          "resumeContext": "The station point is hidden inside Henry's doubled-stroke cipher. The learner writes that one point in plain hiragana as 「これは えき です」 and gives a reason with 〜から for why the plain label helps — for example, 「みんなが よめるから」 — without erasing Henry's surrounding marks.",
+          "onReady": "checkpoint:margin-map:after-relabel",
+          "onRepair": "node:margin-map:relabel-repair",
+          "onDefer": "checkpoint:margin-map:before-relabel"
+        },
+        {
+          "kind": "stage",
+          "id": "node:margin-map:relabel-repair",
+          "beatId": "beat:margin-map:relabel-repair",
+          "cueId": "cue:plain-label-and-reason-return",
+          "description": "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:margin-map:after-relabel",
+          "beatId": "beat:margin-map:relabel-response",
+          "resume": "One point on the route now carries a plain hiragana label with a reason. For the first time the station can be found without the key. Henry looks at the small legible word sitting among his marks."
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:henry-hears-late",
+          "beatId": "beat:margin-map:changed-action",
+          "speakerId": "henry",
+          "intent": "Defend the key one more time, then hear the human note a beat late and concede that readable is better — his signature late qualifier landing on his own careful, unreadable work.",
+          "attentionTarget": "the corner slip labelled KEY, then the plain word among his marks",
+          "variants": {
+            "foundation": {
+              "japanese": "でも、キーはそこに…あ。そうか。だれも読めない。…うん、読めるほうがいいですね。たぶん。",
+              "reading": "でも、キーはそこに…あ。そうか。だれもよめない。…うん、よめるほうがいいですね。たぶん。",
+              "english": "But the key's right there— …oh. Right. Nobody can read it. …Yeah, readable is better. Probably."
+            },
+            "n5": {
+              "japanese": "でも、キーは端に書いて…あ。そうか、その端も、だれも読めないですよね。…うん。読めるようにしましょう。たぶん、そのほうがいいです。",
+              "reading": "でも、キーははしにかいて…あ。そうか、そのはしも、だれもよめないですよね。…うん。よめるようにしましょう。たぶん、そのほうがいいです。",
+              "english": "But I wrote the key in the corner— …oh. Right, nobody can read that corner either, can they. …Yeah. Let's make it readable. Probably that's better."
+            },
+            "n4": {
+              "japanese": "でも、キーはちゃんと隅に…あ。……そうか。その隅、だれも読めないんだ。うん、読めるようにしたほうがいいですね。……たぶん、そのほうが正しい。",
+              "reading": "でも、キーはちゃんとすみに…あ。……そうか。そのすみ、だれもよめないんだ。うん、よめるようにしたほうがいいですね。……たぶん、そのほうがただしい。",
+              "english": "But the key's right there in the corner— …oh. …Right. Nobody can read that corner. Yeah, better to make it readable. …Probably that's the right call."
+            },
+            "n3": {
+              "japanese": "いや、キーはちゃんと隅に付けて…あ。…そうか。その隅も、結局だれも読めないのか。…うん、読めるようにしたほうがいいですね。たぶん、そっちが正しい。",
+              "reading": "いや、キーはちゃんとすみにつけて…あ。…そうか。そのすみも、けっきょくだれもよめないのか。…うん、よめるようにしたほうがいいですね。たぶん、そっちがただしい。",
+              "english": "No, I did put the key in the corner— …oh. …Right. Nobody can read that corner in the end either, huh. …Yeah, better to make it readable. Probably that's the right one."
+            },
+            "n2": {
+              "japanese": "いや、キーなら隅にちゃんと…あ。……そうか。その隅ごと、だれも読めないんですよね。うん、これは読めるようにしたほうがいい。……たぶん、そっちのほうが正しいです。",
+              "reading": "いや、キーならすみにちゃんと…あ。……そうか。そのすみごと、だれもよめないんですよね。うん、これはよめるようにしたほうがいい。……たぶん、そっちのほうがただしいです。",
+              "english": "No, the key's right there in the corner— …oh. …Right. The corner and all, nobody can read it. Yeah — this ought to be made readable. …Probably that's the right way."
+            },
+            "n1": {
+              "japanese": "いや、キーならちゃんと隅に振ってあるんですよ、ほら…あ。……そうか。その隅からして、そもそもだれも読めないわけだ。……うん、これは、読める形にしておいたほうがいいですね。たぶん、そっちのほうが正しい。",
+              "reading": "いや、キーならちゃんとすみにふってあるんですよ、ほら…あ。……そうか。そのすみからして、そもそもだれもよめないわけだ。……うん、これは、よめるかたちにしておいたほうがいいですね。たぶん、そっちのほうがただしい。",
+              "english": "No, the key's tagged right there in the corner, look— …oh. …Right. Starting with that very corner, nobody can read it in the first place. …Yeah — this had better be put in a readable form. Probably that's the right one."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:margin-map:one-readable-point",
+          "beatId": "beat:margin-map:exit-image",
+          "cueId": "cue:single-plain-label-among-marks",
+          "description": "One plain hiragana word — えき — now sits among Henry's dense marks, the first point on the route anyone can find. His cipher is untouched all around it; only one gap has been made legible."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:margin-map:readable-for-anyone"
+      }
+    },
+    {
+      "id": "scene:margin-map:readable-for-anyone",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "goal": "Keep Henry's system as his own key while making the shared route legible, and decide how to hand the edit back to its maker without rejecting him.",
+      "dramaticQuestion": "Can the class edit the idea and keep the person, so the map is both his and everyone's?",
+      "learnerNeed": "A stance on how to preserve the maker's cleverness while making the route usable by anyone who enters.",
+      "curriculum": {
+        "sectionId": "edit-without-rejecting-the-maker",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:margin-map:henry-toolbox",
+          "beatId": "beat:margin-map:regroup-image",
+          "cueId": "cue:label-pen-and-fresh-card",
+          "description": "Beside the one readable point sits Henry's pen case, each pen tagged in his own marks, and a stack of blank label cards. He turns a fresh card over and half-reaches to draw the next point in cipher again."
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:henry-introduce-tool",
+          "beatId": "beat:margin-map:host-want",
+          "speakerId": "henry",
+          "intent": "Introduce himself and label his useful object plainly, giving the reason he builds his own tools — then catch himself sliding back toward a private mark.",
+          "attentionTarget": "the label pen in his hand and the fresh card",
+          "variants": {
+            "foundation": {
+              "japanese": "ぼくはHenryです。道具が好きだから、よく作るんです。これは、ラベルのペンで…次の点も、つい自分の印にしそうになる。",
+              "reading": "ぼくはヘンリーです。どうぐがすきだから、よくつくるんです。これは、ラベルのペンで…つぎのてんも、ついじぶんのしるしにしそうになる。",
+              "english": "I'm Henry. Because I like tools, I make a lot of them. This is my label pen, and… the next point too, I almost slip into my own marks again."
+            },
+            "n5": {
+              "japanese": "ぼくはHenryです。道具が好きだから、いつも自分で作るんです。これは、ラベル用のペン。…次の点も、つい自分の印で書きそうになりますね。",
+              "reading": "ぼくはヘンリーです。どうぐがすきだから、いつもじぶんでつくるんです。これは、ラベルようのペン。…つぎのてんも、ついじぶんのしるしでかきそうになりますね。",
+              "english": "I'm Henry. Because I like tools, I always make my own. This is my labeling pen. …The next point, too — I almost went and wrote it in my own marks again."
+            },
+            "n4": {
+              "japanese": "ぼく、Henryです。道具が好きだから、勉強のツールもだいたい自分で作っちゃうんですよ。これはそのラベル用のペンで。…あ、次の点も、また自分の記号で書きかけてた。",
+              "reading": "ぼく、ヘンリーです。どうぐがすきだから、べんきょうのツールもだいたいじぶんでつくっちゃうんですよ。これはそのラベルようのペンで。…あ、つぎのてんも、またじぶんのきごうでかきかけてた。",
+              "english": "I'm Henry. Because I love tools, I end up making most of my study tools myself. This is the pen I label with. …Oh — the next point, I'd started writing in my own symbols again."
+            },
+            "n3": {
+              "japanese": "ぼく、Henryっていいます。道具が好きだから、勉強用のツールもつい全部自作しちゃう質で。これがそのラベル用のペンです。…って、次の点、また無意識に自分の記号で書こうとしてた。",
+              "reading": "ぼく、ヘンリーっていいます。どうぐがすきだから、べんきょうようのツールもついぜんぶじさくしちゃうたちで。これがそのラベルようのペンです。…って、つぎのてん、またむいしきにじぶんのきごうでかこうとしてた。",
+              "english": "I'm Henry. Because I love tools, I'm the type who ends up making all my study gear myself. This is the pen I label with. …And — the next point, I was unconsciously about to write it in my own symbols again."
+            },
+            "n2": {
+              "japanese": "ぼく、Henryと申します。道具が好きなものだから、勉強のツールもたいてい自分で組んでしまう性分で。これがそのラベル用のペンなんですが。…って、ほら、次の点もまた、無意識に自分の記号で書きかけてる。",
+              "reading": "ぼく、ヘンリーともうします。どうぐがすきなものだから、べんきょうのツールもたいていじぶんでくんでしまうしょうぶんで。これがそのラベルようのペンなんですが。…って、ほら、つぎのてんもまた、むいしきにじぶんのきごうでかきかけてる。",
+              "english": "I'm Henry. Because I'm fond of tools, I've got this disposition where I build most of my study gear myself. This is the labeling pen for it. …And — look, the next point, I've unconsciously started writing in my own symbols again."
+            },
+            "n1": {
+              "japanese": "ぼく、Henryと申しまして。とにかく道具が好きなものですから、勉強のツールの類いも、たいてい自分で一から組んでしまう性分でしてね。これが、そのラベル用のペンなんですが。……って、ほら見てください、次の点までまた、無意識のうちに自分の記号で書きかけてる。",
+              "reading": "ぼく、ヘンリーともうしまして。とにかくどうぐがすきなものですから、べんきょうのツールのたぐいも、たいていじぶんでいちからくんでしまうしょうぶんでしてね。これが、そのラベルようのペンなんですが。……って、ほらみてください、つぎのてんまでまた、むいしきのうちにじぶんのきごうでかきかけてる。",
+              "english": "I'm Henry. I'm just so fond of tools that with study gear and the like, I've got this disposition where I build most of it from scratch myself. This is the labeling pen for it. …And — look at that, even the next point, I've unconsciously started writing in my own symbols again."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:aakash-edit-not-reject",
+          "beatId": "beat:margin-map:contribution",
+          "speakerId": "aakash",
+          "intent": "Separate editing the idea from rejecting the maker: keep Henry's system, but add a plain label because he needs to read the map in a second when he is running late — not instead of the cipher, alongside it.",
+          "attentionTarget": "Henry's cipher and the empty space beside it",
+          "variants": {
+            "foundation": {
+              "japanese": "Henryさんのシステムは、消しません。すごいから。でも、ぼくはよく遅れるから、すぐ読みたい。ふつうのラベルも、つけましょう。",
+              "reading": "ヘンリーさんのシステムは、けしません。すごいから。でも、ぼくはよくおくれるから、すぐよみたい。ふつうのラベルも、つけましょう。",
+              "english": "We won't erase your system, Henry — because it's great. But I'm often late, so I want to read it fast. Let's add a plain label too."
+            },
+            "n5": {
+              "japanese": "Henryさんの印は消さなくていいですよ。よくできてるから。でも、ぼくはいつも遅れるから、ぱっと読みたいんです。ふつうのラベルも、いっしょに付けませんか。",
+              "reading": "ヘンリーさんのしるしはけさなくていいですよ。よくできてるから。でも、ぼくはいつもおくれるから、ぱっとよみたいんです。ふつうのラベルも、いっしょにつけませんか。",
+              "english": "We don't have to erase your marks, Henry — they're well made. But I'm always late, so I want to read it at a glance. Shall we add a plain label alongside them?"
+            },
+            "n4": {
+              "japanese": "Henryさんのシステム、消す必要ないですよ。ほんとによくできてるし。ただ、ぼく、遅刻ぎみで地図をぱっと見ることが多いから、一秒で読みたいんです。だから、普通のラベルも並べて付けません？消すんじゃなくて、足すんです。",
+              "reading": "ヘンリーさんのシステム、けすひつようないですよ。ほんとによくできてるし。ただ、ぼく、ちこくぎみでちずをぱっとみることがおおいから、いちびょうでよみたいんです。だから、ふつうのラベルもならべてつけません？けすんじゃなくて、たすんです。",
+              "english": "There's no need to erase your system, Henry — it really is well made. It's just, I tend to run late and glance at the map, so I want to read it in one second. So shall we put a plain label alongside it too? Not erase — add."
+            },
+            "n3": {
+              "japanese": "Henryさんのシステムは、消さなくていいと思うんですよ。実際よくできてるし。ただ、ぼくって遅刻常習犯で、地図なんて一瞬しか見ないから、パッと読めないと困るんです。だから、普通のラベルを横に足しませんか。置き換えるんじゃなくてね。",
+              "reading": "ヘンリーさんのシステムは、けさなくていいとおもうんですよ。じっさいよくできてるし。ただ、ぼくってちこくじょうしゅうはんで、ちずなんていっしゅんしかみないから、パッとよめないとこまるんです。だから、ふつうのラベルをよこにたしませんか。おきかえるんじゃなくてね。",
+              "english": "I don't think we need to erase your system, Henry — it's genuinely well made. It's just, I'm a chronic latecomer and I only ever glance at a map for a second, so I'm stuck if I can't read it instantly. So shall we add a plain label beside it? Not replace it, mind."
+            },
+            "n2": {
+              "japanese": "Henryさんのシステム、消す必要はないと思うんです。実際、よく作り込んであるし。ただ、ぼくは遅刻の常連で、地図なんて一瞬しか目に入らないもので。ぱっと読めないと動けないんですよ。だから、普通のラベルを隣に足しませんか。差し替えるんじゃなく、並べるかたちで。",
+              "reading": "ヘンリーさんのシステム、けすひつようはないとおもうんです。じっさい、よくつくりこんであるし。ただ、ぼくはちこくのじょうれんで、ちずなんていっしゅんしかめにはいらないもので。ぱっとよめないとうごけないんですよ。だから、ふつうのラベルをとなりにたしませんか。さしかえるんじゃなく、ならべるかたちで。",
+              "english": "I don't think we need to erase your system, Henry — it's genuinely well built. It's just, I'm a regular latecomer, and a map only ever catches my eye for an instant. If I can't read it fast, I can't move. So shall we add a plain label next to it? Not swap it out — set them side by side."
+            },
+            "n1": {
+              "japanese": "Henryさんのシステム、別に消す必要はないと思うんですよ。実際、恐ろしく作り込んであるわけだし。ただね、ぼくみたいな遅刻の常連からすると、地図なんて走りながら一瞬しか目に入らないもので。ぱっと読めないと、そこで詰むんです。だから、その脇に普通のラベルも足しておきませんか。差し替えるんじゃなく、並べておくかたちで。",
+              "reading": "ヘンリーさんのシステム、べつにけすひつようはないとおもうんですよ。じっさい、おそろしくつくりこんであるわけだし。ただね、ぼくみたいなちこくのじょうれんからすると、ちずなんてはしりながらいっしゅんしかめにはいらないもので。ぱっとよめないと、そこでつむんです。だから、そのわきにふつうのラベルもたしておきませんか。さしかえるんじゃなく、ならべておくかたちで。",
+              "english": "I don't think we actually need to erase your system, Henry — it's built to a terrifying degree, after all. It's just, for a chronic latecomer like me, a map only catches my eye for a split second while I'm running. If I can't read it fast, that's where I'm stuck. So shall we add a plain label off to the side too? Not swap it out — keep them side by side."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:margin-map:how-to-edit",
+          "beatId": "beat:margin-map:stance",
+          "question": "How should the class edit Henry's route without rejecting him?",
+          "options": [
+            {
+              "id": "option:margin-map:key-in-margin",
+              "action": "Keep Henry's cipher in the corner as a labelled key, and write the shared route in plain kana as the main line.",
+              "japaneseByBand": {
+                "foundation": "Henryさんの印は、すみに『キー』として残す。道は、ふつうのかなで書く。",
+                "n5": "Henryさんの印は、すみにキーとして残しましょう。道の名前は、ふつうのかなで書きます。",
+                "n4": "Henryさんの記号は、すみに『キー』として残して、道の名前のほうは普通のかなで書きましょう。",
+                "n3": "Henryさんの記号は隅にキーとしてそのまま残して、道の名前は普通のかなで書くことにしませんか。",
+                "n2": "Henryさんの記号は隅にキーとして残しておいて、道の名前自体は普通のかなで書く、というかたちにしましょう。",
+                "n1": "Henryさんの記号は隅にキーとして残したうえで、道の名前そのものは普通のかなで書いておく——そういう分け方にしましょう。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:margin-map:before-final"
+            },
+            {
+              "id": "option:margin-map:teach-one-symbol",
+              "action": "Ask Henry to teach the class one symbol of his system so it becomes shared, then add the plain kana beside it.",
+              "japaneseByBand": {
+                "foundation": "Henryさんに、印を一つ教えてもらう。それから、となりにかなも書く。",
+                "n5": "Henryさんに、記号を一つ教えてもらいましょう。それから、となりに普通のかなも書きます。",
+                "n4": "まずHenryさんに記号を一つ教えてもらって、みんなの共通の印にして、その横に普通のかなも足しましょう。",
+                "n3": "先にHenryさんから記号を一つ教わって、クラス共通の印にしてから、その横に普通のかなを添えませんか。",
+                "n2": "まずはHenryさんに記号を一つ教わって、クラス共通のものにしたうえで、その横に普通のかなも添えていきましょう。",
+                "n1": "まずはHenryさん自身に記号を一つ教わって、クラス共通の約束事にしてしまってから、その横に普通のかなを添えていく——という順にしませんか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:margin-map:before-final"
+            }
+          ],
+          "convergence": "checkpoint:margin-map:before-final"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:margin-map:before-final",
+          "beatId": "beat:margin-map:back-attempt",
+          "resume": "The learner has taken a stance on how to keep Henry's system while making the route readable. Henry answers by choosing what the map is really for."
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:henry-agrees",
+          "beatId": "beat:margin-map:repair",
+          "speakerId": "henry",
+          "intent": "Accept the edit warmly and reframe his own goal with a reason: he wants everyone to be able to read it, not only himself — editing instead of defending, late qualifier and all.",
+          "attentionTarget": "his marks kept as a key, and the plain names going onto the line",
+          "variants": {
+            "foundation": {
+              "japanese": "わかりました。キーはすみ、道はかな。……みんなが読めるほうがいいから。ぼくだけじゃなくて。たぶん、そのほうがいい。",
+              "reading": "わかりました。キーはすみ、みちはかな。……みんながよめるほうがいいから。ぼくだけじゃなくて。たぶん、そのほうがいい。",
+              "english": "Okay. Key in the corner, route in plain kana. …Because it's better if everyone can read it. Not just me. Probably that's better."
+            },
+            "n5": {
+              "japanese": "わかりました。キーは隅に、道の名前はかなで。……ぼくだけ読めても意味がないから。みんなが読めるほうがいいですよね。たぶん、そのほうが正しい。",
+              "reading": "わかりました。キーはすみに、みちのなまえはかなで。……ぼくだけよめてもいみがないから。みんながよめるほうがいいですよね。たぶん、そのほうがただしい。",
+              "english": "Okay. Key in the corner, route names in kana. …Because it's meaningless if only I can read it. Better that everyone can. Probably that's the right call."
+            },
+            "n4": {
+              "japanese": "わかりました。キーは隅に残して、道の名前はかなで書きます。……結局、ぼく一人が読めても地図の意味はないから。みんなが読めたほうがいいに決まってますよね。たぶん、そっちが正しい。",
+              "reading": "わかりました。キーはすみにのこして、みちのなまえはかなでかきます。……けっきょく、ぼくひとりがよめてもちずのいみはないから。みんながよめたほうがいいにきまってますよね。たぶん、そっちがただしい。",
+              "english": "Okay. I'll keep the key in the corner and write the route names in kana. …In the end, a map's pointless if I'm the only one who can read it. Of course it's better if everyone can. Probably that's the right one."
+            },
+            "n3": {
+              "japanese": "わかりました。キーは隅に残して、道の名前のほうはかなで書きますよ。……そもそも、ぼく一人が読めても地図としては意味がないですからね。みんなが読めるにこしたことはない。……うん、たぶん、そっちが正しいです。",
+              "reading": "わかりました。キーはすみにのこして、みちのなまえのほうはかなでかきますよ。……そもそも、ぼくひとりがよめてもちずとしてはいみがないですからね。みんながよめるにこしたことはない。……うん、たぶん、そっちがただしいです。",
+              "english": "Okay. I'll leave the key in the corner and write the route names in kana. …After all, a map means nothing if I'm the only one who can read it. Everyone being able to read it can only be better. …Yeah, probably that's the right one."
+            },
+            "n2": {
+              "japanese": "わかりました。キーは隅に残しておいて、道の名前のほうはかなで書き直します。……考えてみれば、ぼく一人が読めたところで、地図としちゃ何の意味もないわけで。だれでも読めるほうがいいに決まってる。……うん、たぶん、そっちのほうが正しいんでしょうね。",
+              "reading": "わかりました。キーはすみにのこしておいて、みちのなまえのほうはかなでかきなおします。……かんがえてみれば、ぼくひとりがよめたところで、ちずとしちゃなんのいみもないわけで。だれでもよめるほうがいいにきまってる。……うん、たぶん、そっちのほうがただしいんでしょうね。",
+              "english": "Okay. I'll keep the key in the corner and rewrite the route names in kana. …Come to think of it, me being the only one who can read it does the map no good whatsoever. Of course it's better if anyone can read it. …Yeah, probably that's the right way, isn't it."
+            },
+            "n1": {
+              "japanese": "わかりました。キーのほうは隅に残しておくとして、道の名前はかなで書き直しますよ。……まあ、よくよく考えたら、ぼく一人が読めたところで、地図としては何の役にも立たないわけですからね。だれが見ても読める——それにこしたことはない。……ええ、たぶん、そっちのほうが正しいんだと思います。",
+              "reading": "わかりました。キーのほうはすみにのこしておくとして、みちのなまえはかなでかきなおしますよ。……まあ、よくよくかんがえたら、ぼくひとりがよめたところで、ちずとしてはなんのやくにもたたないわけですからね。だれがみてもよめる——それにこしたことはない。……ええ、たぶん、そっちのほうがただしいんだとおもいます。",
+              "english": "Okay. I'll keep the key off in the corner, and rewrite the route names in kana. …Well, when I really think about it, me being the only one who can read it makes the map good for nothing. Readable to anyone who looks — you can't do better than that. …Yes, probably that's the right way, I think."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:margin-map:aakash-close",
+          "beatId": "beat:margin-map:exit-line",
+          "speakerId": "aakash",
+          "intent": "Warm close that confirms the maker was not rejected: the system is fully intact, and now he too can find the station on the first try.",
+          "attentionTarget": "the plain names on the line and Henry's key still in the corner",
+          "variants": {
+            "foundation": {
+              "japanese": "これで、ぼくでも駅がすぐ分かります。Henryさんのシステムは、そのまま。ぼくも読めるだけ。",
+              "reading": "これで、ぼくでもえきがすぐわかります。ヘンリーさんのシステムは、そのまま。ぼくもよめるだけ。",
+              "english": "Now even I can find the station right away. Your system's still yours — I can just read it now too."
+            },
+            "n5": {
+              "japanese": "これで、ぼくでも一回で駅が分かりますよ。Henryさんのシステムはそのまま残ってる。ぼくが読めるようになっただけです。",
+              "reading": "これで、ぼくでもいっかいでえきがわかりますよ。ヘンリーさんのシステムはそのままのこってる。ぼくがよめるようになっただけです。",
+              "english": "Now even I can find the station on the first try. Your system's still there, unchanged. I've just become able to read it, that's all."
+            },
+            "n4": {
+              "japanese": "うん、これなら、ぼくでも一発で駅が分かる。Henryさんのシステムは、ちゃんとそのまま残ってますからね。ぼくが読めるようになっただけで。",
+              "reading": "うん、これなら、ぼくでもいっぱつでえきがわかる。ヘンリーさんのシステムは、ちゃんとそのままのこってますからね。ぼくがよめるようになっただけで。",
+              "english": "Yeah, like this even I can spot the station in one go. And your system's still right there, unchanged. I've just become able to read it, is all."
+            },
+            "n3": {
+              "japanese": "うん、これなら、ぼくでも一発で駅にたどり着けますよ。Henryさんのシステムはそっくりそのまま残ってるし。ただ、ぼくが読めるようになった。それだけの話です。",
+              "reading": "うん、これなら、ぼくでもいっぱつでえきにたどりつけますよ。ヘンリーさんのシステムはそっくりそのままのこってるし。ただ、ぼくがよめるようになった。それだけのはなしです。",
+              "english": "Yeah, like this even I can get to the station in one shot. And your system's left completely intact. It's just that now I can read it — that's all it is."
+            },
+            "n2": {
+              "japanese": "うん、これでぼくみたいなのでも一発で駅にたどり着ける。Henryさんのシステムはそっくり残ってるわけだし。要は、ぼくが読めるようになった、ってだけの話ですよ。",
+              "reading": "うん、これでぼくみたいなのでもいっぱつでえきにたどりつける。ヘンリーさんのシステムはそっくりのこってるわけだし。ようは、ぼくがよめるようになった、ってだけのはなしですよ。",
+              "english": "Yeah, now even someone like me can reach the station in one go. Your system's left completely intact, after all. Basically it's just that I've become able to read it, that's all."
+            },
+            "n1": {
+              "japanese": "うん、これなら、ぼくみたいな読めない人間でも一発で駅にたどり着けますよ。Henryさんのシステムはそっくりそのまま残ってるわけだし。要するに、ぼくが読めるようになった——ただそれだけのことなんですよね。",
+              "reading": "うん、これなら、ぼくみたいなよめないにんげんでもいっぱつでえきにたどりつけますよ。ヘンリーさんのシステムはそっくりそのままのこってるわけだし。ようするに、ぼくがよめるようになった——ただそれだけのことなんですよね。",
+              "english": "Yeah, like this even a can't-read type like me can reach the station in one go. And your system's left completely intact, after all. In short, I've just become able to read it — that's all it comes down to, really."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:margin-map:route-readable",
+          "beatId": "beat:margin-map:exit-image",
+          "cueId": "cue:route-in-plain-kana-with-margin-key",
+          "description": "The route now carries plain hiragana names along its line, and Henry's cipher is folded into a small labelled key in the corner. Anyone entering the room can read the route; nothing of the system has been thrown away."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:wrong-charger",
+      "state": "seed",
+      "ownerIds": [
+        "henry",
+        "angel"
+      ],
+      "meaningNow": "A tool is prepared meticulously except for the one connector the room actually needs — Henry's private cipher is careful but unreadable to anyone else, and even his key is written in the same unreadable hand.",
+      "useNumber": 1,
+      "maximumUses": 4,
+      "optionalFallback": "Henry's route is simply labelled in a personal shorthand nobody else can read, and the class adds a plain-kana label beside it."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:margin-map:readable-route",
+      "kind": "story",
+      "description": "The class edits Henry's private cipher into a route anyone can read: plain-kana names go on the line while his marks are preserved as a labelled key in the margin, so the idea is edited without the maker being rejected."
+    },
+    {
+      "id": "outcome:margin-map:henry-arrival",
+      "kind": "bond",
+      "castId": "henry",
+      "chapter": 2,
+      "beat": "arrival",
+      "description": "Henry is introduced through the delight and the blind spot of his over-built private system; he defends the mechanism, hears the human note a beat late with his signature qualifier, and takes his first step from building for himself toward leaving something legible to others."
+    },
+    {
+      "id": "outcome:margin-map:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l02",
+      "description": "Introduce-a-person-and-label-a-useful-object-in-plain-kana evidence returns through the registered transfer activity, with a reason given by 〜から; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:aakash-tries-to-read-it-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-relabel-step"
+    ],
+    "withdrawnContentFallback": "Use the same relabel-in-plain-kana and edit-without-rejecting-the-maker beats with neutral nameplates and a generic classmate whose private shorthand route is kept as a margin key while the class adds a readable plain-kana label."
+  }
+}

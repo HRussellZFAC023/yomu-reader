@@ -1,0 +1,492 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e12-the-vanishing-course",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 12,
+  "title": {
+    "en": "The Vanishing Course",
+    "ja": "消えた献立"
+  },
+  "synopsis": "Jenny has planned every cue for the class's map-celebration meal, and one by one they all vanish — the labels, the counts, the order things should come out. Instead of soldiering on alone over a dropped stitch, she asks the class into the scene: describe what is still on the table and count how many of each thing are actually needed. With Sam already stocking and counting, the learner rebuilds the serving of one course from what remains. The first ensemble save lights a single short route on the atlas — not the whole map, but proof the class can recover something together.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "jenny",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jenny",
+        "docs/academy/story/CAST-AND-CONSENT.md#jenny"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "stepping back or asking for help framed as a confidence deficit",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "sam",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e11-storm-route-variant",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l17",
+            "l1-l18"
+          ],
+          "function": "describe-what-is-present-and-ask-how-many-are-needed-in-a-failed-service-plan"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twelve-first-meeting-jenny"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:vanishing-course:lost-cues",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Watch Jenny's fully planned serving order vanish and see her ask the class into the scene instead of rescuing it alone.",
+      "dramaticQuestion": "When every serving cue is gone, will the host keep carrying it alone or ask the room to count what is really there?",
+      "learnerNeed": "A failed service plan where describing what remains and counting how many are needed rebuilds one course from the table itself.",
+      "curriculum": {
+        "sectionId": "count-what-remains",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:laid-counter",
+          "beatId": "beat:vanishing-course:arrival-image",
+          "cueId": "cue:cafe-counter-labelled-serving-cards",
+          "description": "The cafe counter is lined with covered dishes and a row of small serving cards, each meant to say what the dish is, how many there are, and when it goes out. Above the counter the class's paper atlas waits with one unlit route point at its edge."
+        },
+        {
+          "kind": "line",
+          "id": "line:vanishing-course:jenny-welcome",
+          "beatId": "beat:vanishing-course:host-want",
+          "speakerId": "jenny",
+          "intent": "Welcome the class to the map-celebration meal and lay out the full serving plan she prepared in advance.",
+          "attentionTarget": "the row of covered dishes and their serving cards",
+          "variants": {
+            "foundation": {
+              "japanese": "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。出す順番を、決めておきました。",
+              "reading": "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。だすじゅんばんを、きめておきました。",
+              "english": "Everyone, good evening. Tonight is the meal to celebrate the map. I decided the order to bring things out in."
+            },
+            "n5": {
+              "japanese": "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。何を、いくつ、どの順番で出すか、ぜんぶメモしておきました。",
+              "reading": "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。なにを、いくつ、どのじゅんばんでだすか、ぜんぶメモしておきました。",
+              "english": "Everyone, good evening. Tonight is the meal to celebrate the map. What, how many, and in what order to serve — I noted it all down."
+            },
+            "n4": {
+              "japanese": "みなさん、こんばんは。今夜は地図の完成のお祝いなので、料理を出す順番、ぜんぶ決めておいたんです。何を何個、どこに置くか、カードにして。",
+              "reading": "みなさん、こんばんは。こんやはちずのかんせいのおいわいなので、りょうりをだすじゅんばん、ぜんぶきめておいたんです。なにをなんこ、どこにおくか、カードにして。",
+              "english": "Everyone, good evening. Since tonight's celebrating the map being finished, I'd set the whole serving order ahead of time — what, how many, where each goes, all on cards."
+            },
+            "n3": {
+              "japanese": "みなさん、こんばんは。今夜は地図のお祝いなので、料理の出し順、きちんと組んでおいたんですよ。何をいくつ、どの順で出すか、一枚ずつカードにして。",
+              "reading": "みなさん、こんばんは。こんやはちずのおいわいなので、りょうりのだしじゅん、きちんとくんでおいたんですよ。なにをいくつ、どのじゅんでだすか、いちまいずつカードにして。",
+              "english": "Everyone, good evening. Since tonight's the map celebration, I put the serving together properly — what, how many, in what order, each on its own card."
+            },
+            "n2": {
+              "japanese": "みなさん、こんばんは。今夜は地図の完成祝いということで、料理を出す段取りを一通り決めておきました。何をいくつ、どの順番で運ぶか、カードに書き出して。",
+              "reading": "みなさん、こんばんは。こんやはちずのかんせいいわいということで、りょうりをだすだんどりをひととおりきめておきました。なにをいくつ、どのじゅんばんではこぶか、カードにかきだして。",
+              "english": "Everyone, good evening. Tonight being the celebration of the finished map, I set out the whole serving procedure — what, how many, in what order to carry, written out on cards."
+            },
+            "n1": {
+              "japanese": "みなさん、こんばんは。今夜は地図の完成祝いですから、料理を出す手順を、ひととおり組み立てておいたんです。何をいくつ、どういう順で運ぶか、一枚ずつカードにしてね。",
+              "reading": "みなさん、こんばんは。こんやはちずのかんせいいわいですから、りょうりをだすてじゅんを、ひととおりくみたてておいたんです。なにをいくつ、どういうじゅんではこぶか、いちまいずつカードにしてね。",
+              "english": "Everyone, good evening. Since tonight celebrates the finished map, I'd assembled the whole serving procedure — what, how many, in what order to carry, each on its own card."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:cues-vanish",
+          "beatId": "beat:vanishing-course:obstruction",
+          "cueId": "cue:serving-cards-gone-blank",
+          "description": "One by one the serving cards go blank — every label, every count, every order-arrow wiped away. Jenny, a half-finished scarf still looped over one wrist, coaxes one tangled serving-string back into place, then looks up at the covered dishes waiting without a single label."
+        },
+        {
+          "kind": "line",
+          "id": "line:vanishing-course:jenny-asks-class-in",
+          "beatId": "beat:vanishing-course:contribution",
+          "speakerId": "jenny",
+          "intent": "After trying privately to re-thread the plan alone, stop soldiering on and ask the class into the scene: describe what is still present and count how many are needed.",
+          "attentionTarget": "the covered dishes that are still there, and the room",
+          "variants": {
+            "foundation": {
+              "japanese": "順番、消えちゃいました。…でも、料理はここにあります。一人では、むずかしいです。みなさん、手伝ってくれませんか。何が、いくつあるか、いっしょに数えましょう。",
+              "reading": "じゅんばん、きえちゃいました。…でも、りょうりはここにあります。ひとりでは、むずかしいです。みなさん、てつだってくれませんか。なにが、いくつあるか、いっしょにかぞえましょう。",
+              "english": "The order's gone. …But the food is right here. On my own, it's hard. Everyone, could you help me? Let's count together what there is, and how many."
+            },
+            "n5": {
+              "japanese": "順番のメモ、ぜんぶ消えました。…でも、料理はまだここにあります。一人でぜんぶは、むずかしくて。みなさん、手伝ってくれませんか。何が、いくつあるか、いっしょに数えましょう。",
+              "reading": "じゅんばんのメモ、ぜんぶきえました。…でも、りょうりはまだここにあります。ひとりでぜんぶは、むずかしくて。みなさん、てつだってくれませんか。なにが、いくつあるか、いっしょにかぞえましょう。",
+              "english": "The serving notes are all gone. …But the food is still right here. Doing it all alone is hard. Everyone, could you help me? Let's count together what there is, and how many."
+            },
+            "n4": {
+              "japanese": "出す順番、ぜんぶ消えちゃったんです。…一回、自分で直そうとしたんですけど。でも、料理はちゃんと残ってる。だから、みなさんに入ってほしいんです。何がいくつあるか、いっしょに数えてくれませんか。",
+              "reading": "だすじゅんばん、ぜんぶきえちゃったんです。…いっかい、じぶんでなおそうとしたんですけど。でも、りょうりはちゃんとのこってる。だから、みなさんにはいってほしいんです。なにがいくつあるか、いっしょにかぞえてくれませんか。",
+              "english": "The serving order's all vanished. …I did try to fix it myself once. But the food's all still here. So I want you all in on this. Could you count with me — what there is, and how many?"
+            },
+            "n3": {
+              "japanese": "順番のカード、きれいに消えちゃって。…さっき一人で直そうとしたんですけどね。でも、料理そのものは全部残ってるんです。だから今日は、みなさんに入ってもらえますか。何がいくつあるか、まず一緒に数えましょう。",
+              "reading": "じゅんばんのカード、きれいにきえちゃって。…さっきひとりでなおそうとしたんですけどね。でも、りょうりそのものはぜんぶのこってるんです。だからきょうは、みなさんにはいってもらえますか。なにがいくつあるか、まずいっしょにかぞえましょう。",
+              "english": "The order cards wiped clean. …I did try to fix it alone a moment ago. But the food itself is all still here. So tonight, could you all come in on it? First, let's count together — what there is, and how many."
+            },
+            "n2": {
+              "japanese": "出す順番のメモ、全部消えてしまってて。…一度は自分でどうにかしようとしたんですけど、正直きりがなくて。ただ、料理そのものは残ってるんです。だから今夜は、みなさんの手を借りてもいいですか。何がいくついるか、まず一緒に数えましょう。",
+              "reading": "だすじゅんばんのメモ、ぜんぶきえてしまってて。…いちどはじぶんでどうにかしようとしたんですけど、しょうじききりがなくて。ただ、りょうりそのものはのこってるんです。だからこんやは、みなさんのてをかりてもいいですか。なにがいくついるか、まずいっしょにかぞえましょう。",
+              "english": "The serving notes have all vanished. …I did try to sort it myself for a bit, but honestly it was endless. Only, the food itself is still here. So tonight, may I borrow your hands? First let's count together — what we've got, and how many we need."
+            },
+            "n1": {
+              "japanese": "出す順番のカード、きれいさっぱり消えてしまってて。…最初は一人でなんとかしようとしたんですけどね、これはもう抱え込む話じゃないなと。料理そのものは、ちゃんと残ってるんです。だから今夜は、いっそみなさんに入ってもらえませんか。何がいくつあるのか、まず一緒に数えるところから。",
+              "reading": "だすじゅんばんのカード、きれいさっぱりきえてしまってて。…さいしょはひとりでなんとかしようとしたんですけどね、これはもうかかえこむはなしじゃないなと。りょうりそのものは、ちゃんとのこってるんです。だからこんやは、いっそみなさんにはいってもらえませんか。なにがいくつあるのか、まずいっしょにかぞえるところから。",
+              "english": "The serving cards, wiped clean away. …At first I tried to manage it on my own, but this really isn't something to carry alone. The food itself is all still here. So tonight, why not have you all come in on it? Starting with counting together — what there is, and how many."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:vanishing-course:sam-stocks-and-counts",
+          "beatId": "beat:vanishing-course:support-contribution",
+          "speakerId": "sam",
+          "intent": "Answer the ask straight away by already having the table fed: the handout is photographed and shared, and he counts aloud what is present and still warm.",
+          "attentionTarget": "the covered dishes and his own quick tally",
+          "variants": {
+            "foundation": {
+              "japanese": "大丈夫、ハンドアウトは写真に撮りました。みんな、持ってます。あたたかいスープが五つ、パンが十こ。まだ足ります。",
+              "reading": "だいじょうぶ、ハンドアウトはしゃしんにとりました。みんな、もってます。あたたかいスープがいつつ、パンがじゅっこ。まだたります。",
+              "english": "It's fine — I photographed the handout. Everyone's got it. Five warm soups, ten breads. There's still enough."
+            },
+            "n5": {
+              "japanese": "大丈夫です。ハンドアウト、写真に撮って、みんなに送りました。ええと、あたたかいスープが五つ、パンが十こ、お茶もあります。まだ足りますよ。",
+              "reading": "だいじょうぶです。ハンドアウト、しゃしんにとって、みんなにおくりました。ええと、あたたかいスープがいつつ、パンがじゅっこ、おちゃもあります。まだたりますよ。",
+              "english": "It's fine. I photographed the handout and sent it to everyone. Um — five warm soups, ten breads, and there's tea too. There's still enough."
+            },
+            "n4": {
+              "japanese": "あ、大丈夫。さっきハンドアウト写真に撮って、もうみんなに送ってあります。数えますね――あたたかいスープが五つ、パンが十こ、お茶も人数分。うん、まだ足りる。",
+              "reading": "あ、だいじょうぶ。さっきハンドアウトしゃしんにとって、もうみんなにおくってあります。かぞえますね――あたたかいスープがいつつ、パンがじゅっこ、おちゃもにんずうぶん。うん、まだたりる。",
+              "english": "Oh, it's fine. I photographed the handout earlier and already sent it round. Let me count — five warm soups, ten breads, tea for everyone too. Yeah, still enough."
+            },
+            "n3": {
+              "japanese": "あ、それなら大丈夫ですよ。ハンドアウト、写真に撮ってもうみんなに回してあるので。数えますね――スープがまだあたたかいのが五つ、パンが十個、お茶も人数分ある。うん、足ります。",
+              "reading": "あ、それならだいじょうぶですよ。ハンドアウト、しゃしんにとってもうみんなにまわしてあるので。かぞえますね――スープがまだあたたかいのがいつつ、パンがじゅっこ、おちゃもにんずうぶんある。うん、たります。",
+              "english": "Oh, then it's fine. I photographed the handout and already passed it round to everyone. Let me count — five soups still warm, ten breads, tea for everyone too. Yeah, enough."
+            },
+            "n2": {
+              "japanese": "あ、それは心配いらないです。ハンドアウトはさっき撮って、もう全員に共有してあるので。ちょっと数えますね――あたたかいスープが五つ、パンが十個、お茶も人数分。ええ、まだ十分足ります。",
+              "reading": "あ、それはしんぱいいらないです。ハンドアウトはさっきとって、もうぜんいんにきょうゆうしてあるので。ちょっとかぞえますね――あたたかいスープがいつつ、パンがじゅっこ、おちゃもにんずうぶん。ええ、まだじゅうぶんたります。",
+              "english": "Oh, no need to worry about that. I took the handout earlier and already shared it with everyone. Let me count a sec — five warm soups, ten breads, tea for everyone. Yeah, still plenty."
+            },
+            "n1": {
+              "japanese": "あ、そこは心配いりませんよ。ハンドアウトはさっき撮って、もう全員に回してありますから。ちょっと数えますね――まだあたたかいスープが五つ、パンが十個、お茶も人数分。ええ、これなら十分足ります。",
+              "reading": "あ、そこはしんぱいいりませんよ。ハンドアウトはさっきとって、もうぜんいんにまわしてありますから。ちょっとかぞえますね――まだあたたかいスープがいつつ、パンがじゅっこ、おちゃもにんずうぶん。ええ、これならじゅうぶんたります。",
+              "english": "Oh, no need to worry there. I took the handout earlier and already passed it to everyone. Let me count a moment — five soups still warm, ten breads, tea for everyone. Yeah, this is plenty."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:vanishing-course:before-rebuild",
+          "beatId": "beat:vanishing-course:rebuild-attempt",
+          "resume": "Jenny has asked the class in and Sam has counted what is still on the counter. The learner steps in to describe what is present and ask how many of each are needed, and rebuild the serving of one course from what remains."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:vanishing-course:rebuild-serving-plan",
+          "beatId": "beat:vanishing-course:rebuild-attempt",
+          "hook": {
+            "lessonId": "l1-l18",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e12-the-vanishing-course-rebuild-serving-plan"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e12-the-vanishing-course-rebuild-serving-plan"
+          },
+          "resumeContext": "The serving cards are blank but the dishes remain. The learner describes what is on the counter (あります／います, あたたかい／つめたい, まだ足りない), asks how many of each are needed for the people present (いくつ・何個・〜つ・〜人), and offers or requests to plate one course (〜ましょうか／〜てくれませんか／〜をお願いします) — rebuilding the serving of that single course from the table itself.",
+          "onReady": "checkpoint:vanishing-course:after-rebuild",
+          "onRepair": "node:vanishing-course:rebuild-repair",
+          "onDefer": "checkpoint:vanishing-course:before-rebuild"
+        },
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:rebuild-repair",
+          "beatId": "beat:vanishing-course:rebuild-repair",
+          "cueId": "cue:one-dish-one-count-returns",
+          "description": "One covered dish is set forward on its own beside an empty count-slot. Only the single item that went uncounted returns for another try; the parts already described and counted stay in place."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:vanishing-course:after-rebuild",
+          "beatId": "beat:vanishing-course:rebuild-response",
+          "resume": "One course has been described, counted for the people present, and its serving requested aloud. The class holds it, ready to send it round together."
+        },
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:one-course-plated",
+          "beatId": "beat:vanishing-course:changed-image",
+          "cueId": "cue:single-course-counted-and-warm",
+          "description": "Plated to the count the room agreed on, one warm course is ready to go round. Above the counter, the single route point at the atlas's edge begins, faintly, to glow. Every other route stays blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:vanishing-course:one-route-together"
+      }
+    },
+    {
+      "id": "scene:vanishing-course:one-route-together",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let the first ensemble save land as one restored short route, and let Jenny name it as enough without claiming the whole atlas is back.",
+      "dramaticQuestion": "Can restoring one course together count as a real win while the map is still unfinished?",
+      "learnerNeed": "A stance choice for how to back a recovery the class made together, using an offer or a counted request.",
+      "curriculum": {
+        "sectionId": "one-route-restored",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:course-goes-round",
+          "beatId": "beat:vanishing-course:regroup-image",
+          "cueId": "cue:warm-course-reaches-the-table",
+          "description": "The one warm course leaves the counter and starts round the table. On the atlas the single lit route point holds steady while the rest of the map stays dark. Jenny watches it move, the half-finished scarf resting now against her arm."
+        },
+        {
+          "kind": "choice",
+          "id": "choice:vanishing-course:how-to-back-the-save",
+          "beatId": "beat:vanishing-course:stance",
+          "question": "How do you back the one course the class restored together?",
+          "options": [
+            {
+              "id": "option:vanishing-course:offer-to-carry",
+              "action": "Offer to carry the one warm course round now, before it cools.",
+              "japaneseByBand": {
+                "foundation": "あたたかいうちに、わたしが運びましょうか。",
+                "n5": "冷めないうちに、これ、わたしが運びましょうか。",
+                "n4": "冷めないうちに、この一皿、わたしが運びましょうか。",
+                "n3": "冷めちゃう前に、この一皿、わたしが運んでおきましょうか。",
+                "n2": "冷めないうちに、まずこの一皿、私が運んでしまいましょうか。",
+                "n1": "冷めないうちに、ひとまずこの一皿だけ、私が運んでおきましょうか。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:vanishing-course:before-close"
+            },
+            {
+              "id": "option:vanishing-course:count-and-ask",
+              "action": "Count the people and ask the class which single course to send first.",
+              "japaneseByBand": {
+                "foundation": "今、何人いますか。どれから出しますか。みんなで決めましょう。",
+                "n5": "今、何人いますか。どの料理から出すか、みんなで決めませんか。",
+                "n4": "今、何人いますか。どの一皿から出すか、みんなで決めませんか。",
+                "n3": "今、テーブルに何人いますか。どの一皿から回すか、みんなで決めませんか。",
+                "n2": "今、席には何人いますか。まずどの一皿から回すか、みんなで決めてしまいませんか。",
+                "n1": "今、席には何人いるんでしょう。まずどの一皿から回すか、いっそみんなで決めてしまいませんか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:vanishing-course:before-close"
+            }
+          ],
+          "convergence": "checkpoint:vanishing-course:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:vanishing-course:before-close",
+          "beatId": "beat:vanishing-course:close-attempt",
+          "resume": "The learner has backed the shared course with an offer or a counted request. Jenny looks up at the one lit route point and names what the class just did."
+        },
+        {
+          "kind": "line",
+          "id": "line:vanishing-course:jenny-one-route-lit",
+          "beatId": "beat:vanishing-course:repair",
+          "speakerId": "jenny",
+          "intent": "Name the first ensemble save honestly: one short route restored together, not the whole atlas — and that is enough to have begun.",
+          "attentionTarget": "the single lit route point and the class around the table",
+          "variants": {
+            "foundation": {
+              "japanese": "見てください。地図の道が、一つだけ光りました。ぜんぶじゃありません。でも、一人じゃなくて、みんなでできました。今日は、これで十分です。",
+              "reading": "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶじゃありません。でも、ひとりじゃなくて、みんなでできました。きょうは、これでじゅうぶんです。",
+              "english": "Look. Just one route on the map lit up. Not all of it. But we did it together, not alone. For today, this is enough."
+            },
+            "n5": {
+              "japanese": "見てください。地図の道が、一つだけ光りました。全部は、まだです。でも、わたし一人じゃなくて、みんなで戻せた。今日はこれで、十分です。",
+              "reading": "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶは、まだです。でも、わたしひとりじゃなくて、みんなでもどせた。きょうはこれで、じゅうぶんです。",
+              "english": "Look. Just one route on the map lit up. All of it — not yet. But we got it back together, not just me alone. For today, this is enough."
+            },
+            "n4": {
+              "japanese": "あ、見て。地図の道が一つだけ、ちゃんと光りましたね。全部じゃない。一皿だけ。…でも、わたし一人じゃなくて、みんなで戻せたんです。今日はそれで十分。",
+              "reading": "あ、みて。ちずのみちがひとつだけ、ちゃんとひかりましたね。ぜんぶじゃない。ひとさらだけ。…でも、わたしひとりじゃなくて、みんなでもどせたんです。きょうはそれでじゅうぶん。",
+              "english": "Oh, look. Just one route on the map lit up properly. Not all of it. Just one dish. …But we got it back together, not me alone. For today that's enough."
+            },
+            "n3": {
+              "japanese": "見てください。道が一つだけ、灯りましたよ。地図全部じゃない、たった一皿分。…でも、それを一人でじゃなくて、みんなで戻せたんです。今夜は、それで十分だと思います。",
+              "reading": "みてください。みちがひとつだけ、ともりましたよ。ちずぜんぶじゃない、たったひとさらぶん。…でも、それをひとりでじゃなくて、みんなでもどせたんです。こんやは、それでじゅうぶんだとおもいます。",
+              "english": "Look. Just one route lit up. Not the whole map — only one dish's worth. …But we got that back together, not alone. For tonight, I think that's enough."
+            },
+            "n2": {
+              "japanese": "見てください、道が一つだけ灯りました。地図全部が戻ったわけじゃない、ほんの一皿分の短い道です。…でも、それを私一人でじゃなく、みんなで戻せた。今夜はそれで、十分すぎるくらいです。",
+              "reading": "みてください、みちがひとつだけともりました。ちずぜんぶがもどったわけじゃない、ほんのひとさらぶんのみじかいみちです。…でも、それをわたしひとりでじゃなく、みんなでもどせた。こんやはそれで、じゅうぶんすぎるくらいです。",
+              "english": "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a short route. …But we got it back together, not me alone. For tonight, that's more than enough."
+            },
+            "n1": {
+              "japanese": "見てください、道が一つだけ灯りましたね。地図がまるごと戻ったわけじゃない、ほんの一皿分の、ごく短い道です。…でも、それを私が一人で抱えてじゃなく、みんなで戻せた。今夜のところは、それで十分すぎるくらいですよ。",
+              "reading": "みてください、みちがひとつだけともりましたね。ちずがまるごともどったわけじゃない、ほんのひとさらぶんの、ごくみじかいみちです。…でも、それをわたしがひとりでかかえてじゃなく、みんなでもどせた。こんやのところは、それでじゅうぶんすぎるくらいですよ。",
+              "english": "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a very short route. …But we got it back, not with me carrying it alone but all of us together. For tonight, that's more than enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:vanishing-course:route-holds-map-open",
+          "beatId": "beat:vanishing-course:exit-image",
+          "cueId": "cue:one-point-lit-atlas-still-open",
+          "description": "The one course has gone all the way round the table. The single lit route holds on the atlas; the rest of the map is still blank — no longer a problem for Jenny to solve alone. The half-finished scarf rests in her lap, one stitch quietly picked back up."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:first-lantern",
+      "state": "echo",
+      "ownerIds": [
+        "rie"
+      ],
+      "meaningNow": "The first ensemble save restores a short route (one served course), not the whole atlas — the class proves it can recover something together, which is what will justify attempting the exhibition. Jenny's failed solo becomes an ensemble success while the exhibition route stays incomplete.",
+      "priorUse": {
+        "packageId": "s1e01-the-blank-atlas",
+        "sceneId": "scene:blank-atlas:arrival-greetings",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 6,
+      "optionalFallback": "The class simply recovers one course together after the serving cues are lost, and one route point on the map lights while the rest stays blank."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:vanishing-course:one-route-restored",
+      "kind": "story",
+      "description": "After every serving cue vanishes, the class describes and counts what remains and recovers the serving of one course together; a single route point on the atlas lights while the exhibition map stays incomplete."
+    },
+    {
+      "id": "outcome:vanishing-course:jenny-arrival",
+      "kind": "bond",
+      "castId": "jenny",
+      "chapter": 12,
+      "beat": "arrival",
+      "description": "Jenny is introduced as the composed, sensory, private-first host who, when her fully planned service collapses, tries alone only briefly before asking the class into the scene — establishing that asking for help is a chosen competence, not a confidence deficit."
+    },
+    {
+      "id": "outcome:vanishing-course:sam-contribution",
+      "kind": "bond",
+      "castId": "sam",
+      "chapter": 12,
+      "beat": "contribution",
+      "description": "Sam contributes by already stocking and counting for the table — the shared handout and an aloud tally of what is present and still warm — establishing his stocks/offers/counts register as something the class can rely on."
+    },
+    {
+      "id": "outcome:vanishing-course:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l18",
+      "description": "Describe-what-is-present-and-ask-how-many-are-needed evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:jenny-tries-privately-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-rebuild-step"
+    ],
+    "withdrawnContentFallback": "Use the same describe-and-count rebuild and one-route-restored beats with neutral nameplates and a generic host who asks the room to count what remains after the serving cues are lost."
+  }
+}

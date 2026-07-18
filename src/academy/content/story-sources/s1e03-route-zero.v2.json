@@ -1,0 +1,662 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e03-route-zero",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 3,
+  "title": {
+    "en": "Route Zero",
+    "ja": "ゼロからの道"
+  },
+  "synopsis": "Aakash walks the class through his confident rainy route from the station, but the atlas's automatic place-name labels vanish mid-test. His first brave request is grammatically flawless yet asks who a person is instead of where a place is; asking for the missing location — and asking for help — becomes the move that carries the route. The learner asks for a vanished place-name and chooses how to lead on.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "aakash",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#aakash",
+        "docs/academy/story/CAST-AND-CONSENT.md#aakash",
+        "docs/academy/story/dossiers/aakash.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, exact age, or private history",
+        "energetic invitation overriding a stated no",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "rie",
+      "role": "support",
+      "portrayal": "likeness-cleared",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie"
+      ],
+      "forbiddenClaims": [
+        "private biography",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e02-margin-map",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l03",
+            "l1-l04"
+          ],
+          "function": "ask-where-something-is-and-ask-for-help-distinguishing-identity-from-location"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-three-first-meeting-aakash"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:route-zero:the-confident-route",
+      "mode": "live",
+      "locationId": "location:street",
+      "timeState": "evening",
+      "weatherState": "rain",
+      "goal": "Meet Aakash through his confident rainy route from the station and hit the moment the place-name labels drop.",
+      "dramaticQuestion": "When the labels vanish, will the confident guide keep talking, or ask for the one thing he needs?",
+      "learnerNeed": "A live route problem where the place-name must be asked for, not read, and identity must be told apart from location.",
+      "curriculum": {
+        "sectionId": "ask-the-missing-place",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:route-zero:rain-plate",
+          "beatId": "beat:route-zero:arrival-image",
+          "cueId": "cue:station-exit-rain-route-labels",
+          "description": "Rain sheets past the station exit. A route map glows on the wet glass, every turn tagged with an automatic place-name label. A puddle throws the labels back in neon — the whole street reads like a record sleeve. Aakash arrives a few minutes late, waving the class over."
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-welcome",
+          "beatId": "beat:route-zero:host-want",
+          "speakerId": "aakash",
+          "intent": "Arrive a touch late, wave everyone over, and launch the route from the station like a music-video narration.",
+          "attentionTarget": "the station exit and the glowing route on the glass",
+          "variants": {
+            "foundation": {
+              "japanese": "ごめん、ちょっとおそくなりました。じゃあ、行きましょう。駅の出口から、右です。",
+              "reading": "ごめん、ちょっとおそくなりました。じゃあ、いきましょう。えきのでぐちから、みぎです。",
+              "english": "Sorry, I'm a little late. Okay, let's go. From the station exit, it's to the right."
+            },
+            "n5": {
+              "japanese": "ごめん、ちょっと遅れました。じゃあ、行きましょう。駅の出口を出て、右へ。すぐそこですよ。",
+              "reading": "ごめん、ちょっとおくれました。じゃあ、いきましょう。えきのでぐちをでて、みぎへ。すぐそこですよ。",
+              "english": "Sorry, I'm a bit late. Right, let's go. Come out the station exit, then to the right. It's right there."
+            },
+            "n4": {
+              "japanese": "ごめんごめん、ちょっと遅れました。じゃあ行きましょうか。駅の出口を出て、右へ。雨の日はこの道が一番いいんですよ。",
+              "reading": "ごめんごめん、ちょっとおくれました。じゃあいきましょうか。えきのでぐちをでて、みぎへ。あめのひはこのみちがいちばんいいんですよ。",
+              "english": "Sorry, sorry, I'm a little late. Right, shall we get going? Out the station exit, then right. On a rainy day this route's the best one."
+            },
+            "n3": {
+              "japanese": "ごめん、ちょっと遅れちゃって。じゃ、行きましょう。駅の出口を出たら右へ。雨のときはこの道が一番なんですよ、静かで、屋根もあって。",
+              "reading": "ごめん、ちょっとおくれちゃって。じゃ、いきましょう。えきのでぐちをでたらみぎへ。あめのときはこのみちがいちばんなんですよ、しずかで、やねもあって。",
+              "english": "Sorry, I ended up a bit late. Right, let's go. Out the station exit and then right. When it's raining this route's the best — quiet, and it's got cover too."
+            },
+            "n2": {
+              "japanese": "ごめん、少し遅れました。さ、行きましょうか。駅の出口を出て右へ。雨の日はこの道にかぎるんですよ。静かだし、屋根もあるし、なんというか、絵になるんです。",
+              "reading": "ごめん、すこしおくれました。さ、いきましょうか。えきのでぐちをでてみぎへ。あめのひはこのみちにかぎるんですよ。しずかだし、やねもあるし、なんというか、えになるんです。",
+              "english": "Sorry, ran a little late. Right, shall we? Out the station exit and to the right. On a rainy day it has to be this route. Quiet, covered, and — how to put it — it just makes a picture."
+            },
+            "n1": {
+              "japanese": "ごめん、ちょっとだけ遅れて。さ、行きましょう。駅の出口を出たら右へ、で、そのまま。雨の日はもう、この道一択なんですよ。静かだし、屋根もあるし……なんというか、そのまま一枚、ジャケットになりそうな道でね。",
+              "reading": "ごめん、ちょっとだけおくれて。さ、いきましょう。えきのでぐちをでたらみぎへ、で、そのまま。あめのひはもう、このみちいったくなんですよ。しずかだし、やねもあるし……なんというか、そのままいちまい、ジャケットになりそうなみちでね。",
+              "english": "Sorry, just a touch late. Right, let's go. Out the station exit, right, and just keep going. On a rainy day it's this route or nothing, honestly. Quiet, covered, and… somehow the kind of street that could be an album cover as-is."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-route-detail",
+          "beatId": "beat:route-zero:momentum",
+          "speakerId": "aakash",
+          "intent": "Point at each automatic label in turn — the crossing, the corner, the good shop — riding pure momentum.",
+          "attentionTarget": "the floating place-name labels along the route",
+          "variants": {
+            "foundation": {
+              "japanese": "そこは交差点です。あそこに、いいお店があります。あのお店で曲がります。",
+              "reading": "そこはこうさてんです。あそこに、いいおみせがあります。あのおみせでまがります。",
+              "english": "That's the crossing. Over there, there's a nice shop. At that shop, we turn."
+            },
+            "n5": {
+              "japanese": "そこが交差点ですね。あそこにいいお店があって、あのお店で右に曲がります。ね、簡単でしょう？",
+              "reading": "そこがこうさてんですね。あそこにいいおみせがあって、あのおみせでみぎにまがります。ね、かんたんでしょう？",
+              "english": "That's the crossing. There's a nice shop over there, and at that shop we turn right. See? Easy, right?"
+            },
+            "n4": {
+              "japanese": "そこが交差点で、あそこの角にいいお店があるんです。あの店の前で曲がると、もう見えてきます。ね、迷いようがないでしょう。",
+              "reading": "そこがこうさてんで、あそこのかどにいいおみせがあるんです。あのみせのまえでまがると、もうみえてきます。ね、まよいようがないでしょう。",
+              "english": "That's the crossing, and there's a nice shop on that corner. Turn in front of that shop and it comes into view already. See — no way to get lost."
+            },
+            "n3": {
+              "japanese": "そこが交差点で、あそこの角に感じのいい店があって。あの店の前で曲がれば、もうゴールが見えるんですよ。この順番で覚えれば、迷いようがない。",
+              "reading": "そこがこうさてんで、あそこのかどにかんじのいいみせがあって。あのみせのまえでまがれば、もうゴールがみえるんですよ。このじゅんばんでおぼえれば、まよいようがない。",
+              "english": "That's the crossing, and there's a nice-looking place on that corner. Turn in front of that shop and you can already see the finish. Memorize it in this order and there's no way to get lost."
+            },
+            "n2": {
+              "japanese": "そこが交差点で、あそこの角に、ちょっといい感じの店があるんです。あの店の前で曲がれば、あとはもう見えてくる。この順番さえ押さえておけば、まず迷わない。",
+              "reading": "そこがこうさてんで、あそこのかどに、ちょっといいかんじのみせがあるんです。あのみせのまえでまがれば、あとはもうみえてくる。このじゅんばんさえおさえておけば、まずまよわない。",
+              "english": "That's the crossing, and on that corner there's a rather nice-looking place. Turn in front of that shop and the rest just comes into view. Lock down this order and you basically can't get lost."
+            },
+            "n1": {
+              "japanese": "そこが交差点、で、あそこの角に、これがまたいい感じの店があってね。あの店の前で曲がれば、もう先が見えてくるんですよ。要はこの順番だけ押さえておけば、迷いようがない――と、僕はそう思ってたんですけどね。",
+              "reading": "そこがこうさてん、で、あそこのかどに、これがまたいいかんじのみせがあってね。あのみせのまえでまがれば、もうさきがみえてくるんですよ。ようはこのじゅんばんだけおさえておけば、まよいようがない――と、ぼくはそうおもってたんですけどね。",
+              "english": "There's the crossing — and on that corner, there's this genuinely nice little place, see. Turn in front of that shop and the way ahead opens right up. Point is, just hold onto this order and you can't get lost — or so I'd been thinking, anyway."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:route-zero:labels-vanish",
+          "beatId": "beat:route-zero:obstruction",
+          "cueId": "cue:place-labels-dissolve-in-rain",
+          "description": "Every automatic place-name label peels off the map at once and dissolves into the rain. The route is still there — the crossing, the corner, the shop — but nothing is named. Aakash's pointing finger stops in mid-air over a blank tag."
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-brave-ask",
+          "beatId": "beat:route-zero:brave-wrong-ask",
+          "speakerId": "aakash",
+          "intent": "Recover by bravely asking a question — flawlessly formed — but aim it at identity (who a person is, where they are from) instead of location (where the place is).",
+          "attentionTarget": "a figure standing by the blank corner, rather than the blank place-tag itself",
+          "variants": {
+            "foundation": {
+              "japanese": "えっと……あの人は、どこの人ですか。",
+              "reading": "えっと……あのひとは、どこのひとですか。",
+              "english": "Um… that person — where are they from?"
+            },
+            "n5": {
+              "japanese": "あれ、名前が消えた。えっと……すみません、あの人はどこの人ですか。",
+              "reading": "あれ、なまえがきえた。えっと……すみません、あのひとはどこのひとですか。",
+              "english": "Huh, the names are gone. Um… excuse me, where's that person from?"
+            },
+            "n4": {
+              "japanese": "あれ、ラベルが全部消えた。えっと……すみません、あの人ってどこの人ですか。",
+              "reading": "あれ、ラベルがぜんぶきえた。えっと……すみません、あのひとってどこのひとですか。",
+              "english": "Huh, all the labels are gone. Um… excuse me, that person — whereabouts are they from?"
+            },
+            "n3": {
+              "japanese": "あれ、ラベル、全部消えちゃった。えっと……すみません、あの人ってどこの人なんですか。",
+              "reading": "あれ、ラベル、ぜんぶきえちゃった。えっと……すみません、あのひとってどこのひとなんですか。",
+              "english": "Huh — the labels, all gone. Um… sorry, that person, where exactly are they from?"
+            },
+            "n2": {
+              "japanese": "あれ、ラベルがきれいに消えましたね。えっと……すみません、あの人ってどちらの方なんですか。",
+              "reading": "あれ、ラベルがきれいにきえましたね。えっと……すみません、あのひとってどちらのかたなんですか。",
+              "english": "Huh, the labels have vanished clean off. Um… excuse me, that person — where might they be from?"
+            },
+            "n1": {
+              "japanese": "あれ、ラベル、見事に全部消えたな……。えっと、すみません、あの方ってどちらのご出身なんですか。",
+              "reading": "あれ、ラベル、みごとにぜんぶきえたな……。えっと、すみません、あのかたってどちらのごしゅっしんなんですか。",
+              "english": "Huh, the labels — every one of them, gone, beautifully… Um, excuse me, that person, whereabouts are they originally from?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:rie-redirect",
+          "beatId": "beat:route-zero:contribution",
+          "speakerId": "rie",
+          "intent": "Praise the flawless question, then separate identity from location — the route needs where the place is, not who the person is — and hand over the ask-for-help frame.",
+          "attentionTarget": "the blank place-tag, and a marker pen that runs dry on the word どこ",
+          "variants": {
+            "foundation": {
+              "japanese": "今の文、いいですね。でも、それは人の質問です。道は『あのお店はどこですか』。手伝ってください、でいいですよ。",
+              "reading": "いまのぶん、いいですね。でも、それはひとのしつもんです。みちは『あのおみせはどこですか』。てつだってください、でいいですよ。",
+              "english": "The sentence is good. But that's a question about a person. For the route, it's 'Where is that shop?' You can just say 'Please help me.'"
+            },
+            "n5": {
+              "japanese": "今の文、完璧です。でも、それは『人』の質問ですね。道を知りたいときは、『あのお店はどこですか』。分からなかったら、『手伝ってください』でいいんですよ。",
+              "reading": "いまのぶん、かんぺきです。でも、それは『ひと』のしつもんですね。みちをしりたいときは、『あのおみせはどこですか』。わからなかったら、『てつだってください』でいいんですよ。",
+              "english": "That sentence just now — perfect. But it's a question about a 'person.' When you want to know the way, it's 'Where is that shop?' If you're not sure, 'Please help me' is all you need."
+            },
+            "n4": {
+              "japanese": "文法は完璧ですよ。ただ、それは『人』を聞く形。今ほしいのは『場所』のほうです。『あのお店はどこですか』。それか、そのまま『手伝ってください』『聞いてもいいですか』でいいんです。",
+              "reading": "ぶんぽうはかんぺきですよ。ただ、それは『ひと』をきくかたち。いまほしいのは『ばしょ』のほうです。『あのおみせはどこですか』。それか、そのまま『てつだってください』『きいてもいいですか』でいいんです。",
+              "english": "The grammar's perfect. It's just the form for asking about a 'person.' What we need now is the 'place.' 'Where is that shop?' Or simply, 'Please help me,' 'May I ask?' — that's enough."
+            },
+            "n3": {
+              "japanese": "文法は完璧。惜しいのは、それ『誰か』を聞く形なんですよね。いま知りたいのは『どこか』のほう。『あのお店はどこですか』って。分からなくなったら、無理に進まずに『手伝ってください』『聞いてもいいですか』でいいんですよ。",
+              "reading": "ぶんぽうはかんぺき。おしいのは、それ『だれか』をきくかたちなんですよね。いましりたいのは『どこか』のほう。『あのおみせはどこですか』って。わからなくなったら、むりにすすまずに『てつだってください』『きいてもいいですか』でいいんですよ。",
+              "english": "The grammar's perfect. The near-miss is that it's the form for asking 'who someone is.' What you want now is 'where something is.' 'Where is that shop?' And when you lose the thread, don't force ahead — 'Please help me,' 'May I ask?' is fine."
+            },
+            "n2": {
+              "japanese": "文としては、もう完璧なんです。ただ、それは『どこの人か』を聞く形で、いま必要なのは『どこにあるか』のほう。『あのお店はどこですか』ですね。詰まったら、そのまま『手伝ってください』『少し聞いてもいいですか』でいいんですよ。",
+              "reading": "ぶんとしては、もうかんぺきなんです。ただ、それは『どこのひとか』をきくかたちで、いまひつようなのは『どこにあるか』のほう。『あのおみせはどこですか』ですね。つまったら、そのまま『てつだってください』『すこしきいてもいいですか』でいいんですよ。",
+              "english": "As a sentence, it's already perfect. It's just the form for asking 'where a person is from,' when what you need is 'where a thing is.' 'Where is that shop?' And if you get stuck, simply 'Please help me,' 'May I ask you something?' will do."
+            },
+            "n1": {
+              "japanese": "文としては、非の打ちどころがないんですよ。惜しむらくは、それが『どこの人か』を尋ねる形で、いま欲しいのは『どこにあるか』のほう。『あのお店はどこですか』ですね。行き詰まったら、無理に押し切らずに『手伝ってください』『少し伺ってもいいですか』――それでちゃんと道は戻ってきます。",
+              "reading": "ぶんとしては、ひのうちどころがないんですよ。おしむらくは、それが『どこのひとか』をたずねるかたちで、いまほしいのは『どこにあるか』のほう。『あのおみせはどこですか』ですね。いきづまったら、むりにおしきらずに『てつだってください』『すこしうかがってもいいですか』――それでちゃんとみちはもどってきます。",
+              "english": "As a sentence it's flawless, truly. The pity is that it's the form for asking 'where a person is from,' when what you want is 'where a thing is.' 'Where is that shop?' And when you hit a wall, rather than forcing through — 'Please help me,' 'Might I ask you something?' — that's what brings the route back."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:route-zero:dead-doko-marker",
+          "beatId": "beat:route-zero:ask-setup",
+          "cueId": "cue:doko-marker-runs-dry",
+          "description": "Rie uncaps a marker to write どこ on the blank tag; it runs dry precisely on the last stroke of こ. She holds up the dead marker, unbothered, and nods the learner toward the corner instead — the question will have to be spoken, not written."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:route-zero:before-ask",
+          "beatId": "beat:route-zero:ask-attempt",
+          "resume": "Rie has separated the person-question from the place-question and offered the ask-for-help frame. The learner steps in to ask for the one missing place-name."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:route-zero:ask-missing-place",
+          "beatId": "beat:route-zero:ask-attempt",
+          "hook": {
+            "lessonId": "l1-l03",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e03-route-zero-ask-missing-place"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e03-route-zero-ask-missing-place"
+          },
+          "resumeContext": "The place-name labels are gone. The learner must ask where the missing corner shop is — 〜はどこですか with the right place particle — instead of asking who a person is, and may open with the help frame (手伝ってください / 〜てもいいですか / お願いします).",
+          "onReady": "checkpoint:route-zero:after-ask",
+          "onRepair": "node:route-zero:ask-repair",
+          "onDefer": "checkpoint:route-zero:before-ask"
+        },
+        {
+          "kind": "stage",
+          "id": "node:route-zero:ask-repair",
+          "beatId": "beat:route-zero:ask-repair",
+          "cueId": "cue:place-question-frame-returns",
+          "description": "The person-question fades out. Only the place-question frame stays lit — the blank corner tag and one particle slot — for another try. No English answer appears before the learner commits."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:route-zero:after-ask",
+          "beatId": "beat:route-zero:ask-response",
+          "resume": "The learner has asked where the missing shop is; the corner label re-inks itself onto the map."
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-thanks",
+          "beatId": "beat:route-zero:ask-consequence",
+          "speakerId": "aakash",
+          "intent": "Acknowledge, warmly and a little ruefully, that the learner's question — not his narration — brought the label back.",
+          "attentionTarget": "the re-inking corner label",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、戻ってきた。すごい。今の質問で、道が戻りました。",
+              "reading": "あ、もどってきた。すごい。いまのしつもんで、みちがもどりました。",
+              "english": "Oh, it's back. Amazing. That question brought the route back."
+            },
+            "n5": {
+              "japanese": "あ、ラベルが戻ってきた。今の質問ですね。僕の説明じゃなくて、質問で戻ったんだ。",
+              "reading": "あ、ラベルがもどってきた。いまのしつもんですね。ぼくのせつめいじゃなくて、しつもんでもどったんだ。",
+              "english": "Oh, the label's back. It was that question. Not my explaining — it came back from the question."
+            },
+            "n4": {
+              "japanese": "お、戻った戻った。今の質問ですよ、効いたのは。僕がしゃべり続けるより、一つ聞いたほうが早かったな。",
+              "reading": "お、もどったもどった。いまのしつもんですよ、きいたのは。ぼくがしゃべりつづけるより、ひとつきいたほうがはやかったな。",
+              "english": "Oh, it's back, it's back. It was that question that did it. One question beat me talking on and on."
+            },
+            "n3": {
+              "japanese": "お、ちゃんと戻ってきた。今の一言ですよ。僕がべらべら案内するより、『どこですか』の一つが早かったわけだ。ちょっと悔しいけど、うれしい。",
+              "reading": "お、ちゃんともどってきた。いまのひとことですよ。ぼくがべらべらあんないするより、『どこですか』のひとつがはやかったわけだ。ちょっとくやしいけど、うれしい。",
+              "english": "Oh, it came right back. It was that one line. A single 'where is it?' beat all my chattering directions. A little galling — but I'm glad."
+            },
+            "n2": {
+              "japanese": "お、きれいに戻りましたね。今の一言が効いた。僕が延々と案内するより、『どこですか』のひと言のほうが早かったわけだ。ちょっと悔しいけど、正直うれしいですよ。",
+              "reading": "お、きれいにもどりましたね。いまのひとことがきいた。ぼくがえんえんとあんないするより、『どこですか』のひとことのほうがはやかったわけだ。ちょっとくやしいけど、しょうじきうれしいですよ。",
+              "english": "Oh, it came back clean. That one line did it. A single 'where is it?' beat me guiding on and on. A little galling — but honestly, I'm glad."
+            },
+            "n1": {
+              "japanese": "お、見事に戻ってきた。今の一言ですよ、効いたのは。僕が延々としゃべって案内するより、『どこですか』のひと言のほうがよっぽど早かったわけだ。……ちょっと悔しいけど、まあ、うれしいですよ、素直に。",
+              "reading": "お、みごとにもどってきた。いまのひとことですよ、きいたのは。ぼくがえんえんとしゃべってあんないするより、『どこですか』のひとことのほうがよっぽどはやかったわけだ。……ちょっとくやしいけど、まあ、うれしいですよ、すなおに。",
+              "english": "Oh, it came back beautifully. That one line's what did it. A single 'where is it?' beat all my endless guided narration by a mile. …A bit galling, but — honestly, I'm glad."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:route-zero:one-label-back",
+          "beatId": "beat:route-zero:exit-image",
+          "cueId": "cue:single-corner-label-reinked",
+          "description": "A single place-name label re-inks itself over the corner shop. The rest of the route is still blank, but it has its first named point again — and it came from a question, not the map."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:route-zero:asking-is-leading"
+      }
+    },
+    {
+      "id": "scene:route-zero:asking-is-leading",
+      "mode": "live",
+      "locationId": "location:street",
+      "timeState": "evening",
+      "weatherState": "rain",
+      "goal": "Let Aakash reframe asking-for-help as the move that actually carries the route, and let the learner choose how to lead on.",
+      "dramaticQuestion": "Can needing to ask count as leading?",
+      "learnerNeed": "A stance choice about how to carry a route forward when the labels will not come back on their own.",
+      "curriculum": {
+        "sectionId": "carry-the-route",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:route-zero:regroup",
+          "beatId": "beat:route-zero:regroup-image",
+          "cueId": "cue:aakash-lowers-hand",
+          "description": "Aakash lowers his pointing hand. For once he isn't adding the next turn. The one recovered label holds on the corner; the rest of the street waits, unnamed, in the rain."
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-reflect",
+          "beatId": "beat:route-zero:repair",
+          "speakerId": "aakash",
+          "intent": "Name asking-for-help as the thing that moved the route, and turn his eye for a place toward describing where it is rather than only naming it.",
+          "attentionTarget": "the unnamed corner shop, seen now as a described place",
+          "variants": {
+            "foundation": {
+              "japanese": "聞いてよかったです。ラベルがなくても、聞けば、道はわかります。『あの、かどの、しずかなお店』。ほら、もう見えます。",
+              "reading": "きいてよかったです。ラベルがなくても、きけば、みちはわかります。『あの、かどの、しずかなおみせ』。ほら、もうみえます。",
+              "english": "Glad I asked. Even with no labels, if you ask, you know the way. 'That quiet shop on the corner.' See — you can find it already."
+            },
+            "n5": {
+              "japanese": "聞いてよかった。ラベルがなくても、聞けば道はわかるんですね。『角の、静かな、いいお店』。名前がなくても、そう言えば伝わる。",
+              "reading": "きいてよかった。ラベルがなくても、きけばみちはわかるんですね。『かどの、しずかな、いいおみせ』。なまえがなくても、そういえばつたわる。",
+              "english": "Glad I asked. Even without labels, if you ask, you can find the way. 'The quiet, nice shop on the corner.' No name, but say it like that and it gets across."
+            },
+            "n4": {
+              "japanese": "いや、聞いてよかった。ラベルに頼らなくても、聞けば道は戻ってくるんだ。名前じゃなくて、『角にある、静かな、ちょっといい店』って言えばいい。描写すれば、名前がなくても伝わるんですね。",
+              "reading": "いや、きいてよかった。ラベルにたよらなくても、きけばみちはもどってくるんだ。なまえじゃなくて、『かどにある、しずかな、ちょっといいみせ』っていえばいい。びょうしゃすれば、なまえがなくてもつたわるんですね。",
+              "english": "No, I'm glad I asked. Even without leaning on labels, if you ask, the route comes back. Not the name — just say 'the quiet, kind-of-nice place on the corner.' Describe it, and it gets across without a name."
+            },
+            "n3": {
+              "japanese": "聞いてよかったですよ、ほんと。ラベルがなくても、聞けば道は戻る。名前で指すんじゃなくて、『角にある、静かで、感じのいい店』――そう描写すれば、ちゃんと伝わるんですよね。むしろそっちのほうが、僕らしい気がする。",
+              "reading": "きいてよかったですよ、ほんと。ラベルがなくても、きけばみちはもどる。なまえでさすんじゃなくて、『かどにある、しずかで、かんじのいいみせ』――そうびょうしゃすれば、ちゃんとつたわるんですよね。むしろそっちのほうが、ぼくらしいきがする。",
+              "english": "Genuinely glad I asked. No labels, but ask and the route comes back. Not pointing by name — 'the quiet, nice-feeling place on the corner' — describe it like that and it lands. Honestly, that suits me better anyway."
+            },
+            "n2": {
+              "japanese": "いやあ、聞いてよかった。ラベルがなくても、ひと言聞けば道は戻ってくるんですね。名前で指す代わりに、『角の、静かで、妙に感じのいい店』って描写する。そのほうがむしろ、僕の性に合ってる気がします。",
+              "reading": "いやあ、きいてよかった。ラベルがなくても、ひとこときけばみちはもどってくるんですね。なまえでさすかわりに、『かどの、しずかで、みょうにかんじのいいみせ』ってびょうしゃする。そのほうがむしろ、ぼくのしょうにあってるきがします。",
+              "english": "Man, glad I asked. Even without labels, one question and the route comes back. Instead of pointing by name, you describe it — 'the corner place, quiet, oddly nice.' Honestly that suits me better."
+            },
+            "n1": {
+              "japanese": "いやあ、聞いてよかった、ほんとに。ラベルがなくたって、ひと言『すみません』って聞けば、道はちゃんと戻ってくるんですね。名前で指す代わりに、『角の、静かで、妙に画になる店』って描写する――考えてみたら、そっちのほうがよっぽど僕らしい。名前を覚えるより、景色を覚えてるタチなので。",
+              "reading": "いやあ、きいてよかった、ほんとに。ラベルがなくたって、ひとこと『すみません』ってきけば、みちはちゃんともどってくるんですね。なまえでさすかわりに、『かどの、しずかで、みょうにえになるみせ』ってびょうしゃする――かんがえてみたら、そっちのほうがよっぽどぼくらしい。なまえをおぼえるより、けしきをおぼえてるタチなので。",
+              "english": "Man, I'm really glad I asked. Even with no labels, one 'excuse me' and the route comes right back. Instead of pointing by name, you describe it — 'the corner place, quiet, oddly picture-worthy.' Come to think of it, that's far more me anyway. I'm the type who remembers the view, not the name."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:route-zero:carry-route",
+          "beatId": "beat:route-zero:stance",
+          "question": "How do you keep the route going?",
+          "options": [
+            {
+              "id": "option:route-zero:lead-together",
+              "action": "Name the recovered place and ask permission to lead on to it together.",
+              "japaneseByBand": {
+                "foundation": "あのお店まで、一緒に行ってもいいですか。",
+                "n5": "じゃあ、あのお店まで一緒に行きましょう。行ってもいいですか。",
+                "n4": "あの角の店まで、みんなで行ってみましょうか。行ってもいいですか。",
+                "n3": "あの角の店まで、みんなで行ってみませんか。先に進んでも大丈夫ですか。",
+                "n2": "あの角の店まで、みんなで行ってみましょうか。このまま進めてもいいですか。",
+                "n1": "じゃあ、あの角の店まで、みんなで行ってみましょうか。このまま先に立って進めても、かまいませんか。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:route-zero:before-close"
+            },
+            {
+              "id": "option:route-zero:ask-next-place",
+              "action": "Ask Aakash where the next place is before anyone moves.",
+              "japaneseByBand": {
+                "foundation": "つぎのお店は、どこですか。教えてください。",
+                "n5": "つぎのお店はどこですか。先に教えてください。",
+                "n4": "進む前に、次の店がどこか教えてもらえますか。",
+                "n3": "進む前に、次の店がどこにあるか、教えてもらえますか。",
+                "n2": "動く前に、次の店がどのあたりにあるか、先に教えてもらえますか。",
+                "n1": "動きだす前に、次の店がどの辺りか、先に教えてもらえますか。名前より場所で。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:route-zero:before-close"
+            }
+          ],
+          "convergence": "checkpoint:route-zero:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:route-zero:before-close",
+          "beatId": "beat:route-zero:close-attempt",
+          "resume": "The learner has chosen how to carry the route forward. Rie names what just happened, and Aakash decides how to lead on."
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:rie-close",
+          "beatId": "beat:route-zero:contribution-close",
+          "speakerId": "rie",
+          "intent": "Name asking-for-help, aimed at the right question, as route leadership, and leave the help frame with the class as a permanent tool.",
+          "attentionTarget": "the one recovered label and the still-blank route",
+          "variants": {
+            "foundation": {
+              "japanese": "今日、道を進めたのは、聞いた人です。『どこですか』『手伝ってください』。これは、いつでも使えます。",
+              "reading": "きょう、みちをすすめたのは、きいたひとです。『どこですか』『てつだってください』。これは、いつでもつかえます。",
+              "english": "Today, the one who moved the route forward is the one who asked. 'Where is it?' 'Please help me.' You can use these anytime."
+            },
+            "n5": {
+              "japanese": "今日、道を進めたのは、迷わずに聞いた人ですね。『どこですか』『手伝ってください』――この二つは、いつでも使えます。忘れないでください。",
+              "reading": "きょう、みちをすすめたのは、まよわずにきいたひとですね。『どこですか』『てつだってください』――このふたつは、いつでもつかえます。わすれないでください。",
+              "english": "Today, the one who moved the route on is the one who just asked, without hesitating. 'Where is it?' and 'Please help me' — these two work anytime. Don't forget them."
+            },
+            "n4": {
+              "japanese": "結局、今日いちばん道を進めたのは、案内した人じゃなくて、聞いた人なんですよ。『どこですか』『手伝ってください』。この二つは、これからずっと使える道具です。",
+              "reading": "けっきょく、きょういちばんみちをすすめたのは、あんないしたひとじゃなくて、きいたひとなんですよ。『どこですか』『てつだってください』。このふたつは、これからずっとつかえるどうぐです。",
+              "english": "In the end, the one who moved the route furthest today wasn't the one giving directions — it was the one who asked. 'Where is it?' and 'Please help me.' These two are tools you'll use from here on."
+            },
+            "n3": {
+              "japanese": "面白いものでね、今日いちばん道を進めたのは、案内した人じゃなくて、聞いた人なんです。『どこですか』、『手伝ってください』。困ったら、この二つに戻ってくればいい。ちゃんと道具として置いていきます。",
+              "reading": "おもしろいものでね、きょういちばんみちをすすめたのは、あんないしたひとじゃなくて、きいたひとなんです。『どこですか』、『てつだってください』。こまったら、このふたつにもどってくればいい。ちゃんとどうぐとしておいていきます。",
+              "english": "It's a funny thing — the one who moved the route furthest today wasn't the guide, it was the one who asked. 'Where is it,' 'Please help me.' When you're stuck, come back to these two. I'll leave them with you as tools."
+            },
+            "n2": {
+              "japanese": "不思議なもので、今日いちばん道を前に進めたのは、案内役じゃなく、聞いた人のほうなんですよ。『どこですか』『手伝ってください』――この二つさえ手元にあれば、たいていの道は戻ってきます。ちゃんと置いていきますね。",
+              "reading": "ふしぎなもので、きょういちばんみちをまえにすすめたのは、あんないやくじゃなく、きいたひとのほうなんですよ。『どこですか』『てつだってください』――このふたつさえてもとにあれば、たいていのみちはもどってきます。ちゃんとおいていきますね。",
+              "english": "Funny thing — the one who moved the route on furthest today wasn't the guide but the one who asked. 'Where is it?' 'Please help me' — keep just these two to hand and most routes come back. I'll leave them with you."
+            },
+            "n1": {
+              "japanese": "不思議なものでね。今日いちばん道を前に進めたのは、案内した本人じゃなくて、聞いた人のほうだったんですよ。『どこですか』『手伝ってください』――この二つさえ手元に残しておけば、たいていの道は、いつだって戻ってきます。だから、ちゃんと置いていきますね。今日の道具です。",
+              "reading": "ふしぎなものでね。きょういちばんみちをまえにすすめたのは、あんないしたほんにんじゃなくて、きいたひとのほうだったんですよ。『どこですか』『てつだってください』――このふたつさえてもとにのこしておけば、たいていのみちは、いつだってもどってきます。だから、ちゃんとおいていきますね。きょうのどうぐです。",
+              "english": "It's a curious thing. The one who carried the route furthest today wasn't the guide himself but the one who asked. 'Where is it?' 'Please help me' — keep just these two to hand and most any route will always come back to you. So I'll leave them with you, properly. Today's tools."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:route-zero:aakash-holds-still",
+          "beatId": "beat:route-zero:arrival-growth",
+          "speakerId": "aakash",
+          "intent": "Instead of announcing the next turn as usual, hold still and hand the choice of the next place to the class — arrival-beat growth shown, not narrated.",
+          "attentionTarget": "the blank route ahead and the class",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、次はどこにしますか。今日は、僕は聞きます。",
+              "reading": "じゃあ、つぎはどこにしますか。きょうは、ぼくはききます。",
+              "english": "So — where shall we go next? Today, I'll ask."
+            },
+            "n5": {
+              "japanese": "じゃあ、次はどこにしましょうか。今日は、僕が決めないで、聞きます。",
+              "reading": "じゃあ、つぎはどこにしましょうか。きょうは、ぼくがきめないで、ききます。",
+              "english": "So, where shall we head next? Today, instead of deciding, I'll ask."
+            },
+            "n4": {
+              "japanese": "じゃあ、次の道はどこにしましょうか。いつもは僕が先に決めちゃうけど……今日は、聞いてから行きます。",
+              "reading": "じゃあ、つぎのみちはどこにしましょうか。いつもはぼくがさきにきめちゃうけど……きょうは、きいてからいきます。",
+              "english": "So, which way next? Usually I decide first, but… today, I'll ask before we go."
+            },
+            "n3": {
+              "japanese": "さて、次の道はどこにしましょうか。いつもなら僕が勝手に先を決めちゃうんですけど……今日は、聞いてから進みます。そのほうが、道が戻ってくるので。",
+              "reading": "さて、つぎのみちはどこにしましょうか。いつもならぼくがかってにさきをきめちゃうんですけど……きょうは、きいてからすすみます。そのほうが、みちがもどってくるので。",
+              "english": "Now then, which way next? Normally I'd just decide ahead on my own, but… today I'll ask first, then move. It brings the route back better that way."
+            },
+            "n2": {
+              "japanese": "さて、次の道はどこにしましょうか。いつもなら勝手に先を決めて突っ走るところですが……今日は、ひと言聞いてから進みます。そのほうが、ちゃんと道が戻ってくるので。",
+              "reading": "さて、つぎのみちはどこにしましょうか。いつもならかってにさきをきめてつっぱしるところですが……きょうは、ひとこときいてからすすみます。そのほうが、ちゃんとみちがもどってくるので。",
+              "english": "Now then, which way next? Normally I'd fix the route ahead and just charge off, but… today I'll ask first, then move. It brings the route back properly that way."
+            },
+            "n1": {
+              "japanese": "さて、次の道はどこにしましょうか。いつもの僕なら、勝手に先を決めて、そのまま突っ走ってるところなんですけどね……今日は、ひと言聞いてから進もうと思います。そのほうが、よっぽど道は戻ってくるので。行き先は、みんなで決めましょう。",
+              "reading": "さて、つぎのみちはどこにしましょうか。いつものぼくなら、かってにさきをきめて、そのままつっぱしってるところなんですけどね……きょうは、ひとこときいてからすすもうとおもいます。そのほうが、よっぽどみちはもどってくるので。いきさきは、みんなできめましょう。",
+              "english": "Now then, which way next? The usual me would've fixed the route ahead and just charged off… but today I think I'll ask first, then go. It brings the route back far better that way. Let's decide the destination together."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:route-zero:route-waits",
+          "beatId": "beat:route-zero:exit-image-two",
+          "cueId": "cue:one-label-rest-unnamed",
+          "description": "The single recovered label holds steady on the corner. The rest of the street stays unnamed — but now the class knows the route isn't in the labels; it's in the asking. Aakash pockets his pointing hand and, for once, waits."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:route-zero:asking-becomes-competence",
+      "kind": "story",
+      "description": "The class recovers a route point by asking where a place is rather than reading a label, and treats asking-for-help — aimed at location, not identity — as the move that carries the route."
+    },
+    {
+      "id": "outcome:route-zero:aakash-arrival",
+      "kind": "bond",
+      "castId": "aakash",
+      "chapter": 3,
+      "beat": "arrival",
+      "description": "Aakash is introduced through his confident, slightly-late rainy route narration and his stylist's eye for a place; when the labels drop he takes his first step from route-leader-who-accelerates toward asking for help and holding still to let others choose the next turn."
+    },
+    {
+      "id": "outcome:route-zero:rie-contribution",
+      "kind": "bond",
+      "castId": "rie",
+      "chapter": 3,
+      "beat": "contribution",
+      "description": "Rie's contribution is register and permission: she separates the identity question from the location question, models the ask-for-help frame, and leaves 『どこですか』『手伝ってください』 with the class as a permanent tool."
+    },
+    {
+      "id": "outcome:route-zero:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l03",
+      "description": "Ask-where-something-is and ask-for-help evidence (distinguishing identity from location) returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:rie-models-the-ask-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-ask-step"
+    ],
+    "withdrawnContentFallback": "Use the same ask-where-something-is and ask-for-help evidence with neutral nameplates and a generic guide whose route labels drop, so the learner must ask for a missing place-name instead of reading it."
+  }
+}

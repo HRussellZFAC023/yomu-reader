@@ -1,0 +1,618 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e04-welcome-frequency",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 4,
+  "title": {
+    "en": "The Welcome Frequency",
+    "ja": "歓迎の周波数"
+  },
+  "synopsis": "A new atlas route point opens only on a soft audio cue, and the class keeps missing it by being loud instead of on time. Mika, the last person anyone expects to lead, finds that rhythm and the length of a pause open the listening path, turns asking for a repeat into a technique, and helps the class name quiet attention as a shared ensemble skill. The learner requests clarification, enters the passage by timing, and decides how to back the quiet method.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "mika",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mika",
+        "docs/academy/story/dossiers/mika.md",
+        "docs/academy/story/CAST-AND-CONSENT.md#mika"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quiet pacing framed as a confidence deficit to cure",
+        "stated kanji-reading difficulty framed as embarrassment or a pity beat",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "xingyu",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#xingyu",
+        "docs/academy/story/CAST-AND-CONSENT.md#xingyu"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "rhythm attention merged with or credited over Mika's timing attention",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e03-route-zero",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l05",
+            "l1-l06"
+          ],
+          "function": "request-clarification-and-enter-a-listening-passage-by-timing-then-request-the-right-item"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-four-first-meeting-mika"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:welcome-frequency:the-loud-room",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Find the entrance to a listening path that opens on timing, not volume, and meet Mika as the one who hears it.",
+      "dramaticQuestion": "Can the quietest person in the room be the one who finds the way in?",
+      "learnerNeed": "A clarification-request and rhythm-listening need where asking 'one more time' is the tool, not an admission.",
+      "curriculum": {
+        "sectionId": "enter-by-timing",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:loud-room",
+          "beatId": "beat:welcome-frequency:arrival-image",
+          "cueId": "cue:atlas-route-point-soft-chime",
+          "description": "A new point on the atlas route stays shut behind a closed gate. Under the class's overlapping voices, a soft chime repeats at the same faint interval, over and over, unanswered."
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:xingyu-under-the-noise",
+          "beatId": "beat:welcome-frequency:sound-want",
+          "speakerId": "xingyu",
+          "intent": "Notice there is a soft sound beneath the room's noise and invite listening rather than louder calling.",
+          "attentionTarget": "the faint chime under the voices",
+          "variants": {
+            "foundation": {
+              "japanese": "ちょっと、聞いて。下に、音がある。小さいけど。",
+              "reading": "ちょっと、きいて。したに、おとがある。ちいさいけど。",
+              "english": "Wait, listen. There's a sound underneath. A small one."
+            },
+            "n5": {
+              "japanese": "ねえ、聞いてみて。みんなの声の下に、小さい音があるよ。",
+              "reading": "ねえ、きいてみて。みんなのこえのしたに、ちいさいおとがあるよ。",
+              "english": "Hey, try listening. Under everyone's voices, there's a little sound."
+            },
+            "n4": {
+              "japanese": "ねえ、ちょっと静かにして聞いてみて。この騒がしさの下に、小さい音が鳴ってる。",
+              "reading": "ねえ、ちょっとしずかにしてきいてみて。このさわがしさのしたに、ちいさいおとがなってる。",
+              "english": "Hey, quiet down a sec and listen. Under all this racket, there's a little sound going."
+            },
+            "n3": {
+              "japanese": "ねえ、みんな一回黙ってみて。この騒ぎの下に、ずっと小さい音が鳴ってるんだけど。",
+              "reading": "ねえ、みんないっかいだまってみて。このさわぎのしたに、ずっとちいさいおとがなってるんだけど。",
+              "english": "Hey, everyone hush a moment. Underneath this din there's a small sound that's been going the whole time."
+            },
+            "n2": {
+              "japanese": "ちょっとみんな、一瞬だけ静かにしてみない? この騒ぎの奥で、ずっと小さい音が鳴ってる気がするんだよね。",
+              "reading": "ちょっとみんな、いっしゅんだけしずかにしてみない? このさわぎのおくで、ずっとちいさいおとがなってるきがするんだよね。",
+              "english": "Hey everyone, could we go quiet just for a second? I've got a feeling there's a small sound running deep under all this noise the whole time."
+            },
+            "n1": {
+              "japanese": "ねえ、みんな一瞬だけ声止めてみてくれない? この騒ぎの奥の方で、さっきからずっと小さい音が鳴ってる気がしてならないんだけど。",
+              "reading": "ねえ、みんないっしゅんだけこえとめてみてくれない? このさわぎのおくのほうで、さっきからずっとちいさいおとがなってるきがしてならないんだけど。",
+              "english": "Hey, could you all cut the voices just for a second? I really can't shake the feeling there's been a faint sound running away back under this noise this whole time."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:volume-fails",
+          "beatId": "beat:welcome-frequency:obstruction",
+          "cueId": "cue:gate-stays-shut-on-shout",
+          "description": "The class leans in and calls out louder, all at once, trying to force the point open. The gate does not move. The chime keeps its interval as if the shouting were not there."
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:mika-one-more-time",
+          "beatId": "beat:welcome-frequency:host-want",
+          "speakerId": "mika",
+          "intent": "Barely speak up to ask for the cue once more and slowly, drop a sideways pitch fact, then start to retreat.",
+          "attentionTarget": "the repeating chime nobody has slowed down for",
+          "variants": {
+            "foundation": {
+              "japanese": "ええと…もう一回、いいですか。ゆっくり、お願いします。…あの、フランス語みたいに、ここで音が下がります。……あ、いえ、なんでも。",
+              "reading": "ええと…もういっかい、いいですか。ゆっくり、おねがいします。…あの、フランスごみたいに、ここでおとがさがります。……あ、いえ、なんでも。",
+              "english": "Um… one more time, is that okay? Slowly, please. …The pitch drops here, like in French. …Ah, no, never mind."
+            },
+            "n5": {
+              "japanese": "ええと…もう一回、いいですか。ゆっくりお願いします。…あの、フランス語みたいに、ここで音が下がるんです。…あ、すみません、なんでもないです。",
+              "reading": "ええと…もういっかい、いいですか。ゆっくりおねがいします。…あの、フランスごみたいに、ここでおとがさがるんです。…あ、すみません、なんでもないです。",
+              "english": "Um… one more time, is that okay? Slowly, please. …The pitch drops right here, like in French. …Ah, sorry, it's nothing."
+            },
+            "n4": {
+              "japanese": "ええと…すみません、もう一回いいですか。もう少しゆっくりで。…あの、フランス語と同じで、ここでスッと音が下がるんですよね。…あ、いや、いいんです、はい。",
+              "reading": "ええと…すみません、もういっかいいいですか。もうすこしゆっくりで。…あの、フランスごとおなじで、ここでスッとおとがさがるんですよね。…あ、いや、いいんです、はい。",
+              "english": "Um… sorry, could I get it one more time? A bit slower. …The pitch just kind of drops here, same as in French. …Ah, no, it's fine, never mind."
+            },
+            "n3": {
+              "japanese": "ええと、すみません…もう一回だけいいですか。できれば、ゆっくりめで。…あの、フランス語と一緒で、ちょうどここで音がスッと落ちるんですよ。…あ、いえ、こっちの話です、すみません。",
+              "reading": "ええと、すみません…もういっかいだけいいですか。できれば、ゆっくりめで。…あの、フランスごといっしょで、ちょうどここでおとがスッとおちるんですよ。…あ、いえ、こっちのはなしです、すみません。",
+              "english": "Um, sorry… could I just get it one more time? A little slower if you can. …See, same as in French, the pitch drops away right here. …Ah, no, just thinking out loud, sorry."
+            },
+            "n2": {
+              "japanese": "ええと、すみません、もう一回だけお願いできますか。できたら少しゆっくりで。…あの、フランス語とまったく同じで、ちょうどこの辺で音がスッと下がるんですよね。…あ、いや、独り言です、忘れてください。",
+              "reading": "ええと、すみません、もういっかいだけおねがいできますか。できたらすこしゆっくりで。…あの、フランスごとまったくおなじで、ちょうどこのへんでおとがスッとさがるんですよね。…あ、いや、ひとりごとです、わすれてください。",
+              "english": "Um, sorry, could I ask for it just once more? A little slower if possible. …The thing is, exactly like French, the pitch drops away right around here. …Ah, no, just muttering, forget it."
+            },
+            "n1": {
+              "japanese": "ええと…すみません、もう一度だけお願いしてもいいですか。できれば、ほんの少しゆっくりめに。…あの、フランス語とまったく同じ動きで、ちょうどこの辺りで音がスッと落ちるんですよね。…あ、いや、こっちの話です。すみません、続けてください。",
+              "reading": "ええと…すみません、もういちどだけおねがいしてもいいですか。できれば、ほんのすこしゆっくりめに。…あの、フランスごとまったくおなじうごきで、ちょうどこのあたりでおとがスッとおちるんですよね。…あ、いや、こっちのはなしです。すみません、つづけてください。",
+              "english": "Um… sorry, could I trouble you for it just once more? A touch slower, if you can. …The thing is, it's the exact same motion as French — the pitch just drops away right around here. …Ah, no, just talking to myself. Sorry, please carry on."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:mika-pause-and-count",
+          "beatId": "beat:welcome-frequency:contribution",
+          "speakerId": "mika",
+          "intent": "Find the entrance by holding a pause and silently counting the interval, then entering on the beat — timing, not volume.",
+          "attentionTarget": "the gap between two chimes",
+          "variants": {
+            "foundation": {
+              "japanese": "大きい声じゃなくて、間です。待って…1、2 ——ここ。ここで入ります。",
+              "reading": "おおきいこえじゃなくて、まです。まって…いち、に ——ここ。ここではいります。",
+              "english": "Not a loud voice — the timing. Wait… one, two —— there. You come in here."
+            },
+            "n5": {
+              "japanese": "声を大きくしても、開きません。間です。待って…1、2 ——今。今のところで入るんです。",
+              "reading": "こえをおおきくしても、あきません。まです。まって…いち、に ——いま。いまのところではいるんです。",
+              "english": "Getting louder won't open it. It's the timing. Wait… one, two —— now. You come in right on that."
+            },
+            "n4": {
+              "japanese": "大きい声じゃ開かないんです。タイミングなんですよ。待って…数えて、1、2 ——今。この間で入る。",
+              "reading": "おおきいこえじゃあかないんです。タイミングなんですよ。まって…かぞえて、いち、に ——いま。このまではいる。",
+              "english": "Volume won't open it. It's timing. Wait… count it, one, two —— now. You come in on that pause."
+            },
+            "n3": {
+              "japanese": "大きくしても無理なんですよね。開くのはタイミングだけ。待って…心の中で数えて、1、2 ——今。その間にスッと入る。",
+              "reading": "おおきくしてもむりなんですよね。あくのはタイミングだけ。まって…こころのなかでかぞえて、いち、に ——いま。そのまにスッとはいる。",
+              "english": "Louder just won't do it. The only thing that opens it is timing. Wait… count in your head, one, two —— now. You slip in on that pause."
+            },
+            "n2": {
+              "japanese": "いくら大きくしても開かないんです。開けるのは間の取り方だけ。待って…頭の中で数えるんです、1、2 ——今。その一拍で入る。",
+              "reading": "いくらおおきくしてもあかないんです。あけるのはまのとりかただけ。まって…あたまのなかでかぞえるんです、いち、に ——いま。そのいっぱくではいる。",
+              "english": "No matter how loud you get, it won't open. The only thing that opens it is how you hold the pause. Wait… count in your head, one, two —— now. You go in on that one beat."
+            },
+            "n1": {
+              "japanese": "どれだけ声を張っても開かないんですよ。開くかどうかは、結局その間の取り方一つで。…待って、頭の中で数えてみてください。1、2 ——今。ちょうどその一拍で、スッと入る。",
+              "reading": "どれだけこえをはってもあかないんですよ。あくかどうかは、けっきょくそのまのとりかたひとつで。…まって、あたまのなかでかぞえてみてください。いち、に ——いま。ちょうどそのいっぱくで、スッとはいる。",
+              "english": "However much you raise your voice, it won't open. Whether it opens comes down to just one thing — how you hold that pause. …Wait, try counting in your head. One, two —— now. Right on that single beat, you slip in."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:welcome-frequency:before-enter",
+          "beatId": "beat:welcome-frequency:enter-attempt",
+          "resume": "The chime keeps its interval and Mika has shown the pause-and-count. The learner steps in to ask for it once more, slowly, and enter on the beat."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:welcome-frequency:enter-on-the-beat",
+          "beatId": "beat:welcome-frequency:enter-attempt",
+          "hook": {
+            "lessonId": "l1-l05",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e04-welcome-frequency-enter-on-the-beat"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e04-welcome-frequency-enter-on-the-beat"
+          },
+          "resumeContext": "The soft chime repeats at a fixed interval behind a closed gate; the learner asks for it slowly, counts the pause, and enters on the beat instead of by volume.",
+          "onReady": "checkpoint:welcome-frequency:after-enter",
+          "onRepair": "node:welcome-frequency:enter-repair",
+          "onDefer": "checkpoint:welcome-frequency:before-enter"
+        },
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:enter-repair",
+          "beatId": "beat:welcome-frequency:enter-repair",
+          "cueId": "cue:chime-replays-one-interval",
+          "description": "Only the single interval that was missed replays, slowed, with a count marked over the pause. The rest of the passage stays where the learner left it; no English answer appears first."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:welcome-frequency:after-enter",
+          "beatId": "beat:welcome-frequency:enter-response",
+          "resume": "The learner entered on the beat and the gate has opened. Mika looks at the single clean entrance the room found."
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:mika-one-entrance",
+          "beatId": "beat:welcome-frequency:consequence",
+          "speakerId": "mika",
+          "intent": "Confirm one clean entrance was found by timing, and value quiet attention as a real way in.",
+          "attentionTarget": "the opened route point",
+          "variants": {
+            "foundation": {
+              "japanese": "入れました。一つでいいんです。うるさくなくても、聞こえます。",
+              "reading": "はいれました。ひとつでいいんです。うるさくなくても、きこえます。",
+              "english": "We got in. One entrance is enough. You can hear it without being loud."
+            },
+            "n5": {
+              "japanese": "入れましたね。一回でいいんです。静かにしていれば、ちゃんと聞こえます。",
+              "reading": "はいれましたね。いっかいでいいんです。しずかにしていれば、ちゃんときこえます。",
+              "english": "We're in. Once is enough. If you stay quiet, you can hear it just fine."
+            },
+            "n4": {
+              "japanese": "開きましたね。無理に大きくしなくても、間さえ合えば入れる。静かに聞くのも、ちゃんと一つの技です。",
+              "reading": "あきましたね。むりにおおきくしなくても、まさえあえばはいれる。しずかにきくのも、ちゃんとひとつのわざです。",
+              "english": "It opened. You don't have to force it loud — if the timing lines up, you're in. Listening quietly is a real skill too."
+            },
+            "n3": {
+              "japanese": "開きましたね。大きくする必要、なかったでしょう。間さえ合えば入れるんです。…静かに聞くのって、ちゃんとした一つのやり方なんですよ。",
+              "reading": "あきましたね。おおきくするひつよう、なかったでしょう。まさえあえばはいれるんです。…しずかにきくのって、ちゃんとしたひとつのやりかたなんですよ。",
+              "english": "It opened. Didn't need to get loud after all, did it. If the timing fits, you're in. …Listening quietly really is a proper method of its own."
+            },
+            "n2": {
+              "japanese": "ほら、開いた。結局、大きくする必要なんてなかったんですよね。間さえ合わせれば入れる。静かに聞くっていうのも、立派に一つの技なんです。",
+              "reading": "ほら、あいた。けっきょく、おおきくするひつようなんてなかったんですよね。まさえあわせればはいれる。しずかにきくっていうのも、りっぱにひとつのわざなんです。",
+              "english": "There — it opened. In the end there was never any need to get loud. Match the pause and you're in. Listening quietly counts, fully, as a skill of its own."
+            },
+            "n1": {
+              "japanese": "ほら、開いた。…結局、声を張る必要なんてどこにもなかったわけですよ。間さえ合わせれば、それで入れる。静かに聞くというのも、これでちゃんと一つの技なんだと思います。",
+              "reading": "ほら、あいた。…けっきょく、こえをはるひつようなんてどこにもなかったわけですよ。まさえあわせれば、それではいれる。しずかにきくというのも、これでちゃんとひとつのわざなんだとおもいます。",
+              "english": "There — it opened. …In the end there was never anywhere any need to raise your voice. Just match the pause and that's enough to get in. Listening quietly — that too, I think, is genuinely a skill of its own."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:route-point-lights",
+          "beatId": "beat:welcome-frequency:exit-image",
+          "cueId": "cue:route-point-lights-on-the-beat",
+          "description": "The route point lights, faintly, exactly on the chime's beat. The passage behind the gate is open now, and two overlapping voices can be heard inside it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:welcome-frequency:whose-line-is-it"
+      }
+    },
+    {
+      "id": "scene:welcome-frequency:whose-line-is-it",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Use the opened passage to work out whose item is whose and request the right one, and name quiet attention as a shared class tool.",
+      "dramaticQuestion": "Will the class treat Mika's quiet listening as an ensemble skill, not a personality footnote?",
+      "learnerNeed": "A possession and specific-request turn that only works once you have heard whose item it is, and a stance on the quiet method.",
+      "curriculum": {
+        "sectionId": "whose-item-and-request",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:overlapping-voices",
+          "beatId": "beat:welcome-frequency:passage-image",
+          "cueId": "cue:two-voices-two-items-one-label",
+          "description": "Inside the passage, two recorded voices overlap. Each names an item; each says one is theirs. A single card label carries a kanji the atlas has left unread."
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:xingyu-melody-not-whose",
+          "beatId": "beat:welcome-frequency:passage-want",
+          "speakerId": "xingyu",
+          "intent": "Catch and be able to hum the passage's melody, but be unable to tell whose item is whose — the rhythm complement to Mika's timing.",
+          "attentionTarget": "the point where the two voices overlap",
+          "variants": {
+            "foundation": {
+              "japanese": "メロディーは覚えた。歌える。でも、どっちが誰のか、わからない。",
+              "reading": "メロディーはおぼえた。うたえる。でも、どっちがだれのか、わからない。",
+              "english": "I've got the melody. I can sing it back. But I can't tell which one is whose."
+            },
+            "n5": {
+              "japanese": "メロディーはもう覚えたよ。歌える。でも、どっちの物が誰のか、わからないんだよね。",
+              "reading": "メロディーはもうおぼえたよ。うたえる。でも、どっちのものがだれのか、わからないんだよね。",
+              "english": "I've already got the melody down. I can sing it. But I can't tell whose thing is whose."
+            },
+            "n4": {
+              "japanese": "メロディーはもう完璧。今なら歌える。でも、二人の声が重なってて、どっちの物が誰のかまでは聞き取れないんだよね。",
+              "reading": "メロディーはもうかんぺき。いまならうたえる。でも、ふたりのこえがかさなってて、どっちのものがだれのかまではききとれないんだよね。",
+              "english": "The melody's perfect now — I could sing it. But the two voices overlap, so I can't make out whose thing is whose."
+            },
+            "n3": {
+              "japanese": "メロディーの方はもうばっちり。歌えって言われたら歌えるよ。ただ、声が重なってて、どっちの物が誰のかまでは、さすがに聞き分けられないなあ。",
+              "reading": "メロディーのほうはもうばっちり。うたえっていわれたらうたえるよ。ただ、こえがかさなってて、どっちのものがだれのかまでは、さすがにききわけられないなあ。",
+              "english": "The melody I've totally got — ask me to sing it and I could. It's just, the voices overlap, so whose thing is whose, that I honestly can't pick apart."
+            },
+            "n2": {
+              "japanese": "メロディーはもう体に入ってる。今すぐ歌えって言われても余裕。でも二人の声が重なってるから、どっちの物が誰のものかまでは、正直聞き分けきれないんだよね。",
+              "reading": "メロディーはもうからだにはいってる。いますぐうたえっていわれてもよゆう。でもふたりのこえがかさなってるから、どっちのものがだれのものかまでは、しょうじきききわけきれないんだよね。",
+              "english": "The melody's in my body already — tell me to sing it right now, no problem. But the two voices overlap, so whose thing belongs to whom, honestly, I can't fully pick apart."
+            },
+            "n1": {
+              "japanese": "メロディーはもう完全に体に入ってて、今すぐ歌えって言われても平気なくらい。…ただ、二人の声がちょうど重なってるところで、どっちの物が誰のものなのか、そこまでは正直、私の耳じゃ聞き分けきれないんだよね。",
+              "reading": "メロディーはもうかんぜんにからだにはいってて、いますぐうたえっていわれてもへいきなくらい。…ただ、ふたりのこえがちょうどかさなってるところで、どっちのものがだれのものなのか、そこまではしょうじき、わたしのみみじゃききわけきれないんだよね。",
+              "english": "The melody's completely in my body now — I could sing it on the spot no trouble. …It's just, right where the two voices overlap, whose thing belongs to whom — that far, honestly, my ear can't pick apart."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:mika-whose-and-reading",
+          "beatId": "beat:welcome-frequency:whose-item",
+          "speakerId": "mika",
+          "intent": "Use the pause to place whose item is whose, then openly say he cannot read the kanji on the label and ask for its reading — naming the unclear part as method.",
+          "attentionTarget": "the second voice's item and the unread label",
+          "variants": {
+            "foundation": {
+              "japanese": "間で分かります。二番目の人の物が、こっちです。…あの、その漢字、読めません。読み方を、お願いします。",
+              "reading": "までわかります。にばんめのひとのものが、こっちです。…あの、そのかんじ、よめません。よみかたを、おねがいします。",
+              "english": "The pause tells you. The second person's item is this one. …Um, I can't read that kanji. The reading, please."
+            },
+            "n5": {
+              "japanese": "間を数えれば分かります。二番目の人の物が、こっちのほうです。…あの、正直この漢字は読めなくて。読み方を教えてもらえますか。",
+              "reading": "まをかぞえればわかります。にばんめのひとのものが、こっちのほうです。…あの、しょうじきこのかんじはよめなくて。よみかたをおしえてもらえますか。",
+              "english": "If you count the pause, you can tell. The second person's item is this one here. …Um, honestly I can't read this kanji. Could you tell me the reading?"
+            },
+            "n4": {
+              "japanese": "間を数えれば、どっちが誰のか分かるんです。ほら、二番目の人の物はこっち。…で、正直に言うと、この漢字が読めないんですよね。読み方だけ、教えてもらえますか。",
+              "reading": "まをかぞえれば、どっちがだれのかわかるんです。ほら、にばんめのひとのものはこっち。…で、しょうじきにいうと、このかんじがよめないんですよね。よみかただけ、おしえてもらえますか。",
+              "english": "If you count the pause, you can tell whose is whose. See — the second person's item is this one. …And honestly, I can't read this kanji. Could you just tell me the reading?"
+            },
+            "n3": {
+              "japanese": "間を数えれば、どっちが誰のかはっきりするんですよ。ほら、二番目の人の物はこっち。…で、正直に言っちゃうと、この漢字、僕読めないんです。読み方だけ聞いてもいいですか。",
+              "reading": "まをかぞえれば、どっちがだれのかはっきりするんですよ。ほら、にばんめのひとのものはこっち。…で、しょうじきにいっちゃうと、このかんじ、ぼくよめないんです。よみかただけきいてもいいですか。",
+              "english": "Count the pause and it becomes clear whose is whose. See — the second person's item is this one. …And to be honest, this kanji, I can't read it. Can I just ask for the reading?"
+            },
+            "n2": {
+              "japanese": "間さえ数えれば、どっちが誰の物かはもう迷わないんです。ほら、二番目の人の分はこっち。…で、正直に白状すると、この漢字だけは読めなくて。読み方、一つだけ教えてもらえますか。",
+              "reading": "まさえかぞえれば、どっちがだれのものかはもうまよわないんです。ほら、にばんめのひとのぶんはこっち。…で、しょうじきにはくじょうすると、このかんじだけはよめなくて。よみかた、ひとつだけおしえてもらえますか。",
+              "english": "Once you count the pause, there's no more hesitating over whose item is whose. See — the second person's is this one. …And to come clean, just this kanji I can't read. Could you tell me the one reading?"
+            },
+            "n1": {
+              "japanese": "間さえきちんと数えれば、どっちが誰の物かで迷うことはもうないんですよ。ほら、二番目の人の分はこっち。…で、正直に白状してしまうと、この漢字だけはどうも読めなくてですね。読み方を、一つだけ教えてもらえると助かります。",
+              "reading": "まさえきちんとかぞえれば、どっちがだれのものかでまようことはもうないんですよ。ほら、にばんめのひとのぶんはこっち。…で、しょうじきにはくじょうしてしまうと、このかんじだけはどうもよめなくてですね。よみかたを、ひとつだけおしえてもらえるとたすかります。",
+              "english": "Once you count the pause properly, there's no more getting lost over whose item is whose. See — the second person's is this one. …And to come clean, it's just this one kanji I somehow can't read. If you could tell me the one reading, that'd help."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:welcome-frequency:back-the-quiet-method",
+          "beatId": "beat:welcome-frequency:stance",
+          "question": "How do you back Mika's quiet method?",
+          "options": [
+            {
+              "id": "option:welcome-frequency:make-it-a-class-tool",
+              "action": "Name the pause-and-count as a tool the whole class can pick up.",
+              "japaneseByBand": {
+                "foundation": "この数え方、みんなで使いましょう。",
+                "n5": "この数え方、クラスみんなの道具にしましょう。",
+                "n4": "この「数えて入る」やり方、クラス全員の道具にしませんか。",
+                "n3": "この数えて入るやり方、みんなで使える道具にしちゃいましょうよ。",
+                "n2": "この数えて入るコツ、クラス共通の道具にしてしまいましょう。",
+                "n1": "この、数えて入るっていうやり方、いっそクラス全員の共通の道具にしてしまいませんか。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:welcome-frequency:before-name-role"
+            },
+            {
+              "id": "option:welcome-frequency:ask-mika-to-run-it",
+              "action": "Ask Mika to run the listening and count the class in, if he's willing.",
+              "japaneseByBand": {
+                "foundation": "ミカさん、聞く係、お願いできますか。無理なら、いいです。",
+                "n5": "ミカさん、聞くのをお願いできますか。毎回、数えて入れてください。難しければ大丈夫です。",
+                "n4": "ミカさん、聞く担当、お願いできませんか。毎回、数えて入れてほしいんです。もちろん、無理にとは言いません。",
+                "n3": "ミカさん、聞く役、引き受けてもらえませんか。毎回、数えて合図してほしくて。無理そうなら、断ってくれていいので。",
+                "n2": "ミカさん、聞く役をお願いできないでしょうか。毎回、数えて合図を出してもらえると助かるんです。もちろん、難しければ全然かまいません。",
+                "n1": "ミカさん、聞く役、引き受けてもらえないでしょうか。毎回、数えて合図を出してもらえると、正直すごく助かるんです。もちろん、気が進まなければ、断ってもらって全然かまいませんので。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:welcome-frequency:before-name-role"
+            }
+          ],
+          "convergence": "checkpoint:welcome-frequency:before-name-role"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:welcome-frequency:before-name-role",
+          "beatId": "beat:welcome-frequency:name-role-attempt",
+          "resume": "The learner has taken a stance on the quiet method. Mika answers by deciding what the quiet role can be for the class."
+        },
+        {
+          "kind": "line",
+          "id": "line:welcome-frequency:mika-quiet-is-a-role",
+          "beatId": "beat:welcome-frequency:repair",
+          "speakerId": "mika",
+          "intent": "Accept, staying quiet, that the pause-and-count is now a shared class technique and that listening quietly is a full ensemble role.",
+          "attentionTarget": "the class and the open passage",
+          "variants": {
+            "foundation": {
+              "japanese": "はい。…じゃあ、やってみます。「もう一回、いいですか」は、みんなの言葉です。静かに聞くのも、クラスの仕事です。",
+              "reading": "はい。…じゃあ、やってみます。「もういっかい、いいですか」は、みんなのことばです。しずかにきくのも、クラスのしごとです。",
+              "english": "Okay. …Then I'll give it a try. 'One more time, is that okay?' — that's everyone's phrase. Listening quietly is the class's job too."
+            },
+            "n5": {
+              "japanese": "はい。…じゃあ、やってみます。「もう一回、いいですか」は、みんなが使う言葉です。静かに聞くのも、ちゃんとクラスの役目なんです。",
+              "reading": "はい。…じゃあ、やってみます。「もういっかい、いいですか」は、みんながつかうことばです。しずかにきくのも、ちゃんとクラスのやくめなんです。",
+              "english": "Okay. …Then I'll give it a go. 'One more time, is that okay?' is a phrase everyone uses. Listening quietly is a real part of the class's job too."
+            },
+            "n4": {
+              "japanese": "はい、…分かりました、やってみます。「もう一回、いいですか」って、僕だけの言葉じゃなくて、みんなの道具でいいんですよね。静かに聞く役も、ちゃんとクラスの仕事の一つです。",
+              "reading": "はい、…わかりました、やってみます。「もういっかい、いいですか」って、ぼくだけのことばじゃなくて、みんなのどうぐでいいんですよね。しずかにきくやくも、ちゃんとクラスのしごとのひとつです。",
+              "english": "Okay… all right, I'll try. 'One more time, is that okay?' — it doesn't have to be just my phrase, it can be everyone's tool, right. The quiet-listening role is a proper part of the class's work too."
+            },
+            "n3": {
+              "japanese": "はい。…分かりました、やってみます。「もう一回、いいですか」って、別に僕の口癖じゃなくて、みんなで使える合図でいいんですよね。静かに聞く役も、立派にクラスの仕事の一つなんだと思います。",
+              "reading": "はい。…わかりました、やってみます。「もういっかい、いいですか」って、べつにぼくのくちぐせじゃなくて、みんなでつかえるあいずでいいんですよね。しずかにきくやくも、りっぱにクラスのしごとのひとつなんだとおもいます。",
+              "english": "Okay. …All right, I'll try. 'One more time, is that okay?' — it doesn't have to be my little verbal tic, it can be a signal everyone uses, right. The quiet-listening role is genuinely one of the class's jobs too, I think."
+            },
+            "n2": {
+              "japanese": "はい。…分かりました、引き受けます。「もう一回、いいですか」って、僕の口癖で終わらせずに、みんなの合図にしてしまえばいい。静かに聞くっていう役も、れっきとしたクラスの仕事の一つなんですよね。",
+              "reading": "はい。…わかりました、ひきうけます。「もういっかい、いいですか」って、ぼくのくちぐせでおわらせずに、みんなのあいずにしてしまえばいい。しずかにきくっていうやくも、れっきとしたクラスのしごとのひとつなんですよね。",
+              "english": "Okay. …All right, I'll take it on. 'One more time, is that okay?' — instead of leaving it as my verbal tic, we can just make it everyone's signal. The quiet-listening role, that too is a bona fide part of the class's work."
+            },
+            "n1": {
+              "japanese": "はい。…分かりました、引き受けます。「もう一回、いいですか」を、僕一人の口癖で終わらせずに、みんなの合図にしてしまえばいいんですよね。…静かに聞くっていう役も、これでれっきとしたクラスの仕事の一つになる。そういうことなら、喜んで。",
+              "reading": "はい。…わかりました、ひきうけます。「もういっかい、いいですか」を、ぼくひとりのくちぐせでおわらせずに、みんなのあいずにしてしまえばいいんですよね。…しずかにきくっていうやくも、これでれっきとしたクラスのしごとのひとつになる。そういうことなら、よろこんで。",
+              "english": "Okay. …All right, I'll take it on. Rather than leaving 'One more time, is that okay?' as my own private tic, we just make it everyone's signal, right. …The quiet-listening role, with this, becomes a bona fide part of the class's work. If that's what it means — then gladly."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:welcome-frequency:listen-marker",
+          "beatId": "beat:welcome-frequency:exit-image-two",
+          "cueId": "cue:small-listen-marker-stays",
+          "description": "A small marker settles on the atlas at the opened point: not a lantern, just a mark that means listen. It keeps a steady, quiet beat while the route runs on past it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:quiet-count",
+      "state": "seed",
+      "ownerIds": [
+        "mika",
+        "xingyu"
+      ],
+      "meaningNow": "Mika uses a pause and a silent count to find the entrance into a listening passage — timing, not volume, is the way in.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "Mika simply asks for the cue once more, slowly, and the class waits for the right moment to answer instead of shouting over it."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:welcome-frequency:listening-path",
+      "kind": "story",
+      "description": "The class opens the listening path by timing rather than volume and names quiet attention as a shared ensemble tool, leaving a steady listen-marker on the atlas."
+    },
+    {
+      "id": "outcome:welcome-frequency:mika-arrival",
+      "kind": "bond",
+      "castId": "mika",
+      "chapter": 4,
+      "beat": "arrival",
+      "description": "Mika is introduced as the quiet polyglot who almost does not speak first, then finds the pause-and-count entrance, turns asking for a repeat into a technique, and names his kanji-reading limit as method — establishing quiet attention as an ensemble skill rather than a personality footnote."
+    },
+    {
+      "id": "outcome:welcome-frequency:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l05",
+      "description": "Request-clarification-and-enter-by-timing evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:mika-almost-does-not-speak-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-enter-step"
+    ],
+    "withdrawnContentFallback": "Use the same clarification-and-timing evidence with neutral nameplates and a generic quiet classmate who finds the entrance by counting the interval instead of by volume."
+  }
+}

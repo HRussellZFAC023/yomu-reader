@@ -1,0 +1,596 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e09-the-story-in-two-tenses",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 9,
+  "title": {
+    "en": "The Story in Two Tenses",
+    "ja": "二つの時制の物語"
+  },
+  "synopsis": "The class captions old photographs, and Jodi brings one of a Tokyo street corner she once lived beside. The corner half-remains and the little bakery is gone, so a single caption cannot hold it. Rose grounds the material fact; Jodi refuses to delete either tense and writes both, past and present. The learner produces the two-tense caption pair with a stated reason and a quoted thought, and the class learns that a memory can stay plural.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "jodi",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jodi",
+        "docs/academy/story/CAST-AND-CONSENT.md#jodi"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "age framed as frailty, confusion, or a memory-loss punchline",
+        "lived memory treated as automatic publication permission",
+        "real-event claim about Tokyo"
+      ]
+    },
+    {
+      "castId": "rose",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "practical observation used to authorize another person's story"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e08-menu-without-pictures",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l13",
+            "l1-l14"
+          ],
+          "function": "state-ability-and-reason-and-past-present-comparison-with-quoted-thought"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-nine-first-meeting-jodi"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:two-tenses:the-two-captions",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Meet Jodi through her Tokyo photo and reach the point where one caption cannot hold a place that is half-there and half-gone.",
+      "dramaticQuestion": "When a place is both remembered and changed, will the class force one true caption or keep two?",
+      "learnerNeed": "A two-tense captioning task where saying it was X and is now Y, with one reason, matters more than choosing a single truth.",
+      "curriculum": {
+        "sectionId": "caption-in-two-tenses",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-tenses:photo-table",
+          "beatId": "beat:two-tenses:arrival-image",
+          "cueId": "cue:old-photos-passed-hand-to-hand",
+          "description": "A stack of old photographs goes hand to hand around the table for captioning. One stops in front of the class: a Tokyo street corner, a small shopfront on the left, the print soft at the edges. A blank caption slip waits beneath it."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:jodi-this-corner",
+          "beatId": "beat:two-tenses:host-want",
+          "speakerId": "jodi",
+          "intent": "Drop the wistful aside about having lived in Tokyo, show the corner, and say she wants to caption this street, opening with the past.",
+          "attentionTarget": "the old photo of the Tokyo street corner",
+          "variants": {
+            "foundation": {
+              "japanese": "昔ね、東京に住んでいたの。これは、その角の写真です。この道に、キャプションをつけたいです。昔は、ここに小さなパン屋がありました。",
+              "reading": "むかしね、とうきょうにすんでいたの。これは、そのかどのしゃしんです。このみちに、キャプションをつけたいです。むかしは、ここにちいさなパンやがありました。",
+              "english": "You know — I used to live in Tokyo, long ago. This is a photo of that corner. I want to give this street a caption. Long ago, there was a small bakery here."
+            },
+            "n5": {
+              "japanese": "昔ね、東京に住んでいたの。これ、その時の写真です。この道に、キャプションをつけたいんです。昔は、この角に小さなパン屋がありました。",
+              "reading": "むかしね、とうきょうにすんでいたの。これ、そのときのしゃしんです。このみちに、キャプションをつけたいんです。むかしは、このかどにちいさなパンやがありました。",
+              "english": "You know — I used to live in Tokyo. This is a photo from back then. I want to put a caption on this street. Long ago, there was a small bakery on this corner."
+            },
+            "n4": {
+              "japanese": "昔ね、東京に住んでたの。これ、その頃の写真。この道にキャプションを付けたくて。昔は、この角に小さなパン屋があったんですよ。",
+              "reading": "むかしね、とうきょうにすんでたの。これ、そのころのしゃしん。このみちにキャプションをつけたくて。むかしは、このかどにちいさなパンやがあったんですよ。",
+              "english": "You know — I used to live in Tokyo. This is a photo from around then. I've been wanting to put a caption on this street. Long ago, there was a little bakery on this corner."
+            },
+            "n3": {
+              "japanese": "昔ね、東京に住んでたのよ。これ、ちょうどその頃の写真でね。この道に、一言だけキャプションを付けたいんです。昔はね、この角に小さなパン屋があって。",
+              "reading": "むかしね、とうきょうにすんでたのよ。これ、ちょうどそのころのしゃしんでね。このみちに、ひとことだけキャプションをつけたいんです。むかしはね、このかどにちいさなパンやがあって。",
+              "english": "You know, I lived in Tokyo once. This is a photo from right around that time. I'd like to put just a single line of caption on this street. Long ago, there was a little bakery on this corner…"
+            },
+            "n2": {
+              "japanese": "昔ね、東京に住んでたことがあるの。これ、ちょうどその頃の写真でね。この道に、キャプションを一つ付けておきたくて。昔はここ、この角に小さなパン屋があったんですよ。",
+              "reading": "むかしね、とうきょうにすんでたことがあるの。これ、ちょうどそのころのしゃしんでね。このみちに、キャプションをひとつつけておきたくて。むかしはここ、このかどにちいさなパンやがあったんですよ。",
+              "english": "You know, I lived in Tokyo for a while, once. This is a photo from right around then. I wanted to put one caption on this street, if I could. Long ago, right here on this corner, there was a small bakery."
+            },
+            "n1": {
+              "japanese": "昔ね、東京に住んでたことがあってね。これ、ちょうどその頃の写真なの。この道に、ひとことキャプションを添えておきたくて。昔はね、ちょうどこの角に、小さなパン屋があったんですよ。",
+              "reading": "むかしね、とうきょうにすんでたことがあってね。これ、ちょうどそのころのしゃしんなの。このみちに、ひとことキャプションをそえておきたくて。むかしはね、ちょうどこのかどに、ちいさなパンやがあったんですよ。",
+              "english": "You know, I lived in Tokyo for a spell, a long time ago. This is a photo from right around then. I just wanted to set one line of caption against this street. Long ago there was — right on this corner — a little bakery."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:rose-half-there",
+          "beatId": "beat:two-tenses:obstruction",
+          "speakerId": "rose",
+          "intent": "Ground the material fact from the concrete: she knows this corner, half of it still stands, but the bakery is gone and is a convenience store now, so one caption will not hold.",
+          "attentionTarget": "the left half of the corner in the photo, then the shopfront",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、この角、知っています。半分は、今もあります。でも、その店は、もうありません。今は、コンビニです。",
+              "reading": "あ、このかど、しっています。はんぶんは、いまもあります。でも、そのみせは、もうありません。いまは、コンビニです。",
+              "english": "Ah, I know this corner. Half of it is still there. But that shop is gone. Now it's a convenience store."
+            },
+            "n5": {
+              "japanese": "あ、その角、私も知ってます。半分は今もあるんです。でも、そのパン屋はもうありません。今はコンビニですよ。",
+              "reading": "あ、そのかど、わたしもしってます。はんぶんはいまもあるんです。でも、そのパンやはもうありません。いまはコンビニですよ。",
+              "english": "Ah, I know that corner too. Half of it is still there. But that bakery is gone. Now it's a convenience store."
+            },
+            "n4": {
+              "japanese": "あ、その角、私も知ってますよ。半分は今も残ってて。でも、そのパン屋はもうないんです。今はコンビニになってて。",
+              "reading": "あ、そのかど、わたしもしってますよ。はんぶんはいまものこってて。でも、そのパンやはもうないんです。いまはコンビニになってて。",
+              "english": "Ah, I know that corner too. Half of it is still standing. But that bakery is gone. It's a convenience store now."
+            },
+            "n3": {
+              "japanese": "あ、その角なら、私も見たことあります。半分は今も残ってるんですよ。ただ、そのパン屋はもうなくて。今はコンビニになってるんです。",
+              "reading": "あ、そのかどなら、わたしもみたことあります。はんぶんはいまものこってるんですよ。ただ、そのパンやはもうなくて。いまはコンビニになってるんです。",
+              "english": "Ah, that corner — I've seen it. Half of it's still standing, actually. Only, that bakery's gone. It's a convenience store now."
+            },
+            "n2": {
+              "japanese": "あ、その角、私も通ったことあります。半分は今もそのまま残ってるんですよ。ただ、その肝心のパン屋はもうなくて。今はコンビニになってるんです。",
+              "reading": "あ、そのかど、わたしもとおったことあります。はんぶんはいまもそのままのこってるんですよ。ただ、そのかんじんのパンやはもうなくて。いまはコンビニになってるんです。",
+              "english": "Ah, that corner — I've walked it. Half of it is still there exactly as it was. Only, the bakery itself, the one that matters, is gone. It's a convenience store now."
+            },
+            "n1": {
+              "japanese": "あ、その角なら、私も歩いたことありますよ。半分は今もそっくり残ってるんです。ただ、肝心のパン屋のほうはもうなくてね。今はコンビニに変わってるんですよ。",
+              "reading": "あ、そのかどなら、わたしもあるいたことありますよ。はんぶんはいまもそっくりのこってるんです。ただ、かんじんのパンやのほうはもうなくてね。いまはコンビニにかわってるんですよ。",
+              "english": "Ah, that corner — I've actually walked it. Half of it is still there, exactly as it was. Only the bakery itself, the part that matters, is gone. It's turned into a convenience store now."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:jodi-both-tenses",
+          "beatId": "beat:two-tenses:pressure",
+          "speakerId": "jodi",
+          "intent": "Accept the material fact, state that she can still recall it clearly because she lived here, and decide to write both tenses instead of choosing one.",
+          "attentionTarget": "the blank caption slip and the photo",
+          "variants": {
+            "foundation": {
+              "japanese": "そうね。半分はあって、半分はない。でも、私は今も、はっきり思い出せます。ここに住んでいたから。パンの匂いも、まだ覚えています。だから、一つに決めません。二つ書きます。昔と、今と。",
+              "reading": "そうね。はんぶんはあって、はんぶんはない。でも、わたしはいまも、はっきりおもいだせます。ここにすんでいたから。パンのにおいも、まだおぼえています。だから、ひとつにきめません。ふたつかきます。むかしと、いまと。",
+              "english": "That's right. Half is there, half is gone. But I can still picture it clearly, even now. Because I lived here. I still remember the smell of the bread, too. So I won't decide on one. I'll write two. The past, and the present."
+            },
+            "n5": {
+              "japanese": "そうね。半分は残って、半分は消えた。でも私、今でもはっきり思い出せるんです。ここに住んでいたから。パンの匂いも、まだ覚えてます。だから、一つに決めません。二つ書きます。昔のと、今のと。",
+              "reading": "そうね。はんぶんはのこって、はんぶんはきえた。でもわたし、いまでもはっきりおもいだせるんです。ここにすんでいたから。パンのにおいも、まだおぼえてます。だから、ひとつにきめません。ふたつかきます。むかしのと、いまのと。",
+              "english": "That's right. Half stayed, half vanished. But I can still picture it clearly, even now. Because I lived here. I still remember the smell of the bread. So I won't decide on one. I'll write two. The past one, and the present one."
+            },
+            "n4": {
+              "japanese": "そうなの。半分は残って、半分は消えた。でも私、今でもちゃんと思い出せるんですよ。ここに住んでたから。パンの匂いだって、まだ覚えてる。だから一つに絞らないの。二つ書きます。昔のと、今のと。",
+              "reading": "そうなの。はんぶんはのこって、はんぶんはきえた。でもわたし、いまでもちゃんとおもいだせるんですよ。ここにすんでたから。パンのにおいだって、まだおぼえてる。だからひとつにしぼらないの。ふたつかきます。むかしのと、いまのと。",
+              "english": "That's right. Half stayed, half vanished. But I can still recall it perfectly well, even now. Because I lived here. I even remember the smell of the bread. So I won't narrow it to one. I'll write two. The past one, and the present one."
+            },
+            "n3": {
+              "japanese": "そうなのよ。半分は残って、半分は消えて。でもね、私は今でもはっきり思い出せるの。ここに住んでたから。あのパンの匂いまで、まだ覚えてるくらい。だから、どっちか一つには決めない。二つ書くの。昔のと、今のと、両方。",
+              "reading": "そうなのよ。はんぶんはのこって、はんぶんはきえて。でもね、わたしはいまでもはっきりおもいだせるの。ここにすんでたから。あのパンのにおいまで、まだおぼえてるくらい。だから、どっちかひとつにはきめない。ふたつかくの。むかしのと、いまのと、りょうほう。",
+              "english": "That's right. Half stayed, half vanished. But you know, I can still picture it clearly, even now — because I lived here. I even still remember the smell of that bread. So I won't decide on just one. I'll write two. The past, and the present — both."
+            },
+            "n2": {
+              "japanese": "そうなの。半分は残って、半分は消えてしまって。でも私、今でもはっきり思い出せるんですよ。ここに住んでたから。あのパンの匂いまで、まだ覚えてるくらいでね。だから、無理に一つには決めないの。二つ書きます。昔のと、今のと、両方ね。",
+              "reading": "そうなの。はんぶんはのこって、はんぶんはきえてしまって。でもわたし、いまでもはっきりおもいだせるんですよ。ここにすんでたから。あのパンのにおいまで、まだおぼえてるくらいでね。だから、むりにひとつにはきめないの。ふたつかきます。むかしのと、いまのと、りょうほうね。",
+              "english": "That's right. Half stayed, half has vanished. But I can still picture it clearly, even now — because I lived here. So much so that I still remember the smell of that bread. So I won't force it down to one. I'll write two. The past, and the present — both of them."
+            },
+            "n1": {
+              "japanese": "そうなのよ。半分は残って、半分は消えてしまってね。でも私、今でもはっきり思い出せるの。ここに住んでたことがあるから。あのパンの匂いまで、まだ覚えてるくらいでね。だから、無理にどちらか一つには決めない。二つとも書いておくの。昔のと、今のと、両方をね。",
+              "reading": "そうなのよ。はんぶんはのこって、はんぶんはきえてしまってね。でもわたし、いまでもはっきりおもいだせるの。ここにすんでたことがあるから。あのパンのにおいまで、まだおぼえてるくらいでね。だから、むりにどちらかひとつにはきめない。ふたつともかいておくの。むかしのと、いまのと、りょうほうをね。",
+              "english": "That's right. Half stayed, half has gone for good. But I can still picture it clearly, even now — because I once lived here. So much so that I still remember the very smell of that bread. So I won't force myself to settle on one or the other. I'll write both down. The past, and the present — both of them."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-tenses:before-captions",
+          "beatId": "beat:two-tenses:caption-attempt",
+          "resume": "Jodi has decided to keep both tenses of the one corner. The learner steps in to write the two-tense caption pair for her photo, with one reason and a quoted thought."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:two-tenses:two-tense-captions",
+          "beatId": "beat:two-tenses:caption-attempt",
+          "hook": {
+            "packageId": "l1-l14",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e09-two-tense-captions"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e09-two-tense-captions"
+          },
+          "resumeContext": "The photo shows one corner that half-remains. The learner writes two captions for it — a past one (昔は、ここに小さなパン屋がありました) and a present one (今は、コンビニです) — states one reason with 〜から (匂いを覚えているから / 住んでいたから) for the ability to recall it, and reports Jodi's quoted thought with 〜と思っていた, keeping both tenses instead of choosing one.",
+          "onReady": "checkpoint:two-tenses:after-captions",
+          "onRepair": "node:two-tenses:caption-repair",
+          "onDefer": "checkpoint:two-tenses:before-captions"
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-tenses:caption-repair",
+          "beatId": "beat:two-tenses:caption-repair",
+          "cueId": "cue:two-caption-slips-side-by-side",
+          "description": "The past slip and the present slip are set side by side beneath the photo. Only the tense or the reason that went missing returns for another try; the caption already written stays in place, uncrossed."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-tenses:after-captions",
+          "beatId": "beat:two-tenses:caption-response",
+          "resume": "Both captions now sit under the photo, each true in its own tense, with a reason attached. Jodi reads them back without erasing either."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:jodi-neither-deleted",
+          "beatId": "beat:two-tenses:contribution",
+          "speakerId": "jodi",
+          "intent": "Read both captions aloud, name both as true, and make clear she is deleting neither.",
+          "attentionTarget": "the two caption slips beneath the photo",
+          "variants": {
+            "foundation": {
+              "japanese": "はい。『昔は、ここに小さなパン屋がありました。』『今は、コンビニです。』どちらも本当です。どちらも、消しません。",
+              "reading": "はい。『むかしは、ここにちいさなパンやがありました。』『いまは、コンビニです。』どちらもほんとうです。どちらも、けしません。",
+              "english": "There. \"Long ago, there was a small bakery here.\" \"Now, it's a convenience store.\" Both are true. I won't erase either one."
+            },
+            "n5": {
+              "japanese": "はい。『昔は、ここに小さなパン屋がありました。』『今は、コンビニです。』二つとも本当です。どちらも消しません。",
+              "reading": "はい。『むかしは、ここにちいさなパンやがありました。』『いまは、コンビニです。』ふたつともほんとうです。どちらもけしません。",
+              "english": "There. \"Long ago, there was a small bakery here.\" \"Now, it's a convenience store.\" Both are true. I won't erase either."
+            },
+            "n4": {
+              "japanese": "はい、これで。『昔は、ここに小さなパン屋があった。』『今は、コンビニ。』二つとも本当のこと。どっちも消さないでおきます。",
+              "reading": "はい、これで。『むかしは、ここにちいさなパンやがあった。』『いまは、コンビニ。』ふたつともほんとうのこと。どっちもけさないでおきます。",
+              "english": "There, that's it. \"Long ago there was a small bakery here.\" \"Now, a convenience store.\" Both are true. I'll leave them both, neither erased."
+            },
+            "n3": {
+              "japanese": "うん、これでいい。『昔は、ここに小さなパン屋があった。』『今は、コンビニ。』どっちも本当のことなの。だから、片方も消さない。",
+              "reading": "うん、これでいい。『むかしは、ここにちいさなパンやがあった。』『いまは、コンビニ。』どっちもほんとうのことなの。だから、かたほうもけさない。",
+              "english": "Yes, this is good. \"Long ago there was a small bakery here.\" \"Now, a convenience store.\" Both are true. So I won't erase even one of them."
+            },
+            "n2": {
+              "japanese": "うん、これでいいの。『昔は、ここに小さなパン屋があった。』『今は、コンビニ。』どちらも本当のことでね。だから、片方も消さずに残しておくの。",
+              "reading": "うん、これでいいの。『むかしは、ここにちいさなパンやがあった。』『いまは、コンビニ。』どちらもほんとうのことでね。だから、かたほうもけさずにのこしておくの。",
+              "english": "Yes, this is right. \"Long ago there was a small bakery here.\" \"Now, a convenience store.\" Both of them are true. So I'll keep them both, without erasing either."
+            },
+            "n1": {
+              "japanese": "うん、これでいいの。『昔は、ここに小さなパン屋があった。』『今は、コンビニ。』どちらも本当のことでね。だからこそ、片方だけ消すなんてことはしないの。",
+              "reading": "うん、これでいいの。『むかしは、ここにちいさなパンやがあった。』『いまは、コンビニ。』どちらもほんとうのことでね。だからこそ、かたほうだけけすなんてことはしないの。",
+              "english": "Yes, this is right. \"Long ago there was a small bakery here.\" \"Now, a convenience store.\" Both of them are true — and that's exactly why I won't go erasing just one of them."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-tenses:both-captions-stand",
+          "beatId": "beat:two-tenses:changed-image",
+          "cueId": "cue:photo-with-two-captions-kept",
+          "description": "The photo now carries two caption slips at once — one in the past tense, one in the present — pinned side by side. Neither is crossed out. The corner in the picture stays exactly as half-there as it always was."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:two-tenses:memory-stays-plural"
+      }
+    },
+    {
+      "id": "scene:two-tenses:memory-stays-plural",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Let Jodi name why she keeps both tenses, and let the class treat plural memory as a form to master rather than a contradiction to fix.",
+      "dramaticQuestion": "Can two true sentences about one place count as finished, without one being made to win?",
+      "learnerNeed": "A stance choice about how to hold two captions of one place open at once.",
+      "curriculum": {
+        "sectionId": "memory-can-stay-plural",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-tenses:photo-rests",
+          "beatId": "beat:two-tenses:regroup-image",
+          "cueId": "cue:two-captions-under-lamp",
+          "description": "The photo rests under the desk lamp with both captions kept. Jodi looks at it for a moment longer than the task needs, the way you look at a place rather than a picture."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:jodi-quoted-thought",
+          "beatId": "beat:two-tenses:regroup-want",
+          "speakerId": "jodi",
+          "intent": "Report her own past thought about the place with a quoted thought, and set both the losing and the keeping side by side as true.",
+          "attentionTarget": "the present caption, then the memory of the smell",
+          "variants": {
+            "foundation": {
+              "japanese": "長い間、もう無いと思っていました。でも、匂いは覚えています。『無い』も、『覚えている』も、両方本当です。",
+              "reading": "ながいあいだ、もうないとおもっていました。でも、においはおぼえています。『ない』も、『おぼえている』も、りょうほうほんとうです。",
+              "english": "For a long time, I thought it was already gone. But I still remember the smell. \"It's gone\" and \"I remember it\" — both are true."
+            },
+            "n5": {
+              "japanese": "長い間、もう無いと思っていました。でも、匂いはまだ覚えてるんです。『もう無い』も『覚えてる』も、両方本当なんです。",
+              "reading": "ながいあいだ、もうないとおもっていました。でも、においはまだおぼえてるんです。『もうない』も『おぼえてる』も、りょうほうほんとうなんです。",
+              "english": "For a long time, I thought it was already gone. But I still remember the smell. \"It's gone now\" and \"I remember it\" — both are true."
+            },
+            "n4": {
+              "japanese": "長いこと、もう無いと思ってたの。でも、匂いはまだ覚えてる。『もう無い』のも、『覚えてる』のも、両方本当なんですよね。",
+              "reading": "ながいこと、もうないとおもってたの。でも、においはまだおぼえてる。『もうない』のも、『おぼえてる』のも、りょうほうほんとうなんですよね。",
+              "english": "For a long time I thought it was gone. But I still remember the smell. \"It's gone\" and \"I remember it\" — both of those are true, aren't they."
+            },
+            "n3": {
+              "japanese": "長いことね、もう無いと思ってたの。でも、匂いのほうはまだ覚えてて。『もう無い』のも、『覚えてる』のも、どっちも本当なのよね。",
+              "reading": "ながいことね、もうないとおもってたの。でも、においのほうはまだおぼえてて。『もうない』のも、『おぼえてる』のも、どっちもほんとうなのよね。",
+              "english": "For a long time, you know, I thought it was gone. But the smell — that I still remember. \"It's gone\" and \"I remember it,\" both of those are true, really."
+            },
+            "n2": {
+              "japanese": "長いことね、もう無くなったと思ってたの。でも、匂いのほうはまだちゃんと覚えてて。『もう無い』のも、『まだ覚えてる』のも、両方とも本当なんですよ。",
+              "reading": "ながいことね、もうなくなったとおもってたの。でも、においのほうはまだちゃんとおぼえてて。『もうない』のも、『まだおぼえてる』のも、りょうほうともほんとうなんですよ。",
+              "english": "For a long time, you know, I'd thought it was gone for good. But the smell — that I still remember, quite clearly. \"It's gone\" and \"I still remember it,\" both of those are true."
+            },
+            "n1": {
+              "japanese": "長いことね、もう無くなったものとばかり思ってたの。でも、匂いのほうはまだちゃんと残ってて。『もう無い』のも、『まだ覚えてる』のも、どっちも嘘じゃないんですよ。",
+              "reading": "ながいことね、もうなくなったものとばかりおもってたの。でも、においのほうはまだちゃんとのこってて。『もうない』のも、『まだおぼえてる』のも、どっちもうそじゃないんですよ。",
+              "english": "For the longest time, you know, I'd simply assumed it was gone for good. But the smell — that has stayed with me, clear as anything. \"It's gone\" and \"I still remember it\" — neither one of those is a lie."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:two-tenses:how-to-hold-both",
+          "beatId": "beat:two-tenses:stance",
+          "question": "How do you help her keep both captions?",
+          "options": [
+            {
+              "id": "option:two-tenses:keep-both-side-by-side",
+              "action": "Keep both captions side by side as two lines, past and present, neither erased.",
+              "japaneseByBand": {
+                "foundation": "二つ、ならべて書きましょう。昔はと、今はと。どちらも消さないで。",
+                "n5": "二つ、並べて書きましょう。『昔は』と『今は』、どちらも消さずに。",
+                "n4": "二つとも、並べて残しましょう。『昔は』と『今は』、どっちも消さないで。",
+                "n3": "二つとも、並べたまま残しましょう。『昔は』も『今は』も、片方も消さずに。",
+                "n2": "両方とも、並べたまま残しておきましょう。『昔は』も『今は』も、どちらも消さずに。",
+                "n1": "どちらも、並べたまま残しておきましょう。『昔は』も『今は』も、片方だけ消したりせずに。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:two-tenses:before-hold"
+            },
+            {
+              "id": "option:two-tenses:add-a-reason",
+              "action": "Ask her for one thing she still remembers, and add it to the past caption so it stands on its own reason.",
+              "japaneseByBand": {
+                "foundation": "昔のほうに、覚えていることを一つ足しませんか。『匂いを覚えているから』と。",
+                "n5": "昔のキャプションに、覚えていることを一つ足しましょう。『匂いを覚えているから』って。",
+                "n4": "昔のほうに、まだ覚えてることを一つ添えませんか。『匂いを覚えてるから』って。",
+                "n3": "昔のキャプションに、今も覚えてることを一つ添えておきませんか。『匂いを覚えてるから』って。",
+                "n2": "昔のほうのキャプションに、今も覚えてることを一つ添えておきましょうか。『匂いを覚えてるから』と、理由も一緒に。",
+                "n1": "昔のほうのキャプションには、今も覚えてることを一つ添えておきませんか。『匂いを覚えてるから』と、その理由ごとね。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:two-tenses:before-hold"
+            }
+          ],
+          "convergence": "checkpoint:two-tenses:before-hold"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-tenses:before-hold",
+          "beatId": "beat:two-tenses:hold-attempt",
+          "resume": "The learner has taken a stance on how to hold both captions open. Jodi answers by naming what the two-tense form is for."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:jodi-plural-memory",
+          "beatId": "beat:two-tenses:repair",
+          "speakerId": "jodi",
+          "intent": "Reframe the two captions as two true sentences about one place, and name plural memory as a finished form rather than a contradiction to fix.",
+          "attentionTarget": "the two captions held together",
+          "variants": {
+            "foundation": {
+              "japanese": "ありがとう。ね、一つの本当の話に、決めなくていいんです。『昔は』と『今は』。一つの場所の、二つの文。どちらも本当。記憶は、二つのままでいいんです。",
+              "reading": "ありがとう。ね、ひとつのほんとうのはなしに、きめなくていいんです。『むかしは』と『いまは』。ひとつのばしょの、ふたつのぶん。どちらもほんとう。きおくは、ふたつのままでいいんです。",
+              "english": "Thank you. You see — you don't have to settle on one true story. \"Long ago\" and \"now.\" Two sentences about one place. Both true. A memory can stay two."
+            },
+            "n5": {
+              "japanese": "ありがとう。ね、一つの正しい話に決めなくていいんです。『昔は』と『今は』。同じ場所の、二つの文。どちらも本当です。記憶は、二つのままでいいんですよ。",
+              "reading": "ありがとう。ね、ひとつのただしいはなしにきめなくていいんです。『むかしは』と『いまは』。おなじばしょの、ふたつのぶん。どちらもほんとうです。きおくは、ふたつのままでいいんですよ。",
+              "english": "Thank you. You see — you don't have to settle on one correct story. \"Long ago\" and \"now.\" Two sentences about the same place. Both true. A memory can stay two."
+            },
+            "n4": {
+              "japanese": "ありがとう。ね、一つの正しい話に決めなくていいの。『昔は』と『今は』。同じ場所のことなのに、二つ文がある。どっちも本当。記憶って、二つのままでいいんですよ。",
+              "reading": "ありがとう。ね、ひとつのただしいはなしにきめなくていいの。『むかしは』と『いまは』。おなじばしょのことなのに、ふたつぶんがある。どっちもほんとう。きおくって、ふたつのままでいいんですよ。",
+              "english": "Thank you. You see — you don't have to settle on one correct story. \"Long ago\" and \"now.\" It's the same place, and yet there are two sentences. Both true. A memory can just stay two, you know."
+            },
+            "n3": {
+              "japanese": "ありがとうね。ね、一つの正しい話に、まとめなくていいのよ。『昔は』と『今は』。同じ一つの場所なのに、文が二つある。でも、どっちも本当。記憶はね、二つのままでいいの。",
+              "reading": "ありがとうね。ね、ひとつのただしいはなしに、まとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょなのに、ぶんがふたつある。でも、どっちもほんとう。きおくはね、ふたつのままでいいの。",
+              "english": "Thank you. You see — you don't have to gather it up into one correct story. \"Long ago\" and \"now.\" One and the same place, and yet two sentences. But both are true. A memory, you know, can just stay two."
+            },
+            "n2": {
+              "japanese": "ありがとうね。ね、無理に一つの正しい話にまとめなくていいのよ。『昔は』と『今は』。同じ一つの場所の話なのに、文が二つ立つ。でも、どちらも本当でね。記憶って、二つのまま抱えておいていいんですよ。",
+              "reading": "ありがとうね。ね、むりにひとつのただしいはなしにまとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょのはなしなのに、ぶんがふたつたつ。でも、どちらもほんとうでね。きおくって、ふたつのままかかえておいていいんですよ。",
+              "english": "Thank you. You see — you don't have to force it together into one correct story. \"Long ago\" and \"now.\" It's about one and the same place, and yet two sentences stand. But both are true. A memory, you can just carry it as two, you know."
+            },
+            "n1": {
+              "japanese": "ありがとうね。ね、無理に一つの正しい話にまとめてしまわなくていいの。『昔は』と『今は』。同じ一つの場所のことなのに、文が二つ立ってしまう。でも、そのどちらも本当でね。記憶っていうのは、二つのまま抱えておいてかまわないんですよ。",
+              "reading": "ありがとうね。ね、むりにひとつのただしいはなしにまとめてしまわなくていいの。『むかしは』と『いまは』。おなじひとつのばしょのことなのに、ぶんがふたつたってしまう。でも、そのどちらもほんとうでね。きおくっていうのは、ふたつのままかかえておいてかまわないんですよ。",
+              "english": "Thank you. You see — there's no need to force it all together into one correct story. \"Long ago\" and \"now.\" It's about one and the same place, and yet two sentences end up standing. But both of them are true. A memory, really, is something you're free to carry as two."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-tenses:rose-long-view",
+          "beatId": "beat:two-tenses:changed-action",
+          "speakerId": "rose",
+          "intent": "Confirm from the concrete that both captions are literally true because the corner is genuinely half-there, then widen to the long view: the map, too, can hold several memories rather than one.",
+          "attentionTarget": "the corner in the photo, then the rebuilt map on the wall",
+          "variants": {
+            "foundation": {
+              "japanese": "なるほど。あの角は、本当に半分あって、半分ない。だから、二つとも本当です。この地図も同じです。一つの話じゃなくて、いくつも残せます。",
+              "reading": "なるほど。あのかどは、ほんとうにはんぶんあって、はんぶんない。だから、ふたつともほんとうです。このちずもおなじです。ひとつのはなしじゃなくて、いくつものこせます。",
+              "english": "That makes sense. That corner really is half-there and half-gone. So both captions are true. This map is the same. Not one story — we can keep several."
+            },
+            "n5": {
+              "japanese": "なるほど。あの角、本当に半分は残って半分は消えてる。だから二つとも本当なんですよね。この地図も同じです。一つの話に決めないで、いくつも残せます。",
+              "reading": "なるほど。あのかど、ほんとうにはんぶんはのこってはんぶんはきえてる。だからふたつともほんとうなんですよね。このちずもおなじです。ひとつのはなしにきめないで、いくつものこせます。",
+              "english": "That makes sense. That corner really is half-standing and half-gone. So both captions are true. This map's the same. Instead of settling on one story, we can keep several."
+            },
+            "n4": {
+              "japanese": "なるほどね。あの角、実際に半分は残ってて半分は消えてる。だから、二つとも本当なんですよ。この地図も同じで。一つの話に決めないで、いくつも並べて残せる。",
+              "reading": "なるほどね。あのかど、じっさいにはんぶんはのこっててはんぶんはきえてる。だから、ふたつともほんとうなんですよ。このちずもおなじで。ひとつのはなしにきめないで、いくつもならべてのこせる。",
+              "english": "That makes sense. That corner actually is half-standing and half-gone. So both captions are true. This map is the same — instead of settling on one story, it can keep several lined up."
+            },
+            "n3": {
+              "japanese": "なるほどね。あの角、実際に半分は残ってて、半分は消えてるわけで。だから、二つとも文字どおり本当なんですよ。…この地図もそうなんです。一つの話に塗り替えないで、いくつも並べて残せる。",
+              "reading": "なるほどね。あのかど、じっさいにはんぶんはのこってて、はんぶんはきえてるわけで。だから、ふたつとももじどおりほんとうなんですよ。…このちずもそうなんです。ひとつのはなしにぬりかえないで、いくつもならべてのこせる。",
+              "english": "That makes sense. That corner actually is half-standing and half-gone. So both captions are literally true. …This map's like that too. Rather than repainting it into one story, it can keep several side by side."
+            },
+            "n2": {
+              "japanese": "なるほどね。あの角、現に半分は残ってて、半分は消えてるんですから。だから、二つとも文字どおり本当なんですよ。…考えてみれば、この地図も同じでね。一つの話に上書きせずに、いくつもの記憶を並べたまま残せる。",
+              "reading": "なるほどね。あのかど、げんにはんぶんはのこってて、はんぶんはきえてるんですから。だから、ふたつとももじどおりほんとうなんですよ。…かんがえてみれば、このちずもおなじでね。ひとつのはなしにうわがきせずに、いくつものきおくをならべたままのこせる。",
+              "english": "That makes sense. That corner is, in fact, half-standing and half-gone. So both captions are literally true. …Come to think of it, this map is the same. Rather than overwriting it into one story, it can hold several memories side by side."
+            },
+            "n1": {
+              "japanese": "なるほどね。あの角、現に半分は残って、半分は消えてるわけですからね。だとしたら、二つとも文字どおり本当ってことになる。…長い目で見れば、この地図だって同じなんですよ。一つの話に上書きしてしまわずに、いくつもの記憶を並べたまま抱えておける。",
+              "reading": "なるほどね。あのかど、げんにはんぶんはのこって、はんぶんはきえてるわけですからね。だとしたら、ふたつとももじどおりほんとうってことになる。…ながいめでみれば、このちずだっておなじなんですよ。ひとつのはなしにうわがきしてしまわずに、いくつものきおくをならべたままかかえておける。",
+              "english": "That makes sense. That corner is, in plain fact, half-standing and half-gone. Which means both captions come out literally true. …Taking the long view, this map is no different, really. Rather than overwriting it into one story, it can hold several memories side by side."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-tenses:photo-on-the-map",
+          "beatId": "beat:two-tenses:exit-image",
+          "cueId": "cue:photo-pinned-two-captions-kept",
+          "description": "The photo is pinned to the rebuilt map with both captions kept beneath it. On the wall around it, other layered captions sit side by side, none of them crossed out. The corner stays half-there, and the evening ends without one tense being made to win."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:two-tenses:two-tense-caption",
+      "kind": "story",
+      "description": "Jodi's Tokyo photo keeps two captions at once — a past-tense bakery and a present-tense convenience store — with a stated reason, and the class treats plural memory as a form to master rather than a contradiction to resolve. The corner's caption is left doubled on purpose, neither tense erased."
+    },
+    {
+      "id": "outcome:two-tenses:jodi-arrival",
+      "kind": "bond",
+      "castId": "jodi",
+      "chapter": 9,
+      "beat": "arrival",
+      "description": "Jodi is introduced through her double caption: warm, unhurried, the oldest in the room and the one who studies hardest, chasing a remembered place rather than a grade. Her attention pattern — holding a remembered detail and a present detail together without forcing one to win — is established as a competence the class can lean on later."
+    },
+    {
+      "id": "outcome:two-tenses:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l14",
+      "description": "State-ability-and-reason and past/present-comparison-with-quoted-thought evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:jodi-writes-one-caption-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-two-tense-captions"
+    ],
+    "withdrawnContentFallback": "Use the same two-tense captioning and plural-memory beats with neutral nameplates and a generic pair who keep a past caption and a present caption for one half-changed street corner instead of choosing a single tense."
+  }
+}

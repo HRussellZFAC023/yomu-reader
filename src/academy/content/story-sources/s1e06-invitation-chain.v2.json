@@ -1,0 +1,654 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e06-invitation-chain",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 6,
+  "title": {
+    "en": "The Invitation Chain",
+    "ja": "誘いの連鎖"
+  },
+  "synopsis": "Sam's warm practice invitation branches into so many options — day, time, food, drinks, tennis first or after — that nobody in the cafe can answer it. The learner helps him collapse the sprawl into one clear time-and-activity ask, and the class's first explicit consent beat lands when Sam issues that single invitation, hears a soft refusal, and honors it without re-asking.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sam",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, employer, or private history",
+        "asking a second time framed as persistence that works",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "robert",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#robert",
+        "docs/academy/story/CAST-AND-CONSENT.md#robert"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "a soft refusal framed as a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e05-final-boss-kana",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l08",
+            "l1-l09"
+          ],
+          "function": "state-an-opening-and-a-clear-invitation-and-honor-a-soft-refusal"
+        }
+      ],
+      "recommendedBand": "foundation",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-six-first-meeting-sam"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:invitation-chain:too-many-options",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Meet Sam through a warm invitation that branches into more options than anyone can answer, and reach the point where generosity has become paralysis.",
+      "dramaticQuestion": "When an invitation has too many options, will adding one more make it answerable, or does it have to be narrowed to a single ask?",
+      "learnerNeed": "A real invitation that must be collapsed from a sprawl of options into one clear time-and-activity ask.",
+      "curriculum": {
+        "sectionId": "narrow-to-one-invitation",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:invitation-chain:drinks-already-out",
+          "beatId": "beat:invitation-chain:arrival-image",
+          "cueId": "cue:cafe-drinks-before-plan",
+          "description": "The cafe's corner table already has glasses and a jug set out, poured before anyone agreed to anything. A notepad waits in the middle under Sam's pen."
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-welcome",
+          "beatId": "beat:invitation-chain:host-want",
+          "speakerId": "sam",
+          "intent": "Warmly invite the whole class to a get-together, and to be inclusive, put every possible option on the table at once.",
+          "attentionTarget": "the blank notepad and the class around the table",
+          "variants": {
+            "foundation": {
+              "japanese": "みなさん、こんばんは！こんど、みんなで あつまりませんか。土曜日？日曜日？ごはんは おこのみやき？ほかの りょうりも できます。テニスの まえ？あと？ばしょは どこが いいですか。",
+              "reading": "みなさん、こんばんは！こんど、みんなで あつまりませんか。どようび？にちようび？ごはんは おこのみやき？ほかの りょうりも できます。テニスの まえ？あと？ばしょは どこが いいですか。",
+              "english": "Everyone, good evening! Sometime, shall we all get together? Saturday? Sunday? Food — okonomiyaki? I can make other dishes too. Before tennis? After? Where's a good place?"
+            },
+            "n5": {
+              "japanese": "みなさん、こんばんは！こんど みんなで あつまりませんか。土曜日でも 日曜日でも いいです。ごはんは おこのみやきが いいですか。ほかの りょうりも いいですよ。テニスの まえでも、あとでも。ばしょは この カフェでも、ぼくの うちでも。",
+              "reading": "みなさん、こんばんは！こんど みんなで あつまりませんか。どようびでも にちようびでも いいです。ごはんは おこのみやきが いいですか。ほかの りょうりも いいですよ。テニスの まえでも、あとでも。ばしょは この カフェでも、ぼくの うちでも。",
+              "english": "Everyone, good evening! Shall we get together sometime? Saturday or Sunday, either's fine. Is okonomiyaki good for food? Other dishes are fine too. Before tennis, or after. The place could be this cafe, or my place."
+            },
+            "n4": {
+              "japanese": "みなさん、こんばんは！こんど、みんなで あつまりませんか。土曜でも日曜でもいいし、ごはんはおこのみやきでも、なんでも作りますよ。テニスの前でも後でもいいし、ここでも、うちでも。えっと…どれがいいですか。",
+              "reading": "みなさん、こんばんは！こんど、みんなで あつまりませんか。どようでもにちようでもいいし、ごはんはおこのみやきでも、なんでもつくりますよ。テニスのまえでもあとでもいいし、ここでも、うちでも。えっと…どれがいいですか。",
+              "english": "Everyone, evening! Let's get together sometime — Saturday or Sunday, either works, and for food, okonomiyaki, or I'll make anything really. Before tennis or after, either's fine, here or at my place. Um... which one's good?"
+            },
+            "n3": {
+              "japanese": "みなさん、こんばんは。こんど、よかったらみんなで集まりませんか。曜日は土日どっちでもいいし、ごはんもおこのみやきでも他のでも、いくらでも焼きますよ。テニスの前がいいか後がいいか、場所もここか、うちか…あれ、選択肢、増えすぎたかな。",
+              "reading": "みなさん、こんばんは。こんど、よかったらみんなであつまりませんか。ようびはどにちどっちでもいいし、ごはんもおこのみやきでもほかのでも、いくらでもやきますよ。テニスのまえがいいかあとがいいか、ばしょもここか、うちか…あれ、せんたくし、ふえすぎたかな。",
+              "english": "Everyone, good evening. If you'd like, shall we all get together sometime? The day, Saturday or Sunday, either's fine, and food, okonomiyaki or anything else, I'll grill as much as you want. Before tennis or after, the place here or at mine... huh, did the options just get out of hand?"
+            },
+            "n2": {
+              "japanese": "みなさん、こんばんは。こんど、よかったらみんなで集まりませんか。土曜でも日曜でも合わせますし、ごはんもおこのみやきでも、リクエストがあれば何でも焼きますよ。テニスの前後どちらでも、場所もこのカフェでも、うちでも…って、こうやって並べると、かえって決めづらいですね。",
+              "reading": "みなさん、こんばんは。こんど、よかったらみんなであつまりませんか。どようでもにちようでもあわせますし、ごはんもおこのみやきでも、リクエストがあればなんでもやきますよ。テニスのぜんごどちらでも、ばしょもこのカフェでも、うちでも…って、こうやってならべると、かえってきめづらいですね。",
+              "english": "Everyone, good evening. If you're up for it, shall we all get together sometime? I'll fit around Saturday or Sunday, and food, okonomiyaki, or if there's a request I'll grill anything. Before or after tennis, the place this cafe or mine... though, laid out like this, it's actually harder to decide, isn't it."
+            },
+            "n1": {
+              "japanese": "みなさん、こんばんは。こんど、よかったらみんなで集まりませんか。曜日は土日どちらでも合わせますし、ごはんもおこのみやきでも、なんならリクエストをもらえれば片っ端から焼きますよ。テニスの前でも後でも、場所だってここでも、うちでも…と、まあ、こうして選択肢を全部並べたところで、逆にどれも選べなくなるんですけどね。",
+              "reading": "みなさん、こんばんは。こんど、よかったらみんなであつまりませんか。ようびはどにちどちらでもあわせますし、ごはんもおこのみやきでも、なんならリクエストをもらえればかたっぱしからやきますよ。テニスのまえでもあとでも、ばしょだってここでも、うちでも…と、まあ、こうしてせんたくしをぜんぶならべたところで、ぎゃくにどれもえらべなくなるんですけどね。",
+              "english": "Everyone, good evening. If you'd care to, shall we all get together sometime? I'll work around Saturday or Sunday, and for food, okonomiyaki, or honestly if you give me a request I'll grill through the lot. Before tennis or after, the place here or at mine... and, well, once you lay every option out like this, it just leaves nobody able to pick, doesn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:robert-adds-more",
+          "beatId": "beat:invitation-chain:pressure",
+          "speakerId": "robert",
+          "intent": "Try to help by adding still more options — drinks, dessert — making the invitation even less answerable.",
+          "attentionTarget": "the growing list on the notepad",
+          "variants": {
+            "foundation": {
+              "japanese": "いいですね！じゃあ、のみものも いりますね。おちゃ？ビール？ジュース？デザートも ありますか。",
+              "reading": "いいですね！じゃあ、のみものも いりますね。おちゃ？ビール？ジュース？デザートも ありますか。",
+              "english": "Nice! Then we need drinks too, right? Tea? Beer? Juice? Is there dessert too?"
+            },
+            "n5": {
+              "japanese": "いいですね！じゃあ、のみものも 決めましょう。おちゃも ビールも ジュースも。あ、デザートは どうしますか。",
+              "reading": "いいですね！じゃあ、のみものも きめましょう。おちゃも ビールも ジュースも。あ、デザートは どうしますか。",
+              "english": "Nice! Then let's decide drinks too. Tea, beer, and juice. Oh, what shall we do about dessert?"
+            },
+            "n4": {
+              "japanese": "あ、いいですね！じゃあ飲み物も決めないと。お茶、ビール、ジュース…あと、デザートもあったほうがいいですよね？",
+              "reading": "あ、いいですね！じゃあのみものもきめないと。おちゃ、ビール、ジュース…あと、デザートもあったほうがいいですよね？",
+              "english": "Oh, nice! Then we've got to decide drinks too. Tea, beer, juice... and dessert would be better to have as well, right?"
+            },
+            "n3": {
+              "japanese": "いいですね！じゃあ飲み物のことも決めておいたほうが。お茶にビール、ジュース…あ、デザートまで用意したら、もっといいんじゃないですか？",
+              "reading": "いいですね！じゃあのみもののこともきめておいたほうが。おちゃにビール、ジュース…あ、デザートまでよういしたら、もっといいんじゃないですか？",
+              "english": "Nice! Then we'd better settle the drinks too, in advance. Tea, beer, juice... oh, and if we lay on dessert as well, wouldn't that be even better?"
+            },
+            "n2": {
+              "japanese": "いいですね。だったら飲み物も先に決めておきましょうか。お茶、ビール、ジュース…いっそデザートまで揃えたら、もっと形になりますよ。",
+              "reading": "いいですね。だったらのみものもさきにきめておきましょうか。おちゃ、ビール、ジュース…いっそデザートまでそろえたら、もっとかたちになりますよ。",
+              "english": "Nice. In that case, shall we settle the drinks in advance too? Tea, beer, juice... and if we go so far as to line up dessert, it'll come together even more."
+            },
+            "n1": {
+              "japanese": "いいですね。なら飲み物もこの際いっしょに決めてしまいましょうか。お茶にビール、ジュースに…どうせなら、デザートまで用意しておけば、ぐっと格好がつくと思うんですよ。",
+              "reading": "いいですね。ならのみものもこのさいいっしょにきめてしまいましょうか。おちゃにビール、ジュースに…どうせなら、デザートまでよういしておけば、ぐっとかっこうがつくとおもうんですよ。",
+              "english": "Nice. Then while we're at it, shall we settle the drinks together too? Tea, beer, and juice, and... if we're doing it, having dessert ready as well would really round the whole thing out, I'd say."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:invitation-chain:option-sprawl",
+          "beatId": "beat:invitation-chain:obstruction",
+          "cueId": "cue:invitation-branches-multiplying",
+          "description": "The notepad fills with branching options — days, dishes, drinks, tennis-first-or-after — arrows crossing arrows. The poured drinks sit untouched, going flat. Nobody at the table answers."
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-overwhelmed",
+          "beatId": "beat:invitation-chain:paralysis",
+          "speakerId": "sam",
+          "intent": "Notice, out loud, that the invitation has grown so branched that nobody can find a place to answer it.",
+          "attentionTarget": "the thicket of options and the silent table",
+          "variants": {
+            "foundation": {
+              "japanese": "あれ…？ちょっと まって。ふえて きた。土曜？日曜？ごはん？のみもの？テニス？……みんな、どれに こたえれば いいか、わからないですよね。",
+              "reading": "あれ…？ちょっと まって。ふえて きた。どよう？にちよう？ごはん？のみもの？テニス？……みんな、どれに こたえれば いいか、わからないですよね。",
+              "english": "Huh...? Wait a second. It's growing. Saturday? Sunday? Food? Drinks? Tennis? ...Nobody knows which one to answer, do they."
+            },
+            "n5": {
+              "japanese": "あれ…ちょっと 待って。だんだん ふえて きました。土曜、日曜、ごはん、のみもの、テニス…。これじゃ、みんな どれに こたえれば いいか、わからないですね。",
+              "reading": "あれ…ちょっと まって。だんだん ふえて きました。どよう、にちよう、ごはん、のみもの、テニス…。これじゃ、みんな どれに こたえれば いいか、わからないですね。",
+              "english": "Huh... wait a moment. It keeps growing. Saturday, Sunday, food, drinks, tennis... Like this, nobody knows which part to answer, do they."
+            },
+            "n4": {
+              "japanese": "あれ、ちょっと待ってください。なんか、どんどん増えてきた…。曜日、ごはん、飲み物、テニスの前か後か…。これじゃ、みんなどこに答えたらいいか分からないですよね。",
+              "reading": "あれ、ちょっとまってください。なんか、どんどんふえてきた…。ようび、ごはん、のみもの、テニスのまえかあとか…。これじゃ、みんなどこにこたえたらいいかわからないですよね。",
+              "english": "Huh, wait a second. Somehow it just keeps piling up... The day, food, drinks, before or after tennis... Like this, nobody knows where to even start answering, right."
+            },
+            "n3": {
+              "japanese": "…あれ、ちょっと待って。なんか、選ぶことが増えすぎましたね。曜日でしょ、ごはんでしょ、飲み物、テニスの前後…。これじゃ、誰も、どこから返事していいか分からない。",
+              "reading": "…あれ、ちょっとまって。なんか、えらぶことがふえすぎましたね。ようびでしょ、ごはんでしょ、のみもの、テニスのぜんご…。これじゃ、だれも、どこからへんじしていいかわからない。",
+              "english": "...Huh, hold on. There are suddenly too many things to choose. The day, the food, drinks, before-or-after tennis... Like this, nobody knows where to start replying."
+            },
+            "n2": {
+              "japanese": "…あれ、待ってください。なんだか、決めることが一気に増えましたね。曜日に、ごはん、飲み物、テニスの前か後か…。こうなると、みんなどこから答えていいのか、分からなくなってしまう。",
+              "reading": "…あれ、まってください。なんだか、きめることがいっきにふえましたね。ようびに、ごはん、のみもの、テニスのまえかあとか…。こうなると、みんなどこからこたえていいのか、わからなくなってしまう。",
+              "english": "...Huh, wait. Somehow the things to decide have piled up all at once. The day, food, drinks, before or after tennis... Once it's like this, nobody can tell where to begin answering."
+            },
+            "n1": {
+              "japanese": "…あれ、ちょっと待ってくださいよ。なんだか、決めごとが一気に膨らんじゃいましたね。曜日でしょう、ごはんに飲み物、テニスの前か後か…。ここまで来ると、みんな、どこから返事すればいいのか、かえって分からなくなりますよね。",
+              "reading": "…あれ、ちょっとまってくださいよ。なんだか、きめごとがいっきにふくらんじゃいましたね。ようびでしょう、ごはんにのみもの、テニスのまえかあとか…。ここまでくると、みんな、どこからへんじすればいいのか、かえってわからなくなりますよね。",
+              "english": "...Huh, hold on a second. Somehow the decisions have ballooned all at once, haven't they. The day, food and drinks, before or after tennis... Once it gets this far, it actually leaves everyone unsure where to even begin replying, doesn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:invitation-chain:before-narrow",
+          "beatId": "beat:invitation-chain:narrow-attempt",
+          "resume": "The invitation has branched past the point of being answerable. The learner steps in to collapse it into one clear ask: a single opening time and one named activity."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:invitation-chain:narrow-to-one-ask",
+          "beatId": "beat:invitation-chain:narrow-attempt",
+          "hook": {
+            "lessonId": "l1-l08",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e06-invitation-chain-one-clear-ask"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e06-invitation-chain-one-clear-ask"
+          },
+          "resumeContext": "The sprawl of options is on the notepad. The learner picks one day and one opening time, states it as a range (Saturday, from six), names a single activity (okonomiyaki), and phrases the whole thing as one clear invitation with 〜ませんか and an easy way to decline.",
+          "onReady": "checkpoint:invitation-chain:after-narrow",
+          "onRepair": "node:invitation-chain:narrow-repair",
+          "onDefer": "checkpoint:invitation-chain:before-narrow"
+        },
+        {
+          "kind": "stage",
+          "id": "node:invitation-chain:narrow-repair",
+          "beatId": "beat:invitation-chain:narrow-repair",
+          "cueId": "cue:one-time-one-activity-card",
+          "description": "The extra branches fold away, leaving a single card with a time slot and an activity slot. Only the phrasing chunk that went missing — the time range or the invitation ending — returns for another try; the chosen day and activity stay put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:invitation-chain:after-narrow",
+          "beatId": "beat:invitation-chain:narrow-response",
+          "resume": "One clear invitation now sits on the card: Saturday, from six, okonomiyaki, with room to say no. Sam looks at it."
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-hears-one-ask",
+          "beatId": "beat:invitation-chain:changed-image",
+          "speakerId": "sam",
+          "intent": "Realize that narrowing to a single askable choice, rather than adding more options, is what makes the invitation answerable.",
+          "attentionTarget": "the single invitation card",
+          "variants": {
+            "foundation": {
+              "japanese": "あ…そうか。一つで いいんだ。土曜日の 六時から、おこのみやきを たべませんか。これなら、こたえられますね。",
+              "reading": "あ…そうか。ひとつで いいんだ。どようびの ろくじから、おこのみやきを たべませんか。これなら、こたえられますね。",
+              "english": "Ah... I see. One is enough. From six on Saturday, shall we eat okonomiyaki? Like this, people can answer."
+            },
+            "n5": {
+              "japanese": "あ、そうか。一つに すれば いいんだ。土曜日の 六時から、うちで おこのみやきを 食べませんか。これなら 答えられますね。",
+              "reading": "あ、そうか。ひとつに すれば いいんだ。どようびの ろくじから、うちで おこのみやきを たべませんか。これなら こたえられますね。",
+              "english": "Ah, I see. I just had to make it one. From six on Saturday, shall we eat okonomiyaki at my place? Like this, people can answer."
+            },
+            "n4": {
+              "japanese": "あー、そうか。全部ならべなくても、一つでよかったんだ。「土曜日の六時から、おこのみやき食べませんか」。うん、これなら答えやすい。",
+              "reading": "あー、そうか。ぜんぶならべなくても、ひとつでよかったんだ。「どようびのろくじから、おこのみやきたべませんか」。うん、これならこたえやすい。",
+              "english": "Ahh, I see. I didn't have to lay it all out — one was enough. \"From six on Saturday, shall we eat okonomiyaki?\" Yeah, that's easy to answer."
+            },
+            "n3": {
+              "japanese": "なるほど…全部ならべるより、一つに絞ったほうがよかったんですね。「土曜、六時から、おこのみやき、どうですか」。…うん、これなら相手も答えられる。",
+              "reading": "なるほど…ぜんぶならべるより、ひとつにしぼったほうがよかったんですね。「どよう、ろくじから、おこのみやき、どうですか」。…うん、これならあいてもこたえられる。",
+              "english": "I see... rather than laying it all out, narrowing it to one was the better move. \"Saturday, from six, okonomiyaki, how about it?\" ...Yeah, like that the other person can actually answer."
+            },
+            "n2": {
+              "japanese": "なるほどなあ。あれこれ足すより、一つに絞ったほうが、よっぽど答えやすいんですね。「土曜の六時から、うちでおこのみやき、どうですか」。……これでいい。これなら、相手も一言で返せる。",
+              "reading": "なるほどなあ。あれこれたすより、ひとつにしぼったほうが、よっぽどこたえやすいんですね。「どようのろくじから、うちでおこのみやき、どうですか」。……これでいい。これなら、あいてもひとことでかえせる。",
+              "english": "I see now. Rather than adding this and that, narrowing to one is far easier to answer, isn't it. \"From six on Saturday, okonomiyaki at my place, how about it?\" ...This is it. Like this, they can reply in a single word."
+            },
+            "n1": {
+              "japanese": "なるほどねえ…あれもこれもと足していくより、いっそ一つに絞ってしまったほうが、よっぽど答えやすいわけだ。「土曜の六時から、うちでおこのみやきでもどうですか」。……うん、これでいい。これなら相手も、一言で返せる。",
+              "reading": "なるほどねえ…あれもこれもとたしていくより、いっそひとつにしぼってしまったほうが、よっぽどこたえやすいわけだ。「どようのろくじから、うちでおこのみやきでもどうですか」。……うん、これでいい。これならあいても、ひとことでかえせる。",
+              "english": "Ah, I see... rather than piling on this and that, just narrowing it down to one is far easier to answer, isn't it. \"From six on Saturday, how about okonomiyaki at my place?\" ...Yeah, that's it. Like this, the other person can answer in a single word too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:invitation-chain:one-clear-answer"
+      }
+    },
+    {
+      "id": "scene:invitation-chain:one-clear-answer",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Let Sam issue the single clear invitation, hear a real answer, and honor a soft refusal without re-asking.",
+      "dramaticQuestion": "When the one clear invitation gets a soft 'no,' will Sam add another option to change it, or accept the answer he asked for?",
+      "learnerNeed": "A stance on how to help Sam receive a hedged refusal as a complete answer and keep the door open.",
+      "curriculum": {
+        "sectionId": "hear-and-honor-the-answer",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:invitation-chain:one-card",
+          "beatId": "beat:invitation-chain:regroup-image",
+          "cueId": "cue:single-invitation-card",
+          "description": "On the cleared notepad, one line remains: Saturday, from six, okonomiyaki. Every other branch has been set aside. The card can finally be answered."
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-asks-once",
+          "beatId": "beat:invitation-chain:consent-ask",
+          "speakerId": "sam",
+          "intent": "Issue the one clear invitation aloud, once, with an easy, built-in way to decline.",
+          "attentionTarget": "the single invitation card and the person across the table",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、聞きますね。土曜日の 六時から、おこのみやきを たべませんか。むりなら、「また こんど」でも いいですよ。",
+              "reading": "じゃあ、ききますね。どようびの ろくじから、おこのみやきを たべませんか。むりなら、「また こんど」でも いいですよ。",
+              "english": "Okay, I'll ask. From six on Saturday, shall we eat okonomiyaki? If you can't, \"another time\" is completely fine."
+            },
+            "n5": {
+              "japanese": "じゃあ、一回だけ 聞きますね。土曜日の 六時から、うちで おこのみやきを 食べませんか。来られない ときは、「また こんど」で いいですよ。",
+              "reading": "じゃあ、いっかいだけ ききますね。どようびの ろくじから、うちで おこのみやきを たべませんか。こられない ときは、「また こんど」で いいですよ。",
+              "english": "Okay, I'll ask just once. From six on Saturday, shall we eat okonomiyaki at my place? If you can't come, \"another time\" is fine."
+            },
+            "n4": {
+              "japanese": "じゃあ、聞いてみますね。土曜日の六時から、うちでおこのみやき、どうですか。来られなかったら、「また今度」で全然いいので。",
+              "reading": "じゃあ、きいてみますね。どようびのろくじから、うちでおこのみやき、どうですか。こられなかったら、「またこんど」でぜんぜんいいので。",
+              "english": "Okay, I'll give it a try. From six on Saturday, okonomiyaki at my place, how about it? If you can't make it, \"another time\" is totally fine."
+            },
+            "n3": {
+              "japanese": "じゃあ、一回だけ聞きますね。土曜の六時から、うちでおこのみやき、しませんか。もし都合が悪ければ、遠慮なく「また今度」で大丈夫ですから。",
+              "reading": "じゃあ、いっかいだけききますね。どようのろくじから、うちでおこのみやき、しませんか。もしつごうがわるければ、えんりょなく「またこんど」でだいじょうぶですから。",
+              "english": "Okay, I'll ask just once. From six on Saturday, shall we do okonomiyaki at my place? If it's not convenient, feel free to say \"another time,\" no problem."
+            },
+            "n2": {
+              "japanese": "じゃあ、一度だけ聞かせてください。土曜の六時から、うちでおこのみやき、どうですか。都合が合わなければ、無理せず「また今度」で構いませんので。",
+              "reading": "じゃあ、いちどだけきかせてください。どようのろくじから、うちでおこのみやき、どうですか。つごうがあわなければ、むりせず「またこんど」でかまいませんので。",
+              "english": "Okay, let me ask just once. From six on Saturday, okonomiyaki at my place, how about it? If it doesn't suit you, no need to force it — \"another time\" is perfectly fine."
+            },
+            "n1": {
+              "japanese": "じゃあ、一度だけ聞かせてくださいね。土曜の六時から、うちでおこのみやきでもどうですか。都合がつかなければ、気をつかわず「また今度」で構いませんから。",
+              "reading": "じゃあ、いちどだけきかせてくださいね。どようのろくじから、うちでおこのみやきでもどうですか。つごうがつかなければ、きをつかわず「またこんど」でかまいませんから。",
+              "english": "Okay, let me ask just the once. From six on Saturday, how about okonomiyaki at my place? If it doesn't work out, don't feel you have to — \"another time\" is perfectly fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:robert-soft-refusal",
+          "beatId": "beat:invitation-chain:soft-refusal",
+          "speakerId": "robert",
+          "intent": "Warmly decline this one time with a hedged, indirect refusal that still clearly means no, and leave the relationship open.",
+          "attentionTarget": "the invitation card he is answering",
+          "variants": {
+            "foundation": {
+              "japanese": "いいですね。でも、土曜日は ちょっと…。すみません、また こんど。",
+              "reading": "いいですね。でも、どようびは ちょっと…。すみません、また こんど。",
+              "english": "Sounds good. But Saturday is a little... Sorry, another time."
+            },
+            "n5": {
+              "japanese": "わあ、いいですね。でも、土曜日は ちょっと よていが あって…。ごめんなさい、また こんど さそって ください。",
+              "reading": "わあ、いいですね。でも、どようびは ちょっと よていが あって…。ごめんなさい、また こんど さそって ください。",
+              "english": "Wow, sounds good. But Saturday I've got a bit of a plan already... Sorry, please invite me again another time."
+            },
+            "n4": {
+              "japanese": "いいですね〜。あ、でも土曜はちょっと予定があって…。すみません、今回はまた今度でお願いします。",
+              "reading": "いいですね〜。あ、でもどようはちょっとよていがあって…。すみません、こんかいはまたこんどでおねがいします。",
+              "english": "Sounds great~. Ah, but Saturday I've got something on... Sorry, this time I'll have to take a rain check."
+            },
+            "n3": {
+              "japanese": "いいですね。…あ、でも土曜はちょっと、先約があって。すみません、今回は遠慮しておきます。また誘ってください。",
+              "reading": "いいですね。…あ、でもどようはちょっと、せんやくがあって。すみません、こんかいはえんりょしておきます。またさそってください。",
+              "english": "Sounds good. ...Ah, but Saturday I've got a prior engagement. Sorry, I'll pass this time. Do invite me again."
+            },
+            "n2": {
+              "japanese": "いいですね。……あ、ただ土曜はちょっと、先約が入っていて。せっかくなんですが、今回は遠慮しておきます。また次の機会に、ぜひ。",
+              "reading": "いいですね。……あ、ただどようはちょっと、せんやくがはいっていて。せっかくなんですが、こんかいはえんりょしておきます。またつぎのきかいに、ぜひ。",
+              "english": "Sounds good. ...Ah, only, Saturday I've got a prior engagement. It's kind of you, but I'll pass this time. Definitely next time, though."
+            },
+            "n1": {
+              "japanese": "いいですねえ。……あ、ただ、土曜はちょっと先約が入ってまして。せっかく誘ってもらったのに申し訳ないんですが、今回は遠慮しておきます。また次の機会にぜひ、誘ってください。",
+              "reading": "いいですねえ。……あ、ただ、どようはちょっとせんやくがはいってまして。せっかくさそってもらったのにもうしわけないんですが、こんかいはえんりょしておきます。またつぎのきかいにぜひ、さそってください。",
+              "english": "Sounds lovely. ...Ah, only, Saturday I happen to have a prior engagement. I'm sorry after you went to the trouble of inviting me, but I'll pass this time. Do invite me again next time, though — I'd love to."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:invitation-chain:hold-the-answer",
+          "beatId": "beat:invitation-chain:stance",
+          "question": "How do you help Sam take Robert's soft 'no'?",
+          "options": [
+            {
+              "id": "option:invitation-chain:honor-and-open-door",
+              "action": "Honor the 'no' cleanly, thank him, and keep the door open without re-asking.",
+              "japaneseByBand": {
+                "foundation": "わかりました。また こんど、ぜひ。",
+                "n5": "わかりました。土曜日は また こんど。来られる ときに、ぜひ。",
+                "n4": "了解です。土曜はまた今度で。来られるとき、ぜひ来てください。",
+                "n3": "わかりました。じゃあ土曜は無理せず、また今度で。気が向いたら、いつでもどうぞ。",
+                "n2": "わかりました。じゃあ今回は無理せず、また次の機会に。ドアはいつでも開けておきますから。",
+                "n1": "わかりました。今回は無理をなさらず、また次の機会に。こちらはいつでも席を空けておきますので。"
+              },
+              "records": [
+                "stance",
+                "boundary-heard"
+              ],
+              "next": "checkpoint:invitation-chain:before-sam-response"
+            },
+            {
+              "id": "option:invitation-chain:note-it-and-ask-others",
+              "action": "Note his 'next time' and move on to ask the others one at a time, without pressing Robert.",
+              "japaneseByBand": {
+                "foundation": "じゃあ、ロバートさんは また こんど。ほかの 人にも 聞きましょう。",
+                "n5": "ロバートさんは また 今度。ほかの 人にも 聞いて みましょう。",
+                "n4": "ロバートさんはまた今度ってことで。じゃあ、ほかの人にも聞いてみましょうか。",
+                "n3": "ロバートさんは「また今度」でメモしておいて。じゃあ、ほかの人にも一回ずつ聞いてみましょう。",
+                "n2": "ロバートさんは「また今度」で控えておいて、そのまま次の人に。一人ずつ、一回ずつ聞いていきましょう。",
+                "n1": "ロバートさんは「また今度」とだけ控えておいて、あとは次の人へ。急かさず、一人ずつ一回だけ聞いていきましょう。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:invitation-chain:before-sam-response"
+            }
+          ],
+          "convergence": "checkpoint:invitation-chain:before-sam-response"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:invitation-chain:before-sam-response",
+          "beatId": "beat:invitation-chain:response-attempt",
+          "resume": "The learner has taken a stance on the soft refusal. Sam answers by choosing whether to re-ask or to accept the answer he asked for."
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-honors-it",
+          "beatId": "beat:invitation-chain:repair",
+          "speakerId": "sam",
+          "intent": "Accept the soft refusal as a complete answer, resist adding options or asking again, and reframe inclusion as asking once and honoring the reply.",
+          "attentionTarget": "Robert, and the open door of the plan",
+          "variants": {
+            "foundation": {
+              "japanese": "はい。土曜日は また こんど、ですね。だいじょうぶ。一回 聞いて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
+              "reading": "はい。どようびは また こんど、ですね。だいじょうぶ。いっかい きいて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
+              "english": "Yes. Saturday's another time, then. It's okay. Ask once, hear the answer. That's enough. A friend is still a friend even so."
+            },
+            "n5": {
+              "japanese": "はい、土曜日は また こんど ですね。もう 一回は 聞きません。一回 聞いて、こたえを ちゃんと きく。それで いいんだ。また 来られる ときに、ぜひ。",
+              "reading": "はい、どようびは また こんど ですね。もう いっかいは ききません。いっかい きいて、こたえを ちゃんと きく。それで いいんだ。また こられる ときに、ぜひ。",
+              "english": "Yes, Saturday's another time, then. I won't ask a second time. Ask once, and take the answer properly. That's enough. Whenever you can come, please do."
+            },
+            "n4": {
+              "japanese": "はい、土曜はまた今度ですね。二回は聞きません。一回ちゃんと聞いて、返事をちゃんと受け取る。……それでいいんだ。来られるとき、いつでもどうぞ。",
+              "reading": "はい、どようはまたこんどですね。にかいはききません。いっかいちゃんときいて、へんじをちゃんとうけとる。……それでいいんだ。こられるとき、いつでもどうぞ。",
+              "english": "Yes, Saturday's another time. I won't ask twice. Ask once properly, and receive the reply properly. ...That's enough. Whenever you can come, you're welcome."
+            },
+            "n3": {
+              "japanese": "はい、土曜はまた今度、了解です。もう一回は聞きませんよ。一回きちんと誘って、返ってきた答えをそのまま受け取る。……それでよかったんですね。ドアは開けとくので、いつでも。",
+              "reading": "はい、どようはまたこんど、りょうかいです。もういっかいはききませんよ。いっかいきちんとさそって、かえってきたこたえをそのままうけとる。……それでよかったんですね。ドアはあけとくので、いつでも。",
+              "english": "Yes, Saturday's another time — got it. I won't ask again. Invite once, properly, and take the answer that comes back as it is. ...So that was all it needed. I'll leave the door open, so anytime."
+            },
+            "n2": {
+              "japanese": "はい、今回はまた今度、ですね。もう一度は聞きません。一度きちんと誘って、返ってきた答えを、そのまま受け取る。……それでよかったんだなあ。席はいつでも空けておきますから、気が向いたら。",
+              "reading": "はい、こんかいはまたこんど、ですね。もういちどはききません。いちどきちんとさそって、かえってきたこたえを、そのままうけとる。……それでよかったんだなあ。せきはいつでもあけておきますから、きがむいたら。",
+              "english": "Yes, this time it's another time. I won't ask a second time. Invite once, properly, and receive the answer that comes back, just as it is. ...So that was enough all along. I'll keep a seat open anytime, so if you feel like it."
+            },
+            "n1": {
+              "japanese": "はい、今回はまた今度、ですね。二度は聞きませんよ。一度ちゃんと誘って、返ってきた答えを、そのまま受け取る。……なんだ、それでよかったんですね。こっちはいつでも席を空けておきますから、その気になったら、ふらっとどうぞ。",
+              "reading": "はい、こんかいはまたこんど、ですね。にどはききませんよ。いちどちゃんとさそって、かえってきたこたえを、そのままうけとる。……なんだ、それでよかったんですね。こっちはいつでもせきをあけておきますから、そのきになったら、ふらっとどうぞ。",
+              "english": "Yes, this time it's another time. I won't ask twice. Invite once, properly, and take the answer that comes back just as it is. ...Huh, so that was all it needed. I'll keep a seat open here anytime, so if the mood takes you, just drop by."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:invitation-chain:sam-open-door",
+          "beatId": "beat:invitation-chain:exit-line",
+          "speakerId": "sam",
+          "intent": "Turn the single invitation into a warm, standing open door — one clear ask, come whoever's free — closing the evening without chasing anyone.",
+          "attentionTarget": "the whole table and the Saturday card left out",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、土曜日は おこのみやき、来られる 人だけで。テニスの あとも あります。だれでも、どうぞ。",
+              "reading": "じゃあ、どようびは おこのみやき、こられる ひとだけで。テニスの あとも あります。だれでも、どうぞ。",
+              "english": "Then Saturday, okonomiyaki, just whoever can come. There's tennis after, too. Anyone, welcome."
+            },
+            "n5": {
+              "japanese": "じゃあ、土曜日は うちで おこのみやき。来られる 人だけで いいです。テニスの あとも、ぜひ。ドアは あけて おきますね。",
+              "reading": "じゃあ、どようびは うちで おこのみやき。こられる ひとだけで いいです。テニスの あとも、ぜひ。ドアは あけて おきますね。",
+              "english": "Then Saturday, okonomiyaki at my place. Just whoever can come is fine. Tennis after too, please. I'll leave the door open."
+            },
+            "n4": {
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスの後もやってるので、気が向いたらいつでも。ドアは開けときます。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあともやってるので、きがむいたらいつでも。ドアはあけときます。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever you feel like it. I'll leave the door open."
+            },
+            "n3": {
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで大丈夫です。テニスのあとも、よかったらぜひ。無理はなしで、来たくなったら来てください。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけでだいじょうぶです。テニスのあとも、よかったらぜひ。むりはなしで、きたくなったらきてください。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can come is fine. Tennis after too, if you'd like. No pressure — come if you feel like coming."
+            },
+            "n2": {
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあともやってますから、気が向いたらいつでも。誘うのは一回、あとは来たくなったときに、どうぞ。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあともやってますから、きがむいたらいつでも。さそうのはいっかい、あとはきたくなったときに、どうぞ。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever the mood takes you. I ask once; after that, come whenever you feel like it."
+            },
+            "n1": {
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで気楽に。テニスのあともやってますから、その気になったら、ふらっとどうぞ。誘うのは一度きり、あとは来たくなったときにでも、ね。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけできらくに。テニスのあともやってますから、そのきになったら、ふらっとどうぞ。さそうのはいちどきり、あとはきたくなったときにでも、ね。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can make it, nice and easy. There's tennis after too, so if the mood takes you, just drop by. I ask once, and after that — come whenever you feel like it, yeah?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:invitation-chain:door-open-exit",
+          "beatId": "beat:invitation-chain:exit-image",
+          "cueId": "cue:one-invite-one-answer",
+          "description": "One clear invitation, one honored answer. The Saturday card stays out on the table for whoever's free; the flat drinks are cleared and fresh ones poured for the people who are here now."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:overbuilt-schedule",
+      "state": "seed",
+      "ownerIds": [
+        "sam",
+        "angel",
+        "robert"
+      ],
+      "meaningNow": "An invitation contains so many options that nobody can answer it clearly — generosity becomes paralysis until it is narrowed to one askable choice.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "Sam's invitation simply has too many parts, and the class trims it to a single time-and-activity ask."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:invitation-chain:one-clear-ask",
+      "kind": "story",
+      "description": "Sam's over-optioned invitation is collapsed into one clear time-and-activity ask, and the class's first explicit consent beat lands as a soft refusal that is heard and honored without a re-ask."
+    },
+    {
+      "id": "outcome:invitation-chain:sam-arrival",
+      "kind": "bond",
+      "castId": "sam",
+      "chapter": 6,
+      "beat": "arrival",
+      "description": "Sam is introduced through a warm, over-branching invitation and takes his first step from inclusion-as-more-options toward asking once and honoring the answer; his generous open-door welcome is established as a competence the class can rely on later."
+    },
+    {
+      "id": "outcome:invitation-chain:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l08",
+      "description": "State-an-opening-and-a-clear-invitation-and-honor-a-soft-refusal evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:robert-answers-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-narrow-step"
+    ],
+    "withdrawnContentFallback": "Use the same narrow-to-one-invitation and honor-a-soft-refusal beats with neutral nameplates and a generic host who collapses an over-optioned plan into one time-and-activity ask and accepts a hedged decline."
+  }
+}

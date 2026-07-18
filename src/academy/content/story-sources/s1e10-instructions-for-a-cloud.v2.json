@@ -1,0 +1,571 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e10-instructions-for-a-cloud",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 10,
+  "title": {
+    "en": "Instructions for a Cloud",
+    "ja": "雲への指示書"
+  },
+  "synopsis": "Christian builds the atlas's weather-lantern and writes an elaborate, imperative card-by-card procedure to run its cloud. The wind scatters the cards out of order and the cloud lights all at once; his first instinct is to enlarge the fix rather than restore the sequence. Onke-san names that only the order was lost, and the learner re-sequences his steps with te-form and a reason until instructions guide the room without Christian owning every step.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "christian",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#christian",
+        "docs/academy/story/CAST-AND-CONSENT.md#christian",
+        "docs/academy/story/dossiers/christian.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "action-first energy framed as bossy, domineering, or a power move over classmates",
+        "explaining the recorder",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "angel",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#angel",
+        "docs/academy/story/CAST-AND-CONSENT.md#angel",
+        "docs/academy/story/dossiers/angel.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "planning instinct framed as a flaw rather than a shared, correctable habit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e09-the-story-in-two-tenses",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l15"
+          ],
+          "function": "coordinate-a-small-task-through-sequenced-te-form-action-and-cause"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-ten-first-meeting-christian"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:instructions-for-a-cloud:the-ordered-cards",
+      "mode": "live",
+      "locationId": "location:courtyard",
+      "timeState": "evening",
+      "weatherState": "windy-evening",
+      "goal": "Meet Christian through his complete card-by-card lantern procedure and hit the moment the wind takes the sequence apart.",
+      "dramaticQuestion": "When the order blows away, will Christian rebuild a bigger system or let the steps be re-sequenced by the room?",
+      "learnerNeed": "A live re-sequencing where putting te-form steps back in order with a reason matters more than owning the whole procedure.",
+      "curriculum": {
+        "sectionId": "sequence-and-cause",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:cards-and-fan",
+          "beatId": "beat:instructions-for-a-cloud:arrival-image",
+          "cueId": "cue:courtyard-lantern-numbered-cards",
+          "description": "In the courtyard, a brass weather-lantern sits on a bench. Beside it a stack of numbered instruction cards is pinned in order under a small clip; an electric desk fan hums at the end of the bench, and a phone glows nearby with a homework tab already open."
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:christian-welcome",
+          "beatId": "beat:instructions-for-a-cloud:host-want",
+          "speakerId": "christian",
+          "intent": "Welcome the learner and lay out his complete ordered card-by-card procedure for running the lantern's cloud.",
+          "attentionTarget": "the clipped stack of numbered cards and the lantern",
+          "variants": {
+            "foundation": {
+              "japanese": "来てくれて、ありがとう。順番を決めました。まず、カードを見て、つぎに、ボタンを押して、それから、雲が光ります。",
+              "reading": "きてくれて、ありがとう。じゅんばんをきめました。まず、カードをみて、つぎに、ボタンをおして、それから、くもがひかります。",
+              "english": "Thanks for coming. I set the order. First, look at the cards; next, press the button; and then the cloud lights up."
+            },
+            "n5": {
+              "japanese": "あ、来てくれたんですね。この天気ランタン、順番を全部書いておきました。まずカードを見て、つぎにボタンを押して、それから雲を光らせます。",
+              "reading": "あ、きてくれたんですね。このてんきランタン、じゅんばんをぜんぶかいておきました。まずカードをみて、つぎにボタンをおして、それからくもをひからせます。",
+              "english": "Oh, you came. This weather lantern — I wrote out the whole order ahead of time. First look at the cards, next press the button, and then make the cloud light up."
+            },
+            "n4": {
+              "japanese": "来てくれてよかった。この天気ランタン、動く順番を全部カードにしておいたんです。まず一番を見て、つぎに二番のボタンを押して、それから雲が順番に光る、っていう流れで。",
+              "reading": "きてくれてよかった。このてんきランタン、うごくじゅんばんをぜんぶカードにしておいたんです。まずいちばんをみて、つぎににばんのボタンをおして、それからくもがじゅんばんにひかる、っていうながれで。",
+              "english": "Glad you came. This weather lantern — I turned the whole running order into cards. First look at number one, next press the number-two button, and then the cloud lights up in order — that's the flow."
+            },
+            "n3": {
+              "japanese": "お、来てくれたんだ。この天気ランタンね、動く手順を一枚ずつカードにして、順番に並べておいたんですよ。まず上のカードを見て、つぎにボタンを押して、それから雲が一つずつ光る、と。全部つないであります。",
+              "reading": "お、きてくれたんだ。このてんきランタンね、うごくてじゅんをいちまいずつカードにして、じゅんばんにならべておいたんですよ。まずうえのカードをみて、つぎにボタンをおして、それからくもがひとつずつひかる、と。ぜんぶつないであります。",
+              "english": "Oh, you made it. This weather lantern — I put each operating step on its own card and laid them out in order. First look at the top card, next press the button, and then the cloud lights one at a time. I've linked the whole thing up."
+            },
+            "n2": {
+              "japanese": "よかった、来てくれて。この天気ランタン、動かす手順をひととおりカードにまとめて、順番どおりに並べておいたんです。まず一枚目を見て、つぎにボタンを押して、それから雲が一つずつ光っていく——そういう段取りで組んであります。",
+              "reading": "よかった、きてくれて。このてんきランタン、うごかすてじゅんをひととおりカードにまとめて、じゅんばんどおりにならべておいたんです。まずいちまいめをみて、つぎにボタンをおして、それからくもがひとつずつひかっていく——そういうだんどりでくんであります。",
+              "english": "Glad you came. This weather lantern — I gathered the whole operating procedure onto cards and laid them out exactly in order. First look at card one, next press the button, and then the cloud lights up one at a time — that's the procedure I've built it around."
+            },
+            "n1": {
+              "japanese": "お、来てくれましたか。この天気ランタン、動かす手順を一枚ずつカードに落として、頭から順に並べておいたんですよ。まず一枚目に目を通して、つぎにボタンを押して、それから雲が一つずつ光っていく——と、そこまで全部つないで組んであります。",
+              "reading": "お、きてくれましたか。このてんきランタン、うごかすてじゅんをいちまいずつカードにおとして、あたまからじゅんにならべておいたんですよ。まずいちまいめにめをとおして、つぎにボタンをおして、それからくもがひとつずつひかっていく——と、そこまでぜんぶつないでくんであります。",
+              "english": "Oh, you made it. This weather lantern — I've broken the whole operating procedure onto cards, one step each, laid out in order from the top. First run your eye over card one, next press the button, and then the cloud lights up one by one — I've linked the entire thing together right up to that point."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:cards-scatter",
+          "beatId": "beat:instructions-for-a-cloud:obstruction",
+          "cueId": "cue:cards-blown-out-of-order",
+          "description": "A gust crosses the courtyard and lifts the clip. The cards spin down shuffled, their numbers no longer in a row. On the lantern, every part of the cloud lights at once — a flat white glare instead of a sequence."
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:christian-adds-more",
+          "beatId": "beat:instructions-for-a-cloud:pressure",
+          "speakerId": "christian",
+          "intent": "Instead of simply restoring order, reach for a bigger system — more cards, larger numbers, the fan, a rota — and offer to own the whole fix.",
+          "attentionTarget": "the scattered cards and everything he could add",
+          "variants": {
+            "foundation": {
+              "japanese": "わっ、全部光った。えっと、じゃあ、カードをもっと作って、番号も大きく書いて、扇風機で風を止めて……。ぼくが全部直します。",
+              "reading": "わっ、ぜんぶひかった。えっと、じゃあ、カードをもっとつくって、ばんごうもおおきくかいて、せんぷうきでかぜをとめて……。ぼくがぜんぶなおします。",
+              "english": "Whoa, it all lit up. Um, okay — I'll make more cards, write the numbers bigger, block the wind with the fan… I'll fix the whole thing myself."
+            },
+            "n5": {
+              "japanese": "うわ、全部いっぺんに光っちゃった。えーと、じゃあカードをもっと増やして、番号も大きく書いて、扇風機で風を止めて……。だいじょうぶ、ぼくが全部直しますから。",
+              "reading": "うわ、ぜんぶいっぺんにひかっちゃった。えーと、じゃあカードをもっとふやして、ばんごうもおおきくかいて、せんぷうきでかぜをとめて……。だいじょうぶ、ぼくがぜんぶなおしますから。",
+              "english": "Ugh, it all lit up at once. Um, okay, I'll add even more cards, write the numbers bigger, stop the wind with the fan… Don't worry, I'll fix it all myself."
+            },
+            "n4": {
+              "japanese": "あー、いっぺんに光っちゃいましたね。じゃあ、カードをもう一組増やして、番号も大きく書き直して、扇風機の向きを変えて風を止めれば……うん、ぼくが全部やり直しますよ。",
+              "reading": "あー、いっぺんにひかっちゃいましたね。じゃあ、カードをもういちくみふやして、ばんごうもおおきくかきなおして、せんぷうきのむきをかえてかぜをとめれば……うん、ぼくがぜんぶやりなおしますよ。",
+              "english": "Ah, it all lit up at once. So, if I add another set of cards, rewrite the numbers bigger, turn the fan to block the wind… yeah, I'll just redo the whole thing myself."
+            },
+            "n3": {
+              "japanese": "あはは、見事に全部光ったなあ。じゃあ、こうしよう——カードをもう一組足して、番号を大きく書き直して、扇風機を風上に向けて押さえて、当番も決めて……。うん、ぼくが一から組み直しますから。",
+              "reading": "あはは、みごとにぜんぶひかったなあ。じゃあ、こうしよう——カードをもういちくみたして、ばんごうをおおきくかきなおして、せんぷうきをかざかみにむけておさえて、とうばんもきめて……。うん、ぼくがいちからくみなおしますから。",
+              "english": "Haha, it lit up all at once, beautifully. Okay, let's do this — add another set of cards, rewrite the numbers bigger, aim the fan into the wind to hold them down, set up a rota too… yeah, I'll rebuild it from scratch myself."
+            },
+            "n2": {
+              "japanese": "あはは、みごとに全部いってしまった。じゃあ、こうしましょうか——カードをもう一組足して、番号を大きく振り直して、扇風機を風上に向けて押さえて、ついでに当番も決めておけば……ええ、ぼくのほうで一から組み直しますから、任せてください。",
+              "reading": "あはは、みごとにぜんぶいってしまった。じゃあ、こうしましょうか——カードをもういちくみたして、ばんごうをおおきくふりなおして、せんぷうきをかざかみにむけておさえて、ついでにとうばんもきめておけば……ええ、ぼくのほうでいちからくみなおしますから、まかせてください。",
+              "english": "Haha, the whole lot went off at once. Okay, shall we do this — add another set of cards, renumber them bigger, aim the fan upwind to hold them down, and while we're at it set a rota… yes, I'll rebuild it from scratch on my end, so leave it to me."
+            },
+            "n1": {
+              "japanese": "あはは、見事に全部いっちゃったなあ。よし、こうしましょう——カードをもう一組足して、番号を大きく振り直して、扇風機を風上に向けて押さえて、いっそ当番表まで作っておけば、二度と崩れない。ええ、そこはぼくのほうで一から組み直しておきますから、任せてもらって大丈夫です。",
+              "reading": "あはは、みごとにぜんぶいっちゃったなあ。よし、こうしましょう——カードをもういちくみたして、ばんごうをおおきくふりなおして、せんぷうきをかざかみにむけておさえて、いっそとうばんひょうまでつくっておけば、にどとくずれない。ええ、そこはぼくのほうでいちからくみなおしておきますから、まかせてもらってだいじょうぶです。",
+              "english": "Haha, the whole thing went off at once. Right, let's do this — add another set of cards, renumber them bigger, aim the fan upwind to hold them, and while we're at it make a whole duty roster, and it'll never fall apart again. Yes, I'll rebuild it from scratch on my end, so it's totally fine to just leave it to me."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:angel-names-the-order",
+          "beatId": "beat:instructions-for-a-cloud:contribution",
+          "speakerId": "angel",
+          "intent": "Redirect from enlarging the system to restoring the sequence: the steps are all correct, only the order was lost, so re-lay them one at a time with a reason instead of building more.",
+          "attentionTarget": "the scattered but correct cards",
+          "variants": {
+            "foundation": {
+              "japanese": "クリスチャンさん、待って。ステップは正しいですよ。順番が消えただけです。だから、大きくしなくていいです。まず一つ、つぎに一つ、並べましょう。",
+              "reading": "クリスチャンさん、まって。ステップはただしいですよ。じゅんばんがきえただけです。だから、おおきくしなくていいです。まずひとつ、つぎにひとつ、ならべましょう。",
+              "english": "Christian, wait. The steps are right. Only the order got lost. So we don't need to make it bigger. First one, next one — let's line them up."
+            },
+            "n5": {
+              "japanese": "クリスチャンさん、ちょっと待って。ステップは全部合ってるんです。順番が消えただけ。だから、増やさなくていいですよ。まず一枚置いて、つぎにもう一枚置いて、っていう風に並べ直しましょう。",
+              "reading": "クリスチャンさん、ちょっとまって。ステップはぜんぶあってるんです。じゅんばんがきえただけ。だから、ふやさなくていいですよ。まずいちまいおいて、つぎにもういちまいおいて、っていうふうにならべなおしましょう。",
+              "english": "Christian, hold on. The steps are all correct. It's just the order that got lost. So we don't need to add more. Let's put them back in order — place one, then place the next, like that."
+            },
+            "n4": {
+              "japanese": "クリスチャンさん、待って待って。手順自体は合ってるんですよ。順番だけが飛んじゃった。だから、組み直さなくていいんです。まず一枚置いて、つぎに理由を言って、それから次を置く。それだけで戻りますから。",
+              "reading": "クリスチャンさん、まってまって。てじゅんじたいはあってるんですよ。じゅんばんだけがとんじゃった。だから、くみなおさなくていいんです。まずいちまいおいて、つぎにりゆうをいって、それからつぎをおく。それだけでもどりますから。",
+              "english": "Christian, wait, wait. The procedure itself is right. It's only the order that jumped. So we don't have to rebuild it. Place one card, then say the reason, then place the next. That alone brings it back."
+            },
+            "n3": {
+              "japanese": "クリスチャンさん、落ち着いて。手順はどれも間違ってないんです。ただ順番の情報だけが飛んだ。——これ、わたしもよくやるやつ。だから足すんじゃなくて、一枚ずつ理由をつけて並べ直せばいいんですよ。「これが先、なぜならこうだから」って。",
+              "reading": "クリスチャンさん、おちついて。てじゅんはどれもまちがってないんです。ただじゅんばんのじょうほうだけがとんだ。——これ、わたしもよくやるやつ。だからたすんじゃなくて、いちまいずつりゆうをつけてならべなおせばいいんですよ。「これがさき、なぜならこうだから」って。",
+              "english": "Christian, easy. None of the steps are wrong. It's just the order-information that got lost. …This is the kind of thing I do all the time, too. So instead of adding more, we just re-lay them one at a time with a reason: 'this comes first, because of this.'"
+            },
+            "n2": {
+              "japanese": "クリスチャンさん、まあ落ち着いて。手順そのものはどれも正しいんです。飛んだのは順番の情報だけ。——正直、わたしにも覚えがありますけど。だから積み増すんじゃなくて、一枚ずつ「これが先、こうだから」と理由をつけて並べ直せば、それで元に戻りますよ。",
+              "reading": "クリスチャンさん、まあおちついて。てじゅんそのものはどれもただしいんです。とんだのはじゅんばんのじょうほうだけ。——しょうじき、わたしにもおぼえがありますけど。だからつみますんじゃなくて、いちまいずつ「これがさき、こうだから」とりゆうをつけてならべなおせば、それでもとにもどりますよ。",
+              "english": "Christian, easy now. The steps themselves are all correct. What got lost was only the ordering. …Honestly, I know the feeling myself. So rather than piling on more, if we re-lay them one by one with a reason — 'this comes first, because of this' — that alone puts it back."
+            },
+            "n1": {
+              "japanese": "クリスチャンさん、まあまあ、落ち着いて。手順はどれ一つ間違ってないんですよ。抜けたのは順番の情報だけ。——正直、これ、わたしがいつもやる癖でもあるんですけど。だから上に積み増すんじゃなくて、一枚ずつ「これが先、なぜならこうだから」と理由を添えて並べ直す。それだけで、ちゃんと元に戻ります。",
+              "reading": "クリスチャンさん、まあまあ、おちついて。てじゅんはどれひとつまちがってないんですよ。ぬけたのはじゅんばんのじょうほうだけ。——しょうじき、これ、わたしがいつもやるくせでもあるんですけど。だからうえにつみますんじゃなくて、いちまいずつ「これがさき、なぜならこうだから」とりゆうをそえてならべなおす。それだけで、ちゃんともとにもどります。",
+              "english": "Christian, easy, easy. Not one of the steps is wrong. All that dropped out was the ordering. …Honestly, this is a habit of mine too. So rather than piling more on top, we re-lay them one at a time with a reason attached — 'this first, because of this.' That by itself puts it properly back."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:instructions-for-a-cloud:before-resequence",
+          "beatId": "beat:instructions-for-a-cloud:resequence-attempt",
+          "resume": "The scattered cards are all correct; only their order is gone. The learner steps in to re-lay Christian's steps in sequence, giving the reason each one comes when it does."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:instructions-for-a-cloud:resequence-cards",
+          "beatId": "beat:instructions-for-a-cloud:resequence-attempt",
+          "hook": {
+            "lessonId": "l1-l15",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e10-resequence-cloud-cards"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e10-resequence-cloud-cards"
+          },
+          "resumeContext": "Christian's cards are shuffled but individually correct. The learner puts them back into a te-form sequence — 「まず〜て、つぎに〜てください」 — and attaches a cause with 〜から / 〜ので to at least one step, so the cloud lights one at a time instead of all at once.",
+          "onReady": "checkpoint:instructions-for-a-cloud:after-resequence",
+          "onRepair": "node:instructions-for-a-cloud:resequence-repair",
+          "onDefer": "checkpoint:instructions-for-a-cloud:before-resequence"
+        },
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:resequence-repair",
+          "beatId": "beat:instructions-for-a-cloud:resequence-repair",
+          "cueId": "cue:cards-side-by-side-one-returns",
+          "description": "The re-laid cards stay where the learner placed them. Only the one card that landed out of sequence lifts back out for another try, its reason line shown blank beside it."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:instructions-for-a-cloud:after-resequence",
+          "beatId": "beat:instructions-for-a-cloud:resequence-response",
+          "resume": "The cards are back in order with a reason on the steps that needed one. The cloud has begun to light one part at a time, and Christian is watching it move."
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:christian-sees-it",
+          "beatId": "beat:instructions-for-a-cloud:changed-line",
+          "speakerId": "christian",
+          "intent": "Watch the cloud light in sequence and laugh at himself: the steps were right all along, only the order was missing — and he over-builds by reflex.",
+          "attentionTarget": "the cloud lighting one part at a time",
+          "variants": {
+            "foundation": {
+              "japanese": "あ……光った。一つずつ、順番に。ステップは合ってたんだ。ぼく、大きくしすぎだったなあ。",
+              "reading": "あ……ひかった。ひとつずつ、じゅんばんに。ステップはあってたんだ。ぼく、おおきくしすぎだったなあ。",
+              "english": "Ah… it lit up. One at a time, in order. The steps were right after all. I made it too big."
+            },
+            "n5": {
+              "japanese": "あ、光った……ちゃんと一つずつ、順番に。ステップは最初から合ってたんですね。ぼく、いつも大きくしすぎるなあ。",
+              "reading": "あ、ひかった……ちゃんとひとつずつ、じゅんばんに。ステップはさいしょからあってたんですね。ぼく、いつもおおきくしすぎるなあ。",
+              "english": "Oh, it lit up… properly, one at a time, in order. The steps were right from the start. I always make things too big."
+            },
+            "n4": {
+              "japanese": "お、光ってる……一つずつ、ちゃんと順番に。なんだ、ステップは最初から合ってたのか。順番が抜けてただけで。ぼく、すぐ大きくしちゃうんだよなあ。",
+              "reading": "お、ひかってる……ひとつずつ、ちゃんとじゅんばんに。なんだ、ステップはさいしょからあってたのか。じゅんばんがぬけてただけで。ぼく、すぐおおきくしちゃうんだよなあ。",
+              "english": "Oh, it's lighting up… one at a time, properly in order. Huh, the steps were right all along. Just the order was missing. I really do jump straight to making things bigger."
+            },
+            "n3": {
+              "japanese": "お、光ってきた……一つずつ、順番どおりに。なんだよ、ステップは全部合ってたんじゃないか。飛んでたのは順番だけ。……ぼく、問題を見るとすぐ大きくしちゃうクセがあるなあ。",
+              "reading": "お、ひかってきた……ひとつずつ、じゅんばんどおりに。なんだよ、ステップはぜんぶあってたんじゃないか。とんでたのはじゅんばんだけ。……ぼく、もんだいをみるとすぐおおきくしちゃうクセがあるなあ。",
+              "english": "Oh, it's coming on… one at a time, right in order. Well, the steps were all correct after all. The only thing missing was the order. …I've got this habit of seeing a problem and immediately making it bigger."
+            },
+            "n2": {
+              "japanese": "お、ちゃんと光り出した……一つずつ、順番どおりに。なんだ、ステップ自体は全部合ってたわけだ。飛んでたのは順番の情報だけ。……ぼく、問題を見るとつい全体を大きく組み直しにいっちゃうんですよね。",
+              "reading": "お、ちゃんとひかりだした……ひとつずつ、じゅんばんどおりに。なんだ、ステップじたいはぜんぶあってたわけだ。とんでたのはじゅんばんのじょうほうだけ。……ぼく、もんだいをみるとついぜんたいをおおきくくみなおしにいっちゃうんですよね。",
+              "english": "Oh, it's properly coming on now… one at a time, right in order. So the steps themselves were all correct. The only thing missing was the ordering. …I do tend to see a problem and go straight to rebuilding the whole thing bigger."
+            },
+            "n1": {
+              "japanese": "お、ちゃんと光り出したなあ……一つずつ、順番どおりに。なんだ、ステップそのものは最初から全部合ってたわけだ。抜けてたのは順番の情報だけ。……ぼく、問題を目にすると、つい全体を大きく組み直しにいっちゃう質でしてね。",
+              "reading": "お、ちゃんとひかりだしたなあ……ひとつずつ、じゅんばんどおりに。なんだ、ステップそのものはさいしょからぜんぶあってたわけだ。ぬけてたのはじゅんばんのじょうほうだけ。……ぼく、もんだいをめにすると、ついぜんたいをおおきくくみなおしにいっちゃうたちでしてね。",
+              "english": "Oh, it's properly coming on now… one at a time, right in order. So the steps themselves were correct from the start. The only thing missing was the ordering. …I've got this streak in me — see a problem, and I go straight to rebuilding the whole thing bigger."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:cloud-in-order",
+          "beatId": "beat:instructions-for-a-cloud:changed-image",
+          "cueId": "cue:cloud-lights-in-order-one-card-held",
+          "description": "The cloud runs its parts in sequence, one glow after another. One last card is still in Christian's hand, not yet pinned; he turns it over but does not add it to the row."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:instructions-for-a-cloud:hand-it-back"
+      }
+    },
+    {
+      "id": "scene:instructions-for-a-cloud:hand-it-back",
+      "mode": "live",
+      "locationId": "location:courtyard",
+      "timeState": "evening",
+      "weatherState": "windy-evening",
+      "goal": "Let Christian hand the last step to the room instead of pinning it himself, so the instruction guides without him owning it.",
+      "dramaticQuestion": "Can Christian let a step belong to everyone by giving its order and reason rather than his hands?",
+      "learnerNeed": "A stance choice about how to make an instruction hand-off-able through sequenced request and cause.",
+      "curriculum": {
+        "sectionId": "hand-off-the-sequence",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:holds-last-card",
+          "beatId": "beat:instructions-for-a-cloud:regroup-image",
+          "cueId": "cue:christian-sits-last-card-in-hand",
+          "description": "Christian sits on the bench with the last card still in his hand. The fan hums beside him; a small recorder is out on the bench too, and nobody says anything about it. He looks from the card to the people around the lantern."
+        },
+        {
+          "kind": "choice",
+          "id": "choice:instructions-for-a-cloud:how-to-hand-off",
+          "beatId": "beat:instructions-for-a-cloud:stance",
+          "question": "How do you help the last step belong to the room, not just Christian?",
+          "options": [
+            {
+              "id": "option:instructions-for-a-cloud:name-the-order",
+              "action": "Say the step back as a shared request with its order, so anyone can do it.",
+              "japaneseByBand": {
+                "foundation": "まずボタンを押して、つぎにこのカードを置いてください。順番だから。",
+                "n5": "じゃあ、まずボタンを押して、つぎにこのカードを置いてください。それで最後まで順番につながるから。",
+                "n4": "クリスチャンさん、声に出しましょう。まずボタンを押して、つぎにこのカードを置いてください。そうすれば、だれでも同じ順番でできますから。",
+                "n3": "じゃあ、みんなに言える形にしましょう。「まずボタンを押して、つぎにこのカードを置いてください」。理由もつけて。そうすれば、誰の手でも回りますから。",
+                "n2": "クリスチャンさん、手順を声に出して渡しましょう。「まずボタンを押して、つぎにこのカードを置いてください」——理由込みで。そうすれば、あなたの手じゃなくても回りますから。",
+                "n1": "クリスチャンさん、その一枚、声に出して渡してしまいましょう。「まずボタンを押して、つぎにこのカードを置いてください」——なぜそこなのか、理由もひとことつけて。そうすれば、あなたの手を離れても、ちゃんと回りますから。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:instructions-for-a-cloud:before-handoff"
+            },
+            {
+              "id": "option:instructions-for-a-cloud:ask-the-reason",
+              "action": "Ask Christian why this step comes where it does, so the reason travels with the card, not just his hands.",
+              "japaneseByBand": {
+                "foundation": "クリスチャンさん、どうしてこのカードが最後ですか。理由を教えてください。",
+                "n5": "クリスチャンさん、そのカード、どうして最後なんですか。理由を教えてください。",
+                "n4": "クリスチャンさん、その最後のカード、どうしてそこなんですか。理由が分かれば、みんなで順番を覚えられますから。",
+                "n3": "クリスチャンさん、その一枚、どうして最後に来るんですか。理由さえ分かれば、あなたがいなくても同じ順番で並べられますから。",
+                "n2": "クリスチャンさん、その最後の一枚、なぜそこなんでしょう。理由さえ共有できれば、あなたの手がなくても、みんなで同じ順に戻せますから。",
+                "n1": "クリスチャンさん、その最後の一枚、どうしてそこに来るんですか。理由さえ渡してもらえれば、あなたがいちいち手を出さなくても、みんなで同じ順に組み直せますから。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:instructions-for-a-cloud:before-handoff"
+            }
+          ],
+          "convergence": "checkpoint:instructions-for-a-cloud:before-handoff"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:instructions-for-a-cloud:before-handoff",
+          "beatId": "beat:instructions-for-a-cloud:handoff-attempt",
+          "resume": "The learner has taken a stance on how to make the last step hand-off-able. Christian answers by choosing whether to pin it himself or pass it on."
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:christian-hands-it-back",
+          "beatId": "beat:instructions-for-a-cloud:repair",
+          "speakerId": "christian",
+          "intent": "Accept guiding without taking over: name his over-build reflex against the too-hot-room, hand the sequence to the room as a request with a reason, and coordinate rather than own it.",
+          "attentionTarget": "the last card, and the people around the lantern",
+          "variants": {
+            "foundation": {
+              "japanese": "そうだね。ぼく、いつも大きく作りすぎる。前に暑い部屋のときもそうだった。今日は、順番だけ渡します。まず押して、つぎに置いて。みんなでやりましょう。",
+              "reading": "そうだね。ぼく、いつもおおきくつくりすぎる。まえにあついへやのときもそうだった。きょうは、じゅんばんだけわたします。まずおして、つぎにおいて。みんなでやりましょう。",
+              "english": "You're right. I always build too big. Same thing back with the hot room. Today, I'll just hand over the order. First press, next place. Let's do it together."
+            },
+            "n5": {
+              "japanese": "そうですね。ぼく、いつも大きく作りすぎるんだ。前の暑い教室のときも、扇風機で大がかりにやろうとしたし。今日は順番だけ渡します。「まず押して、つぎに置いてください」って。みんなでやりましょう。",
+              "reading": "そうですね。ぼく、いつもおおきくつくりすぎるんだ。まえのあついきょうしつのときも、せんぷうきでおおがかりにやろうとしたし。きょうはじゅんばんだけわたします。「まずおして、つぎにおいてください」って。みんなでやりましょう。",
+              "english": "You're right. I always build too big. Back with that hot classroom too, I tried to do the whole big thing with the fan. Today I'll just hand over the order — 'first press, next place, please.' Let's do it together."
+            },
+            "n4": {
+              "japanese": "あー、そうか。ぼく、問題を見るとすぐ大きくしちゃうんだよなあ。前の暑い教室のときも、扇風機で当番まで作ろうとしたし。今日は全部やらないで、順番だけ渡します。「まず押して、つぎに置いてください」。あとはみんなで回しましょう。",
+              "reading": "あー、そうか。ぼく、もんだいをみるとすぐおおきくしちゃうんだよなあ。まえのあついきょうしつのときも、せんぷうきでとうばんまでつくろうとしたし。きょうはぜんぶやらないで、じゅんばんだけわたします。「まずおして、つぎにおいてください」。あとはみんなでまわしましょう。",
+              "english": "Ah, I see. I really do see a problem and immediately make it bigger. Back in that hot classroom too, I tried to build a whole fan rota. Today I won't do all of it — I'll just hand over the order: 'first press, next place, please.' The rest, let's run together."
+            },
+            "n3": {
+              "japanese": "あー、なるほどなあ。ぼく、問題を見るとすぐ全体を大きく組みたくなるんだよ。前の暑い教室のときも、窓を開ければいいのに扇風機で当番表まで作ろうとしてさ。今日はやめとく。順番だけ言葉で渡します——「まず押して、つぎに置いてください、こうだから」って。あとはみんなで回しましょう。",
+              "reading": "あー、なるほどなあ。ぼく、もんだいをみるとすぐぜんたいをおおきくくみたくなるんだよ。まえのあついきょうしつのときも、まどをあければいいのにせんぷうきでとうばんひょうまでつくろうとしてさ。きょうはやめとく。じゅんばんだけことばでわたします——「まずおして、つぎにおいてください、こうだから」って。あとはみんなでまわしましょう。",
+              "english": "Ah, I see. Whenever I see a problem I want to rebuild the whole thing bigger. Back in that hot classroom too — you could just open a window, but I went and tried to build a whole fan-duty roster. Not today. I'll just hand over the order in words: 'first press, next place, please, because of this.' The rest, let's run together."
+            },
+            "n2": {
+              "japanese": "あー、なるほど、そういうことか。ぼく、問題を見るとつい全体を大きく組み直しにいっちゃうんですよね。前の暑い教室のときも、窓を一つ開ければ済むのに、扇風機で当番表まで作ろうとして。今日はそれ、やめときます。順番だけ言葉で渡す——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回しましょう。そのほうが、崩れても直せる。",
+              "reading": "あー、なるほど、そういうことか。ぼく、もんだいをみるとついぜんたいをおおきくくみなおしにいっちゃうんですよね。まえのあついきょうしつのときも、まどをひとつあければすむのに、せんぷうきでとうばんひょうまでつくろうとして。きょうはそれ、やめときます。じゅんばんだけことばでわたす——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしましょう。そのほうが、くずれてもなおせる。",
+              "english": "Ah, I see, so that's it. I tend to see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too — you could just open one window, but I went and tried to build a whole fan-duty roster. Not today; I'll drop that. I'll just hand over the order in words — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even if it falls apart, anyone can fix it."
+            },
+            "n1": {
+              "japanese": "あー、なるほど、そういうことか。ぼく、問題を目にすると、つい全体を大きく組み直しにいっちゃう質でしてね。前の暑い教室のときも、窓を一つ開ければ済む話なのに、扇風機を据えて当番表まで作ろうとしたくらいで。今日はそれ、封印しときます。渡すのは順番だけ——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回してもらいましょう。そのほうが、ぼくがいなくても、崩れたところから直せますからね。",
+              "reading": "あー、なるほど、そういうことか。ぼく、もんだいをめにすると、ついぜんたいをおおきくくみなおしにいっちゃうたちでしてね。まえのあついきょうしつのときも、まどをひとつあければすむはなしなのに、せんぷうきをすえてとうばんひょうまでつくろうとしたくらいで。きょうはそれ、ふういんしときます。わたすのはじゅんばんだけ——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしてもらいましょう。そのほうが、ぼくがいなくても、くずれたところからなおせますからね。",
+              "english": "Ah, I see, so that's it. I've got this streak — I see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too, all it needed was one open window, but I went and set up a fan and tried to build a whole duty roster. Today, I'll seal that away. All I'll hand over is the order — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even without me, they can fix it right from wherever it broke."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:instructions-for-a-cloud:angel-closes",
+          "beatId": "beat:instructions-for-a-cloud:changed-action",
+          "speakerId": "angel",
+          "intent": "Affirm that a plan you can hand off — order plus reason — outlasts a plan only one person can run, and quietly turn the lesson on herself.",
+          "attentionTarget": "the card passing from Christian's hand toward the others",
+          "variants": {
+            "foundation": {
+              "japanese": "うん、それがいい。一人でしか回せない計画より、渡せる計画のほうが強いです。理由があれば、みんなが続けられます。",
+              "reading": "うん、それがいい。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいです。りゆうがあれば、みんながつづけられます。",
+              "english": "Yes, that's good. A plan only you can run is weaker than one you can hand off. With the reason there, everyone can keep it going."
+            },
+            "n5": {
+              "japanese": "うん、それがいいと思います。一人でしか回せない計画より、渡せる計画のほうが強いんですよ。理由さえついていれば、あとはみんなが続けられますから。",
+              "reading": "うん、それがいいとおもいます。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいんですよ。りゆうさえついていれば、あとはみんながつづけられますから。",
+              "english": "Yes, I think that's good. A plan only one person can run is weaker than a plan you can hand off. As long as the reason is attached, everyone else can carry it on."
+            },
+            "n4": {
+              "japanese": "うん、それがいいですね。一人で全部抱える計画より、人に渡せる計画のほうが、結局は強い。理由がついていれば、途中で崩れても誰かが続けられますから。……わたしも、覚えておきます。",
+              "reading": "うん、それがいいですね。ひとりでぜんぶかかえるけいかくより、ひとにわたせるけいかくのほうが、けっきょくはつよい。りゆうがついていれば、とちゅうでくずれてもだれかがつづけられますから。……わたしも、おぼえておきます。",
+              "english": "Yes, that's good. A plan you carry all alone is, in the end, weaker than one you can hand to others. If the reason is attached, then even if it breaks partway, someone can carry on. …I'll remember that too."
+            },
+            "n3": {
+              "japanese": "うん、いいと思う。一人で全部抱える計画って、その人が抜けたら止まるんですよね。渡せる計画は、途中で崩れても誰かが拾って続けられる。理由さえ一緒に渡してあれば。……これ、わたしにも刺さるなあ。",
+              "reading": "うん、いいとおもう。ひとりでぜんぶかかえるけいかくって、そのひとがぬけたらとまるんですよね。わたせるけいかくは、とちゅうでくずれてもだれかがひろってつづけられる。りゆうさえいっしょにわたしてあれば。……これ、わたしにもささるなあ。",
+              "english": "Yeah, I think it's good. A plan one person carries alone just stops the moment they step away. A plan you can hand off — someone can pick it up and keep going even if it breaks partway, as long as the reason travels with it. …That one hits home for me too."
+            },
+            "n2": {
+              "japanese": "うん、それがいいと思います。一人で全部抱え込む計画は、結局その人が抜けた瞬間に止まってしまう。でも渡せる計画なら、途中で崩れても、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直、これはわたし自身に言い聞かせたい話でもあるんですけど。",
+              "reading": "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくは、けっきょくそのひとがぬけたしゅんかんにとまってしまう。でもわたせるけいかくなら、とちゅうでくずれても、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじき、これはわたしじしんにいいきかせたいはなしでもあるんですけど。",
+              "english": "Yes, I think that's good. A plan someone hoards entirely to themselves just stops the instant that person steps away. But a plan you can hand off — someone can pick it up and carry on even if it breaks partway, as long as the reason is handed over with it. …Honestly, this is something I need to tell myself, too."
+            },
+            "n1": {
+              "japanese": "うん、それがいいと思います。一人で全部抱え込む計画って、結局その本人が抜けた途端に止まってしまうんですよね。でも渡せる計画なら、途中で崩れたところから、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直に言うと、これ、わたし自身に一番言い聞かせなきゃいけない話なんですけど。",
+              "reading": "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくって、けっきょくそのほんにんがぬけたとたんにとまってしまうんですよね。でもわたせるけいかくなら、とちゅうでくずれたところから、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじきにいうと、これ、わたしじしんにいちばんいいきかせなきゃいけないはなしなんですけど。",
+              "english": "Yes, I think that's good. A plan someone hoards entirely to themselves ends up stopping the instant that person steps away. But a plan you can hand off — someone can pick it up right from where it broke and keep going, as long as the reason is handed over with it. …Honestly, this is the thing I most need to tell myself, of all people."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:instructions-for-a-cloud:hands-off",
+          "beatId": "beat:instructions-for-a-cloud:exit-image",
+          "cueId": "cue:cloud-sequence-runs-card-passes",
+          "description": "The cloud runs its whole sequence, one glow after another, with Christian's hands off it. The last card passes from person to person around the lantern. The fan hums on the bench; the recorder is still there, unremarked."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:hot-room-solution",
+      "state": "seed",
+      "ownerIds": [
+        "christian"
+      ],
+      "meaningNow": "Faced with a scrambled shared task, Christian meets it by over-specifying and enlarging the fix — more cards, a rota, the fan — instead of restoring the sequence; the seed of his instinct to own every step, named in miniature against the too-hot-room reflex, and first loosened when he hands the order and its reason to the room.",
+      "useNumber": 1,
+      "maximumUses": 4,
+      "optionalFallback": "Christian simply over-builds a small instruction and the class trims it back to a hand-off-able sequence with a reason attached."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:instructions-for-a-cloud:instructions-guide",
+      "kind": "story",
+      "description": "Christian's blown-apart procedure is restored not by a bigger system but by re-sequencing the existing steps with te-form and a reason; the last step is handed to the room so the instruction guides the lantern without Christian owning every step."
+    },
+    {
+      "id": "outcome:instructions-for-a-cloud:christian-arrival",
+      "kind": "bond",
+      "castId": "christian",
+      "chapter": 10,
+      "beat": "arrival",
+      "description": "Christian is introduced through his action-first, card-by-card procedure and his reflex to enlarge a fix when it breaks; he takes his first step from owning every instruction toward guiding a sequence he can hand off, seeding his hot-room-solution callback."
+    },
+    {
+      "id": "outcome:instructions-for-a-cloud:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l15",
+      "description": "Coordinate-a-small-task-through-sequenced-te-form-action-and-cause evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:christian-writes-the-cards-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-resequence-step"
+    ],
+    "withdrawnContentFallback": "Use the same re-sequencing and hand-off beats with neutral nameplates and a generic classmate who over-builds a broken procedure and then hands the ordered steps, with their reasons, to the room."
+  }
+}

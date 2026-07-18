@@ -1,0 +1,722 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e07-no-spoilers",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 7,
+  "title": {
+    "en": "No Spoilers Beyond This Curtain",
+    "ja": "この幕から先はネタバレ禁止"
+  },
+  "synopsis": "Francis hosts a clue night at the cafe for people at wildly different points in the same serial, so he cannot use the reveal and turns his enthusiasm into bounded, past-tense speech. When a 'safe' euphemism turns out to draw more attention to the twist than naming it would, the class discovers that a single floor-opening question replaces the verdict: it opens the room without requiring anyone to share the same taste or reach the same point. The learner states one bounded past-tense impression and hands the floor off with a spoiler-safe question.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "francis",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#francis",
+        "docs/academy/story/CAST-AND-CONSENT.md#francis"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quietness framed as sadness, anxiety, or withdrawal",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "enthusiasm framed as the butt of a language-mistake joke"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e06-invitation-chain",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l10",
+            "l1-l11"
+          ],
+          "function": "describe-a-day-in-past-and-present-and-open-the-floor-with-a-spoiler-safe-question"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-seven-first-meeting-francis"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:no-spoilers:the-curtain",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "rain-evening",
+      "goal": "Meet Francis hosting a serial-discussion night for people at different points, and reach the moment where a verdict cannot be spoken without spoiling.",
+      "dramaticQuestion": "When half the room hasn't reached the good part, can enthusiasm become something other than a verdict?",
+      "learnerNeed": "A bounded past-tense impression handed off with a question that a person at any point in the serial can answer.",
+      "curriculum": {
+        "sectionId": "turn-a-verdict-into-a-question",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:cafe-curtain",
+          "beatId": "beat:no-spoilers:arrival-image",
+          "cueId": "cue:cafe-paper-curtain-and-seat-cards",
+          "description": "A paper curtain is strung across the back of the cafe with a hand-lettered sign: NO SPOILERS BEYOND THIS CURTAIN. A small round plush sits on the sill like a guard. Along the front tables, seat-cards mark how far each person has watched — 3話, 5話, 最終話 — no two the same. A manga volume lies face-down by a half-eaten plate; the host's hoodie carries a faint kitchen smell."
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-welcome",
+          "beatId": "beat:no-spoilers:host-want",
+          "speakerId": "francis",
+          "intent": "Welcome everyone and set the one rule the night runs on: because people are at different points, only what has already aired, spoken about in the past tense.",
+          "attentionTarget": "the seat-cards showing different stopping points",
+          "variants": {
+            "foundation": {
+              "japanese": "みなさん、こんばんは。今日は『灯り町』の話です。でも、みんな見たところがちがいます。だから、先の話はしません。もう見たところだけ、話します。",
+              "reading": "みなさん、こんばんは。きょうは『あかりまち』のはなしです。でも、みんなみたところがちがいます。だから、さきのはなしはしません。もうみたところだけ、はなします。",
+              "english": "Everyone, good evening. Tonight we're talking about Akari-machi. But everyone's watched up to a different point. So we won't talk about what's ahead. We only talk about what we've already seen."
+            },
+            "n5": {
+              "japanese": "みなさん、こんばんは。今夜は『灯り町』の話をします。でも、見たところがみんなちがうんです。だから、これから先のことは言いません。もう見たところだけ、過去のことだけ話しましょう。",
+              "reading": "みなさん、こんばんは。こんやは『あかりまち』のはなしをします。でも、みたところがみんなちがうんです。だから、これからさきのことはいいません。もうみたところだけ、かこのことだけはなしましょう。",
+              "english": "Everyone, good evening. Tonight we'll talk about Akari-machi. But everyone's watched a different amount. So we won't say anything about what comes next. Let's only talk about what we've already seen — only what's in the past."
+            },
+            "n4": {
+              "japanese": "みなさん、こんばんは。今夜は『灯り町』ですね。ただ、見てるところがそれぞれちがうので。先の展開には触れないでおきましょう。もう放送されたぶんを、過去形で話す。それだけ守れば大丈夫です。",
+              "reading": "みなさん、こんばんは。こんやは『あかりまち』ですね。ただ、みてるところがそれぞれちがうので。さきのてんかいにはふれないでおきましょう。もうほうそうされたぶんを、かこけいではなす。それだけまもればだいじょうぶです。",
+              "english": "Everyone, evening. Tonight it's Akari-machi. Only, everyone's at a different point in it, so — let's not touch what happens ahead. We talk in the past tense, about what's already aired. Keep just that and we're fine."
+            },
+            "n3": {
+              "japanese": "みなさん、こんばんは。今日は『灯り町』の会なんですけど。ひとつだけ。見てる話数がバラバラなんで、先のことは伏せておきましょう。もう放送されたところを、過去形でだけ話す。ネタバレって、要はその線を越えないってことなんで。",
+              "reading": "みなさん、こんばんは。きょうは『あかりまち』のかいなんですけど。ひとつだけ。みてるわすうがバラバラなんで、さきのことはふせておきましょう。もうほうそうされたところを、かこけいでだけはなす。ネタバレって、ようはそのせんをこえないってことなんで。",
+              "english": "Everyone, good evening. Tonight's the Akari-machi meetup — just one thing. We're all at scattered episode counts, so let's keep what's ahead under wraps. We talk only about what's aired, only in the past tense. No spoilers basically just means: don't cross that line."
+            },
+            "n2": {
+              "japanese": "みなさん、こんばんは。今夜は『灯り町』の集まり、ということで。先に一点だけ確認を。見ている話数がてんでバラバラなので、これから先の展開は伏せておきましょう。すでに放送されたところを、過去形で話す。ネタバレって、要するにその一線を越えるかどうか、それだけの話なんですよね。",
+              "reading": "みなさん、こんばんは。こんやは『あかりまち』のあつまり、ということで。さきにいってんだけかくにんを。みているわすうがてんでバラバラなので、これからさきのてんかいはふせておきましょう。すでにほうそうされたところを、かこけいではなす。ネタバレって、ようするにそのいっせんをこえるかどうか、それだけのはなしなんですよね。",
+              "english": "Everyone, good evening. Tonight being the Akari-machi gathering — one thing up front. We're all at wildly different episode counts, so let's keep anything ahead under wraps. We speak about what's already aired, in the past tense. Spoiling, in the end, is just whether you cross that one line — that's all it is."
+            },
+            "n1": {
+              "japanese": "みなさん、こんばんは。今夜は『灯り町』の会、ということで。…先に一点だけ。なにせ見てる話数がてんでバラバラなもので、この先の展開には触れずにいきましょう。もう放送されたところを、過去形で話す。ネタバレなんて、つまるところ、その一線を踏み越えるか踏みとどまるか、それだけの話なんですよね。",
+              "reading": "みなさん、こんばんは。こんやは『あかりまち』のかい、ということで。…さきにいってんだけ。なにせみてるわすうがてんでバラバラなもので、このさきのてんかいにはふれずにいきましょう。もうほうそうされたところを、かこけいではなす。ネタバレなんて、つまるところ、そのいっせんをふみこえるかふみとどまるか、それだけのはなしなんですよね。",
+              "english": "Everyone, good evening. Tonight, the Akari-machi meetup. …One thing first. Since we're all at wildly different episode counts, let's go without touching anything ahead. We speak about what's aired, in the past tense. Spoiling, when it comes down to it, is only ever whether you step over that one line or hold back from it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:cold-cup",
+          "beatId": "beat:no-spoilers:cold-tea-image",
+          "cueId": "cue:untouched-cold-cup-by-counter",
+          "description": "By the counter, a cup of tea sits where Rie set it down an hour ago, a thin skin cooling on its surface. She is three tables away, restacking chairs and steering two latecomers to seats, and has not come back to it. Francis, mid-sentence, notices the cup before anyone else does."
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-notices-tea",
+          "beatId": "beat:no-spoilers:cold-tea-echo",
+          "speakerId": "francis",
+          "intent": "Quietly take one bounded hosting task off Rie — cover the door and re-steep her tea — as care shown by doing, not by announcing.",
+          "attentionTarget": "the cold, untouched cup and the door Rie is watching",
+          "variants": {
+            "foundation": {
+              "japanese": "Rieさん、お茶、つめたいですよ。ここは、ぼくが見ます。座ってください。あたらしいの、いれますね。",
+              "reading": "Rieさん、おちゃ、つめたいですよ。ここは、ぼくがみます。すわってください。あたらしいの、いれますね。",
+              "english": "Rie, your tea's gone cold. I'll watch things here. Please sit. I'll make you a fresh one."
+            },
+            "n5": {
+              "japanese": "Rieさん、お茶、もうつめたくなってますよ。ここは、ぼくが見ておきます。座っててください。あたらしいの、いれてきますね。",
+              "reading": "Rieさん、おちゃ、もうつめたくなってますよ。ここは、ぼくがみておきます。すわっててください。あたらしいの、いれてきますね。",
+              "english": "Rie, your tea's gone cold already. I'll keep an eye on things here. Please stay sitting. I'll go make you a fresh one."
+            },
+            "n4": {
+              "japanese": "Rieさん、お茶、冷めちゃってますよ。…ここ、ぼくが見ておくんで。座っててください。ついでに、あたらしいの淹れてきます。",
+              "reading": "Rieさん、おちゃ、さめちゃってますよ。…ここ、ぼくがみておくんで。すわっててください。ついでに、あたらしいのいれてきます。",
+              "english": "Rie, your tea's gone cold. …I'll keep an eye on things here, so please stay sitting. I'll bring you a fresh one while I'm up."
+            },
+            "n3": {
+              "japanese": "Rieさん、そのお茶、もう冷めてますよね。…ここ、ぼくが見ときますから。ちょっと座っててください。ついでに、あたらしいの淹れてきます。",
+              "reading": "Rieさん、そのおちゃ、もうさめてますよね。…ここ、ぼくがみときますから。ちょっとすわっててください。ついでに、あたらしいのいれてきます。",
+              "english": "Rie, that tea of yours has gone cold, hasn't it. …I'll keep an eye on things here, so sit down a moment. I'll make you a fresh one while I'm at it."
+            },
+            "n2": {
+              "japanese": "Rieさん、そのお茶、とっくに冷めてますよね。…ここは、ぼくが見ておきますから。少し座っててください。ついでに、あたらしいの淹れてきますよ。",
+              "reading": "Rieさん、そのおちゃ、とっくにさめてますよね。…ここは、ぼくがみておきますから。すこしすわっててください。ついでに、あたらしいのいれてきますよ。",
+              "english": "Rie, that tea's been cold a while now, hasn't it. …I'll take over watching things here, so sit for a bit. I'll go make you a fresh one while I'm at it."
+            },
+            "n1": {
+              "japanese": "Rieさん、そのお茶、もうとっくに冷めてますよ。…ここはぼくが見ときますから、少し座っててください。ついでに、あたらしいの淹れてきます。──いえ、いいんです、これくらい。",
+              "reading": "Rieさん、そのおちゃ、もうとっくにさめてますよ。…ここはぼくがみときますから、すこしすわっててください。ついでに、あたらしいのいれてきます。──いえ、いいんです、これくらい。",
+              "english": "Rie, that tea's long gone cold. …I'll keep an eye on things here, so sit down a while. I'll make you a fresh one while I'm up. — No, really, it's nothing, this much."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:tom-verdict",
+          "beatId": "beat:no-spoilers:obstruction",
+          "speakerId": "tom",
+          "intent": "Declare a flat verdict — name the best episode and where 'it all comes together' — which itself points a giant arrow at where the reveal lives.",
+          "attentionTarget": "the seat-card marked 3話 and the curtain behind it",
+          "variants": {
+            "foundation": {
+              "japanese": "ぼくは、8話が一番よかったです。あそこで、全部わかりました。まだ見てない人は、8話まで見て。話はそれからです。",
+              "reading": "ぼくは、はちわがいちばんよかったです。あそこで、ぜんぶわかりました。まだみてないひとは、はちわまでみて。はなしはそれからです。",
+              "english": "For me, episode 8 was the best. That's where it all came together for me. Anyone who hasn't seen it — watch up to 8. Then we'll talk."
+            },
+            "n5": {
+              "japanese": "ぼくは8話が一番よかったと思います。あそこで、いろいろ全部つながったんですよ。まだの人は、8話まで見てからにしましょう。そこが勝負です。",
+              "reading": "ぼくははちわがいちばんよかったとおもいます。あそこで、いろいろぜんぶつながったんですよ。まだのひとは、はちわまでみてからにしましょう。そこがしょうぶです。",
+              "english": "I think episode 8 was the best. That's where everything tied together, you know. Those who aren't there yet — get to 8 first. That's the crucial one."
+            },
+            "n4": {
+              "japanese": "いや、8話でしょ、一番は。あそこで一気に全部つながったんですって。まだの人は、とりあえず8話まで。話はそこからだと思う。",
+              "reading": "いや、はちわでしょ、いちばんは。あそこでいっきにぜんぶつながったんですって。まだのひとは、とりあえずはちわまで。はなしはそこからだとおもう。",
+              "english": "No, it's episode 8, the best one. That's where it all snapped together at once, I'm telling you. Anyone not there yet — get to 8, at least. The real talk starts there, I reckon."
+            },
+            "n3": {
+              "japanese": "いやいや、断然8話ですって。あそこで全部ひっくり返ったんだから。まだの人は、8話まで見てから参加、ってことで。そこ抜きに語れないでしょ。",
+              "reading": "いやいや、だんぜんはちわですって。あそこでぜんぶひっくりかえったんだから。まだのひとは、はちわまでみてからさんか、ってことで。そこぬきにかたれないでしょ。",
+              "english": "No no, it's episode 8, hands down. That's where the whole thing flipped over. Those not there yet — join once you've hit 8. You can't discuss this without it, right?"
+            },
+            "n2": {
+              "japanese": "いや、僕に言わせれば断然8話ですよ。あそこで全部ひっくり返ったわけで。まだの人は、ひとまず8話まで見てからってことにしましょう。正直、そこを外して語るのは無理があるでしょ。",
+              "reading": "いや、ぼくにいわせればだんぜんはちわですよ。あそこでぜんぶひっくりかえったわけで。まだのひとは、ひとまずはちわまでみてからってことにしましょう。しょうじき、そこをはずしてかたるのはむりがあるでしょ。",
+              "english": "No, if you ask me it's episode 8, hands down. That's where the whole thing got turned on its head. Those not there yet — let's say join once you've reached 8. Honestly, discussing it while skirting that is a stretch."
+            },
+            "n1": {
+              "japanese": "いや、僕に言わせてもらえば断然8話でしょう。なにせ、あそこで全部ひっくり返るわけですから。まだの人は、ひとまず8話まで見てから合流、ということで。──正直なところ、あそこを外して語れって言われても、ねえ。",
+              "reading": "いや、ぼくにいわせてもらえばだんぜんはちわでしょう。なにせ、あそこでぜんぶひっくりかえるわけですから。まだのひとは、ひとまずはちわまでみてからごうりゅう、ということで。──しょうじきなところ、あそこをはずしてかたれっていわれても、ねえ。",
+              "english": "No, if you'll let me say it, it's episode 8, hands down. I mean, that's where the whole thing gets turned on its head. Those not there yet — join us once you've reached 8, let's say. — Honestly, being told to discuss it while leaving that out, well…"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-almost-spoils",
+          "beatId": "beat:no-spoilers:pressure",
+          "speakerId": "francis",
+          "intent": "Get carried away agreeing, start to blurt the reveal, catch himself mid-sentence, and land on a bounded past-tense impression of his own reaction instead.",
+          "attentionTarget": "his own hand half-raised, then lowered",
+          "variants": {
+            "foundation": {
+              "japanese": "わかります! 8話で、あの人が――…あ、だめだ。言いません。ええと…ぼくも、8話で、びっくりしました。それだけ。",
+              "reading": "わかります! はちわで、あのひとが――…あ、だめだ。いいません。ええと…ぼくも、はちわで、びっくりしました。それだけ。",
+              "english": "I know! In episode 8, that person—…ah, no. I won't say it. Um… I was surprised too, in episode 8. That's all."
+            },
+            "n5": {
+              "japanese": "わかります、わかります! 8話で、あの人が――…あ、あぶない。言いません、言いません。ええと…ぼくも、あそこはびっくりしました。それだけにしときます。",
+              "reading": "わかります、わかります! はちわで、あのひとが――…あ、あぶない。いいません、いいません。ええと…ぼくも、あそこはびっくりしました。それだけにしときます。",
+              "english": "I know, I know! In episode 8, that person—…ah, close one. Not saying it, not saying it. Um… I was surprised there too. I'll leave it at just that."
+            },
+            "n4": {
+              "japanese": "わかる、わかる! 8話、あの人がさ――…おっと、あぶない。言わない言わない。……うん、ぼくも、あそこはびっくりした。とだけ言っときます。",
+              "reading": "わかる、わかる! はちわ、あのひとがさ――…おっと、あぶない。いわないいわない。……うん、ぼくも、あそこはびっくりした。とだけいっときます。",
+              "english": "I know, I know! Episode 8, that person just—…whoa, close. Not saying it, not saying it. …Yeah, I was surprised there too. That much, and no more."
+            },
+            "n3": {
+              "japanese": "わかるなあ! 8話でしょ、あの人が――…っと、あぶないあぶない。言わないでおく。……うん、ぼくもあそこは、正直びっくりした。──って、そこまでにしときますね。",
+              "reading": "わかるなあ! はちわでしょ、あのひとが――…っと、あぶないあぶない。いわないでおく。……うん、ぼくもあそこは、しょうじきびっくりした。──って、そこまでにしときますね。",
+              "english": "God, I know! Episode 8, right, where that person—…whoop, close, close. I'll keep it in. …Yeah, honestly, I was surprised there too. — And, I'll stop it right there."
+            },
+            "n2": {
+              "japanese": "わかりますって! 8話の、あの人が――…っと、あぶない。危うく言うところだった。……ええ、ぼくもあそこは、正直かなりびっくりしましたよ。──と、言えるのはここまで、ですね。",
+              "reading": "わかりますって! はちわの、あのひとが――…っと、あぶない。あやうくいうところだった。……ええ、ぼくもあそこは、しょうじきかなりびっくりしましたよ。──と、いえるのはここまで、ですね。",
+              "english": "Oh, I know! In episode 8, where that person—…whoa, close. I nearly said it. …Yes, honestly, I was pretty surprised there too. — And that's as far as I can say it, right there."
+            },
+            "n1": {
+              "japanese": "わかります、それは! 8話の、あの人が――…っと、あぶない、あぶない。危うく口が滑るところでした。……ええ、ぼくもあそこは、正直、かなりやられましたよ。──と、言葉にできるのはここまで。あとは伏せておきます。",
+              "reading": "わかります、それは! はちわの、あのひとが――…っと、あぶない、あぶない。あやうくくちがすべるところでした。……ええ、ぼくもあそこは、しょうじき、かなりやられましたよ。──と、ことばにできるのはここまで。あとはふせておきます。",
+              "english": "Oh, that — I know! In episode 8, where that person—…whoa, close, close. My tongue nearly slipped. …Yes, honestly, that part got me pretty good too. — And that's as far as I can put it into words. The rest, I'll keep under wraps."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-converts",
+          "beatId": "beat:no-spoilers:contribution",
+          "speakerId": "francis",
+          "intent": "Replace the ranking with his signature move: a floor-opening question about what people have already seen, that a person at any point can answer, welcoming split answers.",
+          "attentionTarget": "the three different seat-cards, side by side",
+          "variants": {
+            "foundation": {
+              "japanese": "でも、『8話まで見て』は、ちょっと重いです。だから、質問にしましょう。『今まで見たところで、どこが好きでしたか?』これなら、みんな答えられます。",
+              "reading": "でも、『はちわまでみて』は、ちょっとおもいです。だから、しつもんにしましょう。『いままでみたところで、どこがすきでしたか?』これなら、みんなこたえられます。",
+              "english": "But 'watch up to episode 8' is a bit heavy. So let's make it a question instead. 'Of what you've seen so far, which part did you like?' This way, everyone can answer."
+            },
+            "n5": {
+              "japanese": "でも、『8話まで見て』だと、まだの人が入れないですよね。だから、質問に変えましょう。『今まで見たところで、どこが一番よかったですか?』これなら、どこにいる人でも答えられます。",
+              "reading": "でも、『はちわまでみて』だと、まだのひとがはいれないですよね。だから、しつもんにかえましょう。『いままでみたところで、どこがいちばんよかったですか?』これなら、どこにいるひとでもこたえられます。",
+              "english": "But 'watch up to 8' shuts out the ones who aren't there yet, right? So let's turn it into a question. 'Of what you've seen so far, which part was the best?' This way, anyone, wherever they are, can answer."
+            },
+            "n4": {
+              "japanese": "でもさ、『8話まで見て』って言うと、まだの人が話に入れないでしょ。だから、質問にしませんか。『これまで見た中で、どこがよかったですか?』って。それなら、どこまで見てても答えられる。",
+              "reading": "でもさ、『はちわまでみて』っていうと、まだのひとがはなしにはいれないでしょ。だから、しつもんにしませんか。『これまでみたなかで、どこがよかったですか?』って。それなら、どこまでみててもこたえられる。",
+              "english": "But see, if you say 'watch up to 8,' the ones who aren't there can't join in, right? So how about a question instead. 'Out of what you've seen so far, which part was good?' That way, however far you've watched, you can answer."
+            },
+            "n3": {
+              "japanese": "でも、『8話まで見て』って言っちゃうと、それ自体がもう線引きでしょ。だから、順位じゃなくて質問にしませんか。『今まで見た中で、どこが好きでした?』って。それなら、三話の人も、最後まで見た人も、同じように答えられる。",
+              "reading": "でも、『はちわまでみて』っていっちゃうと、それじたいがもうせんびきでしょ。だから、じゅんいじゃなくてしつもんにしませんか。『いままでみたなかで、どこがすきでした?』って。それなら、さんわのひとも、さいごまでみたひとも、おなじようにこたえられる。",
+              "english": "But once you say 'watch up to 8,' that itself is already drawing the line, right? So instead of a ranking, how about a question. 'Out of what you've seen so far, which part did you like?' That way the person on episode 3 and the person who's finished can both answer the same way."
+            },
+            "n2": {
+              "japanese": "ただ、『8話まで見て』って言った時点で、それがもう一種のネタバレなんですよね。だから順位づけじゃなくて、質問にしませんか。『これまで見た範囲で、どこが好きでしたか?』って。そうすれば、三話の人も、見終わった人も、同じ土俵で話せる。",
+              "reading": "ただ、『はちわまでみて』っていったじてんで、それがもういっしゅのネタバレなんですよね。だから、じゅんいづけじゃなくて、しつもんにしませんか。『これまでみたはんいで、どこがすきでしたか?』って。そうすれば、さんわのひとも、みおわったひとも、おなじどひょうではなせる。",
+              "english": "Only, the moment you say 'watch up to 8,' that's already a kind of spoiler in itself. So instead of ranking, how about a question. 'Within what you've seen, which part did you like?' That way, the person on episode 3 and the person who's finished can talk on the same footing."
+            },
+            "n1": {
+              "japanese": "ただね、『8話まで見て』って言った、その時点で、もう半分ネタバレなんですよ。──だから、順位を決めるんじゃなくて、質問にしませんか。『これまで見た範囲で、どこが好きでしたか?』って。そうすれば、三話の人も、見終わった人も、同じ土俵に立てる。答えが割れてても、それはそれで面白いんです。",
+              "reading": "ただね、『はちわまでみて』っていった、そのじてんで、もうはんぶんネタバレなんですよ。──だから、じゅんいをきめるんじゃなくて、しつもんにしませんか。『これまでみたはんいで、どこがすきでしたか?』って。そうすれば、さんわのひとも、みおわったひとも、おなじどひょうにたてる。こたえがわれてても、それはそれでおもしろいんです。",
+              "english": "The thing is, the moment you say 'watch up to 8,' that's already half a spoiler. — So instead of settling a ranking, how about a question. 'Within what you've seen, which part did you like?' That way the person on episode 3 and the one who's finished can stand on the same footing. And if the answers split — well, that's interesting in its own right."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:no-spoilers:before-floor-question",
+          "beatId": "beat:no-spoilers:floor-attempt",
+          "resume": "Francis has shown how a verdict becomes a floor-opening question. The learner takes his move: state one bounded past-tense impression of a part they've already seen, then hand the floor off with a spoiler-safe question."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:no-spoilers:floor-question",
+          "beatId": "beat:no-spoilers:floor-attempt",
+          "hook": {
+            "packageId": "l1-l11",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e07-no-spoilers-floor-opening-question"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e07-no-spoilers-floor-opening-question"
+          },
+          "resumeContext": "The room is split across 3話, 5話 and 最終話. The learner states one bounded impression of a part they have already seen, in the past tense and marked as their own opinion (〜が好きでした / 〜と思いました), then hands the floor off with a spoiler-safe question anyone at any point can answer (どう思いましたか / どこが好きでしたか) — a question that opens the discussion without revealing what is behind the curtain.",
+          "onReady": "checkpoint:no-spoilers:after-floor-question",
+          "onRepair": "node:no-spoilers:floor-question-repair",
+          "onDefer": "checkpoint:no-spoilers:before-floor-question"
+        },
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:floor-question-repair",
+          "beatId": "beat:no-spoilers:floor-repair",
+          "cueId": "cue:opinion-then-question-two-slots",
+          "description": "Two slots are set out side by side: a past-tense impression slot and a floor-opening question slot. Only the slot that leaked toward the reveal returns for another try; the safe half the learner already landed stays put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:no-spoilers:after-floor-question",
+          "beatId": "beat:no-spoilers:floor-response",
+          "resume": "The learner's impression and its spoiler-safe question have landed. Around the room, people at three different points all begin to answer the same question."
+        },
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:curtain-holds",
+          "beatId": "beat:no-spoilers:changed-image",
+          "cueId": "cue:voices-cross-the-curtain",
+          "description": "The paper curtain stays drawn across the back of the cafe. But now voices cross it in both directions — careful, past-tense, none of them carrying the thing behind it. The plush on the sill has not had to move."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:no-spoilers:where-are-you"
+      }
+    },
+    {
+      "id": "scene:no-spoilers:where-are-you",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "rain-evening",
+      "goal": "Discover that a 'safe' euphemism draws more attention to the twist than the answer would, and settle on a question as the thing that opens the floor.",
+      "dramaticQuestion": "If hiding the reveal only points at it harder, what actually opens a room full of people at different points?",
+      "learnerNeed": "A stance on how to open the floor without pointing at the secret — a question, or a marked opinion handed off with one.",
+      "curriculum": {
+        "sectionId": "a-question-not-a-euphemism",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:safe-words-board",
+          "beatId": "beat:no-spoilers:safe-image",
+          "cueId": "cue:safe-words-list-taped-to-wall",
+          "description": "Someone has taped a SAFE WORDS list to the wall: gentle stand-ins for the reveal — 「例の人」, 「例のこと」, 「アレ」. Under the curtain, the three seat-cards still mark three different stopping points. The list looks careful. It also looks like a treasure map."
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:tom-euphemism",
+          "beatId": "beat:no-spoilers:euphemism-obstruction",
+          "speakerId": "tom",
+          "intent": "Try to stay safe by swapping the reveal for total euphemism — and accidentally make the whole room lean in harder, because the blur announces that a secret exists right there.",
+          "attentionTarget": "the not-yet-finished people suddenly leaning in",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、安全に言います。8話で、『例の人』が、『例のこと』をします。……ほら、みんな、今、気になったでしょう?",
+              "reading": "じゃあ、あんぜんにいいます。はちわで、『れいのひと』が、『れいのこと』をします。……ほら、みんな、いま、きになったでしょう?",
+              "english": "Okay, I'll say it safely. In episode 8, 'that person' does 'that thing.' …See — everyone just got curious right now, didn't they?"
+            },
+            "n5": {
+              "japanese": "じゃあ、ネタバレしないで言いますね。8話で、『あの人』が、『あれ』を、こう…しちゃうんです。……あ、みんな、今ちょっと身を乗り出したでしょ?",
+              "reading": "じゃあ、ネタバレしないでいいますね。はちわで、『あのひと』が、『あれ』を、こう…しちゃうんです。……あ、みんな、いまちょっとみをのりだしたでしょ?",
+              "english": "Okay, I'll say it without spoiling. In episode 8, 'that person' kind of… does 'that thing.' …Ah — everyone just leaned in a little, didn't they?"
+            },
+            "n4": {
+              "japanese": "よし、じゃあ安全策で。8話で、『例の人』が、『例のアレ』を、まあ…やるわけです。ぼかしてますよ、ちゃんと。……って、あれ? かえってみんな気になってません?",
+              "reading": "よし、じゃああんぜんさくで。はちわで、『れいのひと』が、『れいのアレ』を、まあ…やるわけです。ぼかしてますよ、ちゃんと。……って、あれ? かえってみんなきになってません?",
+              "english": "Right, safe route then. In episode 8, 'that person' sort of… does 'that whole thing.' I'm keeping it vague, see. …Wait, huh? Isn't everyone more curious now, if anything?"
+            },
+            "n3": {
+              "japanese": "じゃあ、こうしましょう。ぜんぶ伏せ字で。8話で、『◯◯さん』が、『◯◯』を、その…ね? これなら安全でしょ。……いや待って、なんでみんな逆に前のめりなの。",
+              "reading": "じゃあ、こうしましょう。ぜんぶふせじで。はちわで、『まるまるさん』が、『まるまる』を、その…ね? これならあんぜんでしょ。……いやまって、なんでみんなぎゃくにまえのめりなの。",
+              "english": "Okay, let's do this — all in blanks. In episode 8, 'Mr. Blank' does 'blank,' you know…? That's safe, right? …No wait, why is everyone leaning in more, not less?"
+            },
+            "n2": {
+              "japanese": "よし、じゃあ全部ぼかして言いますよ。8話で、『例の人物』が、『例の件』を、こう、ね。固有名詞ゼロ。完璧に安全なはずです。……あれ、おかしいな。伏せれば伏せるほど、逆に食いついてません?",
+              "reading": "よし、じゃあぜんぶぼかしていいますよ。はちわで、『れいのじんぶつ』が、『れいのけん』を、こう、ね。こゆうめいしゼロ。かんぺきにあんぜんなはずです。……あれ、おかしいな。ふせればふせるほど、ぎゃくにくいついてません?",
+              "english": "Right, I'll say it all blurred, then. In episode 8, 'the person in question' does 'the matter in question,' like, you know. Zero proper nouns. Should be perfectly safe. …Huh, that's odd. The more I blur it, the more everyone bites, if anything?"
+            },
+            "n1": {
+              "japanese": "よし、じゃあ徹底的にぼかして言いましょう。8話で、『例の人物』が、『例の一件』を、まあ、こう、ね。固有名詞は一切なし。理論上、完全に安全なはずなんですよ。……あれ、おかしいぞ。伏せれば伏せるほど、かえって全員、前のめりになってません?",
+              "reading": "よし、じゃあてっていてきにぼかしていいましょう。はちわで、『れいのじんぶつ』が、『れいのいっけん』を、まあ、こう、ね。こゆうめいしはいっさいなし。りろんじょう、かんぜんにあんぜんなはずなんですよ。……あれ、おかしいぞ。ふせればふせるほど、かえってぜんいん、まえのめりになってません?",
+              "english": "Right, let me blur it out completely, then. In episode 8, 'the person in question' does 'the incident in question,' well, you know. Not a single proper noun. In theory, it should be totally safe. …Wait, that's not right. The more I blur it, the more the whole room leans in, if anything?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-questions",
+          "beatId": "beat:no-spoilers:question-contribution",
+          "speakerId": "francis",
+          "intent": "Name why the euphemism fails — it plants an arrow that a secret exists right there — and why a single question opens the floor without pointing, leaving nobody behind even when answers split.",
+          "attentionTarget": "the SAFE WORDS list, then the three seat-cards",
+          "variants": {
+            "foundation": {
+              "japanese": "そう、それです。『例のこと』は、『ここに秘密がある』って言ってるのと同じなんです。でも、質問はちがいます。『どう思いましたか?』は、答えを言わせません。話を、始めるだけです。",
+              "reading": "そう、それです。『れいのこと』は、『ここにひみつがある』っていってるのとおなじなんです。でも、しつもんはちがいます。『どうおもいましたか?』は、こたえをいわせません。はなしを、はじめるだけです。",
+              "english": "Right, exactly. 'That thing' is the same as saying 'there's a secret here.' But a question is different. 'What did you think?' doesn't make anyone reveal the answer. It just starts the conversation."
+            },
+            "n5": {
+              "japanese": "そうなんですよ。ぼかすと、『8話に何かある』って教えちゃうんです。矢印になっちゃう。でも、質問は矢印になりません。『どう思いましたか?』なら、秘密を指さないで、話だけ始められます。",
+              "reading": "そうなんですよ。ぼかすと、『はちわになにかある』っておしえちゃうんです。やじるしになっちゃう。でも、しつもんはやじるしになりません。『どうおもいましたか?』なら、ひみつをささないで、はなしだけはじめられます。",
+              "english": "That's just it. Blurring it tells everyone 'there's something at episode 8.' It becomes an arrow. But a question isn't an arrow. 'What did you think?' — you can start the conversation without pointing at the secret."
+            },
+            "n4": {
+              "japanese": "そう、それなんです。ぼかした瞬間、『8話に何かある』って矢印を立てちゃってる。隠すほど目立つ。……でも質問は、指ささないんですよ。『どう思いました?』って聞けば、答えを割らずに、話だけ開ける。",
+              "reading": "そう、それなんです。ぼかしたしゅんかん、『はちわになにかある』ってやじるしをたてちゃってる。かくすほどめだつ。……でもしつもんは、ゆびささないんですよ。『どうおもいました?』ってきけば、こたえをわらずに、はなしだけひらける。",
+              "english": "Yes, that's it exactly. The instant you blur it, you've planted an arrow: 'something's at episode 8.' The more you hide, the more it stands out. …But a question doesn't point. Ask 'what did you think?' and you open the conversation without cracking the answer open."
+            },
+            "n3": {
+              "japanese": "そう、それですよ。ぼかすって、結局『ここ掘れ』の看板を立ててるのと同じなんです。隠せば隠すほど、逆に光る。……でも、質問は看板にならない。『どう思いました?』は、答えを指定しないで、その場を開けるだけなんですよね。",
+              "reading": "そう、それですよ。ぼかすって、けっきょく『ここほれ』のかんばんをたててるのとおなじなんです。かくせばかくすほど、ぎゃくにひかる。……でも、しつもんはかんばんにならない。『どうおもいました?』は、こたえをしていしないで、そのばをあけるだけなんですよね。",
+              "english": "Yes, that's it. Blurring is, in the end, the same as planting a 'dig here' sign. The more you hide, the more it glows. …But a question isn't a sign. 'What did you think?' doesn't specify an answer — it just opens the floor."
+            },
+            "n2": {
+              "japanese": "そう、まさにそれなんです。ぼかした時点で、『ここに何かある』っていう看板を立ててる。伏せれば伏せるほど、そこだけ浮かび上がる。……ところが、質問は看板にならないんですよ。『どう思いました?』は、答えの中身を指定しない。ただ、場を開けるだけ。だから誰も置いていかない。",
+              "reading": "そう、まさにそれなんです。ぼかしたじてんで、『ここになにかある』っていうかんばんをたててる。ふせればふせるほど、そこだけうかびあがる。……ところが、しつもんはかんばんにならないんですよ。『どうおもいました?』は、こたえのなかみをしていしない。ただ、ばをあけるだけ。だからだれもおいていかない。",
+              "english": "Yes, that's precisely it. The moment you blur it, you've planted a sign: 'something's here.' The more you conceal, the more just that spot rises up. …A question, though, never becomes a sign. 'What did you think?' specifies nothing about the answer's content. It just opens the floor. So it leaves nobody behind."
+            },
+            "n1": {
+              "japanese": "そう、まさにそれなんですよ。ぼかした、その瞬間に、『ここに何かある』っていう看板を、自分で立てちゃってる。伏せれば伏せるほど、そこだけが浮かび上がる。……ところが、質問はどうやっても看板にならない。『どう思いました?』は、答えの中身を一切指定しないんです。ただ、場を開けるだけ。だから、三話の人も置いていかないし、答えが割れたって、それがそのまま話になる。",
+              "reading": "そう、まさにそれなんですよ。ぼかした、そのしゅんかんに、『ここになにかある』っていうかんばんを、じぶんでたてちゃってる。ふせればふせるほど、そこだけがうかびあがる。……ところが、しつもんはどうやってもかんばんにならない。『どうおもいました?』は、こたえのなかみをいっさいしていしないんです。ただ、ばをあけるだけ。だから、さんわのひともおいていかないし、こたえがわれたって、それがそのままはなしになる。",
+              "english": "Yes, that's exactly it. The very moment you blur it, you've gone and planted a sign yourself: 'something's here.' The more you conceal, the more just that spot rises up. …A question, though, can't become a sign no matter what. 'What did you think?' specifies nothing whatsoever about the answer. It only opens the floor. So it leaves nobody on episode 3 behind — and if the answers split, that split just becomes the conversation."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:tom-tries-question",
+          "beatId": "beat:no-spoilers:contrast",
+          "speakerId": "tom",
+          "intent": "Take the point but keep his competitive shape — reframe his verdict as a challenge-question that is spoiler-safe, and name a friendly count-up later instead of ranking now.",
+          "attentionTarget": "the room, as if sizing up a rematch",
+          "variants": {
+            "foundation": {
+              "japanese": "なるほど。じゃあ、ぼくも質問にします。『今までで、どこが心に残りましたか?』ぼくと同じか、あとで勝負しましょう。",
+              "reading": "なるほど。じゃあ、ぼくもしつもんにします。『いままでで、どこがこころにのこりましたか?』ぼくとおなじか、あとでしょうぶしましょう。",
+              "english": "I see. Then I'll make mine a question too. 'So far, which part stayed with you?' Whether it matches mine — let's settle it later."
+            },
+            "n5": {
+              "japanese": "なるほどね。じゃあ、ぼくも質問にします。『今までで、どこが一番心に残りましたか?』ぼくの答えと同じ人、あとで手を挙げて。それも勝負です。",
+              "reading": "なるほどね。じゃあ、ぼくもしつもんにします。『いままでで、どこがいちばんこころにのこりましたか?』ぼくのこたえとおなじひと、あとでてをあげて。それもしょうぶです。",
+              "english": "I see. Then I'll turn mine into a question too. 'So far, which part stayed with you most?' Anyone with the same answer as me, raise your hand later. That's a contest too."
+            },
+            "n4": {
+              "japanese": "なるほど、わかった。じゃあ、ぼくも質問で行きます。『今までで、一番刺さったのはどこ?』ぼくと同じ人がいるか、あとで数えましょう。それはそれで勝負でしょ。",
+              "reading": "なるほど、わかった。じゃあ、ぼくもしつもんでいきます。『いままでで、いちばんささったのはどこ?』ぼくとおなじひとがいるか、あとでかぞえましょう。それはそれでしょうぶでしょ。",
+              "english": "Right, got it. Then I'll go with a question too. 'So far, which part hit you hardest?' Let's count later whether anyone matches me. That's a contest in its own right, right?"
+            },
+            "n3": {
+              "japanese": "なるほどね、わかった。じゃあ、ぼくも質問に変える。『今までで、一番刺さったのはどこでした?』──で、ぼくと同じ人がどれだけいるか、あとで数える。それはそれで勝負になるでしょ?",
+              "reading": "なるほどね、わかった。じゃあ、ぼくもしつもんにかえる。『いままでで、いちばんささったのはどこでした?』──で、ぼくとおなじひとがどれだけいるか、あとでかぞえる。それはそれでしょうぶになるでしょ?",
+              "english": "Right, fair enough. Then I'll switch mine to a question too. 'So far, which part hit you hardest?' — and later we count how many match me. That's still a contest, isn't it?"
+            },
+            "n2": {
+              "japanese": "なるほど、そういうことか。……よし、じゃあぼくも質問にします。『今までで、一番刺さったのはどこでしたか?』で、あとでぼくと同じ人が何人いるか数える。勝ち負けは残しつつ、ネタバレはしない。これなら文句ないでしょ?",
+              "reading": "なるほど、そういうことか。……よし、じゃあぼくもしつもんにします。『いままでで、いちばんささったのはどこでしたか?』で、あとでぼくとおなじひとがなんにんいるかかぞえる。かちまけはのこしつつ、ネタバレはしない。これならもんくないでしょ?",
+              "english": "Ah, so that's the idea. …Right, I'll make mine a question too. 'So far, which part hit you hardest?' Then later we count how many match me. Keeps the winning and losing, drops the spoiler. No complaints with that, eh?"
+            },
+            "n1": {
+              "japanese": "なるほど、そういうことね。……よし、じゃあぼくも質問でいきます。『今までのところで、一番刺さったのはどこでした?』──で、あとでぼくと同じ人が何人いるか数える。勝ち負けは残したまま、ネタバレだけ落とす。これなら誰も文句ないでしょ?",
+              "reading": "なるほど、そういうことね。……よし、じゃあぼくもしつもんでいきます。『いままでのところで、いちばんささったのはどこでした?』──で、あとでぼくとおなじひとがなんにんいるかかぞえる。かちまけはのこしたまま、ネタバレだけおとす。これならだれももんくないでしょ?",
+              "english": "Ah, so that's the idea. …Right, I'll go with a question too. 'So far, which part hit you hardest?' — then later we count how many match me. Keeps the winning and losing, just drops the spoiler. Nobody can complain with that, right?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:no-spoilers:how-to-open-the-floor",
+          "beatId": "beat:no-spoilers:open-stance",
+          "question": "How do you open the floor without pointing at the reveal?",
+          "options": [
+            {
+              "id": "option:no-spoilers:ask-only",
+              "action": "Keep your own view back and ask the room a spoiler-safe question about what they've already seen.",
+              "japaneseByBand": {
+                "foundation": "みなさんは、今まで見たところで、どこが好きでしたか?",
+                "n5": "みなさんは、今まで見た中で、どこが一番よかったですか?",
+                "n4": "みなさんは、これまで見たところで、どこがよかったですか? まず聞かせてください。",
+                "n3": "みなさんは、これまで見た範囲で、どこが好きでした? 先に聞かせてください。",
+                "n2": "みなさんは、これまで見た範囲で、どこが好きでしたか? まず、みなさんのほうから聞かせてください。",
+                "n1": "みなさんは、これまで見た範囲で、どこが一番好きでした? 自分のは置いといて、まず聞かせてもらえますか。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:no-spoilers:before-close"
+            },
+            {
+              "id": "option:no-spoilers:opinion-then-hand-off",
+              "action": "State your own bounded past-tense impression first, marked as opinion, then hand the floor off with a question.",
+              "japaneseByBand": {
+                "foundation": "私は、3話が好きでした。みなさんは、どうでしたか?",
+                "n5": "私は、3話がよかったと思います。みなさんは、どこが好きでしたか?",
+                "n4": "私は、3話が好きでした。あくまで私はですけど。みなさんは、どうでしたか?",
+                "n3": "私は、正直3話が一番好きでした。──って、あくまで私の話ですけど。みなさんは、どうでした?",
+                "n2": "私は、これまでのところ3話が一番好きでしたね。あくまで私の感想ですけど。みなさんは、どうでしたか?",
+                "n1": "私は、今のところ3話が一番好きでした。まあ、あくまで私の感想ですけどね。──で、みなさんはどうでした?"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:no-spoilers:before-close"
+            }
+          ],
+          "convergence": "checkpoint:no-spoilers:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:no-spoilers:before-close",
+          "beatId": "beat:no-spoilers:close-attempt",
+          "resume": "The learner has opened the floor with a spoiler-safe question. Francis answers it first himself, to model where the night lands."
+        },
+        {
+          "kind": "line",
+          "id": "line:no-spoilers:francis-close",
+          "beatId": "beat:no-spoilers:exit-line",
+          "speakerId": "francis",
+          "intent": "Close on his signature move — answer his own floor-opening question in bounded past tense, then turn it back to the room: that's where I'm at, where are you?",
+          "attentionTarget": "the seat-cards, waiting to be moved",
+          "variants": {
+            "foundation": {
+              "japanese": "いいですね。じゃあ、ぼくから。ぼくは今、8話です。8話まで見て、すごく好きでした。……で、みなさんは、今どこですか?",
+              "reading": "いいですね。じゃあ、ぼくから。ぼくはいま、はちわです。はちわまでみて、すごくすきでした。……で、みなさんは、いまどこですか?",
+              "english": "Nice. Okay, me first. I'm on episode 8 right now. I watched up to 8, and I really loved it. …So — where are you all, right now?"
+            },
+            "n5": {
+              "japanese": "いいですね。じゃあ、まずぼくから。ぼくは今、5話まで見ました。そこまでで、もうすごく好きでした。……で、みなさんは、今どこですか?",
+              "reading": "いいですね。じゃあ、まずぼくから。ぼくはいま、ごわまでみました。そこまでで、もうすごくすきでした。……で、みなさんは、いまどこですか?",
+              "english": "Nice. Okay, me first. I've watched up to episode 5 so far. Even just to there, I already loved it. …So — where are you all, right now?"
+            },
+            "n4": {
+              "japanese": "いいですね。じゃあ、ぼくから言いますね。ぼくは今5話まで。そこまでで、もう十分好きでした。……で、みなさんは、今どのへんですか?",
+              "reading": "いいですね。じゃあ、ぼくからいいますね。ぼくはいまごわまで。そこまでで、もうじゅうぶんすきでした。……で、みなさんは、いまどのへんですか?",
+              "english": "Nice. Okay, I'll go first. I'm at episode 5 so far. Even to there, I already loved it plenty. …So — where's everyone at right now?"
+            },
+            "n3": {
+              "japanese": "いいですね、それ。じゃあ、まずぼくから。ぼくは今5話まで見たところで。そこまでで、もう十分好きでした。──で、みなさんは、今どのへんにいます?",
+              "reading": "いいですね、それ。じゃあ、まずぼくから。ぼくはいまごわまでみたところで。そこまでで、もうじゅうぶんすきでした。──で、みなさんは、いまどのへんにいます?",
+              "english": "I like that. Okay, me first. I'm at the point of having watched up to episode 5. Even to there, I already loved it plenty. — So, where's everyone at right now?"
+            },
+            "n2": {
+              "japanese": "いいですね、それでいきましょう。じゃあ、まずぼくから。ぼくは今、5話まで来たところで。正直、そこまででもう十分好きでした。──で、みなさんは、今どのあたりにいますか?",
+              "reading": "いいですね、それでいきましょう。じゃあ、まずぼくから。ぼくはいま、ごわまできたところで。しょうじき、そこまででもうじゅうぶんすきでした。──で、みなさんは、いまどのあたりにいますか?",
+              "english": "I like that — let's go with it. Okay, me first. I've made it to episode 5 right now. Honestly, even to there I already loved it plenty. — So, whereabouts is everyone right now?"
+            },
+            "n1": {
+              "japanese": "いいですね、それでいきましょう。じゃあ、まずぼくから。ぼくは今、ちょうど5話まで来たところで。正直、そこまでで、もう十分すぎるくらい好きでした。──で。みなさんは、今、どのあたりにいます?",
+              "reading": "いいですね、それでいきましょう。じゃあ、まずぼくから。ぼくはいま、ちょうどごわまできたところで。しょうじき、そこまでで、もうじゅうぶんすぎるくらいすきでした。──で。みなさんは、いま、どのあたりにいます?",
+              "english": "I like that — let's go with it. Okay, me first. I've just reached episode 5 right now. Honestly, even to there, I already loved it more than enough. — So. Where's everyone at, right now?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:no-spoilers:where-are-you-board",
+          "beatId": "beat:no-spoilers:exit-image",
+          "cueId": "cue:seat-cards-move-phone-face-down",
+          "description": "A phone buzzes face-up on the table — a shift reminder lights the screen. Francis glances at it, turns it face-down without reading past the first line, and looks back up at the room. Along the wall the seat-cards begin to move: everyone marking where they are, no two the same, and not one of them saying what's behind the curtain."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:cold-tea",
+      "state": "echo",
+      "ownerIds": [
+        "rie",
+        "francis"
+      ],
+      "meaningNow": "Francis notices Rie's untouched, cold cup and quietly takes one bounded hosting task off her — covering the door and re-steeping the tea — as care shown by action, not announcement. His habit of clocking the thing nobody else notices is what makes the small offer land as characteristic rather than random.",
+      "priorUse": {
+        "packageId": "s1e01-the-blank-atlas",
+        "sceneId": "scene:blank-atlas:arrival-greetings",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 4,
+      "optionalFallback": "Francis simply refreshes a classmate's cold drink without comment while keeping the discussion moving."
+    },
+    {
+      "id": "callback:one-strong-question",
+      "state": "seed",
+      "ownerIds": [
+        "peter",
+        "francis"
+      ],
+      "meaningNow": "A single well-aimed question opens a discussion without requiring everyone to share the same taste or reach the same verdict; here Francis's floor-opening question replaces a spoiler-marking euphemism and lets people at three different points in the serial all answer.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "The host reframes a discussion-stopping verdict as one open question anyone can answer."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:no-spoilers:questions-replace-verdicts",
+      "kind": "story",
+      "description": "The clue night settles on a rule the class keeps: because people are at different points in the same serial, questions replace verdicts and euphemisms — a spoiler-safe floor-opening question opens the room where a ranking or a blurred hint would only point at the twist."
+    },
+    {
+      "id": "outcome:no-spoilers:francis-arrival",
+      "kind": "bond",
+      "castId": "francis",
+      "chapter": 7,
+      "beat": "arrival",
+      "description": "Francis is introduced hosting a room of people at different points in the same story, converting his richly specific enthusiasm into bounded, past-tense speech and closing on his signature floor-opening question; his quiet noticing of Rie's cold tea takes one hosting task off her plate as care shown by action."
+    },
+    {
+      "id": "outcome:no-spoilers:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l11",
+      "description": "Describe-a-day-in-past-and-present-and-open-the-floor-with-a-spoiler-safe-question evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:tom-hosts-the-rematch"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-floor-question"
+    ],
+    "withdrawnContentFallback": "Use the same verdict-to-question and euphemism-backfire beats with neutral nameplates and a generic host who opens a mixed-progress discussion with one spoiler-safe question after a blurred hint draws more attention than the answer would."
+  }
+}

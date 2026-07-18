@@ -1,0 +1,640 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e08-menu-without-pictures",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 1,
+  "chapter": 8,
+  "title": {
+    "en": "The Menu Without Pictures",
+    "ja": "写真のないメニュー"
+  },
+  "synopsis": "Ramen before class, and the shop's hand-brushed wall menu has no pictures. Shin reads it like a picture book, cracking each character into a memory image and saying plainly which parts he is only guessing at. The catch lands warm: he can decode what a dish is, but not what a person wants, so the reading only works once it meets someone's likes and a no-meat request. The learner uses his component route to order for themselves.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "shin",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shin",
+        "docs/academy/story/CAST-AND-CONSENT.md#shin"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "heritage reduced to a stereotype or a punchline",
+        "asserted kanji etymology stated as fact",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "robert",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#robert",
+        "docs/academy/story/CAST-AND-CONSENT.md#robert"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e07-no-spoilers",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l12"
+          ],
+          "function": "express-likes-and-order-from-a-pictureless-menu-by-decoding-kanji"
+        }
+      ],
+      "recommendedBand": "n5",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-eight-first-meeting-shin"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:menu-without-pictures:the-wall-menu",
+      "mode": "live",
+      "locationId": "location:ramen",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Decode a pictureless hand-brushed ramen menu by kanji components, and reach the point where knowing what a dish is does not tell you what a person wants.",
+      "dramaticQuestion": "When the expert can read every character, is that enough to order for someone else?",
+      "learnerNeed": "A kanji-decoding and preference-ordering task where reading the menu only becomes useful once it meets someone's likes and a dietary limit.",
+      "curriculum": {
+        "sectionId": "decode-then-prefer",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:menu-without-pictures:hand-brushed-wall",
+          "beatId": "beat:menu-without-pictures:arrival-image",
+          "cueId": "cue:ramen-wall-menu-no-pictures",
+          "description": "A cramped ramen counter before class. The whole wall is a hand-brushed menu: black characters on cream paper, no photos, no prices in numerals anyone can find fast. Steam curls up past the last empty stools."
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-easy",
+          "beatId": "beat:menu-without-pictures:host-want",
+          "speakerId": "shin",
+          "intent": "Wave off the panic at a picture-free wall menu and start reading it aloud, with the running joke that the characters are easy.",
+          "attentionTarget": "the whole hand-brushed wall of characters",
+          "variants": {
+            "foundation": {
+              "japanese": "だいじょうぶ。この漢字、簡単だよ。写真がなくても、ぜんぶ読めるから。",
+              "reading": "だいじょうぶ。このかんじ、かんたんだよ。しゃしんがなくても、ぜんぶよめるから。",
+              "english": "It's fine. These characters? Easy. Even without pictures, I can read the whole thing."
+            },
+            "n5": {
+              "japanese": "みんな、だいじょうぶ。この漢字、簡単だよ。写真がなくても、全部読めるから。",
+              "reading": "みんな、だいじょうぶ。このかんじ、かんたんだよ。しゃしんがなくても、ぜんぶよめるから。",
+              "english": "Everyone, it's fine. These characters? Easy. Even without pictures, I can read all of it."
+            },
+            "n4": {
+              "japanese": "あ、大丈夫大丈夫。この壁のメニュー、簡単だよ。写真がなくたって、全部読めるって。",
+              "reading": "あ、だいじょうぶだいじょうぶ。このかべのメニュー、かんたんだよ。しゃしんがなくたって、ぜんぶよめるって。",
+              "english": "Ah, it's fine, it's fine. This wall menu? Easy. Even without photos, I can read every bit of it, honestly."
+            },
+            "n3": {
+              "japanese": "大丈夫だって。この漢字、簡単だよ。写真がなくたって、こういうのは全部読めるから。",
+              "reading": "だいじょうぶだって。このかんじ、かんたんだよ。しゃしんがなくたって、こういうのはぜんぶよめるから。",
+              "english": "It's fine, really. These characters? Easy. Even with no photos, this kind of thing I can read all of."
+            },
+            "n2": {
+              "japanese": "平気平気。こういう手書きのメニュー、簡単だよ。写真がなくても、字さえ読めればどうにでもなる。",
+              "reading": "へいきへいき。こういうてがきのメニュー、かんたんだよ。しゃしんがなくても、じさえよめればどうにでもなる。",
+              "english": "Relax, relax. A hand-brushed menu like this? Easy. No photos, but as long as you can read the characters, you can manage anything."
+            },
+            "n1": {
+              "japanese": "あー、心配いらないって。この手書きの壁メニュー、簡単だよ。写真がなくたって、字さえ追えれば全部いける。",
+              "reading": "あー、しんぱいいらないって。このてがきのかべメニュー、かんたんだよ。しゃしんがなくたって、じさえおえればぜんぶいける。",
+              "english": "Ah, no need to worry. This hand-brushed wall menu? Easy. No photos, sure, but as long as you can follow the characters, the whole thing's doable."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-decode-memory",
+          "beatId": "beat:menu-without-pictures:decode-image",
+          "speakerId": "shin",
+          "intent": "Crack one scary character into a memory image aloud, flag openly that it may be nonsense rather than the real origin, and land that it is now unforgettable.",
+          "attentionTarget": "the single character 肉 at the top of the menu",
+          "variants": {
+            "foundation": {
+              "japanese": "見て。この字は「肉」。中に、人が二人。まどの中の二人だよ。本当かは知らない。でも、もう忘れないでしょ?",
+              "reading": "みて。このじは「にく」。なかに、ひとがふたり。まどのなかのふたりだよ。ほんとうかはしらない。でも、もうわすれないでしょ?",
+              "english": "Look. This character is 肉, meat. Inside it, two people. Two people in a window. I don't know if that's true. But you won't forget it now, right?"
+            },
+            "n5": {
+              "japanese": "見て、この字、「肉」。中に人が二人いるみたいでしょ。窓の中に二人。本当の話かは知らないけど、もう覚えたよね?",
+              "reading": "みて、このじ、「にく」。なかにひとがふたりいるみたいでしょ。まどのなかにふたり。ほんとうのはなしかはしらないけど、もうおぼえたよね?",
+              "english": "Look, this character, 肉. Looks like there are two people inside it, right? Two people in a window. No idea if it's the real story, but you've remembered it now, haven't you?"
+            },
+            "n4": {
+              "japanese": "ほら、この「肉」って字。中に人が二人いるみたいに見えない?窓の中で肉を見てる二人。ま、本当の成り立ちは知らないけどさ、これでもう忘れないでしょ?",
+              "reading": "ほら、この「にく」ってじ。なかにひとがふたりいるみたいにみえない?まどのなかでにくをみてるふたり。ま、ほんとうのなりたちはしらないけどさ、これでもうわすれないでしょ?",
+              "english": "See, this 肉 character. Doesn't it look like two people are inside it? Two people looking at meat through a window. Well, I don't know the real origin, but you won't forget it now, will you?"
+            },
+            "n3": {
+              "japanese": "見てよ、この「肉」。中に人が二人、入ってるみたいに見えるでしょ。窓から肉をのぞいてる二人組。…まあ、本当にそうかは知らないよ?でも、もう覚えちゃったでしょ?",
+              "reading": "みてよ、この「にく」。なかにひとがふたり、はいってるみたいにみえるでしょ。まどからにくをのぞいてるふたりぐみ。…まあ、ほんとうにそうかはしらないよ?でも、もうおぼえちゃったでしょ?",
+              "english": "Look at this, 肉. Two people look like they're tucked inside it, right? A pair peering at meat through a window. …I mean, I don't actually know if that's it. But you've already memorised it, haven't you?"
+            },
+            "n2": {
+              "japanese": "ほら、この「肉」って字さ、中に人が二人いるように見えない?窓越しに肉を見てる二人、みたいな。本当の由来かどうかは保証しないけど——でも、こう言われたら、もう忘れないでしょ?",
+              "reading": "ほら、この「にく」ってじさ、なかにひとがふたりいるようにみえない?まどごしににくをみてるふたり、みたいな。ほんとうのゆらいかどうかはほしょうしないけど——でも、こういわれたら、もうわすれないでしょ?",
+              "english": "See, this 肉 character — doesn't it look like two people are in it? Like two people watching meat through a window. I won't vouch that it's the real derivation — but once someone puts it that way, you don't forget it, right?"
+            },
+            "n1": {
+              "japanese": "見てごらんよ、この「肉」。よく見ると、中に人が二人はまってるみたいに見えるでしょ。窓の中から肉をのぞいてる二人組。…いや、これが本当の成り立ちかは知らないよ?でたらめかもしれない。でも、一回そう思ったら、もう二度と忘れないでしょ?",
+              "reading": "みてごらんよ、この「にく」。よくみると、なかにひとがふたりはまってるみたいにみえるでしょ。まどのなかからにくをのぞいてるふたりぐみ。…いや、これがほんとうのなりたちかはしらないよ?でたらめかもしれない。でも、いっかいそうおもったら、もうにどとわすれないでしょ?",
+              "english": "Take a look at this, 肉. Look closely and it's like two people are wedged inside it, right? A pair peering out at meat through a window. …No, I don't know if that's the real origin. It might be complete nonsense. But once you've pictured it that way, you'll never forget it again, will you?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-reading-hedge",
+          "beatId": "beat:menu-without-pictures:visible-uncertainty",
+          "speakerId": "shin",
+          "intent": "Read the easy shape-and-meaning characters with certainty, then openly hedge on a reading he is only half-sure of, keeping the meaning and the reading honestly separate.",
+          "attentionTarget": "the size characters 大 and 小 and the compound 半熟",
+          "variants": {
+            "foundation": {
+              "japanese": "「大」は大きい、「小」は小さい。意味はかんたん。でも、この「半熟」の読み方は…たぶん「はんじゅく」。そこは自信ない。",
+              "reading": "「だい」はおおきい、「しょう」はちいさい。いみはかんたん。でも、この「はんじゅく」のよみかたは…たぶん「はんじゅく」。そこはじしんない。",
+              "english": "大 is big, 小 is small. The meaning's easy. But the reading of this 半熟… probably hanjuku. That part I'm not sure of."
+            },
+            "n5": {
+              "japanese": "「大」は大きい、「小」は小さい。意味はすぐわかる。でも、この「半熟」の読み方は、たぶん「はんじゅく」…そこはちょっと自信ないな。",
+              "reading": "「だい」はおおきい、「しょう」はちいさい。いみはすぐわかる。でも、この「はんじゅく」のよみかたは、たぶん「はんじゅく」…そこはちょっとじしんないな。",
+              "english": "大 is big, 小 is small. The meaning comes right away. But the reading of this 半熟, probably hanjuku… there I'm a little unsure."
+            },
+            "n4": {
+              "japanese": "「大」が大きいで、「小」が小さい。ここまでは意味ですぐわかる。ただ、この「半熟」の読みは…たぶん「はんじゅく」だと思うけど、正直そこは自信ない。",
+              "reading": "「だい」がおおきいで、「しょう」がちいさい。ここまではいみですぐわかる。ただ、この「はんじゅく」のよみは…たぶん「はんじゅく」だとおもうけど、しょうじきそこはじしんない。",
+              "english": "大 means big, 小 means small. That far, the meaning's instant. But the reading of this 半熟… probably hanjuku, I'd say, though honestly I'm not sure there."
+            },
+            "n3": {
+              "japanese": "「大」は大きい、「小」は小さい——意味のほうは一発でわかるんだよ。でも読み方は別でさ。この「半熟」、たぶん「はんじゅく」だと思うけど、そこは正直あてずっぽう。",
+              "reading": "「だい」はおおきい、「しょう」はちいさい——いみのほうはいっぱつでわかるんだよ。でもよみかたはべつでさ。この「はんじゅく」、たぶん「はんじゅく」だとおもうけど、そこはしょうじきあてずっぽう。",
+              "english": "大 is big, 小 is small — the meaning I get in one shot. But the reading's a separate thing. This 半熟, probably hanjuku I think, but honestly there I'm just guessing."
+            },
+            "n2": {
+              "japanese": "「大」は大きい、「小」は小さい。意味だけなら、見た瞬間わかる。ただ、読みとなると話は別で。この「半熟」、おそらく「はんじゅく」…でも、そこは正直、勘で言ってる。",
+              "reading": "「だい」はおおきい、「しょう」はちいさい。いみだけなら、みたしゅんかんわかる。ただ、よみとなるとはなしはべつで。この「はんじゅく」、おそらく「はんじゅく」…でも、そこはしょうじき、かんでいってる。",
+              "english": "大 is big, 小 is small. Meaning alone, I know it the instant I see it. But when it comes to the reading, that's another matter. This 半熟, most likely hanjuku… but honestly, there I'm going on a hunch."
+            },
+            "n1": {
+              "japanese": "「大」が大きくて、「小」が小さい。意味のほうは、もう見た瞬間に入ってくるんだよ。ただね、読みとなると途端に怪しくなる。この「半熟」、まあ「はんじゅく」だとは思うけど——そこは正直、半分勘で言ってるようなもんでさ。",
+              "reading": "「だい」がおおきくて、「しょう」がちいさい。いみのほうは、もうみたしゅんかんにはいってくるんだよ。ただね、よみとなるととたんにあやしくなる。この「はんじゅく」、まあ「はんじゅく」だとはおもうけど——そこはしょうじき、はんぶんかんでいってるようなもんでさ。",
+              "english": "大 is big, 小 is small. The meaning just lands the moment I look. But the reading — that's where it suddenly gets shaky. This 半熟, well, I do think it's hanjuku — but honestly, there I'm half going on a hunch, if I'm being straight."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:robert-preference",
+          "beatId": "beat:menu-without-pictures:obstruction",
+          "speakerId": "robert",
+          "intent": "Turn the reading from a performance into a real problem by naming his own limit: he cannot eat meat and needs to know which bowl is safe.",
+          "attentionTarget": "the row of dish names he cannot yet sort",
+          "variants": {
+            "foundation": {
+              "japanese": "どれもおいしそう。でも、私、お肉がだめなんです。肉が入っていないもの、ありますか?",
+              "reading": "どれもおいしそう。でも、わたし、おにくがだめなんです。にくがはいっていないもの、ありますか?",
+              "english": "They all look good. But I can't eat meat. Is there something with no meat in it?"
+            },
+            "n5": {
+              "japanese": "うわあ、どれもおいしそう。でも私、お肉がだめで。肉が入っていないもの、ありますか?",
+              "reading": "うわあ、どれもおいしそう。でもわたし、おにくがだめで。にくがはいっていないもの、ありますか?",
+              "english": "Wow, they all look delicious. But I can't do meat. Is there anything without meat in it?"
+            },
+            "n4": {
+              "japanese": "いやあ、どれも良さそうですね。ただ、私お肉がだめなんですよ。肉が入っていないもの、どれかありますかね?",
+              "reading": "いやあ、どれもよさそうですね。ただ、わたしおにくがだめなんですよ。にくがはいっていないもの、どれかありますかね?",
+              "english": "Ah, they all look great. Only, I can't have meat, you see. Is there one of them with no meat in it, would you say?"
+            },
+            "n3": {
+              "japanese": "どれもうまそうだなあ。…あ、でも私、肉がだめでして。肉が入ってないもの、この中にありますか?",
+              "reading": "どれもうまそうだなあ。…あ、でもわたし、にくがだめでして。にくがはいってないもの、このなかにありますか?",
+              "english": "They all look tasty… Ah, but I can't do meat, I'm afraid. Is there one with no meat, among these?"
+            },
+            "n2": {
+              "japanese": "いや、どれもうまそうだ。……ただ、お恥ずかしい話、私、肉がだめでしてね。肉の入っていないもの、この中にありますかね?",
+              "reading": "いや、どれもうまそうだ。……ただ、おはずかしいはなし、わたし、にくがだめでしてね。にくのはいっていないもの、このなかにありますかね?",
+              "english": "Honestly, they all look tasty. …Only, embarrassing to admit, I can't do meat. Is there something with no meat in it, among these?"
+            },
+            "n1": {
+              "japanese": "うーん、どれもこれもうまそうだ。……あ、ただね、お恥ずかしながら私、肉がどうも苦手で。この中で、肉が入っていないやつって、ありますかね?",
+              "reading": "うーん、どれもこれもうまそうだ。……あ、ただね、おはずかしながらわたし、にくがどうもにがてで。このなかで、にくがはいっていないやつって、ありますかね?",
+              "english": "Mm, every single one of them looks tasty. …Ah, only, embarrassing as it is, I really can't handle meat. Among these, is there one that hasn't got meat in it?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-limit",
+          "beatId": "beat:menu-without-pictures:contribution",
+          "speakerId": "shin",
+          "intent": "Name the honest limit of his expertise — he can decode what each dish is, but not what a person likes — and hand the preference choice back to the diner while pointing out the meat-free rows.",
+          "attentionTarget": "the 肉 dishes on one side, the 魚 and 野菜 dishes on the other",
+          "variants": {
+            "foundation": {
+              "japanese": "ここ、「肉」って書いてある。だから、これは肉。でも、ロバートさんが何が好きかは、字に書いてない。魚のは、こっち。どれにする?",
+              "reading": "ここ、「にく」ってかいてある。だから、これはにく。でも、ロバートさんがなにがすきかは、じにかいてない。さかなのは、こっち。どれにする?",
+              "english": "Here it says 肉, meat. So this one has meat. But what Robert likes isn't written in the characters. The fish ones are over here. Which will you have?"
+            },
+            "n5": {
+              "japanese": "そこ、「肉」って書いてある。だから肉だね。でも、ロバートさんが何を食べたいかは、漢字を読んでもわからないんだ。魚のは、こっち。どれがいい?",
+              "reading": "そこ、「にく」ってかいてある。だからにくだね。でも、ロバートさんがなにをたべたいかは、かんじをよんでもわからないんだ。さかなのは、こっち。どれがいい?",
+              "english": "There it says 肉, so that's meat. But what Robert wants to eat — reading the kanji won't tell me that. The fish ones are over here. Which one's good for you?"
+            },
+            "n4": {
+              "japanese": "ここに「肉」ってあるから、これは肉入り。ただ、ロバートさんが何を好きかまでは、字を読んでもわからないんだよね。魚のはこっち。どれにする?",
+              "reading": "ここに「にく」ってあるから、これはにくいり。ただ、ロバートさんがなにをすきかまでは、じをよんでもわからないんだよね。さかなのはこっち。どれにする?",
+              "english": "It says 肉 here, so this one's got meat. Only, what Robert actually likes — reading the characters won't get me that. The fish ones are over here. Which will it be?"
+            },
+            "n3": {
+              "japanese": "ここ、「肉」って書いてあるでしょ。だからこれは肉。でもさ、ロバートさんが何を食べたいかは、いくら漢字が読めても出てこないんだ。魚のはこっち側。どれがいい?",
+              "reading": "ここ、「にく」ってかいてあるでしょ。だからこれはにく。でもさ、ロバートさんがなにをたべたいかは、いくらかんじがよめてもでてこないんだ。さかなのはこっちがわ。どれがいい?",
+              "english": "It says 肉 here, see. So this is meat. But you know, what Robert wants to eat — no amount of reading kanji brings that up. The fish ones are on this side. Which do you fancy?"
+            },
+            "n2": {
+              "japanese": "ここに「肉」とあるから、これは肉料理。ただね、ロバートさんが何を食べたいのかは、字をいくら読んだところで書いてないんだよ。魚のはこっち。さあ、どれにする?",
+              "reading": "ここに「にく」とあるから、これはにくりょうり。ただね、ロバートさんがなにをたべたいのかは、じをいくらよんだところでかいてないんだよ。さかなのはこっち。さあ、どれにする?",
+              "english": "It says 肉 here, so this is a meat dish. Only, what Robert wants to eat — no matter how much I read, that isn't written anywhere. The fish ones are over here. So, which will it be?"
+            },
+            "n1": {
+              "japanese": "ここに「肉」ってあるから、これは肉のやつ。——ただ、面白いもんでね、ロバートさんが何を食べたいかだけは、どれだけ字が読めても、どこにも書いてないんだよ。そこばっかりは読めない。魚のはこっち側。で、どれにする?",
+              "reading": "ここに「にく」ってあるから、これはにくのやつ。——ただ、おもしろいもんでね、ロバートさんがなにをたべたいかだけは、どれだけじがよめても、どこにもかいてないんだよ。そこばっかりはよめない。さかなのはこっちがわ。で、どれにする?",
+              "english": "It says 肉 here, so this one's the meat one. — Only, funny thing is, what Robert actually wants to eat is the one thing that, however well I read, is written nowhere. That part alone I can't read. The fish ones are on this side. So — which will it be?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:menu-without-pictures:before-order",
+          "beatId": "beat:menu-without-pictures:order-attempt",
+          "resume": "Shin has decoded what each dish is and handed the preference choice back. The learner steps in to read the meat-free line with his component route, say what they like, and order aloud with a counter — including a no-meat bowl for Robert."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:menu-without-pictures:decode-and-order",
+          "beatId": "beat:menu-without-pictures:order-attempt",
+          "hook": {
+            "packageId": "l1-l12",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e08-menu-without-pictures-decode-and-order"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e08-menu-without-pictures-decode-and-order"
+          },
+          "resumeContext": "The wall menu has 肉 dishes on one side and 魚 and 野菜 dishes on the other. The learner uses Shin's shape-first component route to read a dish name, states a preference with 〜が好き, orders their own bowl with a counter (ラーメン一杯 / ひとつ), and asks 「肉が入っていないもの、ありますか」 so Robert gets a meat-free bowl — pairing the decoding with an actual want rather than choosing one dish as universally best.",
+          "onReady": "checkpoint:menu-without-pictures:after-order",
+          "onRepair": "node:menu-without-pictures:decode-repair",
+          "onDefer": "checkpoint:menu-without-pictures:before-order"
+        },
+        {
+          "kind": "stage",
+          "id": "node:menu-without-pictures:decode-repair",
+          "beatId": "beat:menu-without-pictures:order-repair",
+          "cueId": "cue:one-dish-name-split-into-parts",
+          "description": "One dish name lifts off the wall and splits into its left and right parts, side by side. Only the piece that went unread returns for another try; the parts already decoded stay in place, and the counter phrase waits underneath."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:menu-without-pictures:after-order",
+          "beatId": "beat:menu-without-pictures:order-response",
+          "resume": "The learner has read a dish, said what they like, and ordered — one meat-free bowl for Robert included. Shin looks pleased that the reading only did its job once it met a preference."
+        },
+        {
+          "kind": "stage",
+          "id": "node:menu-without-pictures:wall-now-readable",
+          "beatId": "beat:menu-without-pictures:changed-image",
+          "cueId": "cue:wall-menu-two-columns-lit",
+          "description": "The wall menu no longer reads as a solid block. The 肉 dishes sit in one column, the 魚 and 野菜 dishes in another, and the meat-free bowl the learner picked out is circled in chalk. The steam behind the counter thickens as an order is called back."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:menu-without-pictures:one-bowl-each"
+      }
+    },
+    {
+      "id": "scene:menu-without-pictures:one-bowl-each",
+      "mode": "live",
+      "locationId": "location:ramen",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Let Shin hand over the method rather than the answer, so his decoding becomes a shared tool and each person's likes decide their own bowl.",
+      "dramaticQuestion": "Can an expert's skill be more useful handed over than performed?",
+      "learnerNeed": "A stance choice about how to use Shin's decoding method — take the answer, or take the route.",
+      "curriculum": {
+        "sectionId": "hand-over-the-route",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:menu-without-pictures:counter-stools",
+          "beatId": "beat:menu-without-pictures:regroup-image",
+          "cueId": "cue:ramen-counter-waiting-bowls",
+          "description": "Everyone has claimed a stool along the counter. One dish name near the bottom of the wall is still unread, and Shin taps it with the end of his pencil instead of saying it."
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-hand-over",
+          "beatId": "beat:menu-without-pictures:want",
+          "speakerId": "shin",
+          "intent": "Deliberately withhold the answer and offer the route instead — left half, right half — inviting the learner to decode the last character themselves.",
+          "attentionTarget": "the last unread dish name and its two halves",
+          "variants": {
+            "foundation": {
+              "japanese": "次のは、教えないよ。見て。左は?右は?自分で読んでみて。",
+              "reading": "つぎのは、おしえないよ。みて。ひだりは?みぎは?じぶんでよんでみて。",
+              "english": "This next one, I won't tell you. Look. The left part? The right? Try reading it yourself."
+            },
+            "n5": {
+              "japanese": "次のは、答えを言わないよ。左の部分は何?右は?自分で読んでみて。",
+              "reading": "つぎのは、こたえをいわないよ。ひだりのぶぶんはなに?みぎは?じぶんでよんでみて。",
+              "english": "This next one, I won't give you the answer. What's the left part? The right? Read it yourself."
+            },
+            "n4": {
+              "japanese": "次のはあえて教えないでおくね。ほら、左半分は何?で、右は?自分で読んでみてよ。",
+              "reading": "つぎのはあえておしえないでおくね。ほら、ひだりはんぶんはなに?で、みぎは?じぶんでよんでみてよ。",
+              "english": "This next one I'll leave untold on purpose. See, the left half is what? And the right? Try reading it yourself."
+            },
+            "n3": {
+              "japanese": "次のはさ、あえて答えは言わないでおく。見て、左の部分は?右の部分は?ね、自分で読めるって。",
+              "reading": "つぎのはさ、あえてこたえはいわないでおく。みて、ひだりのぶぶんは?みぎのぶぶんは?ね、じぶんでよめるって。",
+              "english": "This next one, I'll deliberately leave the answer unsaid. Look, the left part? The right part? See, you can read it yourself."
+            },
+            "n2": {
+              "japanese": "次のは、あえて答えを言わないでおくよ。ほら、左側は何に見える?右は?——自分で組み立ててごらん、読めるから。",
+              "reading": "つぎのは、あえてこたえをいわないでおくよ。ほら、ひだりがわはなににみえる?みぎは?——じぶんでくみたててごらん、よめるから。",
+              "english": "This next one, I'll leave the answer unsaid on purpose. See, what does the left side look like? The right? — Put it together yourself, you'll read it."
+            },
+            "n1": {
+              "japanese": "次のはね、あえて答えは伏せておく。ほら、左の部分は何に見える?で、右は?——そうやって自分で組んでいけば、ちゃんと読めるんだよ。",
+              "reading": "つぎのはね、あえてこたえはふせておく。ほら、ひだりのぶぶんはなににみえる?で、みぎは?——そうやってじぶんでくんでいけば、ちゃんとよめるんだよ。",
+              "english": "This next one, I'll keep the answer under wraps on purpose. See, what does the left part look like? And the right? — Build it up yourself like that and you'll read it just fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:menu-without-pictures:use-the-method",
+          "beatId": "beat:menu-without-pictures:stance",
+          "question": "How do you use Shin's method for the last character?",
+          "options": [
+            {
+              "id": "option:menu-without-pictures:take-the-answer",
+              "action": "Ask Shin to just read it out so you can order faster.",
+              "japaneseByBand": {
+                "foundation": "Shinさん、これ、読んで。",
+                "n5": "Shinさん、これ、読んでください。",
+                "n4": "Shinさん、そこは読んじゃってください。早く頼みたいんで。",
+                "n3": "Shinさん、そこはもう読んじゃってよ。早く頼みたいし。",
+                "n2": "Shinさん、そこはもう読んでもらえます?早く注文したくて。",
+                "n1": "Shinさん、そこはもう先に読んじゃってもらえます?早いとこ頼みたいんで。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:menu-without-pictures:before-order-again"
+            },
+            {
+              "id": "option:menu-without-pictures:take-the-route",
+              "action": "Decode the character yourself with Shin's left-half / right-half route, then order.",
+              "japaneseByBand": {
+                "foundation": "自分で読んでみます。左は…右は…。",
+                "n5": "自分で読んでみます。左の部分と、右の部分と…。",
+                "n4": "いや、自分で読んでみます。左がこれで、右がこれだから…。",
+                "n3": "せっかくだから、自分で読んでみます。左がこうで、右がこうで…。",
+                "n2": "いや、自分でやってみます。左がこの部分で、右がこの部分だから…。",
+                "n1": "せっかくだし、自分で組んでみますよ。左がこれで、右がこれ、だとすると…。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:menu-without-pictures:before-order-again"
+            }
+          ],
+          "convergence": "checkpoint:menu-without-pictures:before-order-again"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:menu-without-pictures:before-order-again",
+          "beatId": "beat:menu-without-pictures:order-again-attempt",
+          "resume": "The learner has chosen whether to take Shin's answer or his route. Either way the last dish gets read and the orders go in, Robert's meat-free bowl among them."
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:robert-orders",
+          "beatId": "beat:menu-without-pictures:contribution",
+          "speakerId": "robert",
+          "intent": "Place his own order for the meat-free bowl with a counter, warm and relieved to be able to ask for it plainly.",
+          "attentionTarget": "the fish bowl the learner circled for him",
+          "variants": {
+            "foundation": {
+              "japanese": "じゃあ、私は魚のを一杯。肉なしで、うれしいです。ありがとう。",
+              "reading": "じゃあ、わたしはさかなのをいっぱい。にくなしで、うれしいです。ありがとう。",
+              "english": "Then, one fish bowl for me. Meat-free — I'm glad. Thank you."
+            },
+            "n5": {
+              "japanese": "じゃあ、私は魚のラーメンを一杯お願いします。肉なしで頼めて、よかった。ありがとう。",
+              "reading": "じゃあ、わたしはさかなのラーメンをいっぱいおねがいします。にくなしでたのめて、よかった。ありがとう。",
+              "english": "Then, one fish ramen for me, please. Glad I could order it without meat. Thank you."
+            },
+            "n4": {
+              "japanese": "じゃあ私は、魚のラーメンを一杯もらおうかな。肉なしで頼めるとは、助かりました。ありがとう。",
+              "reading": "じゃあわたしは、さかなのラーメンをいっぱいもらおうかな。にくなしでたのめるとは、たすかりました。ありがとう。",
+              "english": "Then I'll get one fish ramen, I think. Being able to order it meat-free — that's a real help. Thank you."
+            },
+            "n3": {
+              "japanese": "じゃあ私は、魚のラーメンを一杯もらいます。肉なしで頼めるなんて、いや助かったよ。ありがとう。",
+              "reading": "じゃあわたしは、さかなのラーメンをいっぱいもらいます。にくなしでたのめるなんて、いやたすかったよ。ありがとう。",
+              "english": "Then I'll have one fish ramen. Being able to order it with no meat — honestly, that was a lifesaver. Thank you."
+            },
+            "n2": {
+              "japanese": "それじゃ私は、魚のラーメンを一杯いただこうかな。肉なしで頼めるとは、正直ほっとしました。ありがとう。",
+              "reading": "それじゃわたしは、さかなのラーメンをいっぱいいただこうかな。にくなしでたのめるとは、しょうじきほっとしました。ありがとう。",
+              "english": "In that case I'll have one fish ramen. Being able to order it meat-free — honestly, that's a relief. Thank you."
+            },
+            "n1": {
+              "japanese": "じゃあ私は、魚のラーメンを一杯もらおうかな。肉なしでちゃんと頼めるとはね、いや、正直ほっとしましたよ。ありがとう。",
+              "reading": "じゃあわたしは、さかなのラーメンをいっぱいもらおうかな。にくなしでちゃんとたのめるとはね、いや、しょうじきほっとしましたよ。ありがとう。",
+              "english": "Then I'll get one fish ramen, I think. Being able to properly order it meat-free — honestly, that's put me at ease. Thank you."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:menu-without-pictures:shin-close",
+          "beatId": "beat:menu-without-pictures:exit-line",
+          "speakerId": "shin",
+          "intent": "Close on his own theme: the character is the easy part, even a made-up memory sticks, but what a person likes is the one thing only they can decide — and that is the hard part.",
+          "attentionTarget": "the circled meat-free bowl and the now-readable wall",
+          "variants": {
+            "foundation": {
+              "japanese": "ね、覚えたでしょ。字は簡単。でも、好きなものは、自分で決めるんだ。そこが一番むずかしい。",
+              "reading": "ね、おぼえたでしょ。じはかんたん。でも、すきなものは、じぶんできめるんだ。そこがいちばんむずかしい。",
+              "english": "See, you remembered it. The character's easy. But what you like, you decide yourself. That's the hardest part."
+            },
+            "n5": {
+              "japanese": "ほら、もう覚えたでしょ。漢字は簡単。でも、何が好きかは、自分で決めるしかない。そこが一番むずかしいんだよ。",
+              "reading": "ほら、もうおぼえたでしょ。かんじはかんたん。でも、なにがすきかは、じぶんできめるしかない。そこがいちばんむずかしいんだよ。",
+              "english": "See, you've remembered it. The kanji's easy. But what you like — you've no choice but to decide that yourself. That's the hardest part."
+            },
+            "n4": {
+              "japanese": "な、もう忘れないでしょ。字のほうは簡単なんだ。でも、何が好きかだけは自分で決めるしかなくて、そこが一番むずかしい。",
+              "reading": "な、もうわすれないでしょ。じのほうはかんたんなんだ。でも、なにがすきかだけはじぶんできめるしかなくて、そこがいちばんむずかしい。",
+              "english": "See, you won't forget it now. The characters are the easy part. But what you like is the one thing only you can decide, and that's the hardest part."
+            },
+            "n3": {
+              "japanese": "ほら、もう忘れないって。——字は簡単なんだよ、本当に。でも、何が好きかは自分で決めるしかない。結局、そこが一番むずかしいんだよね。",
+              "reading": "ほら、もうわすれないって。——じはかんたんなんだよ、ほんとうに。でも、なにがすきかはじぶんできめるしかない。けっきょく、そこがいちばんむずかしいんだよね。",
+              "english": "See, you won't forget it. — The characters are easy, they really are. But what you like, only you can decide. In the end, that's the hardest part."
+            },
+            "n2": {
+              "japanese": "な、もう忘れないでしょ。字のほうは簡単なんだ、いつだって。ただ、何が好きかだけは自分で決めるしかなくて——結局、そこが一番むずかしい。",
+              "reading": "な、もうわすれないでしょ。じのほうはかんたんなんだ、いつだって。ただ、なにがすきかだけはじぶんできめるしかなくて——けっきょく、そこがいちばんむずかしい。",
+              "english": "See, you won't forget it now. The characters are the easy part, always. It's just that what you like is the one thing only you can decide — and in the end, that's the hardest part."
+            },
+            "n1": {
+              "japanese": "ほら、もう忘れないって。——字なんてね、正直いつだって簡単なんだよ。でたらめな覚え方でも、一回はまれば忘れない。ただ、何が好きかだけは、どうやったって自分で決めるしかなくてね。結局そこが、一番むずかしい。",
+              "reading": "ほら、もうわすれないって。——じなんてね、しょうじきいつだってかんたんなんだよ。でたらめなおぼえかたでも、いっかいはまればわすれない。ただ、なにがすきかだけは、どうやったってじぶんできめるしかなくてね。けっきょくそこが、いちばんむずかしい。",
+              "english": "See, you won't forget it. — Characters, honestly, are always easy. Even a nonsense way of remembering, once it sticks, it stays. It's just that what you like is the one thing you've simply got to decide for yourself, however you go about it. In the end, that's the hardest part."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:menu-without-pictures:bowls-arrive",
+          "beatId": "beat:menu-without-pictures:exit-image",
+          "cueId": "cue:bowls-on-counter-one-meat-free",
+          "description": "Bowls land along the counter, one to each stool. Robert's meat-free bowl sits among them, no different to look at. Behind the diners the wall menu stays legible now — two columns, one circled line — the way Shin left it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:menu-without-pictures:decode-meets-preference",
+      "kind": "story",
+      "description": "The class orders from a pictureless hand-brushed menu by decoding kanji as memory images; the reading only becomes useful once it is paired with each diner's likes and a no-meat request, and Shin hands over the route rather than the answer."
+    },
+    {
+      "id": "outcome:menu-without-pictures:shin-arrival",
+      "kind": "bond",
+      "castId": "shin",
+      "chapter": 8,
+      "beat": "arrival",
+      "description": "Shin is introduced as the class's kanji reader through his running joke that every character is easy; the chapter establishes that his expertise carries visible uncertainty — he decodes what a dish is and openly hedges a reading, but cannot decode what a person wants, so his skill only works once it meets a preference."
+    },
+    {
+      "id": "outcome:menu-without-pictures:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l12",
+      "description": "Express-likes-and-order-from-a-pictureless-menu-by-decoding-kanji evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "foundation",
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:shin-decodes-the-wall-alone-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-decode-step"
+    ],
+    "withdrawnContentFallback": "Use the same kanji-decode and preference-ordering beats with neutral nameplates and a generic reader who decodes a pictureless menu as memory images, hedges one reading openly, and hands the preference and no-meat choice back to each diner."
+  }
+}
