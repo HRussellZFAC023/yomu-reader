@@ -464,7 +464,31 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
 
 export function documentHasJapaneseText(limit = 200000): boolean {
     if (!document.body) return false;
-    return textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+    const hasLightDomJapanese = textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+    // The normal page scan will discover/register component roots. Returning
+    // immediately avoids a second synchronous whole-document element walk on
+    // the overwhelmingly common light-DOM-positive path (especially costly on
+    // component-heavy iPad pages).
+    if (hasLightDomJapanese) return true;
+
+    // document TreeWalkers do not enter shadow DOM. Without this bounded host
+    // pass, a page whose Japanese exists only inside web components never
+    // starts the first scan that would discover those components. Stop at the
+    // first positive branch; mutation discovery registers dynamic/loading roots.
+    const roots: Node[] = [document.body];
+    let inspected = 0;
+    while (roots.length && inspected < limit) {
+        const root = roots.shift()!;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
+            const shadowRoot = (node as HTMLElement).shadowRoot;
+            if (!shadowRoot) continue;
+            noteScannedShadowRoot(shadowRoot);
+            roots.push(shadowRoot);
+            if (shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH)) return true;
+        }
+    }
+    return false;
 }
 
 function visibleTextWalker(root: HTMLElement): TreeWalker {
@@ -960,6 +984,11 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // skip, it is unreachable and not an error.
     const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
+    // Observe every open root we encounter, even while it is empty or still
+    // showing Latin loading chrome. MutationObservers on document.body cannot
+    // cross this boundary; delaying registration until Japanese was already
+    // present made later Lit/Reddit hydration permanently invisible.
+    noteScannedShadowRoot(shadowRoot);
     if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
         // Depth-capped: never silently drop the branch. The host is queued for
         // a deferred continuation walk that re-roots HERE (its own walk starts
@@ -985,10 +1014,6 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // target could land ahead of an earlier-in-document light run.
     flushFragmentTextTarget(state);
     if (fragmentCollectionComplete(state)) return;
-    // Committed to descending: register the root so the app's auto-scan
-    // observer watches its re-renders (subtree observers never cross shadow
-    // boundaries, so without this a component re-render schedules no rescan).
-    noteScannedShadowRoot(shadowRoot);
     // A <slot> projects light-DOM children into the shadow tree, but those text
     // nodes are ALREADY walked in the light-DOM pass above (their real parent is
     // in light DOM). Walking shadowRoot.childNodes reaches a <slot>'s fallback

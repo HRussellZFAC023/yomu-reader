@@ -44,6 +44,7 @@ const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['フィード', 'フィード', 'フィード', 'feed', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
     ['並べ替え', '並べ替え', 'ならべかえ', 'sort', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['注目順', '注目順', 'ちゅうもくじゅん', 'hot', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -120,7 +121,7 @@ body { display: grid; place-items: start center; }
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
     <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><div id="foreign-jp" class="foreign-row" role="menuitem">共有</div></div>
-    <div class="feed-tools"><span>フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
+    <div class="feed-tools"><span id="feed">フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
     <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
       <h2>Discord Server Link</h2>
@@ -1073,6 +1074,7 @@ async function snapshotRedditRegression(page) {
     const specs = {
         create: ['#create-post', '投稿を作成'],
         join: ['#join', '参加'],
+        feed: ['#feed', 'フィード'],
         sort: ['#sort', '賛成票率順'],
         flair: ['#flair', '告知'],
         metadata: ['#card-metadata', '賛成票・コメント'],
@@ -1423,7 +1425,10 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         `${engineName}: Reddit scale isolation collapsed radial finger spacing`, snapshot.overlay);
     for (const [name, label] of Object.entries(snapshot.labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
-        assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        // Kana-only labels do not need redundant ruby, but they still need a
+        // resolved pitch/status-capable word wrapper.
+        if (name !== 'feed') assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        assert(label.pitchWordCount > 0, `${engineName}: ${name} is missing pitch annotation`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);

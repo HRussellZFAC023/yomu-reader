@@ -64,6 +64,7 @@ interface VisibleScanParseOptions {
     allowJpdbTimeoutFallback?: boolean;
     includeLocalPitch?: boolean;
     allowSegmentedFallback?: boolean;
+    skipApi?: boolean;
 }
 
 interface VisiblePageCoverageSummary {
@@ -78,6 +79,11 @@ interface VisiblePageCoverageAccumulator {
     iPlusOne: Set<string>;
     known: number;
     unknown: number;
+}
+
+interface VisibleScanParseSummary {
+    parsedAnyTokens: boolean;
+    unparsedTargets: number;
 }
 
 export interface VisiblePageScannerDependencies {
@@ -109,16 +115,16 @@ export class VisiblePageScanner {
     private scanPending = false;
     private scanPendingSilent = true;
     private destroyed = false;
-    // P1 abortable scheduler: every scan request bumps the generation; an
-    // in-flight scan checks it between batches and stops early, so fast
-    // scrolls/navigations never keep parsing stale regions while the fresh
-    // request waits.
+    // Only an explicit cancellation invalidates a running generation. Ordinary
+    // scan requests coalesce behind the active pass so mutation/hover storms
+    // cannot repeatedly discard otherwise valid tail coverage.
     private scanGeneration = 0;
     // Class E: consecutive continuation scans queued because collection hit the
     // budget cap. Silent continuations make progress via the mirror-skip (an
     // already-mirrored head is skipped at the next collection), but a page
     // whose head never mirrors could otherwise re-walk forever — bound it.
     private continuationScans = 0;
+    private continuationSkippedTargets = 0;
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
@@ -138,17 +144,18 @@ export class VisiblePageScanner {
         this.clearPageFuriganaMode();
     }
 
-    interruptVisiblePageScan(): void {
+    cancelVisiblePageScan(): void {
         this.scanGeneration++;
         this.scanPending = false;
         this.scanPendingSilent = true;
         this.continuationScans = 0;
+        this.continuationSkippedTargets = 0;
     }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
-        this.scanGeneration++;
         if (!this.beginScan(silent)) return;
+        this.scanGeneration++;
         const generation = this.scanGeneration;
         const done = log.time('scanVisiblePage', { silent });
         try {
@@ -291,18 +298,24 @@ export class VisiblePageScanner {
         if (!collected || this.isStaleScan(generation)) return;
         const targets = chunkLongScanTargets(collected, settings);
         if (!targets.length) {
+            this.continuationScans = 0;
+            this.continuationSkippedTargets = 0;
             this.handleEmptyVisiblePageScan(silent);
             return;
         }
 
-        const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
+        const parseSummary = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
         const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-        if (parsedAnyTokens && targets.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+        const skippedFailedHead = this.continuationSkippedTargets > 0;
+        if ((targets.length >= effectiveCollectionLimit || skippedFailedHead)
+            && this.canQueueContinuationScan(targets, silent)) {
+            this.continuationSkippedTargets += parseSummary.unparsedTargets;
             this.queueContinuationScan(silent);
             return;
         }
         this.continuationScans = 0;
+        this.continuationSkippedTargets = 0;
         this.reportVisiblePageCoverage(silent);
     }
 
@@ -331,7 +344,10 @@ export class VisiblePageScanner {
         generation: number,
         silent: boolean,
     ): ScanTextTarget[] | Promise<ScanTextTarget[] | undefined> {
-        const steps = collectScanTargetsInSteps(limit, window.location.href, { skipMirroredHosts: silent });
+        const steps = collectScanTargetsInSteps(limit, window.location.href, {
+            skipMirroredHosts: silent,
+            skipLeadingTargets: this.continuationSkippedTargets,
+        });
         let sliceStartedAt = Date.now();
         for (;;) {
             const next = steps.next();
@@ -362,26 +378,28 @@ export class VisiblePageScanner {
         }
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
+    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
         if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
             return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
         }
         return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
     }
 
-    private async parseAndApplyTargetsSequentially(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
+    private async parseAndApplyTargetsSequentially(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
         let cursor = 0;
         let parsedAnyTokens = false;
+        let unparsedTargets = 0;
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
         while (cursor < targets.length) {
-            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
             const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
             cursor = next.cursor;
             if (!next.batch.length) continue;
             const batch = next.batch;
-            const parsed = await this.dependencies.parseJapanese(batch.map(target => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
+            const parsed = await this.parseVisibleScanBatch(batch, generation);
             if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
-            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            unparsedTargets += parsed.filter(tokens => tokens.length === 0).length;
+            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
             // Keep semantic overrides, pitch/status enrichment, DOM apply, and
             // preload identical to the prefetch path. This used to be duplicated
             // here, which meant ordinary sequential scans skipped authored
@@ -389,12 +407,13 @@ export class VisiblePageScanner {
             await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return parsedAnyTokens;
+        return { parsedAnyTokens, unparsedTargets };
     }
 
-    private async parseAndApplyTargetsWithPrefetch(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
+    private async parseAndApplyTargetsWithPrefetch(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
         let cursor = 0;
         let parsedAnyTokens = false;
+        let unparsedTargets = 0;
         const pending: VisibleScanParseWork[] = [];
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
         const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
@@ -405,31 +424,48 @@ export class VisiblePageScanner {
                 if (!next.batch.length) continue;
                 pending.push({
                     batch: next.batch,
-                    result: this.dependencies.parseJapanese(
-                        next.batch.map(target => target.text),
-                        scanParseOptions(this.dependencies.getSettings(), next.batch),
-                    ).then(
-                        parsed => ({ parsed }),
-                        error => ({ error }),
-                    ),
+                    result: this.parseVisibleScanBatch(next.batch, generation).then(parsed => ({ parsed })),
                 });
             }
         };
 
         schedule();
         while (pending.length) {
-            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
             const work = pending.shift()!;
             const result = await work.result;
-            if ('error' in result) throw result.error;
             const parsed = result.parsed;
             if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
-            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            unparsedTargets += parsed.filter(tokens => tokens.length === 0).length;
+            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
             await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
             schedule();
             if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return parsedAnyTokens;
+        return { parsedAnyTokens, unparsedTargets };
+    }
+
+    private async parseVisibleScanBatch(batch: ScanTextTarget[], generation: number): Promise<JPDBToken[][]> {
+        const paragraphs = batch.map(target => target.text);
+        const options = scanParseOptions(this.dependencies.getSettings(), batch);
+        try {
+            const parsed = await this.dependencies.parseJapanese(paragraphs, options);
+            return normalizeVisibleScanParseResult(paragraphs, parsed);
+        } catch (error) {
+            if (this.isStaleScan(generation)) return paragraphs.map(() => []);
+            // A single provider/adapter failure must not abandon every later
+            // target in the page scan. Retry this batch once through the local
+            // + segmented path; the retry is explicitly API-free, so it is
+            // bounded and cannot create a request loop.
+            log.warn('Visible page parse batch failed; retrying locally', error);
+            try {
+                const parsed = await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
+                return normalizeVisibleScanParseResult(paragraphs, parsed);
+            } catch (fallbackError) {
+                log.warn('Visible page local parse recovery failed; continuing with later batches', fallbackError);
+                return paragraphs.map(() => []);
+            }
+        }
     }
 
     private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
@@ -560,7 +596,11 @@ export class VisiblePageScanner {
         const silent = this.scanPendingSilent;
         this.scanPending = false;
         this.scanPendingSilent = true;
-        void waitForVisibleScanTurn().then(() => this.scanVisiblePage({ silent }));
+        const scheduledFromGeneration = this.scanGeneration;
+        void waitForVisibleScanTurn().then(() => {
+            if (this.isStaleScan(scheduledFromGeneration)) return;
+            return this.scanVisiblePage({ silent });
+        });
     }
 
     private queueContinuationScan(silent: boolean): void {
@@ -791,7 +831,11 @@ interface ScanApplyPlan {
 
 interface VisibleScanParseWork {
     batch: ScanTextTarget[];
-    result: Promise<{ parsed: JPDBToken[][] } | { error: unknown }>;
+    result: Promise<{ parsed: JPDBToken[][] }>;
+}
+
+function normalizeVisibleScanParseResult(paragraphs: string[], parsed: JPDBToken[][]): JPDBToken[][] {
+    return paragraphs.map((_paragraph, index) => parsed[index] ?? []);
 }
 
 function scanApplyPlans(batch: ScanTextTarget[], parsed: JPDBToken[][], start: number): ScanApplyPlan[] {

@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
+import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import {
     appendActivePopoverAndPageWord,
     appendActivePopoverBody,
@@ -86,6 +88,7 @@ interface HoverLookupInternals {
         isCurrentHoverCard: () => boolean,
     ): Promise<void>;
     applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass?: string): void;
+    clearRenderedAnkiWordStates(root?: ParentNode): void;
     maybeAutoPlayInitialCard(card: JPDBCard, context: {
         trigger: 'modal' | 'hover';
         options: Record<string, unknown>;
@@ -1139,6 +1142,106 @@ describe('hover lookup', () => {
                 }),
             );
         } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('hydrates fallback furigana and pitch inside registered open shadow roots', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const previousBackground = document.body.style.backgroundColor;
+        document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+        const canvasContext = {
+            fillStyle: '#010203',
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            getImageData: vi.fn(() => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) })),
+        };
+        const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+            .mockReturnValue(canvasContext as never);
+        resetCssColorProbeForTests();
+        const host = document.createElement('reddit-control');
+        document.body.append(host);
+        const root = host.attachShadow({ mode: 'open' });
+        noteScannedShadowRoot(root);
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-reader-scan-word';
+        word.dataset.vid = '-10';
+        word.dataset.sid = '-10';
+        word.dataset.expression = '参加';
+        word.dataset.surface = '参加';
+        word.textContent = '参加';
+        root.append(word);
+        const fallback: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: -10,
+            sid: -10,
+            spelling: '参加',
+            reading: '',
+            source: 'fallback',
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+        };
+        const resolved: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: 10,
+            sid: 1,
+            spelling: '参加',
+            reading: 'さんか',
+            source: 'jiten',
+            jitenWordId: 10,
+            jitenReadingIndex: 1,
+            cardState: ['known'],
+            pitchAccent: ['LHH'],
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', showPitchAccent: true };
+
+        try {
+            internals.applyPublicVocabularyToRenderedWords(fallback, resolved);
+
+            expect(word.dataset.vid).toBe('10');
+            expect(word.dataset.pitchClass).not.toBe('unknown');
+            expect(word.querySelector('.jpdb-reader-furi')?.textContent).toBe('さんか');
+        } finally {
+            getContext.mockRestore();
+            resetCssColorProbeForTests();
+            document.body.style.backgroundColor = previousBackground;
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('clears rendered Anki status inside registered open shadow roots', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const previousBackground = document.body.style.backgroundColor;
+        document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+        const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+            fillStyle: '#010203',
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            getImageData: vi.fn(() => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) })),
+        } as never);
+        resetCssColorProbeForTests();
+        const host = document.createElement('anki-shadow-host');
+        document.body.append(host);
+        const root = host.attachShadow({ mode: 'open' });
+        noteScannedShadowRoot(root);
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word anki-known';
+        word.dataset.vid = '10';
+        word.dataset.sid = '1';
+        word.dataset.ankiState = 'known';
+        root.append(word);
+
+        try {
+            internals.clearRenderedAnkiWordStates();
+
+            expect(word.classList.contains('anki-known')).toBe(false);
+            expect(word.dataset.ankiState).toBeUndefined();
+        } finally {
+            getContext.mockRestore();
+            resetCssColorProbeForTests();
+            document.body.style.backgroundColor = previousBackground;
             cleanupReaderApp(app);
         }
     });

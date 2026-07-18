@@ -1993,7 +1993,7 @@ export class ReaderApp {
             this.autoScanDeadline = 0;
             this.autoScanForced = false;
             this.autoScanDebounced = false;
-            this.pageScanner.interruptVisiblePageScan?.();
+            this.pageScanner.cancelVisiblePageScan();
             this.clearAllAnnotations();
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
@@ -3915,7 +3915,6 @@ export class ReaderApp {
         this.cancelMissingPointerTextCandidate(candidate);
         this.scheduleInactiveHoverClose();
         if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
-        this.pageScanner.interruptVisiblePageScan();
         this.rememberHoverPopoverPointer(event);
         this.schedulePointerTextLookup(candidate, event);
     }
@@ -3953,7 +3952,6 @@ export class ReaderApp {
         }
         if (!this.shouldLookupOnHover(event)) return;
         this.keepSubtitleMiningPauseForPendingHover(word);
-        this.pageScanner.interruptVisiblePageScan();
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
     }
@@ -4921,7 +4919,6 @@ export class ReaderApp {
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
-        if (trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
         if (!sentence) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
@@ -5252,7 +5249,6 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: RenderedWordLookupOptions = {}): Promise<void> {
-        if (options.trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
@@ -8531,7 +8527,7 @@ export class ReaderApp {
     ): void {
         if (!lookupByWordKey.size) return;
         this.pauseAutoScanObserver(() => {
-            const targetRoots = uniqueParentNodes(roots);
+            const targetRoots = this.renderedAnnotationRoots(roots);
             if (!this.shouldRunAnkiBackgroundWork()) {
                 this.clearRenderedAnkiLookupStateForKeys(lookupByWordKey, targetRoots);
                 return;
@@ -8564,13 +8560,21 @@ export class ReaderApp {
 
     private clearRenderedAnkiWordStates(root: ParentNode = document): void {
         this.pauseAutoScanObserver(() => {
-            renderedWordsInRoot(root).forEach(word => clearRenderedWordAnkiState(word));
-            refreshReaderWordContrast(root);
+            this.renderedAnnotationRoots([root]).forEach(targetRoot => {
+                renderedWordsInRoot(targetRoot).forEach(word => clearRenderedWordAnkiState(word));
+                refreshReaderWordContrast(targetRoot);
+            });
         });
     }
 
     private prepareRenderedWordIndexForLookups(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
         const targetRoots = roots.length ? roots : [document];
+        // A document selector never crosses into shadow DOM. Always seed the
+        // index from explicitly expanded roots before applying the document
+        // fast-path heuristics, or a key already found in light DOM can mask
+        // the same card rendered inside a component.
+        targetRoots.filter(root => root instanceof ShadowRoot)
+            .forEach(root => this.registerRenderedWordsInRoot(root));
         const includesDocument = targetRoots.includes(document);
         if (this.shouldSkipRenderedWordIndexPreparation(lookupByWordKey, includesDocument)) return;
         targetRoots.forEach(root => this.registerRenderedWordsInRoot(root));
@@ -8639,6 +8643,14 @@ export class ReaderApp {
         this.renderedWordIndex.set(key, words);
     }
 
+    private renderedAnnotationRoots(roots: ParentNode[] = [document]): ParentNode[] {
+        const expanded = [...roots];
+        if (roots.includes(document)) {
+            forEachScannedShadowRoot(root => expanded.push(root));
+        }
+        return uniqueParentNodes(expanded);
+    }
+
     private clearRenderedWordIndex(): void {
         this.renderedWordIndex.clear();
         this.renderedWordIndexFullyScanned = false;
@@ -8653,7 +8665,7 @@ export class ReaderApp {
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            roots.forEach(root => {
+            this.renderedAnnotationRoots(roots).forEach(root => {
                 if (root instanceof HTMLElement && root.matches(selector)) {
                     this.applyPitchClassToRenderedSurface(root, pitchClass);
                     setRenderedWordPitchComponents(root, card);
@@ -8692,9 +8704,11 @@ export class ReaderApp {
         const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            document.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
+            this.renderedAnnotationRoots().forEach(root => {
+                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                    changedRoots.add(word.parentElement ?? word);
+                });
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
@@ -8704,13 +8718,15 @@ export class ReaderApp {
         if (!this.resolvedFallbackVocabularyCache.size) return;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
-                const key = renderedFallbackVocabularyCacheKey(word);
-                const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
-                if (!card) return;
-                const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
+            this.renderedAnnotationRoots([root]).forEach(targetRoot => {
+                targetRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
+                    const key = renderedFallbackVocabularyCacheKey(word);
+                    const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
+                    if (!card) return;
+                    const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                    changedRoots.add(word.parentElement ?? word);
+                });
             });
             changedRoots.forEach(r => refreshReaderWordContrast(r));
         });

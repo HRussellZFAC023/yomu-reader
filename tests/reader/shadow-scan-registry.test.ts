@@ -56,12 +56,17 @@ describe('shadow scan registry', () => {
         expect(live).not.toContain(root);
     });
 
-    it('delivers shadow re-render mutations to an observer attached via the hook', async () => {
+    it('registers a loading-only root before Japanese hydration and observes its re-render', async () => {
         const records: MutationRecord[] = [];
         const observer = new MutationObserver(mutations => records.push(...mutations));
         setShadowRootScanHook(root => observer.observe(root, AUTO_SCAN_OBSERVER_OPTIONS));
         const { root } = shadowHostWithJapanese('Loading');
-        noteScannedShadowRoot(root);
+
+        collectFragmentTextTargetsIn(document.body, 40, false, '', {
+            allowUiText: true,
+            includePassiveInteractions: true,
+            minLength: 1,
+        });
 
         // Simulate a Lit hydration/re-render inside the shadow root: no click,
         // no light-DOM mutation.
@@ -73,6 +78,24 @@ describe('shadow scan registry', () => {
 
         expect(records.length).toBeGreaterThan(0);
         expect(records.some(record => mutationMayContainJapaneseText(record))).toBe(true);
+        observer.disconnect();
+    });
+
+    it('discovers a newly appended host whose Japanese exists only in its shadow root', async () => {
+        const records: MutationRecord[] = [];
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        const observer = new MutationObserver(mutations => records.push(...mutations));
+        observer.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
+        const host = document.createElement('late-component');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>フィード</button>';
+
+        document.body.append(host);
+        await Promise.resolve();
+
+        expect(records.some(record => mutationMayContainJapaneseText(record))).toBe(true);
+        expect(discovered).toHaveBeenCalledWith(root);
         observer.disconnect();
     });
 });

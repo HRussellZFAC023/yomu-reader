@@ -209,6 +209,139 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(tokens.some(token => token.card.source === 'fallback')).toBe(false);
     });
 
+    it('preserves one parse result per input when a provider returns a short response', async () => {
+        const firstText = '日本語';
+        const publicToken: JPDBToken = {
+            card: {
+                vid: 1, sid: 1, rid: 0, spelling: firstText, reading: 'にほんご',
+                frequencyRank: null, partOfSpeech: [], meanings: [], cardState: ['not-in-deck'],
+                pitchAccent: [], wordWithReading: null, source: 'jiten',
+            },
+            start: 0,
+            end: firstText.length,
+            length: firstText.length,
+            rubies: [],
+            pitchClass: '',
+            sentence: firstText,
+        };
+        const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[publicToken]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: {} as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        const paragraphs = [firstText, 'フィード', '参加'];
+        const parsed = await parser.parse(paragraphs, { allowSegmentedFallback: true });
+
+        expect(parsed).toHaveLength(paragraphs.length);
+        expect(parsed[0]?.[0]).toBe(publicToken);
+        expect(parsed[1]?.map(token => token.card.spelling)).toEqual(['フィード']);
+        expect(parsed[2]?.map(token => token.card.spelling)).toEqual(['参加']);
+    });
+
+    it('repairs Japanese hidden behind a provider span the renderer must reject', async () => {
+        const text = '参加フィード';
+        const card = (spelling: string): JPDBToken['card'] => ({
+            vid: 1,
+            sid: 1,
+            rid: 0,
+            spelling,
+            reading: '',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jiten',
+        });
+        const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[
+            {
+                card: card('参加'),
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+            {
+                card: card('参加フィード'),
+                start: 1,
+                end: text.length,
+                length: text.length - 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            },
+        ]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: {} as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(tokens.map(token => text.slice(token.start, token.end))).toEqual(['参加', 'フィード']);
+        expect(tokens.every((token, index) => index === 0 || token.start >= tokens[index - 1]!.end)).toBe(true);
+    });
+
+    it('repairs a provider span that drifts across a non-Japanese prefix', async () => {
+        const text = 'r/日本';
+        const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
+            card: {
+                vid: 1,
+                sid: 1,
+                rid: 0,
+                spelling: 'r/日',
+                reading: '',
+                frequencyRank: null,
+                partOfSpeech: [],
+                meanings: [],
+                cardState: ['not-in-deck'],
+                pitchAccent: [],
+                wordWithReading: null,
+                source: 'jiten',
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: text,
+        }]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: {} as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(tokens.map(token => ({ start: token.start, end: token.end, surface: text.slice(token.start, token.end) })))
+            .toEqual([{ start: 2, end: 4, surface: '日本' }]);
+    });
+
     it('parses 好きなものを読む coherently', () => {
         expect(surfaces('好きなものを読む')).toEqual(['好き', 'な', 'もの', 'を', '読む']);
     });

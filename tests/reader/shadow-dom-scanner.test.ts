@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
+    documentHasJapaneseText,
     readerWordSurfaceText,
     removeNonDestructiveScanMirrors,
     withMirrorTokenApply,
@@ -56,6 +57,24 @@ afterEach(() => {
 });
 
 describe('shadow DOM scanner (Phase 1)', () => {
+    it('detects an initial page whose Japanese exists only inside an open shadow root', () => {
+        defineShadowHost('yomu-shadow-only-host', 'open', '<button>参加</button>');
+        document.body.innerHTML = '<yomu-shadow-only-host></yomu-shadow-only-host>';
+
+        expect(document.body.textContent).toBe('');
+        expect(documentHasJapaneseText()).toBe(true);
+    });
+
+    it('does not walk every element after light-DOM Japanese is already proven', () => {
+        document.body.innerHTML = `<p>日本語</p>${'<div>loading</div>'.repeat(500)}`;
+        const createWalker = vi.spyOn(document, 'createTreeWalker');
+
+        expect(documentHasJapaneseText()).toBe(true);
+        expect(createWalker).toHaveBeenCalledTimes(1);
+
+        createWalker.mockRestore();
+    });
+
     it('annotates Japanese inside an open shadow root via the mirror (never destructive)', () => {
         defineShadowHost('yomu-open-host', 'open', `<p>${TEXT}</p>`);
         document.body.innerHTML = '<yomu-open-host></yomu-open-host>';
