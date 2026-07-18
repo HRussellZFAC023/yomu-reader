@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.209] - 2026-07-19
+
+### Fixed
+
+- Fixed the hosted docs homepage language toggle from Japanese to English leaving most page copy blank on iPad Safari: language changes now remove the reader's Japanese annotations and overlay mirrors, restore hidden native text, and re-canonicalize reconstructed text instead of replacing it with stale pre-annotation fragments.
+
 ## [1.6.208] - 2026-07-19
 
 ### Fixed

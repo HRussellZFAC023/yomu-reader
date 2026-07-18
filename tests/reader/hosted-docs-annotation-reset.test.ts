@@ -53,6 +53,16 @@ describe('hosted docs annotation reset gating', () => {
         expect(theme).toContain("window.addEventListener(LANGUAGE_EVENT, () => {");
         expect(theme).toContain('scheduleHostedDocsLocalization({ resetReaderWords: true });');
     });
+
+    it('re-canonicalizes reconstructed reader text before trusting its cached fragment', () => {
+        // normalize() may merge all unwrapped Japanese word surfaces into the
+        // original leading text node. Its cached value can still be only the
+        // pre-annotation fragment (for example "Web"), which caused the rest
+        // of the translated homepage paragraph to disappear.
+        expect(theme).toContain('const current = node.nodeValue ?? \'\';');
+        expect(theme).toContain('canonicalHostedDocsSourceString(current, textNodeOriginals.get(node))');
+        expect(theme).not.toContain('const original = textNodeOriginals.get(node) ?? node.nodeValue ?? \'\';');
+    });
 });
 
 describe('hosted docs reader scan boundary', () => {

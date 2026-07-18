@@ -13,7 +13,7 @@ import {
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
-import { readerWordSurfaceText } from './chrome-annotation-cleanup';
+import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -211,6 +211,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Fixed the hosted docs homepage language toggle from Japanese to English leaving most page copy blank on iPad Safari: language changes now remove the reader\'s Japanese annotations and overlay mirrors, restore hidden native text, and re-canonicalize reconstructed text instead of replacing it with stale pre-annotation fragments.': 'ホスト版ドキュメントのホームページで、言語切り替えボタンを日本語から英語へ切り替えると、ページ内のほとんどの文章が消える不具合を修正しました。言語変更時にリーダーの日本語注釈とオーバーレイミラーを取り除き、非表示になっていた元の文章を戻し、復元したテキストを古い注釈前の断片で置き換えないよう再正規化します。',
     'Treated a shared Study card with exact enriched pitch as authoritative for its own word popover even when the share source has no standard review-provider label, preventing the final fallback text lookup from recreating `自（じ）` without pitch.': '共有Studyカードに完全一致するピッチが付与されている場合、共有元に標準の復習プロバイダー名がなくても、その単語ポップオーバーでは元カードを正として扱うようにしました。最終的なフォールバック文字検索で「自（じ）」がピッチなしで作り直されることを防ぎます。',
     'Fixed shared Study cards losing late-resolved pitch when their word popover reopened the provider source card, which made `自（じ）` offer Listen/Speak but still claim “Exact pitch unavailable” in the popover.': '共有されたStudyカードで、単語ポップオーバーが提供元カードを開き直す際に、後から解決したピッチが失われる問題を修正しました。この問題により「自（じ）」ではListen／Speakが表示される一方、ポップオーバーに「完全一致するピッチがありません」と誤表示されていました。',
     'Fixed one-mora pitch accents such as 自（じ） across Study and popovers: Yomu now accepts exact single-level JPDB graphs, adds Listen/Speak when local, Jiten, or public JPDB enrichment resolves classifiable pitch, and omits those dead steps when no exact pitch exists.': '「自（じ）」のような1モーラ語のピッチアクセントを、Studyとポップオーバーの両方で修正しました。JPDBの完全一致する1段階のグラフを受け付け、ローカル辞書・Jiten・公開JPDBから分類可能なピッチが解決できた場合だけListen／Speakを追加し、完全一致するピッチがない場合は使えないステップを表示しません。',
@@ -3194,7 +3195,13 @@ function translateTextNodes(root: ParentNode, language: InterfaceLanguage): void
         },
     });
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
-        const original = textNodeOriginals.get(node) ?? node.nodeValue ?? '';
+        const current = node.nodeValue ?? '';
+        // Reader annotations split a translated text node into word wrappers.
+        // Unwrapping and normalize() can merge those surfaces back into the
+        // surviving pre-annotation node, whose WeakMap entry still contains a
+        // tiny fragment such as "Web". Canonicalize from the reconstructed
+        // current text before accepting that cached fallback.
+        const original = canonicalHostedDocsSourceString(current, textNodeOriginals.get(node));
         textNodeOriginals.set(node, original);
         node.nodeValue = translateHostedDocsString(original, language);
     }
@@ -3328,19 +3335,7 @@ function shouldSkipHostedDocsNode(element: Element): boolean {
 }
 
 function unwrapHostedDocsReaderWords(): void {
-    const parents = new Set<ParentNode>();
-    document.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
-        if (word.closest('[data-jpdb-reader-root]')) return;
-        if (word.closest('[data-yomu-localize="off"]')) return;
-        const parent = word.parentNode;
-        if (!parent) return;
-        parents.add(parent);
-        word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
-    });
-    parents.forEach(parent => {
-        parent.normalize();
-        resetHostedDocsTextOriginals(parent);
-    });
+    cleanupHostedDocsAnnotations(document.body, resetHostedDocsTextOriginals);
 }
 
 function resetHostedDocsTextOriginals(root: ParentNode): void {

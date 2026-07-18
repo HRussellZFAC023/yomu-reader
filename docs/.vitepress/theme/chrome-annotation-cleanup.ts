@@ -18,14 +18,37 @@ const READER_MIRROR_HOST_STYLES: ReadonlyArray<readonly [string, string]> = [
     ['position', 'relative'],
     ['display', 'inline-block'],
 ];
+const TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
+const OWNED_CHROME_MIRROR_SELECTOR = `${TEXT_MIRROR_SELECTOR}, .jpdb-reader-control-text-mirror`;
 
 export function cleanupOwnedChromeAnnotations(
     element: HTMLElement,
     onUnwrappedParent?: (parent: ParentNode) => void,
 ): void {
+    cleanupReaderAnnotations(element, OWNED_CHROME_MIRROR_SELECTOR, () => false, onUnwrappedParent);
+}
+
+// Teardown used before hosted copy changes language. Reader-owned settings
+// and explicit localization opt-outs keep their annotations; ordinary docs
+// copy must release both overlay mirrors and in-place word wrappers so the
+// theme can replace the native text underneath.
+export function cleanupHostedDocsAnnotations(
+    root: ParentNode,
+    onUnwrappedParent?: (parent: ParentNode) => void,
+): void {
+    cleanupReaderAnnotations(root, TEXT_MIRROR_SELECTOR, isHostedDocsCleanupBoundary, onUnwrappedParent);
+}
+
+function cleanupReaderAnnotations(
+    root: ParentNode,
+    mirrorSelector: string,
+    shouldSkip: (element: HTMLElement) => boolean,
+    onUnwrappedParent?: (parent: ParentNode) => void,
+): void {
     // Overlay/detached mirrors first: drop the overlay and un-hide the native
     // host text it was covering.
-    element.querySelectorAll<HTMLElement>('.jpdb-reader-text-mirror, .jpdb-reader-control-text-mirror').forEach(mirror => {
+    root.querySelectorAll<HTMLElement>(mirrorSelector).forEach(mirror => {
+        if (shouldSkip(mirror)) return;
         const host = mirror.parentElement;
         mirror.remove();
         if (host) restoreReaderMirrorHostStyles(host);
@@ -34,7 +57,8 @@ export function cleanupOwnedChromeAnnotations(
     // injected ruby/pitch. Replacing only the wrapper keeps the surrounding
     // link/button element (and its listeners) intact.
     const parents = new Set<ParentNode>();
-    element.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+    root.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
+        if (shouldSkip(word)) return;
         const parent = word.parentNode;
         if (!parent) return;
         parents.add(parent);
@@ -44,6 +68,10 @@ export function cleanupOwnedChromeAnnotations(
         parent.normalize();
         onUnwrappedParent?.(parent);
     });
+}
+
+function isHostedDocsCleanupBoundary(element: HTMLElement): boolean {
+    return Boolean(element.closest('[data-jpdb-reader-root], [data-yomu-localize="off"]'));
 }
 
 export function restoreReaderMirrorHostStyles(host: HTMLElement): void {
