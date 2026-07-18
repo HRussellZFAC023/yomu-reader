@@ -378,3 +378,25 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/rewards/headings */
+.academy-world-screen[data-current-place='home'] .academy-world-title,
+.academy-world-screen[data-current-place='home'] .academy-world-reward,
+.academy-world-screen[data-current-place='home'] .academy-home-notebook-heading,
+.academy-world-screen[data-current-place='home'] .academy-home-notebook-heading-support {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling journal-desk paper */
+.academy-world-screen[data-current-place='home'] .academy-world-action-dock[data-purpose-surface='journal-desk'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='home'] .academy-world-action-dock[data-purpose-surface='journal-desk'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='home'][data-action-open] .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}

@@ -78,8 +78,8 @@ function typedMaterial(input: MaterialInput): MegaPackActivityBeat {
     return megaPackBeat({
         id: `mega-pack-materials-${input.id}`,
         narrative: {
-            ja: '一枚の助詞資料から、読むだけでなく自分で取り出せる知識に変えます。',
-            en: 'Turn a one-page particle reference into knowledge you can retrieve, not just recognize.',
+            ja: '今日の机は、この助詞資料一枚だけ。読むだけでなく、自分で取り出せる知識に変えましょう。',
+            en: 'Tonight’s desk holds just this one particle sheet. Not to read, but to turn into knowledge you can retrieve on your own.',
         },
         activity: Object.freeze(activity),
     }, MEGA_PACK_MATERIALS_SOURCE, {

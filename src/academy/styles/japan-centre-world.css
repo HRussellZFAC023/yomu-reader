@@ -246,3 +246,24 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on gift-counter speaker/exit text */
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-speaker,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling gift-counter paper */
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='japan-centre'] .academy-world-action-dock[data-purpose-surface='gift-counter'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='japan-centre'][data-action-open] .academy-world-character[data-position='center'] .academy-world-character-name {
+    visibility: hidden;
+}

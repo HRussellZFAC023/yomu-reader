@@ -1542,6 +1542,368 @@
       "verdict": "reject",
       "runtimeHome": null,
       "status": "wrong-style"
+    },
+    {
+      "id": "cafeteria-evening-canteen",
+      "source": "donor-a:codex-production-v1/backgrounds/cafeteria__evening-canteen",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:cafeteria",
+        "activity:tray-assembly"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/cafeteria__evening-canteen--wide.webp",
+          "sha256": "d6d5c3996c924b5f64808727661bc4c5196f59a91c77d14b1484820b73c3d450"
+        },
+        {
+          "path": "/academy/art/locations/mobile/cafeteria__evening-canteen--mobile.webp",
+          "sha256": "2dffe55108d82796e57eea9aa2f667e8cff97197c214384cfcd0c02d29c04367"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "shrine-blue-hour-rain",
+      "source": "donor-a:codex-production-v1/backgrounds/shrine__blue-hour-rain",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:shrine"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/shrine__blue-hour-rain--wide.webp",
+          "sha256": "69dff033261cd005526dd55d5e761f56b703e9ab2577ea103e1204494fdbf365"
+        },
+        {
+          "path": "/academy/art/locations/mobile/shrine__blue-hour-rain--mobile.webp",
+          "sha256": "4aa9fb21860a7e7880f6d29843995b3bd1332468f7a9914167553eb2d1b9dbdb"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "temple-evening-rain",
+      "source": "donor-a:codex-production-v1/backgrounds/temple__evening-rain",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:temple"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/temple__evening-rain--wide.webp",
+          "sha256": "c7f0901a0dd186d5d6eb6982f3db8e4b4096c20ddd6ff29354ee2454f6f63fef"
+        },
+        {
+          "path": "/academy/art/locations/mobile/temple__evening-rain--mobile.webp",
+          "sha256": "738801f7bcbb25df2498a777aa99f22219469f642a14588ed47aa3156fe340bf"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "izakaya-night-lanterns",
+      "source": "donor-a:codex-production-v1/backgrounds/izakaya__night-lanterns",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:izakaya"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/izakaya__night-lanterns--wide.webp",
+          "sha256": "d5715ae31b342d49764d0bba91a39088927fc0870f119025f14cc2a6b7248c12"
+        },
+        {
+          "path": "/academy/art/locations/mobile/izakaya__night-lanterns--mobile.webp",
+          "sha256": "ae761fd3fb6f56f2724af05441bbb2b5b18c5e69cc26d15bbd389131dd28f8b5"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "restaurant-evening-dining",
+      "source": "donor-a:codex-production-v1/backgrounds/restaurant__evening-dining",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:restaurant"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/restaurant__evening-dining--wide.webp",
+          "sha256": "bfa65c359e91700d350825de4dfb1303250fb727e5d3a1086951c305c9361bf9"
+        },
+        {
+          "path": "/academy/art/locations/mobile/restaurant__evening-dining--mobile.webp",
+          "sha256": "d45e8842291b42ac3e06c8960575ee121fcf0ece3a76a837c280a2ede9adf6ce"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "clinic-evening-waiting",
+      "source": "donor-a:codex-production-v1/backgrounds/clinic__evening-waiting",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:clinic"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/clinic__evening-waiting--wide.webp",
+          "sha256": "0e4ab14df47c4fc87f55c318b22ff083ac84fe2ea1e849f8fae270a28b2c1645"
+        },
+        {
+          "path": "/academy/art/locations/mobile/clinic__evening-waiting--mobile.webp",
+          "sha256": "6e0afda1e59bde2043d4148d74e6f3e0272919b9cdad5a08c7594f301cb62665"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "pharmacy-evening-counter",
+      "source": "donor-a:codex-production-v1/backgrounds/pharmacy__evening-counter",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:pharmacy"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/pharmacy__evening-counter--wide.webp",
+          "sha256": "d44e93f99d8b285be0e8158a5a2bf074dbf8fbc36afadc832464c31959203619"
+        },
+        {
+          "path": "/academy/art/locations/mobile/pharmacy__evening-counter--mobile.webp",
+          "sha256": "921a8fff7d54085cbd451819930413dc4c3d9d2cc1e0e11717a1c21ec41808b9"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "office-evening-afterhours",
+      "source": "donor-a:codex-production-v1/backgrounds/office__evening-afterhours",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:office"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/office__evening-afterhours--wide.webp",
+          "sha256": "626e9056c6053852f5c9a24e58f0de4f10849caf4f4dbe966e353494bebed103"
+        },
+        {
+          "path": "/academy/art/locations/mobile/office__evening-afterhours--mobile.webp",
+          "sha256": "9b4e903da9cc9568f4b8b0c7f8f403ef19b79c03fbfb751c02cb27ddf7b621b8"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "hotel-evening-lobby",
+      "source": "donor-a:codex-production-v1/backgrounds/hotel__evening-lobby",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:hotel"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/hotel__evening-lobby--wide.webp",
+          "sha256": "13dde31d43af6f2490bfde7c6eab47056cfa9716c56feb8266d2ec2cdc9f52d0"
+        },
+        {
+          "path": "/academy/art/locations/mobile/hotel__evening-lobby--mobile.webp",
+          "sha256": "af01e775da04acd88e9310e4954e7f0503ba2421422870559626391109564ce5"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "ryokan-evening-tatami",
+      "source": "donor-a:codex-production-v1/backgrounds/ryokan__evening-tatami",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:ryokan"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/ryokan__evening-tatami--wide.webp",
+          "sha256": "df73ce0da61e1bdf4f6bdd61836d04042769ab236050268f41dc998d02d8240b"
+        },
+        {
+          "path": "/academy/art/locations/mobile/ryokan__evening-tatami--mobile.webp",
+          "sha256": "95f34ee09c6620c05e9253047132efd24d190880a702e13883caf815c9ec3c93"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "airport-evening-concourse",
+      "source": "donor-a:codex-production-v1/backgrounds/airport__evening-concourse",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:airport"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/airport__evening-concourse--wide.webp",
+          "sha256": "b77f273d7dbbb9667ae2fc60d0a4a5b2af6351e8b0775e2f688d66fbf83907be"
+        },
+        {
+          "path": "/academy/art/locations/mobile/airport__evening-concourse--mobile.webp",
+          "sha256": "3e0c1fccf5fef63012dea5fd6d6894390c21a8bf1db39a727fae133b5106b5d7"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "festival-night-stalls",
+      "source": "donor-a:codex-production-v1/backgrounds/festival__night-stalls",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:festival"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/festival__night-stalls--wide.webp",
+          "sha256": "994d405bbd1ce2554f7f02c5a8f9c46ce166d4d6ef08c5871ac6b30e83dbea4b"
+        },
+        {
+          "path": "/academy/art/locations/mobile/festival__night-stalls--mobile.webp",
+          "sha256": "cc02f159096817b23453c3cf92ebfd8e4650dd6bc96b29afb74b2244631d889f"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "shotengai-evening-arcade",
+      "source": "donor-a:codex-production-v1/backgrounds/shotengai__evening-arcade",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:shotengai"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/shotengai__evening-arcade--wide.webp",
+          "sha256": "dadb882ad4d6e1471ef406ea61f57ba2fb0d236c160f52ae21df7a3c245f4931"
+        },
+        {
+          "path": "/academy/art/locations/mobile/shotengai__evening-arcade--mobile.webp",
+          "sha256": "02feb3054dfc32c320f180447e80cc2e723d4ab64f89a1e84c046e30d91ab579"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "train-evening-carriage",
+      "source": "donor-a:codex-production-v1/backgrounds/train__evening-carriage",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:train"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/train__evening-carriage--wide.webp",
+          "sha256": "cc3407c35468081e6faa4b933105f95618af8201d0cf974b3e41dd785583532a"
+        },
+        {
+          "path": "/academy/art/locations/mobile/train__evening-carriage--mobile.webp",
+          "sha256": "1ea318c0da81aca7fa96d7d2d6740173b31092c0f8fadc4a17c7bd8628eb6ba3"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "tokyo-station-blue-hour-facade",
+      "source": "donor-a:codex-production-v1/backgrounds/tokyo-station__blue-hour-facade",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:tokyo-station"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/tokyo-station__blue-hour-facade--wide.webp",
+          "sha256": "2cb74810192decca721592689bbc85335d7b303aae5dba8cde6535909aabe57e"
+        },
+        {
+          "path": "/academy/art/locations/mobile/tokyo-station__blue-hour-facade--mobile.webp",
+          "sha256": "1c5f40b35a5617efd1a47562f6b8cf53fa39f87b880b10e41eac05bf158dd94d"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "supermarket-evening-aisles",
+      "source": "donor-a:codex-production-v1/backgrounds/supermarket__evening-aisles",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:supermarket",
+        "activity:counter-shopping"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/supermarket__evening-aisles--wide.webp",
+          "sha256": "2aa7f96fb08b3820e3b785b18d7aa272f2a684600005344758e1adbc8dc107ab"
+        },
+        {
+          "path": "/academy/art/locations/mobile/supermarket__evening-aisles--mobile.webp",
+          "sha256": "1d44dcd8f3a7dbc84c269cce44895f9766a94dd6216598a6a44543c06bcd2fc4"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "post-office-evening-counter",
+      "source": "donor-a:codex-production-v1/backgrounds/post-office__evening-counter",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:post-office"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/post-office__evening-counter--wide.webp",
+          "sha256": "7f56f8bae04be27e13b17d5f4de2e7387fcd6ed054e50e08dff429956a3d739a"
+        },
+        {
+          "path": "/academy/art/locations/mobile/post-office__evening-counter--mobile.webp",
+          "sha256": "f7d50b4ab8e7b9d7edb0f1d08de9b963a5fff2b85bdf1784553fc8f58ba58afa"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "museum-evening-gallery",
+      "source": "donor-a:codex-production-v1/backgrounds/museum__evening-gallery",
+      "provenance": "direct-openai-image-generation-manifest",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:museum"
+      ],
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/museum__evening-gallery--wide.webp",
+          "sha256": "4c22f33ac15fe22d13eb018aa41a09a4fe4b3e0a589d22ee93ff00d5ebaa91ad"
+        },
+        {
+          "path": "/academy/art/locations/mobile/museum__evening-gallery--mobile.webp",
+          "sha256": "7858bf55cecd2a0f279515fed12a922d94aebcc67cf01c4200a6921648a34185"
+        }
+      ],
+      "status": "bound-and-responsive-reviewed"
     }
   ]
 }

@@ -1407,7 +1407,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'cafeteria',
         region: 'campus',
         label: { ja: '学生食堂', en: 'Student dining' },
-        scene: 'cafe',
+        scene: 'cafeteria',
         people: ['aakash', 'felix'],
         composition: {
             motif: 'cafeteria',
@@ -1800,7 +1800,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'train',
         region: 'commute',
         label: { ja: '電車', en: 'Train' },
-        scene: 'entrance',
+        scene: 'train',
         people: ['peter'],
         exits: ['station-platform', 'tokyo-station'],
         activity: {
@@ -1813,7 +1813,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'supermarket',
         region: 'bloomsbury',
         label: { ja: 'スーパー', en: 'Supermarket' },
-        scene: 'writingStudio',
+        scene: 'supermarket',
         people: ['nanako'],
         exits: ['street', 'konbini', 'restaurant'],
         activity: {
@@ -1826,7 +1826,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'restaurant',
         region: 'bloomsbury',
         label: { ja: '定食屋', en: 'Set-meal restaurant' },
-        scene: 'cafe',
+        scene: 'restaurant',
         people: ['felix'],
         exits: ['ramen', 'supermarket', 'street'],
         activity: {
@@ -1839,7 +1839,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'izakaya',
         region: 'bloomsbury',
         label: { ja: '居酒屋', en: 'Izakaya' },
-        scene: 'cafe',
+        scene: 'izakaya',
         people: ['aakash', 'felix'],
         exits: ['ramen', 'street'],
         activity: {
@@ -1852,7 +1852,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'post-office',
         region: 'bloomsbury',
         label: { ja: '郵便局', en: 'Post office' },
-        scene: 'writingStudio',
+        scene: 'postOffice',
         people: ['rie'],
         exits: ['street', 'clinic'],
         activity: {
@@ -1865,7 +1865,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'clinic',
         region: 'bloomsbury',
         label: { ja: 'クリニック', en: 'Clinic' },
-        scene: 'home',
+        scene: 'clinic',
         people: ['rie'],
         exits: ['post-office', 'pharmacy'],
         activity: {
@@ -1878,7 +1878,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'pharmacy',
         region: 'bloomsbury',
         label: { ja: '薬局', en: 'Pharmacy' },
-        scene: 'writingStudio',
+        scene: 'pharmacy',
         people: ['nanako'],
         exits: ['clinic', 'street'],
         activity: {
@@ -1891,7 +1891,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'office',
         region: 'bloomsbury',
         label: { ja: 'オフィス', en: 'Office' },
-        scene: 'classroom',
+        scene: 'office',
         people: ['peter'],
         exits: ['street', 'station'],
         activity: {
@@ -1904,7 +1904,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'museum',
         region: 'bloomsbury',
         label: { ja: '美術館', en: 'Museum' },
-        scene: 'library',
+        scene: 'museum',
         people: ['sophie'],
         exits: ['park', 'street'],
         activity: {
@@ -1917,7 +1917,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'shrine',
         region: 'japan',
         label: { ja: '神社', en: 'Shrine' },
-        scene: 'entrance',
+        scene: 'shrine',
         people: ['rie'],
         exits: ['park', 'temple', 'festival'],
         activity: {
@@ -1930,7 +1930,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'temple',
         region: 'japan',
         label: { ja: 'お寺', en: 'Temple' },
-        scene: 'entrance',
+        scene: 'temple',
         people: ['rie'],
         exits: ['shrine', 'park'],
         activity: {
@@ -1943,7 +1943,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'hotel',
         region: 'commute',
         label: { ja: 'ホテル', en: 'Hotel' },
-        scene: 'home',
+        scene: 'hotel',
         people: ['peter'],
         exits: ['station', 'airport', 'ryokan'],
         activity: {
@@ -1956,7 +1956,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'ryokan',
         region: 'japan',
         label: { ja: '旅館', en: 'Ryokan' },
-        scene: 'home',
+        scene: 'ryokan',
         people: ['rie'],
         exits: ['hotel', 'airport'],
         activity: {
@@ -1969,7 +1969,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'airport',
         region: 'commute',
         label: { ja: '空港', en: 'Airport' },
-        scene: 'entrance',
+        scene: 'airport',
         people: ['peter'],
         exits: ['station', 'hotel', 'tokyo-station'],
         activity: {
@@ -1982,7 +1982,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'festival',
         region: 'japan',
         label: { ja: '祭り会場', en: 'Festival grounds' },
-        scene: 'entrance',
+        scene: 'festival',
         people: ['aakash', 'felix'],
         exits: ['shrine', 'shotengai'],
         activity: {
@@ -1995,7 +1995,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'shotengai',
         region: 'japan',
         label: { ja: '商店街', en: 'Shopping street' },
-        scene: 'writingStudio',
+        scene: 'shotengai',
         people: ['nanako', 'felix'],
         exits: ['festival', 'tokyo-station', 'hotel'],
         activity: {
@@ -2008,7 +2008,7 @@ const WORLD_PLACES: readonly WorldPlaceDefinition[] = [
         id: 'tokyo-station',
         region: 'japan',
         label: { ja: '東京駅', en: 'Tokyo Station' },
-        scene: 'entrance',
+        scene: 'tokyoStation',
         people: ['aakash', 'peter'],
         exits: ['train', 'airport', 'shotengai'],
         activity: {

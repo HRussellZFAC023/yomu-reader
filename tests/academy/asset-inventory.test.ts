@@ -82,15 +82,15 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain('66 active, 9 orphaned, 9 deprecated, 607 missing expression variants');
+            .toContain('102 active, 9 orphaned, 9 deprecated, 607 missing expression variants');
         expect(currentRasterHashes()).toEqual(before);
     });
 
     it('accounts for every current raster exactly once without conflating authorization and presence', () => {
         expect(inventory.counts).toMatchObject({
-            currentRasterFiles: 75,
-            currentRasterFilesAccountedFor: 75,
-            active: 66,
+            currentRasterFiles: 111,
+            currentRasterFilesAccountedFor: 111,
+            active: 102,
             orphaned: 9,
             deprecated: 9,
             deprecatedPresent: 0,
@@ -102,7 +102,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             ...inventory.assets.active,
             ...inventory.assets.orphaned,
             ...inventory.assets.deprecated.filter(asset => asset.present),
-        ].map(asset => asset.path)).size).toBe(75);
+        ].map(asset => asset.path)).size).toBe(111);
     });
 
     it('keeps the recovered Aakash expression family and the Rie thinking sprite orphaned as the off-matrix deliveries', () => {

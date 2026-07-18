@@ -72,3 +72,11 @@
     .academy-replay-open,
     .academy-replay-lesson { width: 100%; }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on replay title text */
+.academy-replay-stream-title {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}

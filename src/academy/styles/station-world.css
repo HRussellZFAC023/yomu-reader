@@ -673,3 +673,19 @@
         transition: none !important;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/section-titles/rewards/exit text */
+.academy-world-screen[data-current-place='station'] .academy-world-title,
+.academy-world-screen[data-current-place='station'] .academy-world-section-title,
+.academy-world-screen[data-current-place='station'] .academy-world-reward-label,
+.academy-world-screen[data-current-place='station'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='station'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='station'][data-action-open] .academy-world-characters .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}

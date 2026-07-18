@@ -370,3 +370,13 @@
         transition: none;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on Japanese lines/notes/choices */
+.academy-aakash-choice-japanese,
+.academy-aakash-note-japanese,
+.academy-aakash-learning-line {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}

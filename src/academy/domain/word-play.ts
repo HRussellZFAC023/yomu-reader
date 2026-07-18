@@ -17,9 +17,36 @@ export interface ShiritoriState {
     };
 }
 
+export type ShiritoriRejection = 'unknown-word' | 'reading-used' | 'ends-with-n' | 'wrong-start' | 'not-noun';
+
+type ShiritoriEvidence = Extract<LearnerEventInput, { kind: 'learning-evidence-recorded' }>;
+
 export type ShiritoriResult =
-    | { readonly accepted: true; readonly state: ShiritoriState; readonly evidence: Extract<LearnerEventInput, { kind: 'learning-evidence-recorded' }> }
-    | { readonly accepted: false; readonly reason: 'unknown-word' | 'reading-used' | 'ends-with-n' | 'wrong-start' | 'not-noun'; readonly expectedKana: readonly string[] };
+    | { readonly accepted: true; readonly state: ShiritoriState; readonly evidence: ShiritoriEvidence }
+    | { readonly accepted: false; readonly reason: ShiritoriRejection; readonly expectedKana: readonly string[]; readonly evidence?: ShiritoriEvidence };
+
+// Per docs/academy/KOTOBA-ADAPTATION.md the Adapt decision treats every rejected turn as a
+// language lesson rather than a lost life: a dead-end (final ん), a loop (reading reused) or any
+// other rule break is recorded as a `lapse` so the learner record can schedule contrastive repair.
+// Only an unrecognised word carries no evidence, because there is no known concept to attribute.
+function shiritoriEvidence(
+    word: ShiritoriWord,
+    reading: string,
+    at: number,
+    outcome: 'pass' | 'lapse',
+): ShiritoriEvidence {
+    return {
+        kind: 'learning-evidence-recorded',
+        at,
+        activityId: `shiritori:${reading}`,
+        modeId: 'shiritori',
+        skill: 'vocabulary',
+        action: 'produce',
+        outcome,
+        conceptIds: word.conceptIds,
+        independent: true,
+    };
+}
 
 export function playShiritoriTurn(
     state: ShiritoriState,
@@ -28,27 +55,23 @@ export function playShiritoriTurn(
 ): ShiritoriResult {
     if (!word) return { accepted: false, reason: 'unknown-word', expectedKana: state.requiredKana };
     const reading = toHiragana(word.reading.trim());
-    if (state.usedReadings.includes(reading)) return { accepted: false, reason: 'reading-used', expectedKana: state.requiredKana };
-    if (!word.noun) return { accepted: false, reason: 'not-noun', expectedKana: state.requiredKana };
-    if (reading.endsWith('ん')) return { accepted: false, reason: 'ends-with-n', expectedKana: state.requiredKana };
+    const reject = (reason: ShiritoriRejection): ShiritoriResult => ({
+        accepted: false,
+        reason,
+        expectedKana: state.requiredKana,
+        evidence: shiritoriEvidence(word, reading, at, 'lapse'),
+    });
+    if (state.usedReadings.includes(reading)) return reject('reading-used');
+    if (!word.noun) return reject('not-noun');
+    if (reading.endsWith('ん')) return reject('ends-with-n');
     if (state.requiredKana.length && !state.requiredKana.some(kana => reading.startsWith(kana))) {
-        return { accepted: false, reason: 'wrong-start', expectedKana: state.requiredKana };
+        return reject('wrong-start');
     }
     const nextKana = nextStartSequences(reading, state.rules ?? DEFAULT_RULES);
     return {
         accepted: true,
         state: { usedReadings: [...state.usedReadings, reading], requiredKana: nextKana, ...(state.rules ? { rules: state.rules } : {}) },
-        evidence: {
-            kind: 'learning-evidence-recorded',
-            at,
-            activityId: `shiritori:${reading}`,
-            modeId: 'shiritori',
-            skill: 'vocabulary',
-            action: 'produce',
-            outcome: 'pass',
-            conceptIds: word.conceptIds,
-            independent: true,
-        },
+        evidence: shiritoriEvidence(word, reading, at, 'pass'),
     };
 }
 

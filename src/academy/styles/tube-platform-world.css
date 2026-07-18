@@ -620,3 +620,25 @@
     from { opacity: 0; translate: 18px 12px; }
     to { opacity: 1; translate: 0; }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX4: no mid-word JA break on titles/section-titles/exit text */
+.academy-world-screen[data-current-place='station-platform'] .academy-world-title,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-section-title,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-exit-name,
+.academy-world-screen[data-current-place='station-platform'] .academy-world-exit-reason {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: strict;
+}
+/* FIX1: keep primary CTA reachable inside the scrolling transfer-board paper */
+.academy-world-screen[data-current-place='station-platform'] .academy-world-action-dock[data-purpose-surface='transfer-board'] {
+    scroll-padding-block-end: 18px;
+}
+.academy-world-screen[data-current-place='station-platform'] .academy-world-action-dock[data-purpose-surface='transfer-board'] > :last-child {
+    scroll-margin-block-end: 14px;
+}
+/* FIX2: at most one nametag while an action panel is open */
+.academy-world-screen[data-current-place='station-platform'][data-action-open] .academy-world-character-action .academy-world-character-name {
+    visibility: hidden;
+}

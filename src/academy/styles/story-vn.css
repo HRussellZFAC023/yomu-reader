@@ -250,3 +250,9 @@
         transition: none;
     }
 }
+
+/* LANE P paper-cut guards (additive, generic bug-class pre-empt) */
+/* FIX3: clip the speaker sprite to the stage frame so no lower-body renders beneath the dialogue panel */
+.academy-story-vn-shell .academy-story-vn-stage {
+    overflow: hidden;
+}
