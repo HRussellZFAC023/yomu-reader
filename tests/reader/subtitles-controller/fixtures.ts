@@ -17,7 +17,7 @@ import { subtitleDrawerMetaText } from '../../../src/reader/subtitles/subtitle-t
 import { SUBTITLE_DRAG_OFFSET_KEY } from '../../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../../src/reader/subtitles/subtitle-video-inset';
 
-export const installedSubtitleControllers = new Set<SubtitlePlayerController>();
+const installedSubtitleControllers = new Set<SubtitlePlayerController>();
 
 import type { JPDBToken, ReaderSettings } from '../../../src/reader/app/types';
 import { withViewport } from '../helpers/browser-fixtures';
