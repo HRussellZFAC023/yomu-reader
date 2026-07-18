@@ -325,6 +325,7 @@ const COPY = {
         audioSourceJpod101: 'JapanesePod101',
         audioSourceLanguagePod101: 'LanguagePod101',
         audioSourceJisho: 'Jisho.org',
+        audioSourceBunpro: 'Bunpro',
         audioSourceLinguaLibre: '(Commons) Lingua Libre',
         audioSourceWiktionary: '(Commons) Wiktionary',
         audioSourceJitenTts: 'Jiten text-to-speech',
@@ -1945,6 +1946,7 @@ textToSpeechVoiceNumber	読み上げ音声 {number}
 audioSourceJpod101	JapanesePod101
 audioSourceLanguagePod101	LanguagePod101
 audioSourceJisho	Jisho.org
+audioSourceBunpro	Bunpro
 audioSourceLinguaLibre	(Commons) Lingua Libre
 audioSourceWiktionary	(Commons) Wiktionary
 audioSourceJitenTts	Jiten読み上げ
@@ -2423,6 +2425,7 @@ const AUDIO_SOURCE_LABEL_KEYS: Record<AudioSourceType, UiCopyKey> = {
     jpod101: 'audioSourceJpod101',
     'language-pod-101': 'audioSourceLanguagePod101',
     jisho: 'audioSourceJisho',
+    bunpro: 'audioSourceBunpro',
     'lingua-libre': 'audioSourceLinguaLibre',
     wiktionary: 'audioSourceWiktionary',
     'jiten-tts': 'audioSourceJitenTts',

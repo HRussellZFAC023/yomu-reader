@@ -104,10 +104,11 @@ function renderLookupLinkPill(
     if (link.action === 'copy' || link.id === 'copy') return renderCopyPill(language, query, style, options.inert);
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return '';
-    const title = lookupLinkPillTitle(options, language, link);
-    // Merge the live site frequency rank inline (e.g. "Jiten #18447") when the
-    // pill belongs to a provider whose rank was folded in.
+    // Merge a provider's single live rank inline (e.g. "Jiten #18447").
+    // Bunpro's multi-corpus evidence renders as separate visible pills below;
+    // choosing one number here would mislabel it as the provider-wide rank.
     const rank = linkPillLiveRank(link, mergedLiveRanks);
+    const title = lookupLinkPillTitle(options, language, link);
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
         return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml(title)}" aria-label="${escapeHtml(`${title}: ${query}`)}">${escapeHtml(label)} ${externalLinkIcon()}</span>`;
@@ -126,6 +127,30 @@ type MergedLiveRanks = Map<FrequencyProvider, MergedLiveRank>;
 function linkPillLiveRank(link: ReaderSettings['dictionaryLookupLinks'][number], mergedLiveRanks: MergedLiveRanks): MergedLiveRank | null {
     const provider = link.id === 'jiten' ? 'jiten' : link.id === 'jpdb' ? 'jpdb' : null;
     return provider ? mergedLiveRanks.get(provider) ?? null : null;
+}
+
+const BUNPRO_FREQUENCY_LIST_LABELS: Record<string, [string, string]> = {
+    general: ['General', '一般'],
+    anime: ['Anime', 'アニメ'],
+    novels: ['Novels', '小説'],
+    netflix: ['Netflix', 'Netflix'],
+    dictionary: ['Dictionary', '辞書'],
+};
+
+function renderBunproFrequencyPills(
+    state: FrequencyPillState,
+    language: ReaderSettings['interfaceLanguage'],
+    lists: Array<{ list: string; rank: number }>,
+): void {
+    const japanese = language === 'ja';
+    const style = lookupPillStyle('bunpro');
+    for (const entry of lists) {
+        const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
+        const corpus = label ? label[japanese ? 1 : 0] : entry.list;
+        const value = `#${entry.rank.toLocaleString('en-US')}`;
+        const accessible = `Bunpro ${corpus} ${value}`;
+        state.pills.set(`bunpro-frequency:${entry.list}`, `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-bunpro-frequency-pill" data-dictionary="Bunpro" data-frequency-source="bunpro" data-frequency-list="${escapeHtml(entry.list)}"${lookupPillStyleAttribute(style)} title="${escapeHtml(accessible)}" aria-label="${escapeHtml(accessible)}">${escapeHtml(corpus)} ${escapeHtml(value)}</span>`);
+    }
 }
 
 function renderConfiguredLookupPill(
@@ -329,7 +354,12 @@ function mergeLiveFrequencyRanks(
         const rank = liveFrequencyEvidence(options, provider);
         if (!rank) continue;
         if (kanjiQuery ? (rank.source !== 'kanji' || rank.spelling !== kanjiQuery) : rank.source === 'kanji') continue;
-        if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
+        if (!mergeIntoLinkPill || !enabledLinkIds.has(provider)) continue;
+        if (provider === 'bunpro' && rank.lists?.length) {
+            renderBunproFrequencyPills(state, options.settings.interfaceLanguage, rank.lists);
+            continue;
+        }
+        state.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
     }
 }
 
@@ -347,7 +377,7 @@ function localFrequencyLookupPillId(dictionary: string): string {
     return `frequency-local:${dictionary}`;
 }
 
-function liveFrequencyProvider(link: ReaderSettings['dictionaryLookupLinks'][number]): 'jiten' | 'jpdb' | null {
+function liveFrequencyProvider(link: ReaderSettings['dictionaryLookupLinks'][number]): FrequencyProvider | null {
     return frequencyProviderForLookupId(link.id);
 }
 

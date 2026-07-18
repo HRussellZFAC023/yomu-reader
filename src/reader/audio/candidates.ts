@@ -208,6 +208,7 @@ const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoa
     jpod101: loadJapanesePod101AudioCandidates,
     'language-pod-101': loadLanguagePod101AudioCandidates,
     jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
+    bunpro: async (source, card) => bunproPronunciationAudioCandidates(source, card),
     'lingua-libre': async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'lingua-libre', timeoutMs, proxyUrl)),
     wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, 'wiktionary', timeoutMs, proxyUrl)),
     'jiten-tts': async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
@@ -216,6 +217,25 @@ const AUDIO_CANDIDATE_LOADERS: Partial<Record<AudioSourceType, AudioCandidateLoa
 
 async function loadNoAudioCandidates(): Promise<AudioCandidate[]> {
     return [];
+}
+
+// Bunpro's pronunciation CDN serves public per-word recordings at a
+// deterministic URL keyed by the word's spelling — no API call and no auth.
+// The CDN sends no CORS headers, so the blob/Web-Audio path routes via the
+// worker proxy (see KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS).
+const BUNPRO_PRONUNCIATION_AUDIO_BASE_URL = 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/pronunciation/';
+const BUNPRO_AUDIO_VOICES = ['female', 'male'] as const;
+
+async function bunproPronunciationAudioCandidates(source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {
+    const word = card.spelling.trim();
+    if (!word || !JAPANESE_TEXT_RE.test(word)) return [];
+    const voiceFilter = source.voice.trim().toLowerCase();
+    return BUNPRO_AUDIO_VOICES
+        .filter(voice => !voiceFilter || voice === voiceFilter)
+        .map(voice => {
+            const url = `${BUNPRO_PRONUNCIATION_AUDIO_BASE_URL}${encodeURIComponent(word)}-${voice}.mp3`;
+            return { url, sourceUrl: url };
+        });
 }
 
 async function loadCustomAudioCandidates(source: AudioSourceSetting, card: JPDBCard): Promise<AudioCandidate[]> {

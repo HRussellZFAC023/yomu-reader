@@ -17,6 +17,10 @@ const IMMERSION_KIT_API_HOSTS = new Set([
 const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = new Set([
     'd1pra95f92lrn3.cloudfront.net',
     'd1vjc5dkcd3yh2.cloudfront.net',
+    // Bunpro pronunciation CDN: public (HTTP 200 without auth) but returns no
+    // access-control-allow-origin header, so browser fetch()/Web-Audio paths
+    // must go through the worker proxy; direct <audio src> playback is fine.
+    'dk3kgylsgq3k1.cloudfront.net',
 ]);
 const YOMU_PUBLIC_PROXY_HOSTS = new Set([
     'yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev',

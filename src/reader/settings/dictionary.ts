@@ -60,6 +60,14 @@ const BUNPRO_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: true,
 };
 
+const BUNPRO_LIVE_FREQUENCY_PILL: DictionaryLookupLink = {
+    id: 'bunpro-frequency',
+    label: 'Bunpro',
+    urlTemplate: '',
+    enabled: true,
+    action: 'frequency-live',
+};
+
 const WEBLIO_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'weblio',
     label: 'Weblio',
@@ -119,6 +127,7 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     JPDB_LOOKUP_LINK,
     JPDB_LIVE_FREQUENCY_PILL,
     BUNPRO_LOOKUP_LINK,
+    BUNPRO_LIVE_FREQUENCY_PILL,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
@@ -237,7 +246,7 @@ export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): 
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
         priority: index,
-        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'bunpro' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' : link.enabled,
+        enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'bunpro' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' || link.id === 'bunpro-frequency' : link.enabled,
     }));
 }
 

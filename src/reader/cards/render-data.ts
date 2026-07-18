@@ -11,7 +11,7 @@ import { lookupBunproDefinitionResult, type BunproDefinitionInfo, type BunproDef
 import type { BunproClient } from '../bunpro/bunpro';
 import { Logger } from '../app/logger';
 import { fallbackLookupTermsForCard } from '../lookup/parser';
-import { pitchPatternFromPosition } from '../lookup/pitch-accent';
+import { normalizePitchPatternsForReading, pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
 import { cardPronunciationReading, EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
@@ -20,6 +20,7 @@ import { isJitenBackedCard } from './srs-providers';
 import type { ApiDeck, JPDBCard, JPDBDeck, ReaderSettings } from '../app/types';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import {
+    bunproFrequencyRank,
     cardFrequencyRanks,
     exactJitenFrequencyRank,
     exactJpdbFrequencyRank,
@@ -183,7 +184,7 @@ export class CardRenderDataLoader {
             }
             return localMeta.entries;
         });
-        const pitchAccent = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries).then(publicPitch => {
+        const basePitchAccent = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries).then(publicPitch => {
             if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
             return publicPitch;
         });
@@ -203,8 +204,26 @@ export class CardRenderDataLoader {
         const jitenVocabularyInfo = settings.jitenDefinitionsEnabled
             ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', jitenVocabularyLookup, null as JitenVocabularyInfo | null)
             : Promise.resolve(null);
-        const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks);
-        const bunproDefinitionLookup = this.lookupBunproDefinitionResult(card, options.includeBunproDefinition !== false);
+        const bunproDefinitionRequested = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
+        const bunproDataRequested = bunproDefinitionRequested || liveFrequencyEnabled(settings, 'bunpro');
+        const bunproDataLookup = this.lookupBunproDataResult(card, bunproDataRequested);
+        const bunproDefinitionLookup = bunproDefinitionRequested
+            ? bunproDataLookup
+            : Promise.resolve({
+                info: null,
+                status: {
+                    state: 'disabled',
+                    reason: settings.bunproDefinitionsEnabled ? 'load-excluded' : 'definitions-disabled',
+                },
+            } as BunproDefinitionHydrationResult);
+        const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
+        // Bunpro is supplemental pitch evidence. Wait until local/JPDB pitch
+        // has had its normal priority window, then append Bunpro variants so a
+        // fast Bunpro response can never make the public lookup skip itself.
+        const pitchAccent = Promise.all([basePitchAccent, bunproDataLookup]).then(([publicPitch, result]) => {
+            if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+            return publicPitch;
+        });
         const bunproDefinitionResult = this.withFallback(
             card,
             CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -369,6 +388,7 @@ export class CardRenderDataLoader {
         card: JPDBCard,
         jitenVocabularyLookup: Promise<JitenVocabularyInfo | null>,
         seeded: ProviderFrequencyRanks,
+        bunproDefinitionLookup: Promise<BunproDefinitionHydrationResult>,
     ): FrequencyRankLoad {
         const settings = this.settings();
         const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
@@ -393,21 +413,28 @@ export class CardRenderDataLoader {
                     return null;
                 })
             : Promise.resolve(null);
-        const combine = ([jitenRank, jpdbRank]: [ProviderFrequencyRank | null, ProviderFrequencyRank | null]) =>
-            withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank);
+        // Bunpro multi-list frequency rides on the definition lookup that is
+        // already in flight for this card — no extra request.
+        const bunpro = liveFrequencyEnabled(settings, 'bunpro')
+            ? bunproDefinitionLookup
+                .then(result => bunproFrequencyRank(card, result.info))
+                .catch(() => null)
+            : Promise.resolve(null);
+        const combine = ([jitenRank, jpdbRank, bunproRank]: [ProviderFrequencyRank | null, ProviderFrequencyRank | null, ProviderFrequencyRank | null]) =>
+            withFrequencyRank(withFrequencyRank(withFrequencyRank(seeded, jitenRank), jpdbRank), bunproRank);
         return {
             initial: Promise.all([
                 this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, 'Jiten frequency rank', jiten, null),
                 this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, 'JPDB frequency rank', jpdb, null),
+                this.withFallback(card, CARD_RENDER_FREQUENCY_TIMEOUT_MS, 'Bunpro frequency rank', bunpro, null),
             ]).then(combine),
-            hydrated: Promise.all([jiten, jpdb]).then(combine),
+            hydrated: Promise.all([jiten, jpdb, bunpro]).then(combine),
         };
     }
 
-    private lookupBunproDefinitionResult(card: JPDBCard, included: boolean): Promise<BunproDefinitionHydrationResult> {
+    private lookupBunproDataResult(card: JPDBCard, included: boolean): Promise<BunproDefinitionHydrationResult> {
         const settings = this.settings();
         if (!included) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'load-excluded' } });
-        if (!settings.bunproDefinitionsEnabled) return Promise.resolve({ info: null, status: { state: 'disabled', reason: 'definitions-disabled' } });
         if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: 'client-unavailable' } });
         if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: 'auth-missing' } });
         if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: 'auth-expired' } });
@@ -763,6 +790,7 @@ export class CardRenderDataLoader {
             liveFrequency: {
                 jiten: liveFrequencyEnabled(settings, 'jiten'),
                 jpdb: liveFrequencyEnabled(settings, 'jpdb'),
+                bunpro: liveFrequencyEnabled(settings, 'bunpro'),
             },
             bunproDefinitions: settings.bunproDefinitionsEnabled,
             includeBunproDefinition: options.includeBunproDefinition !== false,
@@ -855,4 +883,17 @@ function isLocalKanjiDictionaryCard(card: JPDBCard): boolean {
 
 function emptyAnkiLookupResult(): AnkiLookupResult {
     return { state: 'not-in-deck', notes: [], primary: null };
+}
+
+// Bunpro's `pitch_accent_stress` is an H/L level string (e.g. "LHHHH") in the
+// exact shape Yomu's pitch renderer consumes. Append it as an extra pitch
+// variant — never overwrite JPDB/local patterns; the pitch renderer dedupes
+// matching contours, so an agreeing Bunpro pattern is absorbed silently.
+function applyBunproPitchToCard(card: JPDBCard, info: BunproDefinitionInfo | null): void {
+    if (!info || info.kind !== 'vocabulary' || !info.pitchAccentStress) return;
+    const reading = card.reading || info.reading;
+    if (!reading) return;
+    for (const pattern of normalizePitchPatternsForReading([info.pitchAccentStress], reading)) {
+        if (!card.pitchAccent.includes(pattern)) card.pitchAccent = [...card.pitchAccent, pattern];
+    }
 }

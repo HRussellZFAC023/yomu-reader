@@ -60,6 +60,7 @@ function canResolveAudioCandidatesWithoutNetwork(source: AudioSourceSetting, car
     switch (source.type) {
         case 'custom':
         case 'jpod101':
+        case 'bunpro':
             return true;
         case 'jiten-tts':
             return hasJitenAudioReference(card);

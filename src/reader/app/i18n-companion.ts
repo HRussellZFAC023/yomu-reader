@@ -94,6 +94,7 @@ const AUDIO_SOURCE_FALLBACK_LABELS: Record<AudioSourceType, string> = {
     jpod101: 'JapanesePod101',
     'language-pod-101': 'LanguagePod101',
     jisho: 'Jisho',
+    bunpro: 'Bunpro',
     'lingua-libre': 'Lingua Libre',
     wiktionary: 'Wiktionary',
     'jiten-tts': 'Jiten TTS',

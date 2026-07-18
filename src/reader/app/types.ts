@@ -34,6 +34,7 @@ export type AudioSourceType =
     | 'jpod101'
     | 'language-pod-101'
     | 'jisho'
+    | 'bunpro'
     | 'lingua-libre'
     | 'wiktionary'
     | 'jiten-tts'

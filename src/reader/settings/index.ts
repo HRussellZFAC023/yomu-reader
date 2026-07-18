@@ -56,6 +56,7 @@ const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
     'jpod101',
     'language-pod-101',
     'jisho',
+    'bunpro',
     'lingua-libre',
     'wiktionary',
     'jiten-tts',
@@ -73,6 +74,7 @@ export const DEFAULT_AUDIO_SOURCES: AudioSourceSetting[] = [
     { type: 'jpod101', url: '', voice: '', enabled: false },
     { type: 'language-pod-101', url: '', voice: '', enabled: false },
     { type: 'jisho', url: '', voice: '', enabled: false },
+    { type: 'bunpro', url: '', voice: '', enabled: false },
     { type: 'jiten-tts', url: '', voice: '', enabled: false },
     { type: 'jpdb-tts', url: '', voice: '', enabled: false },
     { type: 'text-to-speech', url: '', voice: '', enabled: false },
@@ -1732,7 +1734,7 @@ export function normalizeAudioSources(value: unknown, legacyUrl?: string): Audio
     const sources = Array.isArray(value)
         ? value.map(normalizeAudioSource).filter((source): source is AudioSourceSetting => source !== null)
         : [];
-    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(migrateLegacyDefaultAudioSources(sources)) : sources;
+    if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
 
     if (typeof legacyUrl === 'string' && legacyUrl.trim()) {
         return ensureHostedAudioSourceFirst([{ type: 'custom-json', url: legacyUrl.trim(), voice: '', enabled: true }]);
@@ -1784,6 +1786,14 @@ function audioSourceMatches(source: AudioSourceSetting | undefined, expected: Au
 
 function isDefaultOffAudioSource(source: AudioSourceSetting): boolean {
     return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
+}
+
+// Bunpro pronunciation audio is a later addition: seed it (OPT-IN, disabled)
+// into every saved source list, not just untouched legacy defaults.
+function withBunproAudioSource(sources: AudioSourceSetting[]): AudioSourceSetting[] {
+    const result = sources.map(source => ({ ...source }));
+    ensureBuiltInAudioSource(result, { type: 'bunpro', url: '', voice: '', enabled: false }, 'jiten-tts');
+    return result;
 }
 
 function ensureBuiltInAudioSource(sources: AudioSourceSetting[], source: AudioSourceSetting, beforeType: AudioSourceType): void {

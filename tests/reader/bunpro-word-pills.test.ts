@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderWordPills } from '../../src/reader/sources/word-pills';
+import { bunproFrequencyRank } from '../../src/reader/cards/frequency-ranks';
 import { DEFAULT_SETTINGS, defaultDictionaryLookupLinks } from '../../src/reader/settings';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
@@ -54,5 +55,73 @@ describe('Bunpro lookup pill', () => {
         expect(html).toContain('href="https://bunpro.jp/search?query=%E9%A3%9F%E3%81%B9%E3%82%8B"');
         expect(html).toContain('--chip-bg:#be3455');
         expect(html).toContain('--chip-border:#fb7185');
+    });
+});
+
+describe('Bunpro multi-list frequency pills', () => {
+    const frequencies = [
+        { list: 'anime', rank: 793 },
+        { list: 'novels', rank: 6182 },
+        { list: 'netflix', rank: 778 },
+        { list: 'dictionary', rank: 40271 },
+    ];
+
+    function renderWithBunproRank(settings: ReaderSettings = settingsWithBunproPill(true)): string {
+        const rank = bunproFrequencyRank(card, { expression: card.spelling, reading: card.reading, frequencies });
+        return renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1/食べる/たべる',
+            settings,
+            frequencyRanks: rank ? { bunpro: rank } : {},
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+    }
+
+    it('renders every populated corpus as visible, touch-accessible evidence', () => {
+        const html = renderWithBunproRank();
+        expect(html).toContain('data-frequency-source="bunpro"');
+        expect(html).toContain('data-frequency-list="dictionary"');
+        expect(html).toContain('>Dictionary #40,271</span>');
+        expect(html).toContain('>Anime #793</span>');
+        expect(html).toContain('>Novels #6,182</span>');
+        expect(html).toContain('>Netflix #778</span>');
+        expect(html).not.toContain('>General #');
+        expect(html).not.toContain('>Bunpro #40271 ');
+    });
+
+    it('shows no rank when the bunpro-frequency link is disabled', () => {
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local').map(link =>
+                link.id === 'bunpro-frequency' ? { ...link, enabled: false } : link,
+            ),
+        };
+        const html = renderWithBunproRank(settings);
+        expect(html).toContain('>Bunpro ');
+        expect(html).not.toContain('data-frequency-source="bunpro"');
+    });
+
+    it('localizes the visible corpus labels in Japanese mode', () => {
+        const html = renderWithBunproRank({ ...settingsWithBunproPill(true), interfaceLanguage: 'ja' });
+        expect(html).toContain('>辞書 #40,271</span>');
+        expect(html).toContain('>アニメ #793</span>');
+        expect(html).toContain('>小説 #6,182</span>');
+        expect(html).not.toContain('未翻訳');
+    });
+
+    it('returns null evidence when every list is null', () => {
+        expect(bunproFrequencyRank(card, { expression: card.spelling, reading: card.reading, frequencies: [] })).toBeNull();
+        expect(bunproFrequencyRank(card, null)).toBeNull();
+    });
+
+    it('prefers the general list as primary when populated', () => {
+        const rank = bunproFrequencyRank(card, {
+            expression: card.spelling,
+            reading: card.reading,
+            frequencies: [{ list: 'anime', rank: 188 }, { list: 'general', rank: 178 }],
+        });
+        expect(rank?.rank).toBe(178);
+        expect(rank?.lists).toHaveLength(2);
     });
 });

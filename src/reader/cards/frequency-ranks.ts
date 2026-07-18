@@ -1,8 +1,13 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 
-export type FrequencyProvider = 'jiten' | 'jpdb';
+export type FrequencyProvider = 'jiten' | 'jpdb' | 'bunpro';
 export type FrequencyRankSource = 'card' | 'live-search' | 'kanji';
+
+export interface ProviderFrequencyListRank {
+    list: string;
+    rank: number;
+}
 
 export interface ProviderFrequencyRank {
     provider: FrequencyProvider;
@@ -13,6 +18,10 @@ export interface ProviderFrequencyRank {
     // Verbatim site wording when the provider does not expose a plain rank
     // (JPDB kanji pages say "Top 300-400"); pills render this instead of "#rank".
     display?: string;
+    // Bunpro exposes one rank per corpus (anime/novels/netflix/general/dictionary).
+    // `rank` preserves a primary value for the generic evidence contract; the
+    // full list renders as separate visible pills and MUST NOT be collapsed.
+    lists?: ProviderFrequencyListRank[];
 }
 
 export type ProviderFrequencyRanks = Partial<Record<FrequencyProvider, ProviderFrequencyRank>>;
@@ -20,7 +29,35 @@ export type ProviderFrequencyRanks = Partial<Record<FrequencyProvider, ProviderF
 export function frequencyProviderForLookupId(id: string | undefined): FrequencyProvider | null {
     if (id === 'jiten-frequency') return 'jiten';
     if (id === 'jpdb-frequency') return 'jpdb';
+    if (id === 'bunpro-frequency') return 'bunpro';
     return null;
+}
+
+// Primary-rank preference for the inline pill number: the broadest corpus wins;
+// niche corpora only lead when the broader ones are null for the word.
+const BUNPRO_PRIMARY_LIST_ORDER = ['general', 'dictionary', 'netflix', 'anime', 'novels'];
+
+export function bunproFrequencyRank(
+    card: JPDBCard,
+    info: { expression: string; reading: string; frequencies: ProviderFrequencyListRank[] } | null,
+): ProviderFrequencyRank | null {
+    const lists = (info?.frequencies ?? []).filter(entry => Number.isInteger(entry.rank) && entry.rank > 0);
+    if (!info || !lists.length) return null;
+    const primary = [...lists].sort((a, b) =>
+        listOrderIndex(a.list) - listOrderIndex(b.list))[0]!;
+    return {
+        provider: 'bunpro',
+        rank: primary.rank,
+        spelling: normalizeIdentityText(card.spelling || info.expression),
+        reading: normalizeIdentityText(card.reading || info.reading),
+        source: 'live-search',
+        lists,
+    };
+}
+
+function listOrderIndex(list: string): number {
+    const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
+    return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
 }
 
 export function liveFrequencyEnabled(settings: ReaderSettings, provider: FrequencyProvider): boolean {
