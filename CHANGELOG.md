@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.208] - 2026-07-19
+
+### Fixed
+
+- Treated a shared Study card with exact enriched pitch as authoritative for its own word popover even when the share source has no standard review-provider label, preventing the final fallback text lookup from recreating `自（じ）` without pitch.
+
 ## [1.6.207] - 2026-07-19
 
 ### Fixed

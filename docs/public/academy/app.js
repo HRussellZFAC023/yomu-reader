@@ -252105,7 +252105,8 @@ ${entry2.url}`),
     }
     sourceReviewLookupCard(card) {
       const sourceCard = this.sourceCardForVisibleCard(card);
-      return sourceCard && this.shouldPreserveSourceReviewLookupCard(sourceCard) ? sourceCard : void 0;
+      const sharedCardWithExactPitch = Boolean(card?.sourceCardKey && sourceCard?.pitchAccent.length);
+      return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch) ? sourceCard : void 0;
     }
     sourceReviewLookupCardForTarget(target) {
       const sourceCard = this.sourceReviewLookupCard(this.visibleWords[this.index]);

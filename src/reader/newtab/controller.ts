@@ -2871,7 +2871,10 @@ export class NewTabController {
 
     private sourceReviewLookupCard(card: JPDBCard | undefined): JPDBCard | undefined {
         const sourceCard = this.sourceCardForVisibleCard(card);
-        return sourceCard && this.shouldPreserveSourceReviewLookupCard(sourceCard) ? sourceCard : undefined;
+        const sharedCardWithExactPitch = Boolean(card?.sourceCardKey && sourceCard?.pitchAccent.length);
+        return sourceCard && (this.shouldPreserveSourceReviewLookupCard(sourceCard) || sharedCardWithExactPitch)
+            ? sourceCard
+            : undefined;
     }
 
     private sourceReviewLookupCardForTarget(target: HTMLElement): JPDBCard | undefined {

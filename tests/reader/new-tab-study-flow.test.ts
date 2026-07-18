@@ -534,7 +534,10 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
     });
 
     it('carries late pitch enrichment from a shared Study wrapper into the source-card popover', () => {
-        const source = headwordCard({ pitchAccent: [], reviewSource: 'jpdb-api' });
+        // Portable share-link sources are not necessarily tagged as a normal
+        // provider review source. Exact enriched pitch still makes this the
+        // authoritative card for its own word popover.
+        const source = headwordCard({ pitchAccent: [], reviewSource: undefined });
         const visible = headwordCard({
             source: 'local',
             reviewSource: 'yomu-local',
