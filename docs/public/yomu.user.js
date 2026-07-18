@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.203
+// @version 1.6.204
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -10,12 +10,12 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.1fed7fb58090.user.js#sha256=H+1/tYCQEWQVaZHx27nENwoYGhGfVVtJot0FviyMyjY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.c0e2ac140db5.user.js#sha256=wOKsFA21MgLXuwYpILOj3a3v1JtIHsew7xqlDsTc+p4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.a119bca462bd.user.js#sha256=oRm8pGK9kgEbIXyVWVE+YaW3aeszKWeT9THvKV+ZMgU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.81c36d3c1967.user.js#sha256=gcNtPBln44mYVXrqW6iYByc7Gb5jVHwXhJ+sK04gHEk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.3a2b4ce132ad.user.js#sha256=OitM4TKtNVcRS2+UTI6KHRLCf13rLUsdlyZrgDD8Bfo=
 // @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
-// @resource yomuCss  https://yomureader.com/yomu.7324d07257b0.css#sha256=cyTQclew1QUtw4OHSsl1739yXaaBRT3UhsDQgaRDC/w=
+// @resource yomuCss  https://yomureader.com/yomu.86750b919d9d.css#sha256=hnULkZ2du3tnyRGiszILyG277nRBw32XpK0YDzf8UgI=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -16679,6 +16679,31 @@ function readingFromWordWithReading(value) {
 function unannotatedPronunciationText(value) {
   return Array.from(value).filter((character) => !isKanjiCharacter(character)).join("");
 }
+const MAX_VISIBLE_KANJI_KEYWORDS = 5;
+function renderKanjiKeywordChips(sources, language) {
+  const keywords = new Map();
+  for (const { text: text2, label, canonical } of sources) {
+  const normalized = text2?.trim();
+  if (!normalized) continue;
+  const key = normalized.toLocaleLowerCase();
+  const existing = keywords.get(key) ?? { text: normalized, labels: [], canonical: false };
+  if (!existing.labels.includes(label)) existing.labels.push(label);
+  existing.canonical ||= Boolean(canonical);
+  keywords.set(key, existing);
+  }
+  const all = Array.from(keywords.values());
+  const shown = all.slice(0, MAX_VISIBLE_KANJI_KEYWORDS);
+  const overflow = all.slice(MAX_VISIBLE_KANJI_KEYWORDS);
+  const chips = shown.map((keyword) => renderKanjiKeywordChip(keyword)).join("") + renderKanjiKeywordOverflowChip(overflow);
+  return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+}
+function renderKanjiKeywordChip(keyword) {
+  return `<span class="jpdb-reader-kanji-keyword"${keyword.canonical ? ' data-canonical=""' : ""} title="${escapeHtml$1(keyword.labels.join(" · "))}"><small class="jpdb-reader-kanji-keyword-source">${escapeHtml$1(keyword.labels.join("/"))}</small><span class="jpdb-reader-kanji-keyword-text">${escapeHtml$1(keyword.text)}</span></span>`;
+}
+function renderKanjiKeywordOverflowChip(overflow) {
+  if (!overflow.length) return "";
+  return `<span class="jpdb-reader-kanji-keyword jpdb-reader-kanji-keyword-more" title="${escapeHtml$1(overflow.map((keyword) => keyword.text).join(" · "))}">+${overflow.length}</span>`;
+}
 function tokensOverlappingSelection(tokens = [], selected, parsedText = selected) {
   if (!tokens.length) return [];
   const start = parsedText.indexOf(selected);
@@ -26379,20 +26404,11 @@ function jitenKanjiKeyword(info) {
   return info?.meanings?.[0] ?? "";
 }
 function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
-  const keywords = new Map();
-  const addKeyword = (text2, source) => {
-  const normalized = text2?.trim();
-  if (!normalized) return;
-  const key = normalized.toLocaleLowerCase();
-  const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-  if (!existing.sources.includes(source)) existing.sources.push(source);
-  keywords.set(key, existing);
-  };
-  addKeyword(jitenKanjiKeyword(info), "Jiten");
-  addKeyword(rtkInfo?.keyword, "RTK");
-  entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
-  const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-  return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  return renderKanjiKeywordChips([
+  { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
+  { text: rtkInfo?.keyword, label: "RTK" },
+  ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
+  ], language);
 }
 function jitenKanjiFactRows(info, language) {
   if (!info) return [];
@@ -36633,8 +36649,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.203"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.203"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.204"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.204"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36752,7 +36768,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.203"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.204"}`;
   } catch {
   return null;
   }
