@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.199] - 2026-07-18
+
+### Changed
+
+- Tidied internal test-fixture and subtitle helper modules so that helpers used only within their own module are no longer exported or re-exported, clearing the dead-code checker warnings introduced by the recent test and controller refactors; no change to behavior or test coverage.
+
 ## [1.6.198] - 2026-07-18
 
 ### Fixed
