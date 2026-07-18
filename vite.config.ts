@@ -194,7 +194,8 @@ function readerTestConfig() {
     return {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
-        exclude: generatedShardExcludePatterns(),
+        // Guard against a stray generated shard dir left by a removed generator.
+        exclude: ['tests/reader/**/.vitest-*-shards/**'],
         setupFiles: ['tests/reader/setup.ts'],
         globals: true,
         // A handful of timing-sensitive audio/bridge tests pass in isolation but
@@ -238,14 +239,3 @@ function readMaxForks(): number {
     return Math.max(2, Math.min(10, availableParallelism()));
 }
 
-const generatedShardExcludes = [
-    ['YOMU_INCLUDE_GENERATED_JPDB_SHARDS', 'tests/reader/.vitest-jpdb-shards/**'],
-    ['YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS', 'tests/reader/.vitest-new-tab-review-shards/**'],
-    ['YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS', 'tests/reader/.vitest-settings-shards/**'],
-] as const;
-
-function generatedShardExcludePatterns(): string[] {
-    return generatedShardExcludes
-        .filter(([envName]) => process.env[envName] !== '1')
-        .map(([, pattern]) => pattern);
-}

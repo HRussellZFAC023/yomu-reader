@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');
-const NEW_TAB_REVIEW_TEST = join(ROOT, 'tests/reader/new-tab-review.test.ts');
-const SETTINGS_FORM_TEST = join(ROOT, 'tests/reader/settings-form.test.ts');
-const GENERATED_DIR = join(ROOT, 'tests/reader/.vitest-jpdb-shards');
-const GENERATED_NEW_TAB_REVIEW_DIR = join(ROOT, 'tests/reader/.vitest-new-tab-review-shards');
-const GENERATED_SETTINGS_DIR = join(ROOT, 'tests/reader/.vitest-settings-shards');
-const REGULAR_SHARD_DIRECT_EXCLUDES = new Set([JPDB_TEST, NEW_TAB_REVIEW_TEST, SETTINGS_FORM_TEST]);
+const READER_TESTS_DIR = join(ROOT, 'tests/reader');
+// The jpdb suite runs on its own CI matrix (serial, its own API-port range) so it
+// is sharded separately from every other reader test. Everything under this dir
+// is the jpdb lane; everything else is "regular".
+const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
@@ -28,74 +26,50 @@ const defaultTimeoutMs = kindForTimeout === 'all' ? '1500000' : '540000';
 const testTimeoutMs = readPositiveInt(args['timeout-ms'] ?? process.env.YOMU_CI_TEST_TIMEOUT_MS ?? defaultTimeoutMs, 'YOMU_CI_TEST_TIMEOUT_MS');
 if (shard > total) throw new Error(`shard ${shard} cannot be greater than total ${total}`);
 
-if (kind === 'regular' && args.prepare) {
-    generateSettingsShardFiles(total);
-    generateNewTabReviewShardFiles(total);
-}
-else if (kind === 'regular') runRegularShard(shard, total, Boolean(args.reuse));
-else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
-else if (kind === 'jpdb') runJpdbShard(shard, total, Boolean(args.reuse));
+// Tests are now plain files sharded by Vitest scheduling; there is nothing to
+// pre-generate, so --prepare (kept for the legacy run-ci-suite sharded path) is a
+// no-op. --reuse is likewise ignored.
+if (kind === 'regular' && args.prepare) { /* no-op: real files need no generation */ }
+else if (kind === 'regular') runRegularShard(shard, total);
+else if (kind === 'jpdb' && args.prepare) { /* no-op */ }
+else if (kind === 'jpdb') runJpdbShard(shard, total);
 else if (kind === 'all') runAllTests();
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
 // Whole reader suite in ONE Vitest process: one vite host transforms the shared
-// src/ module graph once (instead of 12 shard processes each re-transforming it)
-// and its forks share the transform cache. The monolith test files are still
-// split into generated chunk files first — that is what lets their 1000+ tests
-// spread across forks — but scheduling is left to Vitest.
+// src/ module graph once (instead of many shard processes each re-transforming it)
+// and its forks share the transform cache; scheduling is left to Vitest.
 function runAllTests() {
-    const chunkTotal = readPositiveInt(process.env.YOMU_CI_JPDB_SHARDS ?? '8', 'YOMU_CI_JPDB_SHARDS');
-    const regularChunkTotal = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');
-    const files = [
-        ...regularShardSourceFiles(),
-        ...generateSettingsShardFiles(regularChunkTotal),
-        ...generateNewTabReviewShardFiles(regularChunkTotal),
-        ...generateJpdbShardFiles(chunkTotal),
-    ];
+    const files = allReaderTestFiles();
     const maxWorkers = readPositiveInt(
         process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, availableParallelism() - 2)),
         'YOMU_CI_MAX_WORKERS',
     );
     runVitest(
-        [
-            'run',
-            ...files.map(file => relative(ROOT, file)),
-            '--minWorkers=1',
-            `--maxWorkers=${maxWorkers}`,
-        ],
-        {
-            YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1',
-            YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
-            YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
-        },
+        ['run', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
+        {},
         { label: `full reader suite (${files.length} files, ${maxWorkers} workers)` },
     );
 }
 
-function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
-    const files = regularShardSourceFiles();
-    const generated = regularGeneratedShardFiles(shardTotal, reuseGenerated);
-    const regularBuckets = sizeBalancedBuckets(files, shardTotal, fileSize);
-    const filesForShard = [
-        ...regularBuckets[currentShard - 1],
-        ...generated.map(files => files[currentShard - 1]),
-    ].filter(Boolean);
+function runRegularShard(currentShard, shardTotal) {
+    const filesForShard = sizeBalancedBuckets(regularShardSourceFiles(), shardTotal, fileSize)[currentShard - 1] ?? [];
     const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? String(defaultRegularMaxWorkers()), 'YOMU_CI_REGULAR_MAX_WORKERS');
     runVitest(
-        [
-            'run',
-            ...filesForShard.map(file => relative(ROOT, file)),
-            '--minWorkers=1',
-            `--maxWorkers=${maxWorkers}`,
-        ],
-        {
-            YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
-            YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
-        },
-        {
-            label: `regular shard ${currentShard}/${shardTotal}`,
-            files: filesForShard,
-        },
+        ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
+        {},
+        { label: `regular shard ${currentShard}/${shardTotal}`, files: filesForShard },
+    );
+}
+
+// jpdb tests share a mock API server + fake-indexeddb, so each shard runs its
+// files serially (its own API port avoids cross-shard collisions).
+function runJpdbShard(currentShard, shardTotal) {
+    const filesForShard = sizeBalancedBuckets(jpdbShardSourceFiles(), shardTotal, fileSize)[currentShard - 1] ?? [];
+    runVitest(
+        ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
+        {},
+        { label: `JPDB shard ${currentShard}/${shardTotal}`, files: filesForShard },
     );
 }
 
@@ -119,291 +93,26 @@ function regularShardConcurrency() {
     return readPositiveInt(process.env.YOMU_CI_REGULAR_CONCURRENCY ?? String(fallback), 'YOMU_CI_REGULAR_CONCURRENCY');
 }
 
+function allReaderTestFiles() {
+    return collectTestFiles(READER_TESTS_DIR).filter(file => !isGeneratedShardPath(file));
+}
+
 function regularShardSourceFiles() {
-    return collectTestFiles(join(ROOT, 'tests/reader')).filter(isRegularShardSourceFile);
+    return allReaderTestFiles().filter(file => !isJpdbTestFile(file));
 }
 
-function isRegularShardSourceFile(file) {
-    if (REGULAR_SHARD_DIRECT_EXCLUDES.has(file)) return false;
-    // Never collect generated shard output as a regular source file. The wanted
-    // shards are injected explicitly by regularGeneratedShardFiles(); matching the
-    // whole `.vitest-*-shards/` family (not an allow-list) keeps an orphaned dir
-    // left by a removed generator from being double-run as if it were a real test.
-    return !/\/\.vitest-[^/]*-shards\//.test(file);
+function jpdbShardSourceFiles() {
+    return allReaderTestFiles().filter(isJpdbTestFile);
 }
 
-function regularGeneratedShardFiles(shardTotal, reuseGenerated) {
-    return [
-        reuseGenerated ? existingSettingsShardFiles(shardTotal) : generateSettingsShardFiles(shardTotal),
-        reuseGenerated ? existingNewTabReviewShardFiles(shardTotal) : generateNewTabReviewShardFiles(shardTotal),
-    ];
+function isJpdbTestFile(file) {
+    return file.startsWith(JPDB_TESTS_DIR + '/');
 }
 
-function runJpdbShard(currentShard, shardTotal, reuseGenerated = false) {
-    const generated = reuseGenerated ? existingJpdbShardFiles(shardTotal) : generateJpdbShardFiles(shardTotal);
-    runVitest(
-        ['run', relative(ROOT, generated[currentShard - 1]), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
-        { YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1' },
-        {
-            label: `JPDB shard ${currentShard}/${shardTotal}`,
-            files: [generated[currentShard - 1]],
-        },
-    );
-}
-
-function existingJpdbShardFiles(shardTotal) {
-    return existingShardFiles(GENERATED_DIR, 'jpdb.generated', shardTotal, 'JPDB');
-}
-
-function existingNewTabReviewShardFiles(shardTotal) {
-    return existingShardFiles(GENERATED_NEW_TAB_REVIEW_DIR, 'new-tab-review.generated', shardTotal, 'new tab review');
-}
-
-function existingSettingsShardFiles(shardTotal) {
-    return existingShardFiles(GENERATED_SETTINGS_DIR, 'settings-form.generated', shardTotal, 'settings form');
-}
-
-function existingShardFiles(generatedDir, filenamePrefix, shardTotal, label) {
-    const files = Array.from({ length: shardTotal }, (_, index) => join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`));
-    const missing = files.filter(file => !readableFile(file));
-    if (missing.length) {
-        throw new Error(`Generated ${label} shard files are missing. Run with --prepare first. Missing: ${missing.map(file => relative(ROOT, file)).join(', ')}`);
-    }
-    return files;
-}
-
-function readableFile(file) {
-    try {
-        readFileSync(file, 'utf8');
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-function generateJpdbShardFiles(shardTotal) {
-    rmSync(GENERATED_DIR, { recursive: true, force: true });
-    mkdirSync(GENERATED_DIR, { recursive: true });
-
-    const source = readFileSync(JPDB_TEST, 'utf8');
-    const range = locateJpdbDescribeBlock(source);
-    const prelude = rewriteGeneratedImports(source.slice(0, range.describeStart));
-    const body = source.slice(range.bodyStart, range.describeEnd);
-    const tail = rewriteGeneratedImports(source.slice(range.tailStart));
-    const { prefix, blocks } = splitJpdbTestBlocks(body);
-    return writeGeneratedShardFiles({
-        generatedDir: GENERATED_DIR,
-        filenamePrefix: 'jpdb.generated',
-        describeName: 'reader helpers',
-        prelude,
-        prefix,
-        blocks,
-        tail,
-        shardTotal,
-        includeShardIndex: false,
-    });
-}
-
-function locateJpdbDescribeBlock(source) {
-    const describeStart = source.indexOf("describe('reader helpers', () => {");
-    const describeEnd = source.indexOf('\n});\n\nfunction withWindowProperty');
-    assertValidSourceRange(describeStart, describeEnd, 'Could not locate the reader helpers describe block in jpdb.test.ts');
-    return {
-        describeStart,
-        describeEnd,
-        bodyStart: source.indexOf('\n', describeStart) + 1,
-        tailStart: describeEnd + '\n});\n\n'.length,
-    };
-}
-
-function splitJpdbTestBlocks(body) {
-    const testStartMatches = [...body.matchAll(/^    it\(/gm)];
-    assertHasShardBlocks(testStartMatches, 'No JPDB tests found to shard');
-    return {
-        prefix: body.slice(0, testStartMatches[0].index ?? 0),
-        blocks: testStartMatches.map((match, index) => jpdbTestBlock(body, testStartMatches, match, index)),
-    };
-}
-
-function jpdbTestBlock(body, testStartMatches, match, index) {
-    const start = match.index ?? 0;
-    const end = testStartMatches[index + 1]?.index ?? body.length;
-    return body.slice(start, end);
-}
-
-function generateSettingsShardFiles(shardTotal) {
-    return generateItBlockShardFiles({
-        sourceFile: SETTINGS_FORM_TEST,
-        generatedDir: GENERATED_SETTINGS_DIR,
-        filenamePrefix: 'settings-form.generated',
-        describeName: 'settings form generated shard',
-        tailStartMarker: '\nfunction settingsToken',
-        shardTotal,
-    });
-}
-
-function generateNewTabReviewShardFiles(shardTotal) {
-    return generateTopLevelDescribeShardFiles({
-        sourceFile: NEW_TAB_REVIEW_TEST,
-        generatedDir: GENERATED_NEW_TAB_REVIEW_DIR,
-        filenamePrefix: 'new-tab-review.generated',
-        describeName: 'new tab review generated shard',
-        describeStartText: "describe('new tab review helpers', () => {",
-        shardTotal,
-    });
-}
-
-function generateTopLevelDescribeShardFiles({ sourceFile, generatedDir, filenamePrefix, describeName, describeStartText, shardTotal }) {
-    rmSync(generatedDir, { recursive: true, force: true });
-    mkdirSync(generatedDir, { recursive: true });
-
-    const { prelude, body, tail } = readTopLevelDescribeShardSections(sourceFile, describeStartText);
-    const { prefix, blocks } = splitIndentedItBlocks(body);
-    return writeGeneratedShardFiles({
-        generatedDir,
-        filenamePrefix,
-        describeName,
-        prelude,
-        prefix,
-        blocks: assertHasShardBlocks(blocks, `No tests found to shard in ${relative(ROOT, sourceFile)}`),
-        tail,
-        shardTotal,
-    });
-}
-
-function readTopLevelDescribeShardSections(sourceFile, describeStartText) {
-    const source = readFileSync(sourceFile, 'utf8');
-    const describeStart = source.indexOf(describeStartText);
-    const bodyStart = source.indexOf('\n', describeStart) + 1;
-    const describeEnd = source.lastIndexOf('\n});');
-    assertValidSourceRange(describeStart, describeEnd, `Could not locate top-level describe block in ${relative(ROOT, sourceFile)}`);
-    assertValidSourceRange(bodyStart, describeEnd, `Could not locate test body in ${relative(ROOT, sourceFile)}`);
-    return {
-        prelude: rewriteGeneratedImports(source.slice(0, describeStart)),
-        body: source.slice(bodyStart, describeEnd),
-        tail: rewriteGeneratedImports(source.slice(describeEnd + '\n});'.length)),
-    };
-}
-
-function generateItBlockShardFiles({ sourceFile, generatedDir, filenamePrefix, describeName, tailStartMarker, shardTotal }) {
-    rmSync(generatedDir, { recursive: true, force: true });
-    mkdirSync(generatedDir, { recursive: true });
-
-    const { prelude, body, tail } = readItBlockShardSections(sourceFile, tailStartMarker);
-    const blocks = assertHasShardBlocks(
-        extractIndentedItBlocks(body),
-        `No tests found to shard in ${relative(ROOT, sourceFile)}`,
-    );
-    return writeGeneratedShardFiles({
-        generatedDir,
-        filenamePrefix,
-        describeName,
-        prelude,
-        blocks,
-        tail,
-        shardTotal,
-    });
-}
-
-function writeGeneratedShardFiles({ generatedDir, filenamePrefix, describeName, prelude, prefix, blocks, tail, shardTotal, includeShardIndex = true }) {
-    const shards = contiguousBuckets(blocks, shardTotal);
-    return shards.map((blocksForShard, index) => {
-        const filename = join(generatedDir, `${filenamePrefix}.${index + 1}.test.ts`);
-        const describeTitle = includeShardIndex ? `${describeName} ${index + 1}` : describeName;
-        const contents = [
-            prelude.trimEnd(),
-            '',
-            `describe('${describeTitle}', () => {`,
-            ...(prefix === undefined ? [] : [prefix.trimEnd()]),
-            ...blocksForShard.map(block => block.trimEnd()),
-            '});',
-            '',
-            tail.trimStart(),
-        ].join('\n');
-        writeFileSync(filename, contents);
-        return filename;
-    });
-}
-
-function readItBlockShardSections(sourceFile, tailStartMarker) {
-    const source = readFileSync(sourceFile, 'utf8');
-    const describeStart = source.indexOf('describe(');
-    const tailStart = source.indexOf(tailStartMarker);
-    assertValidSourceRange(describeStart, tailStart, `Could not locate test body in ${relative(ROOT, sourceFile)}`);
-    return {
-        prelude: rewriteGeneratedImports(source.slice(0, describeStart)),
-        body: source.slice(describeStart, tailStart),
-        tail: rewriteGeneratedImports(source.slice(tailStart)),
-    };
-}
-
-function assertValidSourceRange(start, end, message) {
-    if (start === -1 || end === -1 || end <= start) throw new Error(message);
-}
-
-function assertHasShardBlocks(blocks, message) {
-    if (!blocks.length) throw new Error(message);
-    return blocks;
-}
-
-function extractIndentedItBlocks(contents) {
-    return splitIndentedItBlocks(contents).blocks;
-}
-
-function splitIndentedItBlocks(contents) {
-    const starts = [...contents.matchAll(/^    it\(/gm)].map(match => match.index ?? 0);
-    assertHasShardBlocks(starts, 'No indented it(...) blocks found');
-    return {
-        prefix: contents.slice(0, starts[0]),
-        blocks: starts.map(start => extractIndentedItBlock(contents, start)),
-    };
-}
-
-function extractIndentedItBlock(contents, start) {
-    const remaining = contents.slice(start);
-    const close = remaining.match(/^    \}\);\s*$/m);
-    if (!close || close.index === undefined) {
-        throw new Error('Could not locate the end of an indented it(...) block');
-    }
-    return remaining.slice(0, close.index + close[0].length);
-}
-
-function contiguousBuckets(blocks, count) {
-    const context = createContiguousBucketContext(blocks, count);
-    return Array.from({ length: count }, (_, bucketIndex) => nextContiguousBucket(context, count - bucketIndex));
-}
-
-function createContiguousBucketContext(blocks, count) {
-    const totalSize = blocks.reduce((sum, block) => sum + block.length, 0);
-    return { blocks, nextIndex: 0, targetSize: Math.ceil(totalSize / count) };
-}
-
-function nextContiguousBucket(context, remainingBuckets) {
-    const bucket = [];
-    let bucketSize = 0;
-    while (context.nextIndex < context.blocks.length) {
-        const remainingBlocks = context.blocks.length - context.nextIndex;
-        if (mustReserveBlocksForRemainingBuckets(remainingBlocks, remainingBuckets, bucket)) break;
-        const nextBlock = takeNextBlock(context);
-        bucket.push(nextBlock);
-        bucketSize += nextBlock.length;
-        if (bucketReachedTargetSize(bucketSize, context.targetSize, remainingBlocks, remainingBuckets)) break;
-    }
-    return bucket;
-}
-
-function takeNextBlock(context) {
-    const block = context.blocks[context.nextIndex];
-    context.nextIndex += 1;
-    return block;
-}
-
-function mustReserveBlocksForRemainingBuckets(remainingBlocks, remainingBuckets, bucket) {
-    return remainingBlocks <= remainingBuckets - 1 && bucket.length;
-}
-
-function bucketReachedTargetSize(bucketSize, targetSize, remainingBlocks, remainingBuckets) {
-    return bucketSize >= targetSize && remainingBlocks > remainingBuckets;
+// Defensive: never collect a stray generated shard dir left by a removed
+// generator (`tests/reader/.vitest-*-shards/`) as if it were a real test file.
+function isGeneratedShardPath(file) {
+    return /\/\.vitest-[^/]*-shards\//.test(file);
 }
 
 function sizeBalancedBuckets(items, count, sizeForItem) {
@@ -419,15 +128,6 @@ function sizeBalancedBuckets(items, count, sizeForItem) {
 
 function fileSize(file) {
     return statSync(file).size;
-}
-
-function rewriteGeneratedImports(contents) {
-    return contents
-        .replaceAll("from '../../src/", "from '../../../src/")
-        .replaceAll("from '../../workers/", "from '../../../workers/")
-        .replaceAll("from './helpers/", "from '../helpers/")
-        .replaceAll("from './test-utils'", "from '../test-utils'")
-        .replaceAll("from './zip-fixture'", "from '../zip-fixture'");
 }
 
 function collectTestFiles(dir) {

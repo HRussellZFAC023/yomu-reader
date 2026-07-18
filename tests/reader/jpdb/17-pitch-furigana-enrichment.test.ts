@@ -1,0 +1,1781 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+    registerReaderHelpersCleanup,
+    BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+    DEFAULT_SETTINGS,
+    JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
+    NewTabRuntime,
+    PITCH_ENRICHMENT_LIMIT,
+    PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
+    ReaderApp,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+    appendDeferredPitchPopover,
+    appendRenderedReaderWord,
+    card,
+    configurePublicVocabularyEnrichment,
+    deferred,
+    expectDeferredPitchPopoverUpdated,
+    expectHydratedPopupAnkiRender,
+    expectRenderedPitchWord,
+    readerWordSurfaceText,
+    setupHydratedPopupAnkiLookup,
+    testAozoraCard,
+    testFallbackCard,
+    testPublicCard,
+    testTokenForCard,
+    waitForExpect,
+} from './fixtures';
+import type {
+    AnkiExistingNote,
+    AnkiLookupResult,
+    CardRenderData,
+    JPDBCard,
+    JPDBToken,
+    TestCardPopoverHydrationContext,
+    YomitanTermEntry,
+} from './fixtures';
+
+registerReaderHelpersCleanup();
+
+describe('reader helpers', () => {
+    it('normalizes public vocabulary pitch and furigana on active OCR fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -10001,
+            sid: -10001,
+            spelling: '読む',
+        });
+        const publicCard = testPublicCard({
+            vid: 1556420,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: ['HL'],
+        });
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line jpdb-ocr-line-active';
+        line.dataset.ocrText = '読む';
+        const word = appendRenderedReaderWord(fallbackCard, { parent: line });
+        document.body.append(line);
+
+        const search = vi.fn(async () => [publicCard]);
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: { furiganaMode: 'all', showFurigana: true },
+        });
+
+        const token = testTokenForCard(fallbackCard, '読む', {
+            rubies: [{ text: 'よ', start: 0, end: 1, length: 1 }],
+        });
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(token.card).toBe(publicCard);
+            expect(token.pitchClass).toBe('atamadaka');
+            expect(word.dataset.vid).toBe('1556420');
+            expect(word.dataset.reading).toBe('よむ');
+            expect(word.dataset.pitchClass).toBe('atamadaka');
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
+            expect(word.querySelector('ruby')).toBeNull();
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
+            expect(word.querySelector('.jpdb-ocr-ruby-base-text')?.textContent).toBe('読');
+            expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
+            expect(readerWordSurfaceText(word)).toBe('読む');
+        } finally {
+            line.remove();
+            app.destroy();
+        }
+    });
+
+    it('normalizes public vocabulary pitch and furigana on inactive OCR fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -10002,
+            sid: -10002,
+            spelling: '読む',
+        });
+        const publicCard = testPublicCard({
+            vid: 1556420,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: ['HL'],
+        });
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        line.dataset.ocrText = '読む';
+        const word = appendRenderedReaderWord(fallbackCard, { parent: line });
+        document.body.append(line);
+
+        const search = vi.fn(async () => [publicCard]);
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: { furiganaMode: 'all', showFurigana: true },
+        });
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard, '読む')]);
+
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(word.dataset.vid).toBe('1556420');
+            expect(word.dataset.reading).toBe('よむ');
+            expect(word.dataset.pitchClass).toBe('atamadaka');
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
+            expect(readerWordSurfaceText(word)).toBe('読む');
+        } finally {
+            line.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not replace rendered kana fallback tokens with public reading-only matches', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -404,
+            sid: -404,
+            spelling: 'した',
+        });
+        const publicCard = testPublicCard({
+            vid: 1217010,
+            spelling: '下',
+            reading: 'した',
+            pitchAccent: ['HL'],
+        });
+        const word = appendRenderedReaderWord(fallbackCard);
+
+        const search = vi.fn(async () => [publicCard]);
+        const { internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: { furiganaMode: 'all', showFurigana: true },
+        });
+
+        const token = testTokenForCard(fallbackCard, '本を読みました。');
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(word.dataset.expression).not.toBe('下');
+            expect(word.dataset.reading).toBeUndefined();
+            expect(word.textContent).toBe('した');
+            expect(word.querySelector('rt')).toBeNull();
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('uses local pitch metadata for rendered page words before public pitch lookup', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: [],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(lookupCard.vid);
+        word.dataset.sid = String(lookupCard.sid);
+        word.textContent = '青空';
+        document.body.append(word);
+
+        const lookupTermMeta = vi.fn(async () => [{
+            expression: '青空',
+            mode: 'pitch',
+            data: { reading: 'あおぞら', pitches: [{ position: 3 }] },
+            dictionary: 'Pitch',
+        }]);
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookupTermMeta: typeof lookupTermMeta };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true, showPitchAccent: true };
+        internals.dictionaries = { lookupTermMeta };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+        };
+
+        try {
+            await internals.enrichPitchWords([token]);
+
+            expect(lookupTermMeta).toHaveBeenCalledWith('青空', 12, internals.settings.dictionaryPreferences);
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(lookupCard.pitchAccent).toEqual(['LHHLL']);
+            expect(token.pitchClass).toBe('nakadaka');
+            expectRenderedPitchWord(word, 'nakadaka');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('enriches every local-only pitch token in a batch beyond PITCH_ENRICHMENT_LIMIT', async () => {
+        // Regression: the publicLookup:false branch (local-only/nested visible
+        // scans) used to slice(0, PITCH_ENRICHMENT_LIMIT) and drop the rest with
+        // no re-queue, so dense pages only ever pitched the first 12 words —
+        // pitch appeared to load slowly, one word at a time. Local lookups are
+        // network-free, so the whole batch must be covered.
+        const app = new ReaderApp();
+        const tokenCount = PITCH_ENRICHMENT_LIMIT * 2 + 1;
+        const tokens: JPDBToken[] = Array.from({ length: tokenCount }, (_, index) => ({
+            card: {
+                ...card,
+                vid: 5_000 + index,
+                sid: index,
+                spelling: `単語${index}`,
+                reading: 'ねこ',
+                source: 'jpdb',
+                pitchAccent: [],
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+        }));
+
+        const lookupTermMeta = vi.fn(async (expression: string) => [{
+            expression,
+            mode: 'pitch',
+            data: { reading: 'ねこ', pitches: [{ position: 1 }] },
+            dictionary: 'Pitch',
+        }]);
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookupTermMeta: typeof lookupTermMeta };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true, showPitchAccent: true };
+        internals.dictionaries = { lookupTermMeta };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichPitchWords(tokens, { publicLookup: false });
+
+            // Every token — not just the first PITCH_ENRICHMENT_LIMIT — gets pitch.
+            expect(tokens.every(token => token.pitchClass === 'atamadaka')).toBe(true);
+            expect(tokens.every(token => token.card.pitchAccent.length > 0)).toBe(true);
+            expect(lookupTermMeta).toHaveBeenCalledTimes(tokenCount);
+            // Local-only branch must never reach the network.
+            expect(publicPitch).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('uses keyless Jiten vocabulary before JPDB public lookup for fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -1381470,
+            sid: -1381470,
+            spelling: '青空',
+        });
+        const jitenCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            frequencyRank: 6924,
+            partOfSpeech: ['n'],
+            meanings: [{ glosses: ['blue sky'], partOfSpeech: ['noun'] }],
+            cardState: ['not-in-deck'],
+            pitchAccent: ['LHHLL'],
+            wordWithReading: '青[あお]空[ぞら]',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 1381470,
+            jitenReadingIndex: 0,
+        };
+        const word = appendRenderedReaderWord(fallbackCard);
+        const search = vi.fn(async () => []);
+        const publicPitch = vi.fn(async () => ['LHHLL']);
+        const jitenLookup = vi.fn(async () => jitenCard);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('青空') ? [['青空', jitenCard]] : [],
+        ));
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            pitch: publicPitch,
+            jitenLookup,
+            jitenLookupMany,
+            settings: { apiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+        });
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard)], { publicLookupLimit: 1 });
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
+            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(search).not.toHaveBeenCalled();
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(cacheCards).toHaveBeenCalledWith([jitenCard]);
+            expect(word.dataset.vid).toBe('1381470');
+            expect(word.dataset.sid).toBe('0');
+            expect(word.dataset.reading).toBe('あおぞら');
+            expect(word.dataset.pitchClass).toBe('nakadaka');
+            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('keeps nested popup pitch enrichment from fanning out public JPDB lookups', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: [],
+        };
+        const publicPitch = vi.fn(async () => ['LHHLL']);
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+        };
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookup: false });
+
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(lookupCard.pitchAccent).toEqual([]);
+            expect(token.pitchClass).toBe('');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('reuses in-flight popup parses across deferred rerenders', async () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<div class="jpdb-reader-parseable">日本語です。</div>';
+        document.body.append(popover);
+        const parsed = deferred<JPDBToken[][]>();
+        const parse = vi.fn(() => parsed.promise);
+        const parsedCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            spelling: '日本語',
+            reading: 'にほんご',
+            pitchAccent: [],
+        };
+        const token: JPDBToken = {
+            card: parsedCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語です。',
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse };
+            parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            ankiEnabled: false,
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+        };
+        internals.parser = { parse };
+
+        try {
+            const first = internals.parsePopoverJapanese(popover);
+            await waitForExpect(() => expect(parse).toHaveBeenCalledTimes(1));
+
+            popover.innerHTML = '<div class="jpdb-reader-parseable">日本語です。</div>';
+            delete popover.dataset.jpdbReaderParseLoadingKey;
+            delete popover.dataset.jpdbReaderParseLoadingId;
+            const second = internals.parsePopoverJapanese(popover);
+            expect(parse).toHaveBeenCalledTimes(1);
+
+            parsed.resolve([[token]]);
+            await Promise.all([first, second]);
+
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], expect.objectContaining({
+                allowSegmentedFallback: true,
+                allowJpdbTimeoutFallback: false,
+                includeLocalPitch: false,
+                jpdbTimeoutMs: 1_200,
+                requireJpdb: true,
+            }));
+            const word = popover.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(word ? readerWordSurfaceText(word) : '').toBe('日本語');
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('prefetches pitch for the first parsed popup word without requiring a click', async () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<div class="jpdb-reader-parseable">青空です。</div>';
+        document.body.append(popover);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+            pitchAccent: [],
+        };
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '青空です。',
+        };
+        const parse = vi.fn(async () => [[token]]);
+        const publicPitch = vi.fn(async () => ['LHHLL']);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+        };
+        internals.activePopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            ankiEnabled: false,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        };
+        internals.parser = { parse };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.parsePopoverJapanese(popover);
+
+            await waitForExpect(() => {
+                const word = popover.querySelector<HTMLElement>('.jpdb-reader-word');
+                expect(word?.dataset.pitchClass).toBe('nakadaka');
+                expect(word?.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+            });
+            expect(publicPitch).toHaveBeenCalledWith('青空', 'あおぞら');
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('prioritizes fallback content words over one-kana particles when enriching pitch', async () => {
+        const app = new ReaderApp();
+        const particles = ['の', 'で', 'を', 'は', 'な', 'た', 'に', 'が', 'へ', 'も', 'と', 'か'];
+        const contentFallback: JPDBCard = {
+            ...card,
+            vid: -1381470,
+            sid: -1381470,
+            rid: 0,
+            spelling: '青空',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jiten',
+            pitchAccent: ['LHHL'],
+        };
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = String(contentFallback.vid);
+        word.dataset.sid = String(contentFallback.sid);
+        word.textContent = '青空';
+        document.body.append(word);
+
+        const tokens: JPDBToken[] = [
+            ...particles.map((surface, index): JPDBToken => ({
+                card: {
+                    ...card,
+                    vid: -1000 - index,
+                    sid: -1000 - index,
+                    rid: 0,
+                    spelling: surface,
+                    reading: '',
+                    source: 'fallback',
+                    pitchAccent: [],
+                },
+                start: index,
+                end: index + 1,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+            })),
+            {
+                card: contentFallback,
+                start: 12,
+                end: 14,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+            },
+        ];
+
+        const search = vi.fn(async (term: string) => term === '青空' ? [publicCard] : []);
+        const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('青空') ? [['青空', publicCard]] : [],
+        ));
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof search };
+            jpdbPublicPitch: { lookup: (spelling: string, reading: string) => Promise<string[]> };
+            parser: { cacheCards: typeof cacheCards };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, localDictionariesEnabled: false, showPitchAccent: true };
+        internals.jpdbVocabulary = { search };
+        internals.jpdbPublicPitch = { lookup: vi.fn(async () => []) };
+        internals.parser = { cacheCards };
+        (internals as unknown as { jitenPublicVocabulary?: { lookup: typeof jitenLookup; lookupMany: typeof jitenLookupMany } }).jitenPublicVocabulary = {
+            lookup: jitenLookup,
+            lookupMany: jitenLookupMany,
+        };
+
+        try {
+            await internals.enrichPitchWords(tokens, { publicLookupLimit: 1 });
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
+            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(jitenLookup).not.toHaveBeenCalledWith('の');
+            expect(search).not.toHaveBeenCalled();
+            expect(search).not.toHaveBeenCalledWith('の', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(tokens[tokens.length - 1]!.card).toBe(publicCard);
+            expect(tokens[tokens.length - 1]!.pitchClass).toBe('nakadaka');
+            expect(word.dataset.vid).toBe('1381470');
+            expect(word.dataset.reading).toBe('あおぞら');
+            expectRenderedPitchWord(word, 'nakadaka');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('lets urgent pitch enrichment bypass a saturated background queue', async () => {
+        const app = new ReaderApp();
+        const stalledPitch = deferred<string[]>();
+        const urgentCard: JPDBCard = {
+            ...card,
+            vid: 64001,
+            sid: 1,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            source: 'jpdb',
+            pitchAccent: [],
+        };
+        const urgentWord = document.createElement('span');
+        urgentWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        urgentWord.dataset.vid = String(urgentCard.vid);
+        urgentWord.dataset.sid = String(urgentCard.sid);
+        urgentWord.textContent = urgentCard.spelling;
+        document.body.append(urgentWord);
+        const backgroundTokens = Array.from({ length: 12 }, (_, index) => testTokenForCard({
+            ...card,
+            vid: 65000 + index,
+            sid: 1,
+            rid: 0,
+            spelling: `背景${index}`,
+            reading: `はいけい${index}`,
+            source: 'jpdb',
+            pitchAccent: [],
+        }));
+        const publicPitch = vi.fn((spelling: string) => spelling === urgentCard.spelling
+            ? Promise.resolve(['HLL'])
+            : stalledPitch.promise);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { urgent?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        let background: Promise<void> | undefined;
+        try {
+            background = internals.enrichPitchWords(backgroundTokens);
+            await waitForExpect(() => {
+                expect(publicPitch).toHaveBeenCalledTimes(BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY);
+            });
+
+            await internals.enrichPitchWords([testTokenForCard(urgentCard)], { urgent: true });
+
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            expect(urgentCard.pitchAccent).toEqual(['HLL']);
+            expect(urgentWord.dataset.pitchClass).toBe('atamadaka');
+            expect(urgentWord.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(urgentWord.classList.contains('jpdb-pitch-unknown')).toBe(false);
+        } finally {
+            stalledPitch.resolve([]);
+            await background?.catch(() => undefined);
+            urgentWord.remove();
+            app.destroy();
+        }
+    });
+
+    it('limits background public pitch fanout while keeping local overflow pitch instant', async () => {
+        const app = new ReaderApp();
+        const cards = [
+            { ...card, vid: 66000, sid: 0, rid: 0, spelling: '公開0', reading: 'こうかい', source: 'jpdb' as const, pitchAccent: [] },
+            { ...card, vid: 66001, sid: 0, rid: 0, spelling: '公開1', reading: 'こうかい', source: 'jpdb' as const, pitchAccent: [] },
+            { ...card, vid: 66002, sid: 0, rid: 0, spelling: '局所', reading: 'きょくしょ', source: 'jpdb' as const, pitchAccent: [] },
+            { ...card, vid: 66003, sid: 0, rid: 0, spelling: '余分', reading: 'よぶん', source: 'jpdb' as const, pitchAccent: [] },
+        ];
+        const localWord = document.createElement('span');
+        localWord.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        localWord.dataset.vid = String(cards[2]!.vid);
+        localWord.dataset.sid = String(cards[2]!.sid);
+        localWord.textContent = cards[2]!.spelling;
+        document.body.append(localWord);
+        const lookupTermMeta = vi.fn(async (term: string) => term === '局所'
+            ? [{
+                expression: '局所',
+                mode: 'pitch',
+                data: { reading: 'きょくしょ', pitches: [{ position: 0 }] },
+                dictionary: 'Pitch',
+            }]
+            : []);
+        const publicPitch = vi.fn(async () => ['LHH']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookupTermMeta: typeof lookupTermMeta };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            showPitchAccent: true,
+            localDictionariesEnabled: true,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.dictionaries = { lookupTermMeta };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichPitchWords(cards.map(lookupCard => testTokenForCard(lookupCard)), { publicLookupLimit: 2 });
+
+            expect(publicPitch).toHaveBeenCalledTimes(2);
+            expect(publicPitch).toHaveBeenCalledWith('公開0', 'こうかい');
+            expect(publicPitch).toHaveBeenCalledWith('公開1', 'こうかい');
+            expect(publicPitch).not.toHaveBeenCalledWith('局所', 'きょくしょ');
+            expect(publicPitch).not.toHaveBeenCalledWith('余分', 'よぶん');
+            expect(cards[2]!.pitchAccent).toEqual(['LHHH']);
+            expect(localWord.dataset.pitchClass).toBe('heiban');
+            expect(localWord.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        } finally {
+            localWord.remove();
+            app.destroy();
+        }
+    });
+
+    it('de-duplicates queued background pitch enrichment across repeated scans', async () => {
+        const app = new ReaderApp();
+        const queuedCard = {
+            ...card,
+            vid: 66010,
+            sid: 0,
+            rid: 0,
+            spelling: '重複',
+            reading: 'じゅうふく',
+            source: 'jpdb' as const,
+            pitchAccent: [],
+        };
+        const stalledPitch = deferred<void>();
+        const publicPitch = vi.fn(async () => {
+            await stalledPitch.promise;
+            return ['LHHH'];
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        const first = internals.enrichPitchWords([testTokenForCard(queuedCard)], { publicLookupLimit: 1 });
+        await waitForExpect(() => expect(publicPitch).toHaveBeenCalledTimes(1));
+        const second = internals.enrichPitchWords([testTokenForCard(queuedCard)], { publicLookupLimit: 1 });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(publicPitch).toHaveBeenCalledTimes(1);
+        } finally {
+            stalledPitch.resolve();
+            await Promise.all([first, second]).catch(() => undefined);
+            app.destroy();
+        }
+    });
+
+    it('hydrates generic page fallback pitch before the word is selected', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=kotu+io',
+            origin: 'https://www.google.com',
+            hostname: 'www.google.com',
+        });
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -424200,
+            sid: -424200,
+            spelling: 'コツ',
+        });
+        const publicCard = testPublicCard({
+            vid: 424200,
+            spelling: 'コツ',
+            reading: 'コツ',
+            source: 'jiten',
+            pitchAccent: ['HL'],
+        });
+        const word = appendRenderedReaderWord(fallbackCard, {
+            className: 'jpdb-reader-word jpdb-reader-passive-word jpdb-pitch-unknown',
+        });
+        word.dataset.jpdbReaderPassive = 'true';
+        word.dataset.expression = 'コツ';
+
+        const lookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('コツ') ? [['コツ', publicCard]] : [],
+        ));
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { lookupMany: typeof lookupMany };
+            parser: { cacheCards: typeof cacheCards };
+            backgroundPitchEnrichmentOptions(): {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            enrichPitchWords(tokens: JPDBToken[], options?: unknown): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jitenPublicVocabulary = { lookupMany };
+        internals.parser = { cacheCards };
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard, 'コツ')], internals.backgroundPitchEnrichmentOptions());
+
+            expect(lookupMany).toHaveBeenCalledWith(['コツ'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(word.dataset.vid).toBe('424200');
+            expect(word.dataset.cardSource).toBe('jiten');
+            expect(word.dataset.reading).toBe('コツ');
+            expect(word.dataset.pitchAccent).toBe('HL');
+            expectRenderedPitchWord(word, 'atamadaka');
+        } finally {
+            word.remove();
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps YouTube background public pitch enrichment bounded', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const youtubeCards = Array.from({ length: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT + 3 }, (_, index) => ({
+            ...card,
+            vid: 66011 + index,
+            sid: 0,
+            rid: 0,
+            spelling: `背景${index}`,
+            reading: 'はいけい',
+            source: 'jpdb' as const,
+            pitchAccent: [],
+        }));
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean; publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), internals.backgroundPitchEnrichmentOptions());
+
+            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({
+                publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+                publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+                publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTermLimit: 3,
+                substantivePublicLookupOnly: true,
+            });
+            expect(publicPitch).toHaveBeenCalledTimes(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT);
+            expect(publicPitch).toHaveBeenCalledWith('背景0', 'はいけい');
+            expect(publicPitch).toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT - 1}`, 'はいけい');
+            expect(publicPitch).not.toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT}`, 'はいけい');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps the paced page budget while allowing the public pitch lane for keyless YouTube background enrichment', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const youtubeCards = Array.from({ length: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT + 1 }, (_, index) => testPublicCard({
+            vid: 300000 + index,
+            spelling: `背景${index}`,
+            reading: 'はいけい',
+            source: 'jpdb',
+            pitchAccent: [],
+        }));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean; jpdbPublicLookup?: boolean; publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            const options = internals.backgroundPitchEnrichmentOptions();
+            // The jpdb.io pitch lane stays ON for keyless YouTube (words the
+            // local dict misses would otherwise stay grey forever); the page
+            // budget, pacing, and per-URL deferral remain the DOS guard.
+            expect(options).toEqual({
+                publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTermLimit: 3,
+                substantivePublicLookupOnly: true,
+            });
+            await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), options);
+
+            expect(publicPitch.mock.calls.length).toBeGreaterThan(0);
+            expect(publicPitch.mock.calls.length).toBeLessThanOrEqual(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('parks keyless YouTube background public enrichment while a hover card is active', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const hoverPopover = document.createElement('div');
+        hoverPopover.className = 'jpdb-reader-popover';
+        document.body.append(hoverPopover);
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: 300500,
+            sid: 1,
+            rid: 0,
+            spelling: '背景語',
+            reading: '',
+            source: 'fallback',
+            pitchAccent: [],
+            fallbackLookupTerms: ['背景語'],
+        };
+        const resolvedCard = testPublicCard({
+            vid: 300501,
+            sid: 1,
+            spelling: '背景語',
+            reading: 'はいけいご',
+            source: 'jiten',
+            pitchAccent: ['LHHH'],
+        });
+        const lookupMany = vi.fn(async () => new Map([['背景語', resolvedCard]]));
+        const internals = app as unknown as {
+            activePopover?: HTMLElement;
+            activePopoverMode?: 'modal' | 'hover';
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { lookupMany: typeof lookupMany };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+            drainDeferredPublicPitchQueue(): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jitenPublicVocabulary = { lookupMany };
+        internals.waitForIdle = vi.fn(async () => undefined);
+        internals.activePopover = hoverPopover;
+        internals.activePopoverMode = 'hover';
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard)], internals.backgroundPitchEnrichmentOptions());
+
+            expect(lookupMany).not.toHaveBeenCalled();
+
+            internals.activePopover = undefined;
+            internals.activePopoverMode = undefined;
+            await internals.drainDeferredPublicPitchQueue();
+
+            await waitForExpect(() => expect(lookupMany).toHaveBeenCalledTimes(1));
+        } finally {
+            hoverPopover.remove();
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('lets keyless YouTube subtitle pre-render enrichment use urgent JPDB pitch outside the shared page budget', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            subtitleBeforeRenderPitchEnrichmentOptions(): {
+                urgent?: boolean;
+                jpdbPublicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+
+        try {
+            expect(internals.subtitleBeforeRenderPitchEnrichmentOptions()).toEqual({
+                urgent: true,
+                jpdbPublicLookup: true,
+                publicLookupLimit: PITCH_ENRICHMENT_LIMIT * 4,
+                publicLookupTotalLimit: PITCH_ENRICHMENT_LIMIT * 4,
+                publicLookupPageBudget: undefined,
+                publicLookupTermLimit: 3,
+                substantivePublicLookupOnly: true,
+                deferPublicLookup: false,
+            });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hydrates keyless YouTube subtitle pitch before rendering the active line', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const token = testTokenForCard(testPublicCard({
+            vid: 441001,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: [],
+        }), '読む。');
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichSubtitleTokensBeforeRender([token]);
+
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            expect(token.card.pitchAccent).toEqual(['HLL']);
+            expect(token.pitchClass).toBe('atamadaka');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps keyless OCR urgent enrichment out of JPDB public search and pitch fan-out', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -441001,
+            sid: -441001,
+            spelling: '未解析語',
+            reading: '',
+        });
+        const publicSearch = vi.fn(async () => []);
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof publicSearch };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
+            enrichOcrTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: true,
+        };
+        internals.jpdbVocabulary = { search: publicSearch };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
+
+        try {
+            await internals.enrichOcrTokensBeforeRender([testTokenForCard(fallbackCard, '未解析語')]);
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語'], { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS });
+            expect(publicSearch).not.toHaveBeenCalled();
+            expect(publicPitch).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('updates deferred popup pitch after completed details without replacing parsed popup words', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard();
+        const { popover, originalWord } = appendDeferredPitchPopover(lookupCard);
+        const pitchAccent = deferred<string[]>();
+        const localEntries = deferred<YomitanTermEntry[]>();
+        const all = deferred<CardRenderData>();
+        const parsePopoverJapanese = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parsePopoverJapanese: typeof parsePopoverJapanese;
+            renderDeferredCardLocalEntries(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                trigger: 'modal' | 'hover',
+                renderData: {
+                    localEntries: Promise<YomitanTermEntry[]>;
+                    pitchAccent?: Promise<string[]>;
+                    all: Promise<CardRenderData>;
+                },
+                fallbackAnkiLookup: { state: string; notes: unknown[]; primary: null },
+                mounted: { instantLocalEntries: null; requestId: number },
+                renderState: { fullRenderCompleted: boolean },
+                isCurrentHoverCard: () => boolean,
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.settings = { ...DEFAULT_SETTINGS, showPitchAccent: true };
+        internals.parsePopoverJapanese = parsePopoverJapanese;
+
+        try {
+            internals.renderDeferredCardLocalEntries(
+                popover,
+                lookupCard,
+                '青空です。',
+                'modal',
+                {
+                    localEntries: localEntries.promise,
+                    pitchAccent: pitchAccent.promise,
+                    all: all.promise,
+                },
+                { state: 'not-in-deck', notes: [], primary: null },
+                { instantLocalEntries: null, requestId: 1 },
+                { fullRenderCompleted: true },
+                () => true,
+            );
+
+            pitchAccent.resolve(['LHHLL']);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expectDeferredPitchPopoverUpdated(popover, originalWord);
+            expect(parsePopoverJapanese).not.toHaveBeenCalled();
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('updates newtab lookup pitch when public pitch resolves after completed details', () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard = testAozoraCard({ pitchAccent: ['LHHLL'] });
+        const { popover, originalWord } = appendDeferredPitchPopover(lookupCard);
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            repositionLookupPopover: () => void;
+            updateDeferredLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: []): void;
+        };
+        internals.activeLookupPopover = popover;
+        internals.settings = { ...DEFAULT_SETTINGS, showPitchAccent: true };
+        internals.repositionLookupPopover = vi.fn();
+
+        try {
+            internals.updateDeferredLookupPitch(popover, lookupCard, []);
+
+            expectDeferredPitchPopoverUpdated(popover, originalWord);
+            expect(internals.repositionLookupPopover).toHaveBeenCalled();
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
+    it('hydrates popup Anki details even when the fast status cache misses', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772201,
+            sid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: {
+                    Word: '動画',
+                    Meaning: 'video',
+                },
+                tags: ['existing'],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const { popover, renderCompletedCardPopover, data, renderData, internals } = setupHydratedPopupAnkiLookup(app, {
+            lookup: fastMiss,
+            ankiDecks: ['Anime::Mining'],
+            hydrateAnkiLookup,
+        });
+
+        try {
+            await expectHydratedPopupAnkiRender({
+                popover,
+                lookupCard,
+                sentence: '動画を見る。',
+                data,
+                renderData,
+                internals,
+                renderCompletedCardPopover,
+                ankiLookup: hydratedLookup,
+            });
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates popup Anki details when the detailed lookup has notes without a primary', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772207,
+            sid: 0,
+            spelling: '音声',
+            reading: 'おんせい',
+            source: 'jpdb',
+        };
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: true };
+        const note: AnkiExistingNote = {
+            noteId: 58,
+            primaryCardId: 7704,
+            cardIds: [7704],
+            state: 'known',
+            deckNames: ['Audio Mining'],
+            modelName: 'Imported Core',
+            fields: {
+                Word: '音声',
+                Audio: '[sound:onsei.mp3]',
+            },
+            renderedCards: [{
+                cardId: 7704,
+                deckName: 'Audio Mining',
+                question: '<div>音声 [sound:onsei.mp3]</div>',
+                answer: '<div>audio</div>',
+            }],
+            tags: ['existing'],
+            reps: 8,
+            lapses: 0,
+        };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [note],
+            primary: null,
+            trusted: true,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const { popover, renderCompletedCardPopover, data, renderData, internals } = setupHydratedPopupAnkiLookup(app, {
+            lookup: fastMiss,
+            ankiDecks: ['Audio Mining'],
+            hydrateAnkiLookup,
+        });
+
+        try {
+            await expectHydratedPopupAnkiRender({
+                popover,
+                lookupCard,
+                sentence: '音声を聞く。',
+                data,
+                renderData,
+                internals,
+                renderCompletedCardPopover,
+                ankiLookup: hydratedLookup,
+            });
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('renders cached popup Anki status as unavailable when detail hydration fails', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772205,
+            sid: 0,
+            spelling: '始める',
+            reading: 'はじめる',
+            source: 'jpdb',
+        };
+        const cachedLookup: AnkiLookupResult = {
+            state: 'due',
+            notes: [],
+            primary: {
+                noteId: 56,
+                primaryCardId: 7702,
+                cardIds: [7702],
+                state: 'due',
+                deckNames: ['Vocab 2k'],
+                modelName: 'Imported Core',
+                fields: {},
+                tags: ['cached'],
+                reps: 5,
+                lapses: 0,
+            },
+        };
+        const hydrateAnkiLookup = vi.fn(async (): Promise<AnkiLookupResult> => {
+            throw new Error('AnkiConnect unavailable');
+        });
+        const { popover, renderCompletedCardPopover, data, renderData, internals } = setupHydratedPopupAnkiLookup(app, {
+            lookup: cachedLookup,
+            ankiDecks: [],
+            hydrateAnkiLookup,
+        });
+
+        try {
+            await expectHydratedPopupAnkiRender({
+                popover,
+                lookupCard,
+                sentence: 'テストを始めてください。',
+                data,
+                renderData,
+                internals,
+                renderCompletedCardPopover,
+                ankiLookup: expect.objectContaining({
+                    primary: expect.objectContaining({
+                        noteId: 56,
+                        detailsUnavailable: true,
+                    }),
+                }),
+            });
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates popup out of pending Anki miss when cache confirms no existing card', async () => {
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772203,
+            sid: 0,
+            spelling: '未登録',
+            reading: 'みとうろく',
+            source: 'jpdb',
+        };
+        const fastMiss: AnkiLookupResult = {
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+            trusted: false,
+        };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'not-in-deck',
+            notes: [],
+            primary: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const { popover, renderCompletedCardPopover, data, renderData, internals } = setupHydratedPopupAnkiLookup(app, {
+            lookup: fastMiss,
+            ankiDecks: ['Mining'],
+            hydrateAnkiLookup,
+        });
+
+        try {
+            await expectHydratedPopupAnkiRender({
+                popover,
+                lookupCard,
+                sentence: '未登録の語を見る。',
+                data,
+                renderData,
+                internals,
+                renderCompletedCardPopover,
+                ankiLookup: hydratedLookup,
+            });
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not start hover Anki detail hydration after the hover becomes stale', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772202,
+            sid: 0,
+            spelling: '連続',
+            reading: 'れんぞく',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydrateAnkiLookup = vi.fn(async () => ({
+            state: 'known',
+            notes: [],
+            primary: null,
+        } satisfies AnkiLookupResult));
+        const renderCompletedCardPopover = vi.fn();
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        let currentHover = true;
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup(
+                context: TestCardPopoverHydrationContext,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+            ): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.renderHydratedCardAnkiLookup(
+                {
+                    popover,
+                    card: lookupCard,
+                    sentence: '連続して読む。',
+                    trigger: 'hover',
+                    state: { data },
+                    requestId: 1,
+                    isCurrentHoverCard: () => currentHover,
+                },
+                { hydrateAnkiLookup },
+            );
+
+            expect(hydrateAnkiLookup).not.toHaveBeenCalled();
+            currentHover = false;
+            await vi.advanceTimersByTimeAsync(180);
+
+            expect(hydrateAnkiLookup).not.toHaveBeenCalled();
+            expect(renderCompletedCardPopover).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+            popover.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates newtab lookup Anki details even when the fast status cache misses', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772201,
+            sid: 0,
+            spelling: '動画',
+            reading: 'どうが',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const fastMiss: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null };
+        const hydratedLookup: AnkiLookupResult = {
+            state: 'known',
+            notes: [],
+            primary: {
+                noteId: 55,
+                primaryCardId: 7701,
+                cardIds: [7701],
+                state: 'known',
+                deckNames: ['Anime::Mining'],
+                modelName: 'Imported Core',
+                fields: { Word: '動画' },
+                tags: ['existing'],
+                reps: 14,
+                lapses: 2,
+            },
+        };
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: fastMiss,
+            jpdbDecks: [],
+            ankiDecks: ['Anime::Mining'],
+            jpdbVocabularyInfo: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async () => hydratedLookup);
+        const render = vi.fn(() => '<div class="jpdb-reader-popover-body"><div class="jpdb-reader-meta">Anki Known</div></div>');
+        const applyAnkiLookupToRenderedWords = vi.fn();
+        const installTracking = vi.fn();
+        const parseNewTabContent = vi.fn(async () => undefined);
+        const installLookupPopoverSources = vi.fn();
+        const repositionLookupPopover = vi.fn();
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            lookupRenderRequest: number;
+            lookupPopoverRenderer: { render: typeof render };
+            applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
+            localizeLookupPopoverChrome: () => void;
+            dictionarySourceState: { installTracking: typeof installTracking };
+            parseNewTabContent: typeof parseNewTabContent;
+            installLookupPopoverSources: typeof installLookupPopoverSources;
+            repositionLookupPopover: typeof repositionLookupPopover;
+            renderHydratedLookupAnki(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+            ): void;
+        };
+        internals.activeLookupPopover = popover;
+        internals.lookupRenderRequest = 7;
+        internals.lookupPopoverRenderer = { render };
+        internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
+        internals.localizeLookupPopoverChrome = vi.fn();
+        internals.dictionarySourceState = { installTracking };
+        internals.parseNewTabContent = parseNewTabContent;
+        internals.installLookupPopoverSources = installLookupPopoverSources;
+        internals.repositionLookupPopover = repositionLookupPopover;
+
+        try {
+            internals.renderHydratedLookupAnki(
+                popover,
+                lookupCard,
+                '動画を見る。',
+                data,
+                { hydrateAnkiLookup },
+                7,
+            );
+
+            await vi.waitFor(() => expect(render).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(render).toHaveBeenCalledWith(lookupCard, '動画を見る。', 'modal', expect.objectContaining({
+                ankiLookup: hydratedLookup,
+                loading: false,
+            }));
+            expect(popover.textContent).toContain('Anki Known');
+            expect(applyAnkiLookupToRenderedWords).toHaveBeenCalledWith(lookupCard, hydratedLookup);
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
+    it('renders cached newtab Anki status as unavailable when detail hydration fails', async () => {
+        const runtime = new NewTabRuntime();
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: 772206,
+            sid: 0,
+            spelling: '始める',
+            reading: 'はじめる',
+            source: 'jpdb',
+        };
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const cachedLookup: AnkiLookupResult = {
+            state: 'due',
+            notes: [],
+            primary: {
+                noteId: 57,
+                primaryCardId: 7703,
+                cardIds: [7703],
+                state: 'due',
+                deckNames: ['Vocab 2k'],
+                modelName: 'Imported Core',
+                fields: {},
+                tags: ['cached'],
+                reps: 5,
+                lapses: 0,
+            },
+        };
+        const data: CardRenderData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: cachedLookup,
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+        };
+        const hydrateAnkiLookup = vi.fn(async (): Promise<AnkiLookupResult> => {
+            throw new Error('AnkiConnect unavailable');
+        });
+        const render = vi.fn(() => '<div class="jpdb-reader-popover-body"><div class="jpdb-reader-meta">Anki Due</div><div>Card details did not arrive</div></div>');
+        const applyAnkiLookupToRenderedWords = vi.fn();
+        const installTracking = vi.fn();
+        const parseNewTabContent = vi.fn(async () => undefined);
+        const installLookupPopoverSources = vi.fn();
+        const repositionLookupPopover = vi.fn();
+        const internals = runtime as unknown as {
+            activeLookupPopover: HTMLElement;
+            lookupRenderRequest: number;
+            lookupPopoverRenderer: { render: typeof render };
+            applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
+            localizeLookupPopoverChrome: () => void;
+            dictionarySourceState: { installTracking: typeof installTracking };
+            parseNewTabContent: typeof parseNewTabContent;
+            installLookupPopoverSources: typeof installLookupPopoverSources;
+            repositionLookupPopover: typeof repositionLookupPopover;
+            renderHydratedLookupAnki(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                data: CardRenderData,
+                renderData: { hydrateAnkiLookup?: () => Promise<AnkiLookupResult> },
+                requestId: number,
+            ): void;
+        };
+        internals.activeLookupPopover = popover;
+        internals.lookupRenderRequest = 8;
+        internals.lookupPopoverRenderer = { render };
+        internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
+        internals.localizeLookupPopoverChrome = vi.fn();
+        internals.dictionarySourceState = { installTracking };
+        internals.parseNewTabContent = parseNewTabContent;
+        internals.installLookupPopoverSources = installLookupPopoverSources;
+        internals.repositionLookupPopover = repositionLookupPopover;
+
+        try {
+            internals.renderHydratedLookupAnki(
+                popover,
+                lookupCard,
+                'テストを始めてください。',
+                data,
+                { hydrateAnkiLookup },
+                8,
+            );
+
+            await vi.waitFor(() => expect(render).toHaveBeenCalled());
+            expect(hydrateAnkiLookup).toHaveBeenCalledTimes(1);
+            expect(render).toHaveBeenCalledWith(lookupCard, 'テストを始めてください。', 'modal', expect.objectContaining({
+                ankiLookup: expect.objectContaining({
+                    primary: expect.objectContaining({
+                        noteId: 57,
+                        detailsUnavailable: true,
+                    }),
+                }),
+                loading: false,
+            }));
+            expect(applyAnkiLookupToRenderedWords).toHaveBeenCalledWith(lookupCard, expect.objectContaining({
+                primary: expect.objectContaining({ detailsUnavailable: true }),
+            }));
+            expect(popover.textContent).toContain('Card details did not arrive');
+        } finally {
+            popover.remove();
+            runtime.destroy();
+        }
+    });
+
+});

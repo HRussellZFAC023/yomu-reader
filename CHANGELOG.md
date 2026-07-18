@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.197] - 2026-07-18
+
+### Changed
+
+- Split the three remaining oversized reader test files (JPDB, New Tab review, settings form) into focused per-topic test modules with shared fixtures, and deleted the bespoke test-shard code-generator entirely; the test runner now shards ordinary files, cutting hundreds of lines of brittle harness code with no change to what is tested.
+
 ## [1.6.196] - 2026-07-18
 
 ### Fixed
