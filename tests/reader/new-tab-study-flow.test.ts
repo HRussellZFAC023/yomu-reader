@@ -687,3 +687,109 @@ describe('extension new-tab opt-out', () => {
         }
     });
 });
+
+interface PitchGateInternals {
+    loadWordPitch(card: JPDBCard): Promise<string[]>;
+}
+
+function kanaCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
+    return {
+        vid: 40,
+        sid: 41,
+        rid: 0,
+        spelling: 'じ',
+        reading: 'じ',
+        frequencyRank: 5000,
+        partOfSpeech: ['n'],
+        meanings: [{ glosses: ['self'], partOfSpeech: ['n'] }],
+        cardState: ['due'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jpdb',
+        reviewSource: 'jpdb-api',
+        sentence: 'じがすき',
+        ...overrides,
+    } as JPDBCard;
+}
+
+async function flushMicrotasks(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 0));
+}
+
+describe('study flow: Listen/Speak gated on resolved pitch', () => {
+    it('hides Listen and Speak when the card truly has no resolved pitch', async () => {
+        const card = kanaCard();
+        const { controller, internals } = studyController([card]);
+        const root = studyRoot();
+        const pitchInternals = controller as unknown as PitchGateInternals;
+        pitchInternals.loadWordPitch = vi.fn(() => Promise.resolve([]));
+        try {
+            internals.state.mode = 'word';
+            internals.renderWord(root, card);
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]');
+            expect(study?.dataset.newtabStudyFlow).not.toContain('listen-pitch');
+            expect(study?.dataset.newtabStudyFlow).not.toContain('speaking');
+
+            await flushMicrotasks();
+            // Nothing resolved, so a later render of the same card stays gated.
+            internals.renderWord(root, card);
+            const settled = root.querySelector<HTMLElement>('[data-newtab-study]');
+            expect(settled?.dataset.newtabStudyFlow).not.toContain('listen-pitch');
+            expect(settled?.dataset.newtabStudyFlow).not.toContain('speaking');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('adds Listen and Speak once pitch resolves even when inline pitch display is disabled', async () => {
+        const card = kanaCard();
+        const { controller, internals } = studyController([card], { showPitchAccent: false });
+        const root = studyRoot();
+        const pitchInternals = controller as unknown as PitchGateInternals;
+        pitchInternals.loadWordPitch = vi.fn(() => Promise.resolve(['H']));
+        try {
+            internals.state.mode = 'word';
+            internals.renderWord(root, card);
+            const beforeFlow = root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow;
+            expect(beforeFlow).not.toContain('listen-pitch');
+            expect(beforeFlow).not.toContain('speaking');
+
+            await flushMicrotasks();
+
+            expect(card.pitchAccent).toEqual(['H']);
+            const afterFlow = root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow;
+            expect(afterFlow).toContain('listen-pitch');
+            expect(afterFlow).toContain('speaking');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not apply a stale pitch upgrade after the learner navigates to another card', async () => {
+        const first = kanaCard({ vid: 40, spelling: 'じ', reading: 'じ' });
+        const second = kanaCard({ vid: 42, spelling: 'て', reading: 'て' });
+        let resolvePitch = (_pitch: string[]): void => {};
+        const pendingPitch = new Promise<string[]>(resolve => { resolvePitch = resolve; });
+        const { controller, internals } = studyController([first, second]);
+        const root = studyRoot();
+        const pitchInternals = controller as unknown as PitchGateInternals;
+        pitchInternals.loadWordPitch = vi.fn(card => card === first ? pendingPitch : Promise.resolve([]));
+        try {
+            internals.state.mode = 'word';
+            internals.renderWord(root, first);
+            internals.index = 1;
+            internals.renderWord(root, second);
+
+            resolvePitch(['H']);
+            await flushMicrotasks();
+
+            // The resolved pitch may be cached on the old card, but must not
+            // reshape or rerender the different card now on screen.
+            expect(first.pitchAccent).toEqual(['H']);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyFlow).not.toContain('listen-pitch');
+            expect(root.querySelector<HTMLElement>('[data-newtab-prompt]')?.textContent).toContain('て');
+        } finally {
+            controller.destroy();
+        }
+    });
+});

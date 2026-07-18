@@ -143,6 +143,7 @@ describe('type-word step sequencing and gating', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
         });
         expect(session.steps.map(step => step.kind)).toEqual([
             'kanji-doodle',
@@ -161,6 +162,7 @@ describe('type-word step sequencing and gating', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
             stepOrder: ['type-word', 'speaking', 'word'],
         });
         const kinds = session.steps.map(step => step.kind);
@@ -173,6 +175,7 @@ describe('type-word step sequencing and gating', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
             disabledSteps: ['type-word'],
         });
         expect(session.steps.map(step => step.kind)).not.toContain('type-word');
@@ -184,6 +187,7 @@ describe('type-word step sequencing and gating', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
             disabledSteps: ['word'],
         });
         expect(session.steps.map(step => step.kind)).not.toContain('word');
@@ -196,6 +200,7 @@ describe('type-word step sequencing and gating', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
+            pitchAvailable: true,
         });
         expect(session.steps.map(step => step.kind)).toEqual([
             'word',

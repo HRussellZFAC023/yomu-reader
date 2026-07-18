@@ -146,7 +146,7 @@ Each card walks through a short set of steps, and you only grade once at the end
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, right on your device.
 - **Check and grade** — the full answer and details appear, then you rate how it went.
 
-Steps only show up when they fit the card, so a kana-only word skips the kanji drawing and a word with no pitch data skips the listen and speak steps. The pitch practice keeps its own lightweight review schedule that grows from the words already feeding the page.
+Steps only show up when they fit the card, so a kana-only word skips the kanji drawing and a word with no classifiable pitch skips the listen and speak steps. Exact pitch can resolve from local dictionaries, Jiten, or public JPDB — including one-mora entries such as 自（じ） — and adds those steps automatically. The pitch practice keeps its own lightweight review schedule that grows from the words already feeding the page.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 

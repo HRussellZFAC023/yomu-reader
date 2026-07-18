@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.205] - 2026-07-18
+
+### Fixed
+
+- Fixed one-mora pitch accents such as 自（じ） across Study and popovers: Yomu now accepts exact single-level JPDB graphs, adds Listen/Speak when local, Jiten, or public JPDB enrichment resolves classifiable pitch, and omits those dead steps when no exact pitch exists.
+
 ## [1.6.204] - 2026-07-18
 
 ### Changed

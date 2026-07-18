@@ -29,6 +29,8 @@ export interface NewTabStudySessionOptions {
     revealAnswer: boolean;
     renderAsKanji: boolean;
     hasRecallCloze: boolean;
+    /** Exact, classifiable pitch is available for Listen/Speak. Omitted means unavailable. */
+    pitchAvailable?: boolean;
     stepOrder?: NewTabStudyChallengeStep[];
     disabledSteps?: NewTabStudyChallengeStep[];
     activeStepId?: NewTabStudyStepId | null;
@@ -59,12 +61,13 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     if (options.renderAsKanji || containsKanji(card.spelling)) available.add('kanji-doodle');
     available.add('word');
     if (options.hasRecallCloze) available.add('recall-cloze');
-    // Listen/Speak are part of EVERY card's flow regardless of provider: pitch
-    // data enriches lazily from the local dictionary, so gating the steps on
-    // already-loaded pitch made the flow shape depend on the review source
-    // (owner: "listen and speak should always be there, whether jiten or jpdb").
-    available.add('listen-pitch');
-    available.add('speaking');
+    // Listen/Speak drill pitch accent, so they only make sense once pitch has
+    // actually resolved for this card. Pitch may still enrich lazily after this
+    // plan is pinned; the controller owns the monotonic upgrade.
+    if (options.pitchAvailable) {
+        available.add('listen-pitch');
+        available.add('speaking');
+    }
     // Type is part of the stable Word flow even while a sourced N+1 sentence
     // is still loading. The prompt upgrades to that cloze when it arrives;
     // without one, the learner can still reproduce the word itself.

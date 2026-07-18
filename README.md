@@ -85,7 +85,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
-- [Study page](https://yomureader.com/study/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut. The old `/newtab/` URL remains a compatibility route.
+- [Study page](https://yomureader.com/study/) for review cards and Listen pitch-accent practice in a browser tab or mobile Home Screen shortcut. Cards without classifiable pitch skip Listen/Speak; exact pitch resolved from local, Jiten, or public JPDB sources adds those steps automatically. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 

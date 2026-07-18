@@ -44,7 +44,7 @@ export function readJpdbPitchPatterns(root: ParentNode): string[] {
             const pattern = Array.from(row.querySelectorAll<HTMLElement>('div[style*="--pitch-low"], div[style*="--pitch-high"]'))
                 .map(segment => pitchSegmentPattern(segment))
                 .join('');
-            if (pattern.length >= 2) patterns.push(pattern);
+            if (pattern.length >= 1) patterns.push(pattern);
         });
     });
     return patterns;

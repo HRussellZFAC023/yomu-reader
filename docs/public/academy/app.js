@@ -230536,6 +230536,31 @@ ${entry2.reading || ""}`;
   function unannotatedPronunciationText(value) {
     return Array.from(value).filter((character) => !isKanjiCharacter(character)).join("");
   }
+  const MAX_VISIBLE_KANJI_KEYWORDS = 5;
+  function renderKanjiKeywordChips(sources, language) {
+    const keywords = /* @__PURE__ */ new Map();
+    for (const { text: text2, label, canonical } of sources) {
+      const normalized2 = text2?.trim();
+      if (!normalized2) continue;
+      const key2 = normalized2.toLocaleLowerCase();
+      const existing = keywords.get(key2) ?? { text: normalized2, labels: [], canonical: false };
+      if (!existing.labels.includes(label)) existing.labels.push(label);
+      existing.canonical ||= Boolean(canonical);
+      keywords.set(key2, existing);
+    }
+    const all = Array.from(keywords.values());
+    const shown = all.slice(0, MAX_VISIBLE_KANJI_KEYWORDS);
+    const overflow = all.slice(MAX_VISIBLE_KANJI_KEYWORDS);
+    const chips = shown.map((keyword) => renderKanjiKeywordChip(keyword)).join("") + renderKanjiKeywordOverflowChip(overflow);
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  }
+  function renderKanjiKeywordChip(keyword) {
+    return `<span class="jpdb-reader-kanji-keyword"${keyword.canonical ? ' data-canonical=""' : ""} title="${escapeHtml$1(keyword.labels.join(" · "))}"><small class="jpdb-reader-kanji-keyword-source">${escapeHtml$1(keyword.labels.join("/"))}</small><span class="jpdb-reader-kanji-keyword-text">${escapeHtml$1(keyword.text)}</span></span>`;
+  }
+  function renderKanjiKeywordOverflowChip(overflow) {
+    if (!overflow.length) return "";
+    return `<span class="jpdb-reader-kanji-keyword jpdb-reader-kanji-keyword-more" title="${escapeHtml$1(overflow.map((keyword) => keyword.text).join(" · "))}">+${overflow.length}</span>`;
+  }
   function buildRtkComponentSummaries(rtkInfo, jpdbInfo, entries2) {
     const elementKeywords = splitRtkElements(rtkInfo?.elements ?? "").filter((keyword) => rtkElementKey(keyword) !== rtkElementKey(rtkInfo?.keyword ?? ""));
     const jpdbByKanji = new Map((jpdbInfo?.components ?? []).map((component) => [component.kanji, component.keyword]));
@@ -230548,20 +230573,11 @@ ${entry2.reading || ""}`;
     return summaries;
   }
   function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en") {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source2) => {
-      const normalized2 = text2?.trim();
-      if (!normalized2) return;
-      const key2 = normalized2.toLocaleLowerCase();
-      const existing = keywords.get(key2) ?? { text: normalized2, sources: [] };
-      if (!existing.sources.includes(source2)) existing.sources.push(source2);
-      keywords.set(key2, existing);
-    };
-    addKeyword(jpdbInfo?.keyword, "JPDB");
-    addKeyword(rtkInfo?.keyword, "RTK");
-    entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+    return renderKanjiKeywordChips([
+      { text: jpdbInfo?.keyword, label: "JPDB", canonical: true },
+      { text: rtkInfo?.keyword, label: "RTK" },
+      ...entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
+    ], language);
   }
   function parseRtkElementChip(value) {
     const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
@@ -240510,20 +240526,11 @@ ${key2}`] = { t: now, v: value };
     return info?.meanings?.[0] ?? "";
   }
   function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source2) => {
-      const normalized2 = text2?.trim();
-      if (!normalized2) return;
-      const key2 = normalized2.toLocaleLowerCase();
-      const existing = keywords.get(key2) ?? { text: normalized2, sources: [] };
-      if (!existing.sources.includes(source2)) existing.sources.push(source2);
-      keywords.set(key2, existing);
-    };
-    addKeyword(jitenKanjiKeyword(info), "Jiten");
-    addKeyword(rtkInfo?.keyword, "RTK");
-    entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+    return renderKanjiKeywordChips([
+      { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
+      { text: rtkInfo?.keyword, label: "RTK" },
+      ...entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
+    ], language);
   }
   function jitenKanjiFactRows(info, language) {
     if (!info) return [];
@@ -240875,7 +240882,7 @@ ${key2}`] = { t: now, v: value };
       const stack = section.querySelector(".subsection > div") ?? section;
       Array.from(stack.children).forEach((row) => {
         const pattern = Array.from(row.querySelectorAll('div[style*="--pitch-low"], div[style*="--pitch-high"]')).map((segment) => pitchSegmentPattern(segment)).join("");
-        if (pattern.length >= 2) patterns.push(pattern);
+        if (pattern.length >= 1) patterns.push(pattern);
       });
     });
     return patterns;
@@ -247910,8 +247917,10 @@ ${entry2.url}`),
     if (options.renderAsKanji || containsKanji(card.spelling)) available.add("kanji-doodle");
     available.add("word");
     if (options.hasRecallCloze) available.add("recall-cloze");
-    available.add("listen-pitch");
-    available.add("speaking");
+    if (options.pitchAvailable) {
+      available.add("listen-pitch");
+      available.add("speaking");
+    }
     if (!disabled.has("word")) available.add("type-word");
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
     const kanji = kanjiCharacters(card.spelling);
@@ -253410,20 +253419,38 @@ ${entry2.url}`),
         activeStepId: this.studyStepOverrideForCard(card)
       });
     }
-    // The step plan is PINNED per card at first presentation: async enrichment
-    // (pitch, sentence, second-kanji details) otherwise reshaped an on-screen
-    // session — 4 chips became 6 and Recall vanished mid-review, and a chip
-    // the user was about to press could stop existing (owner: "flow is super
-    // confusing going from 4 to 6 options"). Late enrichment benefits the NEXT
-    // card; the visible plan never changes underneath the user.
+    // The step plan is PINNED per card at first presentation: async sentence or
+    // kanji enrichment must not reshape an on-screen session. Pitch is the sole
+    // monotonic exception below because an unresolved card cannot offer usable
+    // Listen/Speak steps, while an exact late result can safely add them once.
     pinnedStudyPlanInputs(card) {
       const key2 = cardKey(card);
       if (this.pinnedStudyPlan?.cardKey === key2) return this.pinnedStudyPlan.inputs;
       const inputs = {
-        hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze
+        hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+        pitchAvailable: pitchSeedFromCard(card, Date.now()) !== null
       };
       this.pinnedStudyPlan = { cardKey: key2, inputs };
       return inputs;
+    }
+    // Pitch availability is pinned like the rest of the plan, but it may resolve
+    // AFTER the pin — public/local/Jiten enrichment lands asynchronously. This is
+    // the one allowed exception: false -> true only (never remove a step already
+    // shown), and only for the pin that matches this card, so a stale enrichment
+    // from a card the learner has since navigated away from can't relabel a
+    // different card's pin or trigger a rerender of what's now on screen.
+    upgradeStudyPlanPitchAvailability(card) {
+      const key2 = cardKey(card);
+      if (this.pinnedStudyPlan?.cardKey !== key2 || this.pinnedStudyPlan.inputs.pitchAvailable) return false;
+      const current = this.visibleWords[this.index];
+      if (!current || cardKey(current) !== key2) return false;
+      if (!current.pitchAccent.length && card.pitchAccent.length) current.pitchAccent = [...card.pitchAccent];
+      if (!pitchSeedFromCard(current, Date.now())) return false;
+      this.pinnedStudyPlan = { cardKey: key2, inputs: { ...this.pinnedStudyPlan.inputs, pitchAvailable: true } };
+      const root = this.currentRoot();
+      if (!root) return false;
+      this.renderWord(root, current);
+      return true;
     }
     studyStepOverrideForCard(card) {
       return this.studyStepOverride?.cardKey === cardKey(card) ? this.studyStepOverride.id : null;
@@ -255312,6 +255339,7 @@ ${entry2.url}`),
       if (!data || !prompt2.isConnected || prompt2.dataset.newtabStudyToolsRequest !== requestId || this.state.mode !== "word" || cardKey(this.visibleWords[this.index]) !== key2) return;
       this.markCardOfflineReady(card);
       this.applyLocalStudyReading(card, data);
+      if (this.upgradeStudyPlanPitchAvailability(card)) return;
       const term = prompt2.querySelector(":scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term");
       if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
       prompt2.querySelector(":scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]")?.replaceWith(this.renderWordPromptTools(card, data.metaEntries));
@@ -257910,6 +257938,7 @@ ${entry2.url}`),
       const pitchAccent = await this.loadWordPitch(card);
       if (root.dataset.newtabPitchRequest !== requestId || !pitchAccent.length) return;
       if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+      if (this.upgradeStudyPlanPitchAvailability(card)) return;
       if (!this.state.revealAnswer) return;
       this.updateRenderedWordPitch(root, card);
     }
@@ -257930,7 +257959,7 @@ ${entry2.url}`),
       }).catch(() => void 0);
     }
     shouldEnrichWordPitch(card) {
-      return this.dependencies.getSettings().showPitchAccent && !card.pitchAccent.length && Boolean(card.spelling.trim());
+      return !card.pitchAccent.length && Boolean(card.spelling.trim());
     }
     loadWordPitch(card) {
       const key2 = this.wordPitchCacheKey(card);

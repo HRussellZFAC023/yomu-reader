@@ -31,6 +31,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
         });
 
         expect(session.steps.map(step => step.kind)).toEqual([
@@ -47,12 +48,27 @@ describe('new-tab study session model', () => {
         expect(session.activeStep.kanji).toBe('読');
     });
 
-    it('keeps listen and speak steps for kana-only cards without preloaded pitch', () => {
+    it('omits listen and speak steps for a kana-only card with no resolved pitch', () => {
         const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: [] }), {
             mode: 'word',
             revealAnswer: true,
             renderAsKanji: false,
             hasRecallCloze: false,
+            pitchAvailable: false,
+        });
+
+        expect(session.steps.map(step => step.kind)).toEqual(['word', 'type-word', 'final-reveal']);
+        expect(session.activeStep.kind).toBe('final-reveal');
+        expect(session.gradeStep.kind).toBe('final-reveal');
+    });
+
+    it('keeps listen and speak steps for a kana-only card once pitch is available', () => {
+        const session = createNewTabStudySession(sessionCard({ spelling: 'よむ', pitchAccent: ['LH'] }), {
+            mode: 'word',
+            revealAnswer: true,
+            renderAsKanji: false,
+            hasRecallCloze: false,
+            pitchAvailable: true,
         });
 
         expect(session.steps.map(step => step.kind)).toEqual(['word', 'type-word', 'listen-pitch', 'speaking', 'final-reveal']);
@@ -67,6 +83,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: true,
             hasRecallCloze: true,
+            pitchAvailable: true,
             activeStepId: 'word',
         });
 
@@ -80,6 +97,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: true,
             hasRecallCloze: true,
+            pitchAvailable: true,
         });
 
         expect(session.activeStep.kind).toBe('kanji-doodle');
@@ -91,6 +109,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
         });
 
         const kanjiSteps = session.steps.filter(step => step.kind === 'kanji-doodle');
@@ -105,6 +124,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: true,
+            pitchAvailable: true,
             stepOrder: ['word', 'listen-pitch', 'recall-cloze', 'kanji-doodle', 'speaking'],
             disabledSteps: ['speaking'],
         });
@@ -126,6 +146,7 @@ describe('new-tab study session model', () => {
             revealAnswer: false,
             renderAsKanji: false,
             hasRecallCloze: false,
+            pitchAvailable: true,
             disabledSteps: ['word', 'listen-pitch', 'speaking'],
         });
 

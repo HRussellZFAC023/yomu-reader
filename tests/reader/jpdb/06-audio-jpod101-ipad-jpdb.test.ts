@@ -1131,6 +1131,46 @@ describe('reader helpers', () => {
         expect(parseJpdbPublicPitchHtml(html, '様', 'さま')).toEqual(['LH']);
     });
 
+    it('keeps a valid one-mora atamadaka pattern from a public JPDB vocabulary page', () => {
+        const html = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/2259190/%E8%87%AA/%E3%81%98">
+            <div class="result vocabulary">
+                <a href="/vocabulary/2259190/%E8%87%AA/%E3%81%98#a">自</a>
+                <div class="subsection-pitch-accent">
+                    <div class="subsection">
+                        <div>
+                            <div>
+                                <div style="background-image: linear-gradient(to bottom,var(--pitch-high-s),var(--pitch-high-e));"><div>じ</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        expect(parseJpdbPublicPitchHtml(html, '自', 'じ')).toEqual(['H']);
+    });
+
+    it('keeps a valid one-mora heiban pattern from a public JPDB vocabulary page', () => {
+        const html = `
+            <link rel="canonical" href="https://jpdb.io/vocabulary/9999999/%E6%89%8B/%E3%81%A6">
+            <div class="result vocabulary">
+                <a href="/vocabulary/9999999/%E6%89%8B/%E3%81%A6#a">手</a>
+                <div class="subsection-pitch-accent">
+                    <div class="subsection">
+                        <div>
+                            <div>
+                                <div style="background-image: linear-gradient(to top,var(--pitch-low-s),var(--pitch-low-e));"><div>て</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        expect(parseJpdbPublicPitchHtml(html, '手', 'て')).toEqual(['L']);
+    });
+
     it('keeps pitch accent from public JPDB search cards', () => {
         const html = `
             <div class="results search">

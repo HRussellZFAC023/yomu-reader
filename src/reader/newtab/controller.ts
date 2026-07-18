@@ -838,7 +838,7 @@ export class NewTabController {
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
     private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
-    private pinnedStudyPlan: { cardKey: string; inputs: { hasRecallCloze: boolean } } | null = null;
+    private pinnedStudyPlan: { cardKey: string; inputs: { hasRecallCloze: boolean; pitchAvailable: boolean } } | null = null;
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
         (root, _target, event, action) => this.handleRootUtilityClick(root, event, action),
@@ -4463,20 +4463,39 @@ export class NewTabController {
         });
     }
 
-    // The step plan is PINNED per card at first presentation: async enrichment
-    // (pitch, sentence, second-kanji details) otherwise reshaped an on-screen
-    // session — 4 chips became 6 and Recall vanished mid-review, and a chip
-    // the user was about to press could stop existing (owner: "flow is super
-    // confusing going from 4 to 6 options"). Late enrichment benefits the NEXT
-    // card; the visible plan never changes underneath the user.
-    private pinnedStudyPlanInputs(card: JPDBCard): { hasRecallCloze: boolean } {
+    // The step plan is PINNED per card at first presentation: async sentence or
+    // kanji enrichment must not reshape an on-screen session. Pitch is the sole
+    // monotonic exception below because an unresolved card cannot offer usable
+    // Listen/Speak steps, while an exact late result can safely add them once.
+    private pinnedStudyPlanInputs(card: JPDBCard): { hasRecallCloze: boolean; pitchAvailable: boolean } {
         const key = cardKey(card);
         if (this.pinnedStudyPlan?.cardKey === key) return this.pinnedStudyPlan.inputs;
         const inputs = {
             hasRecallCloze: buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card)).hasCloze,
+            pitchAvailable: pitchSeedFromCard(card, Date.now()) !== null,
         };
         this.pinnedStudyPlan = { cardKey: key, inputs };
         return inputs;
+    }
+
+    // Pitch availability is pinned like the rest of the plan, but it may resolve
+    // AFTER the pin — public/local/Jiten enrichment lands asynchronously. This is
+    // the one allowed exception: false -> true only (never remove a step already
+    // shown), and only for the pin that matches this card, so a stale enrichment
+    // from a card the learner has since navigated away from can't relabel a
+    // different card's pin or trigger a rerender of what's now on screen.
+    private upgradeStudyPlanPitchAvailability(card: JPDBCard): boolean {
+        const key = cardKey(card);
+        if (this.pinnedStudyPlan?.cardKey !== key || this.pinnedStudyPlan.inputs.pitchAvailable) return false;
+        const current = this.visibleWords[this.index];
+        if (!current || cardKey(current) !== key) return false;
+        if (!current.pitchAccent.length && card.pitchAccent.length) current.pitchAccent = [...card.pitchAccent];
+        if (!pitchSeedFromCard(current, Date.now())) return false;
+        this.pinnedStudyPlan = { cardKey: key, inputs: { ...this.pinnedStudyPlan.inputs, pitchAvailable: true } };
+        const root = this.currentRoot();
+        if (!root) return false;
+        this.renderWord(root, current);
+        return true;
     }
 
     private studyStepOverrideForCard(card: JPDBCard): NewTabStudyStepId | null {
@@ -6637,6 +6656,7 @@ export class NewTabController {
             || cardKey(this.visibleWords[this.index]) !== key) return;
         this.markCardOfflineReady(card);
         this.applyLocalStudyReading(card, data);
+        if (this.upgradeStudyPlanPitchAvailability(card)) return;
         const term = prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front .jpdb-reader-newtab-term');
         if (term) replaceChildrenWith(term, this.renderPromptReaderWord(card, state, currentSentence || card.spelling));
         prompt.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-front > [data-newtab-study-tools]')
@@ -9809,6 +9829,7 @@ export class NewTabController {
         const pitchAccent = await this.loadWordPitch(card);
         if (root.dataset.newtabPitchRequest !== requestId || !pitchAccent.length) return;
         if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+        if (this.upgradeStudyPlanPitchAvailability(card)) return;
         if (!this.state.revealAnswer) return;
         this.updateRenderedWordPitch(root, card);
     }
@@ -9835,8 +9856,7 @@ export class NewTabController {
     }
 
     private shouldEnrichWordPitch(card: JPDBCard): boolean {
-        return this.dependencies.getSettings().showPitchAccent
-            && !card.pitchAccent.length
+        return !card.pitchAccent.length
             && Boolean(card.spelling.trim());
     }
 
