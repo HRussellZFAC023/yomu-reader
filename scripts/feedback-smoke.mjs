@@ -411,6 +411,17 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     await pressWordNavigationShortcut(page, 'ArrowRight');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '犬');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-popover')?.textContent?.includes('犬'));
+    // The popup font stack arrives via the --jpdb-reader-popup-font custom
+    // property a frame or two after the popover text renders (and detail
+    // hydration can re-render the spelling node), so a one-shot computed-style
+    // read races font application on a loaded runner. Wait for the font to be
+    // applied before snapshotting styles.
+    await page.waitForFunction(() => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling') ?? document.querySelector('.jpdb-reader-spelling');
+        if (!spelling) return false;
+        const fontFamily = getComputedStyle(spelling).fontFamily;
+        return fontFamily.includes('Nunito Sans') || fontFamily.includes('Noto Sans JP');
+    }, { timeout: 6000 });
 
     const popupStyle = await readKeyboardPopupStyle(page);
     assertKeyboardPopupStyle(popupStyle);

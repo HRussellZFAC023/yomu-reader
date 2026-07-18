@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.200] - 2026-07-18
+
+### Fixed
+
+- Stabilized the popup font-stack check in the priority smoke suite: it now waits for the configured Japanese font stack to actually be applied to the popup before reading styles, instead of racing the font application on a loaded machine; this removes an intermittent false failure in CI with no change to what is verified.
+
 ## [1.6.199] - 2026-07-18
 
 ### Changed
