@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.203] - 2026-07-18
+
+### Fixed
+
+- Card headwords now always show their reading as furigana when furigana is enabled: page-level furigana modes such as known-status and difficult-kanji no longer strip the ruby off popover, study, and search headwords, which previously made the reading fall back to a plain kana chip beside the word.
+- Kana-only headwords no longer repeat the identical kana reading beside the word; katakana headwords keep their hiragana reading.
+- The study-page search detail header now renders the headword with furigana instead of plain text with the reading underneath.
+
 ## [1.6.202] - 2026-07-18
 
 ### Fixed

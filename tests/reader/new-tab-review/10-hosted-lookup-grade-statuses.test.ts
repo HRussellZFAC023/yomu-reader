@@ -556,7 +556,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         }
     });
 
-    it('shows the reading plus JPDB and Anki statuses in new-tab lookup header order', async () => {
+    it('hides the redundant kana reading in the new-tab lookup header statuses', async () => {
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({
             spelling: 'よむ',
@@ -598,7 +598,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 const labels = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-meta > span')).map(item => item.textContent);
                 expect(labels).toEqual(['#20200', 'JPDB Redundant', 'Anki Known']);
             });
-            expect(document.querySelector<HTMLElement>('[data-newtab-lookup-reading]')?.textContent).toBe('よむ');
+            expect(document.querySelector<HTMLElement>('[data-newtab-lookup-reading]')).toBeNull();
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -1119,10 +1119,10 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             return element.textContent ?? '';
         });
 
-        expect(metaItems()).toEqual(['にほんご', '#250', 'Anki Due']);
+        expect(metaItems()).toEqual(['#250', 'Anki Due']);
 
         apiKey = 'jpdb-key';
-        expect(metaItems()).toEqual(['にほんご', '#250', 'JPDB Not in deck', 'Anki Due']);
+        expect(metaItems()).toEqual(['#250', 'JPDB Not in deck', 'Anki Due']);
     });
 
     it('does not show Add to Anki while a new-tab lookup Anki miss is untrusted', async () => {

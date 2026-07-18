@@ -16,7 +16,7 @@ import {
 } from './search-view';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
-import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from '../cards/reading-display';
+import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
@@ -5932,7 +5932,7 @@ export class NewTabController {
         if (!isJitenSrsCard(sourceCard) || isStandaloneKanjiCard(sourceCard, kanji) || sourceCard.spelling === kanji) return null;
         const settings = this.dependencies.getSettings();
         const reading = newTabCardOptionalReading(sourceCard);
-        const visibleReading = reading && !isPlainReadingDuplicatedByVisibleRuby(sourceCard, { ...settings, furiganaMode: 'all', showFurigana: true }, reading)
+        const visibleReading = reading && !isPlainReadingRedundantForHeadword(sourceCard, { ...settings, furiganaMode: 'all', showFurigana: true }, reading)
             ? reading
             : '';
         const meaning = firstCardMeaning(sourceCard);
@@ -6559,7 +6559,9 @@ export class NewTabController {
             return el('span', { class: 'jpdb-reader-newtab-study-tools', dataset: { newtabStudyTools: true } });
         }
         const rawReading = newTabCardOptionalReading(card);
-        const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: 'all', showFurigana: true }, rawReading)
+        // Forced settings mirror the revealed headword renderer, which always
+        // draws answer ruby — the chip only covers readings ruby can't show.
+        const reading = rawReading && !isPlainReadingRedundantForHeadword(card, { ...settings, furiganaMode: 'all', showFurigana: true }, rawReading)
             ? rawReading
             : '';
         const pitch = settings.showPitchAccent
@@ -6713,11 +6715,16 @@ export class NewTabController {
         // buttons used to cover the entire revealed surface, so the word itself
         // became unreachable. Kanji drilldown lives in the popover's
         // composed-of chips instead.
+        const settings = this.dependencies.getSettings();
+        // Reveal surfaces are answer surfaces: the reading IS the answer, so
+        // ruby is forced even for furigana-off users (codified in the card-front
+        // suite). Pre-reveal stays bare for recall.
         setInnerHtml(word, renderCardSpellingWithFurigana(card, {
-            ...this.dependencies.getSettings(),
+            ...settings,
             furiganaMode: revealAnswer ? 'all' : 'off',
             showFurigana: revealAnswer,
         }, { enabled: false, label: this.text('showKanji') }));
+        word.dataset.yomuHeadword = 'true';
         if (!revealAnswer) this.hidePromptPronunciation(word);
         return word;
     }
@@ -9755,6 +9762,7 @@ export class NewTabController {
                 furiganaMode: 'all',
                 showFurigana: true,
             }, { enabled: true, label: this.text('showKanji') }));
+            word.dataset.yomuHeadword = 'true';
         }
         return word;
     }

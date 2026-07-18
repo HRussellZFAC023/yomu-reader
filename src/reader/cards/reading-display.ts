@@ -9,7 +9,19 @@ const KANJI_RE = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 
 function compactReading(value: string): string {
-    return value.replace(/\s+/g, '').trim();
+    // NFC: imported Anki/local-dictionary readings can arrive decomposed;
+    // canonically-equivalent kana must still compare equal to the spelling.
+    return value.normalize('NFC').replace(/\s+/g, '').trim();
+}
+
+// Card headwords are dictionary entries: the reading belongs on the word as
+// furigana whenever ruby data exists. Page-level furigana modes (known-status,
+// difficult-kanji, hover) only govern in-page words — without this override a
+// known word's headword lost its ruby and the kana fell back beside the word.
+// An explicit furigana-off still wins (the kana then shows beside instead).
+export function headwordFuriganaSettings(settings: ReaderSettings): ReaderSettings {
+    if (!settings.showFurigana || settings.furiganaMode === 'off') return settings;
+    return { ...settings, furiganaMode: 'all' };
 }
 
 export function renderCardSpellingWithFurigana(
@@ -20,24 +32,28 @@ export function renderCardSpellingWithFurigana(
     const spelling = card.spelling.trim();
     if (!spelling) return '';
     const token = cardSpellingFuriganaToken(card, spelling);
-    return shouldRenderRuby(spelling, token, settings, true, true)
+    return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true)
         ? renderRuby(spelling, token, kanjiNavigation, true)
         : renderKanjiNavigationText(spelling, kanjiNavigation);
 }
 
-export function isPlainReadingDuplicatedByVisibleRuby(
+export function isPlainReadingRedundantForHeadword(
     card: HeadwordFuriganaCard,
     settings: ReaderSettings,
     plainReading: string,
 ): boolean {
     const spelling = card.spelling.trim();
     const normalizedPlainReading = compactReading(plainReading);
-    if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
+    if (!spelling || !normalizedPlainReading) return false;
+    // A reading identical to the visible word is a pointless repetition
+    // (kana-only headwords). Katakana headwords keep their hiragana reading
+    // because the strings differ.
+    if (normalizedPlainReading === compactReading(spelling)) return true;
 
     const token = cardSpellingFuriganaToken(card, spelling);
     const visibleReading = headwordFuriganaReading(spelling, token);
     if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
-    return shouldRenderRuby(spelling, token, settings, true, true);
+    return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true);
 }
 
 function cardSpellingFuriganaToken(card: HeadwordFuriganaCard, spelling: string): JPDBToken {

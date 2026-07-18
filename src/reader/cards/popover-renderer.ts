@@ -4,7 +4,7 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
-import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from './reading-display';
+import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
@@ -174,7 +174,7 @@ export class CardPopoverRenderer {
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
         const kanjiNavigation = { enabled: true, label: uiText(view.language, 'showKanji') };
         return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -739,7 +739,7 @@ function renderApiMiningActionDetails(language: InterfaceLanguage, state: Mining
 
 function renderMetaReading(card: JPDBCard, settings: ReaderSettings): string {
     const reading = cardPronunciationReading(card);
-    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
+    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return '';
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
 }
 

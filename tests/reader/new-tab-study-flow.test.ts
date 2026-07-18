@@ -534,6 +534,59 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
     });
 });
 
+describe('study flow: revealed answer reading stays visible', () => {
+    function revealedWordController(settings: Partial<ReaderSettings>) {
+        const card = drinkCard({
+            vid: 50,
+            sid: 51,
+            spelling: '勉強',
+            reading: 'べんきょう',
+            cardState: ['due'],
+            meanings: [{ glosses: ['study'], partOfSpeech: ['n'] }],
+            sentence: '毎日勉強する。',
+        });
+        const { controller, internals } = studyController([card], {
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+            ...settings,
+        });
+        const root = studyRoot();
+        internals.state.mode = 'word';
+        internals.state.revealAnswer = true;
+        internals.bindRootEvents(root);
+        internals.renderWord(root, card);
+        return { controller, root };
+    }
+
+    it('renders due-card answer furigana under selective modes and marks the headword scope', () => {
+        // known-status mode hides due-word furigana on the page; the revealed
+        // study answer is the content and must render ruby regardless, with
+        // the data-yomu-headword marker that exempts it from the hide CSS.
+        const { controller, root } = revealedWordController({ showFurigana: true, furiganaMode: 'known-status', furiganaHiddenStateGroups: ['due'] });
+        try {
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')!;
+            expect(word.dataset.yomuHeadword).toBe('true');
+            expect(word.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('べんきょう');
+            expect(root.querySelector('.jpdb-reader-newtab-study-tools .jpdb-reader-reading')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('forces answer ruby on reveal even when furigana is disabled', () => {
+        // Reveal surfaces are answer surfaces: the reading is the content, so
+        // ruby renders regardless of the user's page-furigana preference and
+        // the redundant plain chip stays suppressed.
+        const { controller, root } = revealedWordController({ showFurigana: false, furiganaMode: 'off' });
+        try {
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')!;
+            expect(word.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('べんきょう');
+            expect(root.querySelector('.jpdb-reader-newtab-study-tools .jpdb-reader-reading')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
 describe('study flow: doodle first-attempt discipline', () => {
     it('keeps a kanji pass on redraw and lets a different failed kanji fail the card', () => {
         const card = drinkCard();

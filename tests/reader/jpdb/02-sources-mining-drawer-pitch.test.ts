@@ -754,7 +754,7 @@ describe('reader helpers', () => {
         ]);
     });
 
-    it('prioritizes the actual reading before redundant JPDB and due Anki status chips', () => {
+    it('hides the reading chip when it just repeats a kana-only headword', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
             jpdbMiningEnabled: true,
@@ -787,8 +787,8 @@ describe('reader helpers', () => {
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
         const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
 
-        expect(metaItems).toEqual(['よむ', 'JPDB Redundant', 'Anki Due']);
-        expect(meta.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('よむ');
+        expect(metaItems).toEqual(['JPDB Redundant', 'Anki Due']);
+        expect(meta.querySelector('.jpdb-reader-meta-reading')).toBeNull();
         expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-redundant')).not.toBeNull();
         expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
@@ -834,6 +834,46 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')?.textContent).toBe('にんき');
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
+    });
+
+    it('renders headword furigana even when known-status mode hides in-page furigana', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            showFurigana: true,
+            furiganaMode: 'known-status',
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '人間',
+            reading: 'にんげん',
+            frequencyRank: 500,
+            cardState: ['known'],
+            pitchAccent: [],
+        }, '人間だ。');
+
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')?.textContent).toBe('にんげん');
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+    });
+
+    it('keeps the hiragana reading chip for katakana headwords', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: 'カメラ',
+            reading: 'かめら',
+            frequencyRank: 900,
+            cardState: ['new'],
+            pitchAccent: [],
+        }, 'カメラを買う。');
+
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('かめら');
     });
 
     it('keeps alternate reading metadata when headword ruby is hidden', () => {
@@ -929,7 +969,8 @@ describe('reader helpers', () => {
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
         const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
 
-        expect(metaItems).toEqual(['にほんご', 'Anki Due']);
+        expect(metaItems).toEqual(['Anki Due']);
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')?.textContent).toBe('にほんご');
         expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-not-in-deck')).toBeNull();
         expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();

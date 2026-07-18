@@ -8,7 +8,7 @@ import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
-import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
+import { isPlainReadingRedundantForHeadword } from '../cards/reading-display';
 import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
@@ -935,8 +935,10 @@ export class NewTabRuntime {
 
     private ensureNewTabLookupReading(titleRow: HTMLElement, card: JPDBCard): void {
         const reading = cardPronunciationReading(card) || card.reading.trim();
-        if (isPlainReadingDuplicatedByVisibleRuby(card, this.settings, reading)) return;
-        if (!reading) return;
+        if (!reading || isPlainReadingRedundantForHeadword(card, this.settings, reading)) {
+            titleRow.querySelector<HTMLElement>('[data-newtab-lookup-reading]')?.remove();
+            return;
+        }
         let readingElement = titleRow.querySelector<HTMLElement>('.jpdb-reader-reading');
         if (!readingElement) {
             readingElement = document.createElement('div');

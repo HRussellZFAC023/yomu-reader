@@ -1486,6 +1486,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-furi {
   display: none;
 }
+/* Headword exemption (data-yomu-headword): card/search/study headwords are
+   dictionary entries whose reading is the content — when the renderer emits
+   ruby there, no page-level furigana toggle (state-group hiding above,
+   hover-only mode, or any future rt-hiding rule) may blank it, or a due
+   recall card's revealed answer loses its reading entirely. */
+[data-yomu-headword] .jpdb-reader-furi,
+[data-yomu-headword] rt.jpdb-reader-furi {
+  display: revert !important;
+  visibility: visible !important;
+}
 
 /* Class Q: clip-constrained rows (fixed-height nav rows, line-clamped titles)
    show no in-place furigana — both

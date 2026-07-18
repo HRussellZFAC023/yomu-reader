@@ -149,7 +149,11 @@ describe('study-page card browser (SH-3)', () => {
         expect(list.textContent).toBe('No cards match this filter yet.');
     });
 
-    it('respects furigana mode exactly in search result terms', () => {
+    it('renders headword ruby in every furigana-on mode and none when furigana is off', () => {
+        // Search rows are headword surfaces: selective page modes (e.g.
+        // difficult-kanji) must not strip their ruby, because the redundancy
+        // gate suppresses the fallback reading on the assumption ruby shows.
+        // Only furigana-off leaves rows bare (the fallback reading covers them).
         const difficult = card('鬱', ['not-in-deck'], { reading: 'うつ' });
         const easy = card('日本語', ['not-in-deck'], { reading: 'にほんご' });
         const off = renderSearchWordResults([difficult], searchContext('off'));
@@ -158,7 +162,7 @@ describe('study-page card browser (SH-3)', () => {
 
         expect(off.querySelector('rt')).toBeNull();
         expect(difficultOnly.querySelector('[data-expression="鬱"] rt')?.textContent).toBe('うつ');
-        expect(difficultOnly.querySelector('[data-expression="日本語"] rt')).toBeNull();
+        expect(difficultOnly.querySelector('[data-expression="日本語"] rt')?.textContent).toBe('にほんご');
         expect(all.querySelector('[data-expression="日本語"] rt')?.textContent).toBe('にほんご');
     });
 

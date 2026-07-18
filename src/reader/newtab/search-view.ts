@@ -5,7 +5,7 @@ import { el } from '../dom/builder';
 import { uiText } from '../app/i18n';
 import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
-import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
+import { headwordFuriganaSettings, isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from '../cards/reading-display';
 import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { normalizedJapaneseCardReading } from '../cards/highlight';
@@ -106,7 +106,7 @@ function renderSearchWordResult(card: JPDBCard, context: NewTabSearchViewContext
 }
 
 function renderSearchWordTerm(card: JPDBCard, context: NewTabSearchViewContext): HTMLElement {
-    const term = el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' });
+    const term = el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja', dataset: { yomuHeadword: true } });
     const html = renderSearchCardRubyHtml(card, context.settings);
     if (html) {
         setInnerHtml(term, html);
@@ -141,7 +141,10 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
         pitchClass: getPitchClass(card.pitchAccent, reading),
         sentence: spelling,
     };
-    return renderTokensToHtml(spelling, [token], settings);
+    // Headword rule: the row must render ruby under the same forced settings
+    // the reading-redundancy gate assumes, or selective page modes (e.g.
+    // difficult-kanji) leave the row with neither ruby nor fallback reading.
+    return renderTokensToHtml(spelling, [token], headwordFuriganaSettings(settings));
 }
 
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult, context: NewTabSearchViewContext): HTMLElement {
@@ -215,8 +218,8 @@ function searchWordLoadingHtml(detail: NewTabSearchWordDetailData, context: NewT
 function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
     const settings = context.getSettings();
     const state = primaryCardState(card.cardState);
-    const metaItems = searchWordMetaItems(card, state, detail, settings);
     const visibleReading = searchWordVisibleReading(card, settings);
+    const metaItems = searchWordMetaItems(card, state, detail, settings, visibleReading);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
     const pills = searchWordPillsHtml(card, detail, context);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
@@ -224,7 +227,7 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${escapeHtml(card.spelling)}</div>
+                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, 'showKanji') })}</div>
                 ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml(visibleReading)}</div>` : ''}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
             </div>
@@ -245,24 +248,27 @@ function searchWordPillsHtml(
     return context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? '';
 }
 
-export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings): string[] {
+export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings, visibleReading = ''): string[] {
     return [
-        searchWordReadingMeta(card, settings),
+        searchWordReadingMeta(card, settings, visibleReading),
         searchWordFrequencyMeta(card),
         searchWordCardStateMeta(card, state, settings),
         searchWordLookupAnkiStateMeta(card, detail, settings),
     ].filter(Boolean);
 }
 
-function searchWordReadingMeta(card: JPDBCard, settings: ReaderSettings): string {
+function searchWordReadingMeta(card: JPDBCard, settings: ReaderSettings, visibleReading = ''): string {
     const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
-    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
+    // The header already shows the fallback reading beside the headword; the
+    // meta chip only covers readings that surface nowhere else in the row.
+    if (reading.normalize('NFC') === visibleReading.trim().normalize('NFC')) return '';
+    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return '';
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
 }
 
 function searchWordVisibleReading(card: JPDBCard, settings: ReaderSettings): string {
     const reading = newTabCardOptionalReading(card);
-    return reading && !isPlainReadingDuplicatedByVisibleRuby(card, settings, reading) ? reading : '';
+    return reading && !isPlainReadingRedundantForHeadword(card, settings, reading) ? reading : '';
 }
 
 function searchWordFrequencyMeta(card: JPDBCard): string {

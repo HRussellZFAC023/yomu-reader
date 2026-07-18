@@ -1724,6 +1724,93 @@ describe('new tab review — search mode', () => {
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#32900');
     });
 
+    it('renders search-row ruby under selective furigana modes instead of dropping the reading entirely', () => {
+        // difficult-kanji mode + all-easy kanji: the page renderer would skip
+        // ruby, but the redundancy gate assumes headword ruby is visible. The
+        // row renderer must share the forced headword settings or 人間 shows
+        // neither ruby nor fallback reading.
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'difficult-kanji' as const };
+        const card = newTabTestCard({
+            spelling: '人間',
+            reading: 'にんげん',
+            frequencyRank: 500,
+            cardState: ['new'],
+        });
+        const root = renderSearchWordResults([card], {
+            language: 'en',
+            settings,
+            text: key => ({ words: 'Words', kanji: 'Kanji', dictionary: 'Dictionary' })[key],
+        });
+
+        try {
+            document.body.append(root);
+            const term = root.querySelector<HTMLElement>('.jpdb-reader-newtab-search-term')!;
+            expect(term.dataset.yomuHeadword).toBe('true');
+            expect(term.querySelector('rt')?.textContent).toContain('にんげん');
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('renders detail-header ruby under selective furigana modes and keeps the headword parseable', () => {
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'difficult-kanji' as const };
+        const card = newTabTestCard({
+            spelling: '人間',
+            reading: 'にんげん',
+            frequencyRank: 500,
+            cardState: ['new'],
+        });
+        const context: NewTabSearchDetailViewContext = {
+            getSettings: () => settings,
+            text: key => ({ noLocalResults: 'No local results', kanji: 'Kanji' })[key],
+            sourceAttributes: () => '',
+            dictionaryLabel: name => name,
+            kanjiSourceTitle: sourceId => sourceId,
+        };
+
+        document.body.innerHTML = searchWordDetailHtml(card, {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbVocabularyInfo: null,
+        }, context);
+
+        const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+        expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(true);
+        expect(spelling.hasAttribute('data-yomu-headword')).toBe(true);
+        expect(spelling.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('にんげん');
+        expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+    });
+
+    it('shows a katakana detail-header reading exactly once', () => {
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+        const card = newTabTestCard({
+            spelling: 'カメラ',
+            reading: 'かめら',
+            frequencyRank: 900,
+            cardState: ['new'],
+        });
+        const context: NewTabSearchDetailViewContext = {
+            getSettings: () => settings,
+            text: key => ({ noLocalResults: 'No local results', kanji: 'Kanji' })[key],
+            sourceAttributes: () => '',
+            dictionaryLabel: name => name,
+            kanjiSourceTitle: sourceId => sourceId,
+        };
+
+        document.body.innerHTML = searchWordDetailHtml(card, {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbVocabularyInfo: null,
+        }, context);
+
+        expect(document.querySelector('rt.jpdb-reader-furi')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-reading')?.textContent).toBe('かめら');
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+    });
+
     it('searches kana prefixes in search mode autocomplete', async () => {
         const { settings, searchTerms, root, searchApi } = createDictionarySearchModeFixture();
 
