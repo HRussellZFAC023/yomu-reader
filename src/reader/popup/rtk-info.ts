@@ -6,6 +6,7 @@ import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkEleme
 import type { InterfaceLanguage } from '../app/types';
 import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 import { isKanjiCharacter } from './pitch';
+import { renderKanjiKeywordChips } from './kanji-keyword-line';
 import { sourceStateAttribute } from './source-state';
 
 export interface RtkComponentSummary {
@@ -30,22 +31,11 @@ export function buildRtkComponentSummaries(rtkInfo: RtkInfo | null, jpdbInfo: Jp
 }
 
 export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage = 'en'): string {
-    const keywords = new Map<string, { text: string; sources: string[] }>();
-    const addKeyword = (text: string | undefined, source: string) => {
-        const normalized = text?.trim();
-        if (!normalized) return;
-        const key = normalized.toLocaleLowerCase();
-        const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-        if (!existing.sources.includes(source)) existing.sources.push(source);
-        keywords.set(key, existing);
-    };
-    addKeyword(jpdbInfo?.keyword, 'JPDB');
-    addKeyword(rtkInfo?.keyword, 'RTK');
-    entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).forEach(keyword => addKeyword(keyword, uiText(language, 'dict')));
-    const chips = Array.from(keywords.values()).slice(0, 6)
-        .map(keyword => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml(keyword.sources.join(' · '))}"><small>${escapeHtml(keyword.sources.join('/'))}</small><span>${escapeHtml(keyword.text)}</span></span>`)
-        .join('');
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiDetailsUnavailable'))}</div>`;
+    return renderKanjiKeywordChips([
+        { text: jpdbInfo?.keyword, label: 'JPDB', canonical: true },
+        { text: rtkInfo?.keyword, label: 'RTK' },
+        ...entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(meaning => ({ text: meaning, label: uiText(language, 'dict') })),
+    ], language);
 }
 
 interface RtkElementChip {

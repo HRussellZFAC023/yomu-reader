@@ -1,5 +1,6 @@
 import { escapeHtml } from '../dom';
 import { cardStateLabel, uiText } from '../app/i18n';
+import { renderKanjiKeywordChips } from '../popup/kanji-keyword-line';
 import { kanjiSourceStateKey } from '../sources/definition-render';
 import { KANJI_JPDB_SOURCE_ID } from '../sources/sections';
 import type { CardState, InterfaceLanguage } from '../app/types';
@@ -164,22 +165,11 @@ export function renderJitenKanjiKeywordLine(
     entries: YomitanKanjiEntry[],
     language: InterfaceLanguage = 'en',
 ): string {
-    const keywords = new Map<string, { text: string; sources: string[] }>();
-    const addKeyword = (text: string | undefined, source: string) => {
-        const normalized = text?.trim();
-        if (!normalized) return;
-        const key = normalized.toLocaleLowerCase();
-        const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-        if (!existing.sources.includes(source)) existing.sources.push(source);
-        keywords.set(key, existing);
-    };
-    addKeyword(jitenKanjiKeyword(info), 'Jiten');
-    addKeyword(rtkInfo?.keyword, 'RTK');
-    entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).forEach(keyword => addKeyword(keyword, uiText(language, 'dict')));
-    const chips = Array.from(keywords.values()).slice(0, 6)
-        .map(keyword => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml(keyword.sources.join(' · '))}"><small>${escapeHtml(keyword.sources.join('/'))}</small><span>${escapeHtml(keyword.text)}</span></span>`)
-        .join('');
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiDetailsUnavailable'))}</div>`;
+    return renderKanjiKeywordChips([
+        { text: jitenKanjiKeyword(info), label: 'Jiten', canonical: true },
+        { text: rtkInfo?.keyword, label: 'RTK' },
+        ...entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(meaning => ({ text: meaning, label: uiText(language, 'dict') })),
+    ], language);
 }
 
 export function jitenKanjiFactRows(info: JitenKanjiInfo | null, language: InterfaceLanguage): [string, string][] {
