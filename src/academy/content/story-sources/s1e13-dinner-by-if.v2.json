@@ -1,0 +1,468 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e13-dinner-by-if",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 13,
+  "title": {
+    "en": "Dinner by If",
+    "ja": "もしもの献立"
+  },
+  "synopsis": "Robert hosts the class's first rebuilt-map planning dinner with a perfect if-then sequence. One changed ingredient breaks the chain, and hosting becomes listening when Jenny makes a single precise request. The learner compares options and negotiates the changed plan.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "robert",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#robert",
+        "docs/academy/story/CAST-AND-CONSENT.md#robert"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "jenny",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jenny",
+        "docs/academy/story/CAST-AND-CONSENT.md#jenny"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "stepping back framed as a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e12-the-vanishing-course",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l19",
+            "l1-l20"
+          ],
+          "function": "compare-options-and-negotiate-a-changed-plan"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirteen-first-meeting-robert"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:dinner-by-if:the-sequence",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Robert through his over-planned dinner sequence and hit the one condition it cannot hold.",
+      "dramaticQuestion": "When the plan breaks, will the host add more options or hear what is actually needed?",
+      "learnerNeed": "A changed-plan negotiation where comparing two options matters more than completing a chain.",
+      "curriculum": {
+        "sectionId": "compare-and-renegotiate",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:laid-table",
+          "beatId": "beat:dinner-by-if:arrival-image",
+          "cueId": "cue:cafe-table-of-labelled-cards",
+          "description": "The cafe's long table is set not with food but with ordered cards: soup, salad, pasta, each pinned to the next with a hand-drawn arrow. Steam waits behind the counter."
+        },
+        {
+          "kind": "line",
+          "id": "line:dinner-by-if:robert-welcome",
+          "beatId": "beat:dinner-by-if:host-want",
+          "speakerId": "robert",
+          "intent": "Welcome the class broadly, then lay out the full if-then dinner order he prepared.",
+          "attentionTarget": "the row of arrow-linked meal cards",
+          "variants": {
+            "n5": {
+              "japanese": "みなさん、ようこそ。今日のじゅんばんを決めました。スープができたら、サラダ。それから、パスタです。",
+              "reading": "みなさん、ようこそ。きょうのじゅんばんをきめました。スープができたら、サラダ。それから、パスタです。",
+              "english": "Everyone, welcome. I decided today's order. When the soup is ready, then salad. After that, pasta."
+            },
+            "n4": {
+              "japanese": "ようこそ、ようこそ。今夜の流れ、全部つないでおきました。スープができたら、サラダを出して、それからパスタにします。",
+              "reading": "ようこそ、ようこそ。こんやのながれ、ぜんぶつないでおきました。スープができたら、サラダをだして、それからパスタにします。",
+              "english": "Welcome, welcome. I linked up tonight's whole flow ahead of time. When the soup's done we bring out the salad, and after that we go to pasta."
+            },
+            "n3": {
+              "japanese": "さあ、どうぞ。今日は流れをきちんと組んでおいたんです。スープが仕上がりしだい、サラダ、それからパスタ、と。",
+              "reading": "さあ、どうぞ。きょうはながれをきちんとくんでおいたんです。スープがしあがりしだい、サラダ、それからパスタ、と。",
+              "english": "Come in, come in. I put the flow together properly today. The moment the soup's finished, salad, then pasta — like that."
+            },
+            "n2": {
+              "japanese": "ようこそいらっしゃいました。今夜は段取りを一通り決めておきました。スープが整い次第サラダへ、その後パスタ、という流れで。",
+              "reading": "ようこそいらっしゃいました。こんやはだんどりをひととおりきめておきました。スープがととのいしだいサラダへ、そのごパスタ、というながれで。",
+              "english": "Welcome, so glad you came. I set out the whole procedure for tonight: as soon as the soup comes together, on to the salad, then pasta — that flow."
+            },
+            "n1": {
+              "japanese": "ようこそ。今夜のところは、手順をひととおり組み上げておきましてね。スープが仕上がったらサラダ、しかるのちパスタ、と運ぶつもりでした。",
+              "reading": "ようこそ。こんやのところは、てじゅんをひととおりくみあげておきましてね。スープがしあがったらサラダ、しかるのちパスタ、とはこぶつもりでした。",
+              "english": "Welcome. For tonight I'd gone and assembled the whole procedure, you see — soup finished, then salad, then in due course pasta. That was how I meant to carry it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:the-missing-crate",
+          "beatId": "beat:dinner-by-if:obstruction",
+          "cueId": "cue:one-card-arrow-broken",
+          "description": "A delivery crate is short one box. The card that says 'salad' no longer has anything behind its arrow. The chain now points at nothing."
+        },
+        {
+          "kind": "line",
+          "id": "line:dinner-by-if:robert-adds-options",
+          "beatId": "beat:dinner-by-if:pressure",
+          "speakerId": "robert",
+          "intent": "Under pressure, cover the gap by piling on more options instead of stopping.",
+          "attentionTarget": "the broken arrow, and every alternative he can name",
+          "variants": {
+            "n5": {
+              "japanese": "サラダがありません。じゃあ、スープをもう一つ。パンも。あ、デザートも作れます。",
+              "reading": "サラダがありません。じゃあ、スープをもうひとつ。パンも。あ、デザートもつくれます。",
+              "english": "There's no salad. Then — another soup. Bread too. Oh, I can make dessert as well."
+            },
+            "n4": {
+              "japanese": "サラダの材料が来なかったんです。じゃあ、スープを二種類にして、パンも足して、デザートも用意すれば…。",
+              "reading": "サラダのざいりょうがこなかったんです。じゃあ、スープをにしゅるいにして、パンもたして、デザートもよういすれば…。",
+              "english": "The salad ingredients didn't come. So if I make two kinds of soup, add bread too, get dessert ready as well…"
+            },
+            "n3": {
+              "japanese": "サラダの分だけ届かなくて。だったらスープをもう一品増やして、パンを付けて、デザートも出せば埋まるかな、と…。",
+              "reading": "サラダのぶんだけとどかなくて。だったらスープをもういっぴんふやして、パンをつけて、デザートもだせばうまるかな、と…。",
+              "english": "Just the salad portion didn't arrive. So maybe if I add one more soup, put out bread, serve dessert too, it fills the gap, I thought…"
+            },
+            "n2": {
+              "japanese": "サラダの材料だけ届かなかったもので。それなら汁物をもう一品、パンを添えて、デザートまで出せば格好はつくかと。",
+              "reading": "サラダのざいりょうだけとどかなかったもので。それならしるものをもういっぴん、パンをそえて、デザートまでだせばかっこうはつくかと。",
+              "english": "It's just that the salad ingredients didn't come. In that case another soup dish, bread on the side, dessert too — that would keep up appearances, I figured."
+            },
+            "n1": {
+              "japanese": "サラダの分だけ、荷が届かなかったんですよ。ならば汁物をもう一品、パンを添え、いっそデザートまで並べれば、体裁は保てるかと思いましてね…。",
+              "reading": "サラダのぶんだけ、にがとどかなかったんですよ。ならばしるものをもういっぴん、パンをそえ、いっそデザートまでならべれば、ていさいはたもてるかとおもいましてね…。",
+              "english": "The delivery came up short by exactly the salad, you see. So — another soup, bread alongside, and while I'm at it lay out dessert too; that way I could keep up appearances, or so I was thinking…"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:dinner-by-if:jenny-one-request",
+          "beatId": "beat:dinner-by-if:contribution",
+          "speakerId": "jenny",
+          "intent": "After watching quietly, make one precise request that trades the broken chain for a real choice.",
+          "attentionTarget": "the two things that actually still work",
+          "variants": {
+            "n5": {
+              "japanese": "ロバートさん。スープとパン、どっちがいいですか。一つでいいと思います。",
+              "reading": "ロバートさん。スープとパン、どっちがいいですか。ひとつでいいとおもいます。",
+              "english": "Robert. Soup or bread — which is better? I think one is enough."
+            },
+            "n4": {
+              "japanese": "ロバートさん、全部はいらないと思います。スープにするか、パンにするか、どちらか一つを選びませんか。",
+              "reading": "ロバートさん、ぜんぶはいらないとおもいます。スープにするか、パンにするか、どちらかひとつをえらびませんか。",
+              "english": "Robert, I don't think we need all of it. Shall we pick just one — go with the soup, or go with the bread?"
+            },
+            "n3": {
+              "japanese": "ロバートさん、埋めなくて大丈夫ですよ。スープかパンか、どっちか一つに決めれば、それでちゃんと出せます。",
+              "reading": "ロバートさん、うめなくてだいじょうぶですよ。スープかパンか、どっちかひとつにきめれば、それでちゃんとだせます。",
+              "english": "Robert, you don't have to fill it in. If we just decide on one — soup or bread — we can serve it properly as it is."
+            },
+            "n2": {
+              "japanese": "ロバートさん、無理に補わなくていいと思います。スープかパンか、どちらか一方に絞れば、それで十分成り立ちますよ。",
+              "reading": "ロバートさん、むりにおぎなわなくていいとおもいます。スープかパンか、どちらかいっぽうにしぼれば、それでじゅうぶんなりたちますよ。",
+              "english": "Robert, I don't think we need to force a substitute. If we narrow it to just one — the soup or the bread — that holds up perfectly well."
+            },
+            "n1": {
+              "japanese": "ロバートさん、そこは無理に埋めなくていいんじゃないでしょうか。スープかパンか、どちらか一方に絞ってしまえば、それで十分ひと皿として成り立ちます。",
+              "reading": "ロバートさん、そこはむりにうめなくていいんじゃないでしょうか。スープかパンか、どちらかいっぽうにしぼってしまえば、それでじゅうぶんひとさらとしてなりたちます。",
+              "english": "Robert, I don't think that gap needs forcing shut, does it. If we just commit to one side — the soup or the bread — it stands on its own as a course, more than well enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:dinner-by-if:before-compare",
+          "beatId": "beat:dinner-by-if:compare-attempt",
+          "resume": "Jenny has offered one real choice in place of the broken sequence. The learner steps in to compare the two options with Robert."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:dinner-by-if:compare-and-decide",
+          "beatId": "beat:dinner-by-if:compare-attempt",
+          "hook": {
+            "packageId": "l1-l20",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e13-compare-two-options-changed-plan"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e13-compare-two-options-changed-plan"
+          },
+          "resumeContext": "The salad is gone; soup and bread both remain. The learner compares the two, states which the group will do, and accepts the changed plan aloud.",
+          "onReady": "checkpoint:dinner-by-if:after-compare",
+          "onRepair": "node:dinner-by-if:compare-repair",
+          "onDefer": "checkpoint:dinner-by-if:before-compare"
+        },
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:compare-repair",
+          "beatId": "beat:dinner-by-if:compare-repair",
+          "cueId": "cue:two-cards-side-by-side",
+          "description": "The two remaining cards are set side by side. Only the comparison phrase that went missing returns for another try; the earlier decision stays."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:dinner-by-if:after-compare",
+          "beatId": "beat:dinner-by-if:compare-response",
+          "resume": "One option is chosen out loud and the changed plan is accepted. Robert looks at the single card that is left."
+        },
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:one-card-left",
+          "beatId": "beat:dinner-by-if:changed-image",
+          "cueId": "cue:single-card-no-arrow",
+          "description": "Robert takes down the extra cards. One dish remains on the table, with no arrow after it. The gap is simply left."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:dinner-by-if:hosting-is-listening"
+      }
+    },
+    {
+      "id": "scene:dinner-by-if:hosting-is-listening",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let Robert redesign the evening around what he heard instead of what he planned.",
+      "dramaticQuestion": "Can a host count leaving a gap as good hosting?",
+      "learnerNeed": "A stance choice about how to back a plan that has been made smaller on purpose.",
+      "curriculum": {
+        "sectionId": "back-the-changed-plan",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:robert-quiet",
+          "beatId": "beat:dinner-by-if:regroup-image",
+          "cueId": "cue:host-sits-down",
+          "description": "For the first time all evening Robert sits down instead of moving between cards. He turns the one remaining card face up and leaves it."
+        },
+        {
+          "kind": "choice",
+          "id": "choice:dinner-by-if:how-to-back-it",
+          "beatId": "beat:dinner-by-if:stance",
+          "question": "How do you back the smaller plan?",
+          "options": [
+            {
+              "id": "option:dinner-by-if:name-the-choice",
+              "action": "Say plainly which single dish you'll do and why it's enough.",
+              "japaneseByBand": {
+                "n5": "スープにしましょう。一つで十分です。",
+                "n4": "今日はスープにしましょう。一品でも、ちゃんと会になります。",
+                "n3": "スープでいきましょう。一品だけでも、集まる理由には十分ですよ。",
+                "n2": "スープで行きましょう。一品に絞っても、集まりとしては十分成り立ちます。",
+                "n1": "スープ一本でいきましょう。品数を欲張らなくても、集まる口実としては十分すぎるくらいです。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:dinner-by-if:before-back-it"
+            },
+            {
+              "id": "option:dinner-by-if:ask-what-he-needs",
+              "action": "Ask Robert what he actually wants the evening to do, before deciding anything.",
+              "japaneseByBand": {
+                "n5": "ロバートさんは、今日、何がしたいですか。",
+                "n4": "ロバートさんは、今夜のこの会で、本当は何がしたいんですか。",
+                "n3": "ロバートさんは、今夜の集まりで、本当はどうしたかったんですか。",
+                "n2": "ロバートさんとしては、今夜の集まりで、本来は何を一番したかったんでしょう。",
+                "n1": "ロバートさんとしては、今夜の集まりで、そもそも何を一番大事にしたかったんですか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:dinner-by-if:before-back-it"
+            }
+          ],
+          "convergence": "checkpoint:dinner-by-if:before-back-it"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:dinner-by-if:before-back-it",
+          "beatId": "beat:dinner-by-if:back-attempt",
+          "resume": "The learner has taken a stance on the smaller plan. Robert answers by choosing what the evening is really for."
+        },
+        {
+          "kind": "line",
+          "id": "line:dinner-by-if:robert-hears-it",
+          "beatId": "beat:dinner-by-if:repair",
+          "speakerId": "robert",
+          "intent": "Accept the smaller plan out loud, and reframe hosting as listening rather than covering every gap.",
+          "attentionTarget": "the one card, and the people at the table",
+          "variants": {
+            "n5": {
+              "japanese": "そうですね。一つでいいですね。ぼくは、作りすぎました。今日は、聞きます。",
+              "reading": "そうですね。ひとつでいいですね。ぼくは、つくりすぎました。きょうは、ききます。",
+              "english": "You're right. One is fine. I made too much. Tonight, I'll listen."
+            },
+            "n4": {
+              "japanese": "そうですね。全部そろえなくてもいいんだ。いつも足しすぎるんですよね、ぼく。今日は、みなさんの話を聞きます。",
+              "reading": "そうですね。ぜんぶそろえなくてもいいんだ。いつもたしすぎるんですよね、ぼく。きょうは、みなさんのはなしをききます。",
+              "english": "You're right. We don't have to have everything. I always add too much, don't I. Tonight I'll listen to what everyone says."
+            },
+            "n3": {
+              "japanese": "…そうか。埋めなくてもよかったんですね。ぼく、つい足しちゃうんだ。今日は、まず聞くことにします。もてなすって、そういうことか。",
+              "reading": "…そうか。うめなくてもよかったんですね。ぼく、ついたしちゃうんだ。きょうは、まずきくことにします。もてなすって、そういうことか。",
+              "english": "…I see. It was fine not to fill it. I just reflexively add things. Tonight I'll listen first. So that's what hosting is."
+            },
+            "n2": {
+              "japanese": "…なるほど。無理に埋める必要はなかったわけだ。ぼくはどうも足す方に回りがちで。今夜は、まず聞く側にまわります。もてなしって、案外そっちなんですね。",
+              "reading": "…なるほど。むりにうめるひつようはなかったわけだ。ぼくはどうもたすほうにまわりがちで。こんやは、まずきくがわにまわります。もてなしって、あんがいそっちなんですね。",
+              "english": "…Right. There was no need to force the gap shut. I do tend to default to adding more. Tonight I'll move to the listening side first. Hosting is more that, apparently, than I thought."
+            },
+            "n1": {
+              "japanese": "…そうか。埋めにかかる必要なんて、はなからなかったわけですね。ぼくはどうも、隙間を見ると足しにいく質でして。今夜くらいは、まず耳を貸す側にまわってみます。もてなすというのは、案外そういうことなのかもしれない。",
+              "reading": "…そうか。うめにかかるひつようなんて、はなからなかったわけですね。ぼくはどうも、すきまをみるとたしにいくたちでして。こんやくらいは、まずみみをかすがわにまわってみます。もてなすというのは、あんがいそういうことなのかもしれない。",
+              "english": "…I see. There was never any need to rush in and fill it, was there. I've got this habit — see a gap, go to fill it. Just for tonight, let me try being the one who lends an ear first. Hosting, perhaps, is unexpectedly that kind of thing."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:dinner-by-if:table-settles",
+          "beatId": "beat:dinner-by-if:exit-image",
+          "cueId": "cue:one-dish-shared-table",
+          "description": "One dish goes round the table and is enough. The empty arrow-space stays on the card, no longer a problem to solve."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:overbuilt-schedule",
+      "state": "echo",
+      "ownerIds": [
+        "robert"
+      ],
+      "meaningNow": "Robert's perfect conditional sequence fails on one changed ingredient, and adding more options makes the plan worse, not safer.",
+      "priorUse": {
+        "packageId": "s1e06-invitation-chain",
+        "sceneId": "scene:invitation-chain:too-many-options",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "Robert's plan simply has one too many parts, and the class trims it to one."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:dinner-by-if:changed-plan",
+      "kind": "story",
+      "description": "The class accepts a smaller, single-dish plan and treats the left gap as a choice rather than a failure."
+    },
+    {
+      "id": "outcome:dinner-by-if:robert-arrival",
+      "kind": "bond",
+      "castId": "robert",
+      "chapter": 13,
+      "beat": "arrival",
+      "description": "Robert is introduced through expansive welcome and over-planning, and takes his first step from hosting-as-covering toward hosting-as-listening."
+    },
+    {
+      "id": "outcome:dinner-by-if:jenny-contribution",
+      "kind": "bond",
+      "castId": "jenny",
+      "chapter": 13,
+      "beat": "contribution",
+      "description": "Jenny's single precise request changes the shared plan; her economical observation is established as a competence the class can ask for later."
+    },
+    {
+      "id": "outcome:dinner-by-if:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l20",
+      "description": "Compare-and-negotiate-a-changed-plan evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:jenny-tries-privately-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-compare-step"
+    ],
+    "withdrawnContentFallback": "Use the same compare-and-negotiate evidence with neutral nameplates and a generic host who trims one option after a delivery shortfall."
+  }
+}
