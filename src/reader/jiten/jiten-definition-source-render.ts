@@ -1,11 +1,12 @@
 import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../cards/highlight';
 import { JITEN_DEFINITION_SOURCE_ID } from '../app/constants';
-import { escapeHtml, renderRuby } from '../dom';
+import { escapeHtml } from '../dom';
 import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
-import type { InterfaceLanguage, JPDBCard, JPDBToken } from '../app/types';
+import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabularyInfo, JitenVocabularyReading, JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import { renderProviderExamples, type ProviderExampleView } from '../sources/provider-examples';
+import { renderAnnotatedReadingRuby, renderPassiveReference } from '../sources/passive-reference';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -250,19 +251,7 @@ function renderJitenAudioButton(text: string, language: InterfaceLanguage, extra
 }
 
 function renderJitenAnnotatedReading(value: string): string {
-    const source = value.trim();
-    if (!source) return '';
-    let html = '';
-    let offset = 0;
-    const regex = /([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(source)) !== null) {
-        html += escapeHtml(source.slice(offset, match.index));
-        html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(match[1] ?? '')}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(match[2] ?? '')}</rt><rp>)</rp></ruby>`;
-        offset = match.index + match[0].length;
-    }
-    html += escapeHtml(source.slice(offset));
-    return html;
+    return renderAnnotatedReadingRuby(value);
 }
 
 function cleanJitenAnnotatedText(value: string): string {
@@ -415,57 +404,18 @@ function renderJitenTextWithReferences(text: string, references: JitenTextRefere
 }
 
 function renderPassiveJitenReference(reference: JitenTextReference, options: RenderJitenReferenceOptions = {}): string {
-    const reading = visibleJitenReferenceReading(reference.text, reference.reading);
-    const identity = [
-        reference.wordId !== undefined ? `data-vid="${escapeHtml(String(reference.wordId))}"` : '',
-        reference.readingIndex !== undefined ? `data-sid="${escapeHtml(String(reference.readingIndex))}"` : '',
-    ].filter(Boolean).join(' ');
-    const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
-    const identityAttributes = identity ? ` ${identity}` : '';
-    const extraClass = options.className?.trim();
-    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? ' jpdb-reader-has-furi' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}`;
-    // Prefer per-kanji ruby from the annotated reading so okurigana stays as
-    // plain base text instead of the whole reading sitting over the whole word.
-    const content = reading && options.annotatedReading && /\[[^\]]+\]/.test(options.annotatedReading)
-        ? renderJitenAnnotatedReading(options.annotatedReading)
-        : renderJitenReferenceContent(reference.text, reading);
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml(options.sentence ?? reference.text)}" data-expression="${escapeHtml(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
-}
-
-function renderJitenReferenceContent(text: string, reading: string): string {
-    return reading
-        ? renderRuby(text, refRubyToken(text, reading))
-        : escapeHtml(text);
-}
-
-function refRubyToken(text: string, reading: string): JPDBToken {
-    return {
-        card: {
-            vid: 0,
-            sid: 0,
-            rid: 0,
-            spelling: text,
-            reading,
-            frequencyRank: null,
-            partOfSpeech: [],
-            meanings: [],
-            cardState: ['not-in-deck'],
-            pitchAccent: [],
-            wordWithReading: null,
-        } as JPDBCard,
-        start: 0,
-        end: text.length,
-        length: text.length,
-        rubies: [],
-        pitchClass: '',
-        sentence: text,
-    };
-}
-
-function visibleJitenReferenceReading(text: string, reading: string): string {
-    const normalizedText = text.trim();
-    const normalizedReading = reading.trim();
-    return normalizedReading && normalizedReading !== normalizedText ? normalizedReading : '';
+    return renderPassiveReference({
+        text: reference.text,
+        reading: reference.reading,
+        dictionary: 'Jiten',
+        sentence: options.sentence,
+        className: options.className,
+        annotatedReading: options.annotatedReading,
+        identityAttributes: {
+            ...(reference.wordId !== undefined ? { 'data-vid': String(reference.wordId) } : {}),
+            ...(reference.readingIndex !== undefined ? { 'data-sid': String(reference.readingIndex) } : {}),
+        },
+    });
 }
 
 function hasJapaneseText(value: string): boolean {

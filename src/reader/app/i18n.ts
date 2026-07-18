@@ -1039,6 +1039,11 @@ const COPY = {
         noExampleSentences: 'No example sentences',
         exampleSentencesUnavailable: 'Example sentences unavailable',
         acceptedInputs: 'Accepted inputs',
+        relatedWords: 'Related words',
+        relatedGrammar: 'Related grammar',
+        antonymWord: 'Antonym',
+        bunproCaution: 'Caution',
+        bunproStructure: 'Structure',
         playJpdbExampleAudio: 'Play JPDB example audio',
         contextVideo: 'Video',
         contextImage: 'Image',
@@ -1622,6 +1627,11 @@ exampleSentences	例文
 noExampleSentences	例文はありません
 exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
+relatedWords	関連語
+relatedGrammar	関連文法
+antonymWord	対義語
+bunproCaution	注意
+bunproStructure	構造
 playJpdbExampleAudio	JPDB例文音声を再生
 kanjiDictionaries	漢字辞書
 sourceNameWordsUsingKanji	関連語彙

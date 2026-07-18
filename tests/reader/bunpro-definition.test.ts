@@ -246,11 +246,143 @@ describe('Bunpro example sentences', () => {
         expect(html).toContain('data-action="bunpro-audio"');
         expect(html).toContain('data-audio-url="https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3"');
         expect(html).toContain('data-study-sentence="クラスメイトは楽譜を読むことができる。"');
-        expect(html).toContain('<rt class="jpdb-reader-furi">がくふ</rt>');
         expect(html).toContain('My classmate can read music.');
         expect(html).toContain('jpdb-reader-example-target');
         expect(html).not.toContain('Used in vocabulary');
         expect(html).not.toContain('Composed of');
+    });
+
+    it('feeds plain text plus a passive parseable target so our annotation system owns furigana', () => {
+        const info = normalizeBunproDefinitionSearch({
+            vocabs: { data: [{ id: 42, attributes: { id: 42, title: '読む', kana: 'よむ', slug: '読む', meaning: 'to read' } }] },
+        }, '読む', 'よむ');
+        if (!info) throw new Error('expected info');
+        info.examples = normalizeBunproExampleSentences(vocabDetail);
+        info.examplesAvailability = 'loaded';
+        const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'en');
+
+        // The sentence is rendered inside the shared parseable container.
+        expect(html).toContain('jpdb-reader-example-sentence jpdb-reader-parseable');
+        // Non-target text is plain: no baked ruby, no full-width kana parens.
+        expect(html).not.toContain('（がくふ）');
+        expect(html).not.toContain('がくふ');
+        expect(html).toContain('クラスメイトは楽譜を');
+        // The target's ruby comes from the shared bracket-annotation utility.
+        expect(html).toContain('<rt class="jpdb-reader-furi">よ</rt>');
+        // The target is a passive reader-word (not a plain <mark>) carrying
+        // expression/reading so it survives re-parse and looks up correctly.
+        expect(html).not.toContain('<mark');
+        expect(html).toContain('jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable jpdb-reader-has-furi jpdb-reader-example-target jpdb-reader-bunpro-example-target');
+        expect(html).toContain('data-expression="読む"');
+        expect(html).toContain('data-reading="よむ"');
+        expect(html).toContain('data-sentence="クラスメイトは楽譜を読むことができる。"');
+        expect(html).toContain('data-dictionary="Bunpro"');
+    });
+
+    it('strips inline markup and kana annotations from the Japanese nuance and renders it parseable', () => {
+        const info = normalizeBunproDefinitionSearch({
+            vocabs: { data: [{ id: 42, attributes: {
+                id: 42,
+                title: '言葉',
+                kana: 'ことば',
+                slug: '言葉',
+                meaning: 'word; language',
+                nuance: 'ある言語（げんご）の構成（こうせい）要素（ようそ）として<strong>分類（ぶんるい）</strong>されるもの。',
+                nuance_translation: 'A unit classified as a component of a language.',
+            } }] },
+        }, '言葉', 'ことば');
+        const html = renderBunproDefinitionSource({ ...card, spelling: '言葉', reading: 'ことば' }, key => `data-source-state="${key}"`, info, 'en');
+
+        expect(html).not.toContain('&lt;strong&gt;');
+        expect(html).not.toContain('（げんご）');
+        expect(html).not.toContain('（ぶんるい）');
+        expect(html).toContain('<div class="jpdb-reader-parseable">ある言語の構成要素として分類されるもの。</div>');
+        expect(html).toContain('<div>A unit classified as a component of a language.</div>');
+    });
+
+    it('renders the headword as a passive parseable reference with word audio from the detail payload', async () => {
+        const client = {
+            search: async () => ({ vocabs: { data: [{ id: 42, attributes: { id: 42, title: '言葉', kana: 'ことば', slug: '言葉', meaning: 'word' } }] } }),
+            getVocab: async () => ({
+                data: { id: '42', type: 'vocab', attributes: {
+                    pitch_accent_stress: 'LHH',
+                    frequency_general: 157,
+                    frequency_anime: 494,
+                    male_audio_url: 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/male.mp3',
+                    female_audio_url: 'https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3',
+                    jmdict_data: { sense: [{ related: [['言語']], antonym: [['無言']] }] },
+                } },
+                included: [],
+            }),
+            getGrammarPoint: async () => { throw new Error('unused'); },
+        } as unknown as BunproClient;
+        const info = await lookupBunproDefinition(client, { ...card, spelling: '言葉', reading: 'ことば' });
+        if (!info) throw new Error('expected info');
+        expect(info.pitchAccentStress).toBe('LHH');
+        expect(info.frequencies).toEqual([{ list: 'general', rank: 157 }, { list: 'anime', rank: 494 }]);
+        expect(info.relatedWords).toEqual([{ text: '言語', relation: 'related' }, { text: '無言', relation: 'antonym' }]);
+
+        const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'en');
+        // Headword is a passive parseable reader-word, like Jiten's.
+        expect(html).toContain('jpdb-reader-bunpro-headword-target');
+        expect(html).toContain('data-expression="言葉"');
+        expect(html).toContain('data-reading="ことば"');
+        // Word audio button hot-links the detail recording.
+        expect(html).toContain('data-action="bunpro-audio"');
+        expect(html).toContain('data-audio-url="https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3"');
+        // Multi-list frequency tags render alongside the dict tags.
+        expect(html).toContain('General #157');
+        expect(html).toContain('Anime #494');
+        // JMdict related/antonym render via the shared related-words pattern.
+        expect(html).toContain('Related words');
+        expect(html).toContain('jpdb-reader-jpdb-used-in-group');
+        expect(html).toContain('data-dictionary-lookup="言語"');
+        expect(html).toContain('data-dictionary-lookup="無言"');
+        expect(html).toContain('>Antonym<');
+    });
+
+    it('surfaces grammar caution, register, structure, and related grammar from the detail payload', async () => {
+        const client = {
+            search: async () => ({ grammar_points: { data: [{ id: 132, attributes: { id: 132, title: 'れる・られる', furigana: 'れる・られる', slug: 'れる・られる', meaning: 'potential' } }] } }),
+            getVocab: async () => { throw new Error('unused'); },
+            getGrammarPoint: async () => ({
+                data: { id: '132', type: 'grammar_point', attributes: {
+                    caution: 'In Japanese, the potential is considered to be <strong>beyond</strong> the control of a person.',
+                    register: '一般',
+                    register_translation: 'Standard',
+                    polite_structure: '動詞（どうし） + られます<br>見（み）る + られます',
+                    casual_structure: '動詞（どうし） + られる',
+                    previous_grammar_point: { id: 131, title: 'たがる', slug: 'たがる' },
+                    next_grammar_point: { id: 133, title: 'ことができる', slug: 'ことができる' },
+                } },
+                included: [],
+            }),
+        } as unknown as BunproClient;
+        const info = await lookupBunproDefinition(client, { ...card, spelling: 'れる・られる', reading: 'れる・られる' });
+        if (!info) throw new Error('expected info');
+        expect(info.structures).toEqual([
+            { label: 'polite', lines: ['動詞 + られます', '見る + られます'] },
+            { label: 'casual', lines: ['動詞 + られる'] },
+        ]);
+        expect(info.relatedGrammar).toEqual([
+            { id: 131, title: 'たがる', slug: 'たがる' },
+            { id: 133, title: 'ことができる', slug: 'ことができる' },
+        ]);
+
+        const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'en');
+        expect(html).toContain('Caution');
+        expect(html).toContain('beyond');
+        expect(html).not.toContain('<strong>beyond</strong>');
+        expect(html).toContain('>Standard<');
+        expect(html).toContain('Structure');
+        expect(html).toContain('<div class="jpdb-reader-parseable">動詞 + られます</div>');
+        expect(html).toContain('Related grammar');
+        expect(html).toContain('data-dictionary-lookup="たがる"');
+        expect(html).toContain('data-dictionary-lookup="ことができる"');
+
+        const jaHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info, 'ja');
+        expect(jaHtml).toContain('>一般<');
+        expect(jaHtml).toContain('関連文法');
     });
 
     it('distinguishes authoritative empty examples from auth, network, and schema failures', async () => {

@@ -5,6 +5,8 @@ import { escapeHtml } from '../dom';
 import { formatPartOfSpeech } from '../lookup/pos';
 import { definitionSourceStateKey } from '../sources/definition-render';
 import { renderProviderExamples, type ProviderCollection, type ProviderExampleView } from '../sources/provider-examples';
+import { renderPassiveReference } from '../sources/passive-reference';
+import { speakerIcon } from '../ui/icons';
 import { BunproApiError, type BunproClient } from './bunpro';
 
 export interface BunproExampleSentencePart {
@@ -19,6 +21,17 @@ export interface BunproExampleSentence {
     translation: string;
     audioUrls: string[];
     source: { provider: 'bunpro'; url: string };
+}
+
+export interface BunproRelatedWord {
+    text: string;
+    relation: 'related' | 'antonym';
+}
+
+export interface BunproRelatedGrammar {
+    id: number;
+    title: string;
+    slug: string;
 }
 
 export interface BunproDefinitionInfo {
@@ -37,6 +50,16 @@ export interface BunproDefinitionInfo {
     examples: BunproExampleSentence[];
     examplesAvailability: 'loaded' | 'empty' | 'unavailable';
     examplesUnavailableReason: '' | 'auth' | 'network' | 'schema';
+    // Reviewable-detail enrichment (empty until the detail payload loads).
+    pitchAccentStress: string;
+    frequencies: Array<{ list: string; rank: number }>;
+    wordAudioUrls: string[];
+    relatedWords: BunproRelatedWord[];
+    caution: string;
+    register: string;
+    registerTranslation: string;
+    structures: Array<{ label: 'polite' | 'casual'; lines: string[] }>;
+    relatedGrammar: BunproRelatedGrammar[];
 }
 
 export type BunproDefinitionNoMatchReason =
@@ -85,11 +108,85 @@ export async function lookupBunproDefinitionResult(client: BunproClient, card: J
     // misrepresented as an authoritative zero-example result.
     try {
         const detail = await bunproReviewableDetail(client, info);
+        applyBunproReviewableDetail(info, detail);
         applyBunproExampleCollection(info, normalizeBunproExampleCollection(detail, info.sourceUrl));
     } catch (error) {
         applyBunproExampleCollection(info, { availability: 'unavailable', items: [], reason: bunproExampleFailureReason(error) });
     }
     return { state: 'success', info };
+}
+
+const BUNPRO_FREQUENCY_LISTS = ['general', 'anime', 'novels', 'netflix', 'dictionary'] as const;
+
+// The reviewable-detail payload carries pitch, multi-list frequency, word
+// audio, JMdict relations and grammar metadata alongside the study questions;
+// read them off the same response instead of dropping them.
+export function applyBunproReviewableDetail(info: BunproDefinitionInfo, raw: unknown): void {
+    const attributes = objectRecord(objectRecord(objectRecord(raw)?.data)?.attributes);
+    if (!attributes) return;
+    info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
+    info.frequencies = BUNPRO_FREQUENCY_LISTS
+        .map(list => ({ list, rank: numberValue(attributes[`frequency_${list}`]) }))
+        .filter(entry => entry.rank > 0);
+    info.wordAudioUrls = uniqueText([
+        bunproHttpsUrl(textValue(attributes.female_audio_url)),
+        bunproHttpsUrl(textValue(attributes.male_audio_url)),
+    ]);
+    info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
+    info.caution = stripBunproMarkup(textValue(attributes.caution));
+    info.register = textValue(attributes.register);
+    info.registerTranslation = textValue(attributes.register_translation);
+    info.structures = ([['polite', attributes.polite_structure], ['casual', attributes.casual_structure]] as const)
+        .map(([label, value]) => ({ label, lines: bunproStructureLines(textValue(value)) }))
+        .filter(entry => entry.lines.length);
+    info.relatedGrammar = uniqueRelatedGrammar([
+        bunproRelatedGrammarPoint(attributes.previous_grammar_point),
+        bunproRelatedGrammarPoint(attributes.next_grammar_point),
+    ]).filter(entry => entry.id !== info.id);
+}
+
+function bunproJmdictRelatedWords(raw: unknown, info: BunproDefinitionInfo): BunproRelatedWord[] {
+    const senses = objectRecord(raw)?.sense;
+    if (!Array.isArray(senses)) return [];
+    const seen = new Set<string>([info.expression, info.reading]);
+    const related: BunproRelatedWord[] = [];
+    for (const sense of senses) {
+        const record = objectRecord(sense);
+        for (const relation of ['related', 'antonym'] as const) {
+            for (const reference of Array.isArray(record?.[relation]) ? record[relation] as unknown[] : []) {
+                const text = textValue(Array.isArray(reference) ? reference[0] : reference);
+                if (!text || seen.has(text)) continue;
+                seen.add(text);
+                related.push({ text, relation });
+            }
+        }
+    }
+    return related.slice(0, 20);
+}
+
+function bunproStructureLines(value: string): string[] {
+    return value
+        .split(/<br\s*\/?\s*>|\n/gi)
+        .map(line => stripBunproFurigana(stripBunproMarkup(line)).trim())
+        .filter(Boolean)
+        .slice(0, 12);
+}
+
+function bunproRelatedGrammarPoint(raw: unknown): BunproRelatedGrammar | null {
+    const record = objectRecord(raw);
+    const id = numberValue(record?.id);
+    const title = textValue(record?.title);
+    if (!id || !title) return null;
+    return { id, title, slug: textValue(record?.slug) || title };
+}
+
+function uniqueRelatedGrammar(entries: Array<BunproRelatedGrammar | null>): BunproRelatedGrammar[] {
+    const seen = new Set<number>();
+    return entries.filter((entry): entry is BunproRelatedGrammar => {
+        if (!entry || seen.has(entry.id)) return false;
+        seen.add(entry.id);
+        return true;
+    });
 }
 
 function bunproReviewableDetail(client: BunproClient, info: BunproDefinitionInfo): Promise<unknown> {
@@ -294,27 +391,133 @@ export function renderBunproDefinitionSource(
     title = 'Bunpro',
 ): string {
     if (!info) return '';
+    const japanese = resolveUiLanguage(language) === 'ja';
+    const registerTag = japanese ? info.register : info.registerTranslation || info.register;
     const details = [
         info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml(info.jlptLevel)}</span>` : '',
         ...info.partOfSpeech.slice(0, 4).map(value => `<span class="jpdb-reader-dict-tag">${escapeHtml(value)}</span>`),
+        registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml(registerTag)}</span>` : '',
+        ...info.frequencies.map(entry => `<span class="jpdb-reader-dict-tag jpdb-reader-bunpro-frequency-tag">${escapeHtml(`${bunproFrequencyLabel(entry.list, language)} #${entry.rank}`)}</span>`),
     ].filter(Boolean).join('');
     const accepted = info.kind === 'grammar'
         ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8)
         : [];
-    const japanese = resolveUiLanguage(language) === 'ja';
     const nuanceLabel = japanese ? 'ニュアンス' : 'Nuance';
     const glosses = distinctBunproGlosses(info);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-                ${repeatsLookupHeadword(card, info) ? '' : `<div class="jpdb-reader-local-head"><span class="jpdb-reader-local-expression">${escapeHtml(info.expression)}</span>${info.reading && info.reading !== info.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml(info.reading)}</span>` : ''}</div>`}
+                ${renderBunproHeadword(card, info, language)}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ''}
                 ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
-                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong>${glosses.nuance.map(value => `<div>${escapeHtml(value)}</div>`).join('')}</div>` : ''}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join('')}</div>` : ''}
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'acceptedInputs'))}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
+                ${renderBunproStructures(info, language)}
+                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproCaution'))}</strong><div>${escapeHtml(info.caution)}</div></div>` : ''}
                 ${renderBunproExamples(info, sourceAttributes, language)}
+                ${renderBunproRelatedWords(info, sourceAttributes, language)}
+                ${renderBunproRelatedGrammar(info, sourceAttributes, language)}
             </article>
+        </details>
+    `;
+}
+
+// Headword mirrors the Jiten headword: a passive, parseable reader-word (so
+// our annotation/lookup machinery applies) plus a word-audio button when the
+// detail payload carries recordings.
+function renderBunproHeadword(card: JPDBCard, info: BunproDefinitionInfo, language: InterfaceLanguage): string {
+    const audioUrl = info.wordAudioUrls[0] ?? '';
+    const audioLabel = uiText(language, 'playAudio');
+    const audio = audioUrl
+        ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml(info.expression)}" data-audio-url="${escapeHtml(audioUrl)}" title="${escapeHtml(audioLabel)}" aria-label="${escapeHtml(audioLabel)}">${speakerIcon()}</button>`
+        : '';
+    if (repeatsLookupHeadword(card, info)) return audio ? `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}</div>` : '';
+    const reference = renderPassiveReference({
+        text: info.expression,
+        reading: info.reading,
+        dictionary: 'Bunpro',
+        className: 'jpdb-reader-bunpro-headword-target',
+    });
+    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
+}
+
+function bunproFrequencyLabel(list: string, language: InterfaceLanguage): string {
+    const japanese = resolveUiLanguage(language) === 'ja';
+    const labels: Record<string, [string, string]> = {
+        general: ['General', '一般'],
+        anime: ['Anime', 'アニメ'],
+        novels: ['Novels', '小説'],
+        netflix: ['Netflix', 'Netflix'],
+        dictionary: ['Dictionary', '辞書'],
+    };
+    const label = labels[list];
+    return label ? label[japanese ? 1 : 0] : list;
+}
+
+// Japanese gloss text (the nuance) carries inline 漢字（かな） annotations;
+// strip them and let the reader's nested re-parse annotate furigana/pitch with
+// our own system, exactly like example sentences.
+function renderBunproGlossText(value: string): string {
+    if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml(value)}</div>`;
+    return `<div class="jpdb-reader-parseable">${escapeHtml(stripBunproFurigana(value))}</div>`;
+}
+
+function renderBunproStructures(info: BunproDefinitionInfo, language: InterfaceLanguage): string {
+    if (!info.structures.length) return '';
+    const blocks = info.structures.map(structure => `
+        <div class="jpdb-reader-bunpro-structure" data-structure="${structure.label}">
+            ${structure.lines.map(line => `<div class="jpdb-reader-parseable">${escapeHtml(line)}</div>`).join('')}
+        </div>
+    `).join('');
+    return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproStructure'))}</strong>${blocks}</div>`;
+}
+
+function renderBunproRelatedWords(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
+    if (!info.relatedWords.length) return '';
+    const rows = info.relatedWords.map(entry => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml(entry.text)}</span>
+                </a>
+                ${entry.relation === 'antonym' ? `<small>${escapeHtml(uiText(language, 'antonymWord'))}</small>` : ''}
+            </span>
+        </li>
+    `).join('');
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:related-words`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'relatedWords'))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedWords.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
+}
+
+function renderBunproRelatedGrammar(info: BunproDefinitionInfo, sourceAttributes: (key: string, initiallyExpanded?: boolean) => string, language: InterfaceLanguage): string {
+    if (!info.relatedGrammar.length) return '';
+    const rows = info.relatedGrammar.map(entry => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(entry.title)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml(entry.title)}</span>
+                </a>
+            </span>
+        </li>
+    `).join('');
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey(`${BUNPRO_DEFINITION_SOURCE_ID}:related-grammar`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'relatedGrammar'))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.relatedGrammar.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
         </details>
     `;
 }
@@ -331,16 +534,29 @@ function renderBunproExamples(info: BunproDefinitionInfo, sourceAttributes: (key
     return renderProviderExamples('bunpro', BUNPRO_DEFINITION_SOURCE_ID, view, sourceAttributes, language);
 }
 
-function renderBunproExamplePart(part: BunproExampleSentencePart): string {
-    const html = renderBunproAnnotatedText(part.text);
-    return part.target ? `<mark class="jpdb-reader-example-target jpdb-reader-bunpro-example-target">${html}</mark>` : html;
+// Non-target text stays PLAIN (furigana annotations stripped) so the shared
+// `.jpdb-reader-parseable` nested re-parse annotates furigana/pitch with our
+// own system, exactly like the Jiten/JPDB example sentences. Only the target
+// word is pre-rendered, as a passive reader-word that survives re-parse via
+// the example-target mark preservation.
+function renderBunproExamplePart(part: BunproExampleSentencePart, sentence: string): string {
+    const plain = stripBunproFurigana(part.text);
+    if (!part.target) return escapeHtml(plain);
+    return renderPassiveReference({
+        text: plain,
+        reading: bunproAnnotatedKana(part.text),
+        dictionary: 'Bunpro',
+        sentence,
+        className: 'jpdb-reader-example-target jpdb-reader-bunpro-example-target',
+        annotatedReading: bunproBracketAnnotated(part.text),
+    });
 }
 
 function bunproExampleView(example: BunproExampleSentence, language: InterfaceLanguage): ProviderExampleView {
     const audioUrl = example.audioUrls[0] ?? '';
     return {
         id: example.id,
-        sentenceHtml: example.parts.map(renderBunproExamplePart).join(''),
+        sentenceHtml: example.parts.map(part => renderBunproExamplePart(part, example.text)).join(''),
         translation: example.translation,
         audio: {
             action: 'bunpro-audio',
@@ -354,27 +570,28 @@ function bunproExampleView(example: BunproExampleSentence, language: InterfaceLa
 }
 
 // Bunpro annotates readings inline as 漢字（かんじ） (full-width parens right
-// after the kanji run); render them as ruby so the sentence reads like the
-// rest of the popover.
+// after the kanji run). Display never bakes this ad-hoc form; it is stripped
+// to plain text (our parser re-annotates) or converted to the shared bracket
+// form for passive-reference ruby.
 const BUNPRO_FURIGANA_RE = /([一-龯々-〇]+)（([ぁ-ゖァ-ヺー・]+)）/g;
-
-function renderBunproAnnotatedText(value: string): string {
-    let html = '';
-    let offset = 0;
-    let match: RegExpExecArray | null;
-    BUNPRO_FURIGANA_RE.lastIndex = 0;
-    while ((match = BUNPRO_FURIGANA_RE.exec(value)) !== null) {
-        html += escapeHtml(value.slice(offset, match.index));
-        html += `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml(match[1] ?? '')}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(match[2] ?? '')}</rt><rp>)</rp></ruby>`;
-        offset = match.index + match[0].length;
-    }
-    html += escapeHtml(value.slice(offset));
-    return html;
-}
 
 function stripBunproFurigana(value: string): string {
     BUNPRO_FURIGANA_RE.lastIndex = 0;
     return value.replace(BUNPRO_FURIGANA_RE, '$1');
+}
+
+// 読（よ）む → 読[よ]む — the bracket-annotated form shared with Jiten.
+function bunproBracketAnnotated(value: string): string {
+    BUNPRO_FURIGANA_RE.lastIndex = 0;
+    return value.replace(BUNPRO_FURIGANA_RE, '$1[$2]');
+}
+
+// 読（よ）む → よむ; empty when the text carries no annotation (kana-only
+// targets need no reading of their own).
+function bunproAnnotatedKana(value: string): string {
+    BUNPRO_FURIGANA_RE.lastIndex = 0;
+    const rendered = value.replace(BUNPRO_FURIGANA_RE, '$2').trim();
+    return rendered === value.trim() ? '' : rendered;
 }
 
 function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): BunproDefinitionInfo | null {
@@ -393,8 +610,8 @@ function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): Bun
         reading,
         slug,
         meaning: textValue(attributes.meaning),
-        nuance: textValue(attributes.nuance),
-        nuanceTranslation: textValue(attributes.nuance_translation),
+        nuance: stripBunproMarkup(textValue(attributes.nuance)),
+        nuanceTranslation: stripBunproMarkup(textValue(attributes.nuance_translation)),
         acceptedAnswers: textList(attributes.accepted_answers),
         partOfSpeech: normalizeBunproPartOfSpeech(attributes.jmdict_pos),
         jlptLevel: normalizeBunproJlptLevel(attributes.jlpt_level),
@@ -404,6 +621,15 @@ function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): Bun
         examples: [],
         examplesAvailability: 'empty',
         examplesUnavailableReason: '',
+        pitchAccentStress: '',
+        frequencies: [],
+        wordAudioUrls: [],
+        relatedWords: [],
+        caution: '',
+        register: '',
+        registerTranslation: '',
+        structures: [],
+        relatedGrammar: [],
     };
 }
 

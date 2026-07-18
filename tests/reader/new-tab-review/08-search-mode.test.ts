@@ -1014,6 +1014,15 @@ describe('new tab review — search mode', () => {
             examples: [],
             examplesAvailability: 'empty' as const,
             examplesUnavailableReason: '' as const,
+            pitchAccentStress: '',
+            frequencies: [],
+            wordAudioUrls: [],
+            relatedWords: [],
+            caution: '',
+            register: '',
+            registerTranslation: '',
+            structures: [],
+            relatedGrammar: [],
         };
         const hydrateBunproDefinitionInfo = vi.fn(async () => bunproDefinitionInfo);
         const cardRenderData = {
