@@ -81,6 +81,10 @@ export class ReaderAudioActions {
                 isCurrent,
                 userGesture: options.userGesture,
                 reservedGesture: options.autoPlay,
+                playbackLifecycle: {
+                    onStart: () => this.setPlaying(loading.popover, loading.requestId),
+                    onEnd: () => this.clearPlaying(loading.popover, loading.requestId),
+                },
             });
             return played;
         } catch (error) {
@@ -174,6 +178,19 @@ export class ReaderAudioActions {
         if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
         delete popover.dataset.audioLoading;
         delete popover.dataset.audioLoadingRequest;
+    }
+
+    private setPlaying(popover: HTMLElement | undefined, requestId: number): void {
+        if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
+        this.clearLoading(popover, requestId);
+        popover.dataset.audioPlaying = 'true';
+        popover.dataset.audioPlayingRequest = String(requestId);
+    }
+
+    private clearPlaying(popover: HTMLElement | undefined, requestId: number): void {
+        if (!popover || popover.dataset.audioPlayingRequest !== String(requestId)) return;
+        delete popover.dataset.audioPlaying;
+        delete popover.dataset.audioPlayingRequest;
     }
 }
 

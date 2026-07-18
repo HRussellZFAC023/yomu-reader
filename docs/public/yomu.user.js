@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.201
+// @version 1.6.202
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,9 +13,9 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.d4c5d108ec6e.user.js#sha256=1MXRCOxugKZuI9Oe/meyq8ONJZCOwSlGY5HiyI0/JZQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.628b106456c9.user.js#sha256=YosQZFbJK33U9U0vyKUJg5aotu0UGab8Os17a5IGybI=
 // @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
-// @resource yomuCss  https://yomureader.com/yomu.b2961b03bd43.css#sha256=spYbA71DZOP0+ogjRg8S8Hru6V4jZEknOtmVdbBeQfA=
+// @resource yomuCss  https://yomureader.com/yomu.9e7bcbdd1938.css#sha256=nnvL3Rk4he6bkTgTcGIFrcpbCV3pLypAvgyiFj1UiUg=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -11530,6 +11530,8 @@ class AudioPlayer {
   unavailableJpdbAudioIds = new Map();
   lastAudioIdentityByCard = new Map();
   gestureReservation;
+  reusableGestureAudio;
+  activePlayback;
   clearCaches() {
   this.candidateCache.clear();
   this.blobUrlCache.clear();
@@ -11546,9 +11548,29 @@ class AudioPlayer {
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
   const done = log$h.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
-  const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
+  const result = await this.playFromSources(
+    request.sources,
+    card,
+    request.settings,
+    request.requestId,
+    request.isCurrent,
+    request.userGesture,
+    reservedAudio,
+    request.playbackLifecycle
+  );
+  if (result.state === "played" && request.reservedGesture && this.current) {
+    this.reusableGestureAudio = this.current;
+  }
   done();
-  return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
+  return this.finishPlaybackResult(
+    card,
+    request.settings,
+    request.requestId,
+    request.isCurrent,
+    request.userGesture,
+    result,
+    request.playbackLifecycle
+  );
   }
   audioPlaybackRequest(options) {
   const settings = this.getSettings();
@@ -11558,7 +11580,8 @@ class AudioPlayer {
     settings,
     sources: getOrderedAudioSources(settings),
     userGesture: options.userGesture ?? false,
-    reservedGesture: options.reservedGesture ?? false
+    reservedGesture: options.reservedGesture ?? false,
+    playbackLifecycle: options.playbackLifecycle
   };
   }
   reserveGestureAudioElement(request) {
@@ -11568,6 +11591,7 @@ class AudioPlayer {
   }
   reserveCurrentGestureAudioElement() {
   const audio = reserveGestureAudioElement((audioUrl) => this.createAudioElement(audioUrl));
+  this.reusableGestureAudio = audio;
   this.current = audio;
   return audio;
   }
@@ -11587,43 +11611,86 @@ class AudioPlayer {
   takeGestureAudioElement(request) {
   if (!shouldUseGestureAudioReservation(request)) return void 0;
   const reservation = this.gestureReservation;
-  if (!reservation) return void 0;
+  if (!reservation) return this.reusableAudioForAutoplay(request);
   this.gestureReservation = void 0;
   window.clearTimeout(reservation.timer);
   if (reservation.expiresAt < Date.now()) {
     if (this.current === reservation.audio) this.stopCurrent();
-    return void 0;
+    return this.reusableAudioForAutoplay(request);
   }
   return reservation.audio;
+  }
+  reusableAudioForAutoplay(request) {
+  return request.reservedGesture ? this.reusableGestureAudio : void 0;
   }
   ensureAudioEnabled(settings) {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
   log$h.warn("No audio sources configured", { term: card.spelling });
-  return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
+  return await this.playMissingAudioFallback(
+    request.settings,
+    request.requestId,
+    request.isCurrent,
+    request.userGesture,
+    request.playbackLifecycle
+  );
   }
-  async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
+  async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result, playbackLifecycle) {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
   log$h.warn("No playable audio found", { term: card.spelling, errors: result.errors });
-  return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
+  return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
   }
-  async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
+  async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
   const errors = [];
   const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
-  const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity);
+  const result = await this.playFromSourcesAttempt(
+    sources,
+    card,
+    settings,
+    requestId,
+    isCurrent,
+    errors,
+    userGesture,
+    reservedAudio,
+    avoidIdentity,
+    playbackLifecycle
+  );
   if (result.state === "miss" && result.skippedAvoidedIdentity) {
-    const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio);
+    const retry = await this.playFromSourcesAttempt(
+      sources,
+      card,
+      settings,
+      requestId,
+      isCurrent,
+      errors,
+      userGesture,
+      reservedAudio,
+      void 0,
+      playbackLifecycle
+    );
     return { state: retry.state, errors };
   }
   return { state: result.state, errors };
   }
-  async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity) {
+  async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity, playbackLifecycle) {
   const triedUrls = new Set();
   const attemptState = { skippedAvoidedIdentity: false };
-  const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState, userGesture };
+  const context = {
+    card,
+    settings,
+    requestId,
+    triedUrls,
+    isCurrent,
+    errors,
+    reservedAudio,
+    avoidIdentity,
+    attemptState,
+    userGesture,
+    playbackLifecycle
+  };
   const fallbackContext = { ...context, reservedAudio: void 0 };
   if (settings.audioTtsMode === "source-order") {
     const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
@@ -11804,7 +11871,8 @@ class AudioPlayer {
   }, { once: true });
   }
   stopCurrent(except) {
-  if (this.current && this.current !== except) this.current.pause();
+  this.finishPlayback();
+  if (this.current && (this.current !== except || !this.current.loop)) this.current.pause();
   this.current = except;
   if (this.utterance) {
     speechSynthesis.cancel();
@@ -11849,7 +11917,9 @@ class AudioPlayer {
     onAvoided: () => {
       context.attemptState.skippedAvoidedIdentity = true;
     },
-    onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity)
+    onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity),
+    onStart: () => this.startPlayback(requestId, context.playbackLifecycle),
+    onEnd: () => this.finishPlayback(requestId)
   });
   return played && this.isPlaybackCurrent(requestId, isCurrent);
   }
@@ -11865,16 +11935,30 @@ class AudioPlayer {
       this.shuffledAudio.markSkipped(bagKey, id);
       continue;
     }
-    if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, context.userGesture, reservedAudio)) return true;
+    if (await this.playAudioCandidate(
+      candidate,
+      sourceType,
+      id,
+      bagKey,
+      settings,
+      requestId,
+      isCurrent,
+      card,
+      context.errors,
+      context.userGesture,
+      reservedAudio,
+      context.playbackLifecycle
+    )) return true;
     this.shuffledAudio.markSkipped(bagKey, id);
   }
   return false;
   }
-  async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio) {
+  async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio, playbackLifecycle) {
   let audio;
   try {
-    audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
+    audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio, requestId, isCurrent);
   } catch (error) {
+    if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
@@ -11888,7 +11972,7 @@ class AudioPlayer {
   if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
   let played = false;
   try {
-    played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture });
+    played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture, playbackLifecycle });
   } catch (error) {
     throw new AudioPlaybackAttemptError(error);
   }
@@ -11953,16 +12037,16 @@ class AudioPlayer {
   this.unavailableJpdbAudioIds.delete(audioId);
   return false;
   }
-  createPlayableAudio(candidate, sourceType, settings, reservedAudio) {
+  createPlayableAudio(candidate, sourceType, settings, reservedAudio, requestId, isCurrent) {
   if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
-    return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
+    return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio, requestId, isCurrent);
   }
   const audioViaBlob = sourceType !== "jiten-tts" && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
-  return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
+  return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio, requestId, isCurrent) : reservedAudio ? this.createReadyAudioForRequest(candidate.url, reservedAudio, requestId, isCurrent) : this.createAudioElement(candidate.url);
   }
-  async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
+  async preparePlayableJpdbAudio(audioId, settings, reservedAudio, requestId, isCurrent) {
   const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
-  return this.createReadyAudio(audioUrl, reservedAudio);
+  return reservedAudio ? this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent) : this.createReadyAudio(audioUrl);
   }
   isPlaybackCurrent(requestId, isCurrent) {
   return requestId === this.playRequestId && isCurrent();
@@ -11974,10 +12058,10 @@ class AudioPlayer {
   const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
   return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
   }
-  preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob, reservedAudio) {
+  preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob, reservedAudio, requestId, isCurrent) {
   const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
   const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
-  if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
+  if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent));
   const now = Date.now();
   const cached = this.readyAudioCache.get(key);
   if (cached && cached.expiresAt > now) {
@@ -11992,6 +12076,12 @@ class AudioPlayer {
   this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
   pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
   return promise;
+  }
+  createReadyAudioForRequest(audioUrl, audio, requestId, isCurrent) {
+  if (requestId !== void 0 && isCurrent && !this.isPlaybackCurrent(requestId, isCurrent)) {
+    return Promise.resolve(audio);
+  }
+  return this.createReadyAudio(audioUrl, audio);
   }
   async createReadyAudio(audioUrl, audio = this.createAudioElement(audioUrl)) {
   audio.loop = false;
@@ -12026,12 +12116,13 @@ class AudioPlayer {
       return false;
     }
   } catch (error) {
-    if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+    if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent, options.playbackLifecycle)) return true;
     throw error;
   }
+  this.startMediaPlayback(audio, requestId, options.playbackLifecycle);
   return true;
   }
-  async playViaWebAudio(audioUrl, requestId, isCurrent) {
+  async playViaWebAudio(audioUrl, requestId, isCurrent, playbackLifecycle) {
   const AudioContextCtor = getAudioContextConstructor();
   if (!AudioContextCtor) return false;
   const bytes = await this.webAudioBytes(audioUrl);
@@ -12042,18 +12133,50 @@ class AudioPlayer {
     if (!await resumeAudioContext(context)) return false;
     if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
     const decoded = await context.decodeAudioData(bytes);
+    if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
     const source = context.createBufferSource();
     source.buffer = decoded;
     source.connect(context.destination);
     await new Promise((resolve) => {
       source.onended = () => resolve();
       source.start();
+      this.startPlayback(requestId, playbackLifecycle);
     });
+    this.finishPlayback(requestId);
     return true;
   } catch {
+    this.finishPlayback(requestId);
     return false;
   } finally {
     await context?.close().catch(() => void 0);
+  }
+  }
+  startMediaPlayback(audio, requestId, playbackLifecycle) {
+  const finish = () => this.finishPlayback(requestId);
+  const events = ["ended", "error", "pause"];
+  events.forEach((event) => audio.addEventListener(event, finish, { once: true }));
+  this.startPlayback(requestId, playbackLifecycle, () => {
+    events.forEach((event) => audio.removeEventListener(event, finish));
+  });
+  }
+  startPlayback(requestId, playbackLifecycle, cleanup) {
+  this.finishPlayback();
+  this.activePlayback = { requestId, onEnd: playbackLifecycle?.onEnd, cleanup };
+  try {
+    playbackLifecycle?.onStart?.();
+  } catch (error) {
+    log$h.warn("Audio playback start callback failed", void 0, error);
+  }
+  }
+  finishPlayback(requestId) {
+  const active = this.activePlayback;
+  if (!active || requestId !== void 0 && active.requestId !== requestId) return;
+  this.activePlayback = void 0;
+  active.cleanup?.();
+  try {
+    active.onEnd?.();
+  } catch (error) {
+    log$h.warn("Audio playback end callback failed", void 0, error);
   }
   }
   async webAudioBytes(audioUrl) {
@@ -12120,15 +12243,18 @@ class AudioPlayer {
     }
     utterance.voice = choice.voice;
     utterance.onend = () => {
+      options.onEnd?.();
       this.markTextToSpeechVoicePlayed(choice);
       options.onPlayed?.(identity);
       resolve(true);
     };
     utterance.onerror = () => {
+      options.onEnd?.();
       this.markTextToSpeechVoiceSkipped(choice);
       reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
     };
     this.utterance = utterance;
+    options.onStart?.();
     speechSynthesis.speak(utterance);
   });
   }
@@ -12170,22 +12296,22 @@ class AudioPlayer {
   textToSpeechTextBagKey(text2, voiceName, settings) {
   return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
   }
-  async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
+  async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false, playbackLifecycle) {
   if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
-  return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
+  return await this.tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle);
   }
   shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
   if (settings.audioFallbackChimeEnabled && canAttemptWebAudioFallback(userGesture)) return this.isPlaybackCurrent(requestId, isCurrent);
   return false;
   }
-  async tryPlayMissingAudioFallback(requestId, isCurrent) {
+  async tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle) {
   try {
-    return await this.playSoftChime(requestId, isCurrent);
+    return await this.playSoftChime(requestId, isCurrent, playbackLifecycle);
   } catch {
     return false;
   }
   }
-  async playSoftChime(requestId, isCurrent) {
+  async playSoftChime(requestId, isCurrent, playbackLifecycle) {
   const AudioContextCtor = getAudioContextConstructor();
   if (!AudioContextCtor) return false;
   const context = new AudioContextCtor();
@@ -12195,9 +12321,18 @@ class AudioPlayer {
     await context.close().catch(() => void 0);
     return false;
   }
-  if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+  if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+    if (this.fallbackChimeContext === context) this.fallbackChimeContext = void 0;
+    await context.close().catch(() => void 0);
+    return false;
+  }
   scheduleSoftChime(context, context.currentTime + 0.015);
-  await waitForSoftChime();
+  this.startPlayback(requestId, playbackLifecycle);
+  try {
+    await waitForSoftChime();
+  } finally {
+    this.finishPlayback(requestId);
+  }
   if (this.fallbackChimeContext === context) {
     this.fallbackChimeContext = void 0;
     await context.close().catch(() => void 0);
@@ -33804,7 +33939,11 @@ class ReaderAudioActions {
     const played = await this.dependencies.audio.play(card, {
       isCurrent,
       userGesture: options.userGesture,
-      reservedGesture: options.autoPlay
+      reservedGesture: options.autoPlay,
+      playbackLifecycle: {
+        onStart: () => this.setPlaying(loading.popover, loading.requestId),
+        onEnd: () => this.clearPlaying(loading.popover, loading.requestId)
+      }
     });
     return played;
   } catch (error) {
@@ -33881,6 +34020,17 @@ class ReaderAudioActions {
   if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
   delete popover.dataset.audioLoading;
   delete popover.dataset.audioLoadingRequest;
+  }
+  setPlaying(popover, requestId) {
+  if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
+  this.clearLoading(popover, requestId);
+  popover.dataset.audioPlaying = "true";
+  popover.dataset.audioPlayingRequest = String(requestId);
+  }
+  clearPlaying(popover, requestId) {
+  if (!popover || popover.dataset.audioPlayingRequest !== String(requestId)) return;
+  delete popover.dataset.audioPlaying;
+  delete popover.dataset.audioPlayingRequest;
   }
 }
 function termAudioRequestKey(card, options) {
@@ -36478,8 +36628,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.201"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.201"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.202"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.202"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36597,7 +36747,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.201"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.202"}`;
   } catch {
   return null;
   }
@@ -44769,6 +44919,48 @@ function releaseRuntime(ownerId) {
   const marker = document.getElementById(RUNTIME_MARKER_ID);
   if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
 }
+const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+  if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+  const ambientLegacyGetValue = globals === globalThis && typeof GM_getValue === "function";
+  if (ambientLegacyGetValue || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+  return "userscript";
+  }
+  return null;
+}
+function announceInstalledReaderRuntime(globals = globalThis, root = document) {
+  const kind = detectInstalledReaderRuntime(globals);
+  if (!kind) return null;
+  markInstalledReaderRuntime(kind, root);
+  return kind;
+}
+function markInstalledReaderRuntime(kind, root = document) {
+  const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+  const marker = existing instanceof HTMLElement ? existing : root.createElement("meta");
+  marker.id = INSTALLED_READER_RUNTIME_MARKER_ID;
+  marker.dataset.yomuInstalledRuntimeKind = kind;
+  if (!marker.isConnected) appendInstalledRuntimeMarker(marker, root);
+  return marker;
+}
+function appendInstalledRuntimeMarker(marker, root) {
+  const append = () => {
+  const parent = root.head || root.documentElement || root.body;
+  if (!parent) return false;
+  parent.append(marker);
+  return true;
+  };
+  if (append()) return;
+  const observer = typeof MutationObserver === "function" ? new MutationObserver(() => {
+  if (!marker.isConnected && !append()) return;
+  observer?.disconnect();
+  }) : void 0;
+  observer?.observe(root, { childList: true, subtree: true });
+  root.addEventListener("DOMContentLoaded", () => {
+  observer?.disconnect();
+  if (!marker.isConnected) append();
+  }, { once: true });
+}
+announceInstalledReaderRuntime();
 installPreferredJapaneseSiteLanguageFromStoredSettings();
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();

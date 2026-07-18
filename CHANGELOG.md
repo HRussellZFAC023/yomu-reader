@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.202] - 2026-07-18
+
+### Fixed
+
+- Reused the browser-authorized media element for repeated Apple Pencil and mouse hover audio, so leaving a word and hovering again no longer shows the active speaker state while Safari silently blocks a newly created audio element; stale hover fetches also cannot retarget the shared channel after a newer lookup starts. The speaker now keeps its green accent for the full playback instead of only while audio is loading.
+- Made installed Yomu userscripts and extensions announce themselves at document-start on yomureader.com. The website now keeps its hosted reader strictly as the no-install fallback, so an installed copy remains the runtime owner and retains its own language, Jiten key, and learning progress.
+
 ## [1.6.201] - 2026-07-18
 
 ### Fixed

@@ -89,6 +89,8 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming) for first-party PC game capture and lookup.
 - [Feature guide](https://yomureader.com/features) for screenshots and detailed behavior.
 
+The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.
+
 ## Privacy
 
 よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used.

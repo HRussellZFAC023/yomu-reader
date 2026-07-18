@@ -10156,13 +10156,17 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   }
 }
 
-.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control {
+.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control,
+.jpdb-reader-popover[data-audio-playing="true"] .jpdb-reader-audio-control {
   border-color: color-mix(
     in srgb,
     var(--jpdb-reader-accent) 62%,
     var(--jpdb-reader-border)
   );
   color: var(--jpdb-reader-accent-readable);
+}
+
+.jpdb-reader-popover[data-audio-loading="true"] .jpdb-reader-audio-control {
   cursor: progress;
 }
 

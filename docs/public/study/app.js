@@ -20642,6 +20642,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
     lastAudioIdentityByCard = /* @__PURE__ */ new Map();
     gestureReservation;
+    reusableGestureAudio;
+    activePlayback;
     clearCaches() {
       this.candidateCache.clear();
       this.blobUrlCache.clear();
@@ -20658,9 +20660,29 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
       const done = log$z.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
-      const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
+      const result = await this.playFromSources(
+        request.sources,
+        card,
+        request.settings,
+        request.requestId,
+        request.isCurrent,
+        request.userGesture,
+        reservedAudio,
+        request.playbackLifecycle
+      );
+      if (result.state === "played" && request.reservedGesture && this.current) {
+        this.reusableGestureAudio = this.current;
+      }
       done();
-      return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
+      return this.finishPlaybackResult(
+        card,
+        request.settings,
+        request.requestId,
+        request.isCurrent,
+        request.userGesture,
+        result,
+        request.playbackLifecycle
+      );
     }
     audioPlaybackRequest(options) {
       const settings = this.getSettings();
@@ -20670,7 +20692,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         settings,
         sources: getOrderedAudioSources(settings),
         userGesture: options.userGesture ?? false,
-        reservedGesture: options.reservedGesture ?? false
+        reservedGesture: options.reservedGesture ?? false,
+        playbackLifecycle: options.playbackLifecycle
       };
     }
     reserveGestureAudioElement(request) {
@@ -20680,6 +20703,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     reserveCurrentGestureAudioElement() {
       const audio = reserveGestureAudioElement((audioUrl) => this.createAudioElement(audioUrl));
+      this.reusableGestureAudio = audio;
       this.current = audio;
       return audio;
     }
@@ -20699,43 +20723,86 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     takeGestureAudioElement(request) {
       if (!shouldUseGestureAudioReservation(request)) return void 0;
       const reservation = this.gestureReservation;
-      if (!reservation) return void 0;
+      if (!reservation) return this.reusableAudioForAutoplay(request);
       this.gestureReservation = void 0;
       window.clearTimeout(reservation.timer);
       if (reservation.expiresAt < Date.now()) {
         if (this.current === reservation.audio) this.stopCurrent();
-        return void 0;
+        return this.reusableAudioForAutoplay(request);
       }
       return reservation.audio;
+    }
+    reusableAudioForAutoplay(request) {
+      return request.reservedGesture ? this.reusableGestureAudio : void 0;
     }
     ensureAudioEnabled(settings) {
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
       log$z.warn("No audio sources configured", { term: card.spelling });
-      return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
+      return await this.playMissingAudioFallback(
+        request.settings,
+        request.requestId,
+        request.isCurrent,
+        request.userGesture,
+        request.playbackLifecycle
+      );
     }
-    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
+    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result, playbackLifecycle) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
       log$z.warn("No playable audio found", { term: card.spelling, errors: result.errors });
-      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
+      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
-    async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
+    async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
       const errors = [];
       const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
-      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity);
+      const result = await this.playFromSourcesAttempt(
+        sources,
+        card,
+        settings,
+        requestId,
+        isCurrent,
+        errors,
+        userGesture,
+        reservedAudio,
+        avoidIdentity,
+        playbackLifecycle
+      );
       if (result.state === "miss" && result.skippedAvoidedIdentity) {
-        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio);
+        const retry = await this.playFromSourcesAttempt(
+          sources,
+          card,
+          settings,
+          requestId,
+          isCurrent,
+          errors,
+          userGesture,
+          reservedAudio,
+          void 0,
+          playbackLifecycle
+        );
         return { state: retry.state, errors };
       }
       return { state: result.state, errors };
     }
-    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity) {
+    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity, playbackLifecycle) {
       const triedUrls = /* @__PURE__ */ new Set();
       const attemptState = { skippedAvoidedIdentity: false };
-      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState, userGesture };
+      const context = {
+        card,
+        settings,
+        requestId,
+        triedUrls,
+        isCurrent,
+        errors,
+        reservedAudio,
+        avoidIdentity,
+        attemptState,
+        userGesture,
+        playbackLifecycle
+      };
       const fallbackContext = { ...context, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
         const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
@@ -20923,7 +20990,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }, { once: true });
     }
     stopCurrent(except) {
-      if (this.current && this.current !== except) this.current.pause();
+      this.finishPlayback();
+      if (this.current && (this.current !== except || !this.current.loop)) this.current.pause();
       this.current = except;
       if (this.utterance) {
         speechSynthesis.cancel();
@@ -20968,7 +21036,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         onAvoided: () => {
           context.attemptState.skippedAvoidedIdentity = true;
         },
-        onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity)
+        onPlayed: (identity) => this.markAudioIdentityPlayed(card, identity),
+        onStart: () => this.startPlayback(requestId, context.playbackLifecycle),
+        onEnd: () => this.finishPlayback(requestId)
       });
       return played && this.isPlaybackCurrent(requestId, isCurrent);
     }
@@ -20984,16 +21054,30 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, context.userGesture, reservedAudio)) return true;
+        if (await this.playAudioCandidate(
+          candidate,
+          sourceType,
+          id,
+          bagKey,
+          settings,
+          requestId,
+          isCurrent,
+          card,
+          context.errors,
+          context.userGesture,
+          reservedAudio,
+          context.playbackLifecycle
+        )) return true;
         this.shuffledAudio.markSkipped(bagKey, id);
       }
       return false;
     }
-    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio) {
+    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio, playbackLifecycle) {
       let audio;
       try {
-        audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
+        audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio, requestId, isCurrent);
       } catch (error) {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio = fallbackAudio;
@@ -21007,7 +21091,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       let played = false;
       try {
-        played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture });
+        played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture, playbackLifecycle });
       } catch (error) {
         throw new AudioPlaybackAttemptError(error);
       }
@@ -21072,16 +21156,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.unavailableJpdbAudioIds.delete(audioId);
       return false;
     }
-    createPlayableAudio(candidate, sourceType, settings, reservedAudio) {
+    createPlayableAudio(candidate, sourceType, settings, reservedAudio, requestId, isCurrent) {
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) {
-        return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio);
+        return this.preparePlayableJpdbAudio(candidate.jpdbAudioId, settings, reservedAudio, requestId, isCurrent);
       }
       const audioViaBlob = sourceType !== "jiten-tts" && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate));
-      return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate.url, reservedAudio) : this.createAudioElement(candidate.url);
+      return audioViaBlob ? this.preparePlayableAudio(candidate, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio, requestId, isCurrent) : reservedAudio ? this.createReadyAudioForRequest(candidate.url, reservedAudio, requestId, isCurrent) : this.createAudioElement(candidate.url);
     }
-    async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
+    async preparePlayableJpdbAudio(audioId, settings, reservedAudio, requestId, isCurrent) {
       const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
-      return this.createReadyAudio(audioUrl, reservedAudio);
+      return reservedAudio ? this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent) : this.createReadyAudio(audioUrl);
     }
     isPlaybackCurrent(requestId, isCurrent) {
       return requestId === this.playRequestId && isCurrent();
@@ -21093,10 +21177,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
       return this.blobUrlCache.getOrCreate(key, () => this.fetchAudioAsBlobUrl(candidate.url, candidate.sourceUrl, timeoutMs, mode));
     }
-    preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob, reservedAudio) {
+    preparePlayableAudio(candidate, timeoutMs, mode, audioViaBlob, reservedAudio, requestId, isCurrent) {
       const fetchAsBlob = shouldFetchCandidateAsBlob(candidate, audioViaBlob);
       const key = preparedAudioCacheKey(candidate, mode, fetchAsBlob);
-      if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
+      if (reservedAudio) return this.prepareAudioUrl(candidate, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent));
       const now = Date.now();
       const cached = this.readyAudioCache.get(key);
       if (cached && cached.expiresAt > now) {
@@ -21111,6 +21195,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.readyAudioCache.set(key, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
       pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
       return promise;
+    }
+    createReadyAudioForRequest(audioUrl, audio, requestId, isCurrent) {
+      if (requestId !== void 0 && isCurrent && !this.isPlaybackCurrent(requestId, isCurrent)) {
+        return Promise.resolve(audio);
+      }
+      return this.createReadyAudio(audioUrl, audio);
     }
     async createReadyAudio(audioUrl, audio = this.createAudioElement(audioUrl)) {
       audio.loop = false;
@@ -21145,12 +21235,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           return false;
         }
       } catch (error) {
-        if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+        if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent, options.playbackLifecycle)) return true;
         throw error;
       }
+      this.startMediaPlayback(audio, requestId, options.playbackLifecycle);
       return true;
     }
-    async playViaWebAudio(audioUrl, requestId, isCurrent) {
+    async playViaWebAudio(audioUrl, requestId, isCurrent, playbackLifecycle) {
       const AudioContextCtor = getAudioContextConstructor();
       if (!AudioContextCtor) return false;
       const bytes = await this.webAudioBytes(audioUrl);
@@ -21161,18 +21252,50 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (!await resumeAudioContext(context)) return false;
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const decoded = await context.decodeAudioData(bytes);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const source = context.createBufferSource();
         source.buffer = decoded;
         source.connect(context.destination);
         await new Promise((resolve) => {
           source.onended = () => resolve();
           source.start();
+          this.startPlayback(requestId, playbackLifecycle);
         });
+        this.finishPlayback(requestId);
         return true;
       } catch {
+        this.finishPlayback(requestId);
         return false;
       } finally {
         await context?.close().catch(() => void 0);
+      }
+    }
+    startMediaPlayback(audio, requestId, playbackLifecycle) {
+      const finish = () => this.finishPlayback(requestId);
+      const events = ["ended", "error", "pause"];
+      events.forEach((event) => audio.addEventListener(event, finish, { once: true }));
+      this.startPlayback(requestId, playbackLifecycle, () => {
+        events.forEach((event) => audio.removeEventListener(event, finish));
+      });
+    }
+    startPlayback(requestId, playbackLifecycle, cleanup) {
+      this.finishPlayback();
+      this.activePlayback = { requestId, onEnd: playbackLifecycle?.onEnd, cleanup };
+      try {
+        playbackLifecycle?.onStart?.();
+      } catch (error) {
+        log$z.warn("Audio playback start callback failed", void 0, error);
+      }
+    }
+    finishPlayback(requestId) {
+      const active = this.activePlayback;
+      if (!active || requestId !== void 0 && active.requestId !== requestId) return;
+      this.activePlayback = void 0;
+      active.cleanup?.();
+      try {
+        active.onEnd?.();
+      } catch (error) {
+        log$z.warn("Audio playback end callback failed", void 0, error);
       }
     }
     // Web Audio decoding is exempt from the page's media-src, so it is the only way
@@ -21244,15 +21367,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         }
         utterance.voice = choice.voice;
         utterance.onend = () => {
+          options.onEnd?.();
           this.markTextToSpeechVoicePlayed(choice);
           options.onPlayed?.(identity);
           resolve(true);
         };
         utterance.onerror = () => {
+          options.onEnd?.();
           this.markTextToSpeechVoiceSkipped(choice);
           reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
         };
         this.utterance = utterance;
+        options.onStart?.();
         speechSynthesis.speak(utterance);
       });
     }
@@ -21294,22 +21420,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     textToSpeechTextBagKey(text2, voiceName, settings) {
       return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
     }
-    async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
+    async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false, playbackLifecycle) {
       if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
-      return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
+      return await this.tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle);
     }
     shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
       if (settings.audioFallbackChimeEnabled && canAttemptWebAudioFallback(userGesture)) return this.isPlaybackCurrent(requestId, isCurrent);
       return false;
     }
-    async tryPlayMissingAudioFallback(requestId, isCurrent) {
+    async tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle) {
       try {
-        return await this.playSoftChime(requestId, isCurrent);
+        return await this.playSoftChime(requestId, isCurrent, playbackLifecycle);
       } catch {
         return false;
       }
     }
-    async playSoftChime(requestId, isCurrent) {
+    async playSoftChime(requestId, isCurrent, playbackLifecycle) {
       const AudioContextCtor = getAudioContextConstructor();
       if (!AudioContextCtor) return false;
       const context = new AudioContextCtor();
@@ -21319,9 +21445,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         await context.close().catch(() => void 0);
         return false;
       }
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+        if (this.fallbackChimeContext === context) this.fallbackChimeContext = void 0;
+        await context.close().catch(() => void 0);
+        return false;
+      }
       scheduleSoftChime(context, context.currentTime + 0.015);
-      await waitForSoftChime();
+      this.startPlayback(requestId, playbackLifecycle);
+      try {
+        await waitForSoftChime();
+      } finally {
+        this.finishPlayback(requestId);
+      }
       if (this.fallbackChimeContext === context) {
         this.fallbackChimeContext = void 0;
         await context.close().catch(() => void 0);
@@ -40210,7 +40345,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.201".trim() ? "1.6.201".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.202".trim() ? "1.6.202".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -89362,7 +89497,11 @@ ${entry.url}`),
         const played = await this.dependencies.audio.play(card, {
           isCurrent,
           userGesture: options.userGesture,
-          reservedGesture: options.autoPlay
+          reservedGesture: options.autoPlay,
+          playbackLifecycle: {
+            onStart: () => this.setPlaying(loading.popover, loading.requestId),
+            onEnd: () => this.clearPlaying(loading.popover, loading.requestId)
+          }
         });
         return played;
       } catch (error) {
@@ -89439,6 +89578,17 @@ ${entry.url}`),
       if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
       delete popover.dataset.audioLoading;
       delete popover.dataset.audioLoadingRequest;
+    }
+    setPlaying(popover, requestId) {
+      if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
+      this.clearLoading(popover, requestId);
+      popover.dataset.audioPlaying = "true";
+      popover.dataset.audioPlayingRequest = String(requestId);
+    }
+    clearPlaying(popover, requestId) {
+      if (!popover || popover.dataset.audioPlayingRequest !== String(requestId)) return;
+      delete popover.dataset.audioPlaying;
+      delete popover.dataset.audioPlayingRequest;
     }
   }
   function termAudioRequestKey(card, options) {

@@ -3,8 +3,13 @@ import { bootReaderApp } from '../app/boot';
 import { isYomuNewTabUrl } from '../newtab/url';
 import { installPreferredJapaneseSiteLanguageFromStoredSettings } from '../app/preferred-site-language';
 import { applyMokuroReaderOcrDefault, installMokuroOcrToggleNote } from '../app/mokuro-integration';
+import { announceInstalledReaderRuntime } from '../app/runtime-presence';
 import { installUserscriptGmStorageBridgeWhenReady, installUserscriptHttpBridgeWhenReady } from './index';
 
+// The hosted website runs the same readable bundle as a no-install fallback.
+// Signal a real userscript/extension immediately so that fallback never races
+// the installed copy and replaces its GM-backed settings, keys, or progress.
+announceInstalledReaderRuntime();
 installPreferredJapaneseSiteLanguageFromStoredSettings();
 // Must run at document-start, before mokuro reads its settings from localStorage,
 // so mokuro's own OCR overlay starts off and the reader OCRs the page instead.

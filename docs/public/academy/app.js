@@ -219558,6 +219558,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
     lastAudioIdentityByCard = /* @__PURE__ */ new Map();
     gestureReservation;
+    reusableGestureAudio;
+    activePlayback;
     clearCaches() {
       this.candidateCache.clear();
       this.blobUrlCache.clear();
@@ -219574,9 +219576,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.stopCurrent(reservedAudio);
       if (!request2.sources.length) return await this.playNoAudioSources(card, request2);
       const done = log$q.time("play", { term: card.spelling, sources: request2.sources.map((source2) => source2.type), viaBlob: true });
-      const result = await this.playFromSources(request2.sources, card, request2.settings, request2.requestId, request2.isCurrent, request2.userGesture, reservedAudio);
+      const result = await this.playFromSources(
+        request2.sources,
+        card,
+        request2.settings,
+        request2.requestId,
+        request2.isCurrent,
+        request2.userGesture,
+        reservedAudio,
+        request2.playbackLifecycle
+      );
+      if (result.state === "played" && request2.reservedGesture && this.current) {
+        this.reusableGestureAudio = this.current;
+      }
       done();
-      return this.finishPlaybackResult(card, request2.settings, request2.requestId, request2.isCurrent, request2.userGesture, result);
+      return this.finishPlaybackResult(
+        card,
+        request2.settings,
+        request2.requestId,
+        request2.isCurrent,
+        request2.userGesture,
+        result,
+        request2.playbackLifecycle
+      );
     }
     audioPlaybackRequest(options) {
       const settings = this.getSettings();
@@ -219586,7 +219608,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         settings,
         sources: getOrderedAudioSources(settings),
         userGesture: options.userGesture ?? false,
-        reservedGesture: options.reservedGesture ?? false
+        reservedGesture: options.reservedGesture ?? false,
+        playbackLifecycle: options.playbackLifecycle
       };
     }
     reserveGestureAudioElement(request2) {
@@ -219596,6 +219619,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     reserveCurrentGestureAudioElement() {
       const audio2 = reserveGestureAudioElement((audioUrl) => this.createAudioElement(audioUrl));
+      this.reusableGestureAudio = audio2;
       this.current = audio2;
       return audio2;
     }
@@ -219615,43 +219639,86 @@ recommendedJiten	Jiten由来の頻度バッジです。
     takeGestureAudioElement(request2) {
       if (!shouldUseGestureAudioReservation(request2)) return void 0;
       const reservation = this.gestureReservation;
-      if (!reservation) return void 0;
+      if (!reservation) return this.reusableAudioForAutoplay(request2);
       this.gestureReservation = void 0;
       window.clearTimeout(reservation.timer);
       if (reservation.expiresAt < Date.now()) {
         if (this.current === reservation.audio) this.stopCurrent();
-        return void 0;
+        return this.reusableAudioForAutoplay(request2);
       }
       return reservation.audio;
+    }
+    reusableAudioForAutoplay(request2) {
+      return request2.reservedGesture ? this.reusableGestureAudio : void 0;
     }
     ensureAudioEnabled(settings) {
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request2) {
       log$q.warn("No audio sources configured", { term: card.spelling });
-      return await this.playMissingAudioFallback(request2.settings, request2.requestId, request2.isCurrent, request2.userGesture);
+      return await this.playMissingAudioFallback(
+        request2.settings,
+        request2.requestId,
+        request2.isCurrent,
+        request2.userGesture,
+        request2.playbackLifecycle
+      );
     }
-    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
+    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result, playbackLifecycle) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
       log$q.warn("No playable audio found", { term: card.spelling, errors: result.errors });
-      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
+      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
-    async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
+    async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
       const errors = [];
       const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
-      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity);
+      const result = await this.playFromSourcesAttempt(
+        sources,
+        card,
+        settings,
+        requestId,
+        isCurrent,
+        errors,
+        userGesture,
+        reservedAudio,
+        avoidIdentity,
+        playbackLifecycle
+      );
       if (result.state === "miss" && result.skippedAvoidedIdentity) {
-        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio);
+        const retry = await this.playFromSourcesAttempt(
+          sources,
+          card,
+          settings,
+          requestId,
+          isCurrent,
+          errors,
+          userGesture,
+          reservedAudio,
+          void 0,
+          playbackLifecycle
+        );
         return { state: retry.state, errors };
       }
       return { state: result.state, errors };
     }
-    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity) {
+    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity, playbackLifecycle) {
       const triedUrls = /* @__PURE__ */ new Set();
       const attemptState = { skippedAvoidedIdentity: false };
-      const context2 = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState, userGesture };
+      const context2 = {
+        card,
+        settings,
+        requestId,
+        triedUrls,
+        isCurrent,
+        errors,
+        reservedAudio,
+        avoidIdentity,
+        attemptState,
+        userGesture,
+        playbackLifecycle
+      };
       const fallbackContext = { ...context2, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
         const result = await this.playOrderedSources(orderAudioSources(sources, card), context2);
@@ -219839,7 +219906,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }, { once: true });
     }
     stopCurrent(except) {
-      if (this.current && this.current !== except) this.current.pause();
+      this.finishPlayback();
+      if (this.current && (this.current !== except || !this.current.loop)) this.current.pause();
       this.current = except;
       if (this.utterance) {
         speechSynthesis.cancel();
@@ -219884,7 +219952,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onAvoided: () => {
           context2.attemptState.skippedAvoidedIdentity = true;
         },
-        onPlayed: (identity2) => this.markAudioIdentityPlayed(card, identity2)
+        onPlayed: (identity2) => this.markAudioIdentityPlayed(card, identity2),
+        onStart: () => this.startPlayback(requestId, context2.playbackLifecycle),
+        onEnd: () => this.finishPlayback(requestId)
       });
       return played && this.isPlaybackCurrent(requestId, isCurrent);
     }
@@ -219900,16 +219970,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
           this.shuffledAudio.markSkipped(bagKey, id2);
           continue;
         }
-        if (await this.playAudioCandidate(candidate2, sourceType, id2, bagKey, settings, requestId, isCurrent, card, context2.errors, context2.userGesture, reservedAudio)) return true;
+        if (await this.playAudioCandidate(
+          candidate2,
+          sourceType,
+          id2,
+          bagKey,
+          settings,
+          requestId,
+          isCurrent,
+          card,
+          context2.errors,
+          context2.userGesture,
+          reservedAudio,
+          context2.playbackLifecycle
+        )) return true;
         this.shuffledAudio.markSkipped(bagKey, id2);
       }
       return false;
     }
-    async playAudioCandidate(candidate2, sourceType, id2, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio) {
+    async playAudioCandidate(candidate2, sourceType, id2, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio, playbackLifecycle) {
       let audio2;
       try {
-        audio2 = await this.createPlayableAudio(candidate2, sourceType, settings, reservedAudio);
+        audio2 = await this.createPlayableAudio(candidate2, sourceType, settings, reservedAudio, requestId, isCurrent);
       } catch (error) {
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate2, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio2 = fallbackAudio;
@@ -219923,7 +220007,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       let played = false;
       try {
-        played = await this.playPreparedAudio(audio2, requestId, isCurrent, { userGesture });
+        played = await this.playPreparedAudio(audio2, requestId, isCurrent, { userGesture, playbackLifecycle });
       } catch (error) {
         throw new AudioPlaybackAttemptError(error);
       }
@@ -219988,16 +220072,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.unavailableJpdbAudioIds.delete(audioId);
       return false;
     }
-    createPlayableAudio(candidate2, sourceType, settings, reservedAudio) {
+    createPlayableAudio(candidate2, sourceType, settings, reservedAudio, requestId, isCurrent) {
       if (sourceType === "jpdb-tts" && candidate2.jpdbAudioId) {
-        return this.preparePlayableJpdbAudio(candidate2.jpdbAudioId, settings, reservedAudio);
+        return this.preparePlayableJpdbAudio(candidate2.jpdbAudioId, settings, reservedAudio, requestId, isCurrent);
       }
       const audioViaBlob = sourceType !== "jiten-tts" && (settings.audioViaBlob || shouldForceBlobAudioPlayback(sourceType) || shouldForceBlobAudioCandidate(candidate2));
-      return audioViaBlob ? this.preparePlayableAudio(candidate2, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio) : reservedAudio ? this.createReadyAudio(candidate2.url, reservedAudio) : this.createAudioElement(candidate2.url);
+      return audioViaBlob ? this.preparePlayableAudio(candidate2, settings.audioTimeoutMs, settings.audioSelectionMode, audioViaBlob, reservedAudio, requestId, isCurrent) : reservedAudio ? this.createReadyAudioForRequest(candidate2.url, reservedAudio, requestId, isCurrent) : this.createAudioElement(candidate2.url);
     }
-    async preparePlayableJpdbAudio(audioId, settings, reservedAudio) {
+    async preparePlayableJpdbAudio(audioId, settings, reservedAudio, requestId, isCurrent) {
       const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
-      return this.createReadyAudio(audioUrl, reservedAudio);
+      return reservedAudio ? this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent) : this.createReadyAudio(audioUrl);
     }
     isPlaybackCurrent(requestId, isCurrent) {
       return requestId === this.playRequestId && isCurrent();
@@ -220009,10 +220093,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const key2 = preparedAudioCacheKey(candidate2, mode, fetchAsBlob);
       return this.blobUrlCache.getOrCreate(key2, () => this.fetchAudioAsBlobUrl(candidate2.url, candidate2.sourceUrl, timeoutMs, mode));
     }
-    preparePlayableAudio(candidate2, timeoutMs, mode, audioViaBlob, reservedAudio) {
+    preparePlayableAudio(candidate2, timeoutMs, mode, audioViaBlob, reservedAudio, requestId, isCurrent) {
       const fetchAsBlob = shouldFetchCandidateAsBlob(candidate2, audioViaBlob);
       const key2 = preparedAudioCacheKey(candidate2, mode, fetchAsBlob);
-      if (reservedAudio) return this.prepareAudioUrl(candidate2, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudio(audioUrl, reservedAudio));
+      if (reservedAudio) return this.prepareAudioUrl(candidate2, timeoutMs, mode, audioViaBlob).then((audioUrl) => this.createReadyAudioForRequest(audioUrl, reservedAudio, requestId, isCurrent));
       const now = Date.now();
       const cached = this.readyAudioCache.get(key2);
       if (cached && cached.expiresAt > now) {
@@ -220027,6 +220111,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.readyAudioCache.set(key2, { expiresAt: now + READY_AUDIO_CACHE_TTL_MS, promise });
       pruneExpiringMapEntries(this.readyAudioCache, READY_AUDIO_CACHE_LIMIT, now);
       return promise;
+    }
+    createReadyAudioForRequest(audioUrl, audio2, requestId, isCurrent) {
+      if (requestId !== void 0 && isCurrent && !this.isPlaybackCurrent(requestId, isCurrent)) {
+        return Promise.resolve(audio2);
+      }
+      return this.createReadyAudio(audioUrl, audio2);
     }
     async createReadyAudio(audioUrl, audio2 = this.createAudioElement(audioUrl)) {
       audio2.loop = false;
@@ -220061,12 +220151,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
           return false;
         }
       } catch (error) {
-        if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio2.src, requestId, isCurrent)) return true;
+        if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio2.src, requestId, isCurrent, options.playbackLifecycle)) return true;
         throw error;
       }
+      this.startMediaPlayback(audio2, requestId, options.playbackLifecycle);
       return true;
     }
-    async playViaWebAudio(audioUrl, requestId, isCurrent) {
+    async playViaWebAudio(audioUrl, requestId, isCurrent, playbackLifecycle) {
       const AudioContextCtor = getAudioContextConstructor();
       if (!AudioContextCtor) return false;
       const bytes = await this.webAudioBytes(audioUrl);
@@ -220077,18 +220168,50 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (!await resumeAudioContext(context2)) return false;
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const decoded = await context2.decodeAudioData(bytes);
+        if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const source2 = context2.createBufferSource();
         source2.buffer = decoded;
         source2.connect(context2.destination);
         await new Promise((resolve) => {
           source2.onended = () => resolve();
           source2.start();
+          this.startPlayback(requestId, playbackLifecycle);
         });
+        this.finishPlayback(requestId);
         return true;
       } catch {
+        this.finishPlayback(requestId);
         return false;
       } finally {
         await context2?.close().catch(() => void 0);
+      }
+    }
+    startMediaPlayback(audio2, requestId, playbackLifecycle) {
+      const finish = () => this.finishPlayback(requestId);
+      const events = ["ended", "error", "pause"];
+      events.forEach((event) => audio2.addEventListener(event, finish, { once: true }));
+      this.startPlayback(requestId, playbackLifecycle, () => {
+        events.forEach((event) => audio2.removeEventListener(event, finish));
+      });
+    }
+    startPlayback(requestId, playbackLifecycle, cleanup) {
+      this.finishPlayback();
+      this.activePlayback = { requestId, onEnd: playbackLifecycle?.onEnd, cleanup };
+      try {
+        playbackLifecycle?.onStart?.();
+      } catch (error) {
+        log$q.warn("Audio playback start callback failed", void 0, error);
+      }
+    }
+    finishPlayback(requestId) {
+      const active = this.activePlayback;
+      if (!active || requestId !== void 0 && active.requestId !== requestId) return;
+      this.activePlayback = void 0;
+      active.cleanup?.();
+      try {
+        active.onEnd?.();
+      } catch (error) {
+        log$q.warn("Audio playback end callback failed", void 0, error);
       }
     }
     // Web Audio decoding is exempt from the page's media-src, so it is the only way
@@ -220160,15 +220283,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
         utterance.voice = choice2.voice;
         utterance.onend = () => {
+          options.onEnd?.();
           this.markTextToSpeechVoicePlayed(choice2);
           options.onPlayed?.(identity2);
           resolve(true);
         };
         utterance.onerror = () => {
+          options.onEnd?.();
           this.markTextToSpeechVoiceSkipped(choice2);
           reject(new Error(uiText(settings.interfaceLanguage, "textToSpeechFailed")));
         };
         this.utterance = utterance;
+        options.onStart?.();
         speechSynthesis.speak(utterance);
       });
     }
@@ -220210,22 +220336,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     textToSpeechTextBagKey(text2, voiceName, settings) {
       return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
     }
-    async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
+    async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false, playbackLifecycle) {
       if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
-      return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
+      return await this.tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle);
     }
     shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
       if (settings.audioFallbackChimeEnabled && canAttemptWebAudioFallback(userGesture)) return this.isPlaybackCurrent(requestId, isCurrent);
       return false;
     }
-    async tryPlayMissingAudioFallback(requestId, isCurrent) {
+    async tryPlayMissingAudioFallback(requestId, isCurrent, playbackLifecycle) {
       try {
-        return await this.playSoftChime(requestId, isCurrent);
+        return await this.playSoftChime(requestId, isCurrent, playbackLifecycle);
       } catch {
         return false;
       }
     }
-    async playSoftChime(requestId, isCurrent) {
+    async playSoftChime(requestId, isCurrent, playbackLifecycle) {
       const AudioContextCtor = getAudioContextConstructor();
       if (!AudioContextCtor) return false;
       const context2 = new AudioContextCtor();
@@ -220235,9 +220361,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         await context2.close().catch(() => void 0);
         return false;
       }
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
+      if (!this.isPlaybackCurrent(requestId, isCurrent)) {
+        if (this.fallbackChimeContext === context2) this.fallbackChimeContext = void 0;
+        await context2.close().catch(() => void 0);
+        return false;
+      }
       scheduleSoftChime(context2, context2.currentTime + 0.015);
-      await waitForSoftChime();
+      this.startPlayback(requestId, playbackLifecycle);
+      try {
+        await waitForSoftChime();
+      } finally {
+        this.finishPlayback(requestId);
+      }
       if (this.fallbackChimeContext === context2) {
         this.fallbackChimeContext = void 0;
         await context2.close().catch(() => void 0);
@@ -259003,7 +259138,11 @@ ${entry2.url}`),
         const played = await this.dependencies.audio.play(card, {
           isCurrent,
           userGesture: options.userGesture,
-          reservedGesture: options.autoPlay
+          reservedGesture: options.autoPlay,
+          playbackLifecycle: {
+            onStart: () => this.setPlaying(loading.popover, loading.requestId),
+            onEnd: () => this.clearPlaying(loading.popover, loading.requestId)
+          }
         });
         return played;
       } catch (error) {
@@ -259080,6 +259219,17 @@ ${entry2.url}`),
       if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
       delete popover.dataset.audioLoading;
       delete popover.dataset.audioLoadingRequest;
+    }
+    setPlaying(popover, requestId) {
+      if (!popover?.isConnected || popover.dataset.audioLoadingRequest !== String(requestId)) return;
+      this.clearLoading(popover, requestId);
+      popover.dataset.audioPlaying = "true";
+      popover.dataset.audioPlayingRequest = String(requestId);
+    }
+    clearPlaying(popover, requestId) {
+      if (!popover || popover.dataset.audioPlayingRequest !== String(requestId)) return;
+      delete popover.dataset.audioPlaying;
+      delete popover.dataset.audioPlayingRequest;
     }
   }
   function termAudioRequestKey(card, options) {

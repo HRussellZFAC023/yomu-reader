@@ -517,6 +517,157 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('reuses the Safari-authorized media element after hover closes and opens again', async () => {
+        let authorizedAudio: HTMLMediaElement | undefined;
+        const playedElements: HTMLMediaElement[] = [];
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            if (!authorizedAudio) authorizedAudio = this;
+            if (this !== authorizedAudio) return Promise.reject(new DOMException('Playback requires user activation', 'NotAllowedError'));
+            playedElements.push(this);
+            return Promise.resolve();
+        });
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/repeated-hover.mp3', voice: '', enabled: true }],
+            }));
+
+            await expect(player.play(card('読む', 'よむ'), { reservedGesture: true })).resolves.toBe(true);
+            player.stop();
+            await expect(player.play(card('読む', 'よむ'), { reservedGesture: true })).resolves.toBe(true);
+
+            expect(playedElements).toHaveLength(2);
+            expect(playedElements[1]).toBe(playedElements[0]);
+            expect(pause).toHaveBeenCalled();
+        } finally {
+            play.mockRestore();
+            pause.mockRestore();
+            load.mockRestore();
+        }
+    });
+
+    it('keeps the popover audio accent active until playback ends or is stopped', async () => {
+        let activeAudio: HTMLMediaElement | undefined;
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            activeAudio = this;
+            return Promise.resolve();
+        });
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+
+        try {
+            const settings: ReaderSettings = {
+                ...DEFAULT_SETTINGS,
+                audioEnabled: true,
+                audioEnableDefaultSources: false,
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/playing-state.mp3', voice: '', enabled: true }],
+            };
+            const player = new AudioPlayer(() => settings);
+            const actions = new ReaderAudioActions({
+                audio: player,
+                getSettings: () => settings,
+                getActivePopover: () => popover,
+                getHoverLookupGeneration: () => 0,
+                stopImmersionAudio: vi.fn(),
+                toast: vi.fn(),
+            });
+
+            await actions.playTermAudio(card('猫', 'ねこ'));
+
+            expect(popover.dataset.audioLoading).toBeUndefined();
+            expect(popover.dataset.audioPlaying).toBe('true');
+            activeAudio?.dispatchEvent(new Event('ended'));
+            expect(popover.dataset.audioPlaying).toBeUndefined();
+
+            await actions.playTermAudio(card('犬', 'いぬ'));
+            expect(popover.dataset.audioPlaying).toBe('true');
+            player.stop();
+            expect(popover.dataset.audioPlaying).toBeUndefined();
+        } finally {
+            popover.remove();
+            play.mockRestore();
+            pause.mockRestore();
+            load.mockRestore();
+        }
+    });
+
+    it('keeps a gesture-primed audio channel reusable across repeated hover stops', async () => {
+        const authorizedAudio = new WeakSet<HTMLMediaElement>();
+        const playedElements: HTMLMediaElement[] = [];
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            if (this.src.startsWith('data:audio/wav;base64,')) authorizedAudio.add(this);
+            if (!authorizedAudio.has(this)) return Promise.reject(new DOMException('Playback requires user activation', 'NotAllowedError'));
+            playedElements.push(this);
+            return Promise.resolve();
+        });
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/pencil-hover.mp3', voice: '', enabled: true }],
+            }));
+
+            expect(player.primeUserGesture()).toBe(true);
+            await expect(player.play(card('猫', 'ねこ'), { reservedGesture: true })).resolves.toBe(true);
+            player.stop();
+            await expect(player.play(card('犬', 'いぬ'), { reservedGesture: true })).resolves.toBe(true);
+
+            expect(playedElements).toHaveLength(3);
+            expect(new Set(playedElements).size).toBe(1);
+        } finally {
+            play.mockRestore();
+            pause.mockRestore();
+            load.mockRestore();
+        }
+    });
+
+    it('does not let a stale hover retarget the shared Safari audio channel', async () => {
+        const player = new AudioPlayer(() => ({ ...DEFAULT_SETTINGS, audioEnabled: true }));
+        const audio = document.createElement('audio');
+        audio.src = 'http://x.test/current-hover.mp3';
+        const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+        const internals = player as unknown as {
+            createReadyAudioForRequest(
+                audioUrl: string,
+                audio: HTMLAudioElement,
+                requestId?: number,
+                isCurrent?: () => boolean,
+            ): Promise<HTMLAudioElement>;
+        };
+
+        try {
+            await expect(internals.createReadyAudioForRequest(
+                'http://x.test/stale-hover.mp3',
+                audio,
+                0,
+                () => false,
+            )).resolves.toBe(audio);
+
+            expect(audio.src).toBe('http://x.test/current-hover.mp3');
+            expect(load).not.toHaveBeenCalled();
+        } finally {
+            load.mockRestore();
+        }
+    });
+
     it('does not wait on Web Audio fallback when hover autoplay has no browser activation', async () => {
         const previousActivation = Object.getOwnPropertyDescriptor(navigator, 'userActivation');
         Object.defineProperty(navigator, 'userActivation', {

@@ -11,6 +11,7 @@ import {
     rememberSupportBannerDismissal,
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
+import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import { readerWordSurfaceText } from './chrome-annotation-cleanup';
 import './custom.css';
@@ -210,6 +211,9 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.': 'yomureader.comに内蔵されているリーダーは、よむをインストールしていない場合だけ使われるフォールバックです。よむのユーザースクリプトまたは拡張機能がインストールされている場合は、インストール版が制御を保ち、独自の言語、Jiten／JPDBキー、設定、進捗を引き続き使用します。',
+    'Reused the browser-authorized media element for repeated Apple Pencil and mouse hover audio, so leaving a word and hovering again no longer shows the active speaker state while Safari silently blocks a newly created audio element; stale hover fetches also cannot retarget the shared channel after a newer lookup starts. The speaker now keeps its green accent for the full playback instead of only while audio is loading.': 'Apple Pencilやマウスでホバー音声を繰り返し再生するとき、ブラウザが再生を許可済みのメディア要素を再利用するようにしました。単語から離れてもう一度ホバーしても、Safariが新しく作られた音声要素を無音のまま拒否し、スピーカーだけが再生中表示になることはありません。さらに、古いホバーの取得処理が新しい検索の開始後に共有チャンネルの再生先を書き換えないようにしました。スピーカーの緑色アクセントは、音声の読み込み中だけでなく、再生が終わるまで表示されるようになりました。',
+    'Made installed Yomu userscripts and extensions announce themselves at document-start on yomureader.com. The website now keeps its hosted reader strictly as the no-install fallback, so an installed copy remains the runtime owner and retains its own language, Jiten key, and learning progress.': 'yomureader.comで、インストール済みのよむユーザースクリプト／拡張機能がdocument-start時点で自身の存在を通知するようにしました。サイト内蔵リーダーは未インストール環境専用のフォールバックとなり、インストール済みのよむがランタイムの所有権を保って、独自の言語設定・Jitenキー・学習進捗を引き続き使用します。',
     'Kept Yomu\'s floating puck and radial controls at their intended size on Reddit mobile and tablet layouts by isolating them from Reddit\'s broad control zoom rules; other sites keep their existing sizing.': 'Redditのモバイル／タブレット表示で広範なコントロール拡大ルールの影響を受けないようにし、よむのフローティングパックとラジアル操作を本来のサイズに保つようにしました。他のサイトでは従来のサイズが維持されます。',
     'Aligned the Academy character art records with the shipped sprite sets: Rie\'s completed glasses performances and Aakash\'s refreshed portraits are now consistently registered across the runtime, ledgers, and offline manifest, so the character book, journal unlocks, and asset audits all reference art that actually exists.': 'アカデミーのキャラクター立ち絵の記録を、実際に同梱されたスプライト一式に合わせて整えました。リエの完成した眼鏡演技とアーカッシュの刷新された立ち絵が、ランタイム・台帳・オフラインマニフェスト全体で一貫して登録されるようになり、キャラクターブック・ジャーナルの解放・アセット監査のいずれもが実在する画像を参照します。',
     'Stabilized the popup font-stack check in the priority smoke suite: it now waits for the configured Japanese font stack to actually be applied to the popup before reading styles, instead of racing the font application on a loaded machine; this removes an intermittent false failure in CI with no change to what is verified.': '優先スモークテストのポップアップ・フォントスタック検査を安定させました。設定した日本語フォントスタックが実際にポップアップへ適用されるのを待ってからスタイルを読み取るようになり、負荷のかかったマシンでフォント適用と競合することがなくなりました。CIでの断続的な誤検出が解消され、検証内容に変更はありません。',
@@ -4056,6 +4060,11 @@ function armHostedRevealElements(): void {
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
     prepareHostedMangaOcrDemo();
+    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) {
+        clearHostedYomuRuntimeIntent();
+        clearHostedRuntimeHoverHandoff();
+        return;
+    }
     if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) {
         // Only a live reader makes the tracker moot; a mid-boot re-entry must
@@ -4173,6 +4182,7 @@ function clearHostedYomuRuntimeIntent(): void {
 }
 
 function isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime = false): boolean {
+    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) return true;
     if (hostedRuntimeScript()) return true;
     if (forceLocalRuntime) return false;
     return Boolean(hostedYomuRuntimeWindow().__yomuReaderAppInitialized);
@@ -4281,6 +4291,7 @@ function shouldSkipHostedRuntimeInstall(
     forceLocalRuntime: boolean,
     currentScript: HTMLElement | null,
 ): boolean {
+    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) return true;
     if (currentScript) return true;
     return shouldKeepInitializedHostedRuntime(runtime, forceLocalRuntime, currentScript);
 }
