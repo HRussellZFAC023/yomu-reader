@@ -1,0 +1,606 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e15-chorus-with-a-hole",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 15,
+  "title": {
+    "en": "The Chorus With a Hole",
+    "ja": "穴のあいた合唱"
+  },
+  "synopsis": "Xingyu shares a study chant he built from the exhibition's katakana words. It is catchy precisely because one beat has fallen out, and he asks the class to fix the missing sound without roasting it. Mika's count locates the hole but cannot name the sound; Tom's contest threatens to make the flaw a joke. The learner listens, catches the dropped katakana, and repairs it kindly, and the fixed beat is kept on purpose as a shared clap.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "xingyu",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#xingyu",
+        "docs/academy/story/CAST-AND-CONSENT.md#xingyu"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "unfinished work framed as a competence deficit"
+      ]
+    },
+    {
+      "castId": "mika",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mika",
+        "docs/academy/story/CAST-AND-CONSENT.md#mika"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quietness framed as a confidence deficit"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "playfulness rewritten as mockery of a classmate"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e14-two-answers",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l22",
+            "l1-l23",
+            "l1-l24",
+            "l1-l25",
+            "l1-l26"
+          ],
+          "function": "complete-a-katakana-sequence-and-repair-a-sound-shape-error-in-context"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-fifteen-first-meeting-xingyu"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:chorus-with-a-hole:the-catchy-hole",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Xingyu's flawed study chorus and locate the one dropped beat that makes it stick.",
+      "dramaticQuestion": "When a chant is catchy because it is broken, will the room repair the sound or roast the flaw?",
+      "learnerNeed": "A listening repair where catching one dropped katakana matters more than counting the beat.",
+      "curriculum": {
+        "sectionId": "catch-and-repair-a-katakana-error",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:board-of-cards",
+          "beatId": "beat:chorus-with-a-hole:arrival-image",
+          "cueId": "cue:katakana-cards-in-a-row",
+          "description": "Three katakana cards are taped across the board in a row: ライト, ルート, and a third whose middle is left blank. Xingyu taps the desk in time and hums a tune that stumbles on a small gap right at the third card."
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:xingyu-offer",
+          "beatId": "beat:chorus-with-a-hole:human-want",
+          "speakerId": "xingyu",
+          "intent": "Offer the catchy but flawed chant openly, name the hole, and ask for a repair while asking plainly not to be mocked.",
+          "attentionTarget": "the gap in the third card and the beat where the tune drops out",
+          "variants": {
+            "n5": {
+              "japanese": "みんな、聞いて。ことばの歌を作りました。でも、ここに穴があります。音が一つ足りません。一緒に直してくれませんか。笑わないで、直してほしいです。",
+              "reading": "みんな、きいて。ことばのうたをつくりました。でも、ここにあながあります。おとがひとつたりません。いっしょになおしてくれませんか。わらわないで、なおしてほしいです。",
+              "english": "Everyone, listen. I made a song out of the words. But there's a hole right here. One sound is missing. Will you help me fix it? Don't laugh at it — I want you to fix it."
+            },
+            "n4": {
+              "japanese": "みんな、ちょっと聞いて。覚えるために、言葉を歌にしてみたんです。でも、ここに穴があって。音が一つ抜けてるんですよ。一緒に直してもらえませんか。茶化さないで、ちゃんと直してほしいんです。",
+              "reading": "みんな、ちょっときいて。おぼえるために、ことばをうたにしてみたんです。でも、ここにあなあって。おとがひとつぬけてるんですよ。いっしょになおしてもらえませんか。ちゃかさないで、ちゃんとなおしてほしいんです。",
+              "english": "Everyone, listen a sec. To help me remember, I tried turning the words into a song. But there's a hole right here — one sound's dropped out. Could you help me fix it? Don't make fun of it; I really want it fixed properly."
+            },
+            "n3": {
+              "japanese": "ねえ、ちょっといい？覚えやすいように、言葉を歌にしてみたんだけど。ここ、一か所だけ穴が空いてて。音が一つ抜け落ちてるんだよね。よかったら一緒に直してくれない？ネタにしないで、ちゃんと直したいんだ。",
+              "reading": "ねえ、ちょっといい？おぼえやすいように、ことばをうたにしてみたんだけど。ここ、いっかしょだけあながあいてて。おとがひとつぬけおちてるんだよね。よかったらいっしょになおしてくれない？ネタにしないで、ちゃんとなおしたいんだ。",
+              "english": "Hey, got a sec? I tried making the words into a song so they'd stick, but there's just this one spot with a hole in it — one sound's fallen out. If you're up for it, help me fix it? Don't turn it into a joke; I want to fix it properly."
+            },
+            "n2": {
+              "japanese": "ねえ、少しいいかな。覚えやすくしようと思って、言葉を歌にしてみたんだけど、一か所だけどうしても穴が残ってて。音が一つ、すっぽり抜けてるんだよね。よかったら一緒に埋めてくれないかな。からかうんじゃなくて、ちゃんと直したいんだ。",
+              "reading": "ねえ、すこしいいかな。おぼえやすくしようとおもって、ことばをうたにしてみたんだけど、いっかしょだけどうしてもあながのこってて。おとがひとつ、すっぽりぬけてるんだよね。よかったらいっしょにうめてくれないかな。からかうんじゃなくて、ちゃんとなおしたいんだ。",
+              "english": "Hey, spare a moment? I tried setting the words to a tune to make them stick, but there's this one spot where a hole just won't go away — one sound drops clean out. If you would, help me fill it? Not to poke fun at it — I genuinely want it fixed."
+            },
+            "n1": {
+              "japanese": "ねえ、ちょっとだけいいかな。覚えやすいようにって、言葉を歌にしてみたんだけどね、どうしても一か所だけ穴が埋まらなくて。音が一つ、まるごと抜け落ちてるんだ。よかったら、そこ、一緒に埋めてもらえないかな。茶化すんじゃなくてさ、ちゃんと直したいんだよ。",
+              "reading": "ねえ、ちょっとだけいいかな。おぼえやすいようにって、ことばをうたにしてみたんだけどね、どうしてもいっかしょだけあながうまらなくて。おとがひとつ、まるごとぬけおちてるんだ。よかったら、そこ、いっしょにうめてもらえないかな。ちゃかすんじゃなくてさ、ちゃんとなおしたいんだよ。",
+              "english": "Hey — got a minute? I'd tried turning the words into a song so they'd stick, you see, but there's just this one spot that won't fill in — one whole sound's fallen right out. If you're willing, would you help me close it up? Not to make a gag of it, mind — I genuinely want it put right."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:catchy-flaw",
+          "beatId": "beat:chorus-with-a-hole:obstruction",
+          "cueId": "cue:room-hums-the-gap",
+          "description": "Half the room is already humming it back — and everyone hums the gap too, landing on the same little silence where the beat should be. The flaw is the part that stuck."
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:tom-contest",
+          "beatId": "beat:chorus-with-a-hole:pressure",
+          "speakerId": "tom",
+          "intent": "Escalate the offer into a contest and sing the gap back with relish, tipping the flaw toward a bit.",
+          "attentionTarget": "the missing beat as the best part of the hook",
+          "variants": {
+            "n5": {
+              "japanese": "いいね！じゃあ、ゲームにしよう。穴を先に埋めた人が勝ち。ぼく、もう歌えるよ。「ラ…タン！」ほら、そこが好き。",
+              "reading": "いいね！じゃあ、ゲームにしよう。あなをさきにうめたひとがかち。ぼく、もううたえるよ。「ラ…タン！」ほら、そこがすき。",
+              "english": "Nice! Okay, let's make it a game. First to fill the hole wins. I can already sing it — \"La… tan!\" See, that part's my favorite."
+            },
+            "n4": {
+              "japanese": "おっ、いいじゃん！勝負にしようよ。穴を最初に埋めた人が優勝。もうサビ覚えちゃった。「ラ…タン！」って、その抜けてるとこが一番クセになる。",
+              "reading": "おっ、いいじゃん！しょうぶにしようよ。あなをさいしょにうめたひとがゆうしょう。もうサビおぼえちゃった。「ラ…タン！」って、そのぬけてるとこがいちばんクセになる。",
+              "english": "Oh, that's great! Let's make it a contest. First to fill the hole is the champion. I've already got the hook down — \"La… tan!\" — honestly the missing bit is the catchiest part."
+            },
+            "n3": {
+              "japanese": "お、来た来た。じゃあ勝負ね。一番早く穴を埋めたやつの勝ち。もうサビだけバッチリ歌える。「ラ…タン！」この抜けてるとこ、逆に一番ハマるんだよな。",
+              "reading": "お、きたきた。じゃあしょうぶね。いちばんはやくあなをうめたやつのかち。もうサビだけバッチリうたえる。「ラ…タン！」このぬけてるとこ、ぎゃくにいちばんハマるんだよな。",
+              "english": "Oh, here we go. Right, it's a contest — first one to fill the hole wins. I've already got the hook nailed: \"La… tan!\" That missing bit? Weirdly it's the most addictive part."
+            },
+            "n2": {
+              "japanese": "お、面白そう。じゃあ勝負といこう。一番に穴を埋めたやつの勝ちってことで。もうサビだけは完璧に歌えるんだよな。「ラ…タン！」この抜けてる一拍が、逆にクセになって離れない。",
+              "reading": "お、おもしろそう。じゃあしょうぶといこう。いちばんにあなをうめたやつのかちってことで。もうサビだけはかんぺきにうたえるんだよな。「ラ…タン！」このぬけてるいっぱくが、ぎゃくにクセになってはなれない。",
+              "english": "Ooh, sounds fun. Right, let's make it a contest — first to fill the hole takes it. I've already got the hook down perfectly: \"La… tan!\" That one missing beat is weirdly the thing that won't leave my head."
+            },
+            "n1": {
+              "japanese": "お、こりゃいい。じゃあいっそ勝負といこうじゃない。真っ先に穴を埋めたやつの勝ち、ってことで。もうサビだけはばっちり歌えるんだよ、これが。「ラ…タン！」ってさ、この一拍抜けてるとこが、かえって一番耳から離れないんだよな。",
+              "reading": "お、こりゃいい。じゃあいっそしょうぶといこうじゃない。まっさきにあなをうめたやつのかち、ってことで。もうサビだけはばっちりうたえるんだよ、これが。「ラ…タン！」ってさ、このいっぱくぬけてるとこが、かえっていちばんみみからはなれないんだよな。",
+              "english": "Oh, this is good. Let's just make a contest of it — first to fill the hole wins, then. I've already got the hook down cold, me. \"La… tan!\" — and honestly it's that one missing beat that sticks in your ear more than anything."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:mika-count",
+          "beatId": "beat:chorus-with-a-hole:contribution",
+          "speakerId": "mika",
+          "intent": "Count the beats to locate the hole exactly, then mark that the count proves where, not which sound.",
+          "attentionTarget": "the beat length of each word and the one that runs a beat short",
+          "variants": {
+            "n5": {
+              "japanese": "ちょっと待って。数えるね。ライトは三つ。ルートも三つ。でも、これは三つで歌ってる。本当は四つ。だから、一つ足りない。ここが穴。でも、数だけじゃ、どの音か分からないよ。",
+              "reading": "ちょっとまって。かぞえるね。ライトはみっつ。ルートもみっつ。でも、これはみっつでうたってる。ほんとうはよっつ。だから、ひとつたりない。ここがあな。でも、かずだけじゃ、どのおとかわからないよ。",
+              "english": "Wait a sec. Let me count. \"Raito\" is three beats. \"Ruuto\" is three too. But you're singing this one as three — it should be four. So one's missing. That's the hole. But the count alone won't tell you which sound it is."
+            },
+            "n4": {
+              "japanese": "ちょっと待って、数えてみる。ライトが三拍、ルートも三拍。なのに、これだけ三拍で歌ってるんだよね。本当は四拍あるはず。つまり、一拍抜けてて、そこが穴。ただ、拍を数えても、抜けた音が何かまでは分からないよ。",
+              "reading": "ちょっとまって、かぞえてみる。ライトがさんぱく、ルートもさんぱく。なのに、これだけさんぱくでうたってるんだよね。ほんとうはよんぱくあるはず。つまり、いっぱくぬけてて、そこがあな。ただ、はくをかぞえても、ぬけたおとがなにかまではわからないよ。",
+              "english": "Hold on, let me count. \"Raito\" is three beats, \"Ruuto\" three as well. But this one you're singing in three too — it should have four. So a beat's dropped, and that's the hole. Still, counting the beats won't tell you what the missing sound actually is."
+            },
+            "n3": {
+              "japanese": "待って、ちょっと数えさせて。ライトで三拍、ルートで三拍。それなのに、この言葉だけ三拍のまま歌ってるでしょ。本来は四拍あるはずなんだよね。だから一拍分、まるっと抜けてて、そこが穴。でも、拍を数えて場所は分かっても、その一拍が何の音かまでは、数だけじゃ決められないよ。",
+              "reading": "まって、ちょっとかぞえさせて。ライトでさんぱく、ルートでさんぱく。それなのに、このことばだけさんぱくのままうたってるでしょ。ほんらいはよんぱくあるはずなんだよね。だからいっぱくぶん、まるっとぬけてて、そこがあな。でも、はくをかぞえてばしょはわかっても、そのいっぱくがなんのおとかまでは、かずだけじゃきめられないよ。",
+              "english": "Wait, let me count for a moment. \"Raito\" is three beats, \"Ruuto\" three. Yet this word alone you're still singing in three — it ought to be four. So a whole beat's dropped out, and that's the hole. But even if counting locates the spot, the count alone can't decide what sound that beat is."
+            },
+            "n2": {
+              "japanese": "待って、ちょっとだけ数えさせて。ライトで三拍、ルートでも三拍でしょ。なのに、この言葉だけ三拍のまま流しちゃってる。本来は四拍あるはずなんだよね。要するに一拍分そっくり抜けていて、そこが例の穴。ただ、拍を数えて場所が特定できても、その一拍に入る音までは、数だけじゃ決めきれないんだよね。",
+              "reading": "まって、ちょっとだけかぞえさせて。ライトでさんぱく、ルートでもさんぱくでしょ。なのに、このことばだけさんぱくのままながしちゃってる。ほんらいはよんぱくあるはずなんだよね。ようするにいっぱくぶんそっくりぬけていて、そこがれいのあな。ただ、はくをかぞえてばしょがとくていできても、そのいっぱくにはいるおとまでは、かずだけじゃきめきれないんだよね。",
+              "english": "Wait, let me just count a moment. \"Raito\" is three beats, \"Ruuto\" three as well. Yet this word alone you let run in three — it should be four. In short, a whole beat's gone missing, and that's your hole. Still, even when counting pins down the spot, the count alone can't settle what sound belongs in that beat."
+            },
+            "n1": {
+              "japanese": "待って、ちょっとだけ数えさせてね。ライトで三拍、ルートでも三拍あるでしょ。それなのに、この言葉だけ三拍のまま流しちゃってるんだよ。本来なら四拍あるはずなんだよね。つまり一拍分、まるごと抜け落ちていて、そこがくだんの穴、というわけ。ただね、拍を数えて場所は割り出せても、その一拍にどの音が収まるかまでは、数えただけじゃ決めきれないんだ。",
+              "reading": "まって、ちょっとだけかぞえさせてね。ライトでさんぱく、ルートでもさんぱくあるでしょ。それなのに、このことばだけさんぱくのままながしちゃってるんだよ。ほんらいならよんぱくあるはずなんだよね。つまりいっぱくぶん、まるごとぬけおちていて、そこがくだんのあな、というわけ。ただね、はくをかぞえてばしょはわりだせても、そのいっぱくにどのおとがおさまるかまでは、かぞえただけじゃきめきれないんだ。",
+              "english": "Wait, let me just count a moment. \"Raito\" has three beats, \"Ruuto\" three as well. And yet this word alone you keep running in three — it ought to be four. So one whole beat has fallen out, and that's the hole in question. But you see — even if counting locates the spot, the count alone can't settle which sound fills that beat."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:xingyu-listen-again",
+          "beatId": "beat:chorus-with-a-hole:production-bridge",
+          "speakerId": "xingyu",
+          "intent": "Hand the repair to the learner: sing it once more and ask for the missing katakana by ear, one letter.",
+          "attentionTarget": "the sung line and the single dropped sound the learner must catch",
+          "variants": {
+            "n5": {
+              "japanese": "そうだね。じゃあ、もう一回歌うね。よく聞いて、抜けた音を教えて。かたかな一つでいいよ。",
+              "reading": "そうだね。じゃあ、もういっかいうたうね。よくきいて、ぬけたおとをおしえて。かたかなひとつでいいよ。",
+              "english": "Right. Okay, I'll sing it once more. Listen closely and tell me the missing sound. Just one katakana is fine."
+            },
+            "n4": {
+              "japanese": "だよね。じゃあ、もう一回歌うから、よく聞いてて。抜けてる音、かたかなで教えてくれる？一文字でいいから。",
+              "reading": "だよね。じゃあ、もういっかいうたうから、よくきいてて。ぬけてるおと、かたかなでおしえてくれる？いちもじでいいから。",
+              "english": "Exactly. So I'll sing it one more time — listen carefully. Can you tell me the missing sound in katakana? Just the one letter's fine."
+            },
+            "n3": {
+              "japanese": "そうそう。じゃあもう一回歌ってみるから、耳を澄ませてて。抜けてる音、かたかなで当ててくれない？一文字でいいんだ。",
+              "reading": "そうそう。じゃあもういっかいうたってみるから、みみをすませてて。ぬけてるおと、かたかなであててくれない？いちもじでいいんだ。",
+              "english": "Right, exactly. So I'll try singing it once more — keep your ears open. Can you catch the missing sound in katakana? Just one letter."
+            },
+            "n2": {
+              "japanese": "そうなんだよ。じゃあ、もう一回だけ歌うから、しっかり耳を澄ませてて。抜けてる音、かたかなで当ててもらえるかな。一文字でいいんだ。",
+              "reading": "そうなんだよ。じゃあ、もういっかいだけうたうから、しっかりみみをすませてて。ぬけてるおと、かたかなであててもらえるかな。いちもじでいいんだ。",
+              "english": "That's just it. So I'll sing it one more time — really keep your ears open. Could you catch the missing sound in katakana for me? Just one letter's enough."
+            },
+            "n1": {
+              "japanese": "そういうことなんだよね。じゃ、もう一回だけ歌ってみるから、しっかり耳を澄ませててよ。抜け落ちてる音、かたかなで一つ、当ててもらえるかな。一文字でじゅうぶんだから。",
+              "reading": "そういうことなんだよね。じゃ、もういっかいだけうたってみるから、しっかりみみをすませててよ。ぬけおちてるおと、かたかなでひとつ、あててもらえるかな。いちもじでじゅうぶんだから。",
+              "english": "That's exactly it. So — I'll try singing it just once more, so keep your ears really open. The sound that's fallen out — could you catch it, one katakana? A single letter's plenty."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chorus-with-a-hole:before-repair",
+          "beatId": "beat:chorus-with-a-hole:repair-attempt",
+          "resume": "Xingyu will sing the chant through once more. The learner listens for the dropped beat in the third word and names the katakana that repairs the sound."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:chorus-with-a-hole:catch-the-sound",
+          "beatId": "beat:chorus-with-a-hole:repair-attempt",
+          "hook": {
+            "packageId": "l1-l22",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e15-chorus-with-a-hole-repair"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e15-chorus-with-a-hole-repair"
+          },
+          "resumeContext": "ライト and ルート are complete; the third word runs a beat short. The learner listens to the chorus, catches the katakana that fell out of the third word, and names it aloud in place — a casual, kind repair rather than a correction of the singer.",
+          "onReady": "checkpoint:chorus-with-a-hole:after-repair",
+          "onRepair": "node:chorus-with-a-hole:repair",
+          "onDefer": "checkpoint:chorus-with-a-hole:before-repair"
+        },
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:repair",
+          "beatId": "beat:chorus-with-a-hole:repair-second-try",
+          "cueId": "cue:blank-card-reopened",
+          "description": "The third card is held up with its blank still open, and Xingyu sings only the short word again, slower. Just the one dropped sound waits for another try; the rest of the chant stays as it was."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chorus-with-a-hole:after-repair",
+          "beatId": "beat:chorus-with-a-hole:repair-response",
+          "resume": "The missing katakana is named and set into the gap, and the beat is whole. Xingyu sings the third word through with the sound back in place."
+        },
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:beat-whole",
+          "beatId": "beat:chorus-with-a-hole:changed-image",
+          "cueId": "cue:third-card-filled",
+          "description": "The third card now reads full, and Xingyu taps four beats where he had been tapping three. The tune keeps its bounce; only the stumble is gone."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:chorus-with-a-hole:the-kept-beat"
+      }
+    },
+    {
+      "id": "scene:chorus-with-a-hole:the-kept-beat",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let the repaired chant stay Xingyu's, with the flaw received kindly instead of roasted.",
+      "dramaticQuestion": "Can the room fix the sound without laughing the fun out of the offer?",
+      "learnerNeed": "A casual reaction that backs an imperfect thing offered aloud without turning it into a target.",
+      "curriculum": {
+        "sectionId": "react-without-ridicule",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:clean-run",
+          "beatId": "beat:chorus-with-a-hole:regroup-image",
+          "cueId": "cue:whole-chant-once-through",
+          "description": "Xingyu hums the whole chant through once, clean now. Tom is up on the balls of his feet, plainly itching to turn it into a contest again."
+        },
+        {
+          "kind": "choice",
+          "id": "choice:chorus-with-a-hole:how-to-react",
+          "beatId": "beat:chorus-with-a-hole:stance",
+          "question": "How do you react to the fixed chorus?",
+          "options": [
+            {
+              "id": "option:chorus-with-a-hole:react-casually",
+              "action": "React casually — say the chant is genuinely good, catchy hole and all, laughing with it rather than at it.",
+              "japaneseByBand": {
+                "n5": "いい歌だね。あの穴、面白かったよ。直っても、まだ好き。",
+                "n4": "この歌、すごくいいよ。あの穴のとこ、正直好きだった。直った今も、ちゃんと面白い。",
+                "n3": "これ、めっちゃいい歌じゃん。あの抜けてたとこ、正直好きだったな。直っても全然面白いよ。",
+                "n2": "これ、ほんとにいい歌だと思う。あの抜けてたとこ、正直けっこう好きだった。直った今でも、ちゃんと面白いよ。",
+                "n1": "これ、素直にいい歌だと思うよ。あの抜けてたとこ、正直けっこう気に入ってたんだ。直った今でも、ちゃんと面白いままだしね。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:chorus-with-a-hole:before-back"
+            },
+            {
+              "id": "option:chorus-with-a-hole:make-it-shared",
+              "action": "Ask Xingyu to teach the class the whole chant, turning his imperfect offer into shared katakana practice.",
+              "japaneseByBand": {
+                "n5": "この歌、みんなに教えて。かたかな、覚えられそう。",
+                "n4": "この歌、クラスみんなに教えてよ。これでかたかな、覚えられそうだから。",
+                "n3": "ねえ、この歌、みんなに教えてくれない？これならかたかな、みんな覚えられそうだよ。",
+                "n2": "この歌さ、クラス全員に教えてくれないかな。これならかたかな、みんな自然に覚えられそうだし。",
+                "n1": "ねえ、この歌さ、いっそクラス全員に教えてくれないかな。これなら、かたかな、みんな自然と覚えちゃいそうだしね。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:chorus-with-a-hole:before-back"
+            }
+          ],
+          "convergence": "checkpoint:chorus-with-a-hole:before-back"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chorus-with-a-hole:before-back",
+          "beatId": "beat:chorus-with-a-hole:back-attempt",
+          "resume": "The learner has reacted to the repaired chant. Tom answers by choosing what to do with his contest, and Xingyu answers for whether the chant stays his."
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:tom-generous",
+          "beatId": "beat:chorus-with-a-hole:repair",
+          "speakerId": "tom",
+          "intent": "Drop the winner-take-all framing and redesign the game so the old hole is a clap everyone shares and nobody loses.",
+          "attentionTarget": "the missing beat reimagined as a group clap instead of a target",
+          "variants": {
+            "n5": {
+              "japanese": "あ、勝ち負けはやめよう。みんなで歌おう。あの穴のとこは、みんなで手をたたく。だれも負けない。",
+              "reading": "あ、かちまけはやめよう。みんなでうたおう。あのあなのとこは、みんなでてをたたく。だれもまけない。",
+              "english": "Ah — let's drop the winning and losing. Let's all sing it. At the hole, everyone claps. Nobody loses."
+            },
+            "n4": {
+              "japanese": "あ、勝負はナシにしよう。みんなで歌えばいいや。あの穴のとこ、全員で手拍子入れる感じで。そしたら、負ける人いないしね。",
+              "reading": "あ、しょうぶはナシにしよう。みんなでうたえばいいや。あのあなのとこ、ぜんいんでてびょうしいれるかんじで。そしたら、まけるひといないしね。",
+              "english": "Ah — let's scrap the contest. We'll just all sing it. At the hole, everyone throws in a clap. That way nobody loses."
+            },
+            "n3": {
+              "japanese": "あ、勝ち負けはもういいや。みんなで歌う方が楽しいでしょ。あの穴のとこは、全員で手拍子。そうすれば、誰も負けにならないし。",
+              "reading": "あ、かちまけはもういいや。みんなでうたうほうがたのしいでしょ。あのあなのとこは、ぜんいんでてびょうし。そうすれば、だれもまけにならないし。",
+              "english": "Ah, forget winning and losing. It's more fun if we all just sing it, right? At the hole, everyone claps. That way no one ends up the loser."
+            },
+            "n2": {
+              "japanese": "あ、もう勝ち負けはいいや。みんなで歌った方が絶対楽しいって。あの抜けてた一拍のとこ、全員で手拍子入れることにしよう。そうすれば、誰も負ける側に回らずに済むし。",
+              "reading": "あ、もうかちまけはいいや。みんなでうたったほうがぜったいたのしいって。あのぬけてたいっぱくのとこ、ぜんいんでてびょうしいれることにしよう。そうすれば、だれもまけるがわにまわらずにすむし。",
+              "english": "Ah, forget winning and losing now. It's definitely more fun if we all sing it. That missing beat — let's have everyone drop a clap in there. That way nobody ends up on the losing side."
+            },
+            "n1": {
+              "japanese": "あ、もう勝ち負けとかいいや。みんなで歌った方が、そりゃ楽しいに決まってる。あの抜けてた一拍のとこはさ、いっそ全員で手拍子入れることにしようよ。そうすりゃ、誰一人負ける側に回らずに済むしね。",
+              "reading": "あ、もうかちまけとかいいや。みんなでうたったほうが、そりゃたのしいにきまってる。あのぬけてたいっぱくのとこはさ、いっそぜんいんでてびょうしいれることにしようよ。そうすりゃ、だれひとりまけるがわにまわらずにすむしね。",
+              "english": "Ah, forget the winning-and-losing thing. It's obviously more fun if we all sing it together. That missing beat — let's just have everyone put a clap in there. That way not a single person ends up the loser."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:xingyu-keeps-it",
+          "beatId": "beat:chorus-with-a-hole:repair-changed",
+          "speakerId": "xingyu",
+          "intent": "Accept the shared clap: fix the sound but keep the pause on purpose, and say plainly that putting the flawed thing out there was worth it.",
+          "attentionTarget": "the fixed word and the kept pause held together",
+          "variants": {
+            "n5": {
+              "japanese": "いいね、それ。穴は、手をたたくところにする。直したけど、なくさない。出してよかった。",
+              "reading": "いいね、それ。あなは、てをたたくところにする。なおしたけど、なくさない。だしてよかった。",
+              "english": "I like that. The hole becomes the clapping spot. We fixed it, but we don't lose it. I'm glad I put it out there."
+            },
+            "n4": {
+              "japanese": "いいね、それ。じゃあ、穴のとこは手拍子にしよう。音は直したけど、あの間はそのまま残す。出してよかったな、この歌。",
+              "reading": "いいね、それ。じゃあ、あなのとこはてびょうしにしよう。おとはなおしたけど、あのまはそのままのこす。だしてよかったな、このうた。",
+              "english": "I like that. Okay — the hole becomes the clap. We fixed the sound, but we keep that pause. I'm glad I put this song out there."
+            },
+            "n3": {
+              "japanese": "いいじゃん、それ。穴だったとこ、手拍子にしちゃおう。音はちゃんと直したけど、あの間は残しておく。恥ずかしかったけど、出してよかったよ、ほんと。",
+              "reading": "いいじゃん、それ。あなだったとこ、てびょうしにしちゃおう。おとはちゃんとなおしたけど、あのまはのこしておく。はずかしかったけど、だしてよかったよ、ほんと。",
+              "english": "I like that. The spot that was a hole — let's make it the clap. We fixed the sound properly, but we keep that pause. It was embarrassing, but I'm really glad I put it out there."
+            },
+            "n2": {
+              "japanese": "いいね、それでいこう。穴だったとこは、いっそ手拍子にしちゃえばいい。音はちゃんと直したうえで、あの間だけは残しておく。正直ちょっと恥ずかしかったけど、思い切って出してよかったよ。",
+              "reading": "いいね、それでいこう。あなだったとこは、いっそてびょうしにしちゃえばいい。おとはちゃんとなおしたうえで、あのまだけはのこしておく。しょうじきちょっとはずかしかったけど、おもいきってだしてよかったよ。",
+              "english": "I like that — let's go with it. The spot that was a hole, we just make it the clap. We fix the sound properly, and keep only that pause. Honestly it was a bit embarrassing, but I'm glad I took the plunge and put it out there."
+            },
+            "n1": {
+              "japanese": "いいね、それでいこうよ。穴だったとこは、いっそみんなの手拍子にしちゃえばいい。音はちゃんと直したうえで、あの間だけはそのまま残しておく。正直、出すのはちょっと恥ずかしかったんだけどさ、思い切って出してよかったよ、ほんとに。",
+              "reading": "いいね、それでいこうよ。あなだったとこは、いっそみんなのてびょうしにしちゃえばいい。おとはちゃんとなおしたうえで、あのまだけはそのままのこしておく。しょうじき、だすのはちょっとはずかしかったんだけどさ、おもいきってだしてよかったよ、ほんとに。",
+              "english": "I like that — let's go with it. The spot that was a hole, we just turn it into everyone's clap. We fix the sound properly, and leave only that pause as it was. Honestly, putting it out there was a little embarrassing — but I'm really glad I took the plunge."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chorus-with-a-hole:mika-kept-beat",
+          "beatId": "beat:chorus-with-a-hole:settle",
+          "speakerId": "mika",
+          "intent": "Mark the kept pause as the beat the whole room now lands on together, treating the timing as the thing that holds it.",
+          "attentionTarget": "the shared clap landing on the same beat",
+          "variants": {
+            "n5": {
+              "japanese": "そう、その一拍。今度は、みんなでそこに合わせる。合うと、気持ちいいよ。",
+              "reading": "そう、そのいっぱく。こんどは、みんなでそこにあわせる。あうと、きもちいいよ。",
+              "english": "Yes — that one beat. This time, everyone lines up on it together. When it lines up, it feels good."
+            },
+            "n4": {
+              "japanese": "うん、その一拍だね。今度は、みんなでそこに合わせる番。ぴったり合うと、けっこう気持ちいいんだよ。",
+              "reading": "うん、そのいっぱくだね。こんどは、みんなでそこにあわせるばん。ぴったりあうと、けっこうきもちいいんだよ。",
+              "english": "Mm, that one beat. This time it's everyone's turn to line up on it. When it lands just right, it feels pretty good."
+            },
+            "n3": {
+              "japanese": "うん、あの一拍だよね。今度は、みんなでそこに合わせる番。ぴったりそろうと、意外と気持ちいいんだよ、これ。",
+              "reading": "うん、あのいっぱくだよね。こんどは、みんなでそこにあわせるばん。ぴったりそろうと、いがいときもちいいんだよ、これ。",
+              "english": "Mm, that one beat. Now it's everyone's turn to line up on it. When it all lands together, it feels surprisingly good."
+            },
+            "n2": {
+              "japanese": "うん、あの一拍のことね。今度はこっちが、みんなでそこに合わせにいく番。全員でぴたっとそろうと、これが意外と気持ちいいんだよね。",
+              "reading": "うん、あのいっぱくのことね。こんどはこっちが、みんなでそこにあわせにいくばん。ぜんいんでぴたっとそろうと、これがいがいときもちいいんだよね。",
+              "english": "Mm, that one beat, right. Now it's our turn to go and line up on it, all of us. When everyone lands it together, it's surprisingly satisfying."
+            },
+            "n1": {
+              "japanese": "うん、あの一拍のことね。今度はこっちが、みんなでそこに合わせにいく番、というわけ。全員でぴたっとそろった時って、これが意外なくらい気持ちいいんだよね。",
+              "reading": "うん、あのいっぱくのことね。こんどはこっちが、みんなでそこにあわせにいくばん、というわけ。ぜんいんでぴたっとそろったときって、これがいがいなくらいきもちいいんだよね。",
+              "english": "Mm, that one beat, yes. Now it's our turn to go and line up on it, all together — that's the idea. When everyone lands it at exactly the same moment, it's satisfying to a surprising degree."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:chorus-with-a-hole:clap-on-purpose",
+          "beatId": "beat:chorus-with-a-hole:exit-image",
+          "cueId": "cue:room-claps-the-kept-beat",
+          "description": "The room runs the chant once through: three full words, and on the fourth beat that used to be a hole, everyone claps together. The gap is kept on purpose now."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:quiet-count",
+      "state": "echo",
+      "ownerIds": [
+        "mika",
+        "xingyu"
+      ],
+      "meaningNow": "Xingyu's flawed chorus makes the beat and count memorable, but the count alone cannot prove the words; the timing locates the missing beat while the actual katakana still has to be caught by ear.",
+      "priorUse": {
+        "packageId": "s1e04-welcome-frequency",
+        "sceneId": "scene:welcome-frequency:pause-and-count",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "Mika simply counts the beats of each word, finds the short one, and notes that counting shows where the gap is but not which sound belongs there."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:chorus-with-a-hole:kept-beat",
+      "kind": "story",
+      "description": "The class repairs the dropped katakana in Xingyu's chant and keeps the old hole on purpose as a shared clap, turning an imperfect offer into a group practice instead of a joke."
+    },
+    {
+      "id": "outcome:chorus-with-a-hole:xingyu-contribution",
+      "kind": "bond",
+      "castId": "xingyu",
+      "chapter": 15,
+      "beat": "contribution",
+      "description": "Xingyu offers unfinished, flawed work aloud and asks for repair without ridicule; his by-ear chant becomes a study method the class can reuse, establishing his memorable-rhythm sense as a competence."
+    },
+    {
+      "id": "outcome:chorus-with-a-hole:mika-contribution",
+      "kind": "bond",
+      "castId": "mika",
+      "chapter": 15,
+      "beat": "contribution",
+      "description": "Mika's beat-count locates the hole and marks the limit of counting, and her timing sense becomes the cue the room lands the shared clap on; her patient listening is established as help the class can ask for."
+    },
+    {
+      "id": "outcome:chorus-with-a-hole:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l22",
+      "description": "Complete-a-katakana-sequence-and-repair-a-sound-shape-error evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:mika-hears-the-gap-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-repair-step"
+    ],
+    "withdrawnContentFallback": "Use the same catch-and-repair-a-katakana-error evidence with neutral nameplates and a generic study chant that runs one beat short until the missing sound is caught."
+  }
+}

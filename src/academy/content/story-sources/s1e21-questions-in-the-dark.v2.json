@@ -1,0 +1,633 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e21-questions-in-the-dark",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 21,
+  "title": {
+    "en": "Questions in the Dark",
+    "ja": "暗がりの質問"
+  },
+  "synopsis": "One district of the classroom map has gone dark and a single-memory recital stalls. Peter, watching from the edge, asks one framing question that turns the rebuild into one strong question per learner and a teach-back; the learner builds and carries that question, Felix turns his own remembered detail into a passable question, and Peter's quiet observation becomes the way the class leads itself back to light.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "peter",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#peter",
+        "docs/academy/story/CAST-AND-CONSENT.md#peter"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "a sparse question standing in for a hidden biography",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "felix",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#felix",
+        "docs/academy/story/CAST-AND-CONSENT.md#felix"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cats treated as his whole personality",
+        "invented biography beyond recorded traits"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e20-map-from-memory",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l19",
+            "l2-l20",
+            "l2-l21",
+            "l2-l22"
+          ],
+          "function": "build-carry-revise-and-forecast-an-intention-through-questions-and-teach-back"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-one-first-meeting-peter"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:questions-in-the-dark:one-question-each",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Peter as he turns a stalled single-memory recital into one strong question per learner, and rebuild the first dark block by teach-back.",
+      "dramaticQuestion": "When one memory runs out, does the district need a better memory, or a better question?",
+      "learnerNeed": "A build-and-carry attempt where forming one precise question and repeating the answer back matters more than knowing the whole area.",
+      "curriculum": {
+        "sectionId": "build-and-teach-back",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:dark-district",
+          "beatId": "beat:questions-in-the-dark:arrival-image",
+          "cueId": "cue:classroom-map-one-district-dark",
+          "description": "One district of the projected classroom map has gone dark. The cards pinned along it are blank, and the class has crowded around a single chair, waiting for the one person who might remember the whole area. Peter sits apart at the edge of the room, watching."
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:felix-wants-it-back",
+          "beatId": "beat:questions-in-the-dark:human-want",
+          "speakerId": "felix",
+          "intent": "Name the one small detail he is certain of, admit he does not hold the whole district, and say he wants the dark area back.",
+          "attentionTarget": "the dark corner where one shop used to be",
+          "variants": {
+            "n5": {
+              "japanese": "この辺、消えちゃいましたね。ぼく、あの角の店だけ覚えてます。ねこがいた店。もどしたいなあ。",
+              "reading": "このへん、きえちゃいましたね。ぼく、あのかどのみせだけおぼえてます。ねこがいたみせ。もどしたいなあ。",
+              "english": "This area's gone dark, hasn't it. Me, I only remember that corner shop. The one with the cat. I want it back."
+            },
+            "n4": {
+              "japanese": "この辺、まっくらになっちゃいましたね。ぼく、全部は無理だけど、あの角の店だけははっきり覚えてます。ねこがいつもいた店。ここ、もう一回戻したいですね。",
+              "reading": "このへん、まっくらになっちゃいましたね。ぼく、ぜんぶはむりだけど、あのかどのみせだけははっきりおぼえてます。ねこがいつもいたみせ。ここ、もういっかいもどしたいですね。",
+              "english": "This whole area went pitch dark. I can't do all of it, but that one corner shop I remember clearly — the one the cat was always at. I'd really like to get this back."
+            },
+            "n3": {
+              "japanese": "この一角、すっかり暗くなっちゃいましたね。全部は思い出せないんですけど、あの角の店だけは覚えてるんですよ。ねこがいつも座ってた店。ここ、なんとか戻したいなあ。",
+              "reading": "このいっかく、すっかりくらくなっちゃいましたね。ぜんぶはおもいだせないんですけど、あのかどのみせだけはおぼえてるんですよ。ねこがいつもすわってたみせ。ここ、なんとかもどしたいなあ。",
+              "english": "This corner's gone completely dark. I can't recall the whole thing, but that one shop on the corner I do remember — the one the cat always sat outside. I want to get this back somehow."
+            },
+            "n2": {
+              "japanese": "この区画、まるごと暗くなってしまいましたね。正直、全部はとても思い出せないんですが、あの角の店だけははっきりしてるんです。いつもねこが座っていた店。ここ、どうにか元に戻したいところで。",
+              "reading": "このくかく、まるごとくらくなってしまいましたね。しょうじき、ぜんぶはとてもおもいだせないんですが、あのかどのみせだけははっきりしてるんです。いつもねこがすわっていたみせ。ここ、どうにかもとにもどしたいところで。",
+              "english": "This whole block has gone dark, hasn't it. Honestly, there's no way I can recall all of it, but that one corner shop is clear to me — the one the cat always sat by. I'd like to get this back to how it was, somehow."
+            },
+            "n1": {
+              "japanese": "この区画、まるっと落ちてしまいましたね。全部を覚えているかと言われると到底自信はないんですが、あの角の店だけは妙にはっきりしてるんですよ。ねこがいつも座っていた、あの店。ここだけは、なんとか元に戻したいなと。",
+              "reading": "このくかく、まるっとおちてしまいましたね。ぜんぶをおぼえているかといわれるととうていじしんはないんですが、あのかどのみせだけはみょうにはっきりしてるんですよ。ねこがいつもすわっていた、あのみせ。ここだけは、なんとかもとにもどしたいなと。",
+              "english": "The whole block's just dropped out, hasn't it. Ask me whether I remember all of it and I couldn't claim so for a second — but that one corner shop is oddly vivid to me. The one the cat always sat by, that place. This much, at least, I'd love to get back the way it was."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:reciter-runs-dry",
+          "beatId": "beat:questions-in-the-dark:obstruction",
+          "cueId": "cue:single-reciter-runs-dry",
+          "description": "Someone takes the single chair and tries to recite the whole district from memory, shop by shop. Three shops in, the list runs dry. The blank cards stay blank. The room keeps its eyes on the chair, waiting for a better memory to arrive."
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:peter-reframe",
+          "beatId": "beat:questions-in-the-dark:japanese-attempt",
+          "speakerId": "peter",
+          "intent": "Before the room gives up, ask one framing question that trades one whole memory for one piece from each person.",
+          "attentionTarget": "the empty chair, then the whole waiting room",
+          "variants": {
+            "n5": {
+              "japanese": "一人で全部、思い出さなくてもいいんじゃないですか。みんな、一つずつ知ってますよね。一人に一つ、聞いてみませんか。",
+              "reading": "ひとりでぜんぶ、おもいださなくてもいいんじゃないですか。みんな、ひとつずつしってますよね。ひとりにひとつ、きいてみませんか。",
+              "english": "One person doesn't have to remember all of it, do they. Everyone knows one piece each, right? Shall we ask one thing of each person?"
+            },
+            "n4": {
+              "japanese": "一人で全部覚えてなくても、いいんじゃないですか。みんな、どこか一つは知ってるでしょう。だったら、一人に一つずつ、質問してみませんか。",
+              "reading": "ひとりでぜんぶおぼえてなくても、いいんじゃないですか。みんな、どこかひとつはしってるでしょう。だったら、ひとりにひとつずつ、しつもんしてみませんか。",
+              "english": "It's fine if no one person remembers all of it, isn't it. Everyone knows one spot, surely. So — shall we ask one question of each person?"
+            },
+            "n3": {
+              "japanese": "一人が全部思い出す必要って、ありますかね。みんな、どこか一か所は覚えてるはずですよ。だったら、一人ひとりに一つずつ聞いていったらどうでしょう。",
+              "reading": "ひとりがぜんぶおもいだすひつようって、ありますかね。みんな、どこかいっかしょはおぼえてるはずですよ。だったら、ひとりひとりにひとつずつきいていったらどうでしょう。",
+              "english": "Does one person really need to recall all of it? Everyone's bound to remember one spot. So how about we go around and ask each person one thing?"
+            },
+            "n2": {
+              "japanese": "一人で全部を思い出す、というやり方じゃなくてもいいんじゃないでしょうか。みんな、それぞれどこか一つは覚えているはずです。だったら、一人ひとりに一つずつ質問を投げていく、というのはどうでしょう。",
+              "reading": "ひとりでぜんぶをおもいだす、というやりかたじゃなくてもいいんじゃないでしょうか。みんな、それぞれどこかひとつはおぼえているはずです。だったら、ひとりひとりにひとつずつしつもんをなげていく、というのはどうでしょう。",
+              "english": "The one-person-recalls-everything approach isn't the only way, is it. Each person is bound to remember one spot. So how about we put one question to each of them, one at a time?"
+            },
+            "n1": {
+              "japanese": "一人で全部を背負って思い出す、というやり方に、こだわらなくてもいいんじゃないでしょうか。みんな、どこか一か所くらいは、案外はっきり覚えているものですよ。だったら、一人ひとりに一つずつ、こちらから質問を投げていく——そういう組み立てでもいいんじゃないですか。",
+              "reading": "ひとりでぜんぶをせおっておもいだす、というやりかたに、こだわらなくてもいいんじゃないでしょうか。みんな、どこかいっかしょくらいは、あんがいはっきりおぼえているものですよ。だったら、ひとりひとりにひとつずつ、こちらからしつもんをなげていく——そういうくみたてでもいいんじゃないですか。",
+              "english": "We don't have to cling to the one-person-carries-and-recalls-it-all way of doing this, do we. People tend to remember one spot surprisingly clearly, actually. So — put one question to each of them, one at a time, from our side. That kind of setup would do just as well, wouldn't it?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:peter-hands-it-over",
+          "beatId": "beat:questions-in-the-dark:invite-production",
+          "speakerId": "peter",
+          "intent": "Invite the learner, with an easy way to decline, to build the next question themselves: pick one classmate, ask one clear thing, then repeat the answer back for the class to pin.",
+          "attentionTarget": "the learner, then the row of blank cards",
+          "variants": {
+            "n5": {
+              "japanese": "じゃあ、次はあなたが聞いてみますか。誰か一人に、一つだけ。聞いたら、みんなにもう一回、言ってください。",
+              "reading": "じゃあ、つぎはあなたがきいてみますか。だれかひとりに、ひとつだけ。きいたら、みんなにもういっかい、いってください。",
+              "english": "So — want to ask the next one? Just one thing, to one person. When you've heard it, say it once more to everyone."
+            },
+            "n4": {
+              "japanese": "次、あなたがやってみますか。誰か一人を選んで、一つだけ質問して。聞けたら、みんなにもう一度、そのまま伝えてください。",
+              "reading": "つぎ、あなたがやってみますか。だれかひとりをえらんで、ひとつだけしつもんして。きけたら、みんなにもういちど、そのままつたえてください。",
+              "english": "Want to try the next one? Pick one person, ask just one thing. Once you've got it, pass it back to everyone exactly as it was."
+            },
+            "n3": {
+              "japanese": "よかったら、次はあなたが聞いてみませんか。誰か一人に、一つだけ質問して。答えをもらったら、みんなに向けてもう一回、言い直してみてください。",
+              "reading": "よかったら、つぎはあなたがきいてみませんか。だれかひとりに、ひとつだけしつもんして。こたえをもらったら、みんなにむけてもういっかい、いいなおしてみてください。",
+              "english": "If you like, want to ask the next one? Put just one question to one person. When you get the answer, say it back to everyone once more, in your own words."
+            },
+            "n2": {
+              "japanese": "よかったら、次はあなたが質問してみませんか。誰か一人に絞って、一つだけ。答えが返ってきたら、それをみんなに向けて、もう一度言い直してもらえますか。",
+              "reading": "よかったら、つぎはあなたがしつもんしてみませんか。だれかひとりにしぼって、ひとつだけ。こたえがかえってきたら、それをみんなにむけて、もういちどいいなおしてもらえますか。",
+              "english": "If you're up for it, want to ask the next one? Narrow it to one person, just one question. When the answer comes back, could you put it back to everyone, said over once more?"
+            },
+            "n1": {
+              "japanese": "もしよければ、次はあなたが聞き手にまわってみませんか。誰か一人に的を絞って、質問は一つだけ。返ってきた答えを、今度はみんなに向けて、そっくりもう一度言い直してみてください。",
+              "reading": "もしよければ、つぎはあなたがききてにまわってみませんか。だれかひとりにまとをしぼって、しつもんはひとつだけ。かえってきたこたえを、こんどはみんなにむけて、そっくりもういちどいいなおしてみてください。",
+              "english": "If you'd like, why not take the asking side next? Fix on one person, question just the one. Then the answer that comes back — this time say it over to everyone, just as it was."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:questions-in-the-dark:before-build",
+          "beatId": "beat:questions-in-the-dark:build-attempt",
+          "resume": "Peter has handed the next question to the learner: pick one classmate, ask one clear thing about the dark area, then teach the answer back to the room."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:questions-in-the-dark:build-and-teach-back",
+          "beatId": "beat:questions-in-the-dark:build-attempt",
+          "hook": {
+            "packageId": "l2-l19",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e21-questions-in-the-dark-build-teach-back"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e21-questions-in-the-dark-build-teach-back"
+          },
+          "resumeContext": "The district is dark and no one holds all of it. The learner builds one clear question, puts it to a single classmate, then repeats the answer back for the class to pin to a blank card.",
+          "onReady": "checkpoint:questions-in-the-dark:after-build",
+          "onRepair": "node:questions-in-the-dark:build-repair",
+          "onDefer": "checkpoint:questions-in-the-dark:before-build"
+        },
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:build-repair",
+          "beatId": "beat:questions-in-the-dark:build-repair",
+          "cueId": "cue:question-reformed-slowly",
+          "description": "Only the question comes back for another pass — the classmate and their one remembered detail stay in place. The half-formed question is set down and picked up again, one word at a time."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:questions-in-the-dark:after-build",
+          "beatId": "beat:questions-in-the-dark:build-response",
+          "resume": "One question found its mark. A classmate's single detail is spoken back clearly, and the class pins it to a card that was blank a moment ago."
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:peter-question-did-it",
+          "beatId": "beat:questions-in-the-dark:repair",
+          "speakerId": "peter",
+          "intent": "Confirm that one block came back, and name that the question, not one big memory, did the work.",
+          "attentionTarget": "the newly filled card, then the learner",
+          "variants": {
+            "n5": {
+              "japanese": "ほら、戻りましたね。あなたが全部知ってたからじゃない。いい質問だったからです。",
+              "reading": "ほら、もどりましたね。あなたがぜんぶしってたからじゃない。いいしつもんだったからです。",
+              "english": "See, it came back. Not because you knew all of it. Because it was a good question."
+            },
+            "n4": {
+              "japanese": "ほら、一つ戻りましたね。あなたが全部覚えてたからじゃなくて、質問がよかったからですよ。",
+              "reading": "ほら、ひとつもどりましたね。あなたがぜんぶおぼえてたからじゃなくて、しつもんがよかったからですよ。",
+              "english": "See, one came back. Not because you remembered all of it — because the question was good."
+            },
+            "n3": {
+              "japanese": "ね、一区画ぶん戻ったでしょう。あなたが全部知ってたわけじゃない。質問が的を射てたから、出てきたんです。",
+              "reading": "ね、いっくかくぶんもどったでしょう。あなたがぜんぶしってたわけじゃない。しつもんがまとをいてたから、でてきたんです。",
+              "english": "There — one block's worth came back, right? It's not that you knew all of it. It came out because the question hit the mark."
+            },
+            "n2": {
+              "japanese": "ほら、一区画ぶん戻ってきたでしょう。誰かが全部を覚えていたからじゃありません。質問がちゃんと的を射ていたから、引き出せたんです。",
+              "reading": "ほら、いっくかくぶんもどってきたでしょう。だれかがぜんぶをおぼえていたからじゃありません。しつもんがちゃんとまとをいていたから、ひきだせたんです。",
+              "english": "See, a block's worth came back. Not because anyone remembered the whole thing. You drew it out because the question landed squarely."
+            },
+            "n1": {
+              "japanese": "ほら、一区画ぶん、ちゃんと戻ってきたでしょう。誰かが全部を抱えて覚えていたからじゃない。質問が的を射ていたから、向こうから出てきたんですよ。質問のほうが、仕事をしたんです。",
+              "reading": "ほら、いっくかくぶん、ちゃんともどってきたでしょう。だれかがぜんぶをかかえておぼえていたからじゃない。しつもんがまとをいていたから、むこうからでてきたんですよ。しつもんのほうが、しごとをしたんです。",
+              "english": "There — a whole block came right back, didn't it. Not because someone was carrying the entire thing in their head. It came out from their side because the question hit the mark. The question did the work, not the knowing."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:one-block-relit",
+          "beatId": "beat:questions-in-the-dark:changed-image",
+          "cueId": "cue:one-block-relit",
+          "description": "One block of the map warms back to light. The card that was blank now carries a single line in the learner's hand. The rest of the district stays dark — but the chair in the middle is empty now; no one is waiting for a perfect memory anymore."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:questions-in-the-dark:passing-the-question"
+      }
+    },
+    {
+      "id": "scene:questions-in-the-dark:passing-the-question",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Spread the one-question-each method across the rest of the dark district, and let Peter's watching turn into leading.",
+      "dramaticQuestion": "Can a method the class runs itself be led by the person who only asks questions?",
+      "learnerNeed": "A stance choice about how to carry a working method forward without one person owning the district.",
+      "curriculum": {
+        "sectionId": "carry-and-forecast",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:class-turns-to-peter",
+          "beatId": "beat:questions-in-the-dark:regroup-image",
+          "cueId": "cue:class-turns-to-peter",
+          "description": "Half the district is lit now, block by block, each card in a different hand. The class has stopped looking at the single chair and started looking at Peter, who has not moved from the edge of the room."
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:peter-hands-to-room",
+          "beatId": "beat:questions-in-the-dark:human-want-two",
+          "speakerId": "peter",
+          "intent": "Decline to take the whole thing over; name that the same one-question move works again, and hand it back to the room with an open question.",
+          "attentionTarget": "the half-dark district, then the faces turned toward him",
+          "variants": {
+            "n5": {
+              "japanese": "同じやり方で、続けられますよ。ぼくがやらなくても、できます。次は誰が聞きますか。",
+              "reading": "おなじやりかたで、つづけられますよ。ぼくがやらなくても、できます。つぎはだれがききますか。",
+              "english": "You can keep going the same way. It works without me doing it. Who asks next?"
+            },
+            "n4": {
+              "japanese": "同じやり方で、最後まで行けますよ。ぼく一人がやることじゃない。次、誰が聞いてみますか。",
+              "reading": "おなじやりかたで、さいごまでいけますよ。ぼくひとりがやることじゃない。つぎ、だれがきいてみますか。",
+              "english": "The same way will carry you to the end. It isn't mine alone to do. Next — who wants to ask?"
+            },
+            "n3": {
+              "japanese": "このやり方なら、残りも同じように埋まりますよ。別に、ぼくが仕切ることでもない。次は誰が聞きますか。",
+              "reading": "このやりかたなら、のこりもおなじようにうまりますよ。べつに、ぼくがしきることでもない。つぎはだれがききますか。",
+              "english": "With this method the rest fills in just the same. It's not really for me to run. So who asks next?"
+            },
+            "n2": {
+              "japanese": "このやり方でいけば、残りの区画も同じように埋まっていきます。別に、ぼくが仕切る話でもないんです。次は、どなたが聞いてみますか。",
+              "reading": "このやりかたでいけば、のこりのくかくもおなじようにうまっていきます。べつに、ぼくがしきるはなしでもないんです。つぎは、どなたがきいてみますか。",
+              "english": "Go on this way and the remaining blocks fill in the same. It's really not a matter of me running things. So — who'd like to ask next?"
+            },
+            "n1": {
+              "japanese": "このやり方でいけば、残りも同じ要領で埋まっていきますよ。なにも、ぼくが仕切らなきゃいけない話でもない。——さて、次はどなたが聞き手にまわります？",
+              "reading": "このやりかたでいけば、のこりもおなじようりょうでうまっていきますよ。なにも、ぼくがしきらなきゃいけないはなしでもない。——さて、つぎはどなたがききてにまわります？",
+              "english": "Carry on this way and the rest fills in by the same knack. There's nothing here that says I have to be the one running it. So then — who takes the asking side next?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:felix-passes-question",
+          "beatId": "beat:questions-in-the-dark:contribution",
+          "speakerId": "felix",
+          "intent": "Volunteer to go next by turning his own one remembered detail into a question and passing it to whoever would know the block beyond it — making question-passing the method.",
+          "attentionTarget": "the block just past his corner shop, still dark",
+          "variants": {
+            "n5": {
+              "japanese": "じゃあ、ぼくが聞きます。あの店の隣、何がありましたっけ。角の店は覚えてるから、その次を聞けばいいんだ。",
+              "reading": "じゃあ、ぼくがききます。あのみせのとなり、なにがありましたっけ。かどのみせはおぼえてるから、そのつぎをきけばいいんだ。",
+              "english": "Then I'll ask. Next to that shop — what was there again? I remember the corner shop, so I just ask about the one after it."
+            },
+            "n4": {
+              "japanese": "じゃあ、ぼくが次いきます。あの店の隣、何があったか覚えてる人いますか。ぼくは角の店までしか分からないから、その先を誰かに聞けばいいんですよね。",
+              "reading": "じゃあ、ぼくがつぎいきます。あのみせのとなり、なにがあったかおぼえてるひといますか。ぼくはかどのみせまでしかわからないから、そのさきをだれかにきけばいいんですよね。",
+              "english": "Then I'll go next. Next to that shop — does anyone remember what was there? I only know as far as the corner shop, so I just ask someone about what's past it, right?"
+            },
+            "n3": {
+              "japanese": "じゃあ、次はぼくが聞きますよ。あの角の店の隣、何がありましたっけ。ぼくが覚えてるのはそこまでだから、その先は誰かに渡せばいいんだ。",
+              "reading": "じゃあ、つぎはぼくがききますよ。あのかどのみせのとなり、なにがありましたっけ。ぼくがおぼえてるのはそこまでだから、そのさきはだれかにわたせばいいんだ。",
+              "english": "Then I'll ask next. Next to that corner shop — what was there again? What I remember stops there, so past that I just hand it to someone."
+            },
+            "n2": {
+              "japanese": "じゃあ、次はぼくが。あの角の店の隣に何があったか、覚えている人いませんか。ぼくが確かなのはあの店までなので、その先は質問にして誰かに渡せばいいわけですね。",
+              "reading": "じゃあ、つぎはぼくが。あのかどのみせのとなりになにがあったか、おぼえているひといませんか。ぼくがたしかなのはあのみせまでなので、そのさきはしつもんにしてだれかにわたせばいいわけですね。",
+              "english": "Then I'll take the next one. Does anyone remember what was next to that corner shop? I'm only sure as far as that shop, so past it I just turn it into a question and hand it on — that's the idea, right?"
+            },
+            "n1": {
+              "japanese": "じゃあ、次はぼくが聞き役を。あの角の店の、ちょうど隣——あそこ、何がありましたっけ。ぼくがはっきり言えるのはあの店までなので、その先はこうして質問にして、覚えている人に渡していけばいいんですね。",
+              "reading": "じゃあ、つぎはぼくがききやくを。あのかどのみせの、ちょうどとなり——あそこ、なにがありましたっけ。ぼくがはっきりいえるのはあのみせまでなので、そのさきはこうしてしつもんにして、おぼえているひとにわたしていけばいいんですね。",
+              "english": "Then let me take the asking this time. Right next to that corner shop — that spot, what was there again? What I can say for certain stops at that shop, so past it I just make it into a question, like this, and hand it on to whoever remembers. That's how it goes, isn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:questions-in-the-dark:carry-it-forward",
+          "beatId": "beat:questions-in-the-dark:stance",
+          "question": "How do you keep the district filling in?",
+          "options": [
+            {
+              "id": "option:questions-in-the-dark:aim-precisely",
+              "action": "Take Felix's passed question and put it straight to whoever is likeliest to remember that next block.",
+              "japaneseByBand": {
+                "n5": "その質問、あの場所を覚えてる人に、まっすぐ聞きましょう。",
+                "n4": "その質問、あの場所を覚えてそうな人に、まっすぐ聞いてみましょう。",
+                "n3": "その質問なら、その辺を覚えてそうな人に、まっすぐ当ててみましょう。",
+                "n2": "その質問は、その区画を覚えていそうな人に、まっすぐ当ててみましょう。",
+                "n1": "その質問は、そのあたりを覚えていそうな人に、まっすぐ当てにいったほうが早いですよ。"
+              },
+              "records": [
+                "stance",
+                "action"
+              ],
+              "next": "checkpoint:questions-in-the-dark:before-forecast"
+            },
+            {
+              "id": "option:questions-in-the-dark:map-what-is-known",
+              "action": "Ask everyone to put down the one block they're each sure of first, then aim questions across the gaps.",
+              "japaneseByBand": {
+                "n5": "先に、みんなが覚えてる場所を一つずつ書きましょう。それから聞けばいいです。",
+                "n4": "先に、みんなが自信のある場所を一つずつ出しましょう。それから、足りない所を聞けばいいと思います。",
+                "n3": "まず、みんなが確実に覚えてる所を一つずつ出しませんか。そのあとで、空いてる所に質問を向ければいいですよ。",
+                "n2": "先に、それぞれが確実に覚えている区画を一つずつ出しておきませんか。そのうえで、抜けている所に質問を向けていけばいいと思います。",
+                "n1": "いっそ先に、めいめいが確実に言える区画を一つずつ出しておきませんか。埋まっている所と空いている所が見えてから、質問を向けたほうが、無駄がないと思います。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:questions-in-the-dark:before-forecast"
+            }
+          ],
+          "convergence": "checkpoint:questions-in-the-dark:before-forecast"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:questions-in-the-dark:before-forecast",
+          "beatId": "beat:questions-in-the-dark:forecast-attempt",
+          "resume": "The learner has chosen how to keep the district filling in. The blocks light one by one. Peter watches the room run the method without him, then speaks."
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:felix-it-landed",
+          "beatId": "beat:questions-in-the-dark:response",
+          "speakerId": "felix",
+          "intent": "Report gladly and briefly that the passed question pulled the next block back into the light.",
+          "attentionTarget": "the block beside the corner shop, now filling in",
+          "variants": {
+            "n5": {
+              "japanese": "あ、出ました。隣、パン屋さんだ。ほら、また一つ戻った。",
+              "reading": "あ、でました。となり、パンやさんだ。ほら、またひとつもどった。",
+              "english": "Oh, there it is. Next door was a bakery. Look, another one came back."
+            },
+            "n4": {
+              "japanese": "あ、出ましたね。隣、パン屋さんだったんだ。ほら、また一つ戻りましたよ。",
+              "reading": "あ、でましたね。となり、パンやさんだったんだ。ほら、またひとつもどりましたよ。",
+              "english": "Oh, there it came. Next door was a bakery, huh. Look — another one's back."
+            },
+            "n3": {
+              "japanese": "お、出てきましたね。隣はパン屋さんか。ほら、また一区画、戻りました。",
+              "reading": "お、でてきましたね。となりはパンやさんか。ほら、またいっくかく、もどりました。",
+              "english": "Ah, out it came. Next door was a bakery, then. Look — another block's back."
+            },
+            "n2": {
+              "japanese": "お、ちゃんと出てきましたね。隣はパン屋だったのか。これで、また一区画ぶん戻りました。",
+              "reading": "お、ちゃんとでてきましたね。となりはパンやだったのか。これで、またいっくかくぶんもどりました。",
+              "english": "Ah, it came out properly. So next door was a bakery. That's another block's worth back."
+            },
+            "n1": {
+              "japanese": "お、ちゃんと出てきましたね。隣はパン屋だったのか——なるほど。これで、また一区画ぶん、戻ってきましたよ。",
+              "reading": "お、ちゃんとでてきましたね。となりはパンやだったのか——なるほど。これで、またいっくかくぶん、もどってきましたよ。",
+              "english": "Ah, out it came, clean as anything. So next door was a bakery after all — I see. That's another whole block back with us now."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:questions-in-the-dark:peter-forecast",
+          "beatId": "beat:questions-in-the-dark:repair-two",
+          "speakerId": "peter",
+          "intent": "Forecast that at this rate the whole district returns tonight, and name his role as watching-turned-leading: he sees where questions stall and hands the next one across.",
+          "attentionTarget": "the whole district relighting, block by block",
+          "variants": {
+            "n5": {
+              "japanese": "このままいけば、今日中に全部戻ると思います。ぼくは見て、次の質問を渡していきます。それで、続きますよ。",
+              "reading": "このままいけば、きょうじゅうにぜんぶもどるとおもいます。ぼくはみて、つぎのしつもんをわたしていきます。それで、つづきますよ。",
+              "english": "At this rate I think it all comes back today. I'll watch and hand over the next question. That keeps it going."
+            },
+            "n4": {
+              "japanese": "このぶんなら、今日のうちに区画ぜんぶ戻ると思います。ぼくは横で見て、詰まったら次の質問を渡す。そうすれば、止まらずに続きますよ。",
+              "reading": "このぶんなら、きょうのうちにくかくぜんぶもどるとおもいます。ぼくはよこでみて、つまったらつぎのしつもんをわたす。そうすれば、とまらずにつづきますよ。",
+              "english": "At this rate I think the whole block's back by the end of today. I'll watch from the side and hand over the next question wherever it stalls. Then it keeps going without stopping."
+            },
+            "n3": {
+              "japanese": "このペースなら、今夜のうちにこの一帯、全部戻せると思いますよ。ぼくは見ていて、詰まった所に次の質問を渡していくつもりです。それで、ちゃんと回りますから。",
+              "reading": "このペースなら、こんやのうちにこのいったい、ぜんぶもどせるとおもいますよ。ぼくはみていて、つまったところにつぎのしつもんをわたしていくつもりです。それで、ちゃんとまわりますから。",
+              "english": "At this pace I think we can get this whole area back tonight. I'll be watching, and I plan to hand the next question to wherever it stalls. That keeps it turning over properly."
+            },
+            "n2": {
+              "japanese": "この調子でいけば、今夜のうちにこの一帯は全部埋まるはずです。ぼくは全体を見ていて、手が止まった所に次の質問を渡していくつもりです。それだけで、たぶん最後まで回りますよ。",
+              "reading": "このちょうしでいけば、こんやのうちにこのいったいはぜんぶうまるはずです。ぼくはぜんたいをみていて、てがとまったところにつぎのしつもんをわたしていくつもりです。それだけで、たぶんさいごまでまわりますよ。",
+              "english": "If it keeps up like this, this whole area should be filled in by tonight. I'll be watching the whole thing and I intend to hand the next question wherever hands go still. That alone will probably carry it to the end."
+            },
+            "n1": {
+              "japanese": "このペースなら、今夜のうちにこの一帯はひととおり戻せるはずです。ぼくは全体を見ていて、手が止まったところへ、次の質問を一つずつ渡していくつもりです。——結局、ぼくがやるのはそれだけなんですよ。見て、問いを渡す。それだけで、最後まで回っていくはずです。",
+              "reading": "このペースなら、こんやのうちにこのいったいはひととおりもどせるはずです。ぼくはぜんたいをみていて、てがとまったところへ、つぎのしつもんをひとつずつわたしていくつもりです。——けっきょく、ぼくがやるのはそれだけなんですよ。みて、といをわたす。それだけで、さいごまでまわっていくはずです。",
+              "english": "At this pace this whole area should be back, in the main, by tonight. I'll be watching the whole of it, and I intend to hand the next question, one at a time, to wherever hands go still. In the end, that's all I do, really. Watch, and pass the question along. That alone should keep it turning right to the end."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:questions-in-the-dark:district-relit",
+          "beatId": "beat:questions-in-the-dark:exit-image",
+          "cueId": "cue:district-relit-questions-circulating",
+          "description": "Card by card, the district comes back to light, each in a different hand. Peter stays at the edge where he began, but now the questions move out from him and the answers come back to the room. The single empty chair in the middle stays empty. No one sits in it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:one-strong-question",
+      "state": "echo",
+      "ownerIds": [
+        "peter",
+        "learner"
+      ],
+      "meaningNow": "One well-aimed question per learner rebuilds a district from partial knowledge — the question does the work, not shared expertise.",
+      "priorUse": {
+        "packageId": "s1e07-no-spoilers",
+        "sceneId": "scene:no-spoilers:open-the-floor",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "The class rebuilds the dark district by asking one clear question of each person and pinning the answer, instead of waiting for anyone to remember the whole area."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:questions-in-the-dark:district-rebuilt",
+      "kind": "story",
+      "description": "The class rebuilds the dark district by asking one strong question per learner and teaching each answer back, treating partial knowledge assembled through questions as enough."
+    },
+    {
+      "id": "outcome:questions-in-the-dark:peter-arrival",
+      "kind": "bond",
+      "castId": "peter",
+      "chapter": 21,
+      "beat": "arrival",
+      "description": "Peter is introduced as the person at the edge whose few words reframe the task; asking the framing question in time turns his quiet observation into the way the class leads itself back to light."
+    },
+    {
+      "id": "outcome:questions-in-the-dark:felix-contribution",
+      "kind": "bond",
+      "castId": "felix",
+      "chapter": 21,
+      "beat": "contribution",
+      "description": "Felix turns his own single remembered detail into a question he passes to whoever knows the next block; question-passing becomes a competence the class can reuse, not just a delight in small details."
+    },
+    {
+      "id": "outcome:questions-in-the-dark:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l19",
+      "description": "Build-carry-revise-and-forecast-an-intention-through-questions-and-teach-back evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:peter-watches-before-he-asks"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-build-step"
+    ],
+    "withdrawnContentFallback": "Use the same build-question-and-teach-back evidence with neutral nameplates and a generic classmate who reframes a stalled recital into one question per person after a district goes dark."
+  }
+}

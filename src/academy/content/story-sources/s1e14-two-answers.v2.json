@@ -1,0 +1,609 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e14-two-answers",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 14,
+  "title": {
+    "en": "Two Answers, One Context",
+    "ja": "二つの正解"
+  },
+  "synopsis": "The class splits over which particle a rebuilt-map caption needs, and Sophie is ready to declare a clean winner. Rose's counted observation keeps both readings alive, so Sophie puts each particle on contextual trial instead of voting. The learner decides how to record two answers that both hold, and the class's number notebook begins as evidence rather than an answer display.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sophie",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "confident inference framed as unchallengeable fact"
+      ]
+    },
+    {
+      "castId": "rose",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "practical observation used to authorize another person's story"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e13-dinner-by-if",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l1-l21"
+          ],
+          "function": "use-a-record-as-evidence-rather-than-an-answer-display"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-fourteen-first-meeting-sophie"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:two-answers:contested-particle",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Sophie mid-argument over one contested particle and reach the point where grammar alone cannot decide.",
+      "dramaticQuestion": "When two particles are both correct, will the class vote one into truth or test each against its context?",
+      "learnerNeed": "A changed-context trial where explaining why two readings hold matters more than picking the single right answer.",
+      "curriculum": {
+        "sectionId": "put-two-readings-on-trial",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-answers:contested-caption",
+          "beatId": "beat:two-answers:arrival-image",
+          "cueId": "cue:caption-with-two-inked-particles",
+          "description": "On the rebuilt map, one route caption reads 「この灯りは一時間◯三回つきます」 with the particle slot left open. Two classmates have penciled different answers over it: に and で. Neither has been erased."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-frame",
+          "beatId": "beat:two-answers:host-want",
+          "speakerId": "sophie",
+          "intent": "Name the two candidate particles and the distinction precisely, then lean toward closing the case with に as the clean answer.",
+          "attentionTarget": "the open particle slot in the caption",
+          "variants": {
+            "n5": {
+              "japanese": "ここ、助詞が決まっていません。「一時間◯三回つきます」。「に」か「で」か。わたしは「に」だと思います。「に」は、毎時のことです。",
+              "reading": "ここ、じょしがきまっていません。「いちじかん◯さんかいつきます」。「に」か「で」か。わたしは「に」だとおもいます。「に」は、まいじのことです。",
+              "english": "The particle here isn't settled. \"It lights three times ◯ an hour.\" は with に, or で? I think it's に. に means \"per hour.\""
+            },
+            "n4": {
+              "japanese": "このキャプション、助詞がまだ決まってないんです。「一時間◯三回つきます」の、「に」か「で」か。たぶん「に」でいいと思います。毎時、っていう意味になるから。",
+              "reading": "このキャプション、じょしがまだきまってないんです。「いちじかん◯さんかいつきます」の、「に」か「で」か。たぶん「に」でいいとおもいます。まいじ、っていういみになるから。",
+              "english": "This caption's particle still isn't decided. In \"it lights three times ◯ an hour,\" is it に or で? Probably に is fine, I'd say. It comes out meaning \"per hour.\""
+            },
+            "n3": {
+              "japanese": "この一文、助詞のところだけ空いてて。「一時間◯三回つきます」の、「に」か「で」か。私はわりと「に」だと思うんですよね。頻度を言ってるはずだから。",
+              "reading": "このいちぶん、じょしのところだけあいてて。「いちじかん◯さんかいつきます」の、「に」か「で」か。わたしはわりと「に」だとおもうんですよね。ひんどをいってるはずだから。",
+              "english": "This one line has just the particle slot open. In \"it lights three times ◯ an hour,\" is it に or で? I'm fairly sure it's に, honestly. It ought to be stating a frequency."
+            },
+            "n2": {
+              "japanese": "ここの助詞、まだ確定できてないんです。「一時間◯三回つきます」の、「に」なのか「で」なのか。個人的には「に」で決まりかなと。頻度の話をしているはずなので。",
+              "reading": "ここのじょし、まだかくていできてないんです。「いちじかん◯さんかいつきます」の、「に」なのか「で」なのか。こじんてきには「に」できまりかなと。ひんどのはなしをしているはずなので。",
+              "english": "The particle here still can't be pinned down. In \"it lights three times ◯ an hour,\" is it に or で? Personally I'd call it に, case closed. It should be talking about frequency."
+            },
+            "n1": {
+              "japanese": "この一箇所だけ、助詞が宙に浮いてしまってて。「一時間◯三回つきます」の「に」か「で」か、という話なんですが。私としては、ほぼ「に」で片づくつもりでいました。頻度を述べている文のはずですから。",
+              "reading": "このいっかしょだけ、じょしがちゅうにういてしまってて。「いちじかん◯さんかいつきます」の「に」か「で」か、というはなしなんですが。わたしとしては、ほぼ「に」でかたづくつもりでいました。ひんどをのべているぶんのはずですから。",
+              "english": "Just this one spot has the particle left hanging. It's the question of に versus で in \"it lights three times ◯ an hour.\" As far as I was concerned, I'd all but settled it as に. It ought to be a sentence stating frequency, after all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:rose-count",
+          "beatId": "beat:two-answers:obstruction",
+          "speakerId": "rose",
+          "intent": "Bring a concrete counted observation that fits で just as well, so grammar alone can no longer pick the answer.",
+          "attentionTarget": "the route's lantern and her own tally",
+          "variants": {
+            "n5": {
+              "japanese": "わたし、さっき見ました。一時間で、三回。数えました。それなら「で」も合いますよ。",
+              "reading": "わたし、さっきみました。いちじかんで、さんかい。かぞえました。それなら「で」もあいますよ。",
+              "english": "I watched it just now. In one hour, three times. I counted. If so, で fits too."
+            },
+            "n4": {
+              "japanese": "わたし、さっき一時間ずっと見てたんです。ついたのは三回。数えたのは、その一時間だけ。それなら「で」のほうが合う気がします。",
+              "reading": "わたし、さっきいちじかんずっとみてたんです。ついたのはさんかい。かぞえたのは、そのいちじかんだけ。それなら「で」のほうがあうきがします。",
+              "english": "I was watching the whole hour just now. It lit three times. What I counted was only that one hour. If so, で feels like the better fit."
+            },
+            "n3": {
+              "japanese": "私、さっき一時間だけずっと見てたんですよ。ついたのは三回。でもそれ、あくまで私が見た一時間の話で。だったら「で」でも普通に合いますよね。",
+              "reading": "わたし、さっきいちじかんだけずっとみてたんですよ。ついたのはさんかい。でもそれ、あくまでわたしがみたいちじかんのはなしで。だったら「で」でもふつうにあいますよね。",
+              "english": "I was watching for just one hour straight, earlier. It lit three times. But that's only the one hour I saw. In that case で fits perfectly well too, doesn't it."
+            },
+            "n2": {
+              "japanese": "私はさっき、ちょうど一時間、あの灯りを見ていたんです。ついたのは三回。ただ、それは私が見ていたその一時間の中での数で。そう考えると、「で」でも十分成り立つと思うんですが。",
+              "reading": "わたしはさっき、ちょうどいちじかん、あのあかりをみていたんです。ついたのはさんかい。ただ、それはわたしがみていたそのいちじかんのなかでのかずで。そうかんがえると、「で」でもじゅうぶんなりたつとおもうんですが。",
+              "english": "I was watching that light for exactly one hour, earlier. It lit three times. Only, that's the count within the one hour I happened to be watching. Seen that way, で holds up perfectly well, I'd think."
+            },
+            "n1": {
+              "japanese": "私はさっき、きっかり一時間だけ、あの灯りを見ていたんですよ。ついたのは三回。ただそれは、あくまで私が眺めていたその一時間のうちでの数でしてね。そうなると、「で」だって普通に筋が通ってしまう。",
+              "reading": "わたしはさっき、きっかりいちじかんだけ、あのあかりをみていたんですよ。ついたのはさんかい。ただそれは、あくまでわたしがながめていたそのいちじかんのうちでのかずでしてね。そうなると、「で」だってふつうにすじがとおってしまう。",
+              "english": "I was watching that light for exactly one hour and no more, earlier. It lit three times. Except that's only the count within the single hour I was looking. Which means で ends up making perfect sense as well."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-propose-trial",
+          "beatId": "beat:two-answers:trial-attempt",
+          "speakerId": "sophie",
+          "intent": "Stop trying to declare a winner and instead propose building, one at a time, the context in which each particle is correct.",
+          "attentionTarget": "the two penciled particles side by side",
+          "variants": {
+            "n5": {
+              "japanese": "じゃあ、両方ためしましょう。「に」が正しい文と、「で」が正しい文。一つずつ作ります。",
+              "reading": "じゃあ、りょうほうためしましょう。「に」がただしいぶんと、「で」がただしいぶん。ひとつずつつくります。",
+              "english": "Then let's try both. A sentence where に is right, and one where で is right. We'll build them one at a time."
+            },
+            "n4": {
+              "japanese": "なるほど…。じゃあ、それぞれ正しくなる場面を作ってみましょう。「に」が合う文、「で」が合う文。分けて試すんです。",
+              "reading": "なるほど…。じゃあ、それぞれただしくなるばめんをつくってみましょう。「に」があうぶん、「で」があうぶん。わけてためすんです。",
+              "english": "I see… Then let's build the situation where each one comes out right. A sentence that suits に, a sentence that suits で. We test them separately."
+            },
+            "n3": {
+              "japanese": "たしかに。…じゃあ、片方ずつ、それが正しくなる文脈を並べてみませんか。「に」が生きる場面と、「で」が生きる場面。一回ずつ試してみましょう。",
+              "reading": "たしかに。…じゃあ、かたほうずつ、それがただしくなるぶんみゃくをならべてみませんか。「に」がいきるばめんと、「で」がいきるばめん。いっかいずつためしてみましょう。",
+              "english": "True. …Then, one side at a time, shall we lay out the context where each becomes correct? The scene where に lives, and the scene where で lives. Let's test them one by one."
+            },
+            "n2": {
+              "japanese": "たしかにそうですね。…なら、それぞれが正解になる文脈を、一つずつ立ててみましょうか。「に」が効く場面と、「で」が効く場面を分けて、順番に当てていくんです。",
+              "reading": "たしかにそうですね。…なら、それぞれがせいかいになるぶんみゃくを、ひとつずつたててみましょうか。「に」がきくばめんと、「で」がきくばめんをわけて、じゅんばんにあてていくんです。",
+              "english": "You're right, actually. …Then shall we set up, one at a time, the context in which each one is the correct answer? Separate the scene where に works from the scene where で works, and match them up in turn."
+            },
+            "n1": {
+              "japanese": "…なるほど、言われてみれば。だったらいっそ、それぞれが正解になる文脈のほうを、一つずつ立ててみませんか。「に」が生きる場面と、「で」が生きる場面と。文法で先に断じる前に、場面のほうから当てていく。",
+              "reading": "…なるほど、いわれてみれば。だったらいっそ、それぞれがせいかいになるぶんみゃくのほうを、ひとつずつたててみませんか。「に」がいきるばめんと、「で」がいきるばめんと。ぶんぽうでさきにだんじるまえに、ばめんのほうからあてていく。",
+              "english": "…Right, now that you say it. In that case, why don't we instead set up, one at a time, the very context in which each becomes the correct answer? The scene where に lives, and the scene where で lives. Rather than passing grammatical judgment first, we work back from the situation."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-answers:before-trial",
+          "beatId": "beat:two-answers:trial-attempt",
+          "resume": "Both penciled particles stay on the caption. The learner steps in to put each one against the context where it holds, using the counted observation of three lightings in one hour."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:two-answers:contextual-trial",
+          "beatId": "beat:two-answers:trial-attempt",
+          "hook": {
+            "packageId": "l1-l21",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e14-two-answers-contextual-trial"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e14-two-answers-contextual-trial"
+          },
+          "resumeContext": "The caption is 「この灯りは一時間◯三回つきます」. The learner matches each particle to the context that makes it correct — 「に」 for a repeating per-hour rate, 「で」 for a total counted within one observed hour — and explains why each reading holds rather than choosing one as universally right.",
+          "onReady": "checkpoint:two-answers:after-trial",
+          "onRepair": "node:two-answers:trial-repair",
+          "onDefer": "checkpoint:two-answers:before-trial"
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-answers:trial-repair",
+          "beatId": "beat:two-answers:trial-repair",
+          "cueId": "cue:two-contexts-side-by-side",
+          "description": "The two contexts are set out side by side: a per-hour rhythm card and a single-observed-hour card. Only the context that went unmatched returns for another try; the matched one stays put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-answers:after-trial",
+          "beatId": "beat:two-answers:trial-response",
+          "resume": "Each particle now sits under the context where it is correct. Sophie looks at both, still both standing, and does not cross either out."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-marks-both",
+          "beatId": "beat:two-answers:contribution",
+          "speakerId": "sophie",
+          "intent": "Accept that both particles are correct in different contexts, mark her confidence honestly, and record the number together with the context of each rather than choosing one.",
+          "attentionTarget": "the two matched contexts and the counted number three",
+          "variants": {
+            "n5": {
+              "japanese": "わかりました。「に」も「で」も、正しいです。場面がちがうだけ。だから、両方書きます。数字と、場面も一緒に。",
+              "reading": "わかりました。「に」も「で」も、ただしいです。ばめんがちがうだけ。だから、りょうほうかきます。すうじと、ばめんもいっしょに。",
+              "english": "I get it now. Both に and で are correct. Only the context differs. So I'll write both. The number, and the context along with it."
+            },
+            "n4": {
+              "japanese": "はっきりしました。「に」も「で」も間違いじゃない。場面が違うだけなんですね。だから、どっちか選ばないで、両方書いておきます。三回っていう数字と、その場面も一緒に。",
+              "reading": "はっきりしました。「に」も「で」もまちがいじゃない。ばめんがちがうだけなんですね。だから、どっちかえらばないで、りょうほうかいておきます。さんかいっていうすうじと、そのばめんもいっしょに。",
+              "english": "Now it's clear. Neither に nor で is wrong. The context is just different. So instead of choosing one, I'll write both down — the number \"three times,\" and its context along with it."
+            },
+            "n3": {
+              "japanese": "…うん、はっきりしました。「に」も「で」も、どっちも正しいんだ。ただ場面が違うだけで。じゃあ片方に決めるんじゃなくて、両方残しましょう。三回っていう数字を、それぞれの場面ごと書いておく。",
+              "reading": "…うん、はっきりしました。「に」も「で」も、どっちもただしいんだ。ただばめんがちがうだけで。じゃあかたほうにきめるんじゃなくて、りょうほうのこしましょう。さんかいっていうすうじを、それぞれのばめんごとかいておく。",
+              "english": "…Yeah, it's clear now. Both に and で are correct. Just the context differs. So rather than settle on one, let's keep both. Write down the number \"three times\" with each of its contexts attached."
+            },
+            "n2": {
+              "japanese": "これではっきりしました。「に」も「で」も、どちらも正しい。ただ、成り立つ場面が違うというだけで。なら無理に一つに絞らず、両方残します。三回という数字を、それぞれどの場面での数なのかと一緒に、書いておくんです。",
+              "reading": "これではっきりしました。「に」も「で」も、どちらもただしい。ただ、なりたつばめんがちがうというだけで。ならむりにひとつにしぼらず、りょうほうのこします。さんかいというすうじを、それぞれどのばめんでのかずなのかといっしょに、かいておくんです。",
+              "english": "That settles it. Both に and で are correct. It's only that the context in which each holds is different. So rather than force it down to one, I'll keep both. I'll write the number \"three\" together with which context each count belongs to."
+            },
+            "n1": {
+              "japanese": "…ええ、これではっきりしました。「に」も「で」も、どちらも正しい。ただ、それが正解になる場面が違う、というだけの話で。なら一方に決めてしまうより、両方とも残しておきましょう。三回という数字を、それがどの場面で数えたものなのか、という但し書きごと書き留めておく。",
+              "reading": "…ええ、これではっきりしました。「に」も「で」も、どちらもただしい。ただ、それがせいかいになるばめんがちがう、というだけのはなしで。なら いっぽうにきめてしまうより、りょうほうとものこしておきましょう。さんかいというすうじを、それがどのばめんでかぞえたものなのか、というただしがきごとかきとめておく。",
+              "english": "…Yes, that settles it. Both に and で are correct. It's simply that the context in which each becomes the right answer differs. So rather than commit to one side, let's keep them both. I'll note down the number \"three\" together with the caveat of which context it was counted in."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-answers:caption-and-note",
+          "beatId": "beat:two-answers:changed-image",
+          "cueId": "cue:caption-slot-left-open",
+          "description": "Sophie leaves the caption's particle slot open and lays a small notebook beside the map. On its first page the number three is written twice — once under a per-hour card, once under a one-observed-hour card."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:two-answers:record-not-verdict"
+      }
+    },
+    {
+      "id": "scene:two-answers:record-not-verdict",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let the class start a record that keeps two correct answers with their contexts instead of publishing one verdict.",
+      "dramaticQuestion": "Can a notebook count as more precise for holding two answers than a caption that shows one?",
+      "learnerNeed": "A stance choice about whether a record should display an answer or preserve evidence with its context.",
+      "curriculum": {
+        "sectionId": "record-as-evidence",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-answers:open-notebook",
+          "beatId": "beat:two-answers:regroup-image",
+          "cueId": "cue:number-notebook-open-page",
+          "description": "The small notebook lies open between Sophie and Rose. It is ruled into two columns: one headed for a claim, one headed for the context it was counted in. The claim column is still empty."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-record",
+          "beatId": "beat:two-answers:record-want",
+          "speakerId": "sophie",
+          "intent": "Frame the notebook as a record of what was checked and its context, not a place to display the correct answer.",
+          "attentionTarget": "the two-column page",
+          "variants": {
+            "n5": {
+              "japanese": "このノートに書きます。答えじゃなくて、しらべたことを書くノートです。",
+              "reading": "このノートにかきます。こたえじゃなくて、しらべたことをかくノートです。",
+              "english": "I'll write it in this notebook. Not the answer — it's a notebook for writing what we checked."
+            },
+            "n4": {
+              "japanese": "これ、ノートに残しておきますね。答えを書くノートじゃなくて、調べたことを書くノートです。",
+              "reading": "これ、ノートにのこしておきますね。こたえをかくノートじゃなくて、しらべたことをかくノートです。",
+              "english": "I'll keep this in the notebook. Not a notebook for writing the answer — a notebook for writing what we checked."
+            },
+            "n3": {
+              "japanese": "これ、このノートに書いておきます。正解を並べるノートじゃなくて、何を確かめたかを書いておくノートなんです。",
+              "reading": "これ、このノートにかいておきます。せいかいをならべるノートじゃなくて、なにをたしかめたかをかいておくノートなんです。",
+              "english": "I'll write this in this notebook. It's not a notebook for lining up correct answers — it's for writing down what we verified."
+            },
+            "n2": {
+              "japanese": "これ、このノートのほうに記録しておきますね。正解を貼っておくためのノートじゃなくて、何をどこまで確かめたかを残すためのノートなので。",
+              "reading": "これ、このノートのほうにきろくしておきますね。せいかいをはっておくためのノートじゃなくて、なにをどこまでたしかめたかをのこすためのノートなので。",
+              "english": "I'll record this in this notebook. It isn't a notebook for posting the correct answer — it's for keeping how far, and what, we managed to verify."
+            },
+            "n1": {
+              "japanese": "これは、こっちのノートに書き留めておきます。正解を陳列しておくためのノートじゃなくて、何をどこまで確かめられたのか、その筋道のほうを残しておくためのノートなんです。",
+              "reading": "これは、こっちのノートにかきとめておきます。せいかいをちんれつしておくためのノートじゃなくて、なにをどこまでたしかめられたのか、そのすじみちのほうをのこしておくためのノートなんです。",
+              "english": "I'll jot this into this notebook. It's not a notebook for putting the correct answer on display — it's for keeping the reasoning, how far and what exactly we were able to verify."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:two-answers:how-to-record",
+          "beatId": "beat:two-answers:record-stance",
+          "question": "How should the notebook hold the two answers?",
+          "options": [
+            {
+              "id": "option:two-answers:both-with-context",
+              "action": "Record both particles side by side, each with the context that makes it correct.",
+              "japaneseByBand": {
+                "n5": "両方、書きましょう。「で」の場面と、「に」の場面、ならべて。",
+                "n4": "両方、場面つきで書きましょう。「で」はこの場面、「に」はこの場面、って。",
+                "n3": "両方、それぞれの場面と一緒に並べて書いておきましょう。どっちも消さないで。",
+                "n2": "両方とも、それぞれ成り立つ場面を添えて、並べて記録しておきましょう。どちらも消さずに。",
+                "n1": "どちらも、それが成り立つ場面を但し書きにして、並べたまま記録しておきましょう。片方を消してしまわずに。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:two-answers:before-record"
+            },
+            {
+              "id": "option:two-answers:anchor-observation",
+              "action": "Write Rose's counted hour as the observed fact, and keep the per-hour reading beside it as a possibility.",
+              "japaneseByBand": {
+                "n5": "Roseさんが見たのは「で」の場面ですね。それを書いて、「に」は「かもしれない」で残します。",
+                "n4": "Roseさんが実際に見たのは「で」の場面ですよね。それを事実として書いて、「に」は可能性として横に残しましょう。",
+                "n3": "Roseさんが実際に見たのは「で」のほうですよね。それを観察した事実として書いて、「に」は「その可能性もある」って添えておきましょう。",
+                "n2": "Roseさんが実際に見たのは「で」の場面ですよね。まずそれを観察された事実として記録して、「に」のほうは可能性として脇に残しておきましょう。",
+                "n1": "Roseさんが実際に目にしたのは「で」の場面のほうですよね。ならまずそれを、観察された事実として記録して、「に」のほうは残る可能性として脇に添えておきましょう。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:two-answers:before-record"
+            }
+          ],
+          "convergence": "checkpoint:two-answers:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-answers:before-record",
+          "beatId": "beat:two-answers:record-attempt",
+          "resume": "The learner has chosen how the notebook will hold the two answers. Sophie writes the entry and says what the record is for."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-evidence-not-answer",
+          "beatId": "beat:two-answers:repair",
+          "speakerId": "sophie",
+          "intent": "Reframe precision as keeping two conditioned readings rather than collapsing to one, and name it as the class's practice going forward.",
+          "attentionTarget": "the filled two-column page",
+          "variants": {
+            "n5": {
+              "japanese": "一つの答えは、いりません。「で」はこの場面、「に」はこの場面。そう書けば、どっちも使えます。",
+              "reading": "ひとつのこたえは、いりません。「で」はこのばめん、「に」はこのばめん。そうかけば、どっちもつかえます。",
+              "english": "We don't need one single answer. で in this context, に in this context. Write it that way, and both stay usable."
+            },
+            "n4": {
+              "japanese": "一つに決めなくていいんです。「で」はこの場面で正しい、「に」はこの場面で正しい。そう書いておけば、あとで両方ちゃんと使えます。",
+              "reading": "ひとつにきめなくていいんです。「で」はこのばめんでただしい、「に」はこのばめんでただしい。そうかいておけば、あとでりょうほうちゃんとつかえます。",
+              "english": "We don't have to settle on one. で is right in this context, に is right in this context. Written that way, both stay properly usable later."
+            },
+            "n3": {
+              "japanese": "無理に一つの答えにしなくていいんです。「で」はこの場面、「に」はこの場面、って条件をつけて書いておく。そのほうが、かえって正確さは保てるんですよ。",
+              "reading": "むりにひとつのこたえにしなくていいんです。「で」はこのばめん、「に」はこのばめん、ってじょうけんをつけてかいておく。そのほうが、かえってせいかくさはたもてるんですよ。",
+              "english": "We don't have to force it into one answer. Write で for this context, に for this context — with the condition attached. That way, the precision is actually better kept."
+            },
+            "n2": {
+              "japanese": "無理に一つの正解へ丸めなくていいんです。「で」はこの条件、「に」はこの条件、と場面つきで書いておく。一つに決めないほうが、正確さはむしろ保たれます。これからも、そうやって残していきましょう。",
+              "reading": "むりにひとつのせいかいへまるめなくていいんです。「で」はこのじょうけん、「に」はこのじょうけん、とばめんつきでかいておく。ひとつにきめないほうが、せいかくさはむしろたもたれます。これからも、そうやってのこしていきましょう。",
+              "english": "We don't have to round it off into one correct answer. Write で for this condition, に for this condition, context attached. Not deciding on one is what keeps the precision, if anything. Let's keep recording it this way from here on."
+            },
+            "n1": {
+              "japanese": "無理に一つの正解へ丸め込む必要はないんですよ。「で」はこの条件下で、「に」はこの条件下で、と場面ごと書き分けておく。答えを一つに絞らないことのほうが、かえって正確さを手放さずに済む。これからは、これをこの授業のやり方にしましょう。",
+              "reading": "むりにひとつのせいかいへまるめこむひつようはないんですよ。「で」はこのじょうけんかで、「に」はこのじょうけんかで、とばめんごとかきわけておく。こたえをひとつにしぼらないことのほうが、かえってせいかくさをてばなさずにすむ。これからは、これをこのじゅぎょうのやりかたにしましょう。",
+              "english": "There's no need to force it into one correct answer. Write で under this condition, に under that one, sorted by context. Not narrowing it to a single answer is precisely what lets us not surrender the precision. From now, let's make this the way this class works."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:rose-several-memories",
+          "beatId": "beat:two-answers:changed-action",
+          "speakerId": "rose",
+          "intent": "Widen from the single caption to the long view: this is how the atlas can hold several memories at once instead of one overwritten truth.",
+          "attentionTarget": "the rebuilt map and its layered captions",
+          "variants": {
+            "n5": {
+              "japanese": "いいですね。アトラスも同じです。一つの話じゃなくて、いくつも残せます。",
+              "reading": "いいですね。アトラスもおなじです。ひとつのはなしじゃなくて、いくつものこせます。",
+              "english": "That's good. The atlas is the same. Not one story — we can keep several."
+            },
+            "n4": {
+              "japanese": "それ、いいですね。このアトラスも同じですよ。一つの正しい話に決めないで、いくつも並べて残しておける。",
+              "reading": "それ、いいですね。このアトラスもおなじですよ。ひとつのただしいはなしにきめないで、いくつもならべてのこしておける。",
+              "english": "That's a good way. This atlas is the same, you know. Instead of settling on one correct story, it can keep several lined up."
+            },
+            "n3": {
+              "japanese": "それ、いいやり方ですね。…このアトラスもそうなんですよ。一つの正解に塗り替えないで、いくつもの記憶をそのまま並べて残せる。",
+              "reading": "それ、いいやりかたですね。…このアトラスもそうなんですよ。ひとつのせいかいにぬりかえないで、いくつものきおくをそのままならべてのこせる。",
+              "english": "That's a good way to do it. …This atlas is like that too, you know. Rather than repainting it into one correct story, it can keep several memories side by side as they are."
+            },
+            "n2": {
+              "japanese": "それ、いいですね。…考えてみれば、このアトラスも同じなんです。一つの正しい話に上書きせず、いくつもの記憶を並べたまま残しておける。もともと、そういう作りなんですよ。",
+              "reading": "それ、いいですね。…かんがえてみれば、このアトラスもおなじなんです。ひとつのただしいはなしにうわがきせず、いくつものきおくをならべたままのこしておける。もともと、そういうつくりなんですよ。",
+              "english": "That's good. …Come to think of it, this atlas is the same. Rather than overwriting to one correct story, it can hold several memories side by side. That's how it was built in the first place."
+            },
+            "n1": {
+              "japanese": "いいやり方だと思います。…長い目で見れば、このアトラスだって同じなんですよね。一つの正しい話に上書きしてしまわずに、いくつもの記憶を並べたまま抱えておける。もともと、そういう作りのものなんです。",
+              "reading": "いいやりかただとおもいます。…ながいめでみれば、このアトラスだっておなじなんですよね。ひとつのただしいはなしにうわがきしてしまわずに、いくつものきおくをならべたままかかえておける。もともと、そういうつくりのものなんです。",
+              "english": "I think it's a good way. …Taking the long view, this atlas is no different, really. Rather than overwriting it into one correct story, it can hold several memories side by side. It was made that way to begin with."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-answers:sophie-caption-note",
+          "beatId": "beat:two-answers:exit-line",
+          "speakerId": "sophie",
+          "intent": "Leave the caption's gap open on purpose and point it to the notebook, closing the evening without a single-answer verdict.",
+          "attentionTarget": "the open particle slot and the small mark beside it",
+          "variants": {
+            "n5": {
+              "japanese": "キャプションには、小さいしるしをつけます。「ノートを見て」。それで十分です。",
+              "reading": "キャプションには、ちいさいしるしをつけます。「ノートをみて」。それでじゅうぶんです。",
+              "english": "On the caption I'll put a small mark. \"See the notebook.\" That's enough."
+            },
+            "n4": {
+              "japanese": "キャプションには、小さい印だけつけておきます。「くわしくはノート」って。空いたところは、埋めないで残します。",
+              "reading": "キャプションには、ちいさいしるしだけつけておきます。「くわしくはノート」って。あいたところは、うめないでのこします。",
+              "english": "On the caption I'll just leave a small mark. \"Details in the notebook.\" The open spot, I'll leave unfilled."
+            },
+            "n3": {
+              "japanese": "キャプションのほうには、小さい印だけ。「くわしくはノートへ」って添えておきます。空いたところは、埋めずにそのまま残しておく。",
+              "reading": "キャプションのほうには、ちいさいしるしだけ。「くわしくはノートへ」ってそえておきます。あいたところは、うめずにそのままのこしておく。",
+              "english": "On the caption itself, just a small mark. I'll add \"see the notebook for details.\" The open spot I'll leave as it is, unfilled."
+            },
+            "n2": {
+              "japanese": "キャプション自体には、小さな印を一つだけ。「詳しくはノートへ」と添えておきます。空いた助詞のところは、無理に埋めずに残しておくつもりです。",
+              "reading": "キャプションじたいには、ちいさなしるしをひとつだけ。「くわしくはノートへ」とそえておきます。あいたじょしのところは、むりにうめずにのこしておくつもりです。",
+              "english": "On the caption itself, just one small mark. I'll add \"see the notebook for details.\" The open particle slot, I mean to leave unfilled rather than force it shut."
+            },
+            "n1": {
+              "japanese": "キャプションのほうには、ごく小さな印を一つ添えるだけにします。「詳しくはノートへ」と。空いた助詞のところは、無理に一つで埋めてしまわずに、そのまま残しておくつもりです。",
+              "reading": "キャプションのほうには、ごくちいさなしるしをひとつそえるだけにします。「くわしくはノートへ」と。あいたじょしのところは、むりにひとつでうめてしまわずに、そのままのこしておくつもりです。",
+              "english": "On the caption, I'll add just one very small mark. \"See the notebook for details.\" The open particle slot, I mean to leave as it is, rather than force it shut with a single answer."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-answers:atlas-keeps-both",
+          "beatId": "beat:two-answers:exit-image",
+          "cueId": "cue:caption-marked-notebook-beside-it",
+          "description": "The caption keeps its open slot with a small mark pointing off the page. Beside the map the notebook stays open, the number three recorded twice, each under its own context. Nothing is crossed out."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:useful-number-notebook",
+      "state": "seed",
+      "ownerIds": [
+        "sophie",
+        "rose",
+        "henry"
+      ],
+      "meaningNow": "A number/observation is recorded WITH its context instead of being treated as the one true answer; the count of three lightings is written twice, once for each context in which a particle reading holds.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "Sophie simply keeps two conditioned notes for one contested caption instead of choosing a single particle."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:two-answers:record-not-verdict",
+      "kind": "story",
+      "description": "The class starts a two-column number notebook that keeps both correct particle readings with their contexts, and leaves the caption's particle slot open with a pointer to the record rather than a single verdict."
+    },
+    {
+      "id": "outcome:two-answers:sophie-contribution",
+      "kind": "bond",
+      "castId": "sophie",
+      "chapter": 14,
+      "beat": "contribution",
+      "description": "Sophie moves from wanting to declare a clean single answer to putting both particles on contextual trial and marking her confidence honestly; her calibrated record of two conditioned readings becomes a class practice others can ask for later."
+    },
+    {
+      "id": "outcome:two-answers:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l1-l21",
+      "description": "Use-a-record-as-evidence-rather-than-an-answer-display evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:rose-watches-the-hour-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-contextual-trial"
+    ],
+    "withdrawnContentFallback": "Use the same contextual-trial and record-as-evidence beats with neutral nameplates and a generic pair who keep two conditioned particle readings for one caption after a counted observation."
+  }
+}

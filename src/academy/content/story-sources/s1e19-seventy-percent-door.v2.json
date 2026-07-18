@@ -1,0 +1,499 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e19-seventy-percent-door",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 19,
+  "title": {
+    "en": "Seventy Percent Is a Door",
+    "ja": "七割のドア"
+  },
+  "synopsis": "Ruparna brings a clip above the class's comfort level to the library; when its subtitles drop out, she keeps the class watching by reading the scene from image and sound. Sophie insists on separating what was heard from what was inferred, then names the tally at about seventy percent. The learner decides how to continue on partial comprehension, and readiness stops being all-or-nothing.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "ruparna",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#ruparna",
+        "docs/academy/story/CAST-AND-CONSENT.md#ruparna"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cinematic framing presented as certain fact rather than a preserved alternate reading",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "sophie",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "precision framed as coldness or a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e18-the-memory-card-museum",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l12",
+            "l2-l13",
+            "l2-l14",
+            "l2-l15"
+          ],
+          "function": "infer-intent-from-an-incomplete-source-and-continue-carefully"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-nineteen-first-meeting-ruparna"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:seventy-percent-door:subtitles-drop",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Watch a clip pitched above the class's comfort level and keep going after its subtitles fail.",
+      "dramaticQuestion": "When the safety rail of full text disappears, does the class stop, or read what it can?",
+      "learnerNeed": "A way to state a person's intent from an incomplete source while keeping heard and inferred parts separate.",
+      "curriculum": {
+        "sectionId": "infer-from-incomplete-source",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:dim-screen",
+          "beatId": "beat:seventy-percent-door:arrival-image",
+          "cueId": "cue:library-screen-queued-clip",
+          "description": "The library's back corner is dark except for a paused frame on the wall screen: a kitchen, a bowl, a person half-turned toward a window. A subtitle line sits ready under it. Ruparna stands beside the screen, not the switch."
+        },
+        {
+          "kind": "line",
+          "id": "line:seventy-percent-door:ruparna-brings-clip",
+          "beatId": "beat:seventy-percent-door:human-want",
+          "speakerId": "ruparna",
+          "intent": "Bring a clip she knows is above the class's level and frame an ordinary breakfast shot as a scene worth the reach.",
+          "attentionTarget": "the quiet framing of an everyday moment",
+          "variants": {
+            "n5": {
+              "japanese": "今日は、みじかいクリップを持ってきました。少し、レベルが高いです。でも、見てほしいんです。この最初の場面、ただの朝ごはんなのに、すごく静かで、いいんですよ。",
+              "reading": "きょうは、みじかいクリップをもってきました。すこし、レベルがたかいです。でも、みてほしいんです。このさいしょのばめん、ただのあさごはんなのに、すごくしずかで、いいんですよ。",
+              "english": "Today I brought a short clip. It's a little above our level. But I want you to watch it. This first scene — it's just breakfast, but it's so quiet, it's wonderful."
+            },
+            "n4": {
+              "japanese": "今日は短いクリップを一つ。正直、うちのクラスにはちょっと早いレベルです。でも見てほしくて。この出だし、ただ朝ごはんを食べてるだけの場面なんですけど、間の取り方がすごくいいんです。",
+              "reading": "きょうはみじかいクリップをひとつ。しょうじき、うちのクラスにはちょっとはやいレベルです。でもみてほしくて。このでだし、ただあさごはんをたべてるだけのばめんなんですけど、まのとりかたがすごくいいんです。",
+              "english": "One short clip today. Honestly it's a level a bit early for our class. But I wanted you to see it. This opening is just a scene of someone eating breakfast, but the way it holds the pauses is so good."
+            },
+            "n3": {
+              "japanese": "今日は短いクリップを一本だけ。うちのレベルより少し上なのは分かってるんですけど、どうしても見てほしくて。この冒頭、やってることはただの朝食なのに、その静けさの撮り方がすごくいいんですよ。",
+              "reading": "きょうはみじかいクリップをいっぽんだけ。うちのレベルよりすこしうえなのはわかってるんですけど、どうしてもみてほしくて。このぼうとう、やってることはただのちょうしょくなのに、そのしずけさのとりかたがすごくいいんですよ。",
+              "english": "Just one short clip today. I know it's a notch above our level, but I really wanted you to see it. In this opening, what's happening is just breakfast, yet the way it films that stillness is so good."
+            },
+            "n2": {
+              "japanese": "今日は短いクリップを一本。正直、今のうちのクラスには少し背伸びなのは承知の上なんですが、それでも見てほしくて持ってきました。冒頭のここ、やっていること自体はただの朝食なのに、その間の切り取り方が絶妙なんです。",
+              "reading": "きょうはみじかいクリップをいっぽん。しょうじき、いまのうちのクラスにはすこしせのびなのはしょうちのうえなんですが、それでもみてほしくてもってきました。ぼうとうのここ、やっていることじたいはただのちょうしょくなのに、そのまのきりとりかたがぜつみょうなんです。",
+              "english": "One short clip today. Honestly, I know full well it's a bit of a stretch for where our class is right now, but I brought it anyway because I wanted you to see it. Right here at the opening, what's actually happening is only breakfast, yet how it frames the pauses is exquisite."
+            },
+            "n1": {
+              "japanese": "今日は短いクリップを一本だけ。今のうちの力からすれば少々背伸びなのは百も承知なんですけど、それでもどうしても見てもらいたくて。この冒頭、映っているのはただ朝食を取っているだけの場面なのに、その沈黙の切り取り方が、なんとも言えずいいんですよ。",
+              "reading": "きょうはみじかいクリップをいっぽんだけ。いまのうちのちからからすればしょうしょうせのびなのはひゃくもしょうちなんですけど、それでもどうしてもみてもらいたくて。このぼうとう、うつっているのはただちょうしょくをとっているだけのばめんなのに、そのちんもくのきりとりかたが、なんともいえずいいんですよ。",
+              "english": "Just one short clip today. I'm perfectly aware it's a bit of a reach for where our ability is right now, but even so I really wanted you all to see it. In this opening, all that's on screen is a person simply having breakfast, and yet the way it frames the silence is good in a way I can't quite put into words."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:subtitles-fail",
+          "beatId": "beat:seventy-percent-door:obstruction",
+          "cueId": "cue:caption-line-garbles-then-blank",
+          "description": "The clip starts. The subtitle line stutters into broken glyphs, then goes blank and stays blank. The picture and the voices keep running with nothing written under them. Two people near the front shift in their seats."
+        },
+        {
+          "kind": "line",
+          "id": "line:seventy-percent-door:ruparna-reads-the-scene",
+          "beatId": "beat:seventy-percent-door:japanese-attempt",
+          "speakerId": "ruparna",
+          "intent": "Instead of stopping, keep the class watching by reading the scene off tone and faces, and offer that most of it can still be followed.",
+          "attentionTarget": "the voices and the faces once the text is gone",
+          "variants": {
+            "n5": {
+              "japanese": "あ、字幕が消えちゃった。…でも、大丈夫。音と、顔を見てください。全部は分からなくても、たぶん、だいたい分かります。もう一回、流しますね。",
+              "reading": "あ、じまくがきえちゃった。…でも、だいじょうぶ。おとと、かおをみてください。ぜんぶはわからなくても、たぶん、だいたいわかります。もういっかい、ながしますね。",
+              "english": "Oh, the subtitles are gone. …But it's okay. Listen to the sound, watch the faces. Even if we don't get all of it, we'll probably get most of it. I'll play it once more."
+            },
+            "n4": {
+              "japanese": "あ、字幕、落ちちゃいましたね。…でも止めなくていいと思う。声のトーンと、表情を追ってみてください。全部は無理でも、話の大筋はたぶんつかめます。もう一回いきますね。",
+              "reading": "あ、じまく、おちちゃいましたね。…でもとめなくていいとおもう。こえのトーンと、ひょうじょうをおってみてください。ぜんぶはむりでも、はなしのおおすじはたぶんつかめます。もういっかいいきますね。",
+              "english": "Oh, the subtitles dropped. …But I don't think we have to stop. Try following the tone of voice and the expressions. All of it is impossible, but we can probably catch the gist. Let me run it again."
+            },
+            "n3": {
+              "japanese": "あ、字幕が飛んじゃった。…でも、これはこれで見られると思うんですよ。声の調子と、視線の動きを追ってみてください。一言一句は無理でも、何をしようとしてるかは、だいたい読めるはずです。",
+              "reading": "あ、じまくがとんじゃった。…でも、これはこれでみられるとおもうんですよ。こえのちょうしと、しせんのうごきをおってみてください。いちごんいっくはむりでも、なにをしようとしてるかは、だいたいよめるはずです。",
+              "english": "Oh, the subtitles cut out. …But I think we can still watch it like this. Try following the tone of voice and where their eyes move. Every single word is out of reach, but what they're trying to do — we should mostly be able to read that."
+            },
+            "n2": {
+              "japanese": "あ、字幕、落ちましたね。…でも、かえってこのまま見てもいいかもしれません。声の調子と、視線の運びを追ってみてください。一言一句を拾うのは無理でも、その人が何をしようとしているかは、十分読み取れるはずなんです。",
+              "reading": "あ、じまく、おちましたね。…でも、かえってこのままみてもいいかもしれません。こえのちょうしと、しせんのはこびをおってみてください。いちごんいっくをひろうのはむりでも、そのひとがなにをしようとしているかは、じゅうぶんよみとれるはずなんです。",
+              "english": "Oh, the subtitles dropped. …But maybe it's actually fine to watch it just like this. Try following the tone of voice and how the gaze travels. Picking up every single word is impossible, but what this person is trying to do — that we should be able to read well enough."
+            },
+            "n1": {
+              "japanese": "あ、字幕、飛んじゃいましたね。…でも、いっそこのまま見てしまってもいい気がするんです。台詞を全部拾おうとせずに、声の調子と、視線の運びだけ追ってみてください。一語一句は取りこぼしても、その人が何をしようとしているのかは、案外そこに全部出ているものなので。",
+              "reading": "あ、じまく、とんじゃいましたね。…でも、いっそこのままみてしまってもいいきがするんです。せりふをぜんぶひろおうとせずに、こえのちょうしと、しせんのはこびだけおってみてください。いちごいっくはとりこぼしても、そのひとがなにをしようとしているのかは、あんがいそこにぜんぶでているものなので。",
+              "english": "Oh, the subtitles cut out. …But honestly I feel like we might as well just watch it as it is. Don't try to catch every line — just follow the tone of voice and how the gaze moves. Even if we drop a word here and there, what the person is trying to do tends, surprisingly, to be right there in all of it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:seventy-percent-door:sophie-separate-heard-and-guessed",
+          "beatId": "beat:seventy-percent-door:calibration",
+          "speakerId": "sophie",
+          "intent": "Agree to continue, but require that what was actually heard stay marked apart from what is being inferred, so partial comprehension remains checkable.",
+          "attentionTarget": "the line between evidence and inference",
+          "variants": {
+            "n5": {
+              "japanese": "うん、続けましょう。でも、一つだけ。『聞こえた』ところと、『たぶんこうだ』と思ったところは、分けておきたいです。",
+              "reading": "うん、つづけましょう。でも、ひとつだけ。『きこえた』ところと、『たぶんこうだ』とおもったところは、わけておきたいです。",
+              "english": "Yeah, let's keep going. But one thing. I want to keep 'what we heard' and 'what we're guessing' separate."
+            },
+            "n4": {
+              "japanese": "うん、このまま続けていいと思う。ただ一つだけ、はっきり聞こえた部分と、こっちが推測してる部分は、分けて印をつけておきたいんだよね。",
+              "reading": "うん、このままつづけていいとおもう。ただひとつだけ、はっきりきこえたぶぶんと、こっちがすいそくしてるぶぶんは、わけてしるしをつけておきたいんだよね。",
+              "english": "Yeah, I think it's fine to keep going. Just one thing — I want to mark the parts we clearly heard separately from the parts we're inferring."
+            },
+            "n3": {
+              "japanese": "うん、続けて大丈夫だと思う。ただ、一つだけ。ちゃんと聞き取れたところと、状況から推測したところは、混ぜずに分けておきたいの。あとで確かめられるように。",
+              "reading": "うん、つづけてだいじょうぶだとおもう。ただ、ひとつだけ。ちゃんとききとれたところと、じょうきょうからすいそくしたところは、まぜずにわけておきたいの。あとでたしかめられるように。",
+              "english": "Yeah, I think it's fine to continue. Just one thing. The parts we actually heard and the parts we inferred from the situation — I want to keep those unmixed and separate. So we can check them later."
+            },
+            "n2": {
+              "japanese": "うん、このまま進めていいと思う。ただ一点だけ。実際に聞き取れた部分と、こちらが状況から補った部分は、きちんと分けて記しておきたいの。後で検証できるように。",
+              "reading": "うん、このまますすめていいとおもう。ただいってんだけ。じっさいにききとれたぶぶんと、こちらがじょうきょうからおぎなったぶぶんは、きちんとわけてしるしておきたいの。あとでけんしょうできるように。",
+              "english": "Yeah, I think we can go on as is. Just one point. What we actually managed to hear, and what we filled in from context — I want those recorded as clearly separate. So it can be verified afterward."
+            },
+            "n1": {
+              "japanese": "うん、このまま進めて構わないと思う。ただ、一点だけ譲れなくて。はっきり聞き取れた箇所と、こちらが状況から補って読んだ箇所は、あくまで別物として分けておきたいの。後から一つずつ確かめ直せるように。",
+              "reading": "うん、このまますすめてかまわないとおもう。ただ、いってんだけゆずれなくて。はっきりききとれたかしょと、こちらがじょうきょうからおぎなってよんだかしょは、あくまでべつものとしてわけておきたいの。あとからひとつずつたしかめなおせるように。",
+              "english": "Yeah, I think we can go on as we are. Just one point I won't bend on. The passages we clearly heard, and the passages we read in by filling from context — I want those kept as strictly separate things. So we can re-check them one by one later."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:seventy-percent-door:before-infer",
+          "beatId": "beat:seventy-percent-door:infer-attempt",
+          "resume": "The clip runs without text; Ruparna reads it off tone and Sophie has drawn the line between heard and inferred. The learner steps in to state what the person is doing and why, keeping the two kinds of evidence apart."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:seventy-percent-door:infer-from-clip",
+          "beatId": "beat:seventy-percent-door:infer-attempt",
+          "hook": {
+            "packageId": "l2-l13",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e19-seventy-percent-door-infer-from-clip"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e19-seventy-percent-door-infer-from-clip"
+          },
+          "resumeContext": "No subtitles remain. From tone, faces, and two things happening at once on screen, the learner states what the person is trying to do and layers the likely reasons, tagging each claim as heard or inferred rather than asserting the whole thing at full confidence.",
+          "onReady": "checkpoint:seventy-percent-door:after-infer",
+          "onRepair": "node:seventy-percent-door:infer-repair",
+          "onDefer": "checkpoint:seventy-percent-door:before-infer"
+        },
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:infer-repair",
+          "beatId": "beat:seventy-percent-door:infer-repair",
+          "cueId": "cue:one-ambiguous-moment-replayed",
+          "description": "Only the one moment that stayed unclear is scrubbed back and played again, a little slower. The heard-and-inferred columns already filled in stay on the whiteboard; just the ambiguous line waits for another read."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:seventy-percent-door:after-infer",
+          "beatId": "beat:seventy-percent-door:infer-response",
+          "resume": "The person's intent is stated, with heard parts and inferred parts kept apart. Sophie moves to the whiteboard to count what actually held up."
+        },
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:two-columns",
+          "beatId": "beat:seventy-percent-door:changed-image",
+          "cueId": "cue:whiteboard-heard-and-inferred",
+          "description": "Two columns stand on the whiteboard: one of lines the class actually caught, one of what it read in. Neither column pretends to be the other. The blank subtitle bar still glows under the paused frame."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:seventy-percent-door:the-door"
+      }
+    },
+    {
+      "id": "scene:seventy-percent-door:the-door",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Count the partial comprehension honestly and decide whether about seventy percent is enough to continue.",
+      "dramaticQuestion": "Is readiness a switch that is on or off, or a door that opens partway?",
+      "learnerNeed": "A stance on continuing from partial comprehension without either overclaiming or refusing to move.",
+      "curriculum": {
+        "sectionId": "continue-on-partial-comprehension",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:lights-up",
+          "beatId": "beat:seventy-percent-door:regroup-image",
+          "cueId": "cue:frame-frozen-columns-counted",
+          "description": "The clip pauses on the last frame. Sophie caps the marker and steps back so the two columns are both readable. The heard column is longer than the seats near the front expected."
+        },
+        {
+          "kind": "line",
+          "id": "line:seventy-percent-door:sophie-names-seventy",
+          "beatId": "beat:seventy-percent-door:human-want",
+          "speakerId": "sophie",
+          "intent": "Tally what actually held up, put a number on it — about seventy percent — and frame the missing thirty as unknown rather than failed.",
+          "attentionTarget": "the count of what was truly established",
+          "variants": {
+            "n5": {
+              "japanese": "数えてみました。だいたい、七割ぐらい分かりましたね。全部じゃない。でも、話を進めるには、十分です。",
+              "reading": "かぞえてみました。だいたい、しちわりぐらいわかりましたね。ぜんぶじゃない。でも、はなしをすすめるには、じゅうぶんです。",
+              "english": "I counted. We understood about seventy percent. Not all of it. But for moving the story along, it's enough."
+            },
+            "n4": {
+              "japanese": "ちょっと数えてみたんだけど、だいたい七割くらいは分かってると思う。百パーセントじゃない。でも、この先に進むには、七割で十分なんだよね。",
+              "reading": "ちょっとかぞえてみたんだけど、だいたいしちわりくらいはわかってるとおもう。ひゃくパーセントじゃない。でも、このさきにすすむには、しちわりでじゅうぶんなんだよね。",
+              "english": "I counted a bit, and I think we've got about seventy percent. It's not a hundred percent. But for going forward, seventy is enough."
+            },
+            "n3": {
+              "japanese": "数えてみたんだけど、確実なところで、だいたい七割は取れてる。残りは分からない。でも、慎重に進める分には、七割あれば十分なんだと思う。",
+              "reading": "かぞえてみたんだけど、かくじつなところで、だいたいしちわりはとれてる。のこりはわからない。でも、しんちょうにすすめるぶんには、しちわりあればじゅうぶんなんだとおもう。",
+              "english": "I counted, and for the parts we're sure of, we've got about seventy percent. The rest, we don't know. But as long as we go carefully, I think seventy is enough."
+            },
+            "n2": {
+              "japanese": "ざっと数えてみたんだけど、確実に取れているのは、だいたい七割ってところ。残りの三割は分からないまま。でも、慎重に進める前提でなら、七割あれば十分な材料なんだよね。",
+              "reading": "ざっとかぞえてみたんだけど、かくじつにとれているのは、だいたいしちわりってところ。のこりのさんわりはわからないまま。でも、しんちょうにすすめるぜんていでなら、しちわりあればじゅうぶんなざいりょうなんだよね。",
+              "english": "I did a rough count, and what we've got for certain is about seventy percent. The other thirty stays unknown. But on the premise that we go carefully, seventy is enough to work with."
+            },
+            "n1": {
+              "japanese": "ざっと数えてみたんだけど、確実に押さえられているのは、まあ七割前後といったところ。残りの三割は分からないまま残る。でも、あくまで慎重に進めるという前提でなら、七割というのは、先へ進むには十分すぎる材料なんだと思う。",
+              "reading": "ざっとかぞえてみたんだけど、かくじつにおさえられているのは、まあしちわりぜんごといったところ。のこりのさんわりはわからないままのこる。でも、あくまでしんちょうにすすめるというぜんていでなら、しちわりというのは、さきへすすむにはじゅうぶんすぎるざいりょうなんだとおもう。",
+              "english": "I did a rough count, and what we've genuinely pinned down is, well, somewhere around seventy percent. The remaining thirty stays unknown. But strictly on the premise that we proceed carefully, seventy percent is, if anything, more than enough to go forward on."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:seventy-percent-door:how-to-continue",
+          "beatId": "beat:seventy-percent-door:stance",
+          "question": "How do you continue on the seventy percent?",
+          "options": [
+            {
+              "id": "option:seventy-percent-door:mark-and-proceed",
+              "action": "Proceed on the certain seventy percent now, flagging the unclear thirty to return to later.",
+              "japaneseByBand": {
+                "n5": "分かった七割で、進みましょう。分からない所は、印をつけておきます。",
+                "n4": "分かってる七割で先に進みましょう。あやしい三割は、あとで確かめる印をつけておけばいい。",
+                "n3": "取れてる七割で進めましょう。あやふやな三割は、保留の印をつけて、あとで戻ればいいと思う。",
+                "n2": "確実な七割をもとに進めましょう。曖昧な三割は保留の印をつけておいて、必要なときに戻ればいい。",
+                "n1": "確実に取れている七割をもとに、ひとまず進めましょう。曖昧なままの三割には保留の印だけつけておいて、要るときに戻ればいい。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:seventy-percent-door:before-repair"
+            },
+            {
+              "id": "option:seventy-percent-door:rewatch-the-gap",
+              "action": "Ask to replay just the unclear part once more before committing to continue.",
+              "japaneseByBand": {
+                "n5": "その前に、分からない所を、もう一回だけ見ませんか。",
+                "n4": "進む前に、あやしかった所だけ、もう一回見てみませんか。",
+                "n3": "先に進む前に、引っかかった所だけ、もう一度見ておきませんか。",
+                "n2": "進む前に、はっきりしなかった箇所だけ、もう一度だけ確認しておきませんか。",
+                "n1": "先へ進む前に、どうも引っかかった箇所だけ、もう一度だけ見直しておきませんか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:seventy-percent-door:before-repair"
+            }
+          ],
+          "convergence": "checkpoint:seventy-percent-door:before-repair"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:seventy-percent-door:before-repair",
+          "beatId": "beat:seventy-percent-door:back-attempt",
+          "resume": "The learner has taken a stance on continuing from seventy percent. Ruparna answers by reframing what 'ready' was supposed to mean."
+        },
+        {
+          "kind": "line",
+          "id": "line:seventy-percent-door:ruparna-door-opens",
+          "beatId": "beat:seventy-percent-door:repair",
+          "speakerId": "ruparna",
+          "intent": "Accept that partial comprehension is a graduated door rather than a pass/fail gate, and commit to choosing slightly harder clips carefully, together.",
+          "attentionTarget": "the seventy percent as an opening, not a shortfall",
+          "variants": {
+            "n5": {
+              "japanese": "そうか。分かる、分からない、じゃないんですね。七割で、ドアが開く。次も、少し難しいのを、みんなで見ましょう。慎重に。",
+              "reading": "そうか。わかる、わからない、じゃないんですね。しちわりで、ドアがひらく。つぎも、すこしむずかしいのを、みんなでみましょう。しんちょうに。",
+              "english": "I see. It isn't 'understand' or 'don't.' At seventy percent, a door opens. Next time too, let's watch something a little hard, together. Carefully."
+            },
+            "n4": {
+              "japanese": "なるほど。『分かる』か『分からない』か、の二択じゃないんだ。七割でも、ちゃんとドアは開くんですね。じゃあ次も、少しだけ背伸びしたやつを、みんなで慎重に見ましょう。",
+              "reading": "なるほど。『わかる』か『わからない』か、のにたくじゃないんだ。しちわりでも、ちゃんとドアはひらくんですね。じゃあつぎも、すこしだけせのびしたやつを、みんなでしんちょうにみましょう。",
+              "english": "I see. It's not a choice between 'understand' and 'don't.' Even at seventy percent, the door really does open. So next time too, let's pick something just a bit of a stretch and watch it carefully, together."
+            },
+            "n3": {
+              "japanese": "そうか。準備できてる・できてないの二択じゃないんですね。七割分かれば、それはもうドアが開いてる。次も、ちょっと上のを選びます。ただし、みんなで慎重に。",
+              "reading": "そうか。じゅんびできてる・できてないのにたくじゃないんですね。しちわりわかれば、それはもうドアがひらいてる。つぎも、ちょっとうえのをえらびます。ただし、みんなでしんちょうに。",
+              "english": "I see. It's not a two-way switch between ready and not ready. If you understand seventy percent, the door is already open. Next time I'll pick something a notch higher too. But carefully, all of us together."
+            },
+            "n2": {
+              "japanese": "なるほどね。『分かる』か『分からない』かの、白黒だけじゃないんだ。七割つかめれば、そこはもうドアが開いてるってことか。じゃあ次も少し上を選びます。ただ、あくまで慎重に、みんなで。",
+              "reading": "なるほどね。『わかる』か『わからない』かの、しろくろだけじゃないんだ。しちわりつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもすこしうえをえらびます。ただ、あくまでしんちょうに、みんなで。",
+              "english": "I see. It isn't just black-and-white between 'understand' and 'don't.' If you grasp seventy percent, that already means the door is open. So next time I'll pick something a step up too. But strictly carefully, all together."
+            },
+            "n1": {
+              "japanese": "なるほど…。『分かる』か『分からない』かっていう、白か黒かの話じゃないんですね。七割さえつかめれば、そこはもうドアが開いてるってことか。じゃあ次もまた、ほんの少し背伸びしたのを選びます。ただし、あくまで慎重に、みんなでね。",
+              "reading": "なるほど…。『わかる』か『わからない』かっていう、しろかくろかのはなしじゃないんですね。しちわりさえつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもまた、ほんのすこしせのびしたのをえらびます。ただし、あくまでしんちょうに、みんなでね。",
+              "english": "I see… It isn't a matter of black or white, of 'understand' versus 'don't,' is it. As long as you grasp even seventy percent, that already means the door is open. So next time again I'll choose something just a touch of a reach. But carefully, mind — all of us together."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:seventy-percent-door:door-left-open",
+          "beatId": "beat:seventy-percent-door:exit-image",
+          "cueId": "cue:blank-caption-marked-not-filled",
+          "description": "The blank subtitle bar stays blank under the last frame, but now a small tag beside it reads 'unconfirmed' instead of nothing. The unknown thirty percent is left standing in plain view, a door held ajar rather than a gap to paper over."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:seventy-percent",
+      "state": "seed",
+      "ownerIds": [
+        "ruparna",
+        "sophie"
+      ],
+      "meaningNow": "Partial comprehension (about seventy percent) is explicitly named as enough evidence to continue carefully, rather than a failure to reach 100%.",
+      "useNumber": 1,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply keeps most of what it heard, marks the rest unknown, and continues without pretending it caught everything."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:seventy-percent-door:graduated-readiness",
+      "kind": "story",
+      "description": "The class treats about seventy-percent comprehension as enough to continue carefully, keeping heard and inferred evidence separate and leaving the unknown thirty visibly marked rather than filled in."
+    },
+    {
+      "id": "outcome:seventy-percent-door:ruparna-arrival",
+      "kind": "bond",
+      "castId": "ruparna",
+      "chapter": 19,
+      "beat": "arrival",
+      "description": "Ruparna is introduced framing an ordinary shot as a scene and reading intent off tone and faces when the text fails; her instinct to reach slightly above level is established as attention the class can use, and she takes her first step toward treating comprehension as graduated."
+    },
+    {
+      "id": "outcome:seventy-percent-door:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l13",
+      "description": "Infer-intent-from-an-incomplete-source evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:sophie-counts-the-columns-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-infer-step"
+    ],
+    "withdrawnContentFallback": "Use the same infer-from-incomplete-source evidence with neutral nameplates and a generic facilitator who plays a subtitle-less clip and marks heard-versus-inferred columns."
+  }
+}

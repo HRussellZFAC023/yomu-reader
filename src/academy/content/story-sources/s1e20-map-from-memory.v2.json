@@ -1,0 +1,653 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e20-map-from-memory",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 20,
+  "title": {
+    "en": "A Map Made From Memory",
+    "ja": "記憶でできた地図"
+  },
+  "synopsis": "Rose leads the class in rebuilding a lost route on the atlas, but instead of restoring one perfect copy she gathers Alex's plain sequence and Jodi's then-and-now account and keeps them counted side by side. When the exhibition label seems to demand a single line, the class marks the diverging stretch as remembered several ways. The learner prepares the record in advance and compares the overlapping accounts without voting one into truth.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "rose",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "practical evidence used to authorize another person's story"
+      ]
+    },
+    {
+      "castId": "jodi",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jodi",
+        "docs/academy/story/CAST-AND-CONSENT.md#jodi"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "remembered detail treated as publication permission"
+      ]
+    },
+    {
+      "castId": "alex",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#alex",
+        "docs/academy/story/CAST-AND-CONSENT.md#alex"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "understatement framed as a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e19-seventy-percent-door",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l16",
+            "l2-l17",
+            "l2-l18"
+          ],
+          "function": "prepare-sequence-and-compare-overlapping-accounts"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-first-meeting-rose"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:map-from-memory:three-rememberings",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Rebuild the lost route from what people remember, and hit the moment where the accounts refuse to agree.",
+      "dramaticQuestion": "When the memories diverge, does the class restore one true copy or keep them plural?",
+      "learnerNeed": "A record-building task where preparing in advance and comparing accounts matters more than choosing a single winner.",
+      "curriculum": {
+        "sectionId": "prepare-and-compare-accounts",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:backing-and-cards",
+          "beatId": "beat:map-from-memory:arrival-image",
+          "cueId": "cue:atlas-backing-flat-with-cards",
+          "description": "The atlas backing panel lies flat on the long classroom table, its old pencil route half rubbed away. Three blank index cards wait along it. Rose crouches to table height, reading the paper's wear before anyone's writing."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:rose-fold-mark",
+          "beatId": "beat:map-from-memory:human-want",
+          "speakerId": "rose",
+          "intent": "Notice the physical evidence first, then widen to the human problem: everyone remembers the route a little differently, and forcing one copy would lose that.",
+          "attentionTarget": "the fold-crease in the paper, then the three waiting cards",
+          "variants": {
+            "n5": {
+              "japanese": "この紙、見てください。ここに、おれたあとがあります。むかし、道はここで曲がっていました。でも、みんな、少しずつ、ちがう道をおぼえています。",
+              "reading": "このかみ、みてください。ここに、おれたあとがあります。むかし、みちはここでまがっていました。でも、みんな、すこしずつ、ちがうみちをおぼえています。",
+              "english": "Look at this paper. There's a fold-mark here. Long ago, the road turned right here. But everyone remembers a slightly different road."
+            },
+            "n4": {
+              "japanese": "この紙、折れた跡が残ってるでしょう。昔、道はここで曲がってたんです。ただ、みんなが覚えてる道は、少しずつずれていて。一本に戻すのが、もったいない気がして。",
+              "reading": "このかみ、おれたあとがのこってるでしょう。むかし、みちはここでまがってたんです。ただ、みんながおぼえてるみちは、すこしずつずれていて。いっぽんにもどすのが、もったいないきがして。",
+              "english": "See how this paper still has the fold-mark? The road used to turn here, long ago. It's just — the road each person remembers is a little off from the others. Forcing it back into one line feels like a waste, somehow."
+            },
+            "n3": {
+              "japanese": "この紙、折り目がまだ残ってるでしょう。昔はここで道が曲がってたはずなんです。ただ、人によって覚えてる道が微妙にずれてて。むりに一本にまとめちゃうのは、なんだか惜しい気がするんですよね。",
+              "reading": "このかみ、おりめがまだのこってるでしょう。むかしはここでみちがまがってたはずなんです。ただ、ひとによっておぼえてるみちがびみょうにずれてて。むりにいっぽんにまとめちゃうのは、なんだかおしいきがするんですよね。",
+              "english": "This paper still has the crease, see. The road must have bent right here, back then. It's just that what each person remembers is subtly different. Forcing it all into one line — that feels like a bit of a shame, honestly."
+            },
+            "n2": {
+              "japanese": "この紙、折り目がまだうっすら残ってますよね。昔はここで道が曲がっていたはずなんです。ただ、覚えている道が人によって少しずつずれていて。それを無理に一本に整えてしまうのは、かえって惜しい気がするんですよ。",
+              "reading": "このかみ、おりめがまだうっすらのこってますよね。むかしはここでみちがまがっていたはずなんです。ただ、おぼえているみちがひとによってすこしずつずれていて。それをむりにいっぽんにととのえてしまうのは、かえっておしいきがするんですよ。",
+              "english": "The crease is still faintly here on the paper, isn't it. The road must have bent right here in the old days. It's just that what people remember drifts a little from person to person. Tidying that forcibly into a single line — that strikes me as a shame, if anything."
+            },
+            "n1": {
+              "japanese": "この紙、折り目がうっすら残ってるでしょう。昔はここで道が折れていたはずなんですよ。ただ、覚えている道筋が、人によってわずかにずれていましてね。それを一本にならしてしまうのは、直すというより、削るような気がして、どうも惜しいんです。",
+              "reading": "このかみ、おりめがうっすらのこってるでしょう。むかしはここでみちがおれていたはずなんですよ。ただ、おぼえているみちすじが、ひとによってわずかにずれていましてね。それをいっぽんにならしてしまうのは、なおすというより、けずるようなきがして、どうもおしいんです。",
+              "english": "The crease is faintly there on the paper, see. The route must have bent right here, once. Only — the path each person carries is off by a hair, one from another. Smoothing it into one line feels less like repair than like shaving something away; it really does seem a waste."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:alex-sequence",
+          "beatId": "beat:map-from-memory:obstruction",
+          "speakerId": "alex",
+          "intent": "Lay out his remembered route as a flat sequence, understated like a timetable, without insisting it is the only true one.",
+          "attentionTarget": "the order of the steps, one after another",
+          "variants": {
+            "n5": {
+              "japanese": "ぼくのは、こうです。まず橋。それから市場。市場のあと、川にそって歩く。さいごに、あかりの店。",
+              "reading": "ぼくのは、こうです。まずはし。それからいちば。いちばのあと、かわにそってあるく。さいごに、あかりのみせ。",
+              "english": "Mine goes like this. First the bridge. Then the market. After the market, walk along the river. Last, the lantern shop."
+            },
+            "n4": {
+              "japanese": "僕の記憶だと、こうです。まず橋を渡って、それから市場。市場を抜けたあと、川ぞいに歩いて、最後にあかりの店。それだけ。",
+              "reading": "ぼくのきおくだと、こうです。まずはしをわたって、それからいちば。いちばをぬけたあと、かわぞいにあるいて、さいごにあかりのみせ。それだけ。",
+              "english": "The way I remember it, it's this. First cross the bridge, then the market. After you pass through the market, walk along the river, and last, the lantern shop. That's all."
+            },
+            "n3": {
+              "japanese": "僕の覚えてる順番だと、まず橋を渡って、次に市場。市場を抜けてから川ぞいに進んで、最後があかりの店。まあ、それだけなんですけど。",
+              "reading": "ぼくのおぼえてるじゅんばんだと、まずはしをわたって、つぎにいちば。いちばをぬけてからかわぞいにすすんで、さいごがあかりのみせ。まあ、それだけなんですけど。",
+              "english": "In the order I remember, first you cross the bridge, then the market. After the market you go along the river, and the end is the lantern shop. Well — that's all it is."
+            },
+            "n2": {
+              "japanese": "僕が覚えてる順だと、まず橋を渡って、市場に出て。市場を抜けたら川ぞいをしばらく進んで、最後にあかりの店、という流れですね。まあ、僕のはそれだけです。",
+              "reading": "ぼくがおぼえてるじゅんだと、まずはしをわたって、いちばにでて。いちばをぬけたらかわぞいをしばらくすすんで、さいごにあかりのみせ、というながれですね。まあ、ぼくのはそれだけです。",
+              "english": "In the order I remember, first cross the bridge, come out at the market. Once through the market you go along the river a while, and last the lantern shop — that's the flow. Well, mine's just that."
+            },
+            "n1": {
+              "japanese": "僕が覚えてる順で言うと、まず橋を渡って、市場へ出る。市場を抜けたら、しばらく川ぞいを進んで、最後にあかりの店。まあ、順番としてはそれだけのことなんですけどね。",
+              "reading": "ぼくがおぼえてるじゅんでいうと、まずはしをわたって、いちばへでる。いちばをぬけたら、しばらくかわぞいをすすんで、さいごにあかりのみせ。まあ、じゅんばんとしてはそれだけのことなんですけどね。",
+              "english": "If I put it in the order I remember: cross the bridge, come out at the market. Through the market, then along the river a while, and last the lantern shop. Well — as a sequence, that's all it amounts to, really."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:jodi-then-and-now",
+          "beatId": "beat:map-from-memory:contribution",
+          "speakerId": "jodi",
+          "intent": "Hold her remembered route against what the card says now, layering two times without resolving which is correct.",
+          "attentionTarget": "the gap between the remembered order and the card in front of her",
+          "variants": {
+            "n5": {
+              "japanese": "わたしの記憶は、少しちがいます。むかしは、市場の前に川があった。でも、このカードには、市場のあとに川、と書いてあります。どちらも、本当だと思う。",
+              "reading": "わたしのきおくは、すこしちがいます。むかしは、いちばのまえにかわがあった。でも、このカードには、いちばのあとにかわ、とかいてあります。どちらも、ほんとうだとおもう。",
+              "english": "My memory is a little different. Back then, the river came before the market. But this card says: river after the market. I think both are true."
+            },
+            "n4": {
+              "japanese": "私が覚えてるのは、ちょっと違うんです。昔は、市場の前に川を渡った気がする。でも、今このカードには「市場のあとに川」って書いてある。どっちが正しいって、決めなくていいと思うんです。",
+              "reading": "わたしがおぼえてるのは、ちょっとちがうんです。むかしは、いちばのまえにかわをわたったきがする。でも、いまこのカードには「いちばのあとにかわ」ってかいてある。どっちがただしいって、きめなくていいとおもうんです。",
+              "english": "What I remember is a bit different. Back then, I feel like we crossed the river before the market. But right now this card says \"river after the market.\" I don't think we have to decide which one's right."
+            },
+            "n3": {
+              "japanese": "私の記憶だと、ちょっと違ってて。昔は市場の手前で川を渡ったような気がするんですよね。でも、今このカードには「市場のあとに川」って残ってる。どっちを正解にするか、無理に選ばなくていい気がして。",
+              "reading": "わたしのきおくだと、ちょっとちがってて。むかしはいちばのてまえでかわをわたったようなきがするんですよね。でも、いまこのカードには「いちばのあとにかわ」ってのこってる。どっちをせいかいにするか、むりにえらばなくていいきがして。",
+              "english": "The way I remember it, it's a little different. Back then I feel like we crossed the river just before the market. But now this card has \"river after the market\" on it. Which one we call correct — I feel like we don't have to force that choice."
+            },
+            "n2": {
+              "japanese": "私の記憶だと少し違っていて。昔は市場の手前で川を渡ったような覚えがあるんです。ただ、今このカードには「市場のあとに川」と残っている。どちらを正解に決めるかは、無理に選ばなくてもいいんじゃないかと思うんですよね。",
+              "reading": "わたしのきおくだとすこしちがっていて。むかしはいちばのてまえでかわをわたったようなおぼえがあるんです。ただ、いまこのカードには「いちばのあとにかわ」とのこっている。どちらをせいかいにきめるかは、むりにえらばなくてもいいんじゃないかとおもうんですよね。",
+              "english": "In my memory it's slightly different. I have a recollection of crossing the river just before the market, back then. But this card, now, keeps \"river after the market.\" Which one we settle on as correct — I don't think we have to force that choice."
+            },
+            "n1": {
+              "japanese": "私の記憶だと、少しずれていましてね。昔は市場の手前で川を渡ったような覚えがあるんです。ただ、今このカードには「市場のあとに川」と残っている。どちらを正解と決めるのかは、無理に一つに絞らなくてもいいんじゃないか、と思うんですよ。昔の私と、今の紙と、両方ある、というだけで。",
+              "reading": "わたしのきおくだと、すこしずれていましてね。むかしはいちばのてまえでかわをわたったようなおぼえがあるんです。ただ、いまこのカードには「いちばのあとにかわ」とのこっている。どちらをせいかいときめるのかは、むりにひとつにしぼらなくてもいいんじゃないか、とおもうんですよ。むかしのわたしと、いまのかみと、りょうほうある、というだけで。",
+              "english": "In my memory it's off by a little. I have a recollection of crossing the river just before the market, in the old days. But this card, now, keeps \"river after the market.\" Which one we call correct — I don't think we have to narrow it to one. There's the old me, and there's the paper now; both simply exist."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:three-cards-diverge",
+          "beatId": "beat:map-from-memory:divergence",
+          "cueId": "cue:three-routes-eraser-hovering",
+          "description": "Three cards now sit along the backing, each tracing the same stretch a different way. A pencil eraser hovers over two of them, ready to make the map agree with itself."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:rose-count-them",
+          "beatId": "beat:map-from-memory:compare-attempt",
+          "speakerId": "rose",
+          "intent": "Stop the erasing and propose preparing a record in advance that holds all three, counted side by side, without voting one into truth.",
+          "attentionTarget": "the hovering eraser, then the three cards laid in a row",
+          "variants": {
+            "n5": {
+              "japanese": "消さないでください。三つ、ぜんぶ、書いておきましょう。どれが正しいか、決めなくていい。一、二、三、とならべて、数えるだけ。",
+              "reading": "けさないでください。みっつ、ぜんぶ、かいておきましょう。どれがただしいか、きめなくていい。いち、に、さん、とならべて、かぞえるだけ。",
+              "english": "Please don't erase them. Let's write down all three in advance. We don't have to decide which is right. Just line them up — one, two, three — and count them."
+            },
+            "n4": {
+              "japanese": "消さないでおきましょう。三つとも、先に書いておくんです。どれが本物か選ぶんじゃなくて、一、二、三、って横にならべて数えるだけ。それだけで、ちゃんと残ります。",
+              "reading": "けさないでおきましょう。みっつとも、さきにかいておくんです。どれがほんものかえらぶんじゃなくて、いち、に、さん、ってよこにならべてかぞえるだけ。それだけで、ちゃんとのこります。",
+              "english": "Let's leave them un-erased. We write all three down ahead of time. Not choosing which is the real one — just lining them up, one, two, three, side by side, and counting. That alone keeps them properly."
+            },
+            "n3": {
+              "japanese": "消さずに置いておきましょうよ。三つとも先に書き出しておくんです。どれが正解かを選ぶんじゃなくて、一、二、三と横に並べて、数だけ数える。それだけで、全部ちゃんと残せます。",
+              "reading": "けさずにおいておきましょうよ。みっつともさきにかきだしておくんです。どれがせいかいかをえらぶんじゃなくて、いち、に、さんとよこにならべて、かずだけかぞえる。それだけで、ぜんぶちゃんとのこせます。",
+              "english": "Let's leave them without erasing. We write all three out ahead of time. Not picking which is correct — just lining them up, one, two, three, and counting the number. That alone keeps them all, properly."
+            },
+            "n2": {
+              "japanese": "消さずに、そのまま置いておきましょう。三つとも、先に書き出しておくんですよ。どれが本物かを選ぶんじゃなくて、一、二、三と並べて、数として残す。それだけで、どれも消えずにちゃんと残ります。",
+              "reading": "けさずに、そのままおいておきましょう。みっつとも、さきにかきだしておくんですよ。どれがほんものかをえらぶんじゃなくて、いち、に、さんとならべて、かずとしてのこす。それだけで、どれもきえずにちゃんとのこります。",
+              "english": "Let's leave them as they are, without erasing. We write all three out in advance. Not choosing which is genuine — lining them up, one, two, three, and keeping them as a count. That alone, and none of them vanishes; they all stay."
+            },
+            "n1": {
+              "japanese": "消さずに、そのまま置いておきましょうよ。三つとも、先に書き出しておくんです。どれが本物かを選び取るんじゃなくて、一、二、三と横に並べて、ただ数として残しておく。正解に一つ選ぶ代わりに、数えて並べておくだけで、どれも消えずに残るんですよ。",
+              "reading": "けさずに、そのままおいておきましょうよ。みっつとも、さきにかきだしておくんです。どれがほんものかをえらびとるんじゃなくて、いち、に、さんとよこにならべて、ただかずとしてのこしておく。せいかいにひとつえらぶかわりに、かぞえてならべておくだけで、どれもきえずにのこるんですよ。",
+              "english": "Let's leave them, just as they are, un-erased. We write all three out in advance. Not selecting which is genuine — lining them up, one, two, three, and simply keeping them as a count. Instead of choosing one as the answer, we just count them and lay them side by side, and none of them is lost."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-from-memory:before-compare",
+          "beatId": "beat:map-from-memory:compare-attempt",
+          "resume": "Rose has stopped the erasing and asked to keep all three accounts. The learner steps in to prepare the record and compare the overlapping routes."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:map-from-memory:prepare-and-compare",
+          "beatId": "beat:map-from-memory:compare-attempt",
+          "hook": {
+            "packageId": "l2-l17",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e20-map-from-memory-compare-accounts"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e20-map-from-memory-compare-accounts"
+          },
+          "resumeContext": "Three routes remain on the table. The learner prepares the record in advance, lays out each account in sequence, compares where they agree and diverge, and says just enough to keep all three counted without narrating every turn.",
+          "onReady": "checkpoint:map-from-memory:after-compare",
+          "onRepair": "node:map-from-memory:compare-repair",
+          "onDefer": "checkpoint:map-from-memory:before-compare"
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:compare-repair",
+          "beatId": "beat:map-from-memory:compare-repair",
+          "cueId": "cue:two-cards-aligned-again",
+          "description": "The two diverging cards are set square against Alex's sequence. Only the comparison phrase that slipped comes back for another pass; the accounts already counted stay where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-from-memory:after-compare",
+          "beatId": "beat:map-from-memory:compare-response",
+          "resume": "The three accounts are prepared, sequenced, and counted side by side. None was erased to make the others agree."
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:cards-in-a-row",
+          "beatId": "beat:map-from-memory:changed-image",
+          "cueId": "cue:three-routes-numbered-none-erased",
+          "description": "The three cards sit in a numbered row along the backing, each route intact. The hovering eraser is capped and set down. The old fold-crease still shows underneath them all."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:map-from-memory:one-label-many-roads"
+      }
+    },
+    {
+      "id": "scene:map-from-memory:one-label-many-roads",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Fit three counted accounts onto a label that seems built for a single line.",
+      "dramaticQuestion": "Can one exhibition label hold a memory that stays plural?",
+      "learnerNeed": "A stance choice about how to keep several accounts visible when the display asks for one.",
+      "curriculum": {
+        "sectionId": "keep-the-record-plural",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:backing-upright",
+          "beatId": "beat:map-from-memory:regroup-image",
+          "cueId": "cue:atlas-upright-single-slot",
+          "description": "The backing stands upright now, the three cards clipped along the route line. A printed exhibition label waits beside it with one narrow slot marked 'the route'."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:alex-single-slot",
+          "beatId": "beat:map-from-memory:human-want",
+          "speakerId": "alex",
+          "intent": "Point out, understated, that the exhibition label only has room for one line, so it looks like a single account will have to be chosen.",
+          "attentionTarget": "the one narrow slot on the printed label",
+          "variants": {
+            "n5": {
+              "japanese": "でも、てんじのカードには、道を書くところが一つしかありません。一本だけ。どうしますか。",
+              "reading": "でも、てんじのカードには、みちをかくところがひとつしかありません。いっぽんだけ。どうしますか。",
+              "english": "But the exhibition card only has one place to write the road. Just one line. What do we do?"
+            },
+            "n4": {
+              "japanese": "ただ、展示のラベルには、道を書くところが一つしかないんです。線は一本ぶんだけ。だから、どこかで一つに決めるのかな、と思って。",
+              "reading": "ただ、てんじのラベルには、みちをかくところがひとつしかないんです。せんはいっぽんぶんだけ。だから、どこかでひとつにきめるのかな、とおもって。",
+              "english": "Only — the exhibition label has just one place to write the road. Room for one line. So I figured, at some point we decide on one."
+            },
+            "n3": {
+              "japanese": "ただ、展示用のラベルって、道を書く欄が一つしかないんですよね。線一本ぶん。となると、結局どこかで一つに絞るのかな、と思ったんですけど。",
+              "reading": "ただ、てんじようのラベルって、みちをかくらんがひとつしかないんですよね。せんいっぽんぶん。となると、けっきょくどこかでひとつにしぼるのかな、とおもったんですけど。",
+              "english": "Only — the exhibition label just has one column for writing the road. Room for a single line. Which makes me think we'll end up narrowing it to one somewhere."
+            },
+            "n2": {
+              "japanese": "ただ、展示用のラベルには、道を書く欄が一つしかないんですよ。線一本ぶんだけ。そうなると、どこかで一本に絞ることになるのかな、と思ったんですが。",
+              "reading": "ただ、てんじようのラベルには、みちをかくらんがひとつしかないんですよ。せんいっぽんぶんだけ。そうなると、どこかでいっぽんにしぼることになるのかな、とおもったんですが。",
+              "english": "Only — the exhibition label has just one column for the road. Room for one line. So I figured, at some point it comes down to narrowing it to a single line."
+            },
+            "n1": {
+              "japanese": "ただ、展示用のラベルって、道を書く欄が一つしかないんですよね。線一本ぶんの幅しか。そうなると、結局どこかで一本に絞る話になるのかな、と。まあ、そこだけ引っかかってるんですけど。",
+              "reading": "ただ、てんじようのラベルって、みちをかくらんがひとつしかないんですよね。せんいっぽんぶんのはばしか。そうなると、けっきょくどこかでいっぽんにしぼるはなしになるのかな、と。まあ、そこだけひっかかってるんですけど。",
+              "english": "Only — the exhibition label's got just one column for the road, isn't it. Only as wide as a single line. Which makes me think it'll come down to narrowing to one after all. That's the one thing snagging me, is all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:map-from-memory:keep-it-plural",
+          "beatId": "beat:map-from-memory:stance",
+          "question": "How do you keep the memory plural on a label built for one line?",
+          "options": [
+            {
+              "id": "option:map-from-memory:widen-the-label",
+              "action": "Rebuild the label itself so it holds all three as a small legend of accounts, not one road.",
+              "japaneseByBand": {
+                "n5": "ラベルを大きくしましょう。三つ、ぜんぶのせる。一本の道じゃなくて、みんなの記憶を、ならべて。",
+                "n4": "ラベルのほうを変えましょう。三つとも並べて、「いくつかの記憶」として載せるんです。一本の道にしない。",
+                "n3": "ラベルのほうを作り直しませんか。道を一本にせず、三つの記憶を並べた凡例にして載せるんです。",
+                "n2": "いっそラベルのほうを変えましょう。一本の道ではなく、三つの記憶を並べた凡例として残すんです。",
+                "n1": "いっそラベルのほうを作り替えましょうよ。道を一本に決めるんじゃなくて、三つの記憶を並べた凡例として、そのまま残すんです。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:map-from-memory:before-response"
+            },
+            {
+              "id": "option:map-from-memory:mark-the-divergence",
+              "action": "Draw the stretch everyone agrees on as one line, and mark the diverging stretch beside it as remembered several ways.",
+              "japaneseByBand": {
+                "n5": "みんなが同じ所は、一本で書く。ちがう所だけ、「いくつかの記憶」と書いておく。",
+                "n4": "みんなが同じところだけ一本の線にして、ちがうところは「何通りかの記憶」って横に書いておきませんか。",
+                "n3": "全員が一致するところは一本で描いて、食い違うところだけ「何通りかに覚えられている」と横に添えませんか。",
+                "n2": "全員が一致する区間は一本で描いて、食い違う区間だけ「何通りかに記憶されている」と注をつけておきませんか。",
+                "n1": "全員が一致する区間だけ一本で描いて、食い違う区間には「何通りかに記憶されている」と注を添えておくのはどうでしょう。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:map-from-memory:before-response"
+            }
+          ],
+          "convergence": "checkpoint:map-from-memory:before-response"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-from-memory:before-response",
+          "beatId": "beat:map-from-memory:back-attempt",
+          "resume": "The learner has taken a stance on how to keep the accounts plural. Jodi and Rose answer by settling how the record will name them."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:jodi-whose-when",
+          "beatId": "beat:map-from-memory:contribution",
+          "speakerId": "jodi",
+          "intent": "Layer the plan by adding attribution across time: note whose memory and from when beside each account so none is absorbed into another.",
+          "attentionTarget": "the space beside each of the three cards",
+          "variants": {
+            "n5": {
+              "japanese": "いいと思います。それぞれの横に、だれの記憶か、書きましょう。今の私と、昔の私は、ちがう人だから。",
+              "reading": "いいとおもいます。それぞれのよこに、だれのきおくか、かきましょう。いまのわたしと、むかしのわたしは、ちがうひとだから。",
+              "english": "I think that's good. Beside each one, let's write whose memory it is. Because the me now and the me back then are different people."
+            },
+            "n4": {
+              "japanese": "いいですね。それなら、それぞれの横に「だれの、いつの記憶か」を書き添えましょう。今の私と昔の私って、ちょっと別の人みたいなものだから。",
+              "reading": "いいですね。それなら、それぞれのよこに「だれの、いつのきおくか」をかきそえましょう。いまのわたしとむかしのわたしって、ちょっとべつのひとみたいなものだから。",
+              "english": "That works. Then let's add beside each one \"whose memory, from when.\" Because the me now and the me back then are almost like different people."
+            },
+            "n3": {
+              "japanese": "いいと思います。だったら、それぞれの横に「誰の、いつの記憶か」を書き添えておきましょう。今の私と昔の私って、半分くらい別人みたいなものですし。",
+              "reading": "いいとおもいます。だったら、それぞれのよこに「だれの、いつのきおくか」をかきそえておきましょう。いまのわたしとむかしのわたしって、はんぶんくらいべつじんみたいなものですし。",
+              "english": "I think that's good. Then let's note beside each \"whose, and from when.\" The me now and the me back then are half like different people anyway."
+            },
+            "n2": {
+              "japanese": "いいと思います。それなら、それぞれの横に「誰の、いつの記憶か」を添えておきましょうか。今の私と昔の私では、覚えていることが半分くらい別人ですから。",
+              "reading": "いいとおもいます。それなら、それぞれのよこに「だれの、いつのきおくか」をそえておきましょうか。いまのわたしとむかしのわたしでは、おぼえていることがはんぶんくらいべつじんですから。",
+              "english": "I think that's good. Then shall we add beside each \"whose memory, and from when.\" Between the me now and the me back then, what's remembered is half a different person's, after all."
+            },
+            "n1": {
+              "japanese": "いいと思いますよ。それなら、それぞれの横に「誰の、いつの記憶か」を書き添えておきましょう。今の私と昔の私って、覚えていることに関しては、もう半分別人みたいなものですから。どれかに吸収させずに、そのまま並べておければ。",
+              "reading": "いいとおもいますよ。それなら、それぞれのよこに「だれの、いつのきおくか」をかきそえておきましょう。いまのわたしとむかしのわたしって、おぼえていることにかんしては、もうはんぶんべつじんみたいなものですから。どれかにきゅうしゅうさせずに、そのままならべておければ。",
+              "english": "I think that's good. Then let's note beside each one \"whose memory, and from when.\" When it comes to what's remembered, the me now and the me back then are already half like different people. As long as we can keep them side by side, without absorbing one into another."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:rose-not-one-copy",
+          "beatId": "beat:map-from-memory:repair",
+          "speakerId": "rose",
+          "intent": "Reframe the map as a record of many walkers kept countable, not a single correct copy restored; state that plural is the more accurate version.",
+          "attentionTarget": "the numbered row of accounts, then the room",
+          "variants": {
+            "n5": {
+              "japanese": "そうですね。この地図は、一つの正しい道じゃない。何人もが歩いて、おぼえた道です。全部、数に入れておきましょう。",
+              "reading": "そうですね。このちずは、ひとつのただしいみちじゃない。なんにんもがあるいて、おぼえたみちです。ぜんぶ、かずにいれておきましょう。",
+              "english": "That's right. This map isn't one correct road. It's a road that many people walked and remembered. Let's keep them all in the count."
+            },
+            "n4": {
+              "japanese": "そうですね。この地図は、一本の正しい道を直したものじゃないんです。何人もが歩いて、それぞれに覚えてた道。だから、全部、数に入れて残しておく。それでいいと思います。",
+              "reading": "そうですね。このちずは、いっぽんのただしいみちをなおしたものじゃないんです。なんにんもがあるいて、それぞれにおぼえてたみち。だから、ぜんぶ、かずにいれてのこしておく。それでいいとおもいます。",
+              "english": "That's right. This map isn't one correct road we fixed. It's a road many people walked and each remembered their own way. So we keep them all, counted. I think that's how it should be."
+            },
+            "n3": {
+              "japanese": "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれに覚えていた道の集まりで。だったら、どれも消さずに、全部数に入れて残しておけばいい。そのほうが、たぶん正確なんです。",
+              "reading": "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれにおぼえていたみちのあつまりで。だったら、どれもけさずに、ぜんぶかずにいれてのこしておけばいい。そのほうが、たぶんせいかくなんです。",
+              "english": "That's right. This map isn't the restoration of one correct road. It's a gathering of roads that many people walked and each remembered. So we erase none of them, keep them all counted. That's probably the more accurate version, actually."
+            },
+            "n2": {
+              "japanese": "そうですね。この地図は、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれの覚え方をした道の集まりなんです。だったら、どれも消さずに、全部を数に入れて残しておけばいい。そのほうが、記録としてはむしろ正確なんだと思います。",
+              "reading": "そうですね。このちずは、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのおぼえかたをしたみちのあつまりなんです。だったら、どれもけさずに、ぜんぶをかずにいれてのこしておけばいい。そのほうが、きろくとしてはむしろせいかくなんだとおもいます。",
+              "english": "That's right. This map isn't a restored single correct road. It's a gathering of roads that many people walked and each remembered their own way. So we erase none of them and keep them all counted. As a record, that's actually the more accurate one, I think."
+            },
+            "n1": {
+              "japanese": "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれのやり方で覚えていた道の、その集まりなんです。だったら、どれか一つに直すより、全部を数に入れて、並べたまま残しておくほうがいい。そのほうが、記録としてはかえって正確なんだと思います。一本にした瞬間に、こぼれるものがあるので。",
+              "reading": "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのやりかたでおぼえていたみちの、そのあつまりなんです。だったら、どれかひとつになおすより、ぜんぶをかずにいれて、ならべたままのこしておくほうがいい。そのほうが、きろくとしてはかえってせいかくなんだとおもいます。いっぽんにしたしゅんかんに、こぼれるものがあるので。",
+              "english": "That's right. This map isn't the restoration of one correct road. It's the gathering of roads that many people walked and remembered in their own ways. So rather than fixing it to one, it's better to keep them all counted and laid side by side. As a record, that's the more accurate version, I think. The moment you make it one line, something spills out."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-from-memory:alex-writes-it-in",
+          "beatId": "beat:map-from-memory:changed-action",
+          "speakerId": "alex",
+          "intent": "Read the finalized record back as a clean sequence that now carries the plural stretch, saying just enough and no more.",
+          "attentionTarget": "the label as he writes the order into it",
+          "variants": {
+            "n5": {
+              "japanese": "じゃあ、書きます。橋、市場。ここから川までは、三つの記憶。それから、あかりの店。これで、全部、入りました。",
+              "reading": "じゃあ、かきます。はし、いちば。ここからかわまでは、みっつのきおく。それから、あかりのみせ。これで、ぜんぶ、はいりました。",
+              "english": "Okay, I'll write it. Bridge, market. From here to the river, three memories. Then, the lantern shop. There — everything's in."
+            },
+            "n4": {
+              "japanese": "じゃあ、書きますね。橋、市場。そこから川までは「三通りの記憶」。そのあと、あかりの店。これで、一本も消さずに全部入りました。",
+              "reading": "じゃあ、かきますね。はし、いちば。そこからかわまでは「みとおりのきおく」。そのあと、あかりのみせ。これで、いっぽんもけさずにぜんぶはいりました。",
+              "english": "Okay, I'll write it. Bridge, market. From there to the river, \"three versions of the memory.\" After that, the lantern shop. There — all in, without erasing a single one."
+            },
+            "n3": {
+              "japanese": "じゃあ、順番に書いていきますね。橋、市場。そこから川までの区間は「三通りの記憶」として。そのあとが、あかりの店。これで、どれも消さずに全部おさまりました。",
+              "reading": "じゃあ、じゅんばんにかいていきますね。はし、いちば。そこからかわまでのくかんは「みとおりのきおく」として。そのあとが、あかりのみせ。これで、どれもけさずにぜんぶおさまりました。",
+              "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river as \"three versions of the memory.\" After that, the lantern shop. There — all of it fits, without erasing any."
+            },
+            "n2": {
+              "japanese": "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と。そのあとに、あかりの店。これで、一本も削らずに全部おさまりました。",
+              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」と。そのあとに、あかりのみせ。これで、いっぽんもけずらずにぜんぶおさまりました。",
+              "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river as \"remembered three ways.\" After that, the lantern shop. There — it all fits, without shaving off a single one."
+            },
+            "n1": {
+              "japanese": "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と添えて。そのあとが、あかりの店。これで、一本も削らずに、ぜんぶそのままおさまりました。まあ、順番としては、いつもより一行ぶん長いだけです。",
+              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」とそえて。そのあとが、あかりのみせ。これで、いっぽんもけずらずに、ぜんぶそのままおさまりました。まあ、じゅんばんとしては、いつもよりいちぎょうぶんながいだけです。",
+              "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river with \"remembered three ways\" added. After that, the lantern shop. There — not one shaved off, all of it fits as is. Well — as a sequence, it's just one line longer than usual."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-from-memory:label-reads-plural",
+          "beatId": "beat:map-from-memory:exit-image",
+          "cueId": "cue:label-plural-none-erased",
+          "description": "The finished label carries the shared stretch as one line and the diverging stretch marked as remembered several ways. Three faint routes stay on the backing, counted, none erased, the old fold-crease still visible beneath them."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:useful-number-notebook",
+      "state": "echo",
+      "ownerIds": [
+        "sophie",
+        "rose",
+        "henry"
+      ],
+      "meaningNow": "Overlapping accounts are counted and kept side by side without voting one into being the single truth.",
+      "priorUse": {
+        "packageId": "s1e14-two-answers",
+        "sceneId": "scene:two-answers:contextual-trial",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply keeps a short list of the three remembered routes instead of erasing two of them, and treats the list as the record."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:map-from-memory:plural-record",
+      "kind": "story",
+      "description": "The rebuilt route is recorded as several counted accounts rather than one restored copy; the diverging stretch is labelled as remembered several ways and nothing is erased to force agreement."
+    },
+    {
+      "id": "outcome:map-from-memory:rose-arrival",
+      "kind": "bond",
+      "castId": "rose",
+      "chapter": 20,
+      "beat": "arrival",
+      "description": "Rose is introduced through grounded observation of the paper's wear widening into a long-view judgement; her attention pattern of reading what the material supports and keeping several memories countable is established for later evidence work."
+    },
+    {
+      "id": "outcome:map-from-memory:jodi-contribution",
+      "kind": "bond",
+      "castId": "jodi",
+      "chapter": 20,
+      "beat": "contribution",
+      "description": "Jodi's habit of holding remembered and present detail together changes the shared record: attributing each account to whose memory and from when keeps the routes plural instead of collapsed."
+    },
+    {
+      "id": "outcome:map-from-memory:alex-contribution",
+      "kind": "bond",
+      "castId": "alex",
+      "chapter": 20,
+      "beat": "contribution",
+      "description": "Alex's understated sequencing competence carries the multi-account record onto a label built for one line, fitting the plural stretch cleanly without dramatizing the change."
+    },
+    {
+      "id": "outcome:map-from-memory:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l17",
+      "description": "Prepare-sequence-and-compare-overlapping-accounts evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:jodi-remembers-the-other-order"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-compare-step"
+    ],
+    "withdrawnContentFallback": "Use the same prepare-sequence-and-compare evidence with neutral nameplates and a generic group that keeps three remembered routes counted on a label after a restoration attempt."
+  }
+}

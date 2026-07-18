@@ -1,0 +1,629 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e18-the-memory-card-museum",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 18,
+  "title": {
+    "en": "The Memory Card Museum",
+    "ja": "記おくカードびじゅつかん"
+  },
+  "synopsis": "Stasi turns her wall of hand-drawn kanji cards into a little flashcard program, and her funniest card reads 味 as a mouth with a tree in it. Tom's speed round races past the truth and Shin's component evidence shows the part is 未, not 木. The learner rebuilds the card as a program that keeps Stasi's vivid picture while a button reveals the real part, and Tom redesigns his game so fast can still be right.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "stasi",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#stasi",
+        "docs/academy/story/CAST-AND-CONSENT.md#stasi"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "visual preference treated as factual memory",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "shin",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shin",
+        "docs/academy/story/CAST-AND-CONSENT.md#shin"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "component expertise framed as certainty without visible uncertainty"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed game IP or proprietary challenge framing",
+        "the limit framed as a character flaw rather than a redesigned game"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e17-catwalk-clue",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l09",
+            "l2-l10",
+            "l2-l11"
+          ],
+          "function": "describe-a-wanted-program-and-button-condition-then-revise-a-kanji-claim-against-evidence"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-eighteen-first-meeting-stasi"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:memory-card-museum:the-funniest-card",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Stasi through her card museum and her funniest card, and hit the moment the joke turns out to name the wrong component.",
+      "dramaticQuestion": "Can the class correct a memorable card without turning it into a plain one?",
+      "learnerNeed": "A revision task where component evidence has to change a kanji claim while the vivid picture is protected.",
+      "curriculum": {
+        "sectionId": "revise-a-card-against-evidence",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:memory-card-museum:museum-wall",
+          "beatId": "beat:memory-card-museum:arrival-image",
+          "cueId": "cue:classroom-wall-of-drawn-cards",
+          "description": "The classroom's side board has become a small museum: rows of hand-drawn kanji memory cards pinned in a grid, each with its own picture. In front of one card — 味, drawn as a wide-open mouth clamped over a leafy branch — a small knot of people has gathered. The projector shows an empty flashcard shell, waiting to be filled."
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:stasi-welcome",
+          "beatId": "beat:memory-card-museum:host-want",
+          "speakerId": "stasi",
+          "intent": "Welcome the class to her card museum, show off her favorite card's vivid mouth-and-tree picture, and say she wants to turn the whole wall into a flashcard program.",
+          "attentionTarget": "the 味 card and the empty program shell on the projector",
+          "variants": {
+            "n5": {
+              "japanese": "みなさん、わたしの「カードびじゅつかん」へ ようこそ。これが いちばん すきな カードです。「味」は、口に 木を 入れて あじみする え。おもしろいでしょう。この かべを、プログラムに したいんです。",
+              "reading": "みなさん、わたしの「カードびじゅつかん」へ ようこそ。これが いちばん すきな カードです。「あじ」は、くちに きを いれて あじみする え。おもしろいでしょう。この かべを、プログラムに したいんです。",
+              "english": "Everyone, welcome to my \"card museum.\" This is my favorite card. \"味\" — a mouth with a tree stuck in it, tasting away. Fun, right? I want to turn this wall into a program."
+            },
+            "n4": {
+              "japanese": "みなさん、わたしの「カードびじゅつかん」へ ようこそ。これ、いちばんの お気に入りなんです。「味」って、口に 木を くわえて あじみしてる え でしょう。わすれないと おもいませんか。この かべ、まるごと フラッシュカードの プログラムに したくて。",
+              "reading": "みなさん、わたしの「カードびじゅつかん」へ ようこそ。これ、いちばんの おきにいりなんです。「あじ」って、くちに きを くわえて あじみしてる え でしょう。わすれないと おもいませんか。この かべ、まるごと フラッシュカードの プログラムに したくて。",
+              "english": "Everyone, welcome to my \"card museum.\" This one's my absolute favorite. \"味\" — see, it's a mouth holding a tree and tasting it. Unforgettable, don't you think? I want to turn this whole wall into a flashcard program."
+            },
+            "n3": {
+              "japanese": "ようこそ、わたしの「カードびじゅつかん」へ。これがね、いちばんの お気に入りで。「味」は、口に 木を くわえて あじを みてる え、って おぼえるんです。一回 見たら わすれないでしょう。この かべ ぜんぶ、フラッシュカードの プログラムに して しまいたくて。",
+              "reading": "ようこそ、わたしの「カードびじゅつかん」へ。これがね、いちばんの おきにいりで。「あじ」は、くちに きを くわえて あじを みてる え、って おぼえるんです。いっかい みたら わすれないでしょう。この かべ ぜんぶ、フラッシュカードの プログラムに して しまいたくて。",
+              "english": "Welcome to my \"card museum.\" This is the favorite. \"味\" — I remember it as a mouth holding a tree and checking the taste. See it once and you won't forget it. I want to turn this whole wall into a flashcard program."
+            },
+            "n2": {
+              "japanese": "ようこそ、わたしの「カードびじゅつかん」へ。これが なんといっても 一おしで。「味」は、口に 木を くわえて あじを たしかめてる え だと おぼえるんですよ。一度 見たら、そう そう わすれられない でしょう。この かべを まるごと、フラッシュカードの プログラムに して しまいたいんです。",
+              "reading": "ようこそ、わたしの「カードびじゅつかん」へ。これが なんといっても いちおしで。「あじ」は、くちに きを くわえて あじを たしかめてる え だと おぼえるんですよ。いちど みたら、そう そう わすれられない でしょう。この かべを まるごと、フラッシュカードの プログラムに して しまいたいんです。",
+              "english": "Welcome to my \"card museum.\" This is, above all, my top pick. \"味\" — you remember it as a mouth holding a tree, checking the flavor. See it once and you're not likely to forget it. I want to turn this whole wall, all of it, into a flashcard program."
+            },
+            "n1": {
+              "japanese": "ようこそ、わたしの「カードびじゅつかん」へ。これがまあ、なんといっても 一おしでしてね。「味」は、口に 木を くわえて あじを たしかめている え、と おぼえるわけです。一度 目に すれば、そうそう わすれられるもの じゃ ない でしょう。この かべを そっくり そのまま、フラッシュカードの プログラムに 仕立てて しまいたくて。",
+              "reading": "ようこそ、わたしの「カードびじゅつかん」へ。これがまあ、なんといっても いちおしでしてね。「あじ」は、くちに きを くわえて あじを たしかめている え、と おぼえるわけです。いちど めに すれば、そうそう わすれられるもの じゃ ない でしょう。この かべを そっくり そのまま、フラッシュカードの プログラムに したてて しまいたくて。",
+              "english": "Welcome to my \"card museum.\" This one, I'll say, is far and away my pick of the lot. \"味\" — you learn it as a mouth holding a tree, checking the flavor. Once you've laid eyes on it, it's not the sort of thing you easily forget. I'd love to work this whole wall, exactly as it is, into a flashcard program."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:tom-speed-round",
+          "beatId": "beat:memory-card-museum:obstruction",
+          "speakerId": "tom",
+          "intent": "Turn the wall into a fast speed round, race to name the parts, and confidently blurt the wrong component before moving on.",
+          "attentionTarget": "the timer and the next card, not the strokes he just named",
+          "variants": {
+            "n5": {
+              "japanese": "よし、はやおし ゲーム しよう。ぶひんを 早く 言った 人の かち。「味」は…口と 木!はい、つぎ!",
+              "reading": "よし、はやおし ゲーム しよう。ぶひんを はやく いった ひとの かち。「あじ」は…くちと き!はい、つぎ!",
+              "english": "Okay, speed round! First to shout the parts wins. \"味\" is... mouth and tree! Next!"
+            },
+            "n4": {
+              "japanese": "よし、はやおし ゲーム いこう。ぶひんを 早く 言えた 人が かち ね。「味」は…口と、木!よし、つぎ いこう、つぎ!",
+              "reading": "よし、はやおし ゲーム いこう。ぶひんを はやく いえた ひとが かち ね。「あじ」は…くちと、き!よし、つぎ いこう、つぎ!",
+              "english": "Right, let's do a speed round. First one to call the parts wins. \"味\" is... mouth and — tree! Okay, next, next!"
+            },
+            "n3": {
+              "japanese": "よし、はやおし ゲーム で いこう。ぶひんを 早く 言えた ほうが かち。「味」なら…口と、木!はい 正かい、つぎ の カード!",
+              "reading": "よし、はやおし ゲーム で いこう。ぶひんを はやく いえた ほうが かち。「あじ」なら…くちと、き!はい せいかい、つぎ の カード!",
+              "english": "Alright, let's make it a speed round. Whoever calls the parts fastest wins. \"味\"? Mouth and — tree! Correct, next card!"
+            },
+            "n2": {
+              "japanese": "よし、ここは はやおし で いこう。ぶひんを 先に 言えた ほうの 勝ち ね。「味」なら…口と、木!ほら 正かい、はい つぎ いこう!",
+              "reading": "よし、ここは はやおし で いこう。ぶひんを さきに いえた ほうの かち ね。「あじ」なら…くちと、き!ほら せいかい、はい つぎ いこう!",
+              "english": "Okay, let's turn this into a buzzer round. First to name the parts takes it. \"味\"? Mouth and — tree! There, correct, next one!"
+            },
+            "n1": {
+              "japanese": "よし、ここは ひとつ はやおし で いこう じゃ ないか。ぶひんを 先に 言えた ほうの 勝ち、と。「味」なら…口と、木!ほら 正かい、はい どんどん いこう!",
+              "reading": "よし、ここは ひとつ はやおし で いこう じゃ ないか。ぶひんを さきに いえた ほうの かち、と。「あじ」なら…くちと、き!ほら せいかい、はい どんどん いこう!",
+              "english": "Right, let's make this a buzzer round, shall we. First to name the parts wins — there we go. \"味\"? Mouth and — tree! See, correct, come on, keep it moving!"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:shin-decomposes",
+          "beatId": "beat:memory-card-museum:contribution",
+          "speakerId": "shin",
+          "intent": "Stop the race, decompose the character by its actual strokes, and show the part is 未 (not 木) — carrying both a meaning and the reading.",
+          "attentionTarget": "the extra top stroke that separates 未 from 木",
+          "variants": {
+            "n5": {
+              "japanese": "トムさん、ちょっと まって。右がわは 木じゃ ないですよ。上に せんが 一本 おおい。これは「未」。「まだ」って いみで、よみは「み」なんです。だから、おとも 合ってる。",
+              "reading": "トムさん、ちょっと まって。みぎがわは きじゃ ないですよ。うえに せんが いっぽん おおい。これは「み」。「まだ」って いみで、よみは「み」なんです。だから、おとも あってる。",
+              "english": "Tom, wait a second. The right side isn't \"tree.\" There's one extra stroke on top. It's \"未\" — it means \"not yet,\" and it's read \"mi.\" So the sound matches too."
+            },
+            "n4": {
+              "japanese": "トムさん、ちょっと まって ください。右がわ、木 じゃ なさそうです。上に せんが 一本 多いでしょう。これ、「未」なんですよ。「まだ」って いみで、よみも「み」。だから 「味」の おと とも ちゃんと 合ってる。",
+              "reading": "トムさん、ちょっと まって ください。みぎがわ、き じゃ なさそうです。うえに せんが いっぽん おおいでしょう。これ、「み」なんですよ。「まだ」って いみで、よみも「み」。だから 「あじ」の おと とも ちゃんと あってる。",
+              "english": "Tom, hold on a moment. The right side doesn't look like \"tree.\" There's an extra stroke up top, see. This is \"未.\" It means \"not yet,\" and it's read \"mi\" too — so it actually matches the sound of \"味.\""
+            },
+            "n3": {
+              "japanese": "トムさん、ちょっと まって ください。右がわ、木 とは ちがう みたいで。上の せんが 一本 多いんですよ。これは たぶん「未」。「まだ」の いみで、よみも「み」。だから おとの てがかり にも なってる んです。",
+              "reading": "トムさん、ちょっと まって ください。みぎがわ、き とは ちがう みたいで。うえの せんが いっぽん おおいんですよ。これは たぶん「み」。「まだ」の いみで、よみも「み」。だから おとの てがかり にも なってる んです。",
+              "english": "Tom, hang on a second. The right side seems different from \"tree.\" There's one extra stroke on top. This is probably \"未\" — meaning \"not yet,\" and read \"mi\" as well, so it's actually a clue to the sound."
+            },
+            "n2": {
+              "japanese": "トムさん、すこし まって ください。右がわ、木 とは べつ みたいなんですよ。上の せんが 一本 多い でしょう。おそらく これ、「未」で。「まだ」の いみ ですし、よみも「み」。つまり、音の てがかり まで かねてる わけです。",
+              "reading": "トムさん、すこし まって ください。みぎがわ、き とは べつ みたいなんですよ。うえの せんが いっぽん おおい でしょう。おそらく これ、「み」で。「まだ」の いみ ですし、よみも「み」。つまり、おとの てがかり まで かねてる わけです。",
+              "english": "Tom, give me a second. The right side looks like something other than \"tree.\" One extra stroke on top, see. Most likely it's \"未\" — it means \"not yet,\" and it reads \"mi,\" which means it doubles as a clue to the sound."
+            },
+            "n1": {
+              "japanese": "トムさん、すこし まって ください。右がわ、どうも 木 とは べつ もの のようで。上の せんが 一本、よけいに 入ってる でしょう。おそらく これは「未」。「まだ」の いみ で、しかも よみは「み」。ようは、音の てがかり まで かねている わけなんです。",
+              "reading": "トムさん、すこし まって ください。みぎがわ、どうも き とは べつ もの のようで。うえの せんが いっぽん、よけいに はいってる でしょう。おそらく これは「み」。「まだ」の いみ で、しかも よみは「み」。ようは、おとの てがかり まで かねている わけなんです。",
+              "english": "Tom, give me a moment. The right side really does seem to be something other than \"tree\" — there's one extra stroke worked in at the top, see. In all likelihood it's \"未\": it means \"not yet,\" and moreover it reads \"mi.\" In short, it's doubling as a clue to the sound as well."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:stasi-worries",
+          "beatId": "beat:memory-card-museum:pressure",
+          "speakerId": "stasi",
+          "intent": "Accept the correction reluctantly, and name the real worry: that the accurate version will lose what made the card memorable.",
+          "attentionTarget": "the funny picture she does not want to give up",
+          "variants": {
+            "n5": {
+              "japanese": "え、木じゃ ないの?…でも、木のほうが おもしろい。「未」だと、ふつうに なっちゃう。ただしくても、つまらない カードは いや。",
+              "reading": "え、きじゃ ないの?…でも、きのほうが おもしろい。「み」だと、ふつうに なっちゃう。ただしくても、つまらない カードは いや。",
+              "english": "Huh, it's not \"tree\"? ...But \"tree\" is funnier. With \"not-yet\" it just turns ordinary. I don't want a card that's right but boring."
+            },
+            "n4": {
+              "japanese": "え、木 じゃ なかったの?…でも、木の ほうが ぜったい おもしろい。「未」に すると、ふつうの カードに なっちゃう。ただしくても、つまらなく なる のは いや なんです。",
+              "reading": "え、き じゃ なかったの?…でも、きの ほうが ぜったい おもしろい。「み」に すると、ふつうの カードに なっちゃう。ただしくても、つまらなく なる のは いや なんです。",
+              "english": "Wait, it wasn't \"tree\"? ...But \"tree\" is definitely funnier. Switch to \"not-yet\" and it becomes a plain card. Even if it's correct, I don't want it turning boring."
+            },
+            "n3": {
+              "japanese": "え、木 じゃ なかったんだ。…でも 正直、木の ほうが おもしろい んですよ。「未」に なおすと、ふつうの カードに なっちゃう。ただしいのは わかる。でも、つまらなく なる の だけは いや。",
+              "reading": "え、き じゃ なかったんだ。…でも しょうじき、きの ほうが おもしろい んですよ。「み」に なおすと、ふつうの カードに なっちゃう。ただしいのは わかる。でも、つまらなく なる の だけは いや。",
+              "english": "Oh, so it wasn't \"tree.\" ...But honestly, \"tree\" is the funnier one. Fix it to \"not-yet\" and it becomes just an ordinary card. I get that it's correct. But the one thing I won't have is it getting boring."
+            },
+            "n2": {
+              "japanese": "え、木 じゃ なかった わけね。…でも 正直 言うと、木の ほうが ずっと おもしろい んです。「未」に なおした とたん、ただの カードに なっちゃう。正しいのは 認めます。でも、つまらなく なる の だけは、どうしても いや。",
+              "reading": "え、き じゃ なかった わけね。…でも しょうじき いうと、きの ほうが ずっと おもしろい んです。「み」に なおした とたん、ただの カードに なっちゃう。ただしいのは みとめます。でも、つまらなく なる の だけは、どうしても いや。",
+              "english": "Ah, so it wasn't \"tree\" after all. ...But honestly, \"tree\" is far funnier. The moment I fix it to \"not-yet,\" it becomes just an ordinary card. I'll grant that it's correct. But the one thing I really can't stand is it becoming boring."
+            },
+            "n1": {
+              "japanese": "なんだ、木 じゃ なかった のね。…でも 正直に 言えば、木の ほうが よほど おもしろい んですよ。「未」に なおした 途端、なんの へんてつも ない カードに なって しまう。正しい のは 認めます。認めますけど、つまらなく なる、それ だけは どうしても のみこめない。",
+              "reading": "なんだ、き じゃ なかった のね。…でも しょうじきに いえば、きの ほうが よほど おもしろい んですよ。「み」に なおした とたん、なんの へんてつも ない カードに なって しまう。ただしい のは みとめます。みとめますけど、つまらなく なる、それ だけは どうしても のみこめない。",
+              "english": "Well, so it wasn't \"tree.\" ...But honestly, \"tree\" is far and away the more interesting one. The instant I correct it to \"not-yet,\" it turns into a card with nothing to it. I'll grant it's correct — I will — but it becoming boring, that alone is something I just can't swallow."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:memory-card-museum:two-strokes",
+          "beatId": "beat:memory-card-museum:input-surface",
+          "cueId": "cue:projector-木-vs-未-and-part-button",
+          "description": "On the projector the two shapes sit side by side, 木 and 未, with the extra top stroke of 未 circled. Below them the empty program shell now shows a single labelled control: a part button marked ぶひん, waiting for what it should reveal."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:memory-card-museum:before-revise",
+          "beatId": "beat:memory-card-museum:revise-attempt",
+          "resume": "The false part is exposed and the picture is still on the wall. The learner steps in to rebuild the card as a program that keeps the image and reveals the true part."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:memory-card-museum:revise-the-card",
+          "beatId": "beat:memory-card-museum:revise-attempt",
+          "hook": {
+            "packageId": "l2-l10",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e18-revise-card-against-evidence"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e18-revise-card-against-evidence"
+          },
+          "resumeContext": "Component evidence says the part is 未, not 木. The learner describes the flashcard program they want, states the button condition (press the part button and the true component appears), and states the changed plan aloud: keep Stasi's picture, correct the part.",
+          "onReady": "checkpoint:memory-card-museum:after-revise",
+          "onRepair": "node:memory-card-museum:card-repair",
+          "onDefer": "checkpoint:memory-card-museum:before-revise"
+        },
+        {
+          "kind": "stage",
+          "id": "node:memory-card-museum:card-repair",
+          "beatId": "beat:memory-card-museum:revise-repair",
+          "cueId": "cue:one-part-line-returns",
+          "description": "Only the sentence about the button and the changed part returns for another pass. The picture and the earlier welcome stay exactly where they were."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:memory-card-museum:after-revise",
+          "beatId": "beat:memory-card-museum:revise-response",
+          "resume": "The program is described: picture kept, button reveals the real part. Stasi looks at the draft the class has built from her card."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:memory-card-museum:funny-and-true"
+      }
+    },
+    {
+      "id": "scene:memory-card-museum:funny-and-true",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let Stasi rebuild her card so it stays vivid and becomes accurate, and let Tom's speed cost land as a redesigned game rather than a scolding.",
+      "dramaticQuestion": "Can accuracy and expression share the same card, and can a fast challenge hold both?",
+      "learnerNeed": "A stance choice about how to back a corrected card and a challenge that outran itself.",
+      "curriculum": {
+        "sectionId": "hold-accuracy-and-expression",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:memory-card-museum:revised-draft",
+          "beatId": "beat:memory-card-museum:regroup-image",
+          "cueId": "cue:draft-card-mouth-unripe-fruit",
+          "description": "On the projector the revised card draft has appeared: the same wide-open mouth, but now clamped over a hard green fruit, with 未 labelled beside it and the ぶひん button sitting underneath, ready to press."
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:stasi-keeps-vivid",
+          "beatId": "beat:memory-card-museum:repair",
+          "speakerId": "stasi",
+          "intent": "Take the correction and rebuild the card in her own vivid style — dropping the tree, keeping the mouth, and making 未 into a picture of tasting something not yet ripe.",
+          "attentionTarget": "the mouth-and-unripe-fruit picture that keeps the joke while fixing the part",
+          "variants": {
+            "n5": {
+              "japanese": "わかった。木は やめる。でも、え は のこす。口が、まだ じゅくして ない くだものを かじってる え。「未」は「まだ」だから、「まだ すっぱい!」。これで、おもしろくて、ただしい。",
+              "reading": "わかった。きは やめる。でも、え は のこす。くちが、まだ じゅくして ない くだものを かじってる え。「み」は「まだ」だから、「まだ すっぱい!」。これで、おもしろくて、ただしい。",
+              "english": "Okay. The tree goes. But the picture stays. A mouth biting a fruit that isn't ripe yet. \"未\" means \"not yet,\" so — \"still sour!\" There: funny and correct."
+            },
+            "n4": {
+              "japanese": "わかりました。木は やめます。でも、え は のこす。口が、まだ じゅくして ない くだものを かじってる え に する。「未」は「まだ」だから、「まだ すっぱい!」って。これなら、おもしろくて、しかも ただしい。",
+              "reading": "わかりました。きは やめます。でも、え は のこす。くちが、まだ じゅくして ない くだものを かじってる え に する。「み」は「まだ」だから、「まだ すっぱい!」って。これなら、おもしろくて、しかも ただしい。",
+              "english": "Alright. I'll drop the tree. But the picture stays. I'll make it a mouth biting a fruit that isn't ripe yet. \"未\" is \"not yet,\" so — \"still sour!\" That way it's funny and correct too."
+            },
+            "n3": {
+              "japanese": "わかりました。木は あきらめます。でも、え は のこす んです。口が、まだ じゅくして ない くだものを かじってる ところ に する。「未」は「まだ」でしょう。だから「まだ すっぱい!」。これなら、おもしろい まま、ちゃんと ただしい。",
+              "reading": "わかりました。きは あきらめます。でも、え は のこす んです。くちが、まだ じゅくして ない くだものを かじってる ところ に する。「み」は「まだ」でしょう。だから「まだ すっぱい!」。これなら、おもしろい まま、ちゃんと ただしい。",
+              "english": "Alright. I'll give up the tree. But the picture — that stays. I'll make it a mouth caught biting a fruit that's not ripe yet. \"未\" means \"not yet,\" right? So — \"still sour!\" That way it stays funny and it's properly correct."
+            },
+            "n2": {
+              "japanese": "わかりました。木は 手ばなします。でも、え だけは ゆずらない。口が、まだ じゅくして ない くだものに かじりついてる ところ に する んです。「未」は「まだ」でしょう。だから「まだ すっぱい!」。これなら、おもしろさ は そのまま、しかも 中身は 正しい。",
+              "reading": "わかりました。きは てばなします。でも、え だけは ゆずらない。くちが、まだ じゅくして ない くだものに かじりついてる ところ に する んです。「み」は「まだ」でしょう。だから「まだ すっぱい!」。これなら、おもしろさ は そのまま、しかも なかみは ただしい。",
+              "english": "Alright. I'll let go of the tree. But the picture is the one thing I won't concede. I'll make it a mouth clamped onto a fruit that isn't ripe yet. \"未\" means \"not yet,\" right? So — \"still sour!\" That way the fun stays exactly as it was, and the content is correct."
+            },
+            "n1": {
+              "japanese": "わかりました。木 は 手ばなしましょう。でも、え だけは 譲りません。口が、まだ 熟して いない くだものに かじりついている、あの 場面 は のこす。「未」は つまり「まだ」でしょう。だから「まだ すっぱい!」で いける。これなら、おもしろさ は 一ミリも けずらずに、中身 だけ 正しく できる。",
+              "reading": "わかりました。き は てばなしましょう。でも、え だけは ゆずりません。くちが、まだ じゅくして いない くだものに かじりついている、あの ばめん は のこす。「み」は つまり「まだ」でしょう。だから「まだ すっぱい!」で いける。これなら、おもしろさ は いちミリも けずらずに、なかみ だけ ただしく できる。",
+              "english": "Alright. The tree, I'll let go of. But the picture is the one thing I won't surrender: that scene of a mouth clamped onto a fruit not yet ripe — that stays. \"未\" comes down to \"not yet,\" doesn't it. So \"still sour!\" works. This way I shave off not one millimetre of the fun and still get the content right."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:memory-card-museum:how-to-hold-both",
+          "beatId": "beat:memory-card-museum:stance",
+          "question": "How do you back the corrected card?",
+          "options": [
+            {
+              "id": "option:memory-card-museum:name-the-program",
+              "action": "Lock in the card as a program: state the button condition and the changed plan — picture kept, real part revealed on press.",
+              "japaneseByBand": {
+                "n5": "このカードで いきましょう。ボタンを おすと、「未」が でる。え は そのまま で。",
+                "n4": "このカードで いきましょう。ボタンを おすと、ほんとうの ぶひん「未」が でる。え は そのままに して。",
+                "n3": "このカードで いきましょう。ボタンを おすと、ほんとうの ぶひん、「未」が 出る。え は のこした まま で。",
+                "n2": "このカードで 決めましょう。ボタンを おすと、正しい ぶひん「未」が 出る。え は のこした まま に して。",
+                "n1": "このカードで 行きましょう。ボタンを おせば、正しい ぶひん「未」が 出る ように して、え は そのまま のこす。"
+              },
+              "records": [
+                "stance",
+                "production"
+              ],
+              "next": "checkpoint:memory-card-museum:before-tom-answers"
+            },
+            {
+              "id": "option:memory-card-museum:change-the-game",
+              "action": "Turn to Tom and propose a rule change so the challenge stays fun without racing past the truth: check first, then race.",
+              "japaneseByBand": {
+                "n5": "トムさん、こんどは、ぶひんを たしかめてから きょうそうしませんか。",
+                "n4": "トムさん、つぎは、ぶひんを たしかめてから きょうそう しませんか。そのほうが、はやくても まちがえない。",
+                "n3": "トムさん、つぎは、ぶひんを たしかめて から きょうそう しませんか。それなら、はやくても まちがえずに すむ。",
+                "n2": "トムさん、つぎ は、ぶひんを たしかめて から きょうそう する のは どうですか。それなら、はやさ も 正確さ も 両りつ する。",
+                "n1": "トムさん、つぎ は、ぶひんを 見きわめて から きょうそう する、と いうのは どうでしょう。それなら、はやさ を ころさず に 正確さ も たもてる。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:memory-card-museum:before-tom-answers"
+            }
+          ],
+          "convergence": "checkpoint:memory-card-museum:before-tom-answers"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:memory-card-museum:before-tom-answers",
+          "beatId": "beat:memory-card-museum:limit-attempt",
+          "resume": "The learner has backed the corrected card. Tom looks at the wrong part he raced into and decides what to do about his own game."
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:tom-limit",
+          "beatId": "beat:memory-card-museum:limit",
+          "speakerId": "tom",
+          "intent": "Own that his speed produced the wrong answer, and redesign the challenge so accuracy comes before the race instead of dropping the game.",
+          "attentionTarget": "his own rule, which let speed beat checking",
+          "variants": {
+            "n5": {
+              "japanese": "あー、ぼくの まけ。早く 言いたくて、まちがえた。スピードだけ 追ってた。じゃあ、ルール かえよう。まず たしかめて、それから きょうそう。それなら、はやくても ただしい。",
+              "reading": "あー、ぼくの まけ。はやく いいたくて、まちがえた。スピードだけ おってた。じゃあ、ルール かえよう。まず たしかめて、それから きょうそう。それなら、はやくても ただしい。",
+              "english": "Ah, I lose. I wanted to answer fast and got it wrong. I was only chasing speed. Okay — let's change the rule. Check first, then race. That way fast can still be right."
+            },
+            "n4": {
+              "japanese": "あー、ぼくの まけ です。早く 言いたくて、木 に して しまった。スピードばかり 追ってた んだな。じゃあ、ルール を かえよう。まず たしかめて、それから きょうそう。それなら、はやくても まちがえない。",
+              "reading": "あー、ぼくの まけ です。はやく いいたくて、き に して しまった。スピードばかり おってた んだな。じゃあ、ルール を かえよう。まず たしかめて、それから きょうそう。それなら、はやくても まちがえない。",
+              "english": "Ah, I lose. I was so keen to answer fast I went and said \"tree.\" I was chasing nothing but speed. Okay — let's change the rule. Check first, then race. That way fast doesn't mean wrong."
+            },
+            "n3": {
+              "japanese": "あー、これは ぼくの まけ だ。早く 言いたい あまり、木 に して しまった。スピードばかり 追いかけてた んだよな。じゃあ ルールを かえよう。まず たしかめて、それから きょうそう。そうすれば、はやくても ちゃんと 合う。",
+              "reading": "あー、これは ぼくの まけ だ。はやく いいたい あまり、き に して しまった。スピードばかり おいかけてた んだよな。じゃあ ルールを かえよう。まず たしかめて、それから きょうそう。そうすれば、はやくても ちゃんと あう。",
+              "english": "Ah, this one's mine to lose. So desperate to answer fast that I said \"tree.\" I'd been chasing nothing but speed. So — let's change the rule. Check first, then race. Do that, and fast still comes out right."
+            },
+            "n2": {
+              "japanese": "あー、これは 完全に ぼくの まけ だ。早く 言いたい あまり、木 と 口ばしって しまった。スピードばかり 追いかけてた わけだ。なら、ルールを 組みなおそう。まず たしかめて、それから きょうそう。そうすれば、はやさ を 落とさず に 正確さ も 取れる。",
+              "reading": "あー、これは かんぜんに ぼくの まけ だ。はやく いいたい あまり、き と くちばしって しまった。スピードばかり おいかけてた わけだ。なら、ルールを くみなおそう。まず たしかめて、それから きょうそう。そうすれば、はやさ を おとさず に せいかくさ も とれる。",
+              "english": "Ah, this one's completely mine to lose. So keen to answer fast I blurted \"tree.\" I'd been chasing only speed, clearly. So let's rebuild the rule. Check first, then race. That way I keep the speed and still land accuracy."
+            },
+            "n1": {
+              "japanese": "あー、これは 文句なし に ぼくの まけ だ。早く 言いたい その 一心で、つい 木 と 口ばしって しまった。要するに スピード ばかり 追いかけてた わけだ。なら、ルール の ほうを 組みなおそう。まず たしかめて、それから きょうそう。そうすれば、はやさ を 殺さず に 正確さ まで 取りに いける。",
+              "reading": "あー、これは もんくなし に ぼくの まけ だ。はやく いいたい その いっしんで、つい き と くちばしって しまった。ようするに スピード ばかり おいかけてた わけだ。なら、ルール の ほうを くみなおそう。まず たしかめて、それから きょうそう。そうすれば、はやさ を ころさず に せいかくさ まで とりに いける。",
+              "english": "Ah, no argument — this one's mine to lose. In my one-track rush to answer fast, I blurted \"tree.\" Chasing pure speed, basically. So let's rebuild the rule itself: check first, then race. Do that, and I can keep the speed alive and go after accuracy too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:shin-confirms",
+          "beatId": "beat:memory-card-museum:confirm",
+          "speakerId": "shin",
+          "intent": "Confirm briefly that the revised card holds up on both the parts and the sound, and is still hard to forget.",
+          "attentionTarget": "the finished card, checked against its components",
+          "variants": {
+            "n5": {
+              "japanese": "いいと おもいます。この カードなら、ぶひんも おとも 合ってる。それに、まだ わすれにくい。",
+              "reading": "いいと おもいます。この カードなら、ぶひんも おとも あってる。それに、まだ わすれにくい。",
+              "english": "I think it's good. With this card, the parts and the sound both match. And it's still hard to forget."
+            },
+            "n4": {
+              "japanese": "いいと おもいます。この カードなら、ぶひん も 音 も ちゃんと 合ってる。しかも、あいかわらず わすれにくい ですし。",
+              "reading": "いいと おもいます。この カードなら、ぶひん も おと も ちゃんと あってる。しかも、あいかわらず わすれにくい ですし。",
+              "english": "I think it's good. With this card, the parts and the sound both line up. And it's as hard to forget as ever."
+            },
+            "n3": {
+              "japanese": "いいと おもいますよ。この カードなら、ぶひん も 音 も きちんと 合ってる。そのうえ、あいかわらず 記おくに のこりやすい。",
+              "reading": "いいと おもいますよ。この カードなら、ぶひん も おと も きちんと あってる。そのうえ、あいかわらず きおくに のこりやすい。",
+              "english": "I think it works. With this card, both the parts and the sound line up properly. And on top of that, it's as memorable as ever."
+            },
+            "n2": {
+              "japanese": "いいと おもいますよ。この カードなら、ぶひん も 音 も きちんと そろってる。そのうえ、あいかわらず 記おくに のこりやすい ときてる。",
+              "reading": "いいと おもいますよ。この カードなら、ぶひん も おと も きちんと そろってる。そのうえ、あいかわらず きおくに のこりやすい ときてる。",
+              "english": "I think it works. With this card, both the parts and the sound fall properly into place. And on top of that, it's still as memorable as ever."
+            },
+            "n1": {
+              "japanese": "いい と おもいますよ。この カードなら、ぶひん も 音 も 過不足なく そろってる。しかも、あいかわらず 記おくに のこりやすい と きてる わけです。",
+              "reading": "いい と おもいますよ。この カードなら、ぶひん も おと も かふそくなく そろってる。しかも、あいかわらず きおくに のこりやすい と きてる わけです。",
+              "english": "I do think it works. With this card, the parts and the sound both come together with nothing missing or spare — and, what's more, it's still every bit as memorable."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:memory-card-museum:stasi-closes",
+          "beatId": "beat:memory-card-museum:changed-line",
+          "speakerId": "stasi",
+          "intent": "Close the beat by claiming both at once: the first museum piece is funny and true, and both can stand together.",
+          "attentionTarget": "the finished first card of the museum",
+          "variants": {
+            "n5": {
+              "japanese": "よし。びじゅつかんの 一まいめ、かんせい。おもしろくて、ほんとう。りょうほう、いける じゃん。",
+              "reading": "よし。びじゅつかんの いちまいめ、かんせい。おもしろくて、ほんとう。りょうほう、いける じゃん。",
+              "english": "There. First piece in the museum, done. Funny and true. You can have both, see."
+            },
+            "n4": {
+              "japanese": "よし。びじゅつかんの 一まいめ、かんせい です。おもしろくて、そのうえ ほんとう。りょうほう、ちゃんと いける じゃない。",
+              "reading": "よし。びじゅつかんの いちまいめ、かんせい です。おもしろくて、そのうえ ほんとう。りょうほう、ちゃんと いける じゃない。",
+              "english": "There. First piece in the museum, finished. Funny and, on top of that, true. Turns out you can have both."
+            },
+            "n3": {
+              "japanese": "よし、と。びじゅつかんの 一まいめ、これで かんせい。おもしろくて、しかも ほんとう。ね、りょうほう ちゃんと いける もんでしょう。",
+              "reading": "よし、と。びじゅつかんの いちまいめ、これで かんせい。おもしろくて、しかも ほんとう。ね、りょうほう ちゃんと いける もんでしょう。",
+              "english": "There we go. First piece in the museum, and that's it finished. Funny, and true besides. See — you really can have both."
+            },
+            "n2": {
+              "japanese": "よし、と。びじゅつかんの 一まいめ、これで かんせい ね。おもしろくて、そのうえ ほんとう。ほら、その気に なれば りょうほう ちゃんと 立つ もの でしょう。",
+              "reading": "よし、と。びじゅつかんの いちまいめ、これで かんせい ね。おもしろくて、そのうえ ほんとう。ほら、そのきに なれば りょうほう ちゃんと たつ もの でしょう。",
+              "english": "There we are. First piece in the museum, finished with that. Funny, and true besides. See — put your mind to it and both hold up just fine."
+            },
+            "n1": {
+              "japanese": "よし、と。びじゅつかんの 一まいめ、これで かんせい ね。おもしろくて、そのうえ ちゃんと ほんとう。ほらね、その気 に なりさえ すれば、りょうほう 気もちよく 立つ もの なんですよ。",
+              "reading": "よし、と。びじゅつかんの いちまいめ、これで かんせい ね。おもしろくて、そのうえ ちゃんと ほんとう。ほらね、そのき に なりさえ すれば、りょうほう きもちよく たつ もの なんですよ。",
+              "english": "There we are. First piece in the museum, and that's it done. Funny, and properly true besides. See — the moment you actually set your mind to it, both stand up nicely together."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:memory-card-museum:first-piece",
+          "beatId": "beat:memory-card-museum:exit-image",
+          "cueId": "cue:card-pinned-back-with-button",
+          "description": "The revised card goes back on the wall as the museum's first finished piece — the mouth still mid-bite, 未 in the corner, the ぶひん button glowing on the projector beside it. The wrong stroke is gone; the joke is not."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:memory-card-museum:revised-card",
+      "kind": "story",
+      "description": "A memorable but false kanji mnemonic is corrected against component evidence and rebuilt as a program that keeps its vivid picture while a button reveals the true part 未."
+    },
+    {
+      "id": "outcome:memory-card-museum:stasi-arrival",
+      "kind": "bond",
+      "castId": "stasi",
+      "chapter": 18,
+      "beat": "arrival",
+      "description": "Stasi is introduced through direct visual preference and a vivid card, and revises a false claim against evidence without flattening her expression into a plain correction."
+    },
+    {
+      "id": "outcome:memory-card-museum:shin-contribution",
+      "kind": "bond",
+      "castId": "shin",
+      "chapter": 18,
+      "beat": "contribution",
+      "description": "Shin's component decomposition changes the shared card, establishing his stroke-and-reading evidence as a competence the class can ask for when a kanji claim is in doubt."
+    },
+    {
+      "id": "outcome:memory-card-museum:tom-limit",
+      "kind": "bond",
+      "castId": "tom",
+      "chapter": 18,
+      "beat": "limit",
+      "description": "Tom's fast challenge outruns his own accuracy; the class changes the game to check-then-race rather than punishing him, and he redesigns the rule so speed and accuracy can coexist."
+    },
+    {
+      "id": "outcome:memory-card-museum:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l10",
+      "description": "Describe-a-wanted-program-and-button-condition-then-revise-a-changed-plan evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:shin-reads-the-strokes-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-revise-step"
+    ],
+    "withdrawnContentFallback": "Use the same describe-a-program-and-revise-against-evidence beat with neutral nameplates and a generic mnemonic card that misnames one component and is corrected to the true part."
+  }
+}

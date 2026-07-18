@@ -1,0 +1,652 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e16-the-night-the-map-went-dark",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 16,
+  "title": {
+    "en": "The Night the Map Went Dark",
+    "ja": "地図が消えた夜"
+  },
+  "synopsis": "Angel arrives with a fully documented fix for the flickering projection, but the exactly-correct reset command clears the visible route to black. When Rie tries to restore the whole map alone, Henry proposes keeping the knowledge in people: each person explains a segment and its cause, teaches it back, and writes it down. Rie accepts one bounded job instead of every job.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "angel",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#angel",
+        "docs/academy/story/CAST-AND-CONSENT.md#angel"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "henry",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "rie",
+      "role": "support",
+      "portrayal": "likeness-cleared",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie"
+      ],
+      "forbiddenClaims": [
+        "private biography",
+        "real-event claim",
+        "taking on every job framed as the correct teacher behavior"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e15-chorus-with-a-hole",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l02",
+            "l2-l03",
+            "l2-l04"
+          ],
+          "function": "explain-a-cause-with-te-form-and-teach-it-back"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-sixteen-first-meeting-angel"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:night-map-dark:the-literal-instruction",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Angel through a perfectly documented fix, then watch the exactly-correct instruction erase the visible route.",
+      "dramaticQuestion": "When the only copy of the route is the light, does a correct command make the room safer or leave it stranded?",
+      "learnerNeed": "A cause-and-technology beat where a literally-right instruction produces the failure and the class must decide how to hold the knowledge.",
+      "curriculum": {
+        "sectionId": "cause-and-blackout",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:lit-console",
+          "beatId": "beat:night-map-dark:arrival-image",
+          "cueId": "cue:projected-route-flicker-console",
+          "description": "The rebuilt route glows across the wall, flickering at one corner. The paper map on the table beneath it is blank; the light is the only copy. Angel stands at the console with a printed step-card, checking it line by line."
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:angel-documented-fix",
+          "beatId": "beat:night-map-dark:host-want",
+          "speakerId": "angel",
+          "intent": "Enter by converting the flicker into a documented, step-ordered fix that the card guarantees will work.",
+          "attentionTarget": "the printed step-card and the reset button",
+          "variants": {
+            "n5": {
+              "japanese": "みなさん、心配いりません。手順はここにあります。この通りにやれば、直ります。まず、このボタンを押します。",
+              "reading": "みなさん、しんぱいいりません。てじゅんはここにあります。このとおりにやれば、なおります。まず、このボタンをおします。",
+              "english": "Everyone, no need to worry. The steps are right here. If we do exactly this, it'll fix itself. First, we press this button."
+            },
+            "n4": {
+              "japanese": "みなさん、大丈夫です。直す手順、全部このカードに書き出してあります。この通りにやれば、ちらつきは止まります。まず、この初期化ボタンを押しますね。",
+              "reading": "みなさん、だいじょうぶです。なおすてじゅん、ぜんぶこのカードにかきだしてあります。このとおりにやれば、ちらつきはとまります。まず、このしょきかボタンをおしますね。",
+              "english": "Everyone, it's fine. I've written the whole repair procedure out on this card. Do exactly what it says and the flicker stops. First, I'll press this reset button."
+            },
+            "n3": {
+              "japanese": "心配いりませんよ。直す手順は、ひと通りこのカードにまとめてあります。書いてある通りに進めれば、ちらつきは収まるはずです。では、まず初期化ボタンから。",
+              "reading": "しんぱいいりませんよ。なおすてじゅんは、ひととおりこのカードにまとめてあります。かいてあるとおりにすすめれば、ちらつきはおさまるはずです。では、まずしょきかボタンから。",
+              "english": "No need to worry. I've got the whole repair procedure summed up on this card. Proceed exactly as written and the flicker should settle. So — starting from the reset button."
+            },
+            "n2": {
+              "japanese": "ご安心を。復旧の手順は、ひと通りこのカードに落とし込んであります。記載の通りに進めれば、ちらつきは収まる計算です。では、まずは初期化から着手します。",
+              "reading": "ごあんしんを。ふっきゅうのてじゅんは、ひととおりこのカードにおとしこんであります。きさいのとおりにすすめれば、ちらつきはおさまるけいさんです。では、まずはしょきかからちゃくしゅします。",
+              "english": "Rest easy. I've mapped the whole recovery procedure onto this card. Proceed as documented and, by my calculation, the flicker settles. So — I'll begin with the reset."
+            },
+            "n1": {
+              "japanese": "ご心配には及びません。復旧手順は、ひと通りこのカードに落とし込んでありますのでね。記載どおりに運べば、ちらつきは収まる算段です。それでは、まずは初期化のところから着手しましょう。",
+              "reading": "ごしんぱいにはおよびません。ふっきゅうてじゅんは、ひととおりこのカードにおとしこんでありますのでね。きさいどおりにはこべば、ちらつきはおさまるさんだんです。それでは、まずはしょきかのところからちゃくしゅしましょう。",
+              "english": "No cause for concern. I've got the recovery procedure fully mapped onto this card, you see. Carry it out as documented and the flicker settles — that's the plan. So then, let's begin from the reset step."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:goes-dark",
+          "beatId": "beat:night-map-dark:obstruction",
+          "cueId": "cue:projection-drains-to-black",
+          "description": "The reset runs exactly as written. The flicker stops — and so does everything else. The route, every label, drains off the wall. The paper underneath stays blank. The room's only copy of the map was the light."
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:rie-holds-every-job",
+          "beatId": "beat:night-map-dark:limit",
+          "speakerId": "rie",
+          "intent": "Under the blackout, narrow to procedure and take the whole recovery onto herself so no one else has to work.",
+          "attentionTarget": "the dark wall and the blank paper map she is already reaching for",
+          "variants": {
+            "n5": {
+              "japanese": "あ…消えました。大丈夫、私がやります。みなさんは座っていてください。全部、私が思い出します。",
+              "reading": "あ…きえました。だいじょうぶ、わたしがやります。みなさんはすわっていてください。ぜんぶ、わたしがおもいだします。",
+              "english": "Ah… it's gone. It's all right, I'll do it. Everyone, please stay seated. I'll remember all of it myself."
+            },
+            "n4": {
+              "japanese": "あ、全部消えちゃった。大丈夫です、ここは私がやりますから。みなさんは座っていてください。道は全部、私が覚えています。一人で戻せます。",
+              "reading": "あ、ぜんぶきえちゃった。だいじょうぶです、ここはわたしがやりますから。みなさんはすわっていてください。みちはぜんぶ、わたしがおぼえています。ひとりでもどせます。",
+              "english": "Ah, it all vanished. It's fine, I'll handle this part. Everyone, please stay seated. I remember the whole route. I can restore it on my own."
+            },
+            "n3": {
+              "japanese": "あ…全部飛びましたね。大丈夫、ここは私が引き受けます。みなさんはそのままで。道筋は一通り頭に入っていますから、私が一人で書き戻します。",
+              "reading": "あ…ぜんぶとびましたね。だいじょうぶ、ここはわたしがひきうけます。みなさんはそのままで。みちすじはいちどうりあたまにはいっていますから、わたしがひとりでかきもどします。",
+              "english": "Ah… the whole thing dropped. It's fine, I'll take this on. Everyone stay as you are. I've got the route in my head well enough, so I'll write it all back myself."
+            },
+            "n2": {
+              "japanese": "あ…きれいに飛びましたね。大丈夫です、ここは私が引き受けますので。みなさんはそのままで結構です。道筋はひと通り頭に入っていますし、私一人で書き戻してしまいます。",
+              "reading": "あ…きれいにとびましたね。だいじょうぶです、ここはわたしがひきうけますので。みなさんはそのままでけっこうです。みちすじはひととおりあたまにはいっていますし、わたしひとりでかきもどしてしまいます。",
+              "english": "Ah… cleanly wiped, that. It's fine, I'll take this on. Everyone, please stay just as you are. I've got the route in my head well enough, and I'll write it all back myself."
+            },
+            "n1": {
+              "japanese": "あ…見事に飛びましたね。大丈夫ですよ、ここは私が引き受けますから。みなさんはどうぞそのままで。道筋はひと通り頭に入っていますし、なに、私一人で書き戻してしまいますよ。",
+              "reading": "あ…みごとにとびましたね。だいじょうぶですよ、ここはわたしがひきうけますから。みなさんはどうぞそのままで。みちすじはひととおりあたまにはいっていますし、なに、わたしひとりでかきもどしてしまいますよ。",
+              "english": "Ah… splendidly wiped, that. It's fine, I'll take this on. Everyone, please, stay just as you are. I've got the route in my head well enough — no, I'll just write it all back myself."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:angel-correct-caused-it",
+          "beatId": "beat:night-map-dark:cause",
+          "speakerId": "angel",
+          "intent": "Stop Rie and expose the assumption in the plan: the command was not wrong, and that is exactly why it erased the display.",
+          "attentionTarget": "the step-card, still open to the line that ran correctly",
+          "variants": {
+            "n5": {
+              "japanese": "先生、待ってください。コマンドは正しかったんです。正しかったから、消えました。「初期化」は、全部消す命令でした。",
+              "reading": "せんせい、まってください。コマンドはただしかったんです。ただしかったから、きえました。「しょきか」は、ぜんぶけすめいれいでした。",
+              "english": "Rie, please wait. The command was correct. Because it was correct, it erased everything. \"Reset\" was an instruction to clear it all."
+            },
+            "n4": {
+              "japanese": "先生、ちょっと待ってください。コマンド自体は、間違ってなかったんです。むしろ正しかったから、全部消えた。「初期化」って、そのまま『全部消す』って意味だったんですよ。",
+              "reading": "せんせい、ちょっとまってください。コマンドじたいは、まちがってなかったんです。むしろただしかったから、ぜんぶきえた。「しょきか」って、そのまま『ぜんぶけす』っていみだったんですよ。",
+              "english": "Rie, wait a second. The command itself wasn't wrong. If anything, it erased everything precisely because it was correct. \"Reset\" literally meant \"clear everything.\""
+            },
+            "n3": {
+              "japanese": "先生、少し待ってください。コマンドは、間違っていなかったんです。正しく動いたからこそ、全部消えた。僕は「初期化」を字義通りに実行して…つまり、そのまま全消去だったわけです。",
+              "reading": "せんせい、すこしまってください。コマンドは、まちがっていなかったんです。ただしくうごいたからこそ、ぜんぶきえた。ぼくは「しょきか」をじぎどおりにじっこうして…つまり、そのままぜんしょうきょだったわけです。",
+              "english": "Rie, please wait a moment. The command wasn't wrong. It's exactly because it ran correctly that everything vanished. I executed \"reset\" to the letter — which, it turns out, meant a full wipe."
+            },
+            "n2": {
+              "japanese": "先生、少しだけ待ってください。コマンド自体に誤りはなかったんです。正しく通ったからこそ、全部消えた。僕は「初期化」を字義通りに走らせて――要するに、指示は正しくて、部屋が困ったわけです。",
+              "reading": "せんせい、すこしだけまってください。コマンドじたいにあやまりはなかったんです。ただしくとおったからこそ、ぜんぶきえた。ぼくは「しょきか」をじぎどおりにはしらせて――ようするに、しじはただしくて、へやがこまったわけです。",
+              "english": "Rie, just wait a moment. There was no error in the command itself. It's exactly because it went through correctly that everything vanished. I ran \"reset\" to the letter — in short, the instruction was right, and the room is the one left stranded."
+            },
+            "n1": {
+              "japanese": "先生、少しだけ待ってください。コマンドそのものに、誤りは一つもなかったんです。むしろ正しく通ってしまったからこそ、こうして全部消えた。僕は「初期化」を字義通りに走らせただけで――つまり、指示は完璧に正しくて、それでも部屋は動けなくなった。正しいことと、使えることは、別なんですね。",
+              "reading": "せんせい、すこしだけまってください。コマンドそのものに、あやまりはひとつもなかったんです。むしろただしくとおってしまったからこそ、こうしてぜんぶきえた。ぼくは「しょきか」をじぎどおりにはしらせただけで――つまり、しじはかんぺきにただしくて、それでもへやはうごけなくなった。ただしいことと、つかえることは、べつなんですね。",
+              "english": "Rie, just wait a moment. There wasn't a single error in the command itself. If anything, it's because it went through correctly that it all vanished like this. I only ran \"reset\" to the letter — meaning, the instruction was perfectly right, and the room still ended up stuck. Being right and being usable aren't the same thing."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:night-map-dark:meet-the-blackout",
+          "beatId": "beat:night-map-dark:stance",
+          "question": "The wall is dark and the paper is blank. How do you meet the blackout?",
+          "options": [
+            {
+              "id": "option:night-map-dark:gather-what-we-remember",
+              "action": "Propose that everyone say the stretch of route they each remember, so it is rebuilt from the class, not from one person.",
+              "japaneseByBand": {
+                "n5": "みんなで、覚えているところを一つずつ言いませんか。",
+                "n4": "みんなで、それぞれ覚えている道を、一つずつ声に出しませんか。",
+                "n3": "みなさんで、それぞれ覚えている分を、一つずつ声に出して集めませんか。",
+                "n2": "それぞれが覚えている区間を、一つずつ出し合って、みんなで組み直しませんか。",
+                "n1": "一人で抱えず、それぞれが覚えている区間を出し合って、みんなで組み直していきませんか。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:night-map-dark:before-regroup"
+            },
+            {
+              "id": "option:night-map-dark:ask-what-it-erased",
+              "action": "Ask Angel to explain exactly what the reset erased, so the cause is clear before anyone rebuilds.",
+              "japaneseByBand": {
+                "n5": "オンケさん、今の命令は何を消しましたか。",
+                "n4": "オンケさん、今の初期化は、正確に何を消したんですか。",
+                "n3": "オンケさん、さっきの初期化は、具体的に何を消したのか教えてもらえますか。",
+                "n2": "オンケさん、さっきの初期化が具体的に何を消したのか、もう一度整理して教えてもらえますか。",
+                "n1": "オンケさん、さっきの初期化が具体的にどこまで消したのか、もう一度筋道立てて教えてもらえますか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:night-map-dark:before-regroup"
+            }
+          ],
+          "convergence": "checkpoint:night-map-dark:before-regroup"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:night-map-dark:before-regroup",
+          "beatId": "beat:night-map-dark:stance-response",
+          "resume": "The learner has taken a stance on the blackout. The class stops watching the dark wall and turns toward one another."
+        },
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:chairs-turn",
+          "beatId": "beat:night-map-dark:exit-image",
+          "cueId": "cue:chairs-turn-from-wall",
+          "description": "No one is looking at the wall anymore. Chairs shift away from the dark projection and into a loose circle. The blank paper map is passed to the middle."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:night-map-dark:teach-it-back"
+      }
+    },
+    {
+      "id": "scene:night-map-dark:teach-it-back",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Preserve the erased route by teaching it back — each person explaining a segment and its cause — while Rie accepts one bounded job instead of all of them.",
+      "dramaticQuestion": "Can a route that lived only on the screen survive by living in the people who remember it?",
+      "learnerNeed": "A teach-back transfer: explain a cause with te-form, teach one segment back, compare the old display route with the new one, and state an opinion.",
+      "curriculum": {
+        "sectionId": "teach-back-the-cause",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:circle-with-paper",
+          "beatId": "beat:night-map-dark:regroup-image",
+          "cueId": "cue:dark-wall-class-circle",
+          "description": "The wall stays dark. No one is at the console. Henry sits in the circle with the blank paper map and a pen — not the keyboard — turning it so everyone can reach it."
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:henry-keep-it-in-people",
+          "beatId": "beat:night-map-dark:contribution",
+          "speakerId": "henry",
+          "intent": "Turn the loss into a method: the route is not gone because people hold it; each explains a segment and its cause, and it goes onto paper instead of the screen.",
+          "attentionTarget": "the blank paper map in the middle of the circle",
+          "variants": {
+            "n5": {
+              "japanese": "画面は消えました。でも、道は消えていません。みんなが覚えています。一人ずつ、自分の所を説明して、紙に書き戻しましょう。",
+              "reading": "がめんはきえました。でも、みちはきえていません。みんながおぼえています。ひとりずつ、じぶんのところをせつめいして、かみにかきもどしましょう。",
+              "english": "The screen went dark. But the route isn't gone. Everyone remembers it. One by one, let's each explain our own part and write it back on paper."
+            },
+            "n4": {
+              "japanese": "画面は消えましたけど、道そのものは消えてないんです。全員、どこかしら覚えている。だから一人ずつ、自分の区間を説明して、その場で紙に書き戻しませんか。画面じゃなくて、人に残す。",
+              "reading": "がめんはきえましたけど、みちそのものはきえてないんです。ぜんいん、どこかしらおぼえている。だからひとりずつ、じぶんのくかんをせつめいして、そのばでかみにかきもどしませんか。がめんじゃなくて、ひとにのこす。",
+              "english": "The screen went dark, but the route itself isn't gone. Every one of us remembers some stretch. So how about we each explain our own segment, one by one, and write it straight back onto paper? Keep it in people, not on the screen."
+            },
+            "n3": {
+              "japanese": "画面は飛びましたが、道そのものが消えたわけじゃないんです。みんな、それぞれどこかは覚えている。だから一人ずつ、自分の区間を口で説明して、その場で紙に起こしていきませんか。表示に戻すより、人に残したほうが、次に消えても強いです。",
+              "reading": "がめんはとびましたが、みちそのものがきえたわけじゃないんです。みんな、それぞれどこかはおぼえている。だからひとりずつ、じぶんのくかんをくちでせつめいして、そのばでかみにおこしていきませんか。ひょうじにもどすより、ひとにのこしたほうが、つぎにきえてもつよいです。",
+              "english": "The display dropped, but the route itself isn't gone. Everyone remembers some part. So let's each explain our own segment aloud, one by one, and put it straight onto paper. Better to leave it in people than back on the display — it survives the next blackout that way."
+            },
+            "n2": {
+              "japanese": "表示は飛びましたが、道そのものが消えたわけではないんです。全員、それぞれどこかは覚えている。ですから一人ずつ、自分の担当した区間を口で説明して、その場で紙に起こしていきませんか。表示に戻すより、人に残しておくほうが、次に落ちても効きます。",
+              "reading": "ひょうじはとびましたが、みちそのものがきえたわけではないんです。ぜんいん、それぞれどこかはおぼえている。ですからひとりずつ、じぶんのたんとうしたくかんをくちでせつめいして、そのばでかみにおこしていきませんか。ひょうじにもどすより、ひとにのこしておくほうが、つぎにおちてもききます。",
+              "english": "The display dropped, but the route itself isn't gone. All of us remember some part. So let's each explain the segment we handled aloud, one by one, and put it straight onto paper. Leaving it in people beats restoring the display — it holds up the next time it goes down."
+            },
+            "n1": {
+              "japanese": "表示こそ飛びましたが、道そのものが消えたわけじゃないんですよ。全員、それぞれどこかしらは覚えている。ですから一人ずつ、自分の受け持った区間を口で説明して、その場で紙に起こしていきませんか。表示に戻すより、人の側に残しておいたほうが、次にまた落ちたときに効くんです。",
+              "reading": "ひょうじこそとびましたが、みちそのものがきえたわけじゃないんですよ。ぜんいん、それぞれどこかしらはおぼえている。ですからひとりずつ、じぶんのうけもったくかんをくちでせつめいして、そのばでかみにおこしていきませんか。ひょうじにもどすより、ひとのがわにのこしておいたほうが、つぎにまたおちたときにきくんです。",
+              "english": "The display's gone, sure, but the route itself isn't. Every one of us remembers some stretch. So let's each explain the segment we handled aloud, one by one, and get it down on paper. Better held on the human side than restored to the display — that's what pays off the next time it drops."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:rie-reaches-again",
+          "beatId": "beat:night-map-dark:limit-echo",
+          "speakerId": "rie",
+          "intent": "Reflexively reach back for the whole task, reluctant to make everyone else work.",
+          "attentionTarget": "the pen, which she is already holding a hand out for",
+          "variants": {
+            "n5": {
+              "japanese": "いえ、みなさんは大丈夫です。私が全部、書きます。",
+              "reading": "いえ、みなさんはだいじょうぶです。わたしがぜんぶ、かきます。",
+              "english": "No, everyone, it's fine. I'll write all of it."
+            },
+            "n4": {
+              "japanese": "いえ、みなさんに説明させるのは悪いですよ。私が全部覚えているので、私が書きます。",
+              "reading": "いえ、みなさんにせつめいさせるのはわるいですよ。わたしがぜんぶおぼえているので、わたしがかきます。",
+              "english": "No, it's not right to make everyone explain. I remember all of it, so I'll write it."
+            },
+            "n3": {
+              "japanese": "いえ、みなさんにいちいち説明させるのは申し訳ないですよ。私が一通り覚えていますから、私が書き戻します。",
+              "reading": "いえ、みなさんにいちいちせつめいさせるのはもうしわけないですよ。わたしがいちどうりおぼえていますから、わたしがかきもどします。",
+              "english": "No, it's not fair to make everyone explain bit by bit. I remember the whole thing, so I'll write it back."
+            },
+            "n2": {
+              "japanese": "いえ、みなさんにいちいち説明させてしまうのは申し訳ないです。私がひと通り覚えていますし、ここは私が書き戻してしまいます。",
+              "reading": "いえ、みなさんにいちいちせつめいさせてしまうのはもうしわけないです。わたしがひととおりおぼえていますし、ここはわたしがかきもどしてしまいます。",
+              "english": "No, it's not fair to put everyone through explaining each bit. I remember the whole thing, and I'll just write it back myself."
+            },
+            "n1": {
+              "japanese": "いえ、みなさんに一つ一つ説明までさせてしまうのは、さすがに申し訳ないですよ。私がひと通り覚えていますし、ここはこのまま私が書き戻してしまいます。",
+              "reading": "いえ、みなさんにひとつひとつせつめいまでさせてしまうのは、さすがにもうしわけないですよ。わたしがひととおりおぼえていますし、ここはこのままわたしがかきもどしてしまいます。",
+              "english": "No, really, putting everyone through explaining each little piece isn't fair. I remember the whole thing, and I'll just carry on and write it back myself."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:henry-hands-one-job",
+          "beatId": "beat:night-map-dark:handoff-offer",
+          "speakerId": "henry",
+          "intent": "Offer Rie one specific bounded job — checking the joins at the end — and give the segments to the class, with an easy way to keep or decline it.",
+          "attentionTarget": "the seams between segments on the paper map",
+          "variants": {
+            "n5": {
+              "japanese": "先生、全部は一人で無理です。先生は、最後に一つだけ確認してください。区間は、みんなで一つずつ。",
+              "reading": "せんせい、ぜんぶはひとりでむりです。せんせいは、さいごにひとつだけかくにんしてください。くかんは、みんなでひとつずつ。",
+              "english": "Rie, all of it alone is too much. You — just check one thing at the end. The segments, we each take one."
+            },
+            "n4": {
+              "japanese": "先生、一人で全部は抱えきれないですよ。先生は最後のつなぎ目だけ確認してください。各区間は、みんなが一つずつ説明します。それで十分回ります。",
+              "reading": "せんせい、ひとりでぜんぶはかかえきれないですよ。せんせいはさいごのつなぎめだけかくにんしてください。かくくかんは、みんながひとつずつせつめいします。それでじゅうぶんまわります。",
+              "english": "Rie, you can't carry all of it alone. Just check the joins at the end. Each segment, we'll each explain one. That's plenty to keep it going."
+            },
+            "n3": {
+              "japanese": "先生、それ全部一人で抱えるのは無理がありますよ。先生には最後、つなぎ目の確認だけお願いします。各区間は、僕らが一人ずつ説明して埋めますから。役割、分けましょう。",
+              "reading": "せんせい、それぜんぶひとりでかかえるのはむりがありますよ。せんせいにはさいご、つなぎめのかくにんだけおねがいします。かくくかんは、ぼくらがひとりずつせつめいしてうめますから。やくわり、わけましょう。",
+              "english": "Rie, carrying all of that alone just doesn't work. From you, we only need the final check of the joins. Each segment, we'll fill in one by one. Let's split the roles."
+            },
+            "n2": {
+              "japanese": "先生、それをまるごと一人で抱えるのは、さすがに無理があります。先生には最後、つなぎ目の確認だけお願いできますか。各区間は僕らが一人ずつ説明して埋めますので。役割を分けましょう。",
+              "reading": "せんせい、それをまるごとひとりでかかえるのは、さすがにむりがあります。せんせいにはさいご、つなぎめのかくにんだけおねがいできますか。かくくかんはぼくらがひとりずつせつめいしてうめますので。やくわりをわけましょう。",
+              "english": "Rie, carrying the whole of it alone really doesn't hold up. Could we ask you for just the final check of the joins? Each segment, we'll fill in one at a time ourselves. Let's split the roles."
+            },
+            "n1": {
+              "japanese": "先生、それをまるごと一人で抱え込むのは、さすがに無理がありますよ。先生には最後に、つなぎ目のところだけ確認をお願いできませんか。各区間は僕らが一人ずつ説明して埋めていきますから。ここは役割を分けましょう。",
+              "reading": "せんせい、それをまるごとひとりでかかえこむのは、さすがにむりがありますよ。せんせいにはさいごに、つなぎめのところだけかくにんをおねがいできませんか。かくくかんはぼくらがひとりずつせつめいしてうめていきますから。ここはやくわりをわけましょう。",
+              "english": "Rie, taking the whole of it on your own really doesn't hold up. Could we ask you to just check the joins at the end? Each segment, we'll explain and fill in one at a time. Let's split the roles here."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:rie-accepts-handoff",
+          "beatId": "beat:night-map-dark:handoff-accept",
+          "speakerId": "rie",
+          "intent": "Accept the one bounded job and hand the segments to the class instead of doing everything herself.",
+          "attentionTarget": "the pen, which she sets down where others can reach it",
+          "variants": {
+            "n5": {
+              "japanese": "…そうですね。わかりました。じゃあ、私は最後の確認だけ。あとは、みなさんにお願いします。",
+              "reading": "…そうですね。わかりました。じゃあ、わたしはさいごのかくにんだけ。あとは、みなさんにおねがいします。",
+              "english": "…You're right. All right. Then I'll do just the final check. The rest, I'll leave to everyone."
+            },
+            "n4": {
+              "japanese": "…そうですね。じゃあ、お言葉に甘えます。私は最後のつなぎ目だけ見ます。区間は、みなさんにお願いしますね。",
+              "reading": "…そうですね。じゃあ、おことばにあまえます。わたしはさいごのつなぎめだけみます。くかんは、みなさんにおねがいしますね。",
+              "english": "…You're right. Then I'll take you up on it. I'll look at just the joins at the end. The segments, I'll leave to all of you."
+            },
+            "n3": {
+              "japanese": "…そうですね。じゃあ、ここは甘えます。私は最後のつなぎ目の確認に回りますね。各区間は、みなさんにお任せします。",
+              "reading": "…そうですね。じゃあ、ここはあまえます。わたしはさいごのつなぎめのかくにんにまわりますね。かくくかんは、みなさんにおまかせします。",
+              "english": "…You're right. Then I'll lean on that here. I'll move to checking the joins at the end. Each segment, I'll leave to all of you."
+            },
+            "n2": {
+              "japanese": "…そうですね。じゃあ、ここはお言葉に甘えます。私は最後、つなぎ目の確認に回ります。各区間は、みなさんにお任せしますね。",
+              "reading": "…そうですね。じゃあ、ここはおことばにあまえます。わたしはさいご、つなぎめのかくにんにまわります。かくくかんは、みなさんにおまかせしますね。",
+              "english": "…You're right. Then I'll take you up on it here. I'll move to checking the joins at the end. Each segment, I'll leave to all of you."
+            },
+            "n1": {
+              "japanese": "…そうですね。じゃあ、ここは素直にお言葉に甘えます。私は最後、つなぎ目の確認だけに回りますね。各区間は、みなさんにお任せしてしまいます。",
+              "reading": "…そうですね。じゃあ、ここはすなおにおことばにあまえます。わたしはさいご、つなぎめのかくにんだけにまわりますね。かくくかんは、みなさんにおまかせしてしまいます。",
+              "english": "…You're right. Then I'll simply take you up on it here. I'll move to just checking the joins at the end. Each segment, I'll leave entirely to all of you."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:night-map-dark:before-teach-back",
+          "beatId": "beat:night-map-dark:teach-back-attempt",
+          "resume": "Roles are split: the class holds the segments, Rie holds the final check. The learner takes one segment to teach back."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:night-map-dark:teach-back-the-cause",
+          "beatId": "beat:night-map-dark:teach-back-attempt",
+          "hook": {
+            "packageId": "l2-l02",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e16-teach-back-the-cause"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e16-teach-back-the-cause"
+          },
+          "resumeContext": "The wall is dark and the paper map holds a few segments already. The learner explains, using te-form cause, why the display went dark, teaches one route segment back to the circle, compares the old screen route with the new spoken-and-written one, and states an opinion about which the class should trust.",
+          "onReady": "checkpoint:night-map-dark:after-teach-back",
+          "onRepair": "node:night-map-dark:teach-back-repair",
+          "onDefer": "checkpoint:night-map-dark:before-teach-back"
+        },
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:teach-back-repair",
+          "beatId": "beat:night-map-dark:teach-back-repair",
+          "cueId": "cue:one-segment-returns-for-retry",
+          "description": "The segments already taught back stay on the paper. Only the one cause-and-segment that did not land clearly returns for another try; the joins Rie is watching hold."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:night-map-dark:after-teach-back",
+          "beatId": "beat:night-map-dark:teach-back-response",
+          "resume": "The segment is taught back and written down with its cause. The route is reassembling on paper from many hands. Angel looks at the step-card, then at the circle."
+        },
+        {
+          "kind": "line",
+          "id": "line:night-map-dark:angel-document-the-cost",
+          "beatId": "beat:night-map-dark:repair",
+          "speakerId": "angel",
+          "intent": "Expose the assumption in the original plan and change it: a correct command is not enough; the next card will document what a command erases, for the people who use it.",
+          "attentionTarget": "the reassembling paper map and the step-card he is annotating",
+          "variants": {
+            "n5": {
+              "japanese": "わかりました。「正しい」だけじゃ、足りないんですね。次のカードには、何を消すかも書きます。使う人のために。",
+              "reading": "わかりました。「ただしい」だけじゃ、たりないんですね。つぎのカードには、なにをけすかもかきます。つかうひとのために。",
+              "english": "I see. \"Correct\" alone isn't enough. On the next card, I'll write what it erases too. For the people using it."
+            },
+            "n4": {
+              "japanese": "なるほど。「命令が正しい」だけじゃ足りなかったんですね。次からは、そのコマンドが何を消すのかも、カードに書き足します。使う人が分かるように。",
+              "reading": "なるほど。「めいれいがただしい」だけじゃたりなかったんですね。つぎからは、そのコマンドがなにをけすのかも、カードにかきたします。つかうひとがわかるように。",
+              "english": "I see. \"The command is correct\" wasn't enough on its own. From now on I'll add to the card what the command erases, too — so the person using it understands."
+            },
+            "n3": {
+              "japanese": "なるほど、そういうことか。「命令として正しい」だけじゃ、部屋は動けないんですね。次からは、そのコマンドが何を消すのかも一緒にカードに書きます。正しさと、使えることは、別に書いておかないと。",
+              "reading": "なるほど、そういうことか。「めいれいとしてただしい」だけじゃ、へやはうごけないんですね。つぎからは、そのコマンドがなにをけすのかもいっしょにカードにかきます。ただしさと、つかえることは、べつにかいておかないと。",
+              "english": "I see, so that's it. \"Correct as a command\" alone doesn't let the room move. From now I'll write on the card what the command erases as well. Correctness and usability — I have to write them down separately."
+            },
+            "n2": {
+              "japanese": "なるほど、そういうことですか。「命令として正しい」だけでは、部屋は動けない。次からは、そのコマンドが何を消すのかまで、一緒にカードに落とし込みます。正しさと使えることは、分けて残しておかないといけませんね。",
+              "reading": "なるほど、そういうことですか。「めいれいとしてただしい」だけでは、へやはうごけない。つぎからは、そのコマンドがなにをけすのかまで、いっしょにカードにおとしこみます。ただしさとつかえることは、わけてのこしておかないといけませんね。",
+              "english": "I see, so that's how it is. \"Correct as a command\" alone doesn't let the room move. From now I'll map onto the card even what the command erases. Correctness and usability — I have to record them as separate things."
+            },
+            "n1": {
+              "japanese": "なるほど、そういうことですか。「命令として正しい」というだけでは、部屋は一歩も動けない。次からは、そのコマンドが何を消してしまうのかまで、まとめてカードに落とし込んでおきます。正しさと、使えること――この二つは、分けて書き残しておかないといけませんね。",
+              "reading": "なるほど、そういうことですか。「めいれいとしてただしい」というだけでは、へやはいっぽもうごけない。つぎからは、そのコマンドがなにをけしてしまうのかまで、まとめてカードにおとしこんでおきます。ただしさと、つかえること――このふたつは、わけてかきのこしておかないといけませんね。",
+              "english": "I see, so that's how it is. \"Correct as a command,\" on its own, doesn't let the room move an inch. From now I'll map onto the card even what the command ends up erasing. Correctness and usability — those two I have to write down as separate things."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:night-map-dark:route-on-paper",
+          "beatId": "beat:night-map-dark:exit-image",
+          "cueId": "cue:route-rebuilt-on-paper-wall-dark",
+          "description": "The route comes back across the blank paper map, drawn from spoken pieces in several different hands. The wall stays dark. The class is holding the map now, not the screen; Rie signs off only the seams."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:wrong-charger",
+      "state": "echo",
+      "ownerIds": [
+        "henry",
+        "angel"
+      ],
+      "meaningNow": "A technically-correct instruction is what causes the display failure — being right about the tool is not the same as the room being able to use it.",
+      "priorUse": {
+        "packageId": "s1e02-margin-map",
+        "sceneId": "scene:margin-map:careful-except-one",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 4,
+      "optionalFallback": "Angel's exactly-correct reset clears the display, and the class rebuilds the route by explaining it to one another instead of trusting the screen."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:night-map-dark:knowledge-preserved",
+      "kind": "story",
+      "description": "The visible route is erased by a correct command, and the class preserves it by teaching each segment and its cause back to one another and writing it on paper rather than restoring the screen."
+    },
+    {
+      "id": "outcome:night-map-dark:angel-arrival",
+      "kind": "bond",
+      "castId": "angel",
+      "chapter": 16,
+      "beat": "arrival",
+      "description": "Angel is introduced converting uncertainty into a documented, step-ordered plan, and takes a first step from trusting a correct instruction toward documenting what an instruction costs the people using it."
+    },
+    {
+      "id": "outcome:night-map-dark:henry-contribution",
+      "kind": "bond",
+      "castId": "henry",
+      "chapter": 16,
+      "beat": "contribution",
+      "description": "Henry's teach-back method — keep the route in people, not on the screen — changes how the class recovers the map; his instinct to leave a mechanism understandable to others becomes a competence the class can ask for later."
+    },
+    {
+      "id": "outcome:night-map-dark:rie-limit",
+      "kind": "bond",
+      "castId": "rie",
+      "chapter": 16,
+      "beat": "limit",
+      "description": "Under the blackout Rie narrows to procedure and reaches to hold the whole recovery alone; the ensemble redesigns the task into shared segments and she accepts one bounded handoff instead of every job."
+    },
+    {
+      "id": "outcome:night-map-dark:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l02",
+      "description": "Explain-a-cause-with-te-form-and-teach-it-back evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:henry-reads-the-card-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-teach-back-step"
+    ],
+    "withdrawnContentFallback": "Use the same explain-a-cause-and-teach-it-back evidence with neutral nameplates and a generic operator whose correct reset clears the display, after which the class rebuilds the route by teaching it to each other."
+  }
+}

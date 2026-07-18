@@ -1,0 +1,465 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e17-catwalk-clue",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 17,
+  "title": {
+    "en": "The Catwalk Clue",
+    "ja": "猫の通り道"
+  },
+  "synopsis": "The rebuilt-map route cards sit in the library with the wrong printed order, and nobody trusts the labels. Felix notices the class's paper-cat marker has moved to a new card overnight; delighted, he tracks the one cat across the mislabeled cards until its daily path spells out the real order. The learner identifies the marked card with a relative clause and a counter and reports what the cat has done, then chooses how to back an observation that started as play.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "felix",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#felix",
+        "docs/academy/story/CAST-AND-CONSENT.md#felix"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cats framed as his whole personality rather than one attention home",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "stasi",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#stasi",
+        "docs/academy/story/CAST-AND-CONSENT.md#stasi"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "visual preference treated as verified factual memory"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e16-the-night-the-map-went-dark",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l05",
+            "l2-l06",
+            "l2-l07",
+            "l2-l08"
+          ],
+          "function": "identify-a-person-or-thing-by-a-relative-clause-and-counter-and-report-what-was-seen"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-seventeen-first-meeting-felix"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:catwalk-clue:the-moved-marker",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Meet Felix through the way he tracks the paper-cat marker, and let his delight expose that the route cards are mislabeled.",
+      "dramaticQuestion": "Can watching a marker for fun do the work that the printed labels cannot?",
+      "learnerNeed": "A way to identify which card is which by describing where the cat sits, not by reading a label that is wrong.",
+      "curriculum": {
+        "sectionId": "identify-by-relative-clause-and-report",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:cards-on-the-table",
+          "beatId": "beat:catwalk-clue:arrival-image",
+          "cueId": "cue:library-table-of-numbered-route-cards",
+          "description": "The library's reading table holds five route cards in a row, each stamped with a printed number. A small folded paper cat sits on one of them, facing the others. The numbers do not run left to right."
+        },
+        {
+          "kind": "line",
+          "id": "line:catwalk-clue:felix-notices",
+          "beatId": "beat:catwalk-clue:notice-want",
+          "speakerId": "felix",
+          "intent": "Notice with delight that the single paper cat has moved to a different card than yesterday, and get the class to look.",
+          "attentionTarget": "the one paper cat, and the card it has moved onto",
+          "variants": {
+            "n5": {
+              "japanese": "猫が動いてる。きのうはここじゃなかった。紙の猫が一匹、毎日ちがうカードにいるんです。見て。",
+              "reading": "ねこがうごいてる。きのうはここじゃなかった。かみのねこがいっぴき、まいにちちがうカードにいるんです。みて。",
+              "english": "The cat moved. Yesterday it wasn't here. One paper cat, and every day it's on a different card. Look."
+            },
+            "n4": {
+              "japanese": "ねえ、この紙の猫、また動いてるんですよ。きのうまでいたカードじゃなくて、今日は別のところ。一匹の猫が毎日ちがう場所にいるの、ちょっと面白くないですか。",
+              "reading": "ねえ、このかみのねこ、またうごいてるんですよ。きのうまでいたカードじゃなくて、きょうはべつのところ。いっぴきのねこがまいにちちがうばしょにいるの、ちょっとおもしろくないですか。",
+              "english": "Hey, this paper cat is on the move again. Not the card it was on until yesterday — today it's somewhere else. One single cat, on a different spot every day. Isn't that kind of fun?"
+            },
+            "n3": {
+              "japanese": "見てくださいよ、この紙の猫。きのうと違うカードに移ってるんです。一匹しかいないのに、日によって場所が変わってて。誰かが動かしてるのかな。",
+              "reading": "みてくださいよ、このかみのねこ。きのうとちがうカードにうつってるんです。いっぴきしかいないのに、ひによってばしょがかわってて。だれかがうごかしてるのかな。",
+              "english": "Look at this, the paper cat. It's moved to a different card than yesterday. There's only one of it, yet the place changes day by day. I wonder if someone's moving it."
+            },
+            "n2": {
+              "japanese": "ちょっといいですか、この紙の猫、また位置が変わってるんですよ。昨日まで載っていたカードから、今日は別のカードへ。一匹きりなのに、毎日どこかへ移動してるみたいで。",
+              "reading": "ちょっといいですか、このかみのねこ、またいちがかわってるんですよ。きのうまでのっていたカードから、きょうはべつのカードへ。いっぴききりなのに、まいにちどこかへいどうしてるみたいで。",
+              "english": "Can I just — this paper cat, its position has changed again. From the card it sat on until yesterday, today it's onto a different card. Only one of it, and yet it seems to move somewhere every day."
+            },
+            "n1": {
+              "japanese": "見てください、例の紙の猫ですけどね、どうも昨日とは違うカードに移ってるんです。一匹しかいないくせに、日ごとに居場所が変わっていて。誰かの仕業なのか……いや、面白いなあ。",
+              "reading": "みてください、れいのかみのねこですけどね、どうもきのうとはちがうカードにうつってるんです。いっぴきしかいないくせに、ひごとにいばしょがかわっていて。だれかのしわざなのか……いや、おもしろいなあ。",
+              "english": "Look — that paper cat, you know the one — it seems it's shifted to a different card from yesterday. Only one of it, and yet its whereabouts change by the day. Someone's doing it, or… no, this is delightful."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:labels-dont-match",
+          "beatId": "beat:catwalk-clue:obstruction",
+          "cueId": "cue:printed-numbers-out-of-order",
+          "description": "Someone turns the cards to read the stamped numbers aloud: two, then five, then one. The printed order contradicts itself, and no card can be trusted by its own label. The class stalls over which card really comes first."
+        },
+        {
+          "kind": "line",
+          "id": "line:catwalk-clue:stasi-trusts-placement",
+          "beatId": "beat:catwalk-clue:visual-attempt",
+          "speakerId": "stasi",
+          "intent": "State a direct preference: read how the cards actually sit over what the wrong numbers claim, and back the card the cat is on.",
+          "attentionTarget": "the mismatch between printed numbers and physical placement",
+          "variants": {
+            "n5": {
+              "japanese": "このラベル、順番がおかしい。番号と場所が合ってない。私は数字より、猫がいる場所を信じます。",
+              "reading": "このラベル、じゅんばんがおかしい。ばんごうとばしょがあってない。わたしはすうじより、ねこがいるばしょをしんじます。",
+              "english": "These labels — the order's wrong. The numbers and the places don't match. I trust where the cat is over the numbers."
+            },
+            "n4": {
+              "japanese": "ラベルの番号、順番がめちゃくちゃなんですよね。私、書いてある数字より、実際にどう並んでるかを見るほうが好きで。猫が座ってるカードのほうが、なんか正しく見える。",
+              "reading": "ラベルのばんごう、じゅんばんがめちゃくちゃなんですよね。わたし、かいてあるすうじより、じっさいにどうならんでるかをみるほうがすきで。ねこがすわってるカードのほうが、なんかただしくみえる。",
+              "english": "The label numbers — the order's a mess. Me, I prefer looking at how things actually sit over the numbers written down. The card the cat's sitting on somehow looks more right."
+            },
+            "n3": {
+              "japanese": "このラベル、番号どおりに並んでないでしょう。私は数字を信じるより、置かれ方を見るタイプなんです。猫が乗ってるカードのほう、そっちが順番として自然に見える。",
+              "reading": "このラベル、ばんごうどおりにならんでないでしょう。わたしはすうじをしんじるより、おかれかたをみるタイプなんです。ねこがのってるカードのほう、そっちがじゅんばんとしてしぜんにみえる。",
+              "english": "These labels aren't in number order, right? I'm the type who reads how things are placed rather than trusting the numbers. The card the cat's on — that one looks more natural as the order."
+            },
+            "n2": {
+              "japanese": "ラベルの番号、実際の並びと食い違ってますよね。私はどうも、書かれた数字より配置そのものを見てしまうたちで。猫が載っているカードのほうが、順序としてよほど筋が通って見えます。",
+              "reading": "ラベルのばんごう、じっさいのならびとくいちがってますよね。わたしはどうも、かかれたすうじよりはいちそのものをみてしまうたちで。ねこがのっているカードのほうが、じゅんじょとしてよほどすじがとおってみえます。",
+              "english": "The label numbers clash with the actual arrangement, don't they. I tend to read the placement itself rather than the written numbers. The card the cat's on makes far more sense as the sequence."
+            },
+            "n1": {
+              "japanese": "そのラベルの番号、並びとまるで噛み合ってないんですよ。私はどうしても、印字された数字より置かれ方のほうを信じてしまうたちでしてね。むしろ猫が陣取っているカードのほう、そちらのほうが順序としてずっと腑に落ちる。",
+              "reading": "そのラベルのばんごう、ならびとまるでかみあってないんですよ。わたしはどうしても、いんじされたすうじよりおかれかたのほうをしんじてしまうたちでしてね。むしろねこがじんどっているカードのほう、そちらのほうがじゅんじょとしてずっとふにおちる。",
+              "english": "Those label numbers don't mesh with the arrangement at all. I just can't help trusting the placement over the printed numbers. If anything, the card the cat's staked out — that one sits far better as the order."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:catwalk-clue:felix-traces",
+          "beatId": "beat:catwalk-clue:trace-attempt",
+          "speakerId": "felix",
+          "intent": "Turn the delight into a method: propose tracing only the card the cat is on, count the cards and the cat, and pass the question to the room.",
+          "attentionTarget": "the card the one cat has moved onto, described as a set the others can name",
+          "variants": {
+            "n5": {
+              "japanese": "猫がいるカードを、順番に見ていきましょう。カードは全部で五枚。今、猫が乗ってるのは、どれですか。",
+              "reading": "ねこがいるカードを、じゅんばんにみていきましょう。カードはぜんぶでごまい。いま、ねこがのってるのは、どれですか。",
+              "english": "Let's look at the card the cat's on, one by one. Five cards in all. Which one is the cat on right now?"
+            },
+            "n4": {
+              "japanese": "猫が座ってるカードだけ、たどってみませんか。カードは五枚あって、猫は一匹。その一匹が今いるカードは、どれか分かる人。",
+              "reading": "ねこがすわってるカードだけ、たどってみませんか。カードはごまいあって、ねこはいっぴき。そのいっぴきがいまいるカードは、どれかわかるひと。",
+              "english": "Shall we just trace the card the cat's sitting on? There are five cards, and one cat. The card that one cat is on now — who can tell which it is?"
+            },
+            "n3": {
+              "japanese": "猫が乗ってるカードを順に追ってみましょうよ。全部で五枚、猫は一匹だけ。きのう猫がいたカードと、今日いるカード、どっちが先か言えますか。",
+              "reading": "ねこがのってるカードをじゅんにおってみましょうよ。ぜんぶでごまい、ねこはいっぴきだけ。きのうねこがいたカードと、きょういるカード、どっちがさきかいえますか。",
+              "english": "Let's follow the card the cat's on, in order. Five cards total, just one cat. The card the cat was on yesterday and the one it's on today — can you say which comes first?"
+            },
+            "n2": {
+              "japanese": "猫が載っているカードだけを、順にたどってみませんか。カードは五枚、猫は一匹きり。その猫が今日移ったカードがどれか、誰か言葉にしてみてもらえますか。",
+              "reading": "ねこがのっているカードだけを、じゅんにたどってみませんか。カードはごまい、ねこはいっぴききり。そのねこがきょううつったカードがどれか、だれかことばにしてみてもらえますか。",
+              "english": "Shall we trace just the card the cat's on, in order? Five cards, only one cat. Which card that cat moved onto today — could someone put it into words?"
+            },
+            "n1": {
+              "japanese": "いっそ、猫が陣取っているカードだけを順に追ってみましょうよ。カードは五枚、猫はたった一匹。その一匹が今日どのカードに移ったのか、ひとつ誰か言葉にしてくれませんか。",
+              "reading": "いっそ、ねこがじんどっているカードだけをじゅんにおってみましょうよ。カードはごまい、ねこはたったいっぴき。そのいっぴきがきょうどのカードにうつったのか、ひとつだれかことばにしてくれませんか。",
+              "english": "Let's just trace only the card the cat's staked out, in order. Five cards, a single cat. Which card that one cat moved onto today — won't someone put it into words for us?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:catwalk-clue:before-identify",
+          "beatId": "beat:catwalk-clue:identify",
+          "resume": "Felix has proposed tracing the one card the cat is on. The learner steps in to name that card and report what the cat has done."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:catwalk-clue:identify-the-card",
+          "beatId": "beat:catwalk-clue:identify",
+          "hook": {
+            "packageId": "l2-l08",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e17-catwalk-clue-identify-card"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e17-catwalk-clue-identify-card"
+          },
+          "resumeContext": "Five route cards sit in the wrong printed order; the one paper cat marks a single card. The learner identifies that card with a relative clause and a counter — the card the cat is sitting on, one of five — and reports which card it moved from since yesterday.",
+          "onReady": "checkpoint:catwalk-clue:after-identify",
+          "onRepair": "node:catwalk-clue:identify-repair",
+          "onDefer": "checkpoint:catwalk-clue:before-identify"
+        },
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:identify-repair",
+          "beatId": "beat:catwalk-clue:identify-repair",
+          "cueId": "cue:cat-card-lifted-out",
+          "description": "The marked card is lifted a little clear of the row so only it and the cat are in view. Just the relative-clause phrasing that slipped returns for another attempt; the count of cards stays as it was."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:catwalk-clue:after-identify",
+          "beatId": "beat:catwalk-clue:identify-response",
+          "resume": "The learner has named the card the cat is on and reported where it moved from. The class starts reading the cards by the cat's trail instead of the printed numbers."
+        },
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:cards-reordered",
+          "beatId": "beat:catwalk-clue:changed-image",
+          "cueId": "cue:cards-pulled-into-cat-order",
+          "description": "One by one the cards are drawn into the sequence the cat has been sitting through. The printed numbers stay stamped where they are, ignored. A thin trail is now visible in the placement itself."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:catwalk-clue:the-real-order"
+      }
+    },
+    {
+      "id": "scene:catwalk-clue:the-real-order",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Let the class settle the real card order using the cat's trail, and let Felix name joy as a way of working rather than a distraction from it.",
+      "dramaticQuestion": "Does an observation that began as play count as evidence the class can build on?",
+      "learnerNeed": "A stance on whether to declare the cat's trail as the order outright or verify it card by card first.",
+      "curriculum": {
+        "sectionId": "back-the-observed-order",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:cat-path-visible",
+          "beatId": "beat:catwalk-clue:regroup-image",
+          "cueId": "cue:daily-cat-trail-across-cards",
+          "description": "Felix lines up where the cat has sat on each past evening. The marks fall into one unbroken line across the cards — a walkway the cat has been pacing while the labels stayed wrong. He stops moving and just looks at it."
+        },
+        {
+          "kind": "choice",
+          "id": "choice:catwalk-clue:how-to-back-it",
+          "beatId": "beat:catwalk-clue:stance",
+          "question": "How do you back the order the cat traced?",
+          "options": [
+            {
+              "id": "option:catwalk-clue:name-the-order",
+              "action": "Report the cat's trail as the real order outright, and set the printed numbers aside.",
+              "japaneseByBand": {
+                "n5": "猫が通った順番が、正しい並びだと思います。ラベルじゃなくて。",
+                "n4": "猫が動いていった順番、あれが本当のカードの順番だと思います。番号は無視していいんじゃないですか。",
+                "n3": "猫が移っていったとおりの順番、あれが正しい並びですよ。ラベルの番号より、そっちを信じましょう。",
+                "n2": "猫がたどっていった順序、あれこそ本来の並びだと思います。印字された番号は、いったん脇に置きましょう。",
+                "n1": "猫が渡り歩いていった順序、あれがそのまま本来の並びなんだと思います。印字された番号のほうは、ひとまず脇に置いてしまっていい。"
+              },
+              "records": [
+                "stance",
+                "observation"
+              ],
+              "next": "checkpoint:catwalk-clue:before-order"
+            },
+            {
+              "id": "option:catwalk-clue:verify-first",
+              "action": "Ask the class to check the cat's trail against each card one at a time before deciding.",
+              "japaneseByBand": {
+                "n5": "まず、猫が通ったカードを一枚ずつ、ラベルと見くらべませんか。",
+                "n4": "決める前に、猫が通ったカードを一枚ずつラベルと照らし合わせてみませんか。",
+                "n3": "順番を決める前に、猫がいたカードを一枚ずつ、ラベルと突き合わせてみましょうよ。",
+                "n2": "並びを決めてしまう前に、猫が通ったカードを一枚ずつ、ラベルと照合してみませんか。",
+                "n1": "並びを確定させる前に、猫がたどったカードを一枚ずつ、ラベルと突き合わせて確かめてみませんか。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:catwalk-clue:before-order"
+            }
+          ],
+          "convergence": "checkpoint:catwalk-clue:before-order"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:catwalk-clue:before-order",
+          "beatId": "beat:catwalk-clue:back-attempt",
+          "resume": "The learner has taken a stance on the cat's trail. Felix answers by owning what his watching turned out to be."
+        },
+        {
+          "kind": "line",
+          "id": "line:catwalk-clue:felix-joy-is-method",
+          "beatId": "beat:catwalk-clue:repair",
+          "speakerId": "felix",
+          "intent": "Accept that the trail he followed for fun matched the real order, and reframe delight as a way of paying attention rather than a distraction from work.",
+          "attentionTarget": "the matched trail, and the fact that he only ever watched for enjoyment",
+          "variants": {
+            "n5": {
+              "japanese": "ほら、やっぱり猫が正しかった。ぼく、ただ猫を見てただけなのに。楽しいだけじゃなくて、役に立つこともあるんだね。",
+              "reading": "ほら、やっぱりねこがただしかった。ぼく、ただねこをみてただけなのに。たのしいだけじゃなくて、やくにたつこともあるんだね。",
+              "english": "See, the cat was right after all. And I was just watching the cat. So it's not only fun — it can be useful too."
+            },
+            "n4": {
+              "japanese": "ね、猫のとおりで合ってたでしょう。ぼくはただ猫を追ってただけなんですけど。好きで見てたことが、ちゃんと順番を教えてくれた。",
+              "reading": "ね、ねこのとおりであってたでしょう。ぼくはただねこをおってただけなんですけど。すきでみてたことが、ちゃんとじゅんばんをおしえてくれた。",
+              "english": "See, it matched the cat's path, didn't it. I was only following the cat. The thing I watched just for fun ended up telling us the order."
+            },
+            "n3": {
+              "japanese": "ほら、猫のたどったとおりで合ってましたね。ぼく、面白がって見てただけなのに。楽しいと役に立つって、別々じゃないのかも。",
+              "reading": "ほら、ねこのたどったとおりであってましたね。ぼく、おもしろがってみてただけなのに。たのしいとやくにたつって、べつべつじゃないのかも。",
+              "english": "See, it matched exactly where the cat went. And I was only watching for the fun of it. Maybe fun and useful aren't separate things."
+            },
+            "n2": {
+              "japanese": "ね、結局は猫のたどったとおりでしたね。ぼくはただ面白がって追いかけてただけなんですが。好きで見ていたことが、そのまま順番の証拠になってた。",
+              "reading": "ね、けっきょくはねこのたどったとおりでしたね。ぼくはただおもしろがっておいかけてただけなんですが。すきでみていたことが、そのままじゅんばんのしょうこになってた。",
+              "english": "See, in the end it was exactly the cat's path. I was only chasing it for the fun of it. What I watched out of enjoyment turned straight into evidence of the order."
+            },
+            "n1": {
+              "japanese": "ね、蓋を開ければ猫のたどったとおりだったでしょう。ぼくなんてただ面白がって目で追っていただけなんですけどね。好きで眺めていたことが、そっくりそのまま順番の手がかりになっていた——楽しむのと役に立つのは、案外地続きなのかもしれない。",
+              "reading": "ね、ふたをあければねこのたどったとおりだったでしょう。ぼくなんてただおもしろがってめでおっていただけなんですけどね。すきでながめていたことが、そっくりそのままじゅんばんのてがかりになっていた——たのしむのとやくにたつのは、あんがいじつづきなのかもしれない。",
+              "english": "See, when it came down to it, it was exactly the cat's path. Me, I was only following it with my eyes for the fun of it. But what I watched just because I liked it became, exactly as it was, the clue to the order — enjoying something and being useful may be more of one piece than we think."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:catwalk-clue:order-read-aloud",
+          "beatId": "beat:catwalk-clue:exit-image",
+          "cueId": "cue:paper-cat-on-the-last-card",
+          "description": "The class reads the five cards aloud in the cat's order and the route holds. The paper cat is set on the last card in the line, facing the empty table, ready to move again the next evening."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:paper-cat",
+      "state": "echo",
+      "ownerIds": [
+        "tom",
+        "felix",
+        "stasi"
+      ],
+      "meaningNow": "Felix follows the moved paper-cat marker through mislabeled cards; the mascot becomes a way to track which card is which when the printed labels cannot be trusted.",
+      "priorUse": {
+        "packageId": "s1e05-final-boss-kana",
+        "sceneId": "scene:final-boss-kana:smallest-clue",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "A small marker has simply been moved onto the correct card each evening, and Felix notices the pattern the labels missed."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:catwalk-clue:real-order",
+      "kind": "story",
+      "description": "The class abandons the mislabeled printed numbers and reads the route cards in the order the paper-cat marker has been tracing, trusting placement and observation over the wrong labels."
+    },
+    {
+      "id": "outcome:catwalk-clue:felix-arrival",
+      "kind": "bond",
+      "castId": "felix",
+      "chapter": 17,
+      "beat": "arrival",
+      "description": "Felix is introduced through delighted, counter-precise observation of the paper-cat marker; the class learns his attention pattern — following something for joy — can become a method it can ask for later."
+    },
+    {
+      "id": "outcome:catwalk-clue:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l08",
+      "description": "Identify-by-relative-clause-and-counter-and-report evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:stasi-reads-the-placement-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-identify-step"
+    ],
+    "withdrawnContentFallback": "Use the same identify-by-relative-clause-and-counter evidence with neutral nameplates and a generic marker moved onto the correct card each evening, keeping the mislabeled-card problem and the reported order."
+  }
+}
