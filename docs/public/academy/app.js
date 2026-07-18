@@ -230289,13 +230289,48 @@ ${entry2.reading || ""}`;
     for (let index = 0; index < remainder; index++) percentages[remainderOrder[index].index]++;
     return percentages;
   }
+  const EXPRESSION_CONNECTIVE_KANA = /* @__PURE__ */ new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
+  function matchesAt(characters, cursor, value) {
+    return Array.from(value).every((part, index) => characters[cursor + index] === part);
+  }
+  function isConnectiveKanaOnly(component) {
+    const characters = Array.from(component.text);
+    return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
+  }
   function alignedExpressionComponentPitches(card, components2, componentPitches) {
-    if (components2.length < 2 || components2.map((component) => component.text).join("") !== card.spelling.trim()) return [];
-    const aligned = components2.map((component) => componentPitches.find(
-      (pitch) => pitch.text === component.text && pitch.reading === component.reading
-    ));
-    if (aligned.some((component) => !component)) return [];
-    if (aligned.map((component) => component?.reading ?? "").join("") !== cardPronunciationReading(card)) return [];
+    if (!components2.length) return [];
+    const spellingChars = Array.from(card.spelling.trim());
+    const readingChars = Array.from(cardPronunciationReading(card));
+    const aligned = [];
+    let spellingCursor = 0;
+    let readingCursor = 0;
+    let skippedConnectives = 0;
+    const skipConnectives = (next) => {
+      while (spellingCursor < spellingChars.length && spellingChars[spellingCursor] === readingChars[readingCursor] && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor]) && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+        spellingCursor += 1;
+        readingCursor += 1;
+        skippedConnectives += 1;
+      }
+    };
+    for (const component of components2) {
+      skipConnectives(component);
+      if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+      spellingCursor += Array.from(component.text).length;
+      readingCursor += Array.from(component.reading).length;
+      const pitch = componentPitches.find((candidate2) => candidate2.text === component.text && candidate2.reading === component.reading);
+      if (pitch) {
+        aligned.push(pitch);
+        continue;
+      }
+      if (isConnectiveKanaOnly(component)) {
+        skippedConnectives += 1;
+        continue;
+      }
+      return [];
+    }
+    skipConnectives();
+    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
+    if (!aligned.length || aligned.length < 2 && !skippedConnectives) return [];
     return aligned;
   }
   function renderExpressionComponentPitches(components2) {
@@ -230513,7 +230548,7 @@ ${entry2.reading || ""}`;
     render(card, sentence, trigger, data) {
       const view = this.renderView(card, data);
       const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
-      const expressionComponents = this.renderExpressionComponents(data, view);
+      const expressionComponents = this.renderExpressionComponents(card, data, view);
       const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
         [ANKI_SOURCE_ID]: ankiSourceSection
       });
@@ -230608,9 +230643,10 @@ ${entry2.reading || ""}`;
     renderPartOfSpeech(view) {
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
     }
-    renderExpressionComponents(data, view) {
+    renderExpressionComponents(card, data, view) {
       const components2 = uniqueExpressionComponents(data.expressionComponents ?? []);
-      if (data.loading || components2.length < 2) return "";
+      if (data.loading || !components2.length) return "";
+      if (components2.length === 1 && components2[0].text === card.spelling.trim()) return "";
       const rows = components2.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
       return `<div class="jpdb-reader-expression-components">
             <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$1(uiText(view.language, "composedOf"))}">${rows}</ul>
@@ -233134,6 +233170,30 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
     return frequencyEnabled && lookupEnabled;
   }
+  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+    const ranks = {};
+    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+    if (jitenRank) {
+      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+    }
+    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+    if (jpdb) ranks.jpdb = jpdb;
+    return ranks;
+  }
+  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+    const text2 = frequency.trim();
+    const match = /([\d,]+)/.exec(text2);
+    const rank2 = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+    if (!Number.isInteger(rank2) || rank2 <= 0) return null;
+    return {
+      provider: "jpdb",
+      rank: rank2,
+      spelling: kanji,
+      reading: kanji,
+      source: "kanji",
+      display: /^top\b/i.test(text2) ? text2 : void 0
+    };
+  }
   function cardFrequencyRanks(card, isJpdbBackedCard) {
     const rank2 = frequencyRank(card.frequencyRank);
     if (!rank2) return {};
@@ -233197,7 +233257,6 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
   const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
   const CARD_RENDER_META_LOOKUP_LIMIT = 12;
-  const EXPRESSION_CONNECTIVE_KANA = /* @__PURE__ */ new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
   function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, frequencyRanks = {}, bunproDefinitionStatus = { state: "loading" }) {
     return {
       localEntries,
@@ -233559,7 +233618,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         const entries2 = await localEntries.catch(() => []);
         if (entries2.length || looksComposableExpression(card.spelling)) {
           const segmented = await this.segmentExpressionComponents(card.spelling);
-          if (segmented.length >= 2) return segmented;
+          if (segmented.length) return segmented;
         }
       }
       const info = await jitenVocabularyInfo.catch(() => null);
@@ -233575,7 +233634,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         expressionComponents.catch(() => []),
         jitenVocabularyInfo.catch(() => null)
       ]);
-      if (components2.length < 2) return [];
+      if (!components2.length) return [];
       const pitches = [];
       for (const component of components2) {
         const jitenWord = jitenInfo?.composedOf.find((word) => {
@@ -233605,6 +233664,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const components2 = [];
       let cursor = 0;
       let misses = 0;
+      let connectiveSkips = 0;
       while (cursor < characters.length && components2.length < 8 && misses <= 6) {
         const matched = await this.longestExpressionComponentAt(characters, cursor, settings);
         if (matched) {
@@ -233612,10 +233672,13 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
           cursor += Array.from(matched.text).length;
           continue;
         }
-        if (!EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) misses += 1;
+        if (EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) connectiveSkips += 1;
+        else misses += 1;
         cursor += 1;
       }
-      return components2.length >= 2 ? components2 : [];
+      if (components2.length >= 2) return components2;
+      if (components2.length === 1 && connectiveSkips > 0 && misses === 0) return components2;
+      return [];
     }
     async longestExpressionComponentAt(characters, cursor, settings) {
       const maxLength = Math.min(8, characters.length - cursor);
@@ -233756,9 +233819,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function looksComposableExpression(spelling) {
     const characters = Array.from(spelling.trim());
-    if (characters.length < 4) return false;
+    if (characters.length < 3) return false;
+    const hasConnective = characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
+    if (characters.length === 3 && !hasConnective) return false;
     const kanjiCount = characters.filter(isKanjiCharacter).length;
-    return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
+    return hasConnective || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
   }
   function jitenExpressionComponents(info) {
     const seen = /* @__PURE__ */ new Set();
@@ -233842,7 +233907,6 @@ ${component.reading}`;
   const RENDERED_WORD_CONTRAST_VARS = [
     "--jpdb-reader-page-bg",
     "--jpdb-reader-highlight-backdrop",
-    "--jpdb-reader-furi-accessible-color",
     "--jpdb-reader-word-accessible-color",
     "--jpdb-reader-word-accessible-highlight",
     "--jpdb-reader-word-accessible-underline",
@@ -238700,7 +238764,14 @@ ${component.reading}`;
           allowDirectCrossOrigin: false,
           allowConfiguredProxy: true,
           allowSensitiveConfiguredProxy: true,
-          allowPublicProxies: false,
+          // Keyless requests are read-only lookups against the shared-proxy
+          // allowlist (vocabulary/search, vocabulary info, kanji). api.jiten.moe
+          // sends no Access-Control-Allow-Origin, so on hosted pages with no GM
+          // bridge and no configured proxy the built-in Yomu edge proxy is the
+          // ONLY transport — refusing it here silently killed the cross-provider
+          // frequency rank on the lookup pills ("No configured proxy."). Requests
+          // carrying an API key stay off public proxies.
+          allowPublicProxies: !apiKey,
           preferFetch: true
         });
         return parseJitenPayload(payload);
@@ -258475,15 +258546,12 @@ ${entry2.url}`),
     const measurements = activeWords.map((word) => {
       const style = getComputedStyle(word);
       const parentStyle = getComputedStyle(word.parentElement ?? word);
-      const furi = word.querySelector("rt.jpdb-reader-furi");
-      const furiStyle = furi ? getComputedStyle(furi) : null;
       return {
         bg: style.backgroundColor,
         hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
         fg: style.color,
         deco: measuredWordDecorationColor(style),
         parentFg: parentStyle.color,
-        furiFg: furiStyle?.color,
         hover: style.getPropertyValue("--jpdb-reader-hover"),
         hovered: word.matches(":hover, :focus")
       };
@@ -258515,14 +258583,10 @@ ${entry2.url}`),
     const sourceText = cssColorToHex(m.fg, accessibleRgba);
     const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-    const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-    const furiBackgrounds = [background.hex];
     word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOnAll(furiText, furiBackgrounds, TEXT_CONTRAST));
-    else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
     if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
   }
@@ -265872,7 +265936,7 @@ ${entry2.url}`),
     if (!url) return "";
     const title2 = lookupLinkPillTitle(options, language, link);
     const rank2 = linkPillLiveRank(link, mergedLiveRanks);
-    const label = rank2 ? `${link.label} #${rank2}` : link.label;
+    const label = rank2 ? `${link.label} ${rank2.display ?? `#${rank2.rank}`}` : link.label;
     if (options.inert) {
       return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title2)}" aria-label="${escapeHtml$1(`${title2}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
     }
@@ -265960,10 +266024,9 @@ ${entry2.url}`),
   function frequencyPillsByLookupId(options) {
     const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
     const enabledLinkIds = new Set(options.settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => link.id));
-    const state = localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds);
-    if (!options.overrideQuery || !isSingleKanji(options.overrideQuery)) {
-      mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds);
-    }
+    const kanjiQuery = options.overrideQuery && isSingleKanji(options.overrideQuery) ? options.overrideQuery.trim() : null;
+    const state = localFrequencyPills(options, mergeIntoLinkPill && !kanjiQuery, enabledLinkIds);
+    mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds, kanjiQuery);
     return { pills: state.pills, mergedLiveRanks: state.mergedLiveRanks };
   }
   function localFrequencyPills(options, mergeIntoLinkPill, enabledLinkIds) {
@@ -265983,7 +266046,7 @@ ${entry2.url}`),
     const provider = localFrequencyProvider(entry2.dictionary);
     const rank2 = extractFrequency(entry2.data);
     if (provider && rank2 && mergeIntoLinkPill && enabledLinkIds.has(provider)) {
-      state.mergedLiveRanks.set(provider, rank2);
+      state.mergedLiveRanks.set(provider, { rank: rank2 });
       state.localProviders.add(provider);
       return;
     }
@@ -265992,14 +266055,15 @@ ${entry2.url}`),
     state.pills.set(localFrequencyLookupPillId(entry2.dictionary), html);
     if (provider) state.localProviders.add(provider);
   }
-  function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds) {
+  function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkIds, kanjiQuery) {
     for (const link of options.settings.dictionaryLookupLinks) {
       if (link.action !== "frequency-live" || !link.enabled) continue;
       const provider = liveFrequencyProvider(link);
-      if (!provider || state.localProviders.has(provider)) continue;
-      const rank2 = liveFrequencyRank(options, provider);
+      if (!provider || !kanjiQuery && state.localProviders.has(provider)) continue;
+      const rank2 = liveFrequencyEvidence(options, provider);
       if (!rank2) continue;
-      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, rank2);
+      if (kanjiQuery ? rank2.source !== "kanji" || rank2.spelling !== kanjiQuery : rank2.source === "kanji") continue;
+      if (mergeIntoLinkPill && enabledLinkIds.has(provider)) state.mergedLiveRanks.set(provider, { rank: rank2.rank, display: rank2.display });
     }
   }
   function localFrequencyEnabled(settings, dictionary) {
@@ -266016,8 +266080,8 @@ ${entry2.url}`),
   function liveFrequencyProvider(link) {
     return frequencyProviderForLookupId(link.id);
   }
-  function liveFrequencyRank(options, provider) {
-    return options.frequencyRanks?.[provider]?.rank ?? null;
+  function liveFrequencyEvidence(options, provider) {
+    return options.frequencyRanks?.[provider] ?? null;
   }
   function localFrequencyProvider(dictionary) {
     const normalized2 = dictionary.toLowerCase();
@@ -267351,7 +267415,7 @@ ${entry2.url}`),
       const actionId = button2.dataset.kanjiActionId ?? "";
       if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button2);
     }
-    async renderKanjiLookupDetails(popover, _card, kanji, requestId = this.lookupRenderRequest) {
+    async renderKanjiLookupDetails(popover, card, kanji, requestId = this.lookupRenderRequest) {
       let jpdbInfo = null;
       let jitenInfo = null;
       let rtkInfo = null;
@@ -267367,6 +267431,21 @@ ${entry2.url}`),
         if (!this.isCurrentLookupRender(popover, requestId)) return;
         const mount = popover.querySelector("[data-kanji-keyword-mount]");
         if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+      };
+      const renderKanjiPillRanks = () => {
+        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
+        if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
+        updateHeadingWordPills(popover, {
+          card,
+          jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+          settings: this.settings,
+          metaEntries: [],
+          overrideQuery: kanji,
+          frequencyRanks,
+          isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
+          dictionaryLabel: (name) => this.dictionaryLabel(name)
+        });
       };
       const renderRtk = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -267410,6 +267489,7 @@ ${entry2.url}`),
           jpdbInfo = info;
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKeyword();
+          renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
           if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
           updateKanjiLookupMiningControls(
@@ -267423,6 +267503,7 @@ ${entry2.url}`),
           jitenInfo = info;
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKeyword();
+          renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
           if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
         }),
@@ -267454,7 +267535,9 @@ ${entry2.url}`),
     kanjiLookupDetailPromises(kanji) {
       return {
         jpdbInfo: this.settings.jpdbKanjiEnabled ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, "JPDB kanji lookup timed out.") : Promise.resolve(null),
-        jitenInfo: this.settings.jpdbKanjiEnabled && this.isJitenApiActive() ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, "Jiten kanji lookup timed out.") : Promise.resolve(null),
+        // Keyless requests ride the built-in edge proxy (the kanji endpoint is
+        // on the shared-proxy allowlist), so no Jiten API credential is required.
+        jitenInfo: this.settings.jpdbKanjiEnabled ? this.lookupDetailWithTimeout(this.jiten.lookupKanji(kanji), null, "Jiten kanji lookup timed out.") : Promise.resolve(null),
         kanjiEntries: this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.lookupDetailWithTimeout(
           this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences),
           [],

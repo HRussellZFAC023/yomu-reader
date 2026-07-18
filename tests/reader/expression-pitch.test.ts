@@ -374,20 +374,42 @@ describe('expression component pitch', () => {
         expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('流星群');
     });
 
-    it('keeps componentPitches empty when only one component is found', async () => {
+    it('infers the content-word pitch for word + trailing particle entries like 実際は', async () => {
         const loader = createLoader({
-            entriesByTerm: { 気合い: [termEntry('気合い', 'きあい')] },
-            metaByTerm: { 気合い: [pitchMeta('気合い', 'きあい', 0)] },
+            entriesByTerm: { 実際: [termEntry('実際', 'じっさい')] },
+            metaByTerm: { 実際: [pitchMeta('実際', 'じっさい', 0)] },
         });
+        const card = expressionCard('実際は', 'じっさいは');
 
-        const data = await loader.load(expressionCard('気合いを', 'きあいを')).all;
+        const data = await loader.load(card).all;
 
-        expect(data.expressionComponents ?? []).toEqual([]);
-        expect(data.componentPitches ?? []).toEqual([]);
+        expect(data.expressionComponents).toEqual([{ text: '実際', reading: 'じっさい' }]);
+        expect(data.componentPitches?.map(component => component.text)).toEqual(['実際']);
+        const aligned = alignedExpressionComponentPitches(card, data.expressionComponents ?? [], data.componentPitches ?? []);
+        expect(aligned.map(component => component.text)).toEqual(['実際']);
     });
 
-    it('does not treat a partial decomposition that skipped connective text as the whole compound', () => {
-        const card = expressionCard('気合いを入れる', 'きあいをいれる');
+    it('aligns components across mid-expression particles like 為すがまま', () => {
+        const card = expressionCard('為すがまま', 'なすがまま');
+        const components = [
+            { text: '為す', reading: 'なす' },
+            { text: 'まま', reading: 'まま' },
+        ];
+        const pitches = components.map(component => ({ ...component, pitch: 'LHH' }));
+
+        expect(alignedExpressionComponentPitches(card, components, pitches).map(component => component.text)).toEqual(['為す', 'まま']);
+    });
+
+    it('keeps a whole-spelling single component out of the component pitch fallback', () => {
+        const card = expressionCard('気合い', 'きあい');
+        const components = [{ text: '気合い', reading: 'きあい' }];
+        const pitches = [{ text: '気合い', reading: 'きあい', pitch: 'LHH' }];
+
+        expect(alignedExpressionComponentPitches(card, components, pitches)).toEqual([]);
+    });
+
+    it('voids alignment when components skip non-connective text', () => {
+        const card = expressionCard('気合いだけ入れる', 'きあいだけいれる');
         const components = [
             { text: '気合い', reading: 'きあい' },
             { text: '入れる', reading: 'いれる' },
@@ -395,6 +417,16 @@ describe('expression component pitch', () => {
         const pitches = components.map(component => ({ ...component, pitch: 'LHHH' }));
 
         expect(alignedExpressionComponentPitches(card, components, pitches)).toEqual([]);
+    });
+
+    it('voids alignment when a content component has no pitch', () => {
+        const card = expressionCard('為すがまま', 'なすがまま');
+        const components = [
+            { text: '為す', reading: 'なす' },
+            { text: 'まま', reading: 'まま' },
+        ];
+
+        expect(alignedExpressionComponentPitches(card, components, [{ text: '為す', reading: 'なす', pitch: 'LH' }])).toEqual([]);
     });
 
     it('renders one labelled mini graph per component', () => {

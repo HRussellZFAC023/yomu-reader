@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.196] - 2026-07-18
+
+### Fixed
+
+- Word-plus-particle entries such as 実際は no longer show "Exact pitch unavailable": the reader now infers the pitch from the content word (実際) and also lists it as a navigable component, and expressions whose parts are joined by particles, such as 為すがまま, now show per-component pitch graphs (為す + まま) instead of no pitch at all.
+
 ## [1.6.195] - 2026-07-18
 
 ### Fixed

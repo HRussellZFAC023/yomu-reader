@@ -74,18 +74,73 @@ export interface ExpressionComponentPitch extends ExpressionComponentLookup {
     pitch: string;
 }
 
+// Particles and connective kana that join expression components (気合いを入れる,
+// 為すがまま) or trail a content word (実際は). They carry no lexical pitch of
+// their own, so alignment may consume them without demanding a pitch entry.
+export const EXPRESSION_CONNECTIVE_KANA = new Set(['を', 'が', 'に', 'で', 'と', 'は', 'も', 'へ', 'や', 'の', 'お', 'ご']);
+
+function matchesAt(characters: string[], cursor: number, value: string): boolean {
+    return Array.from(value).every((part, index) => characters[cursor + index] === part);
+}
+
+function isConnectiveKanaOnly(component: ExpressionComponentLookup): boolean {
+    const characters = Array.from(component.text);
+    return characters.length > 0
+        && component.text === component.reading
+        && characters.every(character => EXPRESSION_CONNECTIVE_KANA.has(character));
+}
+
+// Aligns the looked-up components against the card's spelling AND reading,
+// tolerating connective kana between and around them: 為すがまま aligns
+// 為す + まま across the が, and 実際は aligns 実際 before the trailing は. A
+// component that fails to match either text or reading in sequence, or a
+// content component with no pitch, still voids the whole alignment — a
+// partially-labelled contour would silently misattribute accents.
 export function alignedExpressionComponentPitches(
     card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
     components: ExpressionComponentLookup[],
     componentPitches: ExpressionComponentPitch[],
 ): ExpressionComponentPitch[] {
-    if (components.length < 2 || components.map(component => component.text).join('') !== card.spelling.trim()) return [];
-    const aligned = components.map(component => componentPitches.find(pitch =>
-        pitch.text === component.text && pitch.reading === component.reading,
-    ));
-    if (aligned.some(component => !component)) return [];
-    if (aligned.map(component => component?.reading ?? '').join('') !== cardPronunciationReading(card)) return [];
-    return aligned as ExpressionComponentPitch[];
+    if (!components.length) return [];
+    const spellingChars = Array.from(card.spelling.trim());
+    const readingChars = Array.from(cardPronunciationReading(card));
+    const aligned: ExpressionComponentPitch[] = [];
+    let spellingCursor = 0;
+    let readingCursor = 0;
+    let skippedConnectives = 0;
+    const skipConnectives = (next?: ExpressionComponentLookup) => {
+        while (spellingCursor < spellingChars.length
+            && spellingChars[spellingCursor] === readingChars[readingCursor]
+            && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor])
+            && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+            spellingCursor += 1;
+            readingCursor += 1;
+            skippedConnectives += 1;
+        }
+    };
+    for (const component of components) {
+        skipConnectives(component);
+        if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+        spellingCursor += Array.from(component.text).length;
+        readingCursor += Array.from(component.reading).length;
+        const pitch = componentPitches.find(candidate => candidate.text === component.text && candidate.reading === component.reading);
+        if (pitch) {
+            aligned.push(pitch);
+            continue;
+        }
+        if (isConnectiveKanaOnly(component)) {
+            skippedConnectives += 1;
+            continue;
+        }
+        return [];
+    }
+    skipConnectives();
+    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
+    // A single component covering the whole spelling is just the word itself;
+    // the whole-word pitch path owns that case. With particles consumed, the
+    // lone content word's accent is genuinely informative (実際は → 実際).
+    if (!aligned.length || (aligned.length < 2 && !skippedConnectives)) return [];
+    return aligned;
 }
 
 export interface PitchGraphRenderOptions {

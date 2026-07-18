@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.195
+// @version 1.6.196
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.2f10675e993c.user.js#sha256=LxBnXpk8NXjkSOp8nlHwSMJOoJ4f4Ugb5WoZdVW9Gkk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.35c8af354e13.user.js#sha256=NcivNU4T5dS91BIQlB8+sh0/c1hybmBMniVh7aSy0XI=
 // @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
 // @resource yomuCss  https://yomureader.com/yomu.b2961b03bd43.css#sha256=spYbA71DZOP0+ogjRg8S8Hru6V4jZEknOtmVdbBeQfA=
 // @connect api.jiten.moe
@@ -16425,13 +16425,48 @@ function pitchVariantDisplayPercentages(variants) {
   for (let index = 0; index < remainder; index++) percentages[remainderOrder[index].index]++;
   return percentages;
 }
+const EXPRESSION_CONNECTIVE_KANA = new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
+function matchesAt(characters, cursor, value) {
+  return Array.from(value).every((part, index) => characters[cursor + index] === part);
+}
+function isConnectiveKanaOnly(component) {
+  const characters = Array.from(component.text);
+  return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
+}
 function alignedExpressionComponentPitches(card, components, componentPitches) {
-  if (components.length < 2 || components.map((component) => component.text).join("") !== card.spelling.trim()) return [];
-  const aligned = components.map((component) => componentPitches.find(
-  (pitch) => pitch.text === component.text && pitch.reading === component.reading
-  ));
-  if (aligned.some((component) => !component)) return [];
-  if (aligned.map((component) => component?.reading ?? "").join("") !== cardPronunciationReading(card)) return [];
+  if (!components.length) return [];
+  const spellingChars = Array.from(card.spelling.trim());
+  const readingChars = Array.from(cardPronunciationReading(card));
+  const aligned = [];
+  let spellingCursor = 0;
+  let readingCursor = 0;
+  let skippedConnectives = 0;
+  const skipConnectives = (next) => {
+  while (spellingCursor < spellingChars.length && spellingChars[spellingCursor] === readingChars[readingCursor] && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor]) && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+    spellingCursor += 1;
+    readingCursor += 1;
+    skippedConnectives += 1;
+  }
+  };
+  for (const component of components) {
+  skipConnectives(component);
+  if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+  spellingCursor += Array.from(component.text).length;
+  readingCursor += Array.from(component.reading).length;
+  const pitch = componentPitches.find((candidate) => candidate.text === component.text && candidate.reading === component.reading);
+  if (pitch) {
+    aligned.push(pitch);
+    continue;
+  }
+  if (isConnectiveKanaOnly(component)) {
+    skippedConnectives += 1;
+    continue;
+  }
+  return [];
+  }
+  skipConnectives();
+  if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
+  if (!aligned.length || aligned.length < 2 && !skippedConnectives) return [];
   return aligned;
 }
 function renderExpressionComponentPitches(components) {
@@ -16527,7 +16562,7 @@ class CardPopoverRenderer {
   render(card, sentence, trigger, data) {
   const view = this.renderView(card, data);
   const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
-  const expressionComponents = this.renderExpressionComponents(data, view);
+  const expressionComponents = this.renderExpressionComponents(card, data, view);
   const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
     [ANKI_SOURCE_ID]: ankiSourceSection
   });
@@ -16622,9 +16657,10 @@ class CardPopoverRenderer {
   renderPartOfSpeech(view) {
   return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$1(view.cardPosDetails)}">${escapeHtml$1(view.cardPos)}</div>` : "";
   }
-  renderExpressionComponents(data, view) {
+  renderExpressionComponents(card, data, view) {
   const components = uniqueExpressionComponents(data.expressionComponents ?? []);
-  if (data.loading || components.length < 2) return "";
+  if (data.loading || !components.length) return "";
+  if (components.length === 1 && components[0].text === card.spelling.trim()) return "";
   const rows = components.map((component) => this.renderExpressionComponent(component, data.componentPitches ?? [])).join("");
   return `<div class="jpdb-reader-expression-components">
             <ul class="jpdb-reader-jpdb-used-in jpdb-reader-expression-component-list" role="list" aria-label="${escapeHtml$1(uiText(view.language, "composedOf"))}">${rows}</ul>
@@ -19229,7 +19265,6 @@ const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
 const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1e3;
 const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4e3;
 const CARD_RENDER_META_LOOKUP_LIMIT = 12;
-const EXPRESSION_CONNECTIVE_KANA = new Set(["を", "が", "に", "で", "と", "は", "も", "へ", "や", "の", "お", "ご"]);
 function loadingCardRenderData(localEntries, ankiLookup, metaEntries = [], jpdbVocabularyInfo = null, jitenVocabularyInfo = null, bunproDefinitionInfo = null, frequencyRanks = {}, bunproDefinitionStatus = { state: "loading" }) {
   return {
   localEntries,
@@ -19579,7 +19614,7 @@ class CardRenderDataLoader {
     const entries2 = await localEntries.catch(() => []);
     if (entries2.length || looksComposableExpression(card.spelling)) {
       const segmented = await this.segmentExpressionComponents(card.spelling);
-      if (segmented.length >= 2) return segmented;
+      if (segmented.length) return segmented;
     }
   }
   const info = await jitenVocabularyInfo.catch(() => null);
@@ -19592,7 +19627,7 @@ class CardRenderDataLoader {
     expressionComponents.catch(() => []),
     jitenVocabularyInfo.catch(() => null)
   ]);
-  if (components.length < 2) return [];
+  if (!components.length) return [];
   const pitches = [];
   for (const component of components) {
     const jitenWord = jitenInfo?.composedOf.find((word) => {
@@ -19622,6 +19657,7 @@ class CardRenderDataLoader {
   const components = [];
   let cursor = 0;
   let misses = 0;
+  let connectiveSkips = 0;
   while (cursor < characters.length && components.length < 8 && misses <= 6) {
     const matched = await this.longestExpressionComponentAt(characters, cursor, settings);
     if (matched) {
@@ -19629,10 +19665,13 @@ class CardRenderDataLoader {
       cursor += Array.from(matched.text).length;
       continue;
     }
-    if (!EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) misses += 1;
+    if (EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) connectiveSkips += 1;
+    else misses += 1;
     cursor += 1;
   }
-  return components.length >= 2 ? components : [];
+  if (components.length >= 2) return components;
+  if (components.length === 1 && connectiveSkips > 0 && misses === 0) return components;
+  return [];
   }
   async longestExpressionComponentAt(characters, cursor, settings) {
   const maxLength = Math.min(8, characters.length - cursor);
@@ -19773,9 +19812,11 @@ function isKanaCharacter(character) {
 }
 function looksComposableExpression(spelling) {
   const characters = Array.from(spelling.trim());
-  if (characters.length < 4) return false;
+  if (characters.length < 3) return false;
+  const hasConnective = characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
+  if (characters.length === 3 && !hasConnective) return false;
   const kanjiCount = characters.filter(isKanjiCharacter).length;
-  return characters.some((character) => EXPRESSION_CONNECTIVE_KANA.has(character)) || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
+  return hasConnective || characters.every(isKanjiCharacter) || isKanjiCharacter(characters[0]) && kanjiCount >= 2 && characters.every((character) => isKanjiCharacter(character) || isKanaCharacter(character));
 }
 function jitenExpressionComponents(info) {
   const seen = new Set();
@@ -36427,8 +36468,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.195"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.195"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.196"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.196"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36546,7 +36587,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.195"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.196"}`;
   } catch {
   return null;
   }

@@ -92,7 +92,7 @@ export class CardPopoverRenderer {
     ): string {
         const view = this.renderView(card, data);
         const ankiSourceSection = this.renderAnkiSourceSection(card, sentence, data, view);
-        const expressionComponents = this.renderExpressionComponents(data, view);
+        const expressionComponents = this.renderExpressionComponents(card, data, view);
         const definitionSources = this.dependencies.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, data.bunproDefinitionInfo ?? null, {
             [ANKI_SOURCE_ID]: ankiSourceSection,
         });
@@ -206,9 +206,12 @@ export class CardPopoverRenderer {
         return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml(view.cardPosDetails)}">${escapeHtml(view.cardPos)}</div>` : '';
     }
 
-    private renderExpressionComponents(data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
+    private renderExpressionComponents(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
         const components = uniqueExpressionComponents(data.expressionComponents ?? []);
-        if (data.loading || components.length < 2) return '';
+        if (data.loading || !components.length) return '';
+        // A lone component equal to the whole spelling is not a decomposition;
+        // a lone component from a word + particle entry (実際は → 実際) is.
+        if (components.length === 1 && components[0].text === card.spelling.trim()) return '';
         const rows = components.map(component => this.renderExpressionComponent(component, data.componentPitches ?? [])).join('');
         // The breakdown is visually self-explanatory, so the label lives only
         // in the accessibility tree; role=list survives list-style:none.

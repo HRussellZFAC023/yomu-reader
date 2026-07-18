@@ -252,6 +252,14 @@
   direction: ltr;
   font: 14px/1.45 var(--jpdb-reader-font);
   letter-spacing: 0;
+  /* Mobile browsers (iPadOS Safari desktop-mode, Chrome Android) inflate
+     px-sized text via font boosting unless it is pinned; `all: initial`
+     above resets text-size-adjust back to `auto`, so without this pin
+     every Yomu surface renders ~2x on hosts whose own reset pins their
+     text (e.g. reddit.com). In-content word decorations are untouched so
+     they keep matching surrounding (possibly boosted) host text. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   text-transform: none;
   unicode-bidi: isolate;
 }
@@ -7527,10 +7535,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-furi {
   font-size: 0.58em;
   font-weight: 700;
-  color: var(
-    --jpdb-reader-furi-accessible-color,
-    color-mix(in srgb, var(--jpdb-reader-text, currentColor) 72%, var(--jpdb-reader-muted))
-  ) !important;
+  /* Furigana always tracks the base word it annotates: `inherit` takes the
+     word's own computed colour (page text, pitch/status/jpdb/anki tint, or the
+     contrast-adjusted --jpdb-reader-word-accessible-color), so the reading is
+     never a muted grey that diverges from its base. -webkit-text-fill-color is
+     pinned to currentColor so WebKit fills the kana with that same inherited
+     colour instead of inheriting the word's own fill channel. Mirror readings
+     use .jpdb-reader-detached-furi, whose higher-specificity rule keeps them on
+     the native colour where the base glyph is painted transparent. */
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
   /* -webkit- too: iOS Safari (the OOM/copy target) needs the prefixed property
@@ -10874,7 +10888,9 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
 }
 
 .jpdb-reader-jiten-related-head .jpdb-reader-furi {
-  color: color-mix(in srgb, var(--jpdb-reader-text) 66%, var(--jpdb-reader-muted));
+  /* Furigana matches the headword text it annotates rather than a muted mix. */
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
   font-size: 0.58em;
   font-weight: 650;
   line-height: 1;
@@ -12901,7 +12917,8 @@ mark.jpdb-reader-example-target {
 }
 
 .jpdb-reader-study-original rt {
-  color: var(--jpdb-reader-muted);
+  /* Furigana matches the sentence text it annotates rather than a muted grey. */
+  color: inherit;
   font-size: 0.58em;
   line-height: 1;
 }
@@ -14142,7 +14159,9 @@ mark.jpdb-reader-example-target {
 
 .jpdb-reader-jiten-kanji-word-term rt,
 .jpdb-reader-jiten-kanji-word-term .jpdb-reader-furi {
-  color: var(--jpdb-reader-muted);
+  /* Furigana matches the term text it annotates rather than a muted grey. */
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
   font-size: 9px;
   line-height: 1;
 }
@@ -18221,7 +18240,10 @@ html.jpdb-reader-doodle-active * {
 }
 
 .jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
-  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
+  /* Match the live reader: furigana takes its base word's colour, not a muted
+     grey, so the appearance preview shows the true on-page result. */
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
   font-size: .43em;
 }
 
@@ -18801,8 +18823,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 
 .jpdb-subtitle-primary .jpdb-reader-furi,
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-subtitle-primary .jpdb-reader-furi {
+  /* Full opacity so the reading is the exact same colour as the caption text it
+     annotates; the outline below keeps it legible over video. */
   color: currentColor;
-  opacity: .82;
+  opacity: 1;
   text-shadow:
     0 1px 1px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),

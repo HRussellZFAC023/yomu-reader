@@ -13,7 +13,7 @@ import { Logger } from '../app/logger';
 import { fallbackLookupTermsForCard } from '../lookup/parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
-import { cardPronunciationReading, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
+import { cardPronunciationReading, EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { isJitenBackedCard } from './srs-providers';
@@ -46,7 +46,6 @@ const CARD_RENDER_LOCAL_PITCH_GRACE_MS = 120;
 const CARD_RENDER_SHARED_DECK_CACHE_TTL_MS = 5 * 60 * 1000;
 const CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS = 4_000;
 const CARD_RENDER_META_LOOKUP_LIMIT = 12;
-const EXPRESSION_CONNECTIVE_KANA = new Set(['を', 'が', 'に', 'で', 'と', 'は', 'も', 'へ', 'や', 'の', 'お', 'ご']);
 
 export interface CardRenderData {
     localEntries: YomitanTermEntry[];
@@ -558,7 +557,7 @@ export class CardRenderDataLoader {
             const entries = await localEntries.catch(() => [] as YomitanTermEntry[]);
             if (entries.length || looksComposableExpression(card.spelling)) {
                 const segmented = await this.segmentExpressionComponents(card.spelling);
-                if (segmented.length >= 2) return segmented;
+                if (segmented.length) return segmented;
             }
         }
 
@@ -583,7 +582,7 @@ export class CardRenderDataLoader {
             expressionComponents.catch(() => [] as ExpressionComponentLookup[]),
             jitenVocabularyInfo.catch(() => null),
         ]);
-        if (components.length < 2) return [];
+        if (!components.length) return [];
         const pitches: ExpressionComponentPitch[] = [];
         for (const component of components) {
             const jitenWord = jitenInfo?.composedOf.find(word => {
@@ -621,6 +620,7 @@ export class CardRenderDataLoader {
         const components: ExpressionComponentLookup[] = [];
         let cursor = 0;
         let misses = 0;
+        let connectiveSkips = 0;
         while (cursor < characters.length && components.length < 8 && misses <= 6) {
             const matched = await this.longestExpressionComponentAt(characters, cursor, settings);
             if (matched) {
@@ -630,10 +630,15 @@ export class CardRenderDataLoader {
             }
             // Particles and connective kana between components are expected;
             // anything else unmatchable counts toward the miss budget.
-            if (!EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) misses += 1;
+            if (EXPRESSION_CONNECTIVE_KANA.has(characters[cursor])) connectiveSkips += 1;
+            else misses += 1;
             cursor += 1;
         }
-        return components.length >= 2 ? components : [];
+        if (components.length >= 2) return components;
+        // A lone content word plus connective kana (実際は, 気合いを) still has a
+        // usable subword: its pitch and lookup chip come from the content word.
+        if (components.length === 1 && connectiveSkips > 0 && misses === 0) return components;
+        return [];
     }
 
     private async longestExpressionComponentAt(
@@ -795,9 +800,14 @@ function isKanaCharacter(character: string): boolean {
 
 function looksComposableExpression(spelling: string): boolean {
     const characters = Array.from(spelling.trim());
-    if (characters.length < 4) return false;
+    // Three characters is only enough when a connective particle is present
+    // (実際は = word + trailing particle); other shapes need four to be worth
+    // a segmentation pass.
+    if (characters.length < 3) return false;
+    const hasConnective = characters.some(character => EXPRESSION_CONNECTIVE_KANA.has(character));
+    if (characters.length === 3 && !hasConnective) return false;
     const kanjiCount = characters.filter(isKanjiCharacter).length;
-    return characters.some(character => EXPRESSION_CONNECTIVE_KANA.has(character))
+    return hasConnective
         || characters.every(isKanjiCharacter)
         // Kanji-led ALL-JAPANESE compounds (国内向け, 海外向け, 取り扱い, 食べ物): a
         // kanji stem with okurigana/kana. Restricting to kanji+kana excludes
