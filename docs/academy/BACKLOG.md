@@ -9,10 +9,10 @@ This queue is the release scheduler. Work below it remains required, but these i
 | Priority | Channel | Current deliverable | State |
 | --- | --- | --- | --- |
 | P0 | Release | Mandatory linked account in production; explicit localhost QA bypass | Shipped `735336f27`, `522452c10` |
-| P0 | Golden path | Prove entry -> profile/avatar -> campus -> Lesson 0 -> completion -> campus on desktop and phone | In progress |
+| P0 | Golden path | Prove entry -> profile/avatar -> campus -> Lesson 0 -> completion -> campus on desktop and phone | Next release gate |
 | P0 | Curriculum | Ground and expose the next source-faithful lesson slice | Integrated: exact Chapter 36 homework matches |
-| P0 | Activities/audio | Add the next taught-first, hinted, gradable multimodal activity with evidence/SRS | Committed: Lesson 0 vowel dictation; integration next |
-| P0 | Story/world/cast | Make the next first-path encounter and journal unlock distinct and reachable | Committed: library encounter continuity; integration next |
+| P0 | Activities/audio | Add the next taught-first, hinted, gradable multimodal activity with evidence/SRS | Integrated: Lesson 0 vowel dictation |
+| P0 | Story/world/cast | Make the next first-path encounter and journal unlock distinct and reachable | Integrated: library encounter continuity |
 | P0 | Assets | Replace deprecated/missing art and connect unique world scenes | Integrated: Rie glasses family + 18 place pairs |
 | P1 | Production proof | Google sign-in, refresh/resume, phone layout, online assets, and route return | Queued behind golden path |
 | P1 | Expansion | Continue source integration, story, minigames, quizzes, flashcards, listening, and cast arcs through N1 | Continuous after each proven slice |
