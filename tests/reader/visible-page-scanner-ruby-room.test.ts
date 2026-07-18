@@ -1,13 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Isolated file: vi.mock is per-file hoisted, so wrapping the dom module's
-// makeRoomForRubyInCroppedRows with a spy here does not affect the other
-// scanner tests.
+// Inject the ruby-room sweep as a scanner dependency instead of mocking
+// dom/index: under fork reuse an earlier reader test can pre-evaluate the scanner
+// against the real import, which a per-file vi.mock cannot rebind. DI is order-safe.
 const rubyRoomSpy = vi.fn();
-vi.mock('../../src/reader/dom/index', async () => {
-    const actual = await vi.importActual<typeof import('../../src/reader/dom/index')>('../../src/reader/dom/index');
-    return { ...actual, makeRoomForRubyInCroppedRows: (root: ParentNode = document) => { rubyRoomSpy(root); return 0; } };
-});
 
 import { testEnSettings } from './helpers/settings-fixture';
 import type { JPDBToken } from '../../src/reader/app/types';
@@ -30,6 +26,7 @@ function makeScanner(overrides: Partial<Deps> & Pick<Deps, 'parseJapanese'>, app
         preloadParsedTokens: vi.fn(),
         enrichPitchWords: vi.fn(),
         enrichAnkiWords: vi.fn(),
+        makeRoomForRubyInCroppedRows: (root: ParentNode = document) => { rubyRoomSpy(root); return 0; },
         toast: vi.fn(),
         ...overrides,
     });

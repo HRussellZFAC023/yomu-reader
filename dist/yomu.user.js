@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.37d3a2b9a8e5.user.js#sha256=N9Oiuajlt3mFLZLxnN14fNA3E8EDixfqNiOK/UFLy8Q=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.533228c26f7f.user.js#sha256=UzIowm9/kTJn+iznZ6PGIOUEANNFKYBqG6dJ+jTaDjM=
-// @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
+// @require https://yomureader.com/greasyfork/yomu-anki.1fed7fb58090.user.js#sha256=H+1/tYCQEWQVaZHx27nENwoYGhGfVVtJot0FviyMyjY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.c0e2ac140db5.user.js#sha256=wOKsFA21MgLXuwYpILOj3a3v1JtIHsew7xqlDsTc+p4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.81c36d3c1967.user.js#sha256=gcNtPBln44mYVXrqW6iYByc7Gb5jVHwXhJ+sK04gHEk=
+// @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
 // @resource yomuCss  https://yomureader.com/yomu.7324d07257b0.css#sha256=cyTQclew1QUtw4OHSsl1739yXaaBRT3UhsDQgaRDC/w=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -901,9 +901,9 @@ function decorationStateForWord(word) {
   const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
   return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
 }
-const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
 function createWindowCustomEvent(type, detail, init = {}) {
   const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
   const documentEvent = createDocumentCustomEvent(type, eventInit);
@@ -11317,7 +11317,7 @@ function appendAudioPreconnectLink(origin, rel) {
   if (rel === "preconnect") link.crossOrigin = "anonymous";
   document.head?.append(link);
 }
-let activationTrackingInstalled = false;
+let activationTrackingWindow;
 let pageHasUserActivation = false;
 const SILENT_AUDIO_DATA_URL = "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 function canAttemptAudiblePlayback(userGesture = false) {
@@ -11350,8 +11350,8 @@ function canAttemptWebAudioFallback(userGesture = false) {
   return true;
 }
 function installPageActivationTracking() {
-  if (activationTrackingInstalled || typeof window === "undefined") return;
-  activationTrackingInstalled = true;
+  if (typeof window === "undefined" || activationTrackingWindow === window) return;
+  activationTrackingWindow = window;
   const markActive = () => {
   pageHasUserActivation = true;
   };
@@ -36942,6 +36942,9 @@ class VisiblePageScanner {
   asbScanInFlight = false;
   asbDrainTimer;
   clampSweepTimer;
+  makeRoomForRuby(root) {
+  return (this.dependencies.makeRoomForRubyInCroppedRows ?? makeRoomForRubyInCroppedRows)(root);
+  }
   destroy() {
   this.destroyed = true;
   this.scanPending = false;
@@ -36979,7 +36982,7 @@ class VisiblePageScanner {
   if (this.destroyed || typeof document === "undefined") return;
   const sweep = () => {
     if (this.destroyed || typeof document === "undefined") return;
-    const adjusted = makeRoomForRubyInCroppedRows(document);
+    const adjusted = this.makeRoomForRuby(document);
     if (adjusted) log$1.info("Made room for ruby in cropped rows", { adjusted });
   };
   if (!silent) sweep();
@@ -37210,7 +37213,7 @@ class VisiblePageScanner {
   reserveRubyRoomForNewRoots(roots) {
   for (const root of roots) {
     if (this.destroyed) return;
-    makeRoomForRubyInCroppedRows(root);
+    this.makeRoomForRuby(root);
   }
   }
   shouldStopApplyingTokens(generation) {

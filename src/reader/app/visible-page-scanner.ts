@@ -97,6 +97,10 @@ export interface VisiblePageScannerDependencies {
     prepareAnkiWordEnrichmentBeforeRender?: (tokens: JPDBToken[]) => Promise<(roots: ParentNode[]) => void> | ((roots: ParentNode[]) => void);
     prepareSubtitleTokensBeforeRender?: (tokens: JPDBToken[]) => Promise<void> | void;
     refreshWordContrast?: (root: ParentNode) => void;
+    // Injectable so tests spy on the ruby-room sweep via a dep instead of
+    // mocking dom/index — fork reuse defeats a per-file vi.mock once an earlier
+    // reader test has evaluated this module against the real import. Defaults to it.
+    makeRoomForRubyInCroppedRows?: (root?: ParentNode) => number;
     toast: (message: string) => void;
 }
 
@@ -119,6 +123,10 @@ export class VisiblePageScanner {
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
+
+    private makeRoomForRuby(root?: ParentNode): number {
+        return (this.dependencies.makeRoomForRubyInCroppedRows ?? makeRoomForRubyInCroppedRows)(root);
+    }
 
     destroy(): void {
         this.destroyed = true;
@@ -168,7 +176,7 @@ export class VisiblePageScanner {
         if (this.destroyed || typeof document === 'undefined') return;
         const sweep = (): void => {
             if (this.destroyed || typeof document === 'undefined') return;
-            const adjusted = makeRoomForRubyInCroppedRows(document);
+            const adjusted = this.makeRoomForRuby(document);
             if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
         };
         // Silent auto-scans skip the immediate document-wide pass: apply-time
@@ -493,7 +501,7 @@ export class VisiblePageScanner {
         // pauseMutationObserver/withMirrorTokenApply guard is needed here.
         for (const root of roots) {
             if (this.destroyed) return;
-            makeRoomForRubyInCroppedRows(root);
+            this.makeRoomForRuby(root);
         }
     }
 

@@ -14,11 +14,27 @@ export interface QueuedNewTabGrade {
     lastError?: string;
 }
 
+export interface NewTabGradeQueueStorage {
+    get: <T>(key: string, fallback: T) => Promise<T>;
+    set: (key: string, value: unknown) => Promise<void>;
+    delete: (key: string) => Promise<void>;
+}
+
 export interface NewTabGradeQueueDeps {
     offlineEnabled: () => boolean;
     submit: (item: QueuedNewTabGrade) => Promise<boolean>;
     onSubmitted: (card: JPDBCard) => void;
+    // Injectable so tests drive an in-memory store directly instead of mocking
+    // the shared storage module — a vi.mock the newtab controller defeats by
+    // pre-importing this module under Vitest fork reuse. Defaults to GM storage.
+    storage?: NewTabGradeQueueStorage;
 }
+
+const gmGradeQueueStorage: NewTabGradeQueueStorage = {
+    get: gmStorageGet,
+    set: gmStorageSet,
+    delete: gmStorageDelete,
+};
 
 // Offline grade write-behind queue: failed grade submissions are persisted to GM
 // storage (deduped per target+card, capped) and flushed back to the providers on
@@ -29,7 +45,11 @@ export class NewTabGradeQueue {
     // snapshot on the final write — a silently deleted review.
     private serial: Promise<unknown> = Promise.resolve();
 
-    constructor(private readonly deps: NewTabGradeQueueDeps) {}
+    private readonly storage: NewTabGradeQueueStorage;
+
+    constructor(private readonly deps: NewTabGradeQueueDeps) {
+        this.storage = deps.storage ?? gmGradeQueueStorage;
+    }
 
     enqueue(card: JPDBCard, grade: JPDBGrade, targets: QueuedNewTabGradeTarget[]): Promise<boolean> {
         return this.locked(() => this.enqueueUnlocked(card, grade, targets));
@@ -96,7 +116,7 @@ export class NewTabGradeQueue {
     }
 
     private async read(): Promise<QueuedNewTabGrade[]> {
-        const stored = await gmStorageGet<QueuedNewTabGrade[] | null>(NEW_TAB_GRADE_QUEUE_KEY, null)
+        const stored = await this.storage.get<QueuedNewTabGrade[] | null>(NEW_TAB_GRADE_QUEUE_KEY, null)
             .catch(() => null);
         if (!Array.isArray(stored)) return [];
         const valid = stored.filter(isQueuedNewTabGrade).slice(-NEW_TAB_GRADE_QUEUE_LIMIT);
@@ -111,8 +131,8 @@ export class NewTabGradeQueue {
 
     private write(queue: QueuedNewTabGrade[]): Promise<void> {
         return queue.length
-            ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-NEW_TAB_GRADE_QUEUE_LIMIT))
-            : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
+            ? this.storage.set(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-NEW_TAB_GRADE_QUEUE_LIMIT))
+            : this.storage.delete(NEW_TAB_GRADE_QUEUE_KEY);
     }
 }
 

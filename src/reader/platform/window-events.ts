@@ -1,6 +1,20 @@
-const initialWindowDispatchEvent = initialWindowMethod('dispatchEvent');
-const initialWindowAddEventListener = initialWindowMethod('addEventListener');
-const initialWindowRemoveEventListener = initialWindowMethod('removeEventListener');
+// Captured at module load so a page that later shadows window.dispatchEvent /
+// addEventListener / removeEventListener can't defeat our own dispatch/detach.
+// These are `let` only so tests can re-capture them from a fresh jsdom realm
+// under Vitest fork reuse (isolate:false); production never re-captures.
+let initialWindowDispatchEvent = initialWindowMethod('dispatchEvent');
+let initialWindowAddEventListener = initialWindowMethod('addEventListener');
+let initialWindowRemoveEventListener = initialWindowMethod('removeEventListener');
+
+// Test-only: re-read the pristine window methods from the CURRENT realm. Under
+// fork reuse each test file gets a fresh jsdom window, but this module is loaded
+// once against the first file's window; without re-capture, removeWindowEventListener
+// would operate on a stale realm's method and fail to detach listeners.
+export function recaptureInitialWindowMethodsForTests(): void {
+    initialWindowDispatchEvent = initialWindowMethod('dispatchEvent');
+    initialWindowAddEventListener = initialWindowMethod('addEventListener');
+    initialWindowRemoveEventListener = initialWindowMethod('removeEventListener');
+}
 
 export function createWindowEvent(type: string, init: EventInit = {}): Event {
     const documentEvent = createDocumentEvent(type, init);

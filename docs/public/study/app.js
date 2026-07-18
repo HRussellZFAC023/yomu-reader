@@ -680,9 +680,9 @@
       return void 0;
     }
   }
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
   function createWindowEvent(type, init = {}) {
     const documentEvent = createDocumentEvent(type, init);
     if (documentEvent) return documentEvent;
@@ -20427,7 +20427,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (rel === "preconnect") link.crossOrigin = "anonymous";
     document.head?.append(link);
   }
-  let activationTrackingInstalled = false;
+  let activationTrackingWindow;
   let pageHasUserActivation = false;
   const SILENT_AUDIO_DATA_URL = "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
   function canAttemptAudiblePlayback(userGesture = false) {
@@ -20460,8 +20460,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return true;
   }
   function installPageActivationTracking() {
-    if (activationTrackingInstalled || typeof window === "undefined") return;
-    activationTrackingInstalled = true;
+    if (typeof window === "undefined" || activationTrackingWindow === window) return;
+    activationTrackingWindow = window;
     const markActive = () => {
       pageHasUserActivation = true;
     };
@@ -79694,14 +79694,21 @@ ${entry.url}`),
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
     }
   }
+  const gmGradeQueueStorage = {
+    get: gmStorageGet,
+    set: gmStorageSet,
+    delete: gmStorageDelete
+  };
   class NewTabGradeQueue {
     constructor(deps) {
       this.deps = deps;
+      this.storage = deps.storage ?? gmGradeQueueStorage;
     }
     // Read-modify-write mutex: a flush that snapshotted the queue while an
     // enqueue landed would otherwise clobber the fresh grade with its stale
     // snapshot on the final write — a silently deleted review.
     serial = Promise.resolve();
+    storage;
     enqueue(card, grade, targets) {
       return this.locked(() => this.enqueueUnlocked(card, grade, targets));
     }
@@ -79760,7 +79767,7 @@ ${entry.url}`),
       return `${item.target}:${cardKey(item.card)}`;
     }
     async read() {
-      const stored = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
+      const stored = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
       if (!Array.isArray(stored)) return [];
       const valid = stored.filter(isQueuedNewTabGrade).slice(-200);
       const queue = valid.filter((item) => item.target !== "bunpro-api");
@@ -79768,7 +79775,7 @@ ${entry.url}`),
       return queue;
     }
     write(queue) {
-      return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
+      return queue.length ? this.storage.set(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : this.storage.delete(NEW_TAB_GRADE_QUEUE_KEY);
     }
   }
   function isQueuedNewTabGrade(value) {

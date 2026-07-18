@@ -211,12 +211,11 @@ function readerTestConfig() {
                 // thrashes a loaded machine into the suite-child timeout. Honors an
                 // explicit VITEST_MAX_FORKS override for hand-tuned CI runners.
                 maxForks: readMaxForks(),
-                // Fork reuse (isolate:false) is a large win but the reader suite
-                // still has order-dependent cross-file state leaks (measured
-                // 2026-07-18: 7 files / 15 tests fail only after other files ran
-                // in the same fork — audio activation, grade-queue, ocr-cache,
-                // anki, ruby-room). Keep per-file isolation until those leak
-                // sources are cleaned; flip with VITEST_ISOLATE=0 to hunt them.
+                // Direct and targeted Vitest commands stay isolated by default.
+                // run-ci-tests.mjs opts its reusable majority into isolate:false,
+                // then runs the remaining incompatible files in a small isolated
+                // pass. This keeps npm test/check:quick safe when their selection
+                // happens to include one of the quarantined files.
                 isolate: process.env.VITEST_ISOLATE !== '0',
                 // Long-lived reused forks accumulate jsdom heap; cap it so a leak
                 // fails one fork loudly instead of OOM-killing the machine
@@ -238,4 +237,3 @@ function readMaxForks(): number {
     if (Number.isInteger(override) && override >= 1) return override;
     return Math.max(2, Math.min(10, availableParallelism()));
 }
-

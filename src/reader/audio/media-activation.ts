@@ -1,5 +1,15 @@
-let activationTrackingInstalled = false;
+let activationTrackingWindow: Window | undefined;
 let pageHasUserActivation = false;
+
+// Test-only: clear the sticky activation flag between test files. Under Vitest
+// fork reuse (isolate:false) a gesture-driven playback in an earlier file would
+// otherwise leave pageHasUserActivation true, making canAttemptWebAudioFallback
+// report activation for a later file that never had one. Listener installation
+// is keyed to the current Window separately, so a fresh jsdom realm gets its own
+// listeners without adding duplicates within a realm.
+export function resetMediaActivationForTests(): void {
+    pageHasUserActivation = false;
+}
 
 const SILENT_AUDIO_DATA_URL = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==';
 
@@ -42,8 +52,8 @@ export function canAttemptWebAudioFallback(userGesture = false): boolean {
 }
 
 function installPageActivationTracking(): void {
-    if (activationTrackingInstalled || typeof window === 'undefined') return;
-    activationTrackingInstalled = true;
+    if (typeof window === 'undefined' || activationTrackingWindow === window) return;
+    activationTrackingWindow = window;
     const markActive = () => { pageHasUserActivation = true; };
     for (const eventName of ['click', 'keydown', 'pointerdown', 'touchstart'] as const) {
         window.addEventListener(eventName, markActive, { capture: true, passive: true });

@@ -92,6 +92,22 @@ export function flushPersistedOcrCache(): void {
     writeOcrCache(cache, now);
 }
 
+// Test-only: cancel any pending debounced write and clear the install-once
+// flag so the pagehide/visibilitychange flush listeners re-attach to each test
+// file's fresh jsdom window under Vitest fork reuse (isolate:false). Without
+// this, flushListenersInstalled stays true across the realm boundary and a
+// later file's flush listeners are never wired to its window; clearing the
+// timer also stops a leaked debounce from writing stale OCR into the next file.
+export function resetOcrCacheStoreForTests(): void {
+    if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = undefined;
+    }
+    pendingCache = undefined;
+    pendingNow = 0;
+    flushListenersInstalled = false;
+}
+
 function installFlushListeners(): void {
     if (flushListenersInstalled) return;
     flushListenersInstalled = true;

@@ -12306,9 +12306,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const value = safeReadProperty(source2, key2);
     return typeof value === "string" ? value : void 0;
   }
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
   function createWindowCustomEvent(type, detail, init = {}) {
     const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
     const documentEvent = createDocumentCustomEvent(type, eventInit);
@@ -219343,7 +219343,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (rel === "preconnect") link.crossOrigin = "anonymous";
     document.head?.append(link);
   }
-  let activationTrackingInstalled = false;
+  let activationTrackingWindow;
   let pageHasUserActivation = false;
   const SILENT_AUDIO_DATA_URL = "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
   function canAttemptAudiblePlayback(userGesture = false) {
@@ -219376,8 +219376,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return true;
   }
   function installPageActivationTracking() {
-    if (activationTrackingInstalled || typeof window === "undefined") return;
-    activationTrackingInstalled = true;
+    if (typeof window === "undefined" || activationTrackingWindow === window) return;
+    activationTrackingWindow = window;
     const markActive = () => {
       pageHasUserActivation = true;
     };
@@ -222816,22 +222816,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   function compactReading(value) {
-    return value.replace(/\s+/g, "").trim();
+    return value.normalize("NFC").replace(/\s+/g, "").trim();
+  }
+  function headwordFuriganaSettings(settings) {
+    if (!settings.showFurigana || settings.furiganaMode === "off") return settings;
+    return { ...settings, furiganaMode: "all" };
   }
   function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
     const spelling = card.spelling.trim();
     if (!spelling) return "";
     const token = cardSpellingFuriganaToken(card, spelling);
-    return shouldRenderRuby(spelling, token, settings, true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
+    return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
   }
-  function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
+  function isPlainReadingRedundantForHeadword(card, settings, plainReading) {
     const spelling = card.spelling.trim();
     const normalizedPlainReading = compactReading(plainReading);
-    if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
+    if (!spelling || !normalizedPlainReading) return false;
+    if (normalizedPlainReading === compactReading(spelling)) return true;
     const token = cardSpellingFuriganaToken(card, spelling);
     const visibleReading = headwordFuriganaReading(spelling, token);
     if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
-    return shouldRenderRuby(spelling, token, settings, true, true);
+    return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true);
   }
   function cardSpellingFuriganaToken(card, spelling) {
     const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
@@ -230752,7 +230757,7 @@ ${entry2.reading || ""}`;
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -231167,7 +231172,7 @@ ${entry2.reading || ""}`;
   }
   function renderMetaReading(card, settings) {
     const reading = cardPronunciationReading(card);
-    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
+    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
   }
   function renderAnkiMeta(lookup, settings) {
@@ -243368,7 +243373,7 @@ ${newTabCardReading(card)}`;
     );
   }
   function renderSearchWordTerm(card, context2) {
-    const term = el("span", { class: "jpdb-reader-newtab-search-term", lang: "ja" });
+    const term = el("span", { class: "jpdb-reader-newtab-search-term", lang: "ja", dataset: { yomuHeadword: true } });
     const html = renderSearchCardRubyHtml(card, context2.settings);
     if (html) {
       setInnerHtml(term, html);
@@ -243405,7 +243410,7 @@ ${newTabCardReading(card)}`;
       pitchClass: getPitchClass(card.pitchAccent, reading),
       sentence: spelling
     };
-    return renderTokensToHtml(spelling, [token], settings);
+    return renderTokensToHtml(spelling, [token], headwordFuriganaSettings(settings));
   }
   function renderSearchKanjiResult(result, context2) {
     const preview = result.keyword.trim();
@@ -243452,8 +243457,8 @@ ${newTabCardReading(card)}`;
   function searchWordHeaderHtml(card, detail, context2) {
     const settings = context2.getSettings();
     const state = primaryCardState(card.cardState);
-    const metaItems = searchWordMetaItems(card, state, detail, settings);
     const visibleReading = searchWordVisibleReading(card, settings);
+    const metaItems = searchWordMetaItems(card, state, detail, settings, visibleReading);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : "";
     const pills = searchWordPillsHtml(card, detail, context2);
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
@@ -243461,7 +243466,7 @@ ${newTabCardReading(card)}`;
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${escapeHtml$1(card.spelling)}</div>
+                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, "showKanji") })}</div>
                 ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$1(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
@@ -243476,22 +243481,23 @@ ${newTabCardReading(card)}`;
   function searchWordPillsHtml(card, detail, context2) {
     return context2.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup, detail.frequencyRanks) ?? "";
   }
-  function searchWordMetaItems(card, state, detail, settings) {
+  function searchWordMetaItems(card, state, detail, settings, visibleReading = "") {
     return [
-      searchWordReadingMeta(card, settings),
+      searchWordReadingMeta(card, settings, visibleReading),
       searchWordFrequencyMeta(card),
       searchWordCardStateMeta(card, state, settings),
       searchWordLookupAnkiStateMeta(card, detail, settings)
     ].filter(Boolean);
   }
-  function searchWordReadingMeta(card, settings) {
+  function searchWordReadingMeta(card, settings, visibleReading = "") {
     const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
-    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
+    if (reading.normalize("NFC") === visibleReading.trim().normalize("NFC")) return "";
+    if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
   }
   function searchWordVisibleReading(card, settings) {
     const reading = newTabCardOptionalReading(card);
-    return reading && !isPlainReadingDuplicatedByVisibleRuby(card, settings, reading) ? reading : "";
+    return reading && !isPlainReadingRedundantForHeadword(card, settings, reading) ? reading : "";
   }
   function searchWordFrequencyMeta(card) {
     return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "";
@@ -248549,14 +248555,21 @@ ${entry2.url}`),
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
     }
   }
+  const gmGradeQueueStorage = {
+    get: gmStorageGet,
+    set: gmStorageSet,
+    delete: gmStorageDelete
+  };
   class NewTabGradeQueue {
     constructor(deps) {
       this.deps = deps;
+      this.storage = deps.storage ?? gmGradeQueueStorage;
     }
     // Read-modify-write mutex: a flush that snapshotted the queue while an
     // enqueue landed would otherwise clobber the fresh grade with its stale
     // snapshot on the final write — a silently deleted review.
     serial = Promise.resolve();
+    storage;
     enqueue(card, grade2, targets) {
       return this.locked(() => this.enqueueUnlocked(card, grade2, targets));
     }
@@ -248615,7 +248628,7 @@ ${entry2.url}`),
       return `${item2.target}:${cardKey(item2.card)}`;
     }
     async read() {
-      const stored = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
+      const stored = await this.storage.get(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
       if (!Array.isArray(stored)) return [];
       const valid = stored.filter(isQueuedNewTabGrade).slice(-200);
       const queue = valid.filter((item2) => item2.target !== "bunpro-api");
@@ -248623,7 +248636,7 @@ ${entry2.url}`),
       return queue;
     }
     write(queue) {
-      return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
+      return queue.length ? this.storage.set(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : this.storage.delete(NEW_TAB_GRADE_QUEUE_KEY);
     }
   }
   function isQueuedNewTabGrade(value) {
@@ -254647,7 +254660,7 @@ ${entry2.url}`),
       if (!isJitenSrsCard(sourceCard) || isStandaloneKanjiCard(sourceCard, kanji) || sourceCard.spelling === kanji) return null;
       const settings = this.dependencies.getSettings();
       const reading = newTabCardOptionalReading(sourceCard);
-      const visibleReading = reading && !isPlainReadingDuplicatedByVisibleRuby(sourceCard, { ...settings, furiganaMode: "all", showFurigana: true }, reading) ? reading : "";
+      const visibleReading = reading && !isPlainReadingRedundantForHeadword(sourceCard, { ...settings, furiganaMode: "all", showFurigana: true }, reading) ? reading : "";
       const meaning = firstCardMeaning(sourceCard);
       const state = primaryCardState(sourceCard);
       return el(
@@ -254791,7 +254804,7 @@ ${entry2.url}`),
     }
     renderRecallSolution(card, state) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
-      return el(
+      const solution = el(
         "div",
         { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
         el(
@@ -254801,6 +254814,30 @@ ${entry2.url}`),
           this.renderStudyWordAudioButton(card)
         )
       );
+      this.ensureRecallAnswerReading(solution, card);
+      return solution;
+    }
+    // The recall solution is the answer: its reading must be visible no matter
+    // which sentence renderer produced it. The parsed-sentence path renders
+    // with the user's own furigana settings, so with furigana off (or a
+    // selective mode) the target word can come back with no ruby — force the
+    // headword treatment onto the target, or fall back to a reading chip.
+    ensureRecallAnswerReading(solution, card) {
+      if (solution.querySelector("[data-yomu-headword] rt.jpdb-reader-furi")) return;
+      const target = [...solution.querySelectorAll(".jpdb-reader-word")].find((word) => readerWordSurfaceText(word) === card.spelling);
+      if (target) {
+        setInnerHtml(target, renderCardSpellingWithFurigana(card, {
+          ...this.dependencies.getSettings(),
+          furiganaMode: "all",
+          showFurigana: true
+        }, { enabled: false, label: this.text("showKanji") }));
+        target.dataset.yomuHeadword = "true";
+        if (target.querySelector("rt.jpdb-reader-furi")) return;
+      }
+      const reading = newTabCardOptionalReading(card);
+      if (reading && reading !== card.spelling.trim()) {
+        solution.append(el("span", { class: "jpdb-reader-reading", dataset: { newtabRecallAnswerReading: true } }, reading));
+      }
     }
     renderRecallMeaning(meaning, card) {
       if (!meaning) return;
@@ -255236,7 +255273,7 @@ ${entry2.url}`),
         return el("span", { class: "jpdb-reader-newtab-study-tools", dataset: { newtabStudyTools: true } });
       }
       const rawReading = newTabCardOptionalReading(card);
-      const reading = rawReading && !isPlainReadingDuplicatedByVisibleRuby(card, { ...settings, furiganaMode: "all", showFurigana: true }, rawReading) ? rawReading : "";
+      const reading = rawReading && !isPlainReadingRedundantForHeadword(card, { ...settings, furiganaMode: "all", showFurigana: true }, rawReading) ? rawReading : "";
       const pitch = settings.showPitchAccent ? htmlToFirstElement(renderPitch(card, metaEntries)) : null;
       return el(
         "span",
@@ -255360,11 +255397,13 @@ ${entry2.url}`),
       const word = this.renderReaderWord(card, state, card.spelling, sentence);
       word.classList.add("jpdb-reader-parseable");
       const revealAnswer = this.state.revealAnswer;
+      const settings = this.dependencies.getSettings();
       setInnerHtml(word, renderCardSpellingWithFurigana(card, {
-        ...this.dependencies.getSettings(),
+        ...settings,
         furiganaMode: revealAnswer ? "all" : "off",
         showFurigana: revealAnswer
       }, { enabled: false, label: this.text("showKanji") }));
+      word.dataset.yomuHeadword = "true";
       if (!revealAnswer) this.hidePromptPronunciation(word);
       return word;
     }
@@ -257852,6 +257891,7 @@ ${entry2.url}`),
           furiganaMode: "all",
           showFurigana: true
         }, { enabled: true, label: this.text("showKanji") }));
+        word.dataset.yomuHeadword = "true";
       }
       return word;
     }
@@ -267285,8 +267325,10 @@ ${entry2.url}`),
     }
     ensureNewTabLookupReading(titleRow, card) {
       const reading = cardPronunciationReading(card) || card.reading.trim();
-      if (isPlainReadingDuplicatedByVisibleRuby(card, this.settings, reading)) return;
-      if (!reading) return;
+      if (!reading || isPlainReadingRedundantForHeadword(card, this.settings, reading)) {
+        titleRow.querySelector("[data-newtab-lookup-reading]")?.remove();
+        return;
+      }
       let readingElement = titleRow.querySelector(".jpdb-reader-reading");
       if (!readingElement) {
         readingElement = document.createElement("div");

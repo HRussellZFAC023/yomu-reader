@@ -16,20 +16,24 @@ tests 823s, environment 809s — per-file jsdom environment boot dominated.
 
 ## What changed
 
-- **Fork reuse** (`isolate: false`) for the **academy** suite: jsdom + the
-  multi-MB src/academy content graph are paid per fork (~8) instead of per file
-  (265). The **reader** suite stays per-file isolated for now: a trial run
-  2026-07-18 showed 7 files / 15 tests fail order-dependently under fork reuse
-  (audio activation, grade-queue, ocr-cache, anki, ruby-room leak state) —
-  `VITEST_ISOLATE=0` enables reuse there once those are cleaned up. Per-fork
-  heap capped (`--max-old-space-size`, `YOMU_VITEST_FORK_HEAP_MB` override) so
-  a leak fails one fork loudly instead of OOM-killing workers (the historical
-  tinypool exit-137).
-- **One vitest process for test:ci** (`run-ci-tests.mjs --kind all`): one vite
-  host transforms the shared module graph once instead of 12 shard processes
-  re-transforming it; monolith test files are still chunked into generated
-  files so their 1000+ tests spread across forks. `YOMU_CI_SHARDED=1` keeps the
-  legacy multi-process path (CI matrixes shards across runners).
+- **Fork reuse** (`isolate: false`) for both suites: jsdom + the Vitest runtime,
+  setup imports, and the multi-MB Academy content graph are paid per fork rather
+  than per file. The reader `test:ci` runner opts its reusable pass into this;
+  direct/targeted Vitest commands remain isolated by default. Reader leaks
+  exposed by the first reuse trial (media activation,
+  grade queue, OCR cache, stale window methods, and ruby-room mocking) now have
+  explicit resets or dependency injection. Eighteen incompatible reader files
+  run in a second `VITEST_ISOLATE=1` pass; the runner also rejects a new
+  unquarantined `vi.mock`. Per-fork heap remains capped (`--max-old-space-size`,
+  `YOMU_VITEST_FORK_HEAP_MB` override) so a leak fails one fork loudly instead
+  of OOM-killing workers (the historical tinypool exit-137).
+- **Two-pass test:ci** (`run-ci-tests.mjs --kind all`): one Vite/Vitest host
+  transforms the shared module graph for the reusable majority instead of many
+  shard processes re-transforming it, followed by one small isolated host. The
+  former monoliths were 316 real reader test files at the time of this port and
+  are scheduled directly by Vitest. `YOMU_CI_SHARDED=1` keeps the multi-process
+  path for CI matrix runners; those regular/jpdb shards explicitly retain
+  per-file isolation.
 - **Parallel check orchestrator** (`scripts/run-check.mjs`): typecheck ∥
   (test:ci → test:academy) ∥ (build → sync-docs), then a serial tail of
   build:academy → docs:build → verify. The tail stays serial because
@@ -46,9 +50,8 @@ tests 823s, environment 809s — per-file jsdom environment boot dominated.
 - **Incremental typecheck**: `tsconfig.json` `incremental` +
   `tsBuildInfoFile` under `node_modules/.cache`.
 - **`npm run check:quick`** (<60s target): incremental tsc + `vitest --changed`
-  against the merge-base (module-graph-based test selection; the four monolith
-  files are excluded unless directly edited). Advisory — full `check` remains
-  the release gate.
+  against the merge-base (module-graph-based test selection over the real split
+  files). Advisory — full `check` remains the release gate.
 - **`npm run check:release`**: same parallel graph with all caching shortcuts
   disabled (`YOMU_CHECK_RELEASE=1 YOMU_HASH_MEMO=0` → byte-level hashing, full
   academy re-sync). release.yml uses this.
@@ -76,11 +79,52 @@ observed once under heavy external load — per-fork heaps are capped
 (`YOMU_VITEST_FORK_HEAP_MB`) and the suites never overlap, which bounds peak
 memory; re-run if it recurs.
 
+The original reader fork-reuse branch measured its reader pass at ~344s with
+per-file isolation and ~96s with reuse, stable across seven runs. On the later
+316-file main suite, pre-port measurements ranged from 227s on a quieter machine
+to 600s under heavy load, with approximately 2,957s cumulative Vitest
+`environment` time and 1,360s `setup` time across forks. Re-measure the current
+real-file suite before treating the branch-era ~96s as a maintained baseline.
+The acceptance target is repeated `npm run test:ci` runs below four minutes,
+including a run with ordinary background load.
+
+Validation on the then-current 316-file suite after the port (4,718 passing
+tests and one skip) cleared that target in two direct runs and again inside the
+concurrent full repository check. Main subsequently added one more reader test
+file in v1.6.202; the same two-pass runner passed all 317 files after rebasing.
+
+| Run | Reusable pass | Isolated pass | `test:ci` wall |
+| --- | ---: | ---: | ---: |
+| Direct 1 | 123.71s | 68.54s | 217.39s |
+| Direct 2 | 79.59s | 98.96s | 196.24s |
+| Loaded `npm run check` | 59.95s | 71.48s | 162.9s |
+
+That is a repeated **2m43s–3m37s** `test:ci` range on current main, including
+the loaded run alongside typecheck and the userscript build. The complete gate
+passed in 370.8s. Pass durations are Vitest's internal measurements; stage wall
+time also includes both process startups, runner validation, and teardown.
+
 vi.mock caveat: mock registrations leak across files in a reused fork, so the
 vi.mock-using academy files run in a second isolated vitest pass
 (`test:academy` in package.json); `vi-mock-isolation-conformance.test.ts`
-fails if a new vi.mock file doesn't join that list. The reader suite keeps
-per-file isolation until its 7 leaky files are cleaned (see below).
+fails if a new vi.mock file doesn't join that list. The reader runner likewise
+keeps its remaining mock/state-sensitive files in an isolated second pass and
+fails fast if a new `vi.mock` file is not quarantined.
+
+## Host indexing and antivirus load
+
+Spotlight (`mds_stores`) and Microsoft Defender real-time scanning were observed
+scanning short-lived Vitest/fork files during the 2026-07-18 measurements; under
+heavy contention this roughly doubled wall time. This is a host-load factor, not
+a test correctness issue.
+
+If the repository owner and organisation policy permit it, consider narrow
+indexing/scanning exclusions for this repository's worktrees and their generated
+`node_modules/.cache` / Vitest cache directories. Verify the active processes in
+Activity Monitor before and after changing an exclusion. Do not disable
+Spotlight or Defender globally, and do not exclude a whole home directory or
+system temporary directory. The project never changes these settings
+automatically; exclusions are an explicit owner/admin decision.
 
 ## Exit status safety
 
@@ -94,11 +138,3 @@ nonzero status.
 
 The investigation and reproduction are recorded in
 [Check exit-code incident (2026-07-18)](check-exit-code-incident-2026-07-18.md).
-
-## Known pre-existing failures
-
-8 academy content-assertion failures (character-directory,
-sprite-batch-manifest ×4, asset-recovery-ledger, character-sprite-upgrade ×2)
-fail identically on untouched origin/main (verified 2026-07-18 at 9cc4bce00).
-ci.yml does not run academy tests, which is how they landed. They are content
-drift, unrelated to this speed work.

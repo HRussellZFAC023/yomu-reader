@@ -3,6 +3,32 @@
 import '../../src/reader/companions/register-build-companions';
 import { afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language';
+import { resetMediaActivationForTests } from '../../src/reader/audio/media-activation';
+import { resetOcrCacheStoreForTests } from '../../src/reader/ocr/ocr-cache-store';
+import { recaptureInitialWindowMethodsForTests } from '../../src/reader/platform/window-events';
+
+// Under fork reuse (isolate:false), module/global state can outlive a file even
+// as Vitest prepares the next jsdom realm. Tests that replace window.location
+// without restoring it can therefore surface later as "reading 'hostname' of
+// undefined" in suites that never touched location. Snapshot the pristine
+// descriptor and restore it before each test. (vi.unstubAllGlobals only covers
+// vi.stubGlobal.)
+const pristineLocationDescriptor = typeof window !== 'undefined'
+    ? Object.getOwnPropertyDescriptor(window, 'location')
+    : undefined;
+
+function restorePristineLocation(): void {
+    if (!pristineLocationDescriptor || typeof window === 'undefined') return;
+    const current = Object.getOwnPropertyDescriptor(window, 'location');
+    if (current && current.value === pristineLocationDescriptor.value
+        && current.get === pristineLocationDescriptor.get) return;
+    try {
+        Object.defineProperty(window, 'location', pristineLocationDescriptor);
+    } catch {
+        // A non-reconfigurable override from a prior test can't be restored;
+        // that test is responsible for its own cleanup.
+    }
+}
 
 if (typeof document !== 'undefined' && !document.elementFromPoint) {
     document.elementFromPoint = () => null;
@@ -56,6 +82,7 @@ let mediaMethodRestorers: Array<() => void> = [];
 // (recognizeImage never fires) — only on runners slow enough for the debounce to
 // elapse mid-file, which is why it surfaced as a loaded-CI-only release flake.
 function resetPersistedOcrCache(): void {
+    resetOcrCacheStoreForTests();
     try {
         for (const key of OCR_CACHE_STORE_KEYS) localStorage.removeItem(key);
     } catch {
@@ -75,8 +102,13 @@ function resetPreferredSiteLanguage(): void {
 function setDefaultNavigatorLanguage(): void {
     const navigatorObject = globalThis.navigator;
     if (!navigatorObject) return;
+    // Define the getters on the navigator OBJECT only, never on Navigator.prototype.
+    // Under fork reuse (isolate:false) vitest recreates the jsdom environment per
+    // file; a getter-only `languages` left on the shared prototype makes the next
+    // environment's `new Navigator` throw "Cannot set property languages" during
+    // setup (127 unhandled errors → non-zero exit even with all tests passing).
+    // A fresh navigator object per environment does not inherit the stale getter.
     defineNavigatorLanguage(navigatorObject);
-    defineNavigatorLanguage(Object.getPrototypeOf(navigatorObject));
 }
 
 function defineNavigatorLanguage(target: object | null): void {
@@ -133,6 +165,18 @@ function hermeticFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Re
 }
 
 beforeEach(() => {
+    // Clear any global stubbed by a prior test (location, navigator, fetch, …)
+    // before re-establishing our own. Under fork reuse (isolate:false) a leaked
+    // vi.stubGlobal('location', …) otherwise bleeds across files and surfaces as
+    // "Cannot read properties of undefined (reading 'hostname')" in unrelated
+    // suites. This is the fork-reuse equivalent of Vitest's unstubGlobals.
+    vi.unstubAllGlobals();
+    restorePristineLocation();
+    // Re-read pristine window methods and clear the sticky media-activation flag
+    // from the current jsdom realm before any test runs, so a prior file's leaked
+    // capture/flag under fork reuse (isolate:false) can't bleed into this test.
+    recaptureInitialWindowMethodsForTests();
+    resetMediaActivationForTests();
     resetLocaleState();
     resetPersistedOcrCache();
     stubJsdomMediaElementMethods();

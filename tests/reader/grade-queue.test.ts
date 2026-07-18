@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
-vi.mock('../../src/reader/app/storage', () => ({
-    gmStorageGet: vi.fn(async (key: string, fallback: unknown) => (store.has(key) ? store.get(key) : fallback)),
-    gmStorageSet: vi.fn(async (key: string, value: unknown) => { store.set(key, value); }),
-    gmStorageDelete: vi.fn(async (key: string) => { store.delete(key); }),
-}));
+// Drive the queue's storage through an injected in-memory adapter rather than
+// mocking the shared storage module: under Vitest fork reuse the newtab
+// controller pre-imports grade-queue bound to the real module, which a vi.mock
+// can no longer rebind. Dependency injection is order-independent.
+const store = new Map<string, unknown>();
+const memoryStorage = {
+    get: async <T>(key: string, fallback: T): Promise<T> => (store.has(key) ? store.get(key) as T : fallback),
+    set: async (key: string, value: unknown): Promise<void> => { store.set(key, value); },
+    delete: async (key: string): Promise<void> => { store.delete(key); },
+};
 
 import { NewTabGradeQueue, type NewTabGradeQueueDeps, type QueuedNewTabGrade } from '../../src/reader/newtab/grade-queue';
 import { NEW_TAB_GRADE_QUEUE_KEY } from '../../src/reader/newtab/controller-config';
@@ -22,7 +26,7 @@ function stored(): QueuedNewTabGrade[] {
 function makeQueue(overrides: Partial<NewTabGradeQueueDeps> = {}) {
     const submit = vi.fn(async (_item: QueuedNewTabGrade): Promise<boolean> => true);
     const onSubmitted = vi.fn();
-    const queue = new NewTabGradeQueue({ offlineEnabled: () => true, submit, onSubmitted, ...overrides });
+    const queue = new NewTabGradeQueue({ offlineEnabled: () => true, submit, onSubmitted, storage: memoryStorage, ...overrides });
     return { queue, submit, onSubmitted };
 }
 

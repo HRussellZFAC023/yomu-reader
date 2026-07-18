@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,33 @@ const READER_TESTS_DIR = join(ROOT, 'tests/reader');
 // is sharded separately from every other reader test. Everything under this dir
 // is the jpdb lane; everything else is "regular".
 const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
+
+// These tests cannot safely share a fork yet. The first five still use vi.mock
+// against shared reader modules; the remainder depend on indexedDB absence,
+// ReaderApp internals, or large fixtures whose state leaked in the fork-reuse
+// hunt. settings-form.test.ts was later split into eight real files, so keep all
+// eight in the equivalent isolated pass until repeated isolate:false runs prove
+// a narrower boundary.
+const ISOLATED_PASS_FILES = [
+    join(ROOT, 'tests/reader/reader-boot.test.ts'),
+    join(ROOT, 'tests/reader/settings-dialog-controller.test.ts'),
+    join(ROOT, 'tests/reader/cloud-sync-web.test.ts'),
+    join(ROOT, 'tests/reader/jisho-audio.test.ts'),
+    join(ROOT, 'tests/reader/runtime-health.test.ts'),
+    join(ROOT, 'tests/reader/anki.test.ts'),
+    join(ROOT, 'tests/reader/reader-shortcuts.test.ts'),
+    join(ROOT, 'tests/reader/public-vocabulary-repaint.test.ts'),
+    join(ROOT, 'tests/reader/bridge-fetch-fallback.test.ts'),
+    join(ROOT, 'tests/reader/mirror-text-fidelity.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/01-help-panel.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/02-recommended-dictionaries.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/03-source-display-names.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/04-frequency-preferences.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/05-localization-layout-scan.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/06-localization-reader-controls.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/07-localization-mining-japanese.test.ts'),
+    join(ROOT, 'tests/reader/settings-form/08-anki-connect-diagnosis.test.ts'),
+];
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
@@ -29,27 +56,43 @@ if (shard > total) throw new Error(`shard ${shard} cannot be greater than total 
 // Tests are now plain files sharded by Vitest scheduling; there is nothing to
 // pre-generate, so --prepare (kept for the legacy run-ci-suite sharded path) is a
 // no-op. --reuse is likewise ignored.
-if (kind === 'regular' && args.prepare) { /* no-op: real files need no generation */ }
+if (args['validate-isolated-pass']) {
+    const files = allReaderTestFiles();
+    validateIsolatedPass(files);
+    console.log(`[ci-tests] Reader isolated-pass conformance passed (${files.length} files, ${ISOLATED_PASS_FILES.length} isolated).`);
+}
+else if (kind === 'regular' && args.prepare) { /* no-op: real files need no generation */ }
 else if (kind === 'regular') runRegularShard(shard, total);
 else if (kind === 'jpdb' && args.prepare) { /* no-op */ }
 else if (kind === 'jpdb') runJpdbShard(shard, total);
 else if (kind === 'all') runAllTests();
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
-// Whole reader suite in ONE Vitest process: one vite host transforms the shared
-// src/ module graph once (instead of many shard processes each re-transforming it)
-// and its forks share the transform cache; scheduling is left to Vitest.
+// Run the reusable majority through one Vitest host, then the small incompatible
+// set through a second, per-file-isolated host. Reader tests are real files now;
+// scheduling both sets is left to Vitest.
 function runAllTests() {
-    const files = allReaderTestFiles();
+    const allFiles = allReaderTestFiles();
+    validateIsolatedPass(allFiles);
+    const isolated = new Set(ISOLATED_PASS_FILES);
+    const reusableFiles = allFiles.filter(file => !isolated.has(file));
     const maxWorkers = readPositiveInt(
         process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, availableParallelism() - 2)),
         'YOMU_CI_MAX_WORKERS',
     );
-    runVitest(
-        ['run', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
-        {},
-        { label: `full reader suite (${files.length} files, ${maxWorkers} workers)` },
+    const reusableResult = spawnVitest(
+        ['run', ...reusableFiles.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
+        { VITEST_ISOLATE: '0' },
+        { label: `reader fork-reuse pass (${reusableFiles.length} files, ${maxWorkers} workers)` },
     );
+    const reusableStatus = vitestResultStatus(reusableResult, { label: 'reader fork-reuse pass' });
+    const isolatedResult = spawnVitest(
+        ['run', ...ISOLATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=2'],
+        { VITEST_ISOLATE: '1' },
+        { label: `reader isolated pass (${ISOLATED_PASS_FILES.length} files)`, files: ISOLATED_PASS_FILES },
+    );
+    const isolatedStatus = vitestResultStatus(isolatedResult, { label: 'reader isolated pass' });
+    process.exit(reusableStatus || isolatedStatus);
 }
 
 function runRegularShard(currentShard, shardTotal) {
@@ -57,7 +100,7 @@ function runRegularShard(currentShard, shardTotal) {
     const maxWorkers = readPositiveInt(process.env.YOMU_CI_REGULAR_MAX_WORKERS ?? String(defaultRegularMaxWorkers()), 'YOMU_CI_REGULAR_MAX_WORKERS');
     runVitest(
         ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
-        {},
+        { VITEST_ISOLATE: '1' },
         { label: `regular shard ${currentShard}/${shardTotal}`, files: filesForShard },
     );
 }
@@ -68,7 +111,7 @@ function runJpdbShard(currentShard, shardTotal) {
     const filesForShard = sizeBalancedBuckets(jpdbShardSourceFiles(), shardTotal, fileSize)[currentShard - 1] ?? [];
     runVitest(
         ['run', ...filesForShard.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=1', '--no-file-parallelism'],
-        {},
+        { VITEST_ISOLATE: '1' },
         { label: `JPDB shard ${currentShard}/${shardTotal}`, files: filesForShard },
     );
 }
@@ -95,6 +138,29 @@ function regularShardConcurrency() {
 
 function allReaderTestFiles() {
     return collectTestFiles(READER_TESTS_DIR).filter(file => !isGeneratedShardPath(file));
+}
+
+// vi.mock registrations leak across files in a reused fork. Keep the explicit
+// quarantine honest: a newly-added reader vi.mock must either be removed in
+// favour of dependency injection or added to ISOLATED_PASS_FILES.
+function validateIsolatedPass(allFiles) {
+    const all = new Set(allFiles);
+    const missing = ISOLATED_PASS_FILES.filter(file => !all.has(file));
+    if (missing.length) {
+        throw new Error(`Reader isolated-pass files do not exist:\n${formatFileList(missing)}`);
+    }
+    const isolated = new Set(ISOLATED_PASS_FILES);
+    const unisolatedMocks = allFiles.filter(file => {
+        if (isolated.has(file)) return false;
+        return /(^|\n)\s*vi\.mock\s*\(/m.test(readFileSync(file, 'utf8'));
+    });
+    if (unisolatedMocks.length) {
+        throw new Error(`Reader tests using vi.mock must run in the isolated pass:\n${formatFileList(unisolatedMocks)}`);
+    }
+}
+
+function formatFileList(files) {
+    return files.map(file => `  - ${relative(ROOT, file)}`).join('\n');
 }
 
 function regularShardSourceFiles() {
@@ -147,16 +213,27 @@ function defaultApiPort(testKind, currentShard) {
 }
 
 function runVitest(vitestArgs, envOverrides = {}, context = {}) {
+    exitWithVitestResult(spawnVitest(vitestArgs, envOverrides, context), context);
+}
+
+// Return the result so --kind all can run both passes and report either failure.
+function spawnVitest(vitestArgs, envOverrides = {}, context = {}) {
     const apiArgs = apiPort ? ['--api', String(apiPort)] : [];
     const commandArgs = [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs];
     logVitestRun(context, commandArgs);
-    const result = spawnSync(process.execPath, commandArgs, {
+    return spawnSync(process.execPath, commandArgs, {
         cwd: ROOT,
         stdio: 'inherit',
         env: { ...process.env, ...envOverrides },
         timeout: testTimeoutMs,
     });
-    exitWithVitestResult(result, context);
+}
+
+function vitestResultStatus(result, context) {
+    const errorStatus = vitestErrorStatus(result.error, context);
+    if (errorStatus !== undefined) return errorStatus;
+    if (result.signal) return vitestSignalStatus(result.signal, context);
+    return result.status ?? 1;
 }
 
 function exitWithVitestResult(result, context) {
