@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.186] - 2026-07-18
+
+### Changed
+
+- The release quality gate now runs its independent stages in parallel and reuses test workers, cutting a full check from roughly twenty minutes to a few minutes without dropping any test, build, or verification coverage.
+- Added a sub-minute advisory quick gate for everyday development that typechecks incrementally and runs only the tests affected by the current change.
+
 ## [1.6.185] - 2026-07-18
 
 ### Fixed

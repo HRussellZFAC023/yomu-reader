@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createLessonTwentyThreeKatakanaColumnSortBeat } from '../../src/academy/content/lesson-twenty-three-katakana-column-sort';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type KatakanaColumnSortModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): KatakanaColumnSortModel {
     return createLessonTwentyThreeKatakanaColumnSortBeat().activity as KatakanaColumnSortModel;
@@ -55,8 +55,8 @@ describe('Lesson 23 Sensei katakana column sort', () => {
         for (const [filename, sha256] of assets) {
             const source = path.resolve('public/academy/content/lessons/l1-l23', filename);
             const hosted = path.resolve('docs/public/academy/content/lessons/l1-l23', filename);
-            expect(createHash('sha256').update(fs.readFileSync(source)).digest('hex')).toBe(sha256);
-            expect(fs.readFileSync(hosted)).toEqual(fs.readFileSync(source));
+            expect(sha256File(source)).toBe(sha256);
+            expect(filesHaveSameContent(hosted, source)).toBe(true);
         }
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };

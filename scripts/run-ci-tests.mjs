@@ -28,7 +28,12 @@ const kind = args.kind ?? 'regular';
 const shard = readPositiveInt(args.shard ?? process.env.CI_TEST_SHARD ?? '1', 'shard');
 const total = readPositiveInt(args.total ?? process.env.CI_TEST_TOTAL ?? '1', 'total');
 const apiPort = args['no-api'] ? '' : args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard);
-const testTimeoutMs = readPositiveInt(args['timeout-ms'] ?? process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '540000', 'YOMU_CI_TEST_TIMEOUT_MS');
+// kind=all runs the ENTIRE reader suite in one process; the historical 540s
+// default was a PER-SHARD budget across 12 processes, so the single run gets a
+// proportionally larger default. An explicit env/flag always wins.
+const kindForTimeout = args.kind ?? 'regular';
+const defaultTimeoutMs = kindForTimeout === 'all' ? '1500000' : '540000';
+const testTimeoutMs = readPositiveInt(args['timeout-ms'] ?? process.env.YOMU_CI_TEST_TIMEOUT_MS ?? defaultTimeoutMs, 'YOMU_CI_TEST_TIMEOUT_MS');
 if (shard > total) throw new Error(`shard ${shard} cannot be greater than total ${total}`);
 
 if (kind === 'regular' && args.prepare) {
@@ -39,7 +44,44 @@ if (kind === 'regular' && args.prepare) {
 else if (kind === 'regular') runRegularShard(shard, total, Boolean(args.reuse));
 else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
 else if (kind === 'jpdb') runJpdbShard(shard, total, Boolean(args.reuse));
+else if (kind === 'all') runAllTests();
 else throw new Error(`Unknown CI test kind: ${kind}`);
+
+// Whole reader suite in ONE Vitest process: one vite host transforms the shared
+// src/ module graph once (instead of 12 shard processes each re-transforming it)
+// and its forks share the transform cache. The monolith test files are still
+// split into generated chunk files first — that is what lets their 1000+ tests
+// spread across forks — but scheduling is left to Vitest.
+function runAllTests() {
+    const chunkTotal = readPositiveInt(process.env.YOMU_CI_JPDB_SHARDS ?? '8', 'YOMU_CI_JPDB_SHARDS');
+    const regularChunkTotal = readPositiveInt(process.env.YOMU_CI_REGULAR_SHARDS ?? '4', 'YOMU_CI_REGULAR_SHARDS');
+    const files = [
+        ...regularShardSourceFiles(),
+        ...generateSettingsShardFiles(regularChunkTotal),
+        ...generateNewTabReviewShardFiles(regularChunkTotal),
+        ...generateSubtitlesControllerShardFiles(regularChunkTotal),
+        ...generateJpdbShardFiles(chunkTotal),
+    ];
+    const maxWorkers = readPositiveInt(
+        process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, availableParallelism() - 2)),
+        'YOMU_CI_MAX_WORKERS',
+    );
+    runVitest(
+        [
+            'run',
+            ...files.map(file => relative(ROOT, file)),
+            '--minWorkers=1',
+            `--maxWorkers=${maxWorkers}`,
+        ],
+        {
+            YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1',
+            YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
+            YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
+            YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS: '1',
+        },
+        { label: `full reader suite (${files.length} files, ${maxWorkers} workers)` },
+    );
+}
 
 function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
     const files = regularShardSourceFiles();

@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtyListeningHingeBeat } from '../../src/academy/content/lesson-thirty-listening-hinge';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type ListeningHingeModel } from '../../src/academy/minigames';
+import { sha256File } from './helpers/hash-memo';
 
 function model(): ListeningHingeModel { return createLessonThirtyListeningHingeBeat().activity as ListeningHingeModel; }
 
@@ -56,7 +56,7 @@ describe('Lesson 30 Sensei B-24 listening hinge', () => {
             ['moodle-chapter-20-2-vocabulary-page-1.png', activity.provenance.moodle.vocabularySheet.sha256],
             ['moodle-chapter-20-listening-page-1.png', activity.provenance.moodle.listeningSheet.sha256],
             ['moodle-b-24.mp3', activity.provenance.moodle.audio.payloadSha256],
-        ] as const).forEach(([file, sha256]) => expect(createHash('sha256').update(readFileSync(path.resolve('public/academy/content/lessons/l2-l05', file))).digest('hex')).toBe(sha256));
+        ] as const).forEach(([file, sha256]) => expect(sha256File(path.resolve('public/academy/content/lessons/l2-l05', file))).toBe(sha256));
         const chapter = await loadLessonActivityChapter('l2-l05', { lookup: async () => null });
         expect(chapter).toMatchObject({
             lessonPackageId: 'l2-l05',

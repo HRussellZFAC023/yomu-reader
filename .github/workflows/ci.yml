@@ -118,6 +118,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Warm vitepress cache
+        uses: actions/cache@v4
+        with:
+          path: docs/.vitepress/cache
+          key: vitepress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vitepress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            vitepress-${{ runner.os }}-
       - run: npm run build
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build

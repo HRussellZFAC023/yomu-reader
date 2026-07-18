@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -13,6 +12,7 @@ import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/aca
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -137,7 +137,7 @@ describe('Lesson 35 asset and presentation grounding', () => {
         for (const [file, sha256] of Object.entries(SOURCE_VISUALS)) {
             const source = fs.readFileSync(path.resolve('public/academy/content/lessons', file));
             const hosted = fs.readFileSync(path.resolve('docs/public/academy/content/lessons', file));
-            expect(createHash('sha256').update(source).digest('hex'), file).toBe(sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons', file)), file).toBe(sha256);
             expect(hosted).toEqual(source);
             workers.forEach(worker => expect(worker).toContain(`'/academy/content/lessons/${file}'`));
         }
@@ -147,8 +147,7 @@ describe('Lesson 35 asset and presentation grounding', () => {
             expect(worker).toContain(`'${ACADEMY_ASSETS.locations.station.mobile}'`);
         });
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['location.station'].runtimeHomes).toContain('lesson:l2-l10');
-        expect(fs.readFileSync(path.resolve('docs/public/academy/art/ASSET-USAGE.json')))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/art/ASSET-USAGE.json'), path.resolve('public/academy/art/ASSET-USAGE.json'))).toBe(true);
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
         expect(ledger.assets.find((asset: { id: string }) => asset.id === 'railway-station-day-commute').runtimeHome)
             .toContain('lesson:l2-l10');

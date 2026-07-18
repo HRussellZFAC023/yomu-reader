@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const AUDIO = {
     a13: 'b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d',
@@ -63,10 +63,9 @@ describe('l2-l14 chronological Chapter 29 source frontier', () => {
         expect(JSON.stringify(frontier)).not.toMatch(/"correct"|"correctAnswer"|"answers"|"transcript"/i);
 
         for (const source of listening.entries.filter(entry => Object.values(AUDIO).includes(entry.source?.sha256))) {
-            const bytes = readFileSync(source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''));
-            expect(createHash('sha256').update(bytes).digest('hex')).toBe(source.source.sha256);
-            expect(readFileSync(`public${source.delivery.url}`)).toEqual(bytes);
-            expect(readFileSync(`docs/public${source.delivery.url}`)).toEqual(bytes);
+            expect(sha256File(source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(source.source.sha256);
+            expect(filesHaveSameContent(`public${source.delivery.url}`, source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(true);
+            expect(filesHaveSameContent(`docs/public${source.delivery.url}`, source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(true);
         }
     });
 
@@ -107,7 +106,7 @@ describe('l2-l14 chronological Chapter 29 source frontier', () => {
             'academy/content/listening/listening-task-bindings.v1.json',
             'academy/content/audio/source-inventory.v1.json',
         ]) {
-            expect(readFileSync(`docs/public/${relative}`)).toEqual(readFileSync(`public/${relative}`));
+            expect(filesHaveSameContent(`docs/public/${relative}`, `public/${relative}`)).toBe(true);
         }
     });
 });

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonL2L25ProbabilityBriefingBeat } from '../../src/academy/content/lesson-l2-l25-probability-briefing';
@@ -8,6 +7,7 @@ import {
 } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_SHA256 = 'a38f92840b06bb66cec4587a6d5b3005d4860f454152f5d5347f7c1b8526f00a';
 const DESHOU_SHA256 = '4327bdf7c9734ac453b5453d6eb8997121d5f3e2e693d37e1d32772f830fad1b';
@@ -169,13 +169,11 @@ describe('l2-l25 exact-source Chapter 32 probability briefing', () => {
         const activity = model();
         for (const visual of activity.provenance.moodle.sourceSheets) {
             const filename = path.basename(visual.url);
-            const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l25', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
-            expect(readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l25', filename))).toEqual(source);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l25', filename))).toBe(visual.sha256);
+            expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/l2-l25', filename), path.resolve('public/academy/content/lessons/l2-l25', filename))).toBe(true);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/052-l2-l25.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/052-l2-l25.json'))).toEqual(sourcePackage);
+        expect(sha256File(path.resolve('public/academy/content/lessons/052-l2-l25.json'))).toBe(PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/052-l2-l25.json'), path.resolve('public/academy/content/lessons/052-l2-l25.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
@@ -185,7 +183,7 @@ describe('l2-l25 exact-source Chapter 32 probability briefing', () => {
         }
 
         const ledgerBytes = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(ledgerBytes);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(ledgerBytes.toString('utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };

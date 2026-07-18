@@ -1,8 +1,8 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ACADEMY_CAST } from '../../src/academy/domain/cast-registry';
+import { sha256File } from './helpers/hash-memo';
 
 const STORY_ROOT = path.resolve('src/academy/content/story-sources');
 const ARRIVAL_PATH = path.join(STORY_ROOT, 'opening-arrival-bridge.v2.json');
@@ -169,7 +169,7 @@ function readJson<T>(filePath: string): T {
 }
 
 function digest(filePath: string): string {
-    return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+    return sha256File(filePath);
 }
 
 function allNodes(story: StoryPackage): StoryNode[] {

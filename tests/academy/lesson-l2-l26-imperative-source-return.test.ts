@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import type { ChoiceActivityModel } from '../../src/academy/activities/choice';
@@ -11,6 +10,7 @@ import {
 } from '../../src/academy/content/lesson-l2-l26-imperative-source-return';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type DragSortModel, type SequenceModel, type TypedResponseModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const SOURCE_PACKAGE_SHA256 = '42a67ed9eea0dd6d8c336c7813c1e3ade22b885ca78c6ec02e3cdebdda170afe';
 
@@ -75,16 +75,14 @@ describe('l2-l26 exact-source imperative and prohibitive return', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l26', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l26', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l26', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
         expect(readdirSync(path.resolve('public/academy/content/lessons/l2-l26')).some(filename => filename.endsWith('.mp3'))).toBe(false);
 
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/053-l2-l26.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(SOURCE_PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/053-l2-l26.json'))).toEqual(sourcePackage);
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(sha256File(path.resolve('public/academy/content/lessons/053-l2-l26.json'))).toBe(SOURCE_PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/053-l2-l26.json'), path.resolve('public/academy/content/lessons/053-l2-l26.json'))).toBe(true);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');

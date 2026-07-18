@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { adaptAuthoredWeek, AUTHORED_WEEK_HASHES } from '../../src/academy/content/authored-week-adapter';
@@ -7,6 +6,7 @@ import {
     adaptLessonStoryEntry,
     createLessonStoryRuntime,
 } from '../../src/academy/content/lesson-story-runtime';
+import { sha256File } from './helpers/hash-memo';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/002-l1-l01.json');
 const PLAN_PATH = path.resolve('public/academy/content/curriculum/class-week-cast.v1.json');
@@ -14,7 +14,7 @@ const PLAN_PATH = path.resolve('public/academy/content/curriculum/class-week-cas
 describe('l1-l01 narrative, listening, and adaptive entry', () => {
     it('uses only its two exact packaged Soya recordings', () => {
         const bytes = fs.readFileSync(LESSON_PATH);
-        const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+        const sha256 = sha256File(LESSON_PATH);
         const week = adaptAuthoredWeek(JSON.parse(bytes.toString('utf8')), { path: LESSON_PATH, sha256 });
         const listening = week.activities.filter(activity => activity.sourceQuestionId.includes('/ex-soya-n5_mock1_l_'));
 
@@ -105,5 +105,5 @@ describe('l1-l01 narrative, listening, and adaptive entry', () => {
 });
 
 function digest(file: string): string {
-    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    return sha256File(file);
 }

@@ -12,6 +12,7 @@ import {
     resolveN2ExtensiveReadingPackage,
 } from '../../src/academy/content/n2-extensive-reading';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { filesHaveSameContent } from './helpers/hash-memo';
 
 const SOYA_ROOT = path.resolve(process.cwd(), '../..', 'references/soya-research/extracted-src-all');
 const PUBLIC_PACKAGE = path.resolve('public/academy/content/n2-extensive-reading/package.v1.json');
@@ -149,8 +150,7 @@ describe('N2-to-N1 extensive-reading package', () => {
         expect(source.projections).toEqual({ readerSurfaces: 5, srsTargets: 5, miningRequests: 3 });
         expect(source.dependencies).toEqual({ network: 0, audio: 0, video: 0, externalMedia: 0 });
         expect(JSON.stringify(source)).not.toMatch(/\/Users\/|"answers"|wrong_answers/);
-        expect(readFileSync(path.resolve('docs/public/academy/content/n2-extensive-reading/package.v1.json')))
-            .toEqual(readFileSync(PUBLIC_PACKAGE));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/n2-extensive-reading/package.v1.json'), PUBLIC_PACKAGE)).toBe(true);
         for (const worker of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             expect(readFileSync(path.resolve(worker), 'utf8')).toContain(`'${OFFLINE_PATH}'`);
         }

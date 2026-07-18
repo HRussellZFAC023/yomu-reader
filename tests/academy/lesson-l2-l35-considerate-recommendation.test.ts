@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -11,6 +10,7 @@ import {
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): ConsiderateRecommendationModel {
     return createLessonL2L35ConsiderateRecommendationBeat().activity as ConsiderateRecommendationModel;
@@ -174,7 +174,7 @@ describe('l2-l35 exact-source considerate recommendation', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l35', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l35', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l35', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
         expect(readdirSync(path.resolve('public/academy/content/lessons/l2-l35'))
@@ -189,7 +189,7 @@ describe('l2-l35 exact-source considerate recommendation', () => {
         }
 
         const publicLedger = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(publicLedger);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(publicLedger.toString('utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, any>> };
         };

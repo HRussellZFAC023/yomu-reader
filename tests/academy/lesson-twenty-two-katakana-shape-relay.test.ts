@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import { createLessonTwentyTwoKatakanaShapeRelayBeat } from '../../src/academy/content/lesson-twenty-two-katakana-shape-relay';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type KatakanaShapeRelayModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): KatakanaShapeRelayModel {
     return createLessonTwentyTwoKatakanaShapeRelayBeat().activity as KatakanaShapeRelayModel;
@@ -83,9 +82,8 @@ describe('Lesson 22 Sensei katakana shape relay', () => {
         for (const [filename, sha256] of assets) {
             const publicAsset = path.resolve('public/academy/content/lessons/l1-l22', filename);
             const docsAsset = path.resolve('docs/public/academy/content/lessons/l1-l22', filename);
-            const bytes = fs.readFileSync(publicAsset);
-            expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha256);
-            expect(fs.readFileSync(docsAsset)).toEqual(bytes);
+            expect(sha256File(publicAsset)).toBe(sha256);
+            expect(filesHaveSameContent(docsAsset, publicAsset)).toBe(true);
         }
     });
 

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,6 +9,7 @@ import {
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_SHA256 = 'bf518f6d5141a0ae5195a83ac563789c48774d03e947742080cd8ac039a6a79d';
 const AUDIO_PAYLOADS = [
@@ -153,15 +153,14 @@ describe('l2-l28 exact-source follow-the-model workshop', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l28', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l28', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l28', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
         expect(readdirSync(path.resolve('public/academy/content/lessons/l2-l28'))
             .some(filename => filename.endsWith('.mp3'))).toBe(false);
 
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/055-l2-l28.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/055-l2-l28.json'))).toEqual(sourcePackage);
+        expect(sha256File(path.resolve('public/academy/content/lessons/055-l2-l28.json'))).toBe(PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/055-l2-l28.json'), path.resolve('public/academy/content/lessons/055-l2-l28.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
@@ -195,7 +194,6 @@ describe('l2-l28 exact-source follow-the-model workshop', () => {
                 repairScope: 'missed-source-item-only',
             },
         });
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
     });
 });

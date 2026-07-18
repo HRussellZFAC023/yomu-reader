@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtyOneMinna072ConversationBeat } from '../../src/academy/content/lesson-thirty-one-minna-072-conversation';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type ConversationListeningCheckModel, type ConversationListeningCheckResponse } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): ConversationListeningCheckModel {
     return createLessonThirtyOneMinna072ConversationBeat().activity as ConversationListeningCheckModel;
@@ -112,12 +112,12 @@ describe('Lesson 31 exact Minna 072 conversation listening', () => {
         for (const [file, digest] of assets) {
             const publicBytes = readFileSync(path.resolve(file));
             const docsBytes = readFileSync(path.resolve('docs/public', file.replace(/^public\//u, '')));
-            expect(createHash('sha256').update(publicBytes).digest('hex')).toBe(digest);
+            expect(sha256File(path.resolve(file))).toBe(digest);
             expect(docsBytes).toEqual(publicBytes);
         }
         const lessonBytes = readFileSync('public/academy/content/lessons/033-l2-l06.json');
-        expect(createHash('sha256').update(lessonBytes).digest('hex')).toBe('f511c246dd35cc6b13486b0b96bb048bfe23a41cca5a61f5272f9bb0ca6a5b38');
-        expect(readFileSync('docs/public/academy/content/lessons/033-l2-l06.json')).toEqual(lessonBytes);
+        expect(sha256File('public/academy/content/lessons/033-l2-l06.json')).toBe('f511c246dd35cc6b13486b0b96bb048bfe23a41cca5a61f5272f9bb0ca6a5b38');
+        expect(filesHaveSameContent('docs/public/academy/content/lessons/033-l2-l06.json', 'public/academy/content/lessons/033-l2-l06.json')).toBe(true);
         const lesson = JSON.parse(lessonBytes.toString('utf8'));
         expect(lesson.sourceQuestionNormalization.sourceQuestions).toHaveLength(4);
         expect(lesson.sourceQuestionNormalization.quarantine.unresolvedMedia).toEqual([

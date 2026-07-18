@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import { createLessonNineteenOrderingFoodBeat } from '../../src/academy/content/lesson-nineteen-ordering-food';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type SentenceBuilderModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): SentenceBuilderModel {
     return createLessonNineteenOrderingFoodBeat().activity as SentenceBuilderModel;
@@ -62,9 +61,8 @@ describe('Lesson 19 Moodle ordering-food source slice', () => {
         for (const [filename, sha256] of assets) {
             const publicAsset = path.resolve('public/academy/content/lessons/l1-l19', filename);
             const docsAsset = path.resolve('docs/public/academy/content/lessons/l1-l19', filename);
-            const bytes = fs.readFileSync(publicAsset);
-            expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha256);
-            expect(fs.readFileSync(docsAsset)).toEqual(bytes);
+            expect(sha256File(publicAsset)).toBe(sha256);
+            expect(filesHaveSameContent(docsAsset, publicAsset)).toBe(true);
         }
     });
 

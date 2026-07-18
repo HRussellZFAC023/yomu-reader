@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFortySixPlanChangeRepairBeat } from '../../src/academy/content/lesson-forty-six-plan-change-repair';
@@ -10,6 +9,7 @@ import {
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonFortySixPlanChangeRepairBeat().activity as StateInspectionModel;
@@ -102,11 +102,10 @@ describe('Lesson 46 Sensei Chapter 31 plan-change repair', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l21', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l21', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l21', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/048-l2-l21.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/048-l2-l21.json'))).toEqual(sourcePackage);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/048-l2-l21.json'), path.resolve('public/academy/content/lessons/048-l2-l21.json'))).toBe(true);
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };
@@ -116,8 +115,7 @@ describe('Lesson 46 Sensei Chapter 31 plan-change repair', () => {
             claims: { worksheetPagesRendered: 9, sourceVocabularyRowsProjected: 24, sourceLociAssessed: 8 },
             offline: { precache: expect.not.arrayContaining([expect.stringMatching(/\.mp3$/u)]) },
         });
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain("'/academy/content/lessons/048-l2-l21.json'");

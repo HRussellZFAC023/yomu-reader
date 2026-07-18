@@ -16,11 +16,14 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Unlike PR CI, this job runs every regular shard on one small runner.
-    # Keep two workers active so timer-driven scanner tests are not starved by
-    # four simultaneous jsdom/Vitest processes during release preflight.
+    # Unlike PR CI, this job runs the whole check on one small 4-core runner.
+    # The single-process vitest path sizes workers from the core count; cap it
+    # explicitly so the parallel check lanes (tests ∥ builds) never oversubscribe
+    # the runner into fork OOMs.
     env:
       YOMU_CI_REGULAR_CONCURRENCY: 2
+      YOMU_CI_MAX_WORKERS: 3
+      YOMU_VITEST_FORK_HEAP_MB: 1024
     steps:
       - name: Checkout Yomu
         uses: actions/checkout@v6
@@ -45,11 +48,21 @@ jobs:
         run: npm ci
       - name: Install Yomu dependencies
         run: npm ci
+      - name: Warm vitepress cache
+        uses: actions/cache@v4
+        with:
+          path: docs/.vitepress/cache
+          key: vitepress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vitepress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            vitepress-${{ runner.os }}-
       - name: Ensure Electron runtime
         run: npm run prepare:electron
       - name: Install layout smoke browsers
         run: npx playwright install --with-deps chromium webkit
-      - run: npm run check
+      # Releases force byte-level hashing and full academy re-sync (no memo /
+      # revision-skip shortcuts) while keeping the parallel stage graph.
+      - run: npm run check:release
       - run: npm run smoke:release
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome

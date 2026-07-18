@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFourPictureVocabularyModel } from '../../src/academy/content/lesson-four-picture-vocabulary';
@@ -9,6 +8,7 @@ import {
     type PictureVocabularyBoardModel,
     type PictureVocabularyBoardResponse,
 } from '../../src/academy/minigames/picture-vocabulary-board';
+import { sha256File } from './helpers/hash-memo';
 
 const runtime = createActivityRuntime([pictureVocabularyBoardPlugin]);
 
@@ -106,7 +106,7 @@ describe('Lesson 4 Moodle picture vocabulary', () => {
 
     it('keeps the source image byte-pinned and the Moodle slice before the Genki board', async () => {
         const asset = path.resolve('public/academy/content/lessons/l1-l04/moodle-chapter-2-pics-for-vocabulary-page-1.png');
-        expect(createHash('sha256').update(readFileSync(asset)).digest('hex')).toBe(model().provenance.moodle.sourceImage.sha256);
+        expect(sha256File(asset)).toBe(model().provenance.moodle.sourceImage.sha256);
         const chapter = await loadLessonActivityChapter('l1-l04', { lookup: vi.fn(async () => null) });
         expect(chapter?.beats.map(beat => beat.activity.id)).toEqual([
             'activity:l1-l04-source-picture-vocabulary',

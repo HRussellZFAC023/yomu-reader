@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFortyThreeMessageHandoffBeat } from '../../src/academy/content/lesson-forty-three-message-handoff';
@@ -13,6 +12,7 @@ import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
 import { createReachableLessonActivityExtension } from '../../src/academy/ui/lesson-activity-chapter';
 import { attachLibraryReaderVocabulary } from '../../src/academy/integration/library-reader-vocabulary';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonFortyThreeMessageHandoffBeat().activity as StateInspectionModel;
@@ -178,17 +178,15 @@ describe('Lesson 43 Sensei Chapter 30 message handoff', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l18', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l18', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l18', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/045-l2-l18.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/045-l2-l18.json')))
             .toBe('79331b534ae7a45d12307262656da71d8c52e2d80d8c067f267a5259e4ee3443');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/045-l2-l18.json'))).toEqual(sourcePackage);
-        const audio = readFileSync(path.resolve('public/academy/content/lessons/l2-l18/moodle-track-13.mp3'));
-        expect(createHash('sha256').update(audio).digest('hex'))
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/045-l2-l18.json'), path.resolve('public/academy/content/lessons/045-l2-l18.json'))).toBe(true);
+        expect(sha256File(path.resolve('public/academy/content/lessons/l2-l18/moodle-track-13.mp3')))
             .toBe('aca35dbabfc34bac27deef4f328382718a57734e5ef67c2f73e348616fd8494c');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l18/moodle-track-13.mp3'))).toEqual(audio);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/l2-l18/moodle-track-13.mp3'), path.resolve('public/academy/content/lessons/l2-l18/moodle-track-13.mp3'))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain("'/academy/content/lessons/045-l2-l18.json'");

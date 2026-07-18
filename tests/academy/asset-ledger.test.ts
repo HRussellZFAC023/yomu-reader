@@ -1,7 +1,7 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
+import { sha256File } from './helpers/hash-memo';
 
 interface AssetDelivery {
     readonly path: string;
@@ -42,7 +42,7 @@ describe('Academy runtime asset ledger', () => {
         for (const delivery of deliveries) {
             const file = path.resolve('public', delivery.path.replace(/^\//, ''));
             expect(fs.existsSync(file), `missing ${delivery.path}`).toBe(true);
-            const digest = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+            const digest = sha256File(file);
             expect(digest, delivery.path).toBe(delivery.sha256);
         }
     });

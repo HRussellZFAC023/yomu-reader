@@ -34,16 +34,36 @@ if (targetedVitestArgs.length) {
     process.exit(0);
 }
 
-runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
-await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
-    '--reuse',
-    ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + shard),
-]);
-runShard('jpdb', 1, SHARD_TOTAL, ['--prepare']);
-await runParallelShards('jpdb', SHARD_TOTAL, JPDB_CONCURRENCY, shard => [
-    '--reuse',
-    ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
-]);
+if (process.env.YOMU_CI_SHARDED === '1') {
+    // Legacy multi-process sharding: several Vitest hosts each re-transform the
+    // shared module graph. Kept for CI runners that matrix shards across
+    // machines; single-machine runs are faster through the one-process path.
+    runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
+    await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
+        '--reuse',
+        ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + shard),
+    ]);
+    runShard('jpdb', 1, SHARD_TOTAL, ['--prepare']);
+    await runParallelShards('jpdb', SHARD_TOTAL, JPDB_CONCURRENCY, shard => [
+        '--reuse',
+        ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
+    ]);
+} else {
+    runAllInOneProcess();
+}
+
+function runAllInOneProcess() {
+    const result = spawnSync(process.execPath, [
+        join(ROOT, 'scripts/run-ci-tests.mjs'),
+        '--kind', 'all',
+        ...ciTestVitestApiArgs(VITEST_API_BASE_PORT),
+    ], {
+        cwd: ROOT,
+        stdio: 'inherit',
+        env: process.env,
+    });
+    if (result.status !== 0) process.exit(result.status ?? 1);
+}
 
 function runShard(kind, shard, total, extraArgs = []) {
     const result = spawnSync(process.execPath, [

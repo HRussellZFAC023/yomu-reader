@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFortyFourVolitionalPlanBeat } from '../../src/academy/content/lesson-forty-four-volitional-plan';
@@ -6,6 +5,7 @@ import { loadReachableLessonActivityChapter } from '../../src/academy/content/le
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_SHA256 = 'b13b474ee4587785a9f827828c56325ebb4a562ddd81d020d541dc7fe0107354';
 
@@ -137,19 +137,17 @@ describe('Lesson 44 Sensei Chapter 31 volitional plan', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l19', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l19', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l19', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/046-l2-l19.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/046-l2-l19.json'))).toEqual(sourcePackage);
+        expect(sha256File(path.resolve('public/academy/content/lessons/046-l2-l19.json'))).toBe(PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/046-l2-l19.json'), path.resolve('public/academy/content/lessons/046-l2-l19.json'))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain("'/academy/content/lessons/046-l2-l19.json'");
             activity.provenance.moodle.sourceSheets.forEach(visual => expect(worker).toContain(`'${visual.url}'`));
         }
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8'));
         const slice = ledger.worksheetDigitisation.additionalSlices.find((item: { lessonId: string }) => item.lessonId === 'l2-l19');
         expect(slice).toMatchObject({

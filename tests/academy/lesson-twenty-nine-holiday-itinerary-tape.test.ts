@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonTwentyNineHolidayItineraryTapeBeat } from '../../src/academy/content/lesson-twenty-nine-holiday-itinerary-tape';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type HolidayItineraryTapeModel } from '../../src/academy/minigames';
+import { sha256File } from './helpers/hash-memo';
 
 function model(): HolidayItineraryTapeModel {
     return createLessonTwentyNineHolidayItineraryTapeBeat().activity as HolidayItineraryTapeModel;
@@ -86,7 +86,7 @@ describe('Lesson 29 Sensei B-22 holiday itinerary tape', () => {
             ['moodle-chapter-19-2-3-vocabulary-page-1.png', activity.provenance.moodle.vocabularySheet.sha256],
             ['moodle-chapter-19-2-tari-grammar-page-3.png', activity.provenance.moodle.grammarSheet.sha256],
             ['moodle-b-22.mp3', activity.provenance.moodle.audio.payloadSha256],
-        ] as const).forEach(([file, sha256]) => expect(createHash('sha256').update(readFileSync(path.resolve('public/academy/content/lessons/l2-l03', file))).digest('hex')).toBe(sha256));
+        ] as const).forEach(([file, sha256]) => expect(sha256File(path.resolve('public/academy/content/lessons/l2-l03', file))).toBe(sha256));
         const chapter = await loadLessonActivityChapter('l2-l03', { lookup: async () => null });
         expect(chapter).toMatchObject({ lessonPackageId: 'l2-l03', host: { id: 'jodi' }, beats: [{ id: 'sensei-holiday-itinerary-tape', activity: { kind: 'academy-holiday-itinerary-tape' } }] });
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as { worksheetDigitisation: { additionalSlices: Array<{ lessonId: string; audio: { status: string }; claims: Record<string, number> }> } };

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -8,6 +7,7 @@ import {
 } from '../../src/academy/content/authored-week-adapter';
 import { parseChoiceExercise } from '../../src/academy/content/authored-week-schema';
 import { auditAuthoredActivityContracts } from '../../src/academy/content/cold-production-audit';
+import { sha256File } from './helpers/hash-memo';
 
 const FIXTURES = [
     ['002-l1-l01.json', 'l1-l01', 15, 0],
@@ -33,7 +33,7 @@ const FIXTURES = [
 function fixture(file: string, id: AuthoredWeekId) {
     const fixturePath = path.resolve('public/academy/content/lessons', file);
     const bytes = fs.readFileSync(fixturePath);
-    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const sha256 = sha256File(fixturePath);
     return {
         json: JSON.parse(bytes.toString('utf8')) as unknown,
         source: { path: fixturePath, sha256 },
@@ -384,7 +384,7 @@ describe('authored week recovery adapter', () => {
             const expectedActivities = supported.length;
             const week = adaptAuthoredWeek(source, {
                 path: fixturePath,
-                sha256: createHash('sha256').update(bytes).digest('hex'),
+                sha256: sha256File(fixturePath),
             });
             const supportedIds = new Set(supported.map(exercise => exercise.id));
             const projected = week.activities.filter(activity =>

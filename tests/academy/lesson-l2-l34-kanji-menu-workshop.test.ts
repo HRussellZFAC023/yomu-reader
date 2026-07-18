@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
@@ -9,6 +8,7 @@ import {
 } from '../../src/academy/content/lesson-l2-l34-kanji-menu-workshop';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const SOURCE_PACKAGE_SHA256 = 'bea04efb2eba6ef59b9a5bbd198f5f74db3ed91e6335c710a6cfc9df2462b7a6';
 
@@ -233,18 +233,13 @@ describe('l2-l34 exact-source Kanji 7 menu workshop', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l34', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l34', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l34', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
 
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/061-l2-l34.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(SOURCE_PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/061-l2-l34.json'))).toEqual(
-            sourcePackage,
-        );
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(
-            readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')),
-        );
+        expect(sha256File(path.resolve('public/academy/content/lessons/061-l2-l34.json'))).toBe(SOURCE_PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/061-l2-l34.json'), path.resolve('public/academy/content/lessons/061-l2-l34.json'))).toBe(true);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');

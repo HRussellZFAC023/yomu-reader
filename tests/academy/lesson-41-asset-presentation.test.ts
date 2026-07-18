@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import axe from 'axe-core';
@@ -11,6 +10,7 @@ import type { ActivityModel } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_ID = 'l2-l16';
 const PACKAGE_FILE = '043-l2-l16.json';
@@ -126,11 +126,10 @@ describe('Lesson 41 asset and presentation grounding', () => {
         for (const [filename, sha256] of Object.entries(SOURCE_VISUALS)) {
             const source = fs.readFileSync(path.resolve('public/academy/content/lessons', PACKAGE_ID, filename));
             const hosted = fs.readFileSync(path.resolve('docs/public/academy/content/lessons', PACKAGE_ID, filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons', PACKAGE_ID, filename))).toBe(sha256);
             expect(hosted).toEqual(source);
         }
-        expect(fs.readFileSync(path.resolve('docs/public/academy/content/lessons', PACKAGE_FILE)))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/content/lessons', PACKAGE_FILE)));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons', PACKAGE_FILE), path.resolve('public/academy/content/lessons', PACKAGE_FILE))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = fs.readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain(`'/academy/content/lessons/${PACKAGE_FILE}'`);
@@ -138,8 +137,7 @@ describe('Lesson 41 asset and presentation grounding', () => {
                 expect(worker).toContain(`'/academy/content/lessons/${PACKAGE_ID}/${filename}'`);
             });
         }
-        expect(fs.readFileSync(path.resolve('docs/public/academy/art/ASSET-USAGE.json')))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/art/ASSET-USAGE.json'), path.resolve('public/academy/art/ASSET-USAGE.json'))).toBe(true);
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
         expect(ledger.assets.find((asset: { id: string }) => asset.id === 'classroom-evening-lamplit').runtimeHome)
             .toContain('lesson:l2-l16');

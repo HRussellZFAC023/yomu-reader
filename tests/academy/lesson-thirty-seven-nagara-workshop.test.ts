@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtySevenNagaraWorkshopBeat } from '../../src/academy/content/lesson-thirty-seven-nagara-workshop';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { nagaraWorkshopPlugin, type NagaraWorkshopModel } from '../../src/academy/minigames/nagara-workshop';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const SOURCE_PAYLOAD_SHA256 = 'b5a1d39c3306a5e7b1c55b108d906bdbf697caea45bdb28746cf5661e772bf48';
 const SOURCE_VISUAL_SHA256 = [
@@ -217,15 +217,13 @@ describe('Lesson 37 Sensei Chapter 28-1 nagara workshop', () => {
             const filename = path.basename(visual.url);
             const sourceImage = readFileSync(path.resolve('public/academy/content/lessons/l2-l12', filename));
             const hostedImage = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l12', filename));
-            expect(createHash('sha256').update(sourceImage).digest('hex')).toBe(SOURCE_VISUAL_SHA256[index]);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l12', filename))).toBe(SOURCE_VISUAL_SHA256[index]);
             expect(hostedImage).toEqual(sourceImage);
         });
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/039-l2-l12.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/039-l2-l12.json')))
             .toBe('55b200a9a89971ed0f4272bfc53c95c8e318677d9c649d41dc90ad909044af30');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/039-l2-l12.json'))).toEqual(sourcePackage);
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/039-l2-l12.json'), path.resolve('public/academy/content/lessons/039-l2-l12.json'))).toBe(true);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
 
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };

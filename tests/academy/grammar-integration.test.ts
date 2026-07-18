@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -24,12 +23,13 @@ import {
 } from '../../src/reader/study/grammar-knowledge';
 import { renderGrammarHints, type GrammarHint } from '../../src/reader/study/tools-impl';
 import { YOMU_GRAMMAR_REGISTRY } from '../../src/reader/study/grammar-registry';
+import { sha256File } from './helpers/hash-memo';
 
 function firstWeek() {
     const file = path.resolve('public/academy/content/lessons/002-l1-l01.json');
     const bytes = fs.readFileSync(file);
     return {
-        source: { path: file, sha256: createHash('sha256').update(bytes).digest('hex') },
+        source: { path: file, sha256: sha256File(file) },
         json: JSON.parse(bytes.toString('utf8')) as {
             components: Array<{ exercises?: Array<{ id: string; options?: Array<{ id: string; correct: boolean }> }> }>;
         },

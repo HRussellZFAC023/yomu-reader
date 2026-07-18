@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtyMinna069ConversationBeat } from '../../src/academy/content/lesson-thirty-minna-069-conversation';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type ConversationListeningCheckModel, type ConversationListeningCheckResponse } from '../../src/academy/minigames';
+import { sha256File } from './helpers/hash-memo';
 
 function model(): ConversationListeningCheckModel {
     return createLessonThirtyMinna069ConversationBeat().activity as ConversationListeningCheckModel;
@@ -101,7 +101,7 @@ describe('Lesson 30 exact Minna 069 conversation listening', () => {
         for (const [file, digest] of assets) {
             const publicBytes = readFileSync(path.resolve(file));
             const docsBytes = readFileSync(path.resolve('docs/public', file.replace(/^public\//u, '')));
-            expect(createHash('sha256').update(publicBytes).digest('hex')).toBe(digest);
+            expect(sha256File(path.resolve(file))).toBe(digest);
             expect(docsBytes).toEqual(publicBytes);
         }
         const chapter = await loadLessonActivityChapter('l2-l05', { lookup: async () => null });

@@ -1,9 +1,9 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolvePackagedAcademyListeningLocator } from '../../src/academy/content/listening/listening-crosswalk';
 import { resolvePackagedListeningTask } from '../../src/academy/content/listening/listening-task-bindings';
 import { adaptAuthoredWeek, AUTHORED_WEEK_HASHES } from '../../src/academy/content/authored-week-adapter';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PUBLIC_ROOT = path.resolve('public/academy/content/listening');
 const DOCS_ROOT = path.resolve('docs/public/academy/content/listening');
@@ -12,8 +12,7 @@ describe('Academy exact listening task bindings', () => {
     it('publishes only exact task evidence and gates answers outside the public binding', () => {
         const manifest = JSON.parse(fs.readFileSync(path.join(PUBLIC_ROOT, 'listening-task-bindings.v1.json'), 'utf8'));
 
-        expect(fs.readFileSync(path.join(DOCS_ROOT, 'listening-task-bindings.v1.json')))
-            .toEqual(fs.readFileSync(path.join(PUBLIC_ROOT, 'listening-task-bindings.v1.json')));
+        expect(filesHaveSameContent(path.join(DOCS_ROOT, 'listening-task-bindings.v1.json'), path.join(PUBLIC_ROOT, 'listening-task-bindings.v1.json'))).toBe(true);
         expect(manifest.entries).toHaveLength(74);
         expect(manifest.entries.map((entry: { sourceQuestionId: string }) => entry.sourceQuestionId)).toEqual([
             'ex-soya-n5_mock1_l_19',
@@ -338,9 +337,8 @@ describe('Academy exact listening task bindings', () => {
             expect(resolvePackagedListeningTask(item.packageId, item.questionId, item.locator)).toBe(item.url);
             const publicAsset = path.resolve('public', item.url.replace(/^\//u, ''));
             const docsAsset = path.resolve('docs/public', item.url.replace(/^\//u, ''));
-            const bytes = fs.readFileSync(publicAsset);
-            expect(fs.readFileSync(docsAsset)).toEqual(bytes);
-            expect(crypto.createHash('sha256').update(bytes).digest('hex')).toBe(item.sha256);
+            expect(filesHaveSameContent(docsAsset, publicAsset)).toBe(true);
+            expect(sha256File(publicAsset)).toBe(item.sha256);
         }
         expect(resolvePackagedListeningTask('l1-l18', cases[0].questionId, cases[1].locator)).toBeUndefined();
         expect(resolvePackagedListeningTask('l1-l20', cases[2].questionId, cases[3].locator)).toBeUndefined();
@@ -351,7 +349,7 @@ describe('Academy exact listening task bindings', () => {
     it('delivers one stable slice with gated transcript, corrective hints, grading, and provenance', () => {
         const lessonPath = path.resolve('public/academy/content/lessons/019-l1-l18.json');
         const lessonBytes = fs.readFileSync(lessonPath);
-        const lessonSha256 = crypto.createHash('sha256').update(lessonBytes).digest('hex');
+        const lessonSha256 = sha256File(lessonPath);
         expect(lessonSha256).toBe(AUTHORED_WEEK_HASHES['l1-l18']);
         const week = adaptAuthoredWeek(JSON.parse(lessonBytes.toString('utf8')), {
             path: 'public/academy/content/lessons/019-l1-l18.json',
@@ -388,7 +386,7 @@ describe('Academy exact listening task bindings', () => {
     it('binds the next exact Soya task to l1-l19 with gated support, grading, and provenance', () => {
         const lessonPath = path.resolve('public/academy/content/lessons/020-l1-l19.json');
         const lessonBytes = fs.readFileSync(lessonPath);
-        const lessonSha256 = crypto.createHash('sha256').update(lessonBytes).digest('hex');
+        const lessonSha256 = sha256File(lessonPath);
         expect(lessonSha256).toBe(AUTHORED_WEEK_HASHES['l1-l19']);
 
         const lesson = JSON.parse(lessonBytes.toString('utf8'));
@@ -455,10 +453,9 @@ describe('Academy exact listening task bindings', () => {
         for (const item of cases) {
             const lessonPath = path.resolve('public/academy/content/lessons', item.lessonFile);
             const lessonBytes = fs.readFileSync(lessonPath);
-            const lessonSha256 = crypto.createHash('sha256').update(lessonBytes).digest('hex');
+            const lessonSha256 = sha256File(lessonPath);
             expect(lessonSha256).toBe(AUTHORED_WEEK_HASHES[item.packageId]);
-            expect(fs.readFileSync(path.resolve('docs/public/academy/content/lessons', item.lessonFile)))
-                .toEqual(lessonBytes);
+            expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons', item.lessonFile), lessonPath)).toBe(true);
 
             const week = adaptAuthoredWeek(JSON.parse(lessonBytes.toString('utf8')), { path: lessonPath, sha256: lessonSha256 });
             const activity = week.activities.find(candidate => candidate.sourceQuestionId.endsWith(`/${item.questionId}`))!;
@@ -481,9 +478,9 @@ describe('Academy exact listening task bindings', () => {
     it('binds the three exact Moodle A-45 worksheet tasks with post-attempt-only support', () => {
         const lessonPath = path.resolve('public/academy/content/lessons/021-l1-l20.json');
         const lessonBytes = fs.readFileSync(lessonPath);
-        const lessonSha256 = crypto.createHash('sha256').update(lessonBytes).digest('hex');
+        const lessonSha256 = sha256File(lessonPath);
         expect(lessonSha256).toBe(AUTHORED_WEEK_HASHES['l1-l20']);
-        expect(fs.readFileSync('docs/public/academy/content/lessons/021-l1-l20.json')).toEqual(lessonBytes);
+        expect(filesHaveSameContent('docs/public/academy/content/lessons/021-l1-l20.json', lessonPath)).toBe(true);
 
         const week = adaptAuthoredWeek(JSON.parse(lessonBytes.toString('utf8')), { path: lessonPath, sha256: lessonSha256 });
         const cases = [

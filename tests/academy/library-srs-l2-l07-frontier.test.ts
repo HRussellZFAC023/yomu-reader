@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import {
@@ -17,6 +16,7 @@ import { fallbackLookupTermsForCard } from '../../src/reader/lookup/japanese-seg
 import { publicLookupFallbackCards } from '../../src/reader/lookup/public-fallback-cards';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PAYLOAD = 'f6b10fcf6b0ae20a54814eb96bd8c8a779286137ae761b0249de88c9d5c261fa';
 const SOURCE_ID = `moodle-vocabulary:6974653:${PAYLOAD}`;
@@ -81,9 +81,8 @@ describe('Library SRS l2-l07 exact vocabulary frontier', () => {
         expect(verbatimText).toContain('うごきま（動きます）                                           to move');
         expect(verbatimText).toContain('はも りょうり\n     （鱧 料理）');
         expect(verbatimText).toContain('16\n\n17\n\n18\n');
-        const sourcePage = readFileSync(SOURCE_PAGE);
-        expect(createHash('sha256').update(sourcePage).digest('hex')).toBe(SOURCE_PAGE_SHA256);
-        expect(readFileSync(`docs/${SOURCE_PAGE}`)).toEqual(sourcePage);
+        expect(sha256File(SOURCE_PAGE)).toBe(SOURCE_PAGE_SHA256);
+        expect(filesHaveSameContent(`docs/${SOURCE_PAGE}`, SOURCE_PAGE)).toBe(true);
         expect(readFileSync('public/academy/sw.js', 'utf8'))
             .toContain('/academy/content/lessons/l2-l07/moodle-chapter-21-2-vocabulary-page-1.png');
     });

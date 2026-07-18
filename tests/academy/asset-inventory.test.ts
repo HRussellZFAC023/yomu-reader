@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +8,7 @@ import {
     validateAcademyAssetInventory,
 // @ts-expect-error The audit is an intentionally standalone Node ESM script.
 } from '../../scripts/academy-asset-audit.mjs';
+import { sha256File } from './helpers/hash-memo';
 
 interface InventoryAsset {
     readonly id: string;
@@ -69,7 +69,9 @@ function currentRasterHashes() {
     walk(root);
     return Object.fromEntries(files.sort().map(file => [
         path.relative(root, file),
-        crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),
+        // Memoized on (mtime, size): a file the audit rewrote re-hashes for real,
+        // an untouched 73MB art tree stops being hashed three times per run.
+        sha256File(file),
     ]));
 }
 

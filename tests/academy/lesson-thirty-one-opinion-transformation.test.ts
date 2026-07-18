@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtyOneOpinionTransformationBeat } from '../../src/academy/content/lesson-thirty-one-opinion-transformation';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type OpinionTransformationModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): OpinionTransformationModel {
     return createLessonThirtyOneOpinionTransformationBeat().activity as OpinionTransformationModel;
@@ -178,11 +178,10 @@ describe('Lesson 31 Sensei Chapter 21 opinion transformation', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l06', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l06', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l06', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };

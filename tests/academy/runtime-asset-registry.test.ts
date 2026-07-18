@@ -9,6 +9,7 @@ import {
     ACADEMY_RUNTIME_ASSET_REGISTRY,
 } from '../../src/academy/assets';
 import { getAcademyCastMember } from '../../src/academy/domain/cast-registry';
+import { filesHaveSameContent } from './helpers/hash-memo';
 
 interface RuntimeLedgerAsset {
     readonly verdict: string;
@@ -188,10 +189,8 @@ describe('Academy runtime asset registry', () => {
             runtimeHomes: ['reward:cafe:inspectable-order-scene'],
             files: { default: ACADEMY_ASSETS.items.cafeOrderScene },
         });
-        expect(fs.readFileSync(path.resolve('public', ACADEMY_ASSETS.items.cafeOrderScene.slice(1))))
-            .toEqual(fs.readFileSync(archive));
-        expect(fs.readFileSync(path.resolve('docs/public', ACADEMY_ASSETS.items.cafeOrderScene.slice(1))))
-            .toEqual(fs.readFileSync(archive));
+        expect(filesHaveSameContent(path.resolve('public', ACADEMY_ASSETS.items.cafeOrderScene.slice(1)), archive)).toBe(true);
+        expect(filesHaveSameContent(path.resolve('docs/public', ACADEMY_ASSETS.items.cafeOrderScene.slice(1)), archive)).toBe(true);
     });
 
     it('recovers six no-likeness place items into exact reward homes and mirrors', () => {
@@ -220,8 +219,8 @@ describe('Academy runtime asset registry', () => {
                 'docs/academy/recovery/recovered-assets/codex-production-v1/lesson-assets',
                 archivePath,
             );
-            expect(fs.readFileSync(path.resolve('public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
-            expect(fs.readFileSync(path.resolve('docs/public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
+            expect(filesHaveSameContent(path.resolve('public', assetPath.slice(1)), archived)).toBe(true);
+            expect(filesHaveSameContent(path.resolve('docs/public', assetPath.slice(1)), archived)).toBe(true);
         }
     });
 
@@ -293,8 +292,8 @@ describe('Academy runtime asset registry', () => {
             },
         });
         for (const assetPath of Object.values(home.files)) {
-            expect(fs.readFileSync(path.resolve('public', assetPath.slice(1)))).toEqual(fs.readFileSync(archive));
-            expect(fs.readFileSync(path.resolve('docs/public', assetPath.slice(1)))).toEqual(fs.readFileSync(archive));
+            expect(filesHaveSameContent(path.resolve('public', assetPath.slice(1)), archive)).toBe(true);
+            expect(filesHaveSameContent(path.resolve('docs/public', assetPath.slice(1)), archive)).toBe(true);
         }
     });
 
@@ -314,8 +313,8 @@ describe('Academy runtime asset registry', () => {
             const archived = path.resolve(
                 `docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/${variant}/${archiveStem}--${variant}.webp`,
             );
-            expect(fs.readFileSync(path.resolve('public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
-            expect(fs.readFileSync(path.resolve('docs/public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
+            expect(filesHaveSameContent(path.resolve('public', assetPath.slice(1)), archived)).toBe(true);
+            expect(filesHaveSameContent(path.resolve('docs/public', assetPath.slice(1)), archived)).toBe(true);
         }
     });
 
@@ -333,8 +332,8 @@ describe('Academy runtime asset registry', () => {
             );
             const publicFile = path.resolve('public', assetPath.slice(1));
             const docsFile = path.resolve('docs/public', assetPath.slice(1));
-            expect(fs.readFileSync(publicFile)).toEqual(fs.readFileSync(archived));
-            expect(fs.readFileSync(docsFile)).toEqual(fs.readFileSync(archived));
+            expect(filesHaveSameContent(publicFile, archived)).toBe(true);
+            expect(filesHaveSameContent(docsFile, archived)).toBe(true);
         }
     });
 
@@ -353,8 +352,8 @@ describe('Academy runtime asset registry', () => {
             const archived = path.resolve(
                 `docs/academy/recovery/recovered-assets/codex-production-v1/backgrounds/${variant}/${archiveStem}--${variant}.webp`,
             );
-            expect(fs.readFileSync(path.resolve('public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
-            expect(fs.readFileSync(path.resolve('docs/public', assetPath.slice(1)))).toEqual(fs.readFileSync(archived));
+            expect(filesHaveSameContent(path.resolve('public', assetPath.slice(1)), archived)).toBe(true);
+            expect(filesHaveSameContent(path.resolve('docs/public', assetPath.slice(1)), archived)).toBe(true);
         }
     });
 

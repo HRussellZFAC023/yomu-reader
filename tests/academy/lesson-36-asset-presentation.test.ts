@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
@@ -9,6 +8,7 @@ import { createLessonStoryRuntime, lessonStoryPresentation } from '../../src/aca
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const SOURCE_VISUAL = {
     file: 'l2-l11/moodle-new-chapter-23-1-toki-page-1.png',
@@ -128,7 +128,7 @@ describe('Lesson 36 asset and presentation grounding', () => {
     it('pins source and station bytes, mirrors, offline homes, and a zero-gap registry record', () => {
         const source = fs.readFileSync(path.resolve('public/academy/content/lessons', SOURCE_VISUAL.file));
         const hosted = fs.readFileSync(path.resolve('docs/public/academy/content/lessons', SOURCE_VISUAL.file));
-        expect(createHash('sha256').update(source).digest('hex')).toBe(SOURCE_VISUAL.sha256);
+        expect(sha256File(path.resolve('public/academy/content/lessons', SOURCE_VISUAL.file))).toBe(SOURCE_VISUAL.sha256);
         expect(hosted).toEqual(source);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
@@ -139,8 +139,7 @@ describe('Lesson 36 asset and presentation grounding', () => {
             expect(worker).toContain(`'${ACADEMY_ASSETS.locations.station.mobile}'`);
         }
 
-        expect(fs.readFileSync(path.resolve('docs/public/academy/art/ASSET-USAGE.json')))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/art/ASSET-USAGE.json'), path.resolve('public/academy/art/ASSET-USAGE.json'))).toBe(true);
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
         expect(ledger.assets.find((asset: { id: string }) => asset.id === 'railway-station-day-commute').runtimeHome)
             .toContain('lesson:l2-l11');

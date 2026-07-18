@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
@@ -22,6 +21,7 @@ import { createNewTabStudySession } from '../../src/reader/newtab/study-session'
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
 import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PAYLOAD = 'd1296c24f28bc57a83b8c09ce5c591e76d8bae0ea97cf928e4a1b079329a2af4';
 const SOURCE_ID = `moodle-vocabulary:6974661:${PAYLOAD}`;
@@ -91,9 +91,8 @@ describe('Library SRS l2-l11 exact vocabulary frontier', () => {
         expect(String(page.verbatimText)).toContain('1                                                    to listen');
         expect(String(page.verbatimText)).toContain('14   こしょうします');
         expect(String(page.verbatimText)).toContain('depends on the situation.');
-        const sourcePage = readFileSync(SOURCE_PAGE);
-        expect(createHash('sha256').update(sourcePage).digest('hex')).toBe(SOURCE_PAGE_SHA256);
-        expect(readFileSync(`docs/${SOURCE_PAGE}`)).toEqual(sourcePage);
+        expect(sha256File(SOURCE_PAGE)).toBe(SOURCE_PAGE_SHA256);
+        expect(filesHaveSameContent(`docs/${SOURCE_PAGE}`, SOURCE_PAGE)).toBe(true);
         for (const worker of [
             readFileSync('public/academy/sw.js', 'utf8'),
             readFileSync('docs/public/academy/sw.js', 'utf8'),
@@ -237,12 +236,10 @@ describe('Library SRS l2-l11 exact vocabulary frontier', () => {
     });
 
     it('pins mirrors and ledger claims while rejecting unsupported source mutations', () => {
-        const sourcePackage = readFileSync('public/academy/content/lessons/038-l2-l11.json');
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File('public/academy/content/lessons/038-l2-l11.json'))
             .toBe('8f7a382927baacc43f127b43e94c4218e3716e9c3a09c25828d2fe342e55cf00');
-        expect(readFileSync('docs/public/academy/content/lessons/038-l2-l11.json')).toEqual(sourcePackage);
-        expect(readFileSync('docs/public/academy/content/RESOURCE-LEDGER.json'))
-            .toEqual(readFileSync('public/academy/content/RESOURCE-LEDGER.json'));
+        expect(filesHaveSameContent('docs/public/academy/content/lessons/038-l2-l11.json', 'public/academy/content/lessons/038-l2-l11.json')).toBe(true);
+        expect(filesHaveSameContent('docs/public/academy/content/RESOURCE-LEDGER.json', 'public/academy/content/RESOURCE-LEDGER.json')).toBe(true);
         const ledger = JSON.parse(readFileSync('public/academy/content/RESOURCE-LEDGER.json', 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };

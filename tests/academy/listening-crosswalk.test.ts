@@ -7,6 +7,7 @@ import {
     type SourceVerifiedListeningEntry,
 } from '../../src/academy/content/listening/listening-crosswalk';
 import { verifyCommittedPackagedListening } from './helpers/source-verification';
+import { filesHaveSameContent } from './helpers/hash-memo';
 
 const LESSON_ROOT = path.resolve('public/academy/content/lessons');
 const PUBLIC_MANIFEST = path.resolve('public/academy/content/listening/listening-crosswalk.v1.json');
@@ -158,7 +159,7 @@ describe('Academy listening locator crosswalk', () => {
     });
 
     it('ships an exact docs/public mirror for local and hosted Academy builds', () => {
-        expect(fs.readFileSync(DOCS_MANIFEST)).toEqual(fs.readFileSync(PUBLIC_MANIFEST));
+        expect(filesHaveSameContent(DOCS_MANIFEST, PUBLIC_MANIFEST)).toBe(true);
     });
 });
 

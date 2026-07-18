@@ -52,6 +52,20 @@ const hash = crypto.createHash('sha256');
 for (const source of sourcePaths.sort()) hashPath(source, path.join(root, source), hash);
 const revision = `s1-${hash.digest('hex').slice(0, 12)}`;
 
+// The full sync rm+cp moves ~220MB; when the destination was already produced
+// from byte-identical sources (revision marker matches), skip it. The revision
+// is content-derived, so any source change forces a real sync. Force with
+// YOMU_SYNC_ACADEMY_FORCE=1 (check:release sets it).
+// The marker lives OUTSIDE the destination so it never ships with the site;
+// the destination-existence check keeps a stale marker from skipping a sync
+// after the destination was deleted.
+const revisionMarker = path.join(root, 'node_modules', '.cache', 'yomu-academy-sync-revision');
+const forceSync = process.env.YOMU_SYNC_ACADEMY_FORCE === '1' || process.env.YOMU_CHECK_RELEASE === '1';
+if (!forceSync && fs.existsSync(destination) && fs.existsSync(revisionMarker) && fs.readFileSync(revisionMarker, 'utf8') === revision) {
+    console.log(`Academy runtime already synced at ${revision}; skipping copy.`);
+    process.exit(0);
+}
+
 fs.rmSync(destination, { recursive: true, force: true });
 for (const [source, target] of runtimeSources) {
     const from = path.join(root, source);
@@ -68,6 +82,8 @@ for (const [source, target] of templates) {
     fs.writeFileSync(to, rendered);
 }
 
+fs.mkdirSync(path.dirname(revisionMarker), { recursive: true });
+fs.writeFileSync(revisionMarker, revision);
 console.log(`Synced ${runtimeSources.length + templates.length} allowlisted Academy runtime entries at ${revision}.`);
 
 function hashPath(label, absolutePath, digest) {

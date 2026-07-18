@@ -4070,7 +4070,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.185".trim() ? "1.6.185".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.184".trim() ? "1.6.184".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createLessonThirtyTwoMinna074ListeningBeat } from '../../src/academy/content/lesson-thirty-two-minna-074-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
@@ -8,6 +7,7 @@ import {
     type MinnaTrueFalseListeningResponse,
 } from '../../src/academy/minigames';
 import { verifyCommittedPackagedListening } from './helpers/source-verification';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const AUDIO_SHA256 = '2a287bcef237d1e3f12929dff00f29d7c345fbe622c7ef5bb2cff6caf6b218a0';
 const AUDIO_LOCATOR = 'academy/content/minna/audio/l2-l07-minna-074.mp3';
@@ -150,9 +150,9 @@ describe('Lesson 32 exact Minna 074 Mondai 2 listening', () => {
         });
 
         const lessonBytes = readFileSync('public/academy/content/lessons/034-l2-l07.json');
-        expect(createHash('sha256').update(lessonBytes).digest('hex'))
+        expect(sha256File('public/academy/content/lessons/034-l2-l07.json'))
             .toBe('7edfa0f5430e384f00d6ac2a695c7fa3d8271e266585e2d7c4d889fe5a964a99');
-        expect(readFileSync('docs/public/academy/content/lessons/034-l2-l07.json')).toEqual(lessonBytes);
+        expect(filesHaveSameContent('docs/public/academy/content/lessons/034-l2-l07.json', 'public/academy/content/lessons/034-l2-l07.json')).toBe(true);
         const lesson = JSON.parse(lessonBytes.toString('utf8'));
         expect(lesson.sourceQuestionNormalization.sourceQuestions).toHaveLength(5);
         expect(lesson.mapping.genki).toBe('No verified Genki crosswalk asserted.');

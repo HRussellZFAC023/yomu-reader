@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
@@ -21,6 +20,7 @@ import { createNewTabStudySession } from '../../src/reader/newtab/study-session'
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
 import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PAYLOAD = 'ccd43883779254dcb24807ec490f07ca47224b7b41b3f3260e99171d98687dc6';
 const SOURCE_ID = `moodle-vocabulary:6974657:${PAYLOAD}`;
@@ -87,9 +87,8 @@ describe('Library SRS l2-l09 exact vocabulary frontier', () => {
         expect(String(pages[1]?.verbatimText)).toContain('20   ふとん（布団）');
         expect(String(pages[1]?.verbatimText)).toContain('21\n\n\n22');
         for (const [path, digest] of SOURCE_PAGES) {
-            const source = readFileSync(path);
-            expect(createHash('sha256').update(source).digest('hex')).toBe(digest);
-            expect(readFileSync(`docs/${path}`)).toEqual(source);
+            expect(sha256File(path)).toBe(digest);
+            expect(filesHaveSameContent(`docs/${path}`, path)).toBe(true);
             expect(readFileSync('public/academy/sw.js', 'utf8'))
                 .toContain(`/${path.replace(/^public\//u, '')}`);
         }

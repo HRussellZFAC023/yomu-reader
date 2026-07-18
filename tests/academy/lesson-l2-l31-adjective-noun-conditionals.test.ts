@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createLessonL2L31AdjectiveNounConditionalsBeat } from '../../src/academy/content/lesson-l2-l31-adjective-noun-conditionals';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonL2L31AdjectiveNounConditionalsBeat().activity as StateInspectionModel;
@@ -137,13 +137,12 @@ describe('l2-l31 Chapter 35-2 adjective and noun conditionals', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l31', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l31', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l31', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/058-l2-l31.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/058-l2-l31.json')))
             .toBe('89545b660280f0570a73c4ae2e66a2c39cab803adea1de638a931048b3114dcf');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/058-l2-l31.json'))).toEqual(sourcePackage);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/058-l2-l31.json'), path.resolve('public/academy/content/lessons/058-l2-l31.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
@@ -152,7 +151,7 @@ describe('l2-l31 Chapter 35-2 adjective and noun conditionals', () => {
         }
 
         const publicLedger = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(publicLedger);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(publicLedger.toString()) as {
             worksheetDigitisation: { additionalSlices: { lessonId: string; claims: Record<string, unknown>; audio: Record<string, unknown> }[] };
         };

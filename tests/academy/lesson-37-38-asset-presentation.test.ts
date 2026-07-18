@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY, type AcademyPlateId } from '../../src/academy/assets';
@@ -11,6 +10,7 @@ import type { ActivityModel } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -162,11 +162,10 @@ describe('Lessons 37-38 asset and presentation grounding', () => {
         for (const [filename, sha256] of Object.entries(lesson.visuals)) {
             const source = fs.readFileSync(path.resolve('public/academy/content/lessons', lesson.packageId, filename));
             const hosted = fs.readFileSync(path.resolve('docs/public/academy/content/lessons', lesson.packageId, filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons', lesson.packageId, filename))).toBe(sha256);
             expect(hosted).toEqual(source);
         }
-        expect(fs.readFileSync(path.resolve('docs/public/academy/content/lessons', lesson.packageFile)))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/content/lessons', lesson.packageFile)));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons', lesson.packageFile), path.resolve('public/academy/content/lessons', lesson.packageFile))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = fs.readFileSync(path.resolve(workerPath), 'utf8');
@@ -179,8 +178,7 @@ describe('Lessons 37-38 asset and presentation grounding', () => {
             });
         }
 
-        expect(fs.readFileSync(path.resolve('docs/public/academy/art/ASSET-USAGE.json')))
-            .toEqual(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/art/ASSET-USAGE.json'), path.resolve('public/academy/art/ASSET-USAGE.json'))).toBe(true);
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
         expect(ledger.assets.find((asset: { id: string }) => asset.id === assetLedgerId(lesson.assetId)).runtimeHome)
             .toContain(`lesson:${lesson.packageId}`);

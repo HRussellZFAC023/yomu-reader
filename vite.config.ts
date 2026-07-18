@@ -210,9 +210,26 @@ function readerTestConfig() {
                 // thrashes a loaded machine into the suite-child timeout. Honors an
                 // explicit VITEST_MAX_FORKS override for hand-tuned CI runners.
                 maxForks: readMaxForks(),
+                // Fork reuse (isolate:false) is a large win but the reader suite
+                // still has order-dependent cross-file state leaks (measured
+                // 2026-07-18: 7 files / 15 tests fail only after other files ran
+                // in the same fork — audio activation, grade-queue, ocr-cache,
+                // anki, ruby-room). Keep per-file isolation until those leak
+                // sources are cleaned; flip with VITEST_ISOLATE=0 to hunt them.
+                isolate: process.env.VITEST_ISOLATE !== '0',
+                // Long-lived reused forks accumulate jsdom heap; cap it so a leak
+                // fails one fork loudly instead of OOM-killing the machine
+                // (historical tinypool exit-137 deaths). Small CI runners can
+                // tighten the cap via YOMU_VITEST_FORK_HEAP_MB.
+                execArgv: [`--max-old-space-size=${forkHeapMb()}`],
             },
         },
     };
+}
+
+function forkHeapMb(): number {
+    const override = Number.parseInt(process.env.YOMU_VITEST_FORK_HEAP_MB ?? '', 10);
+    return Number.isInteger(override) && override >= 256 ? override : 2304;
 }
 
 function readMaxForks(): number {

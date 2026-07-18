@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createLessonTwentyFiveKatakanaRowSwitchboardBeat } from '../../src/academy/content/lesson-twenty-five-katakana-row-switchboard';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type KatakanaRowSwitchboardModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): KatakanaRowSwitchboardModel {
     return createLessonTwentyFiveKatakanaRowSwitchboardBeat().activity as KatakanaRowSwitchboardModel;
@@ -58,8 +58,8 @@ describe('Lesson 25 Sensei katakana row switchboard', () => {
         for (const [filename, sha256] of assets) {
             const source = path.resolve('public/academy/content/lessons/l1-l25', filename);
             const hosted = path.resolve('docs/public/academy/content/lessons/l1-l25', filename);
-            expect(createHash('sha256').update(fs.readFileSync(source)).digest('hex')).toBe(sha256);
-            expect(fs.readFileSync(hosted)).toEqual(fs.readFileSync(source));
+            expect(sha256File(source)).toBe(sha256);
+            expect(filesHaveSameContent(hosted, source)).toBe(true);
             expect(worker).toContain(`'/academy/content/lessons/l1-l25/${filename}'`);
         }
         const ledger = JSON.parse(fs.readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {

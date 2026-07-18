@@ -1,10 +1,10 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
     ACADEMY_LESSON_ASSET_BINDINGS,
     ACADEMY_RUNTIME_ASSET_REGISTRY,
 } from '../../src/academy/assets';
+import { sha256File } from './helpers/hash-memo';
 
 interface LedgerAsset {
     readonly id: string;
@@ -46,7 +46,7 @@ const inventory = JSON.parse(fs.readFileSync('docs/academy/recovery/ASSET-INVENT
 const binding = ACADEMY_LESSON_ASSET_BINDINGS['l1-l01'];
 
 function digest(file: string) {
-    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    return sha256File(file);
 }
 
 describe('l1-l01 approved asset binding', () => {

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,6 +9,7 @@ import {
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const AUDIO_PAYLOADS = [
     '0de2c7abfe3c7857c9def04b5be3f00a85a60d198c208f116c4660a8d9c7c78e',
@@ -151,7 +151,7 @@ describe('l2-l36 exact-source ように goal workshop', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l36', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l36', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l36', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
         expect(readdirSync(path.resolve('public/academy/content/lessons/l2-l36'))
@@ -166,7 +166,7 @@ describe('l2-l36 exact-source ように goal workshop', () => {
         }
 
         const publicLedger = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(publicLedger);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(publicLedger.toString('utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, any>> };
         };

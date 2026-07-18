@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonL2L29TeaCeremonyBeat } from '../../src/academy/content/lesson-l2-l29-tea-ceremony';
@@ -11,6 +10,7 @@ import { loadReachableLessonActivityChapter } from '../../src/academy/content/le
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
 import { attachLibraryReaderVocabulary } from '../../src/academy/integration/library-reader-vocabulary';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonL2L29TeaCeremonyBeat().activity as StateInspectionModel;
@@ -152,17 +152,15 @@ describe('l2-l29 Chapter 34 means and tea ceremony', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l29', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l29', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l29', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/056-l2-l29.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/056-l2-l29.json')))
             .toBe('df75b67e6ba13033c76edc83f75630594128a3a35679e7768fa1e0a1cc993817');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/056-l2-l29.json'))).toEqual(sourcePackage);
-        const audio = readFileSync(path.resolve('public/academy/content/lessons/l2-l29/moodle-track-27.mp3'));
-        expect(createHash('sha256').update(audio).digest('hex'))
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/056-l2-l29.json'), path.resolve('public/academy/content/lessons/056-l2-l29.json'))).toBe(true);
+        expect(sha256File(path.resolve('public/academy/content/lessons/l2-l29/moodle-track-27.mp3')))
             .toBe('06b35860230b1320c7d68fd0e863363f59f2619a79eef3460368c588a770bd96');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l29/moodle-track-27.mp3'))).toEqual(audio);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/l2-l29/moodle-track-27.mp3'), path.resolve('public/academy/content/lessons/l2-l29/moodle-track-27.mp3'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');

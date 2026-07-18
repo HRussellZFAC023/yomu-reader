@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
@@ -15,6 +14,7 @@ import { adaptAuthoredWeek } from '../../src/academy/content/authored-week-adapt
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activity-runtime';
 import type { SourceVocabularySheetModel } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
+import { sha256File } from './helpers/hash-memo';
 
 afterEach(() => document.body.replaceChildren());
 
@@ -151,7 +151,7 @@ describe('authored week learner screen', () => {
         const bytes = fs.readFileSync(fixturePath);
         const week = adaptAuthoredWeek(JSON.parse(bytes.toString('utf8')) as unknown, {
             path: fixturePath,
-            sha256: createHash('sha256').update(bytes).digest('hex'),
+            sha256: sha256File(fixturePath),
         });
         const screen = createAuthoredWeekScreen({ language: 'en', week });
         document.body.append(screen.element);

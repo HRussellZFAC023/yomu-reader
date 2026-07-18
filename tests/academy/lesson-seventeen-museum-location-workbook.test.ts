@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonSeventeenMuseumLocationWorkbookBeat, createLessonSeventeenMuseumLocationWorkbookModel } from '../../src/academy/content/lesson-seventeen-museum-location-workbook';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { museumLocationWorkbookPlugin, type MuseumLocationAnswer, type MuseumLocationResponse, type MuseumLocationRound } from '../../src/academy/minigames/museum-location-workbook';
+import { sha256File } from './helpers/hash-memo';
 
 const runtime = createActivityRuntime([museumLocationWorkbookPlugin]);
 afterEach(() => document.body.replaceChildren());
@@ -33,7 +33,7 @@ describe('Lesson 17 museum location workbook', () => {
             ['museum-object-panels', '2eb33ab6da711f25198843922600959965fbb7aee5c279f06598ffe109687e09', 2, false],
         ]);
         for (const visual of activity.provenance.moodle.sourceVisuals) {
-            expect(createHash('sha256').update(readFileSync(path.resolve(`public${visual.url}`))).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve(`public${visual.url}`))).toBe(visual.sha256);
         }
     });
 

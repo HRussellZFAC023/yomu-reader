@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createLessonL2L32NaraGuidanceWorkshopBeat } from '../../src/academy/content/lesson-l2-l32-nara-guidance-workshop';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonL2L32NaraGuidanceWorkshopBeat().activity as StateInspectionModel;
@@ -133,13 +133,12 @@ describe('l2-l32 Chapter 35 nara guidance workshop', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l32', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l32', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l32', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/059-l2-l32.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/059-l2-l32.json')))
             .toBe('2c62cac30744372dbc1790806410e647c86baca7695803c3806372f69d09ee23');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/059-l2-l32.json'))).toEqual(sourcePackage);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/059-l2-l32.json'), path.resolve('public/academy/content/lessons/059-l2-l32.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
@@ -149,7 +148,7 @@ describe('l2-l32 Chapter 35 nara guidance workshop', () => {
         }
 
         const publicLedger = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'))).toEqual(publicLedger);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(publicLedger.toString('utf8')) as {
             worksheetDigitisation: { additionalSlices: { lessonId: string; claims: Record<string, unknown>; audio: Record<string, unknown>; unconverted: string[] }[] };
         };

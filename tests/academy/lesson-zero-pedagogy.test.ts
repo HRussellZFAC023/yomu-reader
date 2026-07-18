@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,6 +9,7 @@ import {
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
 import { lessonZeroCanonicalReading } from '../../src/academy/content/lesson-zero-pedagogy-definitions';
 import type { ClassroomExpressionProbe } from '../../src/academy/domain/classroom-expression-session';
+import { sha256File } from './helpers/hash-memo';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
 const CLASSROOM_PATH = path.resolve(
@@ -50,5 +50,5 @@ describe('Lesson 0 pedagogy definition registry', () => {
 });
 
 function digest(file: string): string {
-    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    return sha256File(file);
 }

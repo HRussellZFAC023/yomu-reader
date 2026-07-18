@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createSourceLibrary } from '../../src/academy/domain/source-library';
@@ -10,6 +9,7 @@ import {
     LESSON_ZERO_SOURCE_MEDIA,
 } from '../../src/academy/content/lesson-zero-source-material';
 import { createLessonZeroProof } from '../../src/academy/ui/lesson-zero-proof';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const expressions = {
     neutral: { still: '/rie-neutral.png' },
@@ -483,9 +483,8 @@ describe('Lesson 0 source-led proof', () => {
             expect(urls).toHaveLength(hashes.length);
             for (const [index, url] of urls.entries()) {
                 const relative = url.replace(/^\/academy\//u, 'academy/');
-                const bytes = fs.readFileSync(path.resolve('public', relative));
-                expect(crypto.createHash('sha256').update(bytes).digest('hex')).toBe(hashes[index]);
-                expect(fs.readFileSync(path.resolve('docs/public', relative))).toEqual(bytes);
+                expect(sha256File(path.resolve('public', relative))).toBe(hashes[index]);
+                expect(filesHaveSameContent(path.resolve('docs/public', relative), path.resolve('public', relative))).toBe(true);
             }
         }
     });

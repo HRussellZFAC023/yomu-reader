@@ -1,5 +1,4 @@
 // @vitest-environment node
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +24,7 @@ import {
     validateSoyaJlptAssessmentCrosswalk,
 } from '../../src/academy/assessment/soya-jlpt-crosswalk';
 import { ORIENTATION_MOCK_ITEMS } from '../../src/academy/placement/orientation';
+import { sha256File } from './helpers/hash-memo';
 
 describe('Soya JLPT assessment package', () => {
     it('registers a complete N5-N1 bank with two items per receptive skill', () => {
@@ -71,8 +71,7 @@ describe('Soya JLPT assessment package', () => {
         if (!present.length) return;
         expect(present).toHaveLength(SOYA_JLPT_SOURCE_CROSSWALK.length);
         for (const record of present) {
-            const bytes = fs.readFileSync(path.join(repositoryParent, record.snapshotRoot, record.relativePath));
-            expect(createHash('sha256').update(bytes).digest('hex'), record.id).toBe(record.sha256);
+            expect(sha256File(path.join(repositoryParent, record.snapshotRoot, record.relativePath)), record.id).toBe(record.sha256);
         }
     });
 

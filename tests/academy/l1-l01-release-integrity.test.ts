@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,6 +9,7 @@ import { createLessonOneSourceVocabularyActivities } from '../../src/academy/con
 import { createLibraryVocabularySheet } from '../../src/academy/content/library-vocabulary-sheet';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import type { KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
+import { sha256File } from './helpers/hash-memo';
 
 const PACKAGE_PATH = path.resolve('public/academy/content/lessons/002-l1-l01.json');
 
@@ -29,7 +29,7 @@ interface LessonOnePackage {
 
 function loadPackage() {
     const bytes = fs.readFileSync(PACKAGE_PATH);
-    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const sha256 = sha256File(PACKAGE_PATH);
     return {
         bytes,
         sha256,

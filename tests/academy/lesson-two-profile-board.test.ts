@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import lessonPackage from '../../public/academy/content/lessons/003-l1-l02.json';
@@ -14,6 +13,7 @@ import {
 } from '../../src/academy/minigames/profile-board';
 import { sourceVocabularySheetPlugin } from '../../src/academy/minigames/source-vocabulary-sheet';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
+import { sha256File } from './helpers/hash-memo';
 
 const profileRuntime = createActivityRuntime([profileBoardPlugin]);
 const vocabularyRuntime = createActivityRuntime([sourceVocabularySheetPlugin]);
@@ -240,7 +240,7 @@ describe('Lesson 2 source vocabulary and profile board', () => {
 
     it('keeps the source image, reachable profile board, and honest local ledger in sync', async () => {
         const asset = path.resolve('public/academy/content/lessons/l1-l02/moodle-chapter-1-2-grammar-nationality-occupation-page-2.png');
-        expect(createHash('sha256').update(readFileSync(asset)).digest('hex')).toBe(
+        expect(sha256File(asset)).toBe(
             model().provenance.sourceReference.imageSha256,
         );
         const chapter = await loadLessonActivityChapter('l1-l02', {} as never);

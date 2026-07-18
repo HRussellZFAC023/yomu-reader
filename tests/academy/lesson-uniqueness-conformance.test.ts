@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
+import { filesHaveSameContent } from './helpers/hash-memo';
 
 const PUBLIC_LESSON_DIRECTORY = path.resolve('public/academy/content/lessons');
 const HOSTED_LESSON_DIRECTORY = path.resolve('docs/public/academy/content/lessons');
@@ -203,11 +204,9 @@ describe('Lessons 0-29 uniqueness conformance gate', () => {
 
     it('keeps the generated hosted lesson mirror byte-identical', () => {
         for (const filename of scopedFiles) {
-            expect(fs.readFileSync(path.join(HOSTED_LESSON_DIRECTORY, filename)))
-                .toEqual(fs.readFileSync(path.join(PUBLIC_LESSON_DIRECTORY, filename)));
+            expect(filesHaveSameContent(path.join(HOSTED_LESSON_DIRECTORY, filename), path.join(PUBLIC_LESSON_DIRECTORY, filename))).toBe(true);
         }
-        expect(fs.readFileSync(HOSTED_SOURCE_OWNERSHIP_MANIFEST))
-            .toEqual(fs.readFileSync(SOURCE_OWNERSHIP_MANIFEST));
+        expect(filesHaveSameContent(HOSTED_SOURCE_OWNERSHIP_MANIFEST, SOURCE_OWNERSHIP_MANIFEST)).toBe(true);
     });
 
     it('accepts only exact, reasoned shared-source declarations', () => {

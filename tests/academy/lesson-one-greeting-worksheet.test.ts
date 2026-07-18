@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import lessonPackage from '../../public/academy/content/lessons/002-l1-l01.json';
 import resourceLedger from '../../public/academy/content/RESOURCE-LEDGER.json';
@@ -15,6 +14,7 @@ import { loadSenseiVocabularyPrerequisite } from '../../src/academy/content/less
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { renderLessonVocabularyPrerequisiteScreen } from '../../src/academy/ui/lesson-vocabulary-prerequisite';
 import type { KanjiWritingService } from '../../src/academy/integration/yomu-bridge';
+import { sha256File } from './helpers/hash-memo';
 
 const runtime = createActivityRuntime([greetingWorksheetPlugin]);
 const vocabularyRuntime = createActivityRuntime([sourceVocabularySheetPlugin]);
@@ -227,7 +227,7 @@ describe('Lesson 1 Moodle greeting worksheet digitisation', () => {
 
         const minnaPath = '/Users/heru/Documents/Japanese/Resource Packs/Japanese Language Learning Pack - Learn Japanese!/03 Grammar and Vocabulary/02 Minna no Nihongo Shokyu/Minna no Nihongo Shokyu I/Minna no Nihongo Shokyu I Dai 2-Han Honsatsu Kanji-Kana.pdf';
         if (existsSync(minnaPath)) {
-            expect(createHash('sha256').update(readFileSync(minnaPath)).digest('hex')).toBe(minna?.fileSha256);
+            expect(sha256File(minnaPath)).toBe(minna?.fileSha256);
         }
     });
 });

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFortyTwoAdvancePreparationBeat } from '../../src/academy/content/lesson-forty-two-advance-preparation';
@@ -7,6 +6,7 @@ import { createActivityRuntime } from '../../src/academy/domain/activity-runtime
 import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
 import { createReachableLessonActivityExtension } from '../../src/academy/ui/lesson-activity-chapter';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): StateInspectionModel {
     return createLessonFortyTwoAdvancePreparationBeat().activity as StateInspectionModel;
@@ -131,13 +131,12 @@ describe('Lesson 42 Sensei Chapter 30 advance preparation', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l17', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l17', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l17', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/044-l2-l17.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/044-l2-l17.json')))
             .toBe('91937d1499e3cb3f3b6e812861a609bcce144424638de2d6cff448b76d6c63b6');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/044-l2-l17.json'))).toEqual(sourcePackage);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/044-l2-l17.json'), path.resolve('public/academy/content/lessons/044-l2-l17.json'))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             expect(worker).toContain("'/academy/content/lessons/044-l2-l17.json'");

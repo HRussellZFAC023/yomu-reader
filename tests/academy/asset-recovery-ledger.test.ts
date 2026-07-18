@@ -1,8 +1,8 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error The production validator is intentionally a directly executable ESM script.
 import { canonicalizeLedger, renderReport, serializeLedger, validateLedger } from '../../scripts/academy-asset-ledger.mjs';
+import { sha256File } from './helpers/hash-memo';
 
 const ledgerPath = path.resolve('docs/academy/recovery/ASSET-CARRYOVER.json');
 const reportPath = path.resolve('docs/academy/recovery/ASSET-LEDGER-REPORT.md');
@@ -53,7 +53,7 @@ describe('Academy recovery asset ledger', () => {
                 expect(asset.runtimeUses.some((use: { worktree: string }) => use.worktree === 'current')).toBe(false);
             }
             const file = path.resolve(archive.path);
-            const digest = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+            const digest = sha256File(file);
             expect(digest, archive.path).toBe(asset.sha256);
         }
     });

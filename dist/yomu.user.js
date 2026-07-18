@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.185
+// @version 1.6.184
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -10,11 +10,11 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.37d3a2b9a8e5.user.js#sha256=N9Oiuajlt3mFLZLxnN14fNA3E8EDixfqNiOK/UFLy8Q=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.3039e673d2ee.user.js#sha256=MDnmc9LuOrQLQldQm2F60yuuw2y0gqtreuRybM4/a9c=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.ecbe64ac48d3.user.js#sha256=7L5krEjTcgqJjFQKEqsWp9uOVrEtKs9f7wQiHB0YnWQ=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.f3ffc79641ca.user.js#sha256=8//HlkHK5m6EO0zjt5MLt25DSKVnhOIaVEPeNcEIofQ=
-// @require https://yomureader.com/greasyfork/yomu-video.9aae591cf162.user.js#sha256=mq5ZHPFinhlSmpg4MGfFr3OS/SPLNh1xxhF1qaqm8a8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.14449e77b019.user.js#sha256=FESed7AZOXtNkFnPtIDIh7KMA5S5BQc3WxDiwDFTTaM=
+// @require https://yomureader.com/greasyfork/yomu-video.32f786b74c55.user.js#sha256=MveGt0xVG6a24AGhhbA6ViAaAUSGq+rNn8gdbfAsJLs=
 // @resource yomuCss  https://yomureader.com/yomu.7605c3cc4ff7.css#sha256=dgXDzE/3jr8/c1yie9P02gaWbuFrtrIW2m2ZU5wglbU=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -8353,20 +8353,9 @@ function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
   if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
   const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-  if (surfaceSuffix && !KANA_RE$1.test(surfaceSuffix)) continue;
+  if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
   const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
   if (rubies.length) return rubies;
-  }
-  if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
-  const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-  if (!surfaceSuffix || KANA_RE$1.test(surfaceSuffix)) {
-    return [{
-      text: baseReading,
-      start: 0,
-      end: baseSpelling.length,
-      length: baseSpelling.length
-    }];
-  }
   }
   return [];
 }
@@ -30570,7 +30559,6 @@ const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1200;
 const UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS = 12e4;
 const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
 const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3e3;
-const MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT = 24;
 const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
 const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
 const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
@@ -36411,8 +36399,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.185"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.185"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.184"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.184"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36530,7 +36518,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.185"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.184"}`;
   } catch {
   return null;
   }
@@ -37894,7 +37882,6 @@ class ReaderApp {
   resolvedFallbackVocabularyCache = new Map();
   unresolvedFallbackVocabularyCache = new Map();
   publicVocabularyMissRetries = new Map();
-  misalignedPublicFuriganaRecoveries = new Set();
   fallbackVocabularyResolutionCache = new Map();
   uchisenDataCache = new Map();
   renderedWordIndex = new Map();
@@ -38279,7 +38266,6 @@ class ReaderApp {
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
   this.publicVocabularyMissRetries.clear();
-  this.misalignedPublicFuriganaRecoveries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   this.pitchEnrichmentUrgentKeys.clear();
@@ -38435,7 +38421,6 @@ class ReaderApp {
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
   this.publicVocabularyMissRetries.clear();
-  this.misalignedPublicFuriganaRecoveries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -38894,7 +38879,6 @@ class ReaderApp {
   this.resolvedFallbackVocabularyCache.clear();
   this.unresolvedFallbackVocabularyCache.clear();
   this.publicVocabularyMissRetries.clear();
-  this.misalignedPublicFuriganaRecoveries.clear();
   this.fallbackVocabularyResolutionCache.clear();
   this.clearPitchEnrichmentQueue();
   window.clearTimeout(this.subtitleRebakeTimer);
@@ -43257,7 +43241,6 @@ class ReaderApp {
   this.backgroundPublicPitchLookupBudgetUsed = 0;
   this.deferredPublicPitchEnqueuedForUrl = 0;
   this.publicVocabularyMissRetries.clear();
-  this.misalignedPublicFuriganaRecoveries.clear();
   }
   queueDeferredPublicPitchTokens(tokens) {
   this.resetBackgroundPublicPitchLookupBudgetIfNeeded();
@@ -43831,22 +43814,6 @@ class ReaderApp {
   setRenderedWordCardIdentity(word, card);
   this.registerRenderedWord(word);
   applyPublicVocabularyFurigana(word, card, this.settings);
-  this.recoverMisalignedPublicVocabularyWord(word, card);
-  }
-  recoverMisalignedPublicVocabularyWord(word, card) {
-  if (!this.shouldRunPitchOrReadingEnrichment()) return;
-  if (word.classList.contains("jpdb-reader-has-furi") || word.closest("ruby")) return;
-  const surface = (word.dataset.surface ?? "").trim();
-  if (!surface || surface === card.spelling.trim()) return;
-  if (![...surface].some(isKanjiCharacter)) return;
-  if (this.misalignedPublicFuriganaRecoveries.has(surface)) return;
-  if (this.misalignedPublicFuriganaRecoveries.size >= MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT) return;
-  this.misalignedPublicFuriganaRecoveries.add(surface);
-  void this.jitenPublicVocabulary.lookup(surface).then((better) => {
-    if (!better || this.isDestroyed) return;
-    if (better.spelling.trim() === card.spelling.trim() && better.reading.trim() === card.reading.trim()) return;
-    this.applyPublicVocabularyToRenderedWords(card, better);
-  }).catch(() => void 0);
   }
   applyPitchClassToRenderedSurface(word, pitchClass) {
   setRenderedWordPitchClass(word, pitchClass);

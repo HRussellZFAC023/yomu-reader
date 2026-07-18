@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
@@ -20,6 +19,7 @@ import { createNewTabStudySession } from '../../src/reader/newtab/study-session'
 import { LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
 import { getAuthoredWeekRegistration } from '../../src/academy/content/lesson-content-registry';
 import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PAYLOAD = 'fc585caf40f28fb6e6ab65bc340e563c12d6526ec06556a5057a12793cb17ef5';
 const SOURCE_ID = `moodle-vocabulary:8121261:${PAYLOAD}`;
@@ -198,21 +198,18 @@ describe('Library SRS l2-l12 exact vocabulary frontier', () => {
     });
 
     it('pins mirrors, offline claims, and mutation rejection without promoting word cards', () => {
-        const sourcePackage = readFileSync('public/academy/content/lessons/039-l2-l12.json');
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File('public/academy/content/lessons/039-l2-l12.json'))
             .toBe('55b200a9a89971ed0f4272bfc53c95c8e318677d9c649d41dc90ad909044af30');
-        expect(readFileSync('docs/public/academy/content/lessons/039-l2-l12.json')).toEqual(sourcePackage);
+        expect(filesHaveSameContent('docs/public/academy/content/lessons/039-l2-l12.json', 'public/academy/content/lessons/039-l2-l12.json')).toBe(true);
         for (const [filename, sha256] of SOURCE_PAGES) {
-            const sourcePage = readFileSync(`public/academy/content/lessons/l2-l12/${filename}`);
-            expect(createHash('sha256').update(sourcePage).digest('hex')).toBe(sha256);
-            expect(readFileSync(`docs/public/academy/content/lessons/l2-l12/${filename}`)).toEqual(sourcePage);
+            expect(sha256File(`public/academy/content/lessons/l2-l12/${filename}`)).toBe(sha256);
+            expect(filesHaveSameContent(`docs/public/academy/content/lessons/l2-l12/${filename}`, `public/academy/content/lessons/l2-l12/${filename}`)).toBe(true);
             for (const worker of [
                 readFileSync('public/academy/sw.js', 'utf8'),
                 readFileSync('docs/public/academy/sw.js', 'utf8'),
             ]) expect(worker).toContain(`/academy/content/lessons/l2-l12/${filename}`);
         }
-        expect(readFileSync('docs/public/academy/content/RESOURCE-LEDGER.json'))
-            .toEqual(readFileSync('public/academy/content/RESOURCE-LEDGER.json'));
+        expect(filesHaveSameContent('docs/public/academy/content/RESOURCE-LEDGER.json', 'public/academy/content/RESOURCE-LEDGER.json')).toBe(true);
         const ledger = JSON.parse(readFileSync('public/academy/content/RESOURCE-LEDGER.json', 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_CAST } from '../../src/academy/domain/cast-registry';
 import { SPRITE_ANGLES, SPRITE_EXPRESSIONS } from '../../src/academy/domain/sprite-performance-contract';
+import { filesHaveSameContent } from './helpers/hash-memo';
 
 interface InventoryAsset {
     path: string;
@@ -167,6 +168,6 @@ describe('Academy cast-wide sprite migration inventory', () => {
     });
 
     it('keeps the public inventory and documentation mirror byte-identical', () => {
-        expect(fs.readFileSync(docsPath)).toEqual(fs.readFileSync(publicPath));
+        expect(filesHaveSameContent(docsPath, publicPath)).toBe(true);
     });
 });

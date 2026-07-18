@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThreeMoodleListeningModel } from '../../src/academy/content/lesson-three-moodle-listening';
@@ -9,6 +8,7 @@ import {
     type MoodleListeningChoiceModel,
     type MoodleListeningChoiceResponse,
 } from '../../src/academy/minigames/moodle-listening-choice';
+import { sha256File } from './helpers/hash-memo';
 
 const runtime = createActivityRuntime([moodleListeningChoicePlugin]);
 
@@ -131,8 +131,7 @@ describe('Lesson 3 Moodle listening A/B worksheet', () => {
             ['moodle-2-a-2.mp3', model().payload.tracks[1].audio.payloadSha256],
         ] as const;
         files.forEach(([file, sha256]) => {
-            const bytes = readFileSync(path.resolve('public/academy/content/lessons/l1-l03', file));
-            expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l1-l03', file))).toBe(sha256);
         });
         const chapter = await loadLessonActivityChapter('l1-l03', {} as never);
         expect(chapter?.beats.map(beat => beat.activity.id).slice(0, 2)).toEqual([

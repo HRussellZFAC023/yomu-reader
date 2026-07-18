@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createLessonThirtyFourParticleSignalMixerBeat } from '../../src/academy/content/lesson-thirty-four-particle-signal-mixer';
 import { createAcademyActivityRuntime, type ParticleSignalMixerModel } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): ParticleSignalMixerModel {
     return createLessonThirtyFourParticleSignalMixerBeat().activity as ParticleSignalMixerModel;
@@ -214,13 +214,11 @@ describe('Lesson 34 Sensei Chapter 22-2 particle signal mixer', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l09', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l09', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l09', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/036-l2-l09.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/lessons/036-l2-l09.json')));
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/036-l2-l09.json'), path.resolve('public/academy/content/lessons/036-l2-l09.json'))).toBe(true);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, unknown>> };
         };

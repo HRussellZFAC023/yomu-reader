@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
@@ -10,6 +9,7 @@ import { createAcademyActivityRuntime } from '../../src/academy/minigames';
 import { renderInspectableSourceVisual } from '../../src/academy/minigames/source-visual';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { validateCommittedAuthoredWeek } from './helpers/authored-week-package';
+import { sha256File } from './helpers/hash-memo';
 
 const PLAN = validateClassWeekCastPlan(JSON.parse(fs.readFileSync(
     path.resolve('public/academy/content/curriculum/class-week-cast.v1.json'),
@@ -171,8 +171,7 @@ describe('Lessons 27-31 asset and presentation grounding', () => {
         const worker = fs.readFileSync(path.resolve('public/academy/sw.js'), 'utf8');
         const hostedWorker = fs.readFileSync(path.resolve('docs/public/academy/sw.js'), 'utf8');
         for (const [file, sha256] of Object.entries(SOURCE_VISUALS)) {
-            const bytes = fs.readFileSync(path.resolve('public/academy/content/lessons', file));
-            expect(createHash('sha256').update(bytes).digest('hex'), file).toBe(sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons', file)), file).toBe(sha256);
             expect(worker).toContain(`'/academy/content/lessons/${file}'`);
             expect(hostedWorker).toContain(`'/academy/content/lessons/${file}'`);
         }

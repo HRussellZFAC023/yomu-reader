@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonFortyFiveIntentionRouteBeat } from '../../src/academy/content/lesson-forty-five-intention-route';
@@ -6,6 +5,7 @@ import { loadLessonActivityChapter, loadReachableLessonActivityChapter } from '.
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { ACADEMY_ACTIVITY_PLUGINS } from '../../src/academy/minigames';
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_SHA256 = '32b44dd9de43b0836153a5907c008e710bcc170e742737e64737343eccbceeda';
 const UNPAIRED_AUDIO_SHA256 = '49383b3d78eae5ac77a7480a56e29fedf1e0ccd41d36e45a2c8d2f8b97f923b7';
@@ -146,12 +146,11 @@ describe('Lesson 45 Sensei Chapter 31-1 intention route', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l20', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l20', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l20', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/047-l2-l20.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex')).toBe(PACKAGE_SHA256);
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/047-l2-l20.json'))).toEqual(sourcePackage);
+        expect(sha256File(path.resolve('public/academy/content/lessons/047-l2-l20.json'))).toBe(PACKAGE_SHA256);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/047-l2-l20.json'), path.resolve('public/academy/content/lessons/047-l2-l20.json'))).toBe(true);
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(workerPath, 'utf8');
             activity.provenance.moodle.sourceSheets.forEach(visual => expect(worker).toContain(`'${visual.url}'`));

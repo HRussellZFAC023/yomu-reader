@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,6 +9,7 @@ import {
 import { loadReachableLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createActivityRuntime } from '../../src/academy/domain/activity-runtime';
 import { createAcademyActivityRuntime } from '../../src/academy/minigames';
+import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 function model(): ReportedMessageWorkshopModel {
     return createLessonL2L27ReportedMessageBeat().activity as ReportedMessageWorkshopModel;
@@ -127,13 +127,12 @@ describe('l2-l27 exact-source reported-message workshop', () => {
             const filename = path.basename(visual.url);
             const source = readFileSync(path.resolve('public/academy/content/lessons/l2-l27', filename));
             const hosted = readFileSync(path.resolve('docs/public/academy/content/lessons/l2-l27', filename));
-            expect(createHash('sha256').update(source).digest('hex')).toBe(visual.sha256);
+            expect(sha256File(path.resolve('public/academy/content/lessons/l2-l27', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        const sourcePackage = readFileSync(path.resolve('public/academy/content/lessons/054-l2-l27.json'));
-        expect(createHash('sha256').update(sourcePackage).digest('hex'))
+        expect(sha256File(path.resolve('public/academy/content/lessons/054-l2-l27.json')))
             .toBe('06148a863fd7e75864ca04d90eb90800d28eb728904bc8b62b330b6038355776');
-        expect(readFileSync(path.resolve('docs/public/academy/content/lessons/054-l2-l27.json'))).toEqual(sourcePackage);
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/lessons/054-l2-l27.json'), path.resolve('public/academy/content/lessons/054-l2-l27.json'))).toBe(true);
 
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
@@ -157,7 +156,6 @@ describe('l2-l27 exact-source reported-message workshop', () => {
             sourceAudioMembers: 6,
             sourceAudioTracksDelivered: 0,
         });
-        expect(readFileSync(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json')))
-            .toEqual(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json')));
+        expect(filesHaveSameContent(path.resolve('docs/public/academy/content/RESOURCE-LEDGER.json'), path.resolve('public/academy/content/RESOURCE-LEDGER.json'))).toBe(true);
     });
 });

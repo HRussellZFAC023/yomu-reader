@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonThirtyB25DiaryListeningBeat } from '../../src/academy/content/lesson-thirty-b25-diary-listening';
 import { loadLessonActivityChapter } from '../../src/academy/content/lesson-activity-catalog';
 import { createAcademyActivityRuntime, type DiaryListeningClozeModel, type DiaryListeningClozeResponse } from '../../src/academy/minigames';
+import { sha256File } from './helpers/hash-memo';
 
 function model(): DiaryListeningClozeModel { return createLessonThirtyB25DiaryListeningBeat().activity as DiaryListeningClozeModel; }
 function perfectResponse(): DiaryListeningClozeResponse {
@@ -87,7 +87,7 @@ describe('Lesson 30 Sensei B-25 picture-diary listening', () => {
 
     it('keeps the exact offline bytes and adds B-25 after the existing B-24 beat', async () => {
         const central = path.resolve('public/academy/content/listening/media/academy-listening-2e5d1ee1e18a31b7.mp3');
-        expect(createHash('sha256').update(readFileSync(central)).digest('hex')).toBe('2e5d1ee1e18a31b72e826670a3f6aec1c0f513a6e2f05b654e04b199ad4939f3');
+        expect(sha256File(central)).toBe('2e5d1ee1e18a31b72e826670a3f6aec1c0f513a6e2f05b654e04b199ad4939f3');
         const chapter = await loadLessonActivityChapter('l2-l05', { lookup: async () => null });
         expect(chapter?.beats.map(beat => beat.id)).toEqual(['sensei-b24-listening-hinge', 'sensei-b25-diary-listening', 'sensei-minna-069-conversation']);
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as {

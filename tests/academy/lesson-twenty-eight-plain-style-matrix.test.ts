@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLessonTwentySevenExperiencePostcardListeningBeat } from '../../src/academy/content/lesson-twenty-seven-experience-postcard-listening-core';
@@ -11,6 +10,7 @@ import {
     type HolidayItineraryTapeModel,
     type PlainStyleMatrixModel,
 } from '../../src/academy/minigames';
+import { sha256File } from './helpers/hash-memo';
 
 function model(): PlainStyleMatrixModel { return createLessonTwentyEightPlainStyleMatrixBeat().activity as PlainStyleMatrixModel; }
 
@@ -72,7 +72,7 @@ describe('Lesson 28 Sensei Chapter 20 plain-style matrix', () => {
             ['l2-l03', 30, 'l2-l03', 30],
             ['l2-l04', 31, 'l2-l04', 31],
         ]);
-        ([['moodle-chapter-20-1-vocabulary-page-1.png', lesson28.provenance.moodle.vocabularySheet.sha256], ['moodle-chapter-20-1-plain-style-verb-page-3.png', lesson28.provenance.moodle.grammarSheet.sha256]] as const).forEach(([file, sha256]) => expect(createHash('sha256').update(readFileSync(path.resolve('public/academy/content/lessons/l2-l04', file))).digest('hex')).toBe(sha256));
+        ([['moodle-chapter-20-1-vocabulary-page-1.png', lesson28.provenance.moodle.vocabularySheet.sha256], ['moodle-chapter-20-1-plain-style-verb-page-3.png', lesson28.provenance.moodle.grammarSheet.sha256]] as const).forEach(([file, sha256]) => expect(sha256File(path.resolve('public/academy/content/lessons/l2-l04', file))).toBe(sha256));
         const chapter = await loadLessonActivityChapter('l2-l04', { lookup: async () => null }); expect(chapter).toMatchObject({ lessonPackageId: 'l2-l04', host: { id: 'tom' }, beats: [{ id: 'sensei-plain-style-matrix', activity: { kind: 'academy-plain-style-matrix' } }] });
         const ledger = JSON.parse(readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'), 'utf8')) as { worksheetDigitisation: { additionalSlices: Array<{ lessonId: string; moodleModuleId: number; audio: { sourceAudioTracksDelivered: number } }> } };
         const slices = ledger.worksheetDigitisation.additionalSlices.filter(slice => ['l2-l02', 'l2-l03', 'l2-l04'].includes(slice.lessonId));
