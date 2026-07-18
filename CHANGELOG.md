@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.189] - 2026-07-18
+
+### Changed
+
+- Unified the New Tab review-submission code so every study provider (JPDB, Jiten, Anki, Bunpro, local Yomu deck) is graded through one table-driven adapter with a uniform credential/review/refresh/undo contract, replacing two near-duplicate provider ladders; grading behavior is unchanged.
+- Extracted the subtitle transcript drawer into a dedicated collaborator module, isolating its row rendering and interaction handling; no behavior changes.
+
 ## [1.6.188] - 2026-07-18
 
 ### Changed

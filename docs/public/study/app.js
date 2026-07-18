@@ -40175,7 +40175,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.188".trim() ? "1.6.188".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.189".trim() ? "1.6.189".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -52573,6 +52573,142 @@ ${spelling}`);
       return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
   }
+  class SubtitleTranscriptPanel {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    renderPanelHtml(state2) {
+      const settings = this.deps.getSettings();
+      const language = settings.interfaceLanguage;
+      const rowCount = state2.totalRowCount ?? state2.rows.length;
+      const rowIndexOffset = state2.rowIndexOffset ?? 0;
+      const transcriptRows = this.deps.getTranscriptRows();
+      return `
+            ${renderDrawerHead({
+        mode: "lines",
+        title: uiText(language, "subtitlesTitle"),
+        meta: subtitleDrawerMetaText({
+          mode: "lines",
+          count: rowCount,
+          tracks: this.deps.getTracks(),
+          selectedTrackId: this.deps.getSelectedTrackId(),
+          secondaryTrackId: this.deps.getSecondaryTrackId(),
+          language
+        }),
+        metaTitle: subtitleDrawerMetaText({
+          mode: "lines",
+          count: rowCount,
+          tracks: this.deps.getTracks(),
+          selectedTrackId: this.deps.getSelectedTrackId(),
+          secondaryTrackId: this.deps.getSecondaryTrackId(),
+          language,
+          compact: false
+        }),
+        canShowLines: this.deps.hasTranscriptSurface(),
+        options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
+        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
+      })}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
+                ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.topSpacer) : ""}
+                ${state2.rows.length ? state2.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderWaitingState()}
+                ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.bottomSpacer) : ""}
+            </div>
+            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
+        `;
+    }
+    renderVirtualSpacer(height) {
+      return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
+    }
+    renderRow(row, index, currentIndex, rows = this.deps.getTranscriptRows()) {
+      const cue = row.cue;
+      const settings = this.deps.getSettings();
+      const htmlCache = this.deps.getHtmlCache();
+      const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
+      const parsed = htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
+      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
+      const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
+      const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
+      return `
+            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(seekLabel)}">
+                <div class="jpdb-subtitle-row-body">
+                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
+                </div>
+                <div class="jpdb-subtitle-row-tools">
+                    ${this.renderRowPeekButton(cue, index, settings)}
+                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
+                    <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
+                </div>
+            </div>
+        `;
+    }
+    // UT-68c: when the Lines list shows only Japanese, each row with an
+    // aligned translation gets an eye toggle to peek it.
+    renderRowPeekButton(cue, index, settings) {
+      const secondary = findAlignedCue(this.deps.getSecondaryCues(), cue);
+      if (!secondary?.text.trim()) return "";
+      const label = uiText(settings.interfaceLanguage, "peekSubtitleTranslation");
+      return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${subtitleIcon("eye")}</button>`;
+    }
+    renderWaitingState() {
+      const selected = this.deps.getTracks().find((track) => track.id === this.deps.getSelectedTrackId());
+      const language = this.deps.getSettings().interfaceLanguage;
+      const label = selected?.label ? `: ${escapeHtml$1(selected.label)}` : "";
+      const status = selected?.loadingState === "loading" ? uiText(language, "loadingSubtitleLines") : uiText(language, "waitingForCaptionLines");
+      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(status)}${label}. ${escapeHtml$1(uiText(language, "subtitleCurrentLineWillAppear"))}</div>`;
+    }
+    toggleRowTranslationPeek(target) {
+      const button = target.closest('[data-action="peek-row"]');
+      const row = target.closest(".jpdb-subtitle-list-row");
+      if (!button || !row) return;
+      const existing = row.querySelector(".jpdb-subtitle-row-secondary");
+      const language = this.deps.getSettings().interfaceLanguage;
+      if (existing) {
+        existing.remove();
+        button.setAttribute("aria-pressed", "false");
+        button.setAttribute("title", uiText(language, "peekSubtitleTranslation"));
+        button.setAttribute("aria-label", uiText(language, "peekSubtitleTranslation"));
+        setInnerHtml(button, subtitleIcon("eye"));
+        return;
+      }
+      const cue = this.deps.getTranscriptRows()[this.deps.rowIndexFromTarget(button)]?.cue;
+      const secondary = cue ? findAlignedCue(this.deps.getSecondaryCues(), cue) : void 0;
+      if (!secondary?.text.trim()) return;
+      const body = row.querySelector(".jpdb-subtitle-row-body") ?? row;
+      const peek = document.createElement("div");
+      peek.className = "jpdb-subtitle-row-secondary";
+      peek.lang = "en";
+      peek.textContent = secondary.text.trim();
+      body.append(peek);
+      button.setAttribute("aria-pressed", "true");
+      button.setAttribute("title", uiText(language, "hideSubtitleTranslation"));
+      button.setAttribute("aria-label", uiText(language, "hideSubtitleTranslation"));
+      setInnerHtml(button, subtitleIcon("eye-off"));
+    }
+    handlePanelClick(event) {
+      this.deps.handleClick(event);
+      event.stopPropagation();
+    }
+    stopPanelPropagation(event) {
+      event.stopPropagation();
+    }
+    handlePanelKeydown(event) {
+      if (event.key === "Escape" && this.deps.isPanelOptionsMenuOpen()) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.deps.closePanelOptionsMenu();
+        this.deps.getPanel()?.querySelector('[data-action="panel-options"]')?.focus();
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const target = event.target;
+      if (target.closest("button, input, [data-resize-transcript], .jpdb-reader-word")) return;
+      const row = target.closest(".jpdb-subtitle-list-row[data-row-index]");
+      if (!row) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.deps.seekToTranscriptRow(this.deps.rowIndexFromTarget(row));
+    }
+  }
   function applyKaraokeClassToWordElement(element, cursor, progress) {
     element.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
     const surface = readerWordSurfaceText$1(element).replace(/\s+/g, "");
@@ -53222,6 +53358,29 @@ ${spelling}`);
       hasAuthoritativeParseTier: (settings) => this.hasAuthoritativeParseTier(settings),
       transcriptRowCount: () => this.cues.filter((cue) => cue.transcriptEligible !== false).length
     });
+    // Transcript (Lines) drawer DOM construction, per-row rendering, the row
+    // translation-peek toggle, and the transcript list's DOM event handlers live
+    // in this collaborator; the controller keeps the render orchestration
+    // (render-state computation, hydration/warmup, virtualization, open/close
+    // lifecycle, layout/positioning) and delegates the DOM-building surface to it.
+    transcriptPanelSurface = new SubtitleTranscriptPanel({
+      getSettings: () => this.options.getSettings(),
+      getTracks: () => this.tracks,
+      getSelectedTrackId: () => this.selectedTrackId,
+      getSecondaryTrackId: () => this.secondaryTrackId,
+      getSecondaryCues: () => this.secondaryCues,
+      getTranscriptRows: () => this.transcriptRows(),
+      getHtmlCache: () => this.htmlCache,
+      getPanel: () => this.transcriptPanel,
+      hasTranscriptSurface: () => this.hasTranscriptSurface(),
+      panelOptionsState: (pausePanelEnabled, language) => this.panelOptionsState(pausePanelEnabled, language),
+      transcriptRowParseKey: (row, rowIndex, rows, settings) => this.transcriptRowParseKey(row, rowIndex, rows, settings),
+      isPanelOptionsMenuOpen: () => this.panelOptionsMenuOpen,
+      closePanelOptionsMenu: () => this.closePanelOptionsMenu(),
+      seekToTranscriptRow: (index) => this.seekToTranscriptRow(index),
+      rowIndexFromTarget: (target) => this.rowIndexFromTarget(target),
+      handleClick: (event) => this.handleClick(event)
+    });
     transcriptTextTargetsByParseKey = /* @__PURE__ */ new Map();
     renderSerial = 0;
     panelMode = "lines";
@@ -53373,7 +53532,7 @@ ${spelling}`);
       "copy-row": (target) => {
         void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target));
       },
-      "peek-row": (target) => this.toggleRowTranslationPeek(target),
+      "peek-row": (target) => this.transcriptPanelSurface.toggleRowTranslationPeek(target),
       "jump-current": () => this.jumpToCurrentTranscriptRow(),
       "rail-expand": () => this.toggleSubtitleControlRailExpanded(),
       load: () => this.openSubtitleFilePicker("primary"),
@@ -53660,10 +53819,10 @@ ${spelling}`);
       this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
-      this.transcriptPanel.addEventListener("click", (event) => this.handleTranscriptPanelClick(event), this.eventOptions());
-      this.transcriptPanel.addEventListener("keydown", (event) => this.handleTranscriptPanelKeydown(event), this.eventOptions());
+      this.transcriptPanel.addEventListener("click", (event) => this.transcriptPanelSurface.handlePanelClick(event), this.eventOptions());
+      this.transcriptPanel.addEventListener("keydown", (event) => this.transcriptPanelSurface.handlePanelKeydown(event), this.eventOptions());
       for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
-        this.transcriptPanel.addEventListener(eventName, (event) => this.stopTranscriptPanelPropagation(event), this.eventOptions());
+        this.transcriptPanel.addEventListener(eventName, (event) => this.transcriptPanelSurface.stopPanelPropagation(event), this.eventOptions());
       }
       body.appendChild(root);
       body.appendChild(this.transcriptPanel);
@@ -55238,10 +55397,6 @@ ${spelling}`);
       if (event.detail > 0) target.closest("button")?.blur();
       if (action !== "menu") this.syncControls();
     }
-    handleTranscriptPanelClick(event) {
-      this.handleClick(event);
-      event.stopPropagation();
-    }
     handleSubtitleStyleInput(event) {
       const target = event.target instanceof HTMLElement ? event.target.closest("[data-subtitle-style-setting]") : null;
       if (!target || !this.root?.contains(target)) return;
@@ -55253,29 +55408,9 @@ ${spelling}`);
       this.options.onSettingsChange();
       this.showControlsTemporarily();
     }
-    stopTranscriptPanelPropagation(event) {
-      event.stopPropagation();
-    }
     stopSubtitleStylePopoverPropagation(event) {
       event.stopPropagation();
       this.showControlsTemporarily();
-    }
-    handleTranscriptPanelKeydown(event) {
-      if (event.key === "Escape" && this.panelOptionsMenuOpen) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.closePanelOptionsMenu();
-        this.transcriptPanel?.querySelector('[data-action="panel-options"]')?.focus();
-        return;
-      }
-      if (event.key !== "Enter" && event.key !== " ") return;
-      const target = event.target;
-      if (target.closest("button, input, [data-resize-transcript], .jpdb-reader-word")) return;
-      const row = target.closest(".jpdb-subtitle-list-row[data-row-index]");
-      if (!row) return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.seekToTranscriptRow(this.rowIndexFromTarget(row));
     }
     rowIndexFromTarget(target) {
       return Number(target.closest("[data-row-index]")?.dataset.rowIndex);
@@ -56250,42 +56385,6 @@ ${spelling}`);
       const text2 = subtitleClipboardText(row.cue, secondary, this.options.getSettings().subtitleCopyIncludeTranslation);
       if (!text2) return;
       await this.writeSubtitleClipboard(text2, "Subtitle clipboard copy failed");
-    }
-    // UT-68c: when the Lines list shows only Japanese, each row with an
-    // aligned translation gets an eye toggle to peek it.
-    transcriptRowPeekButton(cue, index, settings) {
-      const secondary = findAlignedCue(this.secondaryCues, cue);
-      if (!secondary?.text.trim()) return "";
-      const label = uiText(settings.interfaceLanguage, "peekSubtitleTranslation");
-      return `<button class="jpdb-subtitle-row-peek" type="button" data-action="peek-row" data-row-index="${index}" aria-pressed="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${subtitleIcon("eye")}</button>`;
-    }
-    toggleRowTranslationPeek(target) {
-      const button = target.closest('[data-action="peek-row"]');
-      const row = target.closest(".jpdb-subtitle-list-row");
-      if (!button || !row) return;
-      const existing = row.querySelector(".jpdb-subtitle-row-secondary");
-      const language = this.options.getSettings().interfaceLanguage;
-      if (existing) {
-        existing.remove();
-        button.setAttribute("aria-pressed", "false");
-        button.setAttribute("title", uiText(language, "peekSubtitleTranslation"));
-        button.setAttribute("aria-label", uiText(language, "peekSubtitleTranslation"));
-        setInnerHtml(button, subtitleIcon("eye"));
-        return;
-      }
-      const cue = this.transcriptRows()[this.rowIndexFromTarget(button)]?.cue;
-      const secondary = cue ? findAlignedCue(this.secondaryCues, cue) : void 0;
-      if (!secondary?.text.trim()) return;
-      const body = row.querySelector(".jpdb-subtitle-row-body") ?? row;
-      const peek = document.createElement("div");
-      peek.className = "jpdb-subtitle-row-secondary";
-      peek.lang = "en";
-      peek.textContent = secondary.text.trim();
-      body.append(peek);
-      button.setAttribute("aria-pressed", "true");
-      button.setAttribute("title", uiText(language, "hideSubtitleTranslation"));
-      button.setAttribute("aria-label", uiText(language, "hideSubtitleTranslation"));
-      setInnerHtml(button, subtitleIcon("eye-off"));
     }
     async writeSubtitleClipboard(text2, failureMessage) {
       await navigator.clipboard?.writeText(text2).catch((error) => log$i.warn(failureMessage, error));
@@ -57339,7 +57438,7 @@ ${spelling}`);
       this.lastTranscriptStructureSignature = state2.structureSignature;
       this.lastTranscriptSignature = state2.signature;
       this.renderedVirtualWindow = state2.virtual ? { start: state2.virtual.start, end: state2.virtual.end, rowCount: state2.totalRowCount ?? state2.rows.length } : void 0;
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      setInnerHtml(panel, this.transcriptPanelSurface.renderPanelHtml(state2));
       this.afterTranscriptPanelRender(state2);
     }
     renderTranscriptPanelPreview() {
@@ -57349,7 +57448,7 @@ ${spelling}`);
       const state2 = this.transcriptPanelPreviewState(fullState);
       this.transcriptPreviewPlayerResizeDeferred = true;
       this.lastTranscriptSignature = "";
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      setInnerHtml(panel, this.transcriptPanelSurface.renderPanelHtml(state2));
       this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
     }
     renderShadowPanel(force = false) {
@@ -57432,7 +57531,7 @@ ${spelling}`);
     }
     renderShadowPanelBody(state2) {
       const cueText = state2.cue?.text.trim();
-      if (!state2.cue || !cueText) return this.renderTranscriptWaitingState();
+      if (!state2.cue || !cueText) return this.transcriptPanelSurface.renderWaitingState();
       return this.renderShadowCueCard(state2.cue, cueText, state2);
     }
     renderShadowCueCard(cue, cueText, state2) {
@@ -57859,48 +57958,6 @@ ${spelling}`);
       this.scheduleTranscriptCacheWarmup(state2.rows, hydrationIndex);
       return true;
     }
-    renderTranscriptPanelHtml(state2) {
-      const settings = this.options.getSettings();
-      const language = settings.interfaceLanguage;
-      const rowCount = state2.totalRowCount ?? state2.rows.length;
-      const rowIndexOffset = state2.rowIndexOffset ?? 0;
-      const transcriptRows = this.transcriptRows();
-      return `
-            ${renderDrawerHead({
-        mode: "lines",
-        title: uiText(language, "subtitlesTitle"),
-        meta: subtitleDrawerMetaText({
-          mode: "lines",
-          count: rowCount,
-          tracks: this.tracks,
-          selectedTrackId: this.selectedTrackId,
-          secondaryTrackId: this.secondaryTrackId,
-          language
-        }),
-        metaTitle: subtitleDrawerMetaText({
-          mode: "lines",
-          count: rowCount,
-          tracks: this.tracks,
-          selectedTrackId: this.selectedTrackId,
-          secondaryTrackId: this.secondaryTrackId,
-          language,
-          compact: false
-        }),
-        canShowLines: this.hasTranscriptSurface(),
-        options: this.panelOptionsState(settings.subtitlePausePanel, language),
-        extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$1(uiText(language, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
-      })}
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
-                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
-                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderTranscriptWaitingState()}
-                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer) : ""}
-            </div>
-            <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
-        `;
-    }
-    renderTranscriptVirtualSpacer(height) {
-      return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
-    }
     afterTranscriptPanelRender(state2, options = {}) {
       this.indexTranscriptTextTargets();
       this.calibrateTranscriptRowEstimate();
@@ -57940,27 +57997,6 @@ ${spelling}`);
       const blended = this.transcriptRowEstimatePx * 0.4 + mean * 0.6;
       this.transcriptRowEstimatePx = Math.min(240, Math.max(40, blended));
     }
-    renderTranscriptRow(row, index, currentIndex, rows = this.transcriptRows()) {
-      const cue = row.cue;
-      const settings = this.options.getSettings();
-      const parsedKey = this.transcriptRowParseKey(row, index, rows, settings);
-      const parsed = this.htmlCache.parsedHtmlCache.get(parsedKey) ?? this.htmlCache.provisionalParsedHtmlCache.get(parsedKey);
-      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
-      const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
-      const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
-      return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(seekLabel)}">
-                <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$1(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
-                </div>
-                <div class="jpdb-subtitle-row-tools">
-                    ${this.transcriptRowPeekButton(cue, index, settings)}
-                    <button class="jpdb-subtitle-row-copy" type="button" data-action="copy-row" data-row-index="${index}" title="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "copySubtitleLine"))}">${subtitleIcon("copy")}</button>
-                    <span class="jpdb-subtitle-row-time">${formatSubtitleTime(cue.start)}</span>
-                </div>
-            </div>
-        `;
-    }
     transcriptRows() {
       if (this.cues.length) {
         return this.cues.map((cue, cueIndex) => ({ cue, cueIndex })).filter((row) => row.cue.transcriptEligible !== false);
@@ -57993,13 +58029,6 @@ ${spelling}`);
         rowStart,
         rowEnd: rowStart + (rows[rowIndex]?.cue.text.length ?? 0)
       };
-    }
-    renderTranscriptWaitingState() {
-      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
-      const language = this.options.getSettings().interfaceLanguage;
-      const label = selected?.label ? `: ${escapeHtml$1(selected.label)}` : "";
-      const status = selected?.loadingState === "loading" ? uiText(language, "loadingSubtitleLines") : uiText(language, "waitingForCaptionLines");
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$1(status)}${label}. ${escapeHtml$1(uiText(language, "subtitleCurrentLineWillAppear"))}</div>`;
     }
     updateTranscriptActiveLine(currentIndex) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "lines") return;
@@ -58145,9 +58174,9 @@ ${spelling}`);
       const rowIndexOffset = state2.rowIndexOffset ?? 0;
       const transcriptRows = this.transcriptRows();
       setInnerHtml(scroller, `
-            ${this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer)}
-            ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderTranscriptWaitingState()}
-            ${this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer)}
+            ${this.transcriptPanelSurface.renderVirtualSpacer(state2.virtual.topSpacer)}
+            ${state2.rows.length ? state2.rows.map((row, index) => this.transcriptPanelSurface.renderRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.transcriptPanelSurface.renderWaitingState()}
+            ${this.transcriptPanelSurface.renderVirtualSpacer(state2.virtual.bottomSpacer)}
         `);
       scroller.dataset.totalRows = String(rowCount);
       this.lastTranscriptStructureSignature = state2.structureSignature;
@@ -79550,6 +79579,147 @@ ${entry.url}`),
   function isJpdbGrade(value) {
     return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
   }
+  const NOT_SERVER_REVERSIBLE = "review is not server-reversible";
+  class NewTabReviewSubmitter {
+    constructor(deps) {
+      this.deps = deps;
+      this.adapters = this.buildAdapters();
+    }
+    adapters;
+    // Table-driven replacement for the old submitReviewTarget ladder: every
+    // target (jpdb-api fell through the ladder's default) resolves to its own
+    // adapter, preserving the exact per-provider routing.
+    async submitTarget(card, target, grade) {
+      await this.adapters[target].review(card, grade);
+    }
+    // Table-driven replacement for the old submitQueuedGrade ladder. Queued
+    // grades never carry jpdb-live (live grading never queues); the bunpro guard
+    // stays explicit — a queue written before Bunpro grading became
+    // live-session-only must never replay a stale session review id.
+    async submitQueued(item) {
+      if (item.target === "bunpro-api") return false;
+      await this.adapters[item.target].review(item.card, item.grade);
+      return true;
+    }
+    // Jiten reviews reverse server-side; the controller's undo flow delegates the
+    // provider side here and keeps the local card-restoration.
+    undoServerReview(card) {
+      return this.adapters["jiten-api"].undo(card);
+    }
+    buildAdapters() {
+      const notReversible = () => Promise.reject(new Error(NOT_SERVER_REVERSIBLE));
+      const noRefresh = () => Promise.resolve();
+      return {
+        "jpdb-api": {
+          hasCredential: (card) => (card.source === "jpdb" || card.reviewSource === "jpdb-api") && this.deps.getSettings().jpdbMiningEnabled && hasJpdbApiCredential(this.deps.getSettings()),
+          review: (card, grade) => this.reviewJpdbApi(card, grade),
+          // jpdb.reviewCard refreshes the card state internally.
+          refreshState: noRefresh,
+          undo: notReversible
+        },
+        "jpdb-live": {
+          hasCredential: (card) => card.reviewSource === "jpdb-live" && this.deps.getSettings().jpdbMiningEnabled,
+          review: (card, grade) => {
+            this.deps.reviewLiveJpdb(card, grade);
+          },
+          refreshState: noRefresh,
+          undo: notReversible
+        },
+        "jiten-api": {
+          hasCredential: (card) => isJitenSrsCard(card) && this.deps.getSettings().jpdbMiningEnabled && hasJitenApiCredential(this.deps.getSettings()) && typeof this.deps.jiten?.reviewCard === "function",
+          review: (card, grade) => this.reviewJitenApi(card, grade),
+          refreshState: (card) => this.refreshJitenState(card),
+          undo: (card) => this.undoJitenReview(card)
+        },
+        anki: {
+          hasCredential: (card) => Boolean(card.ankiCardId),
+          review: async (card, grade) => {
+            await this.deps.reviewAnki(card, grade);
+          },
+          refreshState: noRefresh,
+          undo: notReversible
+        },
+        "bunpro-api": this.srsAdapterEntry("bunpro-api"),
+        "yomu-local": this.srsAdapterEntry("yomu-local")
+      };
+    }
+    srsAdapterEntry(target) {
+      const source = target === "bunpro-api" ? "bunpro" : "yomu-local";
+      return {
+        hasCredential: () => Boolean(this.deps.srsAdapters?.[source]?.hasCredential()),
+        review: (card, grade) => this.reviewSrsAdapter(source, card, grade),
+        refreshState: () => Promise.resolve(),
+        undo: () => Promise.reject(new Error(NOT_SERVER_REVERSIBLE))
+      };
+    }
+    async reviewJpdbApi(card, grade) {
+      if (card.source !== "jpdb" && card.reviewSource !== "jpdb-api") throw new Error(this.deps.text("couldNotSubmitGrade"));
+      const settings = this.deps.getSettings();
+      if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text("apiSrsActionsDisabled"));
+      if (!hasJpdbApiCredential(settings)) throw new Error(this.deps.text("addJpdbApiKeyReview"));
+      await this.deps.jpdb.reviewCard(card, grade);
+      this.deps.publishGradedCardState(card);
+    }
+    async reviewJitenApi(card, grade) {
+      if (!isJitenSrsCard(card)) throw new Error(this.deps.text("couldNotSubmitGrade"));
+      const settings = this.deps.getSettings();
+      if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text("apiSrsActionsDisabled"));
+      if (!hasJitenApiCredential(settings)) throw new Error(this.deps.text("addJitenApiKeyReview"));
+      if (typeof this.deps.jiten?.reviewCard !== "function") throw new Error(this.deps.text("couldNotSubmitGrade"));
+      await this.deps.jiten.reviewCard(card, grade);
+      this.deps.armJitenUndo(card);
+      await this.refreshJitenState(card);
+      this.deps.publishGradedCardState(card);
+    }
+    async refreshJitenState(card) {
+      if (typeof this.deps.jiten?.refreshCardState === "function") {
+        await this.deps.jiten.refreshCardState(card).catch(() => void 0);
+      }
+    }
+    async undoJitenReview(card) {
+      await this.deps.jiten?.undoReview?.(card);
+      await this.refreshJitenState(card);
+      this.deps.publishGradedCardState(card);
+    }
+    async reviewSrsAdapter(source, card, grade) {
+      const adapter = this.deps.srsAdapters?.[source];
+      if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text("couldNotSubmitGrade"));
+      await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+      this.deps.publishGradedCardState(card);
+    }
+    newTabCardToSrsReviewable(card, source) {
+      const expression = card.spelling.trim();
+      const reading = newTabCardReading(card).trim() || expression;
+      const providerCardId = source === "bunpro" ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card) : card.sourceCardKey || cardKey(card);
+      return {
+        providerId: source,
+        providerCardId,
+        providerReviewId: source === "bunpro" ? card.bunproReviewId || providerCardId : providerCardId,
+        providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : void 0,
+        reviewSession: source === "bunpro" && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+          id: card.bunproReviewSessionId,
+          inputMode: card.bunproReviewInputMode,
+          endpoint: card.bunproReviewEndpoint
+        } : void 0,
+        kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : "vocabulary",
+        expression,
+        reading,
+        meanings: card.meanings,
+        state: card.cardState,
+        srsLevel: source === "bunpro" ? card.bunproSrsLevel : void 0,
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        raw: card
+      };
+    }
+  }
+  function stringifyPositiveNumber(value) {
+    return value !== void 0 && Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : void 0;
+  }
+  function bunproReviewableKind(type) {
+    if (type === "grammar" || type === "vocabulary" || type === "sentence") return type;
+    return "unknown";
+  }
   let pendingChoice = null;
   let pendingPanel = null;
   let pendingFinish = null;
@@ -80192,6 +80362,17 @@ ${entry.url}`),
         dictionaries: this.dependencies.dictionaries,
         localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
       });
+      this.reviewSubmitter = new NewTabReviewSubmitter({
+        getSettings: () => this.dependencies.getSettings(),
+        text: (key) => this.text(key),
+        jpdb: this.dependencies.jpdb,
+        jiten: this.dependencies.jiten,
+        srsAdapters: this.dependencies.srsAdapters,
+        publishGradedCardState: (card) => this.publishGradedCardState(card),
+        armJitenUndo: (card) => this.armJitenUndo(card),
+        reviewLiveJpdb: (card, grade) => this.submitLiveJpdbGrade(card, grade),
+        reviewAnki: (card, grade) => this.submitAnkiGrade(card, grade)
+      });
       this.gradeQueue = new NewTabGradeQueue({
         offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
         submit: (item) => this.submitQueuedGrade(item),
@@ -80429,6 +80610,11 @@ ${entry.url}`),
     // `this.dependencies`, which is a parameter property not yet set during
     // field initialization.
     statsController;
+    // Cycle-9 provider unification: the two grade ladders (submitReviewTarget /
+    // submitQueuedGrade) dispatch through one adapter table here. Assigned in the
+    // constructor body — the review-source clients are read off `this.dependencies`,
+    // a parameter property not yet set during field initialization.
+    reviewSubmitter;
     isCurrentPage() {
       return Boolean(this.options.host) || isYomuNewTabUrl(location.href);
     }
@@ -87386,55 +87572,21 @@ ${entry.url}`),
       if (kind === "yomu-local") return this.reviewTargetsForCard(card).find((candidate) => candidate === "yomu-local") ?? null;
       return null;
     }
-    async submitReviewTarget(card, target, grade) {
-      if (target === "jpdb-live") {
-        this.submitLiveJpdbGrade(card, grade);
-        return;
-      }
-      if (target === "anki") {
-        await this.submitAnkiGrade(card, grade);
-        return;
-      }
-      if (target === "jiten-api") {
-        await this.submitJitenApiGrade(card, grade);
-        return;
-      }
-      if (target === "bunpro-api" || target === "yomu-local") {
-        await this.submitSrsAdapterGrade(card, target, grade);
-        return;
-      }
-      await this.submitJpdbApiGrade(card, grade);
+    // Thin delegation: the per-provider grade routing now lives in one
+    // table-driven adapter dispatch (NewTabReviewSubmitter). submitGrade and
+    // submitSelectedLookupTarget still call this to grade a single target.
+    submitReviewTarget(card, target, grade) {
+      return this.reviewSubmitter.submitTarget(card, target, grade);
     }
-    async submitSrsAdapterGrade(card, target, grade) {
-      const source = target === "bunpro-api" ? "bunpro" : "yomu-local";
-      const adapter = this.dependencies.srsAdapters?.[source];
-      if (!adapter || !adapter.hasCredential()) throw new Error(this.text("couldNotSubmitGrade"));
-      await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
-      this.publishGradedCardState(card);
-    }
-    newTabCardToSrsReviewable(card, source) {
-      const expression = card.spelling.trim();
-      const reading = newTabCardReading(card).trim() || expression;
-      const providerCardId = source === "bunpro" ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card) : card.sourceCardKey || cardKey(card);
-      return {
-        providerId: source,
-        providerCardId,
-        providerReviewId: source === "bunpro" ? card.bunproReviewId || providerCardId : providerCardId,
-        providerReviewableId: source === "bunpro" ? stringifyPositiveNumber(card.bunproReviewableId) : void 0,
-        reviewSession: source === "bunpro" && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
-          id: card.bunproReviewSessionId,
-          inputMode: card.bunproReviewInputMode,
-          endpoint: card.bunproReviewEndpoint
-        } : void 0,
-        kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : "vocabulary",
-        expression,
-        reading,
-        meanings: card.meanings,
-        state: card.cardState,
-        srsLevel: source === "bunpro" ? card.bunproSrsLevel : void 0,
-        dueAt: card.dueAt,
-        lastReviewAt: card.lastReviewAt,
-        raw: card
+    // Arm the one-shot Jiten undo affordance from the submitter's review path
+    // (server-reversible). gradeCurrentCard re-arms this for its own path; this
+    // covers the queue-flush path, which has no gradeCurrentCard wrapper.
+    armJitenUndo(card) {
+      this.lastUndoableReview = {
+        card,
+        at: Date.now(),
+        serverUndo: typeof this.dependencies.jiten?.undoReview === "function",
+        counted: true
       };
     }
     // New-tab side of the cross-tab card-state mutation bus: after a grade
@@ -87467,32 +87619,6 @@ ${entry.url}`),
         this.publishGradedCardState(card);
       } catch {
       }
-    }
-    async submitJpdbApiGrade(card, grade) {
-      if (card.source !== "jpdb" && card.reviewSource !== "jpdb-api") throw new Error(this.text("couldNotSubmitGrade"));
-      const settings = this.dependencies.getSettings();
-      if (!settings.jpdbMiningEnabled) throw new Error(this.text("apiSrsActionsDisabled"));
-      if (!hasJpdbApiCredential(settings)) throw new Error(this.text("addJpdbApiKeyReview"));
-      await this.dependencies.jpdb.reviewCard(card, grade);
-      this.publishGradedCardState(card);
-    }
-    async submitJitenApiGrade(card, grade) {
-      if (!isJitenSrsCard(card)) throw new Error(this.text("couldNotSubmitGrade"));
-      const settings = this.dependencies.getSettings();
-      if (!settings.jpdbMiningEnabled) throw new Error(this.text("apiSrsActionsDisabled"));
-      if (!hasJitenApiCredential(settings)) throw new Error(this.text("addJitenApiKeyReview"));
-      if (typeof this.dependencies.jiten?.reviewCard !== "function") throw new Error(this.text("couldNotSubmitGrade"));
-      await this.dependencies.jiten.reviewCard(card, grade);
-      this.lastUndoableReview = {
-        card,
-        at: Date.now(),
-        serverUndo: typeof this.dependencies.jiten.undoReview === "function",
-        counted: true
-      };
-      if (typeof this.dependencies.jiten.refreshCardState === "function") {
-        await this.dependencies.jiten.refreshCardState(card).catch(() => void 0);
-      }
-      this.publishGradedCardState(card);
     }
     renderBatchComplete(root) {
       const slots = this.studySlots(root);
@@ -87532,13 +87658,8 @@ ${entry.url}`),
         this.restoreLocallyUndoneCard(root, last);
         return;
       }
-      const jiten = this.dependencies.jiten;
       try {
-        await jiten?.undoReview?.(last.card);
-        if (typeof jiten?.refreshCardState === "function") {
-          await jiten.refreshCardState(last.card).catch(() => void 0);
-        }
-        this.publishGradedCardState(last.card);
+        await this.reviewSubmitter.undoServerReview(last.card);
         this.dependencies.toast?.(this.text("reviewUndone"));
         this.restoreUndoneCardToFront(root, last.card);
       } catch (error) {
@@ -87652,22 +87773,10 @@ ${entry.url}`),
       if (remaining === 0) this.lastSyncedAt = Date.now();
       this.refreshSessionProgressSoon();
     }
-    async submitQueuedGrade(item) {
-      if (item.target === "bunpro-api") return false;
-      if (item.target === "anki") {
-        await this.submitAnkiGrade(item.card, item.grade);
-        return true;
-      }
-      if (item.target === "jiten-api") {
-        await this.submitJitenApiGrade(item.card, item.grade);
-        return true;
-      }
-      if (item.target === "yomu-local") {
-        await this.submitSrsAdapterGrade(item.card, item.target, item.grade);
-        return true;
-      }
-      await this.submitJpdbApiGrade(item.card, item.grade);
-      return true;
+    // Thin delegation to the same table-driven adapter dispatch the live grade
+    // path uses; the Bunpro migration guard is handled inside the submitter.
+    submitQueuedGrade(item) {
+      return this.reviewSubmitter.submitQueued(item);
     }
     advanceAfterGrade(root, card, grade) {
       const key = cardKey(card);
@@ -88351,15 +88460,8 @@ ${entry.url}`),
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? Math.floor(number) : void 0;
   }
-  function stringifyPositiveNumber(value) {
-    return value !== void 0 && Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : void 0;
-  }
   function bunproReviewableType(kind) {
     if (kind === "grammar" || kind === "vocabulary" || kind === "sentence") return kind;
-    return "unknown";
-  }
-  function bunproReviewableKind(type) {
-    if (type === "grammar" || type === "vocabulary" || type === "sentence") return type;
     return "unknown";
   }
   function isNewTabRevealKey(key) {
