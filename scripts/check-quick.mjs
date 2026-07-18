@@ -49,10 +49,14 @@ const MEGA_FILES = [
 
 // Reader tests affected by the diff, minus the mega files (unless directly edited).
 const changedMega = MEGA_FILES.filter(f => uniqueChanged.includes(f));
+// vitest 1.6 accepts only ONE --exclude value; express the mega-file skip as a
+// single brace glob.
+const excludedMega = MEGA_FILES.filter(f => !changedMega.includes(f));
+const excludeGlob = `tests/reader/{${excludedMega.map(f => f.replace('tests/reader/', '').replace('.test.ts', '')).join(',')}}.test.ts`;
 const vitestArgs = [
     join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run',
     `--changed=${baseRef}`,
-    ...MEGA_FILES.filter(f => !changedMega.includes(f)).flatMap(f => ['--exclude', f]),
+    ...(excludedMega.length ? ['--exclude', excludeGlob] : []),
 ];
 run('reader tests (affected by diff)', process.execPath, vitestArgs, { YOMU_QUICK_GATE: '1' });
 for (const mega of changedMega) {

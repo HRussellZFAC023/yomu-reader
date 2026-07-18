@@ -20822,9 +20822,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
       if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
       const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
+      if (surfaceSuffix && !KANA_RE$1.test(surfaceSuffix)) continue;
       const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
       if (rubies.length) return rubies;
+    }
+    if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
+      const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
+      if (!surfaceSuffix || KANA_RE$1.test(surfaceSuffix)) {
+        return [{
+          text: baseReading,
+          start: 0,
+          end: baseSpelling.length,
+          length: baseSpelling.length
+        }];
+      }
     }
     return [];
   }
