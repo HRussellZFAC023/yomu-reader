@@ -14,11 +14,6 @@ const GENERATED_DIR = join(ROOT, 'tests/reader/.vitest-jpdb-shards');
 const GENERATED_NEW_TAB_REVIEW_DIR = join(ROOT, 'tests/reader/.vitest-new-tab-review-shards');
 const GENERATED_SETTINGS_DIR = join(ROOT, 'tests/reader/.vitest-settings-shards');
 const REGULAR_SHARD_DIRECT_EXCLUDES = new Set([JPDB_TEST, NEW_TAB_REVIEW_TEST, SETTINGS_FORM_TEST]);
-const REGULAR_SHARD_GENERATED_DIRS = [
-    '/.vitest-jpdb-shards/',
-    '/.vitest-new-tab-review-shards/',
-    '/.vitest-settings-shards/',
-];
 
 const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
@@ -130,7 +125,11 @@ function regularShardSourceFiles() {
 
 function isRegularShardSourceFile(file) {
     if (REGULAR_SHARD_DIRECT_EXCLUDES.has(file)) return false;
-    return !REGULAR_SHARD_GENERATED_DIRS.some(dir => file.includes(dir));
+    // Never collect generated shard output as a regular source file. The wanted
+    // shards are injected explicitly by regularGeneratedShardFiles(); matching the
+    // whole `.vitest-*-shards/` family (not an allow-list) keeps an orphaned dir
+    // left by a removed generator from being double-run as if it were a real test.
+    return !/\/\.vitest-[^/]*-shards\//.test(file);
 }
 
 function regularGeneratedShardFiles(shardTotal, reuseGenerated) {
