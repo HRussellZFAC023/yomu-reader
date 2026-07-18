@@ -5,7 +5,7 @@ import { subtitleVideoLayoutTarget } from './subtitle-video-inset';
 // The set of hosts that YouTube (desktop + mobile) promotes for its inline/CSS
 // "fake" fullscreen, plus Yomu's own inline-fullscreen marker. Shared with the
 // controller's mutation observer, which watches these same shells for swaps.
-export const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
+const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
     '[data-yomu-inline-fullscreen="true"]',
     '.html5-video-player.ytp-fullscreen',
     '.html5-video-player.fullscreen',
@@ -22,11 +22,11 @@ export const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
 // invalidating signal (belt-and-braces for a missed mutation/fullscreen event).
 const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3000;
 
-export function elementContainsVideo(element: HTMLElement | null | undefined, video: HTMLVideoElement | undefined): element is HTMLElement {
+function elementContainsVideo(element: HTMLElement | null | undefined, video: HTMLVideoElement | undefined): element is HTMLElement {
     return Boolean(element && video && (element === video || element.contains(video)));
 }
 
-export function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTMLElement | null {
+function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTMLElement | null {
     if (!isYouTubePage()) return null;
     const scopedHost = video?.closest<HTMLElement>(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
     if (scopedHost) return scopedHost;
@@ -55,13 +55,13 @@ export function mutationSwapsFullscreenHostCandidate(mutation: MutationRecord): 
     return false;
 }
 
-export function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
+function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
     return Boolean(element
         && isMobileYouTubePage()
         && element.matches('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'));
 }
 
-export function isVisibleYouTubeFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
+function isVisibleYouTubeFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
     if (!element) return false;
     const rect = element.getBoundingClientRect();
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;

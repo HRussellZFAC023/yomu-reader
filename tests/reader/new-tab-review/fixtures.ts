@@ -24,7 +24,7 @@ export const WORD_ONLY_STUDY_DISABLED_STEPS: typeof BASE_DEFAULT_SETTINGS.newTab
     'speaking',
     'type-word',
 ];
-export const REVIEW_SUITE_STUDY_STEP_ORDER: typeof BASE_DEFAULT_SETTINGS.newTabStudyStepOrder = [
+const REVIEW_SUITE_STUDY_STEP_ORDER: typeof BASE_DEFAULT_SETTINGS.newTabStudyStepOrder = [
     'word',
     'recall-cloze',
     'listen-pitch',
@@ -248,7 +248,7 @@ export function newTabSentenceToken(card: JPDBCard, sentence: string): JPDBToken
     };
 }
 
-export function createStackedNewTabSettingsFixture(runtime: NewTabRuntime) {
+function createStackedNewTabSettingsFixture(runtime: NewTabRuntime) {
     const { settings, settingsForm, settingsBackdrop, anchor } = stackedSettingsFixtureDom();
     const internals = runtime as unknown as {
         settings: typeof settings;
@@ -310,7 +310,7 @@ export function dispatchPointerSwipe(target: HTMLElement, owner: Window, deltaX:
     owner.dispatchEvent(testPointerEvent('pointerup', endX, 124));
 }
 
-export function testPointerEvent(type: string, clientX: number, clientY: number): MouseEvent {
+function testPointerEvent(type: string, clientX: number, clientY: number): MouseEvent {
     const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY });
     Object.defineProperties(event, {
         isPrimary: { value: true },
@@ -326,7 +326,7 @@ export function dispatchPenControlTap(target: HTMLElement, pointerId = 91): Poin
     return up;
 }
 
-export function testControlPointerEvent(type: string, clientX: number, clientY: number, pointerId: number): PointerEvent {
+function testControlPointerEvent(type: string, clientX: number, clientY: number, pointerId: number): PointerEvent {
     const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }) as PointerEvent;
     Object.defineProperties(event, {
         isPrimary: { value: true },
@@ -440,7 +440,7 @@ export type NewTabLookupRuntimeInternals<T extends NewTabLookupRenderData> = {
     showLookupCard(card: JPDBCard, sentence?: string): Promise<void>;
 };
 
-export function newTabSettingsGetter(settingsOrGetter: NewTabSettingsSource): () => NewTabSettings {
+function newTabSettingsGetter(settingsOrGetter: NewTabSettingsSource): () => NewTabSettings {
     return typeof settingsOrGetter === 'function' ? settingsOrGetter : () => settingsOrGetter;
 }
 
@@ -627,7 +627,7 @@ export async function expectBuiltInFallbackWords(controller: NewTabController, f
     return result;
 }
 
-export function parseAnkiConnectRequest(init?: RequestInit): AnkiConnectRequest {
+function parseAnkiConnectRequest(init?: RequestInit): AnkiConnectRequest {
     const body = JSON.parse(String(init?.body ?? '{}')) as { action?: unknown; params?: unknown };
     const params = body.params && typeof body.params === 'object'
         ? body.params as Record<string, unknown>
@@ -635,7 +635,7 @@ export function parseAnkiConnectRequest(init?: RequestInit): AnkiConnectRequest 
     return { action: String(body.action ?? ''), params };
 }
 
-export function ankiNumberListParam(params: Record<string, unknown>, key: string): number[] {
+function ankiNumberListParam(params: Record<string, unknown>, key: string): number[] {
     const value = params[key];
     return Array.isArray(value) ? value.map(Number) : [];
 }
@@ -773,7 +773,7 @@ export function seedNewTabState(controller: NewTabController, state: NewTabRende
     Object.assign(controller as unknown as { state: NewTabRenderedState['state'] }, { state });
 }
 
-export function renderNewTabSearchRoot(controller: NewTabController, source = 'jpdb'): HTMLElement {
+function renderNewTabSearchRoot(controller: NewTabController, source = 'jpdb'): HTMLElement {
     const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
     seedNewTabState(controller, {
         mode: 'search',
@@ -820,7 +820,7 @@ export function renderSeededNewTabRoot(controller: NewTabController, options: {
     return root;
 }
 
-export function seedNewTabRenderedState(controller: NewTabController, options: {
+function seedNewTabRenderedState(controller: NewTabController, options: {
     visibleWords: JPDBCard[];
     allWords?: JPDBCard[];
     index?: number;
@@ -969,9 +969,9 @@ export function newTabPromptText(root: ParentNode = document): string {
         ?? '';
 }
 
-export let syntheticNewTabNavigationTime = Date.now();
+let syntheticNewTabNavigationTime = Date.now();
 
-export function clickNewTabNext(root: ParentNode = document): void {
+function clickNewTabNext(root: ParentNode = document): void {
     const button = root.querySelector<HTMLButtonElement>('[data-newtab-action="next"]');
     if (!button) return;
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });

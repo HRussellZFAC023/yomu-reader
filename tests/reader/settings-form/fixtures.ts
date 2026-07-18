@@ -41,7 +41,7 @@ export const frequencySettings = {
 export const SETTINGS_CSS = readFileSync('src/reader/styles/settings.css', 'utf8');
 export const GETTING_STARTED_DOCS = readFileSync('docs/getting-started.md', 'utf8');
 export const FEATURES_DOCS = readFileSync('docs/features.md', 'utf8');
-export const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
+const HISTORICAL_HIRAGINO_YU_GOTHIC_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
 export const AMBIGUOUS_SCAN_COPY = ['Manual scan', 'only'].join(' ');
 export const IMPORTED_ANKI_FIELD_MAPPINGS: AnkiFieldMappings = {
     Imported: {
@@ -199,7 +199,7 @@ export function settingsToken(surface: string, start: number, reading = surface)
     };
 }
 
-export function settingsCard(spelling: string, reading = spelling): JPDBCard {
+function settingsCard(spelling: string, reading = spelling): JPDBCard {
     return {
         vid: 1464530,
         sid: 0,

@@ -384,9 +384,9 @@ export type TestImmersionPopoverInternals = {
     };
 };
 
-export const JPDB_DECK_LIST_VOCABULARY_API = 'https://jpdb.io/api/v1/deck/list-vocabulary';
-export const JPDB_LOOKUP_VOCABULARY_API = 'https://jpdb.io/api/v1/lookup-vocabulary';
-export const JPDB_LIST_USER_DECKS_API = 'https://jpdb.io/api/v1/list-user-decks';
+const JPDB_DECK_LIST_VOCABULARY_API = 'https://jpdb.io/api/v1/deck/list-vocabulary';
+const JPDB_LOOKUP_VOCABULARY_API = 'https://jpdb.io/api/v1/lookup-vocabulary';
+const JPDB_LIST_USER_DECKS_API = 'https://jpdb.io/api/v1/list-user-decks';
 export const TEST_IOS_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 export const TEST_IPAD_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 export const TEST_IPADOS_DESKTOP_SAFARI_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
@@ -416,14 +416,14 @@ export function jpdbJsonResponse(payload: unknown, status = 200): Response {
     } as Response;
 }
 
-export function jpdbDeckRequest(url: RequestInfo | URL, init?: RequestInit): { href: string; body: JpdbDeckRequestBody } {
+function jpdbDeckRequest(url: RequestInfo | URL, init?: RequestInit): { href: string; body: JpdbDeckRequestBody } {
     return {
         href: String(url),
         body: JSON.parse(String(init?.body ?? '{}')) as JpdbDeckRequestBody,
     };
 }
 
-export function jpdbLookupVocabularyResponse(
+function jpdbLookupVocabularyResponse(
     href: string,
     body: JpdbDeckRequestBody,
     lookupVocabulary?: (body: JpdbDeckRequestBody) => unknown[],
@@ -600,7 +600,7 @@ export function createLocalPitchParserFixture() {
     };
 }
 
-export function kanjiLocalDictionaryMatch() {
+function kanjiLocalDictionaryMatch() {
     return {
         entry: {
             expression: '漢字',
@@ -1001,7 +1001,7 @@ export function newTabSettingsJapaneseParserFixture(options: {
     return { form, parse, internals };
 }
 
-export function settingsJapaneseTokenForText(
+function settingsJapaneseTokenForText(
     text: string,
     options: { spelling: string; reading: string; vid: number },
 ): JPDBToken[] {
@@ -1211,7 +1211,7 @@ export function createSheetPopoverFixture(options: { expanded?: boolean; pointer
     return { popover, handle };
 }
 
-export function mockSourceRowRects(rows: HTMLElement[], rowHeight = 40, rowGap = 8): void {
+function mockSourceRowRects(rows: HTMLElement[], rowHeight = 40, rowGap = 8): void {
     rows.forEach((row, index) => {
         const top = index * (rowHeight + rowGap);
         row.getBoundingClientRect = () => ({
@@ -1600,13 +1600,13 @@ export function largeAnkiStatusIndexResult(fixture: LargeAnkiStatusIndexFixture)
     return request => handlers[request.action]?.(request) ?? [];
 }
 
-export function largeAnkiStatusIndexFindCards(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): number[] {
+function largeAnkiStatusIndexFindCards(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): number[] {
     const query = String(request.params.query ?? '');
     if (query === 'deck:*') return fixture.allIds;
     return query.includes('is:due') ? [fixture.targetCardId] : [];
 }
 
-export function largeAnkiStatusIndexCardsInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
+function largeAnkiStatusIndexCardsInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
     const cards = requestNumberArray(request.params.cards);
     fixture.cardInfoBatchSizes.push(cards.length);
     return cards.map(cardId => ({
@@ -1620,7 +1620,7 @@ export function largeAnkiStatusIndexCardsInfo(request: TestAnkiConnectRequest, f
     }));
 }
 
-export function largeAnkiStatusIndexNotesInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
+function largeAnkiStatusIndexNotesInfo(request: TestAnkiConnectRequest, fixture: LargeAnkiStatusIndexFixture): unknown[] {
     const notes = requestNumberArray(request.params.notes);
     fixture.noteInfoBatchSizes.push(notes.length);
     return notes.map(noteId => ({
@@ -1634,11 +1634,11 @@ export function largeAnkiStatusIndexNotesInfo(request: TestAnkiConnectRequest, f
     }));
 }
 
-export function requestNumberArray(value: unknown): number[] {
+function requestNumberArray(value: unknown): number[] {
     return Array.isArray(value) ? value.map(Number) : [];
 }
 
-export function testLocationStub(href: string): TestLocationStub {
+function testLocationStub(href: string): TestLocationStub {
     const url = new URL(href);
     return { href, origin: url.origin, hostname: url.hostname };
 }
@@ -1836,7 +1836,7 @@ export function graphNodeDataGeometry(html: string, id: string): KanjiGraphGeome
     };
 }
 
-export function graphNodeNumberAttribute(html: string, id: string, attribute: string): number {
+function graphNodeNumberAttribute(html: string, id: string, attribute: string): number {
     const match = new RegExp(`data-graph-node="${id}"[^>]+data-${attribute}="([^"]+)"`, 'u').exec(html);
     expect(match).not.toBeNull();
     return Number(match?.[1]);
@@ -2500,7 +2500,7 @@ export function createFallbackOcrImage(text: string): HTMLImageElement {
     return image;
 }
 
-export function segmentedFallbackParser(dependencies: Partial<ConstructorParameters<typeof ReaderParser>[0]> = {}): ReaderParser {
+function segmentedFallbackParser(dependencies: Partial<ConstructorParameters<typeof ReaderParser>[0]> = {}): ReaderParser {
     return new ReaderParser({
         getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
         jpdb: {} as never,
@@ -2569,7 +2569,7 @@ export function parsedProviderToken(
     };
 }
 
-export function stableTestId(value: string): number {
+function stableTestId(value: string): number {
     return Array.from(value).reduce((sum, character) => sum + character.codePointAt(0)!, 1);
 }
 

@@ -22,7 +22,7 @@ function subtitleSessionParseHash(key: string): string {
     return `${h1.toString(36)}${h2.toString(36)}`;
 }
 
-export const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
+const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
 export const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5000;
 const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
 
