@@ -156,7 +156,7 @@ interface ConstrainedRowStyleFacts {
     activelyTruncatedPreview: boolean;
 }
 
-const constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; facts: ConstrainedRowStyleFacts }>();
+let constrainedRowStyleFactMemo = new WeakMap<HTMLElement, { at: number; facts: ConstrainedRowStyleFacts }>();
 
 function constrainedRowStyleFacts(element: HTMLElement): ConstrainedRowStyleFacts {
     const now = Date.now();
@@ -819,9 +819,10 @@ const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][
 let comboboxOwnedIdMemo = new WeakMap<Node, { at: number; ids: ReadonlySet<string> }>();
 const COMBOBOX_OWNED_ID_TTL_MS = 250;
 
-/** Test hook: fixtures share one jsdom document, so the per-root owned-id
- * memo would leak between them. Production staleness is bounded by the TTL. */
+/** Test hook: fixtures share one document while mutating clip and popup facts.
+ * Production staleness for both memoized verdicts is bounded by a short TTL. */
 export function resetDecorationPolicyCachesForTest(): void {
+    constrainedRowStyleFactMemo = new WeakMap();
     comboboxOwnedIdMemo = new WeakMap();
 }
 

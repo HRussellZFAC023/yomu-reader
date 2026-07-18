@@ -281,7 +281,17 @@ async function runEngine(engineName, browser) {
         await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
         await page.locator('.jpdb-reader-fab').click();
         await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
-        await page.waitForTimeout(400);
+        await page.waitForFunction(() => {
+            const items = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
+            const rects = items.map(item => item.getBoundingClientRect());
+            const centers = rects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
+            return rects.length >= 6
+                && rects.every(rect => rect.width >= 45 && rect.width <= 51)
+                && centers.slice(1).every((center, index) => Math.hypot(
+                    center.x - centers[index].x,
+                    center.y - centers[index].y,
+                ) >= 60);
+        }, undefined, { timeout: 5_000 });
 
         const snapshot = await snapshotRedditRegression(page);
         const touchHover = await snapshotTouchHoverSafety(page);
@@ -1051,6 +1061,7 @@ function snapshotRedditElement(element, expected) {
         readingCount: readings.length,
         visibleReadingCount: visibleReadings.length,
         hiddenReadingCount: readings.length - visibleReadings.length,
+        safetyHiddenReadingCount: readings.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
         readingTexts: readings.map(reading => reading.textContent ?? ''),
         nativeRubyCount: element.querySelectorAll('rt').length,
         readingClipped: readings.some(readingIsClipped),
@@ -1318,11 +1329,18 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
+        assert(label.hiddenReadingCount === label.safetyHiddenReadingCount,
+            `${engineName}: ${name} hid furigana without a measured safety verdict`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
             assert(label.visibleText.includes(fragment), `${engineName}: ${name} lost visible base text "${fragment}"`, label);
         }
+    }
+    for (const name of ['create', 'join', 'sort', 'time', 'share']) {
+        const label = snapshot.labels[name];
+        assert(label.visibleReadingCount === label.readingCount,
+            `${engineName}: ${name} hid furigana despite a safe measured lane`, label);
     }
     assert(snapshot.rejected.subredditWords === 0, `${engineName}: Latin-only r/singularity was annotated`, snapshot.rejected);
     assert(snapshot.rejected.punctuationWords === 0, `${engineName}: punctuation-only range was annotated`, snapshot.rejected);
@@ -1343,6 +1361,8 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         `${engineName}: unsafe furigana was truncated instead of preserved in full`, snapshot.menuSafety);
     assert(snapshot.labels.foreign.hiddenReadingCount > 0,
         `${engineName}: furigana covered an ordinary unannotated line above it`, snapshot.labels.foreign);
+    assert(snapshot.labels.foreign.safetyHiddenReadingCount === snapshot.labels.foreign.hiddenReadingCount,
+        `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, snapshot.labels.foreign);
     assert(snapshot.labels.foreign.pitchWordCount > 0,
         `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, snapshot.labels.foreign);
     assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);

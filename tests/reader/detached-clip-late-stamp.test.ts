@@ -5,6 +5,7 @@ import {
     collectTextTargetsIn,
     healTextMirrorPageVisibility,
     removeNonDestructiveScanMirrors,
+    resetDecorationPolicyCachesForTest,
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -30,7 +31,7 @@ afterEach(() => {
 // spill ellipsized the native base (共有 → 共…). The scan-settle heal must
 // stamp such late-clipped rows.
 describe('late clip-constrained stamping', () => {
-    it('stamps a row whose clipping styles arrived after the mirror rendered', async () => {
+    it('stamps a row whose clipping styles arrived after the mirror rendered', () => {
         document.body.innerHTML = `<div id="row"><button id="host">${TEXT}</button></div>`;
         const row = document.getElementById('row')!;
         const host = document.getElementById('host')!;
@@ -40,10 +41,10 @@ describe('late clip-constrained stamping', () => {
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
         expect(row.dataset.yomuClipConstrained).toBeUndefined();
 
-        // ytm hydration lands the clip styles late; the constrained-row fact
-        // memo (250ms TTL) must have expired by the time settle re-examines.
+        // ytm hydration lands the clip styles late. Reset the short-lived
+        // style-fact memo explicitly so this unit remains deterministic.
         row.style.cssText = 'overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap;width:40px;display:block';
-        await new Promise(resolve => setTimeout(resolve, 300));
+        resetDecorationPolicyCachesForTest();
         healTextMirrorPageVisibility();
 
         expect(row.dataset.yomuClipConstrained).toBe('true');

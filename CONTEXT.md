@@ -22,6 +22,8 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - New Tab Review: The hosted/new-tab study surface that combines JPDB, local dictionaries, kanji drilldown, pitch listening, doodles, and review actions.
 - Pitch Listening Review: A local SRS lane inside New Tab Review that seeds pitch-accent items from the same Anki/Jiten/JPDB/local study pool, orders due pitch items first, and drills perception, recall, and shadowing without sending audio to a remote service.
 - External Source: A network or site dependency Yomu does not own, such as JPDB, YouTube, Google Lens, Immersion Kit, AnkiConnect, Wiktionary, or recommended dictionary URLs.
+- Detached Reading Lane: The out-of-flow furigana position immediately above an annotated base glyph on a layout-sensitive Reader Surface. It never changes the page's line box.
+- Measured Lane Authority: The rule that every detached reading starts as a measurable candidate and remains visible only when current geometry proves its natural lane is unclipped and clear of page text, bases, and other readings. Unmeasurable or colliding candidates fail closed and are reconsidered after reflow.
 
 - Exact Boundary Evidence: A non-deinflected local dictionary match whose expression equals its surface, whose reading is present, and whose range crosses at least two provider or fallback parse tokens without discarding Japanese text. It may replace those fragments; token adjacency alone may not.
 - Tokyo Pitch Class: One positional class derived from a valid downstep number: heiban (0), atamadaka (1), nakadaka (inside the word), or odaka (after the final mora). `Kifuku` is an umbrella description for accents with a downstep, not a fifth positional class.

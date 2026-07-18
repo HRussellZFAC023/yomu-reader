@@ -21,8 +21,10 @@ writeFileSync(entryPath, `
     import {
         applyTokensToScanTarget,
         collectTextTargetsIn,
+        healTextMirrorPageVisibility,
         makeRoomForRubyInCroppedRows,
         removeNonDestructiveScanMirrors,
+        resetDecorationPolicyCachesForTest,
         setRubyDistortsConstrainedRowsForTest,
     } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/index.ts'))};
     import { DEFAULT_SETTINGS } from ${JSON.stringify(path.join(ROOT, 'src/reader/settings/index.ts'))};
@@ -52,10 +54,10 @@ writeFileSync(entryPath, `
         ];
     }
 
-    function paintLabel(label: HTMLElement): void {
+    function paintLabel(label: HTMLElement, nonDestructive = false): void {
         const target = collectTextTargetsIn(label, 40, false).find(candidate => candidate.text.trim() === TEXT);
         if (!target) throw new Error('target not collected');
-        applyTokensToScanTarget(target, tokens(), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        applyTokensToScanTarget({ ...target, nonDestructive: nonDestructive || target.nonDestructive }, tokens(), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
     }
 
@@ -303,12 +305,28 @@ writeFileSync(entryPath, `
             paintSingleWord(metadata, VIEW_TEXT, VIEW_TEXT, 'しちょう');
             const metadataReading = metadata.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
             const metadataAfter = metadata.getBoundingClientRect();
+            const metadataUnsafeDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
+            const foreign = document.getElementById('foreign-line')!;
+            const metadataRectBeforeReflow = metadata.getBoundingClientRect();
+            foreign.style.visibility = 'hidden';
+            resetDecorationPolicyCachesForTest();
+            healTextMirrorPageVisibility();
+            const metadataSafeDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
+            const metadataSafeHiddenReason = metadataReading?.dataset.yomuDetachedReadingHidden ?? '';
+            foreign.style.visibility = '';
+            resetDecorationPolicyCachesForTest();
+            healTextMirrorPageVisibility();
+            const metadataUnsafeAgainDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
+            const metadataUnsafeAgainHiddenReason = metadataReading?.dataset.yomuDetachedReadingHidden ?? '';
+            const metadataRectAfterReflow = metadata.getBoundingClientRect();
             return {
                 additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
                 inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
                 detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
                 actionReadingHiddenReason: reading?.dataset.yomuDetachedReadingHidden ?? '',
                 actionReadingDisplay: reading ? getComputedStyle(reading).display : '',
+                nativeTextNodePreserved: nativeAfter === nativeBefore,
+                nativeSourceText: nativeAfter.data,
                 nativeBaseCenterDelta: (baseAfter.top + baseAfter.bottom - baseBefore.top - baseBefore.bottom) / 2,
                 chipWidthGrowth: chipAfter.width - chipBefore.width,
                 chipHeightGrowth: chipAfter.height - chipBefore.height,
@@ -317,8 +335,36 @@ writeFileSync(entryPath, `
                 pseudoContent: word ? getComputedStyle(word, '::after').content : '',
                 underlineToChipBottom: word ? chipAfter.bottom - word.getBoundingClientRect().bottom : -1,
                 metadataReadingRetained: Boolean(metadataReading),
-                metadataReadingHiddenReason: metadataReading?.dataset.yomuDetachedReadingHidden ?? '',
+                metadataReadingHiddenReason: metadataUnsafeAgainHiddenReason,
+                metadataUnsafeDisplay,
+                metadataSafeDisplay,
+                metadataSafeHiddenReason,
+                metadataUnsafeAgainDisplay,
+                metadataReflowTopDelta: metadataRectAfterReflow.top - metadataRectBeforeReflow.top,
+                metadataReflowHeightDelta: metadataRectAfterReflow.height - metadataRectBeforeReflow.height,
                 metadataHeightGrowth: metadataAfter.height - metadataBefore.height,
+            };
+        },
+        runLateClipProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const host = document.getElementById('late-host')!;
+            host.textContent = '共有';
+            paintSingleWord(host, '共有', '共有', 'きょうゆう');
+            const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+            host.style.setProperty('overflow', 'hidden');
+            host.style.setProperty('text-overflow', 'ellipsis');
+            host.style.setProperty('white-space', 'nowrap');
+            resetDecorationPolicyCachesForTest();
+            healTextMirrorPageVisibility();
+            return {
+                clipStamp: host.dataset.yomuClipConstrained ?? '',
+                overflowStamp: host.dataset.yomuDetachedReadingOverflow ?? '',
+                overflow: getComputedStyle(host).overflow,
+                readingDisplay: reading ? getComputedStyle(reading).display : '',
+                readingHiddenReason: reading?.dataset.yomuDetachedReadingHidden ?? '',
+                readingClipped: reading ? readingIsClipped(reading) : true,
+                readingBaseOverlap: readingBaseOverlap(host),
             };
         },
         runShowMoreProbe() {
@@ -383,7 +429,7 @@ writeFileSync(entryPath, `
             label.textContent = TEXT;
             const chipBefore = chip.getBoundingClientRect();
             const plainWidth = label.getBoundingClientRect().width;
-            paintLabel(label);
+            paintLabel(label, true);
             const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
             const scope: Element = mirror ?? label;
             const words = [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
@@ -395,6 +441,11 @@ writeFileSync(entryPath, `
             const rectJun = rectOfText(jun, jun.data.indexOf('順'), jun.data.indexOf('順') + 1);
             const chipRect = chip.getBoundingClientRect();
             const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
+            const visibleReadings = rts.filter(reading => {
+                const style = getComputedStyle(reading);
+                const rect = reading.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+            });
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
             const decoratedWidth = (mirror ?? label).getBoundingClientRect().width;
             const chipAfter = chip.getBoundingClientRect();
@@ -409,6 +460,8 @@ writeFileSync(entryPath, `
                 rtCount: rts.length,
                 inlineRubyCount: scope.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
                 detachedReadingCount: scope.querySelectorAll('.jpdb-reader-detached-furi').length,
+                visibleReadingCount: visibleReadings.length,
+                unsafeHiddenCount: rts.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
                 readingClipped: rts.some(readingIsClipped),
                 readingClipAncestors: rts.flatMap(readingClipAncestors),
                 readingBaseOverlap: readingBaseOverlap(scope),
@@ -453,6 +506,7 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
   <div id="foreign-line" style="height:16px">チャンネル</div>
   <yt-formatted-string id="metadata-row" class="metadata-text" style="display:block;height:16px;overflow:visible">視聴</yt-formatted-string>
 </div>
+<div id="late-row" style="display:block;width:80px;height:24px;margin-top:20px;font:14px/24px Roboto,sans-serif"><yt-formatted-string id="late-host" style="display:block;width:80px;height:24px">共有</yt-formatted-string></div>
 <ytm-structured-description-content-renderer id="structured-description" style="display:block;width:256px;margin-top:24px">
   <ytm-expandable-video-description-body-renderer style="display:block;box-sizing:border-box;width:232px;margin:0 12px;padding:12px">
     <div id="collapsed-string-container" style="width:208px;height:112px;white-space:pre-wrap">
@@ -526,7 +580,9 @@ async function runEngine(name, browserType) {
         await page.addScriptTag({ path: bundlePath });
         const result = await page.evaluate(() => window.runChipMirrorProbe());
         console.log(`${name} chip:`, JSON.stringify(result));
+        if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
         if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
+        if (result.visibleReadingCount !== result.detachedReadingCount || result.unsafeHiddenCount !== 0) fail(`${name}: compact control hid a reading despite a safe measured lane`, result);
         if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
         if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
         if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
@@ -538,6 +594,7 @@ async function runEngine(name, browserType) {
         console.log(`${name} youtube geometry:`, JSON.stringify(youtube));
         if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
         if (youtube.actionReadingHiddenReason || youtube.actionReadingDisplay === 'none') fail(`${name}: YouTube action chip hid a safe furigana lane`, youtube);
+        if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
         if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
         if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
         // Font rasterisation can round the intended detached lane to one CSS
@@ -547,7 +604,16 @@ async function runEngine(name, browserType) {
         if (!youtube.nativeUnderline || youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)' || youtube.pseudoContent !== 'none') fail(`${name}: YouTube mirror pitch underline is not glyph-anchored native decoration`, youtube);
         if (youtube.underlineToChipBottom < 4) fail(`${name}: YouTube pitch underline fell to the chip edge`, youtube);
         if (!youtube.metadataReadingRetained || youtube.metadataReadingHiddenReason !== 'unsafe-lane') fail(`${name}: close metadata furigana was not safety-culled with 3px clearance`, youtube);
+        if (youtube.metadataUnsafeDisplay !== 'none' || youtube.metadataSafeDisplay === 'none' || youtube.metadataSafeHiddenReason
+            || youtube.metadataUnsafeAgainDisplay !== 'none' || youtube.metadataReadingHiddenReason !== 'unsafe-lane') {
+            fail(`${name}: metadata furigana did not follow unsafe -> safe -> unsafe reflow`, youtube);
+        }
+        if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);
         if (Math.abs(youtube.metadataHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata safety clearance grew its host row`, youtube);
+        const lateClip = await page.evaluate(() => window.runLateClipProbe());
+        console.log(`${name} late clip:`, JSON.stringify(lateClip));
+        if (lateClip.clipStamp !== 'true' || lateClip.overflowStamp !== 'true' || lateClip.overflow !== 'visible') fail(`${name}: late compact clip was not classified and safely opened`, lateClip);
+        if (lateClip.readingDisplay === 'none' || lateClip.readingHiddenReason || lateClip.readingClipped || lateClip.readingBaseOverlap > 0) fail(`${name}: late compact clip did not retain its safe furigana lane`, lateClip);
         const description = await page.evaluate(() => window.runYouTubeDescriptionClipProbe());
         console.log(`${name} youtube description:`, JSON.stringify(description));
         if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);

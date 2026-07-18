@@ -2221,6 +2221,11 @@ function nonDestructiveMirrorRenderContext(
     tokens: JPDBToken[],
     settings: ReaderSettings,
 ): NonDestructiveMirrorRenderContext {
+    // Do not restore ancestor clips while merely deriving a render plan.
+    // Mirror hosts can nest: a sibling/outer scan that ultimately has no work
+    // must not close a clip already opened for a descendant. Reclassification
+    // belongs to the mount/reuse/late-heal paths, immediately beside the
+    // measured lane settle that commits the next visibility verdict.
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text = plan.text;
     const safeTokens = plan.tokens;
@@ -2281,6 +2286,10 @@ function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirror
     if (!matches) return false;
     const state = textMirrorHosts.get(host);
     if (state) reassertTextMirrorHostStyles(host, state);
+    if (context.detachedReadings && existing) {
+        openSafeDetachedReadingClips(host);
+        stabilizeDetachedReadings(existing, context.clipRow, true);
+    }
     return true;
 }
 
@@ -2356,6 +2365,7 @@ function mountNonDestructiveTextMirror(
         state.mirror = new WeakRef(mirror);
         if (context.detachedReadings) {
             styleDetachedReadingElements(mirror, host);
+            openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
         syncTextMirrorVisibilityToPage(host, mirror);
@@ -2543,25 +2553,38 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
 // can make their kana cover each other), so an unsafe lane hides only the kana
 // overlay. The annotated base, pitch decoration, and lookup hit area remain.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
-    const clipRect = clipRow?.getBoundingClientRect();
-    const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-    if (filterWordsToClip && clipRect && clipRect.width > 0 && clipRect.height > 0) {
-        for (const word of words) {
-            const bases = Array.from(word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'));
-            const rects = (bases.length ? bases : [word]).map(base => base.getBoundingClientRect());
-            const visible = rects.some(rect => rect.bottom > clipRect.top + 0.5
-                && rect.top < clipRect.bottom - 0.5
-                && rect.right > clipRect.left + 0.5
-                && rect.left < clipRect.right - 0.5);
-            if (!visible) word.style.setProperty('visibility', 'hidden', 'important');
-        }
-    }
+    if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
 
     settleDetachedReadingLanes(
         Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')),
         Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base')),
     );
     if (mirrorTokenApplyDepth > 0) pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(root));
+}
+
+// Clip filtering is a reversible Yomu-owned verdict. A line-clamped surface
+// can resize in either direction; without restoring our prior visibility
+// write first, words that re-enter the authored box remain hidden forever.
+function filterDetachedWordsToClip(root: HTMLElement, clipRow: HTMLElement | null): void {
+    const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+    for (const word of words) {
+        if (word.dataset.yomuDetachedWordHidden !== 'outside-clip') continue;
+        delete word.dataset.yomuDetachedWordHidden;
+        word.style.removeProperty('visibility');
+    }
+    const clipRect = clipRow?.getBoundingClientRect();
+    if (!clipRect || clipRect.width <= 0 || clipRect.height <= 0) return;
+    for (const word of words) {
+        const bases = Array.from(word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'));
+        const rects = (bases.length ? bases : [word]).map(base => base.getBoundingClientRect());
+        const visible = rects.some(rect => rect.bottom > clipRect.top + 0.5
+            && rect.top < clipRect.bottom - 0.5
+            && rect.right > clipRect.left + 0.5
+            && rect.left < clipRect.right - 0.5);
+        if (visible) continue;
+        word.dataset.yomuDetachedWordHidden = 'outside-clip';
+        word.style.setProperty('visibility', 'hidden', 'important');
+    }
 }
 
 const DETACHED_READING_COLLISION_SLOP = 0.5;
@@ -2575,10 +2598,20 @@ function detachedReadingCollisionSurface(root: HTMLElement): HTMLElement {
     return composedParentElement(owner) ?? owner;
 }
 
+// Candidate-first: every reading — including ones the at-rest default
+// would blanket-hide — is forced into a measurable state in this same
+// synchronous task, so the collision checks below see its real rect. The
+// commit step at the end of this function is the ONLY place that decides a
+// reading's final display; nothing here is a lasting verdict.
+function exposeDetachedReadingCandidate(reading: HTMLElement): void {
+    delete reading.dataset.yomuDetachedReadingHidden;
+    reading.style.setProperty('display', 'block', 'important');
+}
+
 function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[]): void {
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
     for (const reading of readings) {
-        restoreUnsafeDetachedReading(reading);
+        exposeDetachedReadingCandidate(reading);
         reading.style.removeProperty('--jpdb-reader-detached-lift');
         reading.style.removeProperty('margin-left');
     }
@@ -2630,7 +2663,14 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
             unsafe.add(other.element);
         }
     }
-    unsafe.forEach(hideUnsafeDetachedReading);
+    // Commit: the measured checks above are the sole authority on final
+    // visibility. A zero-sized candidate has no safety evidence (for example
+    // while an ancestor is display:none), so it fails closed and can only be
+    // revived by a later measured settle after the surface is revealed.
+    const measured = new Set(readingRects.map(({ element }) => element));
+    for (const reading of readings) {
+        if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
+    }
 }
 
 function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): boolean {
@@ -2711,12 +2751,6 @@ function hideUnsafeDetachedReading(reading: HTMLElement): void {
     reading.style.setProperty('display', 'none', 'important');
 }
 
-function restoreUnsafeDetachedReading(reading: HTMLElement): void {
-    if (reading.dataset.yomuDetachedReadingHidden !== 'unsafe-lane') return;
-    delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty('display', detachedReadingRestHidden(reading) ? 'none' : 'block', 'important');
-}
-
 // At-rest readings are hidden inside a clip-constrained row unless the row's
 // clip was verified safe to open (single-line, base fits). This mirrors the
 // in-place rt policy so the two channels can never disagree on a row.
@@ -2753,8 +2787,26 @@ function uniqueElements(elements: HTMLElement[]): HTMLElement[] {
 // deeper than inline wrapper chains reach in 6 hops.
 const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
-const EXPANDABLE_CONTENT_CLIP_SELECTOR = 'details,[aria-expanded],[id*="expand" i],[class*="expand" i]';
+const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
+    'details',
+    '[id*="expand" i]',
+    '[id*="collaps" i]',
+    '[class*="expand" i]',
+    '[class*="collaps" i]',
+].join(',');
+const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
 const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
+
+// `aria-expanded` identifies the disclosure CONTROL, not the content panel it
+// toggles. Treating that attribute as panel ownership hid otherwise-safe menu
+// button readings as soon as the menu opened. Real expandable content carries
+// structural evidence (details or an expandable/collapsible host/id/class),
+// while trigger-shaped elements are excluded even if their name contains it.
+function ownsExpandableContentClip(element: HTMLElement): boolean {
+    if (element.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
+    return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)
+        || /(?:expand|collaps)/i.test(element.localName);
+}
 
 // A detached reading may sit a few pixels above its base. Open only compact
 // clip boxes whose BASE content fits the block axis and either fits the inline
@@ -2765,13 +2817,17 @@ const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; prio
 // regions stay closed. The decision is structural and applies to buttons,
 // metadata, menu rows, and titles on any site.
 function openSafeDetachedReadingClips(element: HTMLElement): void {
+    // Always judge against the page-authored clip. Otherwise our own previous
+    // overflow:visible wins computed style forever and a safe->unsafe resize
+    // can never close again.
+    restoreOwnedDetachedReadingClips(element);
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
         if (!queryAllPiercingShadow(current, '.jpdb-reader-detached-furi').length) continue;
         // Collapsible descriptions and accordions own their overflow. Opening
         // it for an out-of-flow reading lets annotated paint escape the panel
         // and overlap neighbouring media after expansion.
-        if (current.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)) {
+        if (ownsExpandableContentClip(current)) {
             restoreDetachedReadingClip(current);
             continue;
         }
@@ -2787,6 +2843,13 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
             || openedDetachedReadingChildFits(current));
         if (compact && baseFits) openDetachedReadingClip(current);
         else restoreDetachedReadingClip(current);
+    }
+}
+
+function restoreOwnedDetachedReadingClips(element: HTMLElement): void {
+    let current: HTMLElement | null = element;
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
+        if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
     }
 }
 
@@ -3801,6 +3864,10 @@ export function healTextMirrorPageVisibility(): void {
         healStuckHiddenTextMirror(host);
         healLateClipConstrainedStamp(host);
     }
+    // Reconcile once per collision surface after every host has restored and
+    // reclassified its clip. This catches cross-host reading collisions while
+    // avoiding a separate point-sampling sweep for each label in the surface.
+    reconcilePendingDetachedReadingLanes();
 }
 
 // Clip classification runs at token-apply time, but framework chrome
@@ -3809,22 +3876,26 @@ export function healTextMirrorPageVisibility(): void {
 // short-circuit means it is never re-examined. A detached reading then sits
 // visible inside a closed ellipsis clip: its absolute width:max-content box
 // spills sideways, raises the row's scrollWidth, and iOS ellipsizes the
-// native base (共有 → 共…). Re-examine on every scan settle: cheap
-// (memoized constrained-row facts) and idempotent.
+// native base (共有 → 共…). Re-examine on every scan settle. The safety
+// verdict depends on arbitrary neighboring page text and readings, not only
+// on the host's own rectangle; a rect-only cache can preserve an overlap after
+// a sibling moves. Hosts enqueue their collision surface and the caller
+// reconciles each surface once.
+
 function healLateClipConstrainedStamp(host: HTMLElement): void {
     const mirror = currentTextMirror(host);
     if (!mirror || mirror.dataset.yomuDetachedReadings !== 'true') return;
-    let stamped: HTMLElement | null = host;
-    for (let depth = 0; stamped && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, stamped = composedParentElement(stamped)) {
-        if (stamped.dataset.yomuClipConstrained) return;
-    }
+    restoreOwnedDetachedReadingClips(host);
     const clipRow = closestRubyFragileConstrainedRow(host);
-    if (!clipRow) return;
-    const decoration = host.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') as DecorationState | null;
-    clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? undefined, clipRow)
-        ? 'content'
-        : 'true';
+    if (clipRow && !clipRow.dataset.yomuClipConstrained) {
+        const decoration = host.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') as DecorationState | null;
+        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? undefined, clipRow)
+            ? 'content'
+            : 'true';
+    }
     openSafeDetachedReadingClips(host);
+    filterDetachedWordsToClip(mirror, clipRow);
+    pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {

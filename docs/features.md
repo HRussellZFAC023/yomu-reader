@@ -107,7 +107,7 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.
 
-YouTube page text uses the same generic scanner and web-component boundaries as Reddit and other dynamic sites, including late comments, menus, navigation labels, and controls. Subscribe, Join, tabs, and filter chips stay lookupable and show pitch plus detached furigana without changing the control's native centring or height.
+YouTube page text uses the same generic scanner and web-component boundaries as Reddit and other dynamic sites, including late comments, menus, navigation labels, and controls. Subscribe, Join, tabs, and filter chips stay lookupable and keep their native centring and height. Detached furigana remains visible wherever its measured lane is unclipped and clear of nearby text; if a reading would overlap or escape a page-owned clip, only that reading is hidden while the word and pitch annotation remain.
 
 On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate Safari's per-site full-page view scale. Their text, touch targets, anchors, and screen-edge placement stay at the intended physical size without resizing Reddit content. Inline readings, subtitles, and OCR remain in the page's coordinate space so they stay aligned; normal-scale Reddit, other browsers, and other sites are left unchanged.
 
