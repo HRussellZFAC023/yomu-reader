@@ -150,6 +150,22 @@ try {
     } else {
         await page.locator('[data-newtab-action="settings"]').click();
     }
+    await page.waitForSelector('.jpdb-reader-settings', { state: 'visible', timeout: 20_000 });
+    const immediateHelpClick = await page.evaluate(() => new Promise(resolve => {
+        const tab = document.querySelector('[data-action="settings-panel"][data-panel="help"]');
+        if (!(tab instanceof HTMLButtonElement)) throw new Error('Help settings tab is unavailable.');
+        const startedAt = performance.now();
+        tab.click();
+        requestAnimationFrame(() => resolve({
+            latencyMs: Math.round(performance.now() - startedAt),
+            active: tab.getAttribute('aria-selected') === 'true',
+            panelVisible: !document.querySelector('[data-settings-panel="help"]')?.hasAttribute('hidden'),
+        }));
+    }));
+    assert(immediateHelpClick.active && immediateHelpClick.panelVisible && immediateHelpClick.latencyMs < 100,
+        'Help tab did not paint promptly before Japanese settings annotations started', immediateHelpClick);
+    await waitForSettingsSelector(page, requests, '[data-help-links-title] .jpdb-reader-word[data-expression="便利"]');
+    await waitForSettingsSelector(page, requests, '[data-help-support-copy] .jpdb-reader-word[data-expression="検索"]');
     if (INJECT_USERSCRIPT) {
         await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word').length > 0, { timeout: 60_000 })
             .catch(async error => {
@@ -237,6 +253,7 @@ try {
         initial: summarizeSnapshot(initial),
         afterSearch: summarizeSnapshot(afterSearch),
         tabClicks,
+        immediateHelpLatencyMs: immediateHelpClick.latencyMs,
         parseRequests: requests
             .filter(request => request.endpoint === 'parse')
             .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定') })),

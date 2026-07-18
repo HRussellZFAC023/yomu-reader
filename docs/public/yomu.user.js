@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.205
+// @version 1.6.206
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.a119bca462bd.user.js#sha256=oRm8pGK9kgEbIXyVWVE+YaW3aeszKWeT9THvKV+ZMgU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b5dfbb077adb.user.js#sha256=td+7B3rbwtx2SRANeM24OIJXbQjsIuOdvVbwKHkUHu4=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.1b60236e2168.user.js#sha256=G2AjbiFos+6FFQWWYCU27iCFG2I0mqh8vyy8Y+xaB6U=
 // @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
 // @resource yomuCss  https://yomureader.com/yomu.86750b919d9d.css#sha256=hnULkZ2du3tnyRGiszILyG277nRBw32XpK0YDzf8UgI=
 // @connect api.jiten.moe
@@ -32208,6 +32208,7 @@ const NESTED_PARSE_ROOT_SELECTOR = [
 const READER_WORD_SELECTOR = ".jpdb-reader-word";
 const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
 const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
+const SETTINGS_PARSE_TARGET_LIMIT = 48;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
   ".jpdb-reader-settings-actions",
   ".jpdb-reader-settings-drag-handle",
@@ -32311,7 +32312,8 @@ function nestedSettingsTextParsePlan(root, limit) {
 }
 function nestedSettingsParseAlreadyRendered(root) {
   if (!root.dataset.jpdbReaderParseKey) return false;
-  return root.querySelectorAll("[data-settings-panel]:not([hidden]) .jpdb-reader-word").length >= 4;
+  const activePanels = Array.from(root.querySelectorAll("[data-settings-panel]:not([hidden])"));
+  return activePanels.length > 0 && activePanels.every((panel) => !hasUnparsedJapaneseText(panel, SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
 function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options) {
   const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
@@ -32325,11 +32327,11 @@ function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, op
   return [...fragmentTargets, ...controlTargets];
 }
 function settingsParseRootPriority(parseRoot) {
-  const panel = parseRoot.closest("[data-settings-panel]");
-  return panel?.hasAttribute("hidden") ? 1 : 0;
+  return isSettingsChromeParseRoot(parseRoot) || !parseRoot.closest("[data-settings-panel]") ? 0 : 1;
 }
 function isExcludedSettingsParseRoot(parseRoot) {
   if (parseRoot.closest("[data-jpdb-reader-surface-ignore]")) return true;
+  if (parseRoot.matches("[data-settings-panel][hidden]")) return true;
   return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
 function settingsParseExcludeSelector(parseRoot) {
@@ -32383,11 +32385,11 @@ function preserveExampleTargetMarks(parseRoot) {
   mark.append(word);
   });
 }
-function hasUnparsedJapaneseText(parseRoot) {
+function hasUnparsedJapaneseText(parseRoot, excludeSelector = "") {
   const walker = document.createTreeWalker(parseRoot, NodeFilter.SHOW_TEXT, {
   acceptNode: (node) => {
     const parent = node.parentElement;
-    if (!parent || parent.closest(READER_WORD_SELECTOR)) return NodeFilter.FILTER_REJECT;
+    if (!parent || parent.closest(READER_WORD_SELECTOR) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
     return HAS_JAPANESE$1.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
   }
   });
@@ -36649,8 +36651,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.205"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.205"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.206"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.206"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36768,7 +36770,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.205"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.206"}`;
   } catch {
   return null;
   }
@@ -42990,13 +42992,16 @@ class ReaderApp {
     form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
     const parsed = await this.loadSettingsParsedJapaneseContent(plan);
     if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-    const currentPlan = nestedSettingsTextParsePlan(form, 640);
+    const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
     if (!currentPlan) return;
     const currentParsed = supplementSettingsFallbackTokens(
       currentPlan.targets,
       parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan)
     );
     this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
+    if (currentPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+      window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
+    }
   } catch {
   } finally {
     if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
@@ -43009,10 +43014,8 @@ class ReaderApp {
   }
   settingsJapaneseParsePlan(form) {
   if (!this.isCurrentSettingsRoot(form)) return null;
-  unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
-  clearNestedParseState(form);
   if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.canParseJapanese()) return null;
-  const plan = nestedSettingsTextParsePlan(form, 640);
+  const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
   return plan && !nestedParseAlreadyScheduled(form, plan.parseKey) ? plan : null;
   }
   loadSettingsParsedJapaneseContent(plan) {

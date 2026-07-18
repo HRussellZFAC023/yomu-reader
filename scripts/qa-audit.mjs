@@ -1807,13 +1807,24 @@ async function assertSettingsLocaleSwitch(page) {
 }
 
 function readSettingsLocaleSnapshot(page) {
-    return page.evaluate(() => ({
-        title: document.querySelector('.jpdb-reader-settings')?.getAttribute('aria-label'),
-        heading: document.querySelector('.jpdb-reader-settings h2')?.textContent?.trim(),
-        save: document.querySelector('.jpdb-reader-settings button[type="submit"]')?.textContent?.trim(),
-        cancel: document.querySelector('.jpdb-reader-settings [data-action="cancel"]')?.textContent?.trim(),
-        firstTab: document.querySelector('.jpdb-reader-settings-tab')?.textContent?.trim(),
-    }));
+    return page.evaluate(() => {
+        const surfaceText = node => {
+            if (!(node instanceof HTMLElement)) return undefined;
+            const copy = node.cloneNode(true);
+            if (!(copy instanceof HTMLElement)) return undefined;
+            copy.querySelectorAll('.jpdb-reader-word').forEach(word => {
+                word.replaceWith(word.getAttribute('data-expression') ?? word.textContent ?? '');
+            });
+            return copy.textContent?.trim();
+        };
+        return {
+            title: document.querySelector('.jpdb-reader-settings')?.getAttribute('aria-label'),
+            heading: surfaceText(document.querySelector('.jpdb-reader-settings h2')),
+            save: surfaceText(document.querySelector('.jpdb-reader-settings button[type="submit"]')),
+            cancel: surfaceText(document.querySelector('.jpdb-reader-settings [data-action="cancel"]')),
+            firstTab: surfaceText(document.querySelector('.jpdb-reader-settings-tab')),
+        };
+    });
 }
 
 async function captureSettingsDialog(page) {
@@ -1905,7 +1916,13 @@ function readSettingsSnapshotFromDom() {
     }
 
     function text(node) {
-        return node?.textContent?.trim();
+        if (!(node instanceof HTMLElement)) return undefined;
+        const copy = node.cloneNode(true);
+        if (!(copy instanceof HTMLElement)) return undefined;
+        copy.querySelectorAll('.jpdb-reader-word').forEach(word => {
+            word.replaceWith(word.getAttribute('data-expression') ?? word.textContent ?? '');
+        });
+        return copy.textContent?.trim();
     }
 
     function bottom(node) {
@@ -2039,12 +2056,20 @@ async function auditSettingsMobile(browser, server) {
     await page.screenshot({ path: path.join(ARTIFACTS, 'settings-mobile-help.png'), fullPage: false });
     snapshot = await page.evaluate(() => ({
         helpLinks: document.querySelectorAll('[data-help-link]').length,
-        copy: document.querySelector('.jpdb-reader-help-links-card')?.textContent ?? '',
+        linkCopy: Array.from(document.querySelectorAll('[data-help-link]'), link => {
+            const visibleCopy = link.cloneNode(true);
+            if (visibleCopy instanceof HTMLElement) {
+                visibleCopy.querySelectorAll('.jpdb-reader-word').forEach(word => {
+                    word.replaceWith(word.getAttribute('data-expression') ?? word.textContent ?? '');
+                });
+            }
+            return visibleCopy.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+        }).join(' '),
     }));
     assertAudit(snapshot.helpLinks >= 3, 'mobile Help tab does not expose hosted reader tool links');
-    assertAudit(/Video Player|動画プレイヤー/.test(snapshot.copy)
-        && /New Tab|Study|新しいタブ|学習/.test(snapshot.copy)
-        && /Docs|ドキュメント/.test(snapshot.copy), `mobile Help tab is missing hosted reader tool names: ${JSON.stringify(snapshot)}`);
+    assertAudit(/Video Player|動画プレイヤー/.test(snapshot.linkCopy)
+        && /New Tab|Study|新しいタブ|学習/.test(snapshot.linkCopy)
+        && /Docs|ドキュメント/.test(snapshot.linkCopy), `mobile Help tab is missing hosted reader tool names: ${JSON.stringify(snapshot)}`);
     await page.close();
     record('mobile settings journey', 'pass', 'tabs, audio rows, and help links stay visible on iPhone width');
 }

@@ -40361,7 +40361,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.205".trim() ? "1.6.205".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.206".trim() ? "1.6.206".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -42590,7 +42590,7 @@ ${spelling}`);
   }
   function renderHelpLinksPanel(language = "en") {
     return `
-        <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
+        <div class="jpdb-reader-help-links-card">
             <div class="jpdb-reader-settings-subsection jpdb-reader-help-update-strip" data-help-update-strip>
                 <div class="jpdb-reader-help-version-row">
                     <div class="jpdb-reader-help-version-copy">
@@ -45253,6 +45253,7 @@ ${spelling}`);
     jpdbConnectionProbeId = 0;
     ankiLibraryScanId = 0;
     yomuUpdateCheckId = 0;
+    settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       log$k.info("Opening settings", { panel: panel ?? "default" });
@@ -45377,6 +45378,14 @@ ${spelling}`);
       });
     }
     dismissSettings() {
+      if (this.settingsJapaneseParseRefreshFrame !== void 0) {
+        cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
+        this.settingsJapaneseParseRefreshFrame = void 0;
+      }
+      if (this.settingsJapaneseParseRefreshTimer !== void 0) {
+        window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+        this.settingsJapaneseParseRefreshTimer = void 0;
+      }
       const restoreTarget = this.previouslyFocusedElement;
       this.previouslyFocusedElement = void 0;
       this.currentForm = void 0;
@@ -46065,11 +46074,15 @@ ${spelling}`);
       this.refreshSettingsJapaneseParse(form);
     }
     refreshSettingsJapaneseParse(form) {
+      if (this.settingsJapaneseParseRefreshFrame !== void 0) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
       if (this.settingsJapaneseParseRefreshTimer !== void 0) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-      this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
-        this.settingsJapaneseParseRefreshTimer = void 0;
-        if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-      }, 0);
+      this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
+        this.settingsJapaneseParseRefreshFrame = void 0;
+        this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+          this.settingsJapaneseParseRefreshTimer = void 0;
+          if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+        }, 0);
+      });
     }
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);
@@ -72701,6 +72714,7 @@ ${normalizedReading}`;
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
   const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
+  const SETTINGS_PARSE_TARGET_LIMIT = 48;
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
@@ -72804,7 +72818,8 @@ ${normalizedReading}`;
   }
   function nestedSettingsParseAlreadyRendered(root) {
     if (!root.dataset.jpdbReaderParseKey) return false;
-    return root.querySelectorAll("[data-settings-panel]:not([hidden]) .jpdb-reader-word").length >= 4;
+    const activePanels = Array.from(root.querySelectorAll("[data-settings-panel]:not([hidden])"));
+    return activePanels.length > 0 && activePanels.every((panel) => !hasUnparsedJapaneseText(panel, SETTINGS_PARSE_EXCLUDE_SELECTOR));
   }
   function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options) {
     const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
@@ -72818,11 +72833,11 @@ ${normalizedReading}`;
     return [...fragmentTargets, ...controlTargets];
   }
   function settingsParseRootPriority(parseRoot) {
-    const panel = parseRoot.closest("[data-settings-panel]");
-    return panel?.hasAttribute("hidden") ? 1 : 0;
+    return isSettingsChromeParseRoot(parseRoot) || !parseRoot.closest("[data-settings-panel]") ? 0 : 1;
   }
   function isExcludedSettingsParseRoot(parseRoot) {
     if (parseRoot.closest("[data-jpdb-reader-surface-ignore]")) return true;
+    if (parseRoot.matches("[data-settings-panel][hidden]")) return true;
     return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
   }
   function settingsParseExcludeSelector(parseRoot) {
@@ -72876,11 +72891,11 @@ ${normalizedReading}`;
       mark.append(word);
     });
   }
-  function hasUnparsedJapaneseText(parseRoot) {
+  function hasUnparsedJapaneseText(parseRoot, excludeSelector = "") {
     const walker = document.createTreeWalker(parseRoot, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         const parent = node.parentElement;
-        if (!parent || parent.closest(READER_WORD_SELECTOR)) return NodeFilter.FILTER_REJECT;
+        if (!parent || parent.closest(READER_WORD_SELECTOR) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
         return HAS_JAPANESE.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
@@ -92756,14 +92771,16 @@ ${entry.url}`),
         return;
       }
       form.dataset.yomuSettingsSelfEnhancing = "true";
-      unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
-      clearNestedParseState(form);
       if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.parser.canParse()) {
         delete form.dataset.yomuSettingsSelfEnhancing;
         return;
       }
-      const plan = nestedSettingsTextParsePlan(form, 640);
+      const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
       if (!plan) {
+        delete form.dataset.yomuSettingsSelfEnhancing;
+        return;
+      }
+      if (nestedParseAlreadyScheduled(form, plan.parseKey)) {
         delete form.dataset.yomuSettingsSelfEnhancing;
         return;
       }
@@ -92780,14 +92797,14 @@ ${entry.url}`),
           skipJpdb: true
         });
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-        const currentPlan = nestedSettingsTextParsePlan(form, 640);
+        const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
         if (!currentPlan) return;
         const currentParsed = supplementSettingsFallbackTokens(
           currentPlan.targets,
           parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan)
         );
         await this.hydrateSettingsFallbackTokens(currentParsed);
-        const latestPlan = nestedSettingsTextParsePlan(form, 640);
+        const latestPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
         if (!latestPlan) return;
         const latestParsed = supplementSettingsFallbackTokens(
           latestPlan.targets,
@@ -92803,6 +92820,9 @@ ${entry.url}`),
         const tokens = latestParsed.flat();
         void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
         void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
+        if (latestPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+          window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
+        }
       } catch {
       } finally {
         clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);

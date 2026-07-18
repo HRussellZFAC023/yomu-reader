@@ -440,6 +440,38 @@ describe('settings dialog keyboard dismissal', () => {
         await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
     });
 
+    it('activates a settings tab before starting its deferred Japanese annotation pass', async () => {
+        const frames = new Map<number, FrameRequestCallback>();
+        let nextFrame = 0;
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            const id = ++nextFrame;
+            frames.set(id, callback);
+            return id;
+        });
+        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+            frames.delete(id);
+        });
+        const parseSettingsJapanese = vi.fn();
+        const { form } = createSettingsDialog({
+            parseSettingsJapanese,
+            dictionaries: { summary: vi.fn(() => new Promise(() => undefined)) },
+        });
+        const helpTab = form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="help"]')!;
+
+        helpTab.click();
+
+        expect(helpTab.getAttribute('aria-selected')).toBe('true');
+        expect(form.querySelector<HTMLElement>('[data-settings-panel="help"]')?.hidden).toBe(false);
+        expect(parseSettingsJapanese).not.toHaveBeenCalled();
+
+        const pending = Array.from(frames.values());
+        expect(pending).toHaveLength(1);
+        pending[0]?.(performance.now());
+
+        expect(parseSettingsJapanese).not.toHaveBeenCalled();
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
+    });
+
     it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {
         const lookupText = vi.fn();
         const { form } = createSettingsDialog({ lookupText });

@@ -10,6 +10,7 @@ const NESTED_PARSE_ROOT_SELECTOR = [
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
 const NESTED_PARSE_EXCLUDE_SELECTOR = '.gloss-image-link';
+export const SETTINGS_PARSE_TARGET_LIMIT = 48;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
@@ -139,7 +140,9 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
 
 export function nestedSettingsParseAlreadyRendered(root: HTMLElement): boolean {
     if (!root.dataset.jpdbReaderParseKey) return false;
-    return root.querySelectorAll('[data-settings-panel]:not([hidden]) .jpdb-reader-word').length >= 4;
+    const activePanels = Array.from(root.querySelectorAll<HTMLElement>('[data-settings-panel]:not([hidden])'));
+    return activePanels.length > 0
+        && activePanels.every(panel => !hasUnparsedJapaneseText(panel, SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
 
 function nestedParseTargetsIn(
@@ -161,12 +164,12 @@ function nestedParseTargetsIn(
 }
 
 function settingsParseRootPriority(parseRoot: HTMLElement): number {
-    const panel = parseRoot.closest<HTMLElement>('[data-settings-panel]');
-    return panel?.hasAttribute('hidden') ? 1 : 0;
+    return isSettingsChromeParseRoot(parseRoot) || !parseRoot.closest('[data-settings-panel]') ? 0 : 1;
 }
 
 function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
     if (parseRoot.closest('[data-jpdb-reader-surface-ignore]')) return true;
+    if (parseRoot.matches('[data-settings-panel][hidden]')) return true;
     return !isSettingsChromeParseRoot(parseRoot)
         && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
@@ -234,11 +237,14 @@ function preserveExampleTargetMarks(parseRoot: HTMLElement): void {
     });
 }
 
-function hasUnparsedJapaneseText(parseRoot: HTMLElement): boolean {
+function hasUnparsedJapaneseText(parseRoot: HTMLElement, excludeSelector = ''): boolean {
     const walker = document.createTreeWalker(parseRoot, NodeFilter.SHOW_TEXT, {
         acceptNode: node => {
             const parent = node.parentElement;
-            if (!parent || parent.closest(READER_WORD_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            if (!parent
+                || parent.closest(READER_WORD_SELECTOR)
+                || parent.closest('[data-jpdb-reader-surface-ignore]')
+                || (excludeSelector && parent.closest(excludeSelector))) return NodeFilter.FILTER_REJECT;
             return HAS_JAPANESE.test(node.textContent || '')
                 ? NodeFilter.FILTER_ACCEPT
                 : NodeFilter.FILTER_REJECT;

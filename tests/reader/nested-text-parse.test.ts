@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -443,6 +443,28 @@ describe('nested text parse plans', () => {
             'よむ 設定',
             '設定の表示言語',
         ]);
+    });
+
+    it('does not mistake a partly annotated active settings panel for a completed parse', () => {
+        document.body.innerHTML = `
+            <form class="jpdb-reader-settings" data-jpdb-reader-root="true" data-jpdb-reader-parse-key="partial">
+                <fieldset data-settings-panel="help">
+                    <span class="jpdb-reader-word">便利</span>
+                    <span class="jpdb-reader-word">動画</span>
+                    <span class="jpdb-reader-word">学習</span>
+                    <span class="jpdb-reader-word">辞書</span>
+                    <p data-help-support-copy>よむは検索、OCR、字幕、辞書、学習をまとめた無料ユーザースクリプトです。</p>
+                    <div class="jpdb-reader-status-line">現在確認中です。</div>
+                </fieldset>
+            </form>
+        `;
+        const root = document.body.querySelector<HTMLElement>('form')!;
+
+        expect(nestedSettingsParseAlreadyRendered(root)).toBe(false);
+
+        root.querySelector('[data-help-support-copy]')!.innerHTML = '<span class="jpdb-reader-word">よむは検索、OCR、字幕、辞書、学習をまとめた無料ユーザースクリプトです。</span>';
+
+        expect(nestedSettingsParseAlreadyRendered(root)).toBe(true);
     });
 
     it('renders reader-owned settings chrome labels as passive parsed words', () => {

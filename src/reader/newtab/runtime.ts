@@ -22,7 +22,7 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { DictionarySourceStateController } from '../sources/state';
-import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
+import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from '../app/storage';
@@ -71,7 +71,7 @@ import {
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
 import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
@@ -2325,14 +2325,16 @@ export class NewTabRuntime {
             return;
         }
         form.dataset.yomuSettingsSelfEnhancing = 'true';
-        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
-        clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) {
             delete form.dataset.yomuSettingsSelfEnhancing;
             return;
         }
-        const plan = nestedSettingsTextParsePlan(form, 640);
+        const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
         if (!plan) {
+            delete form.dataset.yomuSettingsSelfEnhancing;
+            return;
+        }
+        if (nestedParseAlreadyScheduled(form, plan.parseKey)) {
             delete form.dataset.yomuSettingsSelfEnhancing;
             return;
         }
@@ -2351,14 +2353,14 @@ export class NewTabRuntime {
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-            const currentPlan = nestedSettingsTextParsePlan(form, 640);
+            const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
             if (!currentPlan) return;
             const currentParsed = supplementSettingsFallbackTokens(
                 currentPlan.targets,
                 parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
             );
             await this.hydrateSettingsFallbackTokens(currentParsed);
-            const latestPlan = nestedSettingsTextParsePlan(form, 640);
+            const latestPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
             if (!latestPlan) return;
             const latestParsed = supplementSettingsFallbackTokens(
                 latestPlan.targets,
@@ -2374,6 +2376,9 @@ export class NewTabRuntime {
             const tokens = latestParsed.flat();
             void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
+            if (latestPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+                window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
+            }
         } catch {
         } finally {
             clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);

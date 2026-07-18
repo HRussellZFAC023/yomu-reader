@@ -254,7 +254,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, mutationInside
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
@@ -7282,13 +7282,16 @@ export class ReaderApp {
             form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
             const parsed = await this.loadSettingsParsedJapaneseContent(plan);
             if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            const currentPlan = nestedSettingsTextParsePlan(form, 640);
+            const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
             if (!currentPlan) return;
             const currentParsed = supplementSettingsFallbackTokens(
                 currentPlan.targets,
                 parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
             );
             this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
+            if (currentPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+                window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
+            }
         } catch {
         } finally {
             if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
@@ -7302,10 +7305,8 @@ export class ReaderApp {
 
     private settingsJapaneseParsePlan(form: HTMLFormElement): NestedParsePlan | null {
         if (!this.isCurrentSettingsRoot(form)) return null;
-        unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
-        clearNestedParseState(form);
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return null;
-        const plan = nestedSettingsTextParsePlan(form, 640);
+        const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
         return plan && !nestedParseAlreadyScheduled(form, plan.parseKey) ? plan : null;
     }
 

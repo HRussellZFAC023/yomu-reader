@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.206] - 2026-07-18
+
+### Fixed
+
+- Restored furigana, pitch, and word-state annotations across Japanese Settings Help copy, including version guidance, useful links, and support text; the Help card had retained a legacy surface-ignore marker that bypassed the newer settings annotation path.
+- Kept Japanese Settings responsive while annotations start: the selected tab now paints first, hidden panels are skipped, and the active panel is enhanced in bounded slices instead of one large main-thread pass.
+
 ## [1.6.205] - 2026-07-18
 
 ### Fixed

@@ -422,6 +422,18 @@ describe('settings form localization', () => {
         expect(form.querySelector('[data-help-glossary-title]')).toBeNull();
     });
 
+    it('includes Help headings and prose in the active Japanese settings annotation plan', () => {
+        const form = sharedJapaneseSettingsTestForm();
+        activateSettingsPanel(form, 'help');
+
+        const texts = nestedSettingsTextParsePlan(form, 640)?.targets.map(target => target.text) ?? [];
+
+        expect(texts).toContain('便利なページ');
+        expect(texts).toContain('リーダーツールとドキュメントをここから開けます。');
+        expect(texts).toContain('よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。');
+        expect(form.querySelector('.jpdb-reader-help-links-card')?.hasAttribute('data-jpdb-reader-surface-ignore')).toBe(false);
+    });
+
     it('does not leave stale English or fallback copy in Japanese settings', () => {
         const form = sharedJapaneseSettingsTestForm();
         const text = form.textContent ?? '';

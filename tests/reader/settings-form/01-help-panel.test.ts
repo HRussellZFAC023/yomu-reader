@@ -18,6 +18,7 @@ describe('settings help panel', () => {
         expect(html).toContain('data-action="factory-reset"');
         expect(html).toContain('data-help-link="factory-reset"');
         expect(html).not.toContain('data-help-link="support"');
+        expect(html).not.toContain('data-jpdb-reader-surface-ignore');
     });
 
     it('marks hosted and support links with external-link icons', () => {

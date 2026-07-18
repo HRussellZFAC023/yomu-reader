@@ -533,6 +533,7 @@ export class SettingsDialogController {
     private jpdbConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
     private yomuUpdateCheckId = 0;
+    private settingsJapaneseParseRefreshFrame: number | undefined;
     private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
@@ -675,6 +676,14 @@ export class SettingsDialogController {
     }
 
     private dismissSettings(): void {
+        if (this.settingsJapaneseParseRefreshFrame !== undefined) {
+            cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
+            this.settingsJapaneseParseRefreshFrame = undefined;
+        }
+        if (this.settingsJapaneseParseRefreshTimer !== undefined) {
+            window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+            this.settingsJapaneseParseRefreshTimer = undefined;
+        }
         const restoreTarget = this.previouslyFocusedElement;
         this.previouslyFocusedElement = undefined;
         this.currentForm = undefined;
@@ -1417,11 +1426,15 @@ export class SettingsDialogController {
     }
 
     private refreshSettingsJapaneseParse(form: HTMLFormElement): void {
+        if (this.settingsJapaneseParseRefreshFrame !== undefined) cancelCancelableFrame(this.settingsJapaneseParseRefreshFrame);
         if (this.settingsJapaneseParseRefreshTimer !== undefined) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
-        this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
-            this.settingsJapaneseParseRefreshTimer = undefined;
-            if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-        }, 0);
+        this.settingsJapaneseParseRefreshFrame = requestCancelableFrame(() => {
+            this.settingsJapaneseParseRefreshFrame = undefined;
+            this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+                this.settingsJapaneseParseRefreshTimer = undefined;
+                if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+            }, 0);
+        });
     }
 
     private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {

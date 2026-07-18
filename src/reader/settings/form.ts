@@ -186,7 +186,7 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
 
 export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string {
     return `
-        <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
+        <div class="jpdb-reader-help-links-card">
             <div class="jpdb-reader-settings-subsection jpdb-reader-help-update-strip" data-help-update-strip>
                 <div class="jpdb-reader-help-version-row">
                     <div class="jpdb-reader-help-version-copy">
