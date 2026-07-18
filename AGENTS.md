@@ -13,6 +13,12 @@ npm ci
 npm run check
 ```
 
+Run `check` and test commands directly. Never pipe them to `tail`: zsh reports
+the last pipeline command's status by default, so `npm run check | tail` can
+look successful after npm failed. Inspect `artifacts/check-logs/` after the
+command instead. If a live pipeline is unavoidable, enable `set -o pipefail`
+first. See [the 2026-07-18 exit-status incident](docs/dev/check-exit-code-incident-2026-07-18.md).
+
 Use the browser QA audit for regression coverage:
 
 ```bash

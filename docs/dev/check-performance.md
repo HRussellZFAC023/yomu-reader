@@ -82,6 +82,19 @@ vi.mock-using academy files run in a second isolated vitest pass
 fails if a new vi.mock file doesn't join that list. The reader suite keeps
 per-file isolation until its 7 leaky files are cleaned (see below).
 
+## Exit status safety
+
+Run `npm run check` directly. Do not pipe it to `tail`: zsh returns the status
+of `tail` unless `pipefail` is enabled, even when npm and Vitest failed. Full
+stage output is already written to `artifacts/check-logs/`, so tail those files
+after the command finishes. The defensive Vitest-summary scanner in
+`run-check.mjs` protects the gate from a future child-process regression, but
+no code inside the gate can stop a caller's shell pipeline from masking its
+nonzero status.
+
+The investigation and reproduction are recorded in
+[Check exit-code incident (2026-07-18)](check-exit-code-incident-2026-07-18.md).
+
 ## Known pre-existing failures
 
 8 academy content-assertion failures (character-directory,

@@ -34,9 +34,10 @@ function stage(name, command, options = {}) {
     return { name, command, ...options };
 }
 
-// Test stages get a log-content backstop: if the child prints a Vitest failure
-// summary but still exits 0 (swallowed exit code anywhere down the npm→runner→
-// vitest chain), the gate must fail anyway. Never turns a failure into a pass.
+// Test stages keep a log-content backstop: if a future child prints a Vitest
+// failure summary but still exits 0, the gate must fail anyway. The 2026-07-18
+// report was traced to zsh pipeline status outside this process, not an
+// in-repo swallow path. Never turns a failure into a pass.
 function testStage(name, command) {
     return stage(name, command, { guardTestLog: true });
 }

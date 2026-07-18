@@ -1,7 +1,9 @@
 // Regression for the 2026-07-18 check-gate incident: a check run's [ci-tests]
-// stage log contained "Test Files 2 failed" while the overall `npm run check`
-// reported success. The gate now scans test-stage output as a backstop; this
-// pins the detector's behaviour on real Vitest reporter shapes.
+// stage log contained "Test Files 2 failed" while the observed pipeline status
+// was zero. Investigation reproduced zsh returning tail's status (`1 0` for
+// npm and tail) and found no in-repo swallow path. The gate still scans
+// test-stage output as a backstop; this pins the detector on real reporter
+// shapes.
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
 import { vitestOutputIndicatesFailure } from '../../scripts/lib/check-log-guard.mjs';

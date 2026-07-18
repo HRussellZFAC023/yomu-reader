@@ -1,8 +1,10 @@
 // Backstop for the check gate's test stages: a child that prints a Vitest
-// failure summary must fail the gate even if its exit code says 0 (the
-// 2026-07-18 incident: a check log showed "Test Files 2 failed" while the
-// overall gate passed). Exit-code propagation stays the primary signal; this
-// only ever turns a "pass" into a "fail", never the reverse.
+// failure summary must fail the gate even if its exit code says 0. The
+// 2026-07-18 incident was ultimately classified as an observation artifact:
+// `npm run check | tail` returns tail's status in stock zsh. No in-repo swallow
+// path was found, but this remains a cheap backstop against a future one.
+// Exit-code propagation stays the primary signal; this only ever turns a
+// "pass" into a "fail", never the reverse.
 
 // Matches the reporter summary lines, e.g.:
 //   Test Files  2 failed | 314 passed (316)
