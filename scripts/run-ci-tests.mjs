@@ -10,17 +10,14 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const JPDB_TEST = join(ROOT, 'tests/reader/jpdb.test.ts');
 const NEW_TAB_REVIEW_TEST = join(ROOT, 'tests/reader/new-tab-review.test.ts');
 const SETTINGS_FORM_TEST = join(ROOT, 'tests/reader/settings-form.test.ts');
-const SUBTITLES_CONTROLLER_TEST = join(ROOT, 'tests/reader/subtitles-controller.test.ts');
 const GENERATED_DIR = join(ROOT, 'tests/reader/.vitest-jpdb-shards');
 const GENERATED_NEW_TAB_REVIEW_DIR = join(ROOT, 'tests/reader/.vitest-new-tab-review-shards');
 const GENERATED_SETTINGS_DIR = join(ROOT, 'tests/reader/.vitest-settings-shards');
-const GENERATED_SUBTITLES_CONTROLLER_DIR = join(ROOT, 'tests/reader/.vitest-subtitles-controller-shards');
-const REGULAR_SHARD_DIRECT_EXCLUDES = new Set([JPDB_TEST, NEW_TAB_REVIEW_TEST, SETTINGS_FORM_TEST, SUBTITLES_CONTROLLER_TEST]);
+const REGULAR_SHARD_DIRECT_EXCLUDES = new Set([JPDB_TEST, NEW_TAB_REVIEW_TEST, SETTINGS_FORM_TEST]);
 const REGULAR_SHARD_GENERATED_DIRS = [
     '/.vitest-jpdb-shards/',
     '/.vitest-new-tab-review-shards/',
     '/.vitest-settings-shards/',
-    '/.vitest-subtitles-controller-shards/',
 ];
 
 const args = parseArgs(process.argv.slice(2));
@@ -39,7 +36,6 @@ if (shard > total) throw new Error(`shard ${shard} cannot be greater than total 
 if (kind === 'regular' && args.prepare) {
     generateSettingsShardFiles(total);
     generateNewTabReviewShardFiles(total);
-    generateSubtitlesControllerShardFiles(total);
 }
 else if (kind === 'regular') runRegularShard(shard, total, Boolean(args.reuse));
 else if (kind === 'jpdb' && args.prepare) generateJpdbShardFiles(total);
@@ -59,7 +55,6 @@ function runAllTests() {
         ...regularShardSourceFiles(),
         ...generateSettingsShardFiles(regularChunkTotal),
         ...generateNewTabReviewShardFiles(regularChunkTotal),
-        ...generateSubtitlesControllerShardFiles(regularChunkTotal),
         ...generateJpdbShardFiles(chunkTotal),
     ];
     const maxWorkers = readPositiveInt(
@@ -77,7 +72,6 @@ function runAllTests() {
             YOMU_INCLUDE_GENERATED_JPDB_SHARDS: '1',
             YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
             YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
-            YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS: '1',
         },
         { label: `full reader suite (${files.length} files, ${maxWorkers} workers)` },
     );
@@ -102,7 +96,6 @@ function runRegularShard(currentShard, shardTotal, reuseGenerated = false) {
         {
             YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS: '1',
             YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS: '1',
-            YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS: '1',
         },
         {
             label: `regular shard ${currentShard}/${shardTotal}`,
@@ -144,7 +137,6 @@ function regularGeneratedShardFiles(shardTotal, reuseGenerated) {
     return [
         reuseGenerated ? existingSettingsShardFiles(shardTotal) : generateSettingsShardFiles(shardTotal),
         reuseGenerated ? existingNewTabReviewShardFiles(shardTotal) : generateNewTabReviewShardFiles(shardTotal),
-        reuseGenerated ? existingSubtitlesControllerShardFiles(shardTotal) : generateSubtitlesControllerShardFiles(shardTotal),
     ];
 }
 
@@ -170,10 +162,6 @@ function existingNewTabReviewShardFiles(shardTotal) {
 
 function existingSettingsShardFiles(shardTotal) {
     return existingShardFiles(GENERATED_SETTINGS_DIR, 'settings-form.generated', shardTotal, 'settings form');
-}
-
-function existingSubtitlesControllerShardFiles(shardTotal) {
-    return existingShardFiles(GENERATED_SUBTITLES_CONTROLLER_DIR, 'subtitles-controller.generated', shardTotal, 'subtitles controller');
 }
 
 function existingShardFiles(generatedDir, filenamePrefix, shardTotal, label) {
@@ -262,17 +250,6 @@ function generateNewTabReviewShardFiles(shardTotal) {
         filenamePrefix: 'new-tab-review.generated',
         describeName: 'new tab review generated shard',
         describeStartText: "describe('new tab review helpers', () => {",
-        shardTotal,
-    });
-}
-
-function generateSubtitlesControllerShardFiles(shardTotal) {
-    return generateTopLevelDescribeShardFiles({
-        sourceFile: SUBTITLES_CONTROLLER_TEST,
-        generatedDir: GENERATED_SUBTITLES_CONTROLLER_DIR,
-        filenamePrefix: 'subtitles-controller.generated',
-        describeName: 'subtitles controller generated shard',
-        describeStartText: "describe('SubtitlePlayerController', () => {",
         shardTotal,
     });
 }

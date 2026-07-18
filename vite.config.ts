@@ -242,7 +242,6 @@ const generatedShardExcludes = [
     ['YOMU_INCLUDE_GENERATED_JPDB_SHARDS', 'tests/reader/.vitest-jpdb-shards/**'],
     ['YOMU_INCLUDE_GENERATED_NEW_TAB_REVIEW_SHARDS', 'tests/reader/.vitest-new-tab-review-shards/**'],
     ['YOMU_INCLUDE_GENERATED_SETTINGS_SHARDS', 'tests/reader/.vitest-settings-shards/**'],
-    ['YOMU_INCLUDE_GENERATED_SUBTITLES_CONTROLLER_SHARDS', 'tests/reader/.vitest-subtitles-controller-shards/**'],
 ] as const;
 
 function generatedShardExcludePatterns(): string[] {

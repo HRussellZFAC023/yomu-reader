@@ -43,7 +43,6 @@ if (!uniqueChanged.length) {
 const MEGA_FILES = [
     'tests/reader/jpdb.test.ts',
     'tests/reader/new-tab-review.test.ts',
-    'tests/reader/subtitles-controller.test.ts',
     'tests/reader/settings-form.test.ts',
 ];
 
