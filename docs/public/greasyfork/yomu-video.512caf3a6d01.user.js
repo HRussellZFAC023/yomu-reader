@@ -10862,53 +10862,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
   }
-  function applyKaraokeClassToWordElement(element, cursor, progress) {
-    element.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
-    const surface = readerWordSurfaceText(element).replace(/\s+/g, "");
-    if (!surface) return cursor;
-    const start = cursor;
-    const end = cursor + compactTextLength(surface);
-    element.classList.add(karaokeWordClass(progress, start, end));
-    return end;
-  }
-  function karaokeWordClass(progress, start, end) {
-    if (progress >= end) return "jpdb-subtitle-word-spoken";
-    return progress > start ? "jpdb-subtitle-word-current" : "jpdb-subtitle-word-pending";
-  }
-  class SubtitleKaraokeSampler {
-    constructor(deps) {
-      this.deps = deps;
-    }
-    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
-    // character boundaries, so skip the class churn between crossings.
-    lastKaraokeProgressKey;
-    lastKaraokePrimaryWord;
-    applyKaraokeStateToPrimary(cue, time) {
-      const state = this.primaryKaraokeState(cue);
-      if (!state) {
-        this.lastKaraokeProgressKey = void 0;
-        this.lastKaraokePrimaryWord = void 0;
-        return;
-      }
-      const progress = karaokeCharacterProgress(cue, state.words, time);
-      const progressKey = Math.floor(progress);
-      const primaryWord = state.wordElements[0] ?? null;
-      if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
-      this.lastKaraokeProgressKey = progressKey;
-      this.lastKaraokePrimaryWord = primaryWord;
-      let cursor = 0;
-      for (const element of state.wordElements) {
-        cursor = applyKaraokeClassToWordElement(element, cursor, progress);
-      }
-    }
-    primaryKaraokeState(cue) {
-      const primary = this.deps.getSubtitleElement()?.querySelector(".jpdb-subtitle-primary");
-      if (!primary || !cueHasExactWordTimings(cue)) return null;
-      const words = cue.words;
-      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
-      return words.length && wordElements.length ? { words, wordElements } : null;
-    }
-  }
   const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
     '[data-yomu-inline-fullscreen="true"]',
     ".html5-video-player.ytp-fullscreen",
@@ -11133,6 +11086,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const heightScale = element.clientHeight / Math.max(1, element.scrollHeight);
     const widthScale = element.clientWidth / Math.max(1, element.scrollWidth);
     return Math.max(minimum, Math.floor(fitted * Math.min(0.92, heightScale, widthScale)));
+  }
+  function applyKaraokeClassToWordElement(element, cursor, progress) {
+    element.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
+    const surface = readerWordSurfaceText(element).replace(/\s+/g, "");
+    if (!surface) return cursor;
+    const start = cursor;
+    const end = cursor + compactTextLength(surface);
+    element.classList.add(karaokeWordClass(progress, start, end));
+    return end;
+  }
+  function karaokeWordClass(progress, start, end) {
+    if (progress >= end) return "jpdb-subtitle-word-spoken";
+    return progress > start ? "jpdb-subtitle-word-current" : "jpdb-subtitle-word-pending";
   }
   function pointInRect(x, y, rect) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -11483,13 +11449,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // frame. Only `playing` releases this snapshot.
     bufferingPlayback;
     lastFrameGeometrySampleAt = 0;
-    // Word-level karaoke highlight progression (per-frame dirty-check + the
-    // pending/current/spoken class pass over the rendered primary word spans)
-    // lives in this collaborator; the controller keeps the frame/tick sampler
-    // that decides when to sample and delegates the highlight pass to it.
-    karaokeSampler = new SubtitleKaraokeSampler({
-      getSubtitleElement: () => this.subtitleEl
-    });
+    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
+    // character boundaries, so skip the class churn between crossings.
+    lastKaraokeProgressKey;
+    lastKaraokePrimaryWord;
     alignFrame;
     alignAfterTranscriptResize = false;
     lastAlignedVideoRectKey = "";
@@ -13502,7 +13465,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       });
     }
     applyKaraokeStateToPrimary(cue, time) {
-      this.karaokeSampler.applyKaraokeStateToPrimary(cue, time);
+      const state = this.primaryKaraokeState(cue);
+      if (!state) {
+        this.lastKaraokeProgressKey = void 0;
+        this.lastKaraokePrimaryWord = void 0;
+        return;
+      }
+      const progress = karaokeCharacterProgress(cue, state.words, time);
+      const progressKey = Math.floor(progress);
+      const primaryWord = state.wordElements[0] ?? null;
+      if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
+      this.lastKaraokeProgressKey = progressKey;
+      this.lastKaraokePrimaryWord = primaryWord;
+      let cursor = 0;
+      for (const element of state.wordElements) {
+        cursor = applyKaraokeClassToWordElement(element, cursor, progress);
+      }
+    }
+    primaryKaraokeState(cue) {
+      const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
+      if (!primary || !cueHasExactWordTimings(cue)) return null;
+      const words = cue.words;
+      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
+      return words.length && wordElements.length ? { words, wordElements } : null;
     }
     handleClick(event) {
       const eventTarget = event.target;

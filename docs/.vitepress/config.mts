@@ -145,6 +145,8 @@ export default defineConfig({
     title: 'よむ',
     description: siteDescription,
     base,
+    // Internal working notes; raw angle-bracket text in them must never break the site build.
+    srcExclude: ['academy/**/*.md'],
     cleanUrls: true,
     lastUpdated: true,
     sitemap: {

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.187] - 2026-07-18
+
+### Changed
+
+- Extracted the subtitle parsed-content caches into a dedicated collaborator module, so cache keys, provisional entries, and enrichment retries live behind one narrow interface instead of ten loose fields on the subtitles controller; no behavior changes.
+- Extracted the fullscreen top-layer host handling for subtitles into a dedicated collaborator module, isolating host discovery, caching, and reader-root reparenting; no behavior changes.
+- Extracted the karaoke word-highlight sampling for subtitles into a dedicated collaborator module; no behavior changes.
+- Internal working notes under the academy docs folder are now excluded from the documentation site build, so unsanitized note files can no longer break releases.
+
 ## [1.6.186] - 2026-07-18
 
 ### Changed

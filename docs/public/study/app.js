@@ -40175,7 +40175,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.186".trim() ? "1.6.186".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.187".trim() ? "1.6.187".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -52388,6 +52388,352 @@ ${spelling}`);
     }
     return `${h1.toString(36)}${h2.toString(36)}`;
   }
+  const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
+  const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
+  const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
+  const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
+  const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
+  const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
+  class SubtitleParsedHtmlCache {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    parsedHtmlCache = /* @__PURE__ */ new Map();
+    provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
+    enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
+    incompleteEnrichmentAttempts = /* @__PURE__ */ new Map();
+    sessionParseCacheChecked = /* @__PURE__ */ new Set();
+    emptyParsedHtmlCache = /* @__PURE__ */ new Map();
+    pendingParsedHtml = /* @__PURE__ */ new Map();
+    pendingProvisionalParsedHtml = /* @__PURE__ */ new Map();
+    parsedTokenCache = /* @__PURE__ */ new Map();
+    parsedTokenNotifiedAt = /* @__PURE__ */ new Map();
+    parseCacheKey(text2, settings = this.deps.getSettings()) {
+      return [
+        subtitleParseSourceSignature(settings),
+        settings.showFurigana,
+        settings.furiganaMode,
+        settings.hideKnownFurigana,
+        settings.wordHighlightColorSource,
+        settings.wordUnderlineColorSource,
+        settings.wordTextColorSource,
+        settings.subtitleHighlightColorSource,
+        settings.subtitleUnderlineColorSource,
+        settings.subtitleTextColorSource,
+        text2
+      ].join(":");
+    }
+    usableProvisionalParsedHtml(key, options) {
+      const html = this.provisionalParsedHtmlCache.get(key);
+      if (!html) return void 0;
+      if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return void 0;
+      return html;
+    }
+    // A cue is only "fully enriched" when every kanji-bearing token can render
+    // furigana (explicit rubies, or a usable kana reading != surface). A
+    // fallback token whose public lookup has not resolved yet leaves the cue
+    // re-hydratable, so a later pass (e.g. after orientationchange/resize) can
+    // retry it instead of the enriched-once flag freezing the missing furigana
+    // forever. Local/authoritative tokens are final and never block. Mirrors
+    // sourceTokenRubies (dom/index.ts).
+    tokensFullyEnriched(tokens) {
+      return tokens.every((token) => {
+        if (token.rubies.length) return true;
+        const surface = token.card.spelling || "";
+        if (!SUBTITLE_FURIGANA_KANJI_RE.test(surface)) return true;
+        if (token.card.source !== "fallback") return true;
+        const reading = token.card.reading.trim();
+        return Boolean(reading) && reading !== surface && SUBTITLE_FURIGANA_KANA_RE.test(reading);
+      });
+    }
+    // Decide whether a freshly parsed provisional cue is "enriched" (sticky, no
+    // re-hydration). A fully-resolved cue is sticky immediately. A cue that
+    // still has an unresolved fallback kanji word is left re-hydratable so a
+    // later pass can retry — but only up to a bounded number of attempts, after
+    // which it settles to bare to avoid re-requesting an unresolvable word on
+    // every hydration tick.
+    shouldMarkCueEnriched(key, tokens, enrichRequested) {
+      if (!enrichRequested) return false;
+      if (this.tokensFullyEnriched(tokens)) {
+        this.incompleteEnrichmentAttempts.delete(key);
+        return true;
+      }
+      const attempts = (this.incompleteEnrichmentAttempts.get(key) ?? 0) + 1;
+      if (attempts >= SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT) {
+        this.incompleteEnrichmentAttempts.delete(key);
+        return true;
+      }
+      if (this.incompleteEnrichmentAttempts.size >= SUBTITLE_PARSE_CACHE_MAX_ENTRIES) {
+        this.incompleteEnrichmentAttempts.delete(this.incompleteEnrichmentAttempts.keys().next().value ?? "");
+      }
+      this.incompleteEnrichmentAttempts.set(key, attempts);
+      return false;
+    }
+    rememberParsedCueHtml(key, html, tokens = [], options = {}) {
+      if (!this.deps.shouldParseSubtitles()) return;
+      if (parsedSubtitleHtmlHasReaderWords(html)) {
+        if (options.provisional) {
+          this.provisionalParsedHtmlCache.set(key, html);
+          if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
+          else this.enrichedProvisionalParsedHtmlKeys.delete(key);
+        } else {
+          this.parsedHtmlCache.set(key, html);
+          this.provisionalParsedHtmlCache.delete(key);
+          this.enrichedProvisionalParsedHtmlKeys.delete(key);
+        }
+        if (!options.provisional || !this.deps.hasAuthoritativeParseTier() && options.enriched) this.persistSessionParsedCueHtml(key, html);
+        this.emptyParsedHtmlCache.delete(key);
+        if (tokens.length) this.parsedTokenCache.set(key, tokens);
+        this.pruneParsedSubtitleCaches();
+      } else {
+        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+        this.pruneParsedSubtitleCaches();
+      }
+    }
+    pruneParsedSubtitleCaches() {
+      const limit = this.parsedSubtitleCacheLimit();
+      this.pruneParsedSubtitleCache(this.parsedHtmlCache, limit);
+      this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache, limit);
+      while (this.emptyParsedHtmlCache.size > SUBTITLE_PARSE_CACHE_MIN_ENTRIES) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? "");
+      while (this.parsedTokenCache.size > limit) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? "");
+    }
+    parsedSubtitleCacheLimit() {
+      const transcriptRows = this.deps.transcriptRowCount();
+      return Math.min(
+        SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
+        Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM)
+      );
+    }
+    // UT-48 session persistence: parsed cue html survives reloads of the
+    // same video/session. Quota errors and disabled storage degrade to the
+    // in-memory caches silently.
+    persistSessionParsedCueHtml(key, html) {
+      try {
+        sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
+      } catch {
+      }
+    }
+    restoreSessionParsedCueHtml(key) {
+      if (this.sessionParseCacheChecked.has(key)) return void 0;
+      this.sessionParseCacheChecked.add(key);
+      try {
+        const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
+        if (!raw) return void 0;
+        const value = JSON.parse(raw);
+        if (typeof value.html !== "string" || typeof value.at !== "number") return void 0;
+        if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return void 0;
+        this.parsedHtmlCache.set(key, value.html);
+        this.pruneParsedSubtitleCaches();
+        return value.html;
+      } catch {
+        return void 0;
+      }
+    }
+    pruneParsedSubtitleCache(cache2, limit = this.parsedSubtitleCacheLimit()) {
+      while (cache2.size > limit) this.deleteParsedSubtitleKey(cache2.keys().next().value ?? "");
+    }
+    // Invalidate a single parse key across every tier so an evicted or stale
+    // cue leaves no orphaned provisional/empty/pending/token remnant behind.
+    deleteParsedSubtitleKey(key) {
+      if (!key) return;
+      this.parsedHtmlCache.delete(key);
+      this.provisionalParsedHtmlCache.delete(key);
+      this.emptyParsedHtmlCache.delete(key);
+      this.pendingParsedHtml.delete(key);
+      this.pendingProvisionalParsedHtml.delete(key);
+      this.parsedTokenCache.delete(key);
+      this.parsedTokenNotifiedAt.delete(key);
+    }
+    hasFreshEmptyParsedHtml(key) {
+      return Boolean(this.freshEmptyParsedHtml(key));
+    }
+    freshEmptyParsedHtml(key) {
+      const cached = this.emptyParsedHtmlCache.get(key);
+      if (!cached) return void 0;
+      if (cached.expiresAt > Date.now()) return cached.html;
+      this.emptyParsedHtmlCache.delete(key);
+      return void 0;
+    }
+    cachedParsedCueHtml(key, settings) {
+      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
+      if (!cached) return void 0;
+      if (this.deps.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
+        this.parsedHtmlCache.delete(key);
+        return void 0;
+      }
+      return cached;
+    }
+    // Keyless both tiers produce the same local-tokenizer result, so an
+    // in-flight parse on EITHER tier satisfies the other — without this the
+    // overlay warmup and the transcript-tail warmup tokenized the same cue
+    // twice whenever their windows overlapped.
+    pendingParsedCueHtml(key, tier) {
+      const own = tier === "provisional" ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedHtml.get(key);
+      if (own || this.deps.hasAuthoritativeParseTier()) return own;
+      return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
+    }
+  }
+  function applyKaraokeClassToWordElement(element, cursor, progress) {
+    element.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
+    const surface = readerWordSurfaceText$1(element).replace(/\s+/g, "");
+    if (!surface) return cursor;
+    const start = cursor;
+    const end = cursor + compactTextLength(surface);
+    element.classList.add(karaokeWordClass(progress, start, end));
+    return end;
+  }
+  function karaokeWordClass(progress, start, end) {
+    if (progress >= end) return "jpdb-subtitle-word-spoken";
+    return progress > start ? "jpdb-subtitle-word-current" : "jpdb-subtitle-word-pending";
+  }
+  class SubtitleKaraokeSampler {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
+    // character boundaries, so skip the class churn between crossings.
+    lastKaraokeProgressKey;
+    lastKaraokePrimaryWord;
+    applyKaraokeStateToPrimary(cue, time) {
+      const state2 = this.primaryKaraokeState(cue);
+      if (!state2) {
+        this.lastKaraokeProgressKey = void 0;
+        this.lastKaraokePrimaryWord = void 0;
+        return;
+      }
+      const progress = karaokeCharacterProgress(cue, state2.words, time);
+      const progressKey = Math.floor(progress);
+      const primaryWord = state2.wordElements[0] ?? null;
+      if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
+      this.lastKaraokeProgressKey = progressKey;
+      this.lastKaraokePrimaryWord = primaryWord;
+      let cursor = 0;
+      for (const element of state2.wordElements) {
+        cursor = applyKaraokeClassToWordElement(element, cursor, progress);
+      }
+    }
+    primaryKaraokeState(cue) {
+      const primary = this.deps.getSubtitleElement()?.querySelector(".jpdb-subtitle-primary");
+      if (!primary || !cueHasExactWordTimings(cue)) return null;
+      const words = cue.words;
+      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
+      return words.length && wordElements.length ? { words, wordElements } : null;
+    }
+  }
+  const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
+    '[data-yomu-inline-fullscreen="true"]',
+    ".html5-video-player.ytp-fullscreen",
+    ".html5-video-player.fullscreen",
+    "#movie_player.ytp-fullscreen",
+    "#movie_player.fullscreen",
+    "ytd-watch-flexy[fullscreen] #movie_player",
+    "ytd-watch-flexy[fullscreen] ytd-player",
+    "ytm-player[fullscreen]",
+    "ytm-player.fullscreen",
+    "ytm-player.ytp-fullscreen"
+  ].join(",");
+  const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3e3;
+  function elementContainsVideo(element, video) {
+    return Boolean(element && video && (element === video || element.contains(video)));
+  }
+  function youtubeFullscreenHostForVideo(video) {
+    if (!isYouTubePage()) return null;
+    const scopedHost = video?.closest(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
+    if (scopedHost) return scopedHost;
+    return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
+  }
+  function isMobileYouTubePage() {
+    return /^m\.youtube\.com$/i.test(location.hostname);
+  }
+  function mutationSwapsFullscreenHostCandidate(mutation) {
+    for (const nodes of [mutation.addedNodes, mutation.removedNodes]) {
+      for (const node of nodes) {
+        if (node instanceof HTMLElement && node.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return true;
+      }
+    }
+    return false;
+  }
+  function isYouTubeMobileFullscreenHost(element) {
+    return Boolean(element && isMobileYouTubePage() && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
+  }
+  function isVisibleYouTubeFullscreenHost(element) {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    return rect.width >= viewportWidth / 2 && rect.height >= viewportHeight / 2 && rect.left <= viewportWidth / 4 && rect.top <= viewportHeight / 4 && Boolean(element.querySelector("video"));
+  }
+  class SubtitleFullscreenHost {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    // Event-driven cache for the inline/CSS fullscreen host queries; undefined
+    // means dirty (recompute on next read). See queriedFullscreenHost.
+    hostQuery;
+    get video() {
+      return this.deps.getVideo();
+    }
+    subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
+      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
+      const queriedHost = this.queriedFullscreenHost();
+      if (queriedHost) return queriedHost;
+      if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
+        const target = subtitleVideoLayoutTarget(this.video);
+        return target && target !== this.video ? target : null;
+      }
+      return null;
+    }
+    // The inline/CSS fullscreen host is read on every geometry sample (120ms
+    // frame sampler + 500ms tick via videoLayoutRect), and computing it walks
+    // document.querySelectorAll over the 10-selector fullscreen-host list —
+    // ~1.4% of a core on a YouTube watch page while NOT fullscreen (profiled).
+    // Fullscreen state only changes on discrete signals, so keep the result as
+    // event-driven cached state: invalidated on fullscreenchange events, the
+    // fullscreen-affecting attribute mutations the body observer already
+    // filters for (ytp-fullscreen classes, [fullscreen], the inline-fullscreen
+    // marker), SPA navigation, and video rebinds. A cached non-null host is
+    // revalidated per read with a cheap matches() so a missed signal degrades
+    // to a recompute, never to a stale host.
+    queriedFullscreenHost() {
+      const cached = this.hostQuery;
+      if (cached) {
+        if (cached.host === null && performance.now() - cached.at < FULLSCREEN_HOST_NULL_CACHE_TTL_MS) return null;
+        if (cached.host && this.isStillLiveFullscreenHost(cached.host)) return cached.host;
+      }
+      const host = this.inlineFullscreenHostForVideo() ?? youtubeFullscreenHostForVideo(this.video);
+      this.hostQuery = { host, at: performance.now() };
+      return host;
+    }
+    // Revalidate the SEMANTIC selection condition a fresh query would apply
+    // (video containment, the m.youtube shell predicate, or the visibility
+    // fallback) — mere selector membership could retain a hidden
+    // wrong-but-matching host after a style-only visibility handoff.
+    isStillLiveFullscreenHost(host) {
+      if (!host.isConnected || !host.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return false;
+      return elementContainsVideo(host, this.video) || isYouTubeMobileFullscreenHost(host) || isVisibleYouTubeFullscreenHost(host);
+    }
+    invalidateHostCache() {
+      this.hostQuery = void 0;
+    }
+    shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
+      return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && fullscreenElement.contains(this.video));
+    }
+    inlineFullscreenHostForVideo() {
+      const host = this.video?.closest('[data-yomu-inline-fullscreen="true"]') ?? document.querySelector('[data-yomu-inline-fullscreen="true"]');
+      return host && (!this.video || host.contains(this.video) || isYouTubeMobileFullscreenHost(host)) ? host : null;
+    }
+    syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
+      const root = this.deps.getRoot();
+      if (!root) return;
+      const parent = this.fullscreenReaderRootParent(fullscreenHost);
+      if (root.parentElement !== parent) parent.appendChild(root);
+      const transcriptPanel = this.deps.getTranscriptPanel();
+      if (transcriptPanel && transcriptPanel.parentElement !== parent) parent.appendChild(transcriptPanel);
+    }
+    fullscreenReaderRootParent(fullscreenHost) {
+      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body ?? document.documentElement : fullscreenHost;
+    }
+  }
   const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
     "yt-navigate-finish",
     "yt-page-data-updated",
@@ -52423,18 +52769,6 @@ ${spelling}`);
     "--jpdb-subtitle-youtube-stable-player-width",
     "--jpdb-subtitle-youtube-stable-player-height"
   ];
-  const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
-    '[data-yomu-inline-fullscreen="true"]',
-    ".html5-video-player.ytp-fullscreen",
-    ".html5-video-player.fullscreen",
-    "#movie_player.ytp-fullscreen",
-    "#movie_player.fullscreen",
-    "ytd-watch-flexy[fullscreen] #movie_player",
-    "ytd-watch-flexy[fullscreen] ytd-player",
-    "ytm-player[fullscreen]",
-    "ytm-player.fullscreen",
-    "ytm-player.ytp-fullscreen"
-  ].join(",");
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -52469,36 +52803,6 @@ ${spelling}`);
     if (!video) return false;
     const fullscreenVideo = video;
     return Boolean(fullscreenVideo.webkitDisplayingFullscreen || fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== "inline");
-  }
-  function elementContainsVideo(element, video) {
-    return Boolean(element && video && (element === video || element.contains(video)));
-  }
-  function youtubeFullscreenHostForVideo(video) {
-    if (!isYouTubePage()) return null;
-    const scopedHost = video?.closest(YOUTUBE_FULLSCREEN_HOST_SELECTOR);
-    if (scopedHost) return scopedHost;
-    return Array.from(document.querySelectorAll(YOUTUBE_FULLSCREEN_HOST_SELECTOR)).find((element) => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element) || isVisibleYouTubeFullscreenHost(element)) ?? null;
-  }
-  function isMobileYouTubePage() {
-    return /^m\.youtube\.com$/i.test(location.hostname);
-  }
-  function mutationSwapsFullscreenHostCandidate(mutation) {
-    for (const nodes of [mutation.addedNodes, mutation.removedNodes]) {
-      for (const node of nodes) {
-        if (node instanceof HTMLElement && node.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return true;
-      }
-    }
-    return false;
-  }
-  function isYouTubeMobileFullscreenHost(element) {
-    return Boolean(element && isMobileYouTubePage() && element.matches("ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen"));
-  }
-  function isVisibleYouTubeFullscreenHost(element) {
-    if (!element) return false;
-    const rect = element.getBoundingClientRect();
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
-    return rect.width >= viewportWidth / 2 && rect.height >= viewportHeight / 2 && rect.left <= viewportWidth / 4 && rect.top <= viewportHeight / 4 && Boolean(element.querySelector("video"));
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
@@ -52540,19 +52844,6 @@ ${spelling}`);
     const heightScale = element.clientHeight / Math.max(1, element.scrollHeight);
     const widthScale = element.clientWidth / Math.max(1, element.scrollWidth);
     return Math.max(minimum, Math.floor(fitted * Math.min(0.92, heightScale, widthScale)));
-  }
-  function applyKaraokeClassToWordElement(element, cursor, progress) {
-    element.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
-    const surface = readerWordSurfaceText$1(element).replace(/\s+/g, "");
-    if (!surface) return cursor;
-    const start = cursor;
-    const end = cursor + compactTextLength(surface);
-    element.classList.add(karaokeWordClass(progress, start, end));
-    return end;
-  }
-  function karaokeWordClass(progress, start, end) {
-    if (progress >= end) return "jpdb-subtitle-word-spoken";
-    return progress > start ? "jpdb-subtitle-word-current" : "jpdb-subtitle-word-pending";
   }
   function pointInRect(x2, y, rect) {
     return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -52612,15 +52903,9 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
   const YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD = 240;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
-  const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
-  const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
-  const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
-  const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
-  const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
-  const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
   const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 64;
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
@@ -52634,7 +52919,6 @@ ${spelling}`);
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const SUBTITLE_TICK_FORCED_CUE_REFRESH_MS = 5e3;
-  const FULLSCREEN_HOST_NULL_CACHE_TTL_MS = 3e3;
   const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
@@ -52889,9 +53173,14 @@ ${spelling}`);
     lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
-    // Event-driven cache for the inline/CSS fullscreen host queries; undefined
-    // means dirty (recompute on next read). See queriedFullscreenHost.
-    fullscreenHostQuery;
+    // Fullscreen top-layer host resolution + reader-root reparenting. Owns the
+    // event-driven host-query cache; the controller keeps the fullscreen-state
+    // bookkeeping and delegates host lookup/reparenting to it.
+    fullscreenHost = new SubtitleFullscreenHost({
+      getVideo: () => this.video,
+      getRoot: () => this.root,
+      getTranscriptPanel: () => this.transcriptPanel
+    });
     // Dirty-flag + forced-staleness gate for native cue-list re-reads.
     nativeCueListsDirty = true;
     lastForcedNativeCueRefreshAt = 0;
@@ -52905,10 +53194,13 @@ ${spelling}`);
     // frame. Only `playing` releases this snapshot.
     bufferingPlayback;
     lastFrameGeometrySampleAt = 0;
-    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
-    // character boundaries, so skip the class churn between crossings.
-    lastKaraokeProgressKey;
-    lastKaraokePrimaryWord;
+    // Word-level karaoke highlight progression (per-frame dirty-check + the
+    // pending/current/spoken class pass over the rendered primary word spans)
+    // lives in this collaborator; the controller keeps the frame/tick sampler
+    // that decides when to sample and delegates the highlight pass to it.
+    karaokeSampler = new SubtitleKaraokeSampler({
+      getSubtitleElement: () => this.subtitleEl
+    });
     alignFrame;
     alignAfterTranscriptResize = false;
     lastAlignedVideoRectKey = "";
@@ -52921,16 +53213,15 @@ ${spelling}`);
     lastDomCaption = "";
     pendingDomCaption;
     lastDomCaptionSeenAt = 0;
-    parsedHtmlCache = /* @__PURE__ */ new Map();
-    provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
-    enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
-    incompleteEnrichmentAttempts = /* @__PURE__ */ new Map();
-    sessionParseCacheChecked = /* @__PURE__ */ new Set();
-    emptyParsedHtmlCache = /* @__PURE__ */ new Map();
-    pendingParsedHtml = /* @__PURE__ */ new Map();
-    pendingProvisionalParsedHtml = /* @__PURE__ */ new Map();
-    parsedTokenCache = /* @__PURE__ */ new Map();
-    parsedTokenNotifiedAt = /* @__PURE__ */ new Map();
+    // Parsed subtitle/transcript HTML caching (all tiers, TTL empties, in-flight
+    // dedupe, token cache, session persistence, bounded eviction) lives in this
+    // collaborator; the controller keeps the parse/render orchestration.
+    htmlCache = new SubtitleParsedHtmlCache({
+      getSettings: () => this.options.getSettings(),
+      shouldParseSubtitles: () => this.shouldParseSubtitles(),
+      hasAuthoritativeParseTier: (settings) => this.hasAuthoritativeParseTier(settings),
+      transcriptRowCount: () => this.cues.filter((cue) => cue.transcriptEligible !== false).length
+    });
     transcriptTextTargetsByParseKey = /* @__PURE__ */ new Map();
     renderSerial = 0;
     panelMode = "lines";
@@ -53158,7 +53449,7 @@ ${spelling}`);
         this.syncYouTubeMobileBottomSheetState();
         if (mutations.every(mutationInsideReaderRoot$1)) return;
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
-          this.invalidateFullscreenHostCache();
+          this.fullscreenHost.invalidateHostCache();
           this.syncFullscreenState();
           this.scheduleAlignToVideo();
         }
@@ -53207,7 +53498,7 @@ ${spelling}`);
     }
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
       this.markNativeCueListsDirty();
       this.lastYouTubeTrackDiscoveryAt = 0;
       this.transcriptDefaultOpenApplied = false;
@@ -53216,7 +53507,7 @@ ${spelling}`);
       this.scheduleAlignToVideo();
     }
     handleFullscreenLayoutChange() {
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
       this.syncFullscreenState();
       if (this.video && !this.video.paused) this.startFrameSync(this.video);
       this.alignToVideo();
@@ -53268,7 +53559,7 @@ ${spelling}`);
       this.subtitleEl = void 0;
       this.transcriptPanel = void 0;
       this.video = void 0;
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
     }
     eventOptions(options = {}) {
       return this.abortController ? { ...options, signal: this.abortController.signal } : options;
@@ -53440,7 +53731,7 @@ ${spelling}`);
       if (this.video.controls || isYouTubePage()) return true;
       if (this.video.closest("#movie_player, .html5-video-player, [data-yomu-video-frame]")) return true;
       const fullscreenElement = currentFullscreenElement();
-      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) && frameHasPlayerControls(fullscreenElement)) return true;
+      if (this.fullscreenHost.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) && frameHasPlayerControls(fullscreenElement)) return true;
       const frame = subtitleVideoLayoutTarget(this.video);
       if (frame && frame !== this.video && frameHasPlayerControls(frame)) return true;
       return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
@@ -53448,7 +53739,7 @@ ${spelling}`);
     clearDiscoveredVideoCandidate() {
       this.bufferingPlayback = void 0;
       this.video = void 0;
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
       this.subtitleSourceContextKey = "";
       this.youtubeVideoId = "";
       this.youtubeAutoSelectSuppressedVideoId = "";
@@ -53462,7 +53753,7 @@ ${spelling}`);
     useDiscoveredVideoCandidate(candidate) {
       this.bufferingPlayback = void 0;
       this.video = candidate;
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
       this.markNativeCueListsDirty();
       this.clearTransientSubtitleState();
       this.removeStaleNativeTracks(candidate);
@@ -54372,16 +54663,16 @@ ${spelling}`);
     primaryParsedHtmlForRender(text2, settings, key) {
       const cached = this.cachedParsedCueHtml(key, settings);
       if (cached !== void 0) return cached;
-      const provisional = this.provisionalParsedHtmlCache.get(key);
+      const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
       if (provisional !== void 0) {
         if (this.shouldUseProvisionalSubtitleParse(settings)) {
-          if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+          if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
             if (this.hasAuthoritativeParseTier(settings)) {
               this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
               return void 0;
             }
             this.ensureEnrichedProvisionalParsedCueHtml(text2, settings, key);
-            if (!this.parsedTokenCache.has(key)) return void 0;
+            if (!this.htmlCache.parsedTokenCache.has(key)) return void 0;
           } else {
             this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
           }
@@ -54416,7 +54707,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const key = this.parseCacheKey(text2, settings);
       const serial = ++this.renderSerial;
-      const cached = this.parsedHtmlCache.get(key);
+      const cached = this.htmlCache.parsedHtmlCache.get(key);
       if (cached) {
         const root = this.replacePrimaryHtml(cached, serial);
         if (root) this.notifyParsedTokensForKey(key, true, [root]);
@@ -54459,19 +54750,7 @@ ${spelling}`);
       return canParseSubtitleTranscriptRows(settings);
     }
     parseCacheKey(text2, settings = this.options.getSettings()) {
-      return [
-        subtitleParseSourceSignature(settings),
-        settings.showFurigana,
-        settings.furiganaMode,
-        settings.hideKnownFurigana,
-        settings.wordHighlightColorSource,
-        settings.wordUnderlineColorSource,
-        settings.wordTextColorSource,
-        settings.subtitleHighlightColorSource,
-        settings.subtitleUnderlineColorSource,
-        settings.subtitleTextColorSource,
-        text2
-      ].join(":");
+      return this.htmlCache.parseCacheKey(text2, settings);
     }
     async parseCueHtml(text2, settings = this.options.getSettings(), options = {}) {
       const key = this.parseCacheKey(text2, settings);
@@ -54494,16 +54773,16 @@ ${spelling}`);
         this.rememberParsedCueHtml(key, html, tokens);
         return html;
       })();
-      this.pendingParsedHtml.set(key, promise);
+      this.htmlCache.pendingParsedHtml.set(key, promise);
       try {
         return await promise;
       } finally {
-        this.pendingParsedHtml.delete(key);
+        this.htmlCache.pendingParsedHtml.delete(key);
       }
     }
     async parseAuthoritativeCueHtml(text2, settings, key) {
       this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
-      const pending = this.pendingParsedHtml.get(key);
+      const pending = this.htmlCache.pendingParsedHtml.get(key);
       if (pending) return pending;
       const cached = this.cachedParsedCueHtml(key, settings);
       if (cached) return cached;
@@ -54515,24 +54794,24 @@ ${spelling}`);
         this.applyAuthoritativeParsedCueHtml(key, text2, html);
         return html;
       })();
-      this.pendingParsedHtml.set(key, promise);
+      this.htmlCache.pendingParsedHtml.set(key, promise);
       try {
         return await promise;
       } finally {
-        if (this.pendingParsedHtml.get(key) === promise) this.pendingParsedHtml.delete(key);
+        if (this.htmlCache.pendingParsedHtml.get(key) === promise) this.htmlCache.pendingParsedHtml.delete(key);
       }
     }
     async parseProvisionalCueHtml(text2, settings, key, options = {}) {
       const restored = this.restoreSessionParsedCueHtml(key);
       if (restored) return restored;
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
-      const cached = this.provisionalParsedHtmlCache.get(key);
-      const cachedIsEnriched = this.enrichedProvisionalParsedHtmlKeys.has(key);
+      const cached = this.htmlCache.provisionalParsedHtmlCache.get(key);
+      const cachedIsEnriched = this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
       if (cached && (!options.refreshProvisional || cachedIsEnriched) && (!options.requireEnrichedProvisional || cachedIsEnriched)) {
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return cached;
       }
-      const pending = options.refreshProvisional ? options.requireEnrichedProvisional ? void 0 : this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
+      const pending = options.refreshProvisional ? options.requireEnrichedProvisional ? void 0 : this.htmlCache.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
       if (pending) {
         const html = await pending;
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
@@ -54545,24 +54824,24 @@ ${spelling}`);
         this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
         return html;
       })();
-      this.pendingProvisionalParsedHtml.set(key, promise);
+      this.htmlCache.pendingProvisionalParsedHtml.set(key, promise);
       try {
         const html = await promise;
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return html;
       } finally {
-        this.pendingProvisionalParsedHtml.delete(key);
+        this.htmlCache.pendingProvisionalParsedHtml.delete(key);
       }
     }
     ensureEnrichedProvisionalParsedCueHtml(text2, settings, key) {
-      if (this.enrichedProvisionalParsedHtmlKeys.has(key) || this.pendingProvisionalParsedHtml.has(key)) return;
+      if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || this.htmlCache.pendingProvisionalParsedHtml.has(key)) return;
       void this.parseProvisionalCueHtml(text2, settings, key, {
         authoritativeUpgrade: false,
         enrichBeforeRender: true,
         requireEnrichedProvisional: true,
         refreshProvisional: true
       }).then((html) => {
-        if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) return;
+        if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) return;
         this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
         if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
       }).catch(() => void 0);
@@ -54573,7 +54852,7 @@ ${spelling}`);
     ensureAuthoritativeParsedCueHtmlBatch(items, settings) {
       if (!this.shouldParseSubtitles()) return;
       if (!this.hasAuthoritativeParseTier(settings)) return;
-      const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.pendingParsedHtml.has(item.key));
+      const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.htmlCache.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
       const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
@@ -54584,10 +54863,10 @@ ${spelling}`);
         this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
         return html;
       }));
-      missing.forEach((item, index) => this.pendingParsedHtml.set(item.key, parsedHtml[index]));
+      missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
       void Promise.allSettled(parsedHtml).finally(() => {
         missing.forEach((item, index) => {
-          if (this.pendingParsedHtml.get(item.key) === parsedHtml[index]) this.pendingParsedHtml.delete(item.key);
+          if (this.htmlCache.pendingParsedHtml.get(item.key) === parsedHtml[index]) this.htmlCache.pendingParsedHtml.delete(item.key);
         });
       });
     }
@@ -54616,10 +54895,10 @@ ${spelling}`);
       }
     }
     rebakeParsedCueHtml(key, text2, settings) {
-      const tokens = this.parsedTokenCache.get(key);
+      const tokens = this.htmlCache.parsedTokenCache.get(key);
       if (!tokens?.length) return;
-      const provisional = !this.parsedHtmlCache.has(key) && this.provisionalParsedHtmlCache.has(key);
-      const previous = provisional ? this.provisionalParsedHtmlCache.get(key) : this.parsedHtmlCache.get(key);
+      const provisional = !this.htmlCache.parsedHtmlCache.has(key) && this.htmlCache.provisionalParsedHtmlCache.has(key);
+      const previous = provisional ? this.htmlCache.provisionalParsedHtmlCache.get(key) : this.htmlCache.parsedHtmlCache.get(key);
       if (previous === void 0) return;
       const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
       if (html === previous) return;
@@ -54652,7 +54931,7 @@ ${spelling}`);
         // final here too — without it the transcript-tail warmup
         // (allowProvisional: false) re-parsed every already-parsed cue a
         // second time through the local tokenizer.
-        (key) => this.cachedParsedCueHtml(key, settings) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier(settings) ? void 0 : this.provisionalParsedHtmlCache.get(key)),
+        (key) => this.cachedParsedCueHtml(key, settings) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier(settings) ? void 0 : this.htmlCache.provisionalParsedHtmlCache.get(key)),
         (key) => this.pendingParsedCueHtml(key, "authoritative")
       );
       if (!batch.length) return Promise.all(ready);
@@ -54664,7 +54943,7 @@ ${spelling}`);
       }
       const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), this.finalSubtitleParseOptions(settings));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
-      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
+      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
     }
     async parseAuthoritativeCueHtmlBatch(items, settings) {
       if (!items.length) return [];
@@ -54672,7 +54951,7 @@ ${spelling}`);
       return await Promise.all(items.map(async (item) => {
         const cached = this.cachedParsedCueHtml(item.key, settings);
         if (cached) return { key: item.key, html: cached };
-        const pending = this.pendingParsedHtml.get(item.key);
+        const pending = this.htmlCache.pendingParsedHtml.get(item.key);
         return { key: item.key, html: pending ? await pending : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
       }));
     }
@@ -54680,7 +54959,7 @@ ${spelling}`);
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
       const { ready, batch } = planProvisionalSubtitleParseBatch(
         items,
-        (key) => this.parsedHtmlCache.get(key),
+        (key) => this.htmlCache.parsedHtmlCache.get(key),
         (key) => this.usableProvisionalParsedHtml(key, options),
         (key) => options.refreshProvisional ? void 0 : this.pendingParsedCueHtml(key, "provisional"),
         (key) => this.freshEmptyParsedHtml(key)
@@ -54692,7 +54971,7 @@ ${spelling}`);
       if (!batch.length) return Promise.all(ready);
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
-      const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+      const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
       if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
       return results;
     }
@@ -54720,7 +54999,7 @@ ${spelling}`);
     }
     async parseTranscriptContextHtmlBatch(items, rows, settings, options = {}) {
       const provisional = options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings) && !this.shouldBypassProvisionalForAuthoritative(settings, options);
-      const pendingCache2 = provisional ? this.pendingProvisionalParsedHtml : this.pendingParsedHtml;
+      const pendingCache2 = provisional ? this.htmlCache.pendingProvisionalParsedHtml : this.htmlCache.pendingParsedHtml;
       const parseOptions = provisional ? provisionalSubtitleParseOptions() : this.finalSubtitleParseOptions(settings);
       const ready = [];
       const batch = [];
@@ -54760,7 +55039,7 @@ ${spelling}`);
         const html = this.usableProvisionalParsedHtml(key, options);
         if (html) return { key, html, provisional: true };
       } else if (!this.hasAuthoritativeParseTier(settings)) {
-        const html = this.provisionalParsedHtmlCache.get(key);
+        const html = this.htmlCache.provisionalParsedHtmlCache.get(key);
         if (html) return { key, html, provisional: true };
       }
       return void 0;
@@ -54814,85 +55093,13 @@ ${spelling}`);
       }
     }
     usableProvisionalParsedHtml(key, options) {
-      const html = this.provisionalParsedHtmlCache.get(key);
-      if (!html) return void 0;
-      if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return void 0;
-      return html;
+      return this.htmlCache.usableProvisionalParsedHtml(key, options);
     }
-    // A cue is only "fully enriched" when every kanji-bearing token can render
-    // furigana (explicit rubies, or a usable kana reading != surface). A
-    // fallback token whose public lookup has not resolved yet leaves the cue
-    // re-hydratable, so a later pass (e.g. after orientationchange/resize) can
-    // retry it instead of the enriched-once flag freezing the missing furigana
-    // forever. Local/authoritative tokens are final and never block. Mirrors
-    // sourceTokenRubies (dom/index.ts).
-    tokensFullyEnriched(tokens) {
-      return tokens.every((token) => {
-        if (token.rubies.length) return true;
-        const surface = token.card.spelling || "";
-        if (!SUBTITLE_FURIGANA_KANJI_RE.test(surface)) return true;
-        if (token.card.source !== "fallback") return true;
-        const reading = token.card.reading.trim();
-        return Boolean(reading) && reading !== surface && SUBTITLE_FURIGANA_KANA_RE.test(reading);
-      });
-    }
-    // Decide whether a freshly parsed provisional cue is "enriched" (sticky, no
-    // re-hydration). A fully-resolved cue is sticky immediately. A cue that
-    // still has an unresolved fallback kanji word is left re-hydratable so a
-    // later pass can retry — but only up to a bounded number of attempts, after
-    // which it settles to bare to avoid re-requesting an unresolvable word on
-    // every hydration tick.
     shouldMarkCueEnriched(key, tokens, enrichRequested) {
-      if (!enrichRequested) return false;
-      if (this.tokensFullyEnriched(tokens)) {
-        this.incompleteEnrichmentAttempts.delete(key);
-        return true;
-      }
-      const attempts = (this.incompleteEnrichmentAttempts.get(key) ?? 0) + 1;
-      if (attempts >= SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT) {
-        this.incompleteEnrichmentAttempts.delete(key);
-        return true;
-      }
-      if (this.incompleteEnrichmentAttempts.size >= SUBTITLE_PARSE_CACHE_MAX_ENTRIES) {
-        this.incompleteEnrichmentAttempts.delete(this.incompleteEnrichmentAttempts.keys().next().value ?? "");
-      }
-      this.incompleteEnrichmentAttempts.set(key, attempts);
-      return false;
+      return this.htmlCache.shouldMarkCueEnriched(key, tokens, enrichRequested);
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
-      if (!this.shouldParseSubtitles()) return;
-      if (parsedSubtitleHtmlHasReaderWords(html)) {
-        if (options.provisional) {
-          this.provisionalParsedHtmlCache.set(key, html);
-          if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
-          else this.enrichedProvisionalParsedHtmlKeys.delete(key);
-        } else {
-          this.parsedHtmlCache.set(key, html);
-          this.provisionalParsedHtmlCache.delete(key);
-          this.enrichedProvisionalParsedHtmlKeys.delete(key);
-        }
-        if (!options.provisional || !this.hasAuthoritativeParseTier() && options.enriched) this.persistSessionParsedCueHtml(key, html);
-        this.emptyParsedHtmlCache.delete(key);
-        if (tokens.length) this.parsedTokenCache.set(key, tokens);
-        this.pruneParsedSubtitleCaches();
-      } else {
-        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-        this.pruneParsedSubtitleCaches();
-      }
-    }
-    pruneParsedSubtitleCaches() {
-      const limit = this.parsedSubtitleCacheLimit();
-      this.pruneParsedSubtitleCache(this.parsedHtmlCache, limit);
-      this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache, limit);
-      while (this.emptyParsedHtmlCache.size > SUBTITLE_PARSE_CACHE_MIN_ENTRIES) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? "");
-      while (this.parsedTokenCache.size > limit) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? "");
-    }
-    parsedSubtitleCacheLimit() {
-      const transcriptRows = this.cues.filter((cue) => cue.transcriptEligible !== false).length;
-      return Math.min(
-        SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
-        Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM)
-      );
+      this.htmlCache.rememberParsedCueHtml(key, html, tokens, options);
     }
     hasAuthoritativeParseTier(settings = this.options.getSettings()) {
       return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
@@ -54903,66 +55110,27 @@ ${spelling}`);
     shouldBypassProvisionalForAuthoritative(settings, options) {
       return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
-    // UT-48 session persistence: parsed cue html survives reloads of the
-    // same video/session. Quota errors and disabled storage degrade to the
-    // in-memory caches silently.
-    persistSessionParsedCueHtml(key, html) {
-      try {
-        sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
-      } catch {
-      }
-    }
     restoreSessionParsedCueHtml(key) {
-      if (this.sessionParseCacheChecked.has(key)) return void 0;
-      this.sessionParseCacheChecked.add(key);
-      try {
-        const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
-        if (!raw) return void 0;
-        const value = JSON.parse(raw);
-        if (typeof value.html !== "string" || typeof value.at !== "number") return void 0;
-        if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return void 0;
-        this.parsedHtmlCache.set(key, value.html);
-        this.pruneParsedSubtitleCaches();
-        return value.html;
-      } catch {
-        return void 0;
-      }
-    }
-    pruneParsedSubtitleCache(cache2, limit = this.parsedSubtitleCacheLimit()) {
-      while (cache2.size > limit) this.deleteParsedSubtitleKey(cache2.keys().next().value ?? "");
-    }
-    deleteParsedSubtitleKey(key) {
-      if (!key) return;
-      this.parsedHtmlCache.delete(key);
-      this.provisionalParsedHtmlCache.delete(key);
-      this.emptyParsedHtmlCache.delete(key);
-      this.pendingParsedHtml.delete(key);
-      this.pendingProvisionalParsedHtml.delete(key);
-      this.parsedTokenCache.delete(key);
-      this.parsedTokenNotifiedAt.delete(key);
+      return this.htmlCache.restoreSessionParsedCueHtml(key);
     }
     notifyParsedTokensForKey(key, force = false, roots) {
       if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
-      const tokens = this.parsedTokenCache.get(key);
+      const tokens = this.htmlCache.parsedTokenCache.get(key);
       if (!tokens?.length) return;
       const now = Date.now();
-      const lastNotifiedAt = this.parsedTokenNotifiedAt.get(key) ?? 0;
+      const lastNotifiedAt = this.htmlCache.parsedTokenNotifiedAt.get(key) ?? 0;
       if (!force && now - lastNotifiedAt < SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS) return;
-      this.parsedTokenNotifiedAt.set(key, now);
+      this.htmlCache.parsedTokenNotifiedAt.set(key, now);
       this.options.afterParseTokens(tokens, roots);
     }
     shouldUseProvisionalSubtitleParse(_settings) {
       return isYouTubePage();
     }
     hasFreshEmptyParsedHtml(key) {
-      return Boolean(this.freshEmptyParsedHtml(key));
+      return this.htmlCache.hasFreshEmptyParsedHtml(key);
     }
     freshEmptyParsedHtml(key) {
-      const cached = this.emptyParsedHtmlCache.get(key);
-      if (!cached) return void 0;
-      if (cached.expiresAt > Date.now()) return cached.html;
-      this.emptyParsedHtmlCache.delete(key);
-      return void 0;
+      return this.htmlCache.freshEmptyParsedHtml(key);
     }
     warmParseAroundActiveCue() {
       if (!this.shouldParseSubtitles() || !this.cues.length) return;
@@ -55012,25 +55180,13 @@ ${spelling}`);
     // a failed authoritative upgrade is retried by the next warmup turn.
     isWarmParsedCueKey(key, settings = this.options.getSettings()) {
       if (this.cachedParsedCueHtml(key, settings) !== void 0 || this.hasFreshEmptyParsedHtml(key)) return true;
-      return !this.hasAuthoritativeParseTier(settings) && this.enrichedProvisionalParsedHtmlKeys.has(key);
+      return !this.hasAuthoritativeParseTier(settings) && this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
     }
     cachedParsedCueHtml(key, settings) {
-      const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
-      if (!cached) return void 0;
-      if (this.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
-        this.parsedHtmlCache.delete(key);
-        return void 0;
-      }
-      return cached;
+      return this.htmlCache.cachedParsedCueHtml(key, settings);
     }
-    // Keyless both tiers produce the same local-tokenizer result, so an
-    // in-flight parse on EITHER tier satisfies the other — without this the
-    // overlay warmup and the transcript-tail warmup tokenized the same cue
-    // twice whenever their windows overlapped.
     pendingParsedCueHtml(key, tier) {
-      const own = tier === "provisional" ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedHtml.get(key);
-      if (own || this.hasAuthoritativeParseTier()) return own;
-      return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
+      return this.htmlCache.pendingParsedCueHtml(key, tier);
     }
     applyEffectiveSubtitleBottom() {
       if (!this.root) return;
@@ -55057,29 +55213,7 @@ ${spelling}`);
       });
     }
     applyKaraokeStateToPrimary(cue, time) {
-      const state2 = this.primaryKaraokeState(cue);
-      if (!state2) {
-        this.lastKaraokeProgressKey = void 0;
-        this.lastKaraokePrimaryWord = void 0;
-        return;
-      }
-      const progress = karaokeCharacterProgress(cue, state2.words, time);
-      const progressKey = Math.floor(progress);
-      const primaryWord = state2.wordElements[0] ?? null;
-      if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
-      this.lastKaraokeProgressKey = progressKey;
-      this.lastKaraokePrimaryWord = primaryWord;
-      let cursor = 0;
-      for (const element of state2.wordElements) {
-        cursor = applyKaraokeClassToWordElement(element, cursor, progress);
-      }
-    }
-    primaryKaraokeState(cue) {
-      const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
-      if (!primary || !cueHasExactWordTimings(cue)) return null;
-      const words = cue.words;
-      const wordElements = Array.from(primary.querySelectorAll(".jpdb-reader-word"));
-      return words.length && wordElements.length ? { words, wordElements } : null;
+      this.karaokeSampler.applyKaraokeStateToPrimary(cue, time);
     }
     handleClick(event) {
       const eventTarget = event.target;
@@ -57333,9 +57467,9 @@ ${spelling}`);
       return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
     }
     shadowParsedLine(cueText, parseKey, settings) {
-      const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.provisionalParsedHtmlCache.get(parseKey);
+      const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
       const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parseKey)}"` : "";
-      const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
+      const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
       return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
     }
     renderShadowSecondaryLine(state2) {
@@ -57388,7 +57522,7 @@ ${spelling}`);
     requestParsedShadowLineIfNeeded(cue, key, signature, settings) {
       if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== void 0) {
         const target = this.transcriptPanel ? this.transcriptTextTargetsForParseKey(this.transcriptPanel, key)[0] : void 0;
-        if (target && this.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
+        if (target && this.htmlCache.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
         return;
       }
       void this.parseCueHtml(cue.text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true }).then((html) => {
@@ -57452,7 +57586,7 @@ ${spelling}`);
           start: row.cue.start,
           end: row.cue.end,
           text: row.cue.text,
-          tokens: this.parsedTokenCache.get(key) ?? []
+          tokens: this.htmlCache.parsedTokenCache.get(key) ?? []
         };
       });
     }
@@ -57510,7 +57644,7 @@ ${spelling}`);
         const target = this.batchMiningRows[startIndex + offset];
         if (!row || !target) continue;
         const key = this.parseCacheKey(row.cue.text, settings);
-        target.tokens = this.parsedTokenCache.get(key) ?? [];
+        target.tokens = this.htmlCache.parsedTokenCache.get(key) ?? [];
       }
     }
     toggleBatchMiningCandidate(target) {
@@ -57810,9 +57944,9 @@ ${spelling}`);
       const cue = row.cue;
       const settings = this.options.getSettings();
       const parsedKey = this.transcriptRowParseKey(row, index, rows, settings);
-      const parsed = this.parsedHtmlCache.get(parsedKey) ?? this.provisionalParsedHtmlCache.get(parsedKey);
+      const parsed = this.htmlCache.parsedHtmlCache.get(parsedKey) ?? this.htmlCache.provisionalParsedHtmlCache.get(parsedKey);
       const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$1(parsedKey)}"` : "";
-      const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
+      const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
       const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
       return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$1(seekLabel)}">
@@ -58277,7 +58411,7 @@ ${spelling}`);
         if (serial !== this.transcriptHydrationSerial) return;
         const hydration = this.transcriptRowHydrationTarget(index, request.settings, request.rows);
         if (!hydration) continue;
-        const cached = this.parsedHtmlCache.get(hydration.key);
+        const cached = this.htmlCache.parsedHtmlCache.get(hydration.key);
         if (cached) this.applyCachedTranscriptRowHtml(hydration, cached);
         else targets.push(hydration);
       }
@@ -58324,7 +58458,7 @@ ${spelling}`);
         for (const item of parsed) {
           this.updateTranscriptRowsForParseKey(item.key, item.html, {
             provisional: item.provisional === true,
-            refreshProvisional: item.provisional === true && !this.parsedHtmlCache.has(item.key)
+            refreshProvisional: item.provisional === true && !this.htmlCache.parsedHtmlCache.has(item.key)
           });
         }
       } catch {
@@ -58340,7 +58474,7 @@ ${spelling}`);
       const target = this.transcriptPanel?.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return null;
       const key = this.transcriptRowParseKey(rows[index], index, rows, settings);
-      const provisionalNeedsHydration = (target.dataset.parsedProvisional === "true" || this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
+      const provisionalNeedsHydration = (target.dataset.parsedProvisional === "true" || this.htmlCache.provisionalParsedHtmlCache.has(key) && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) && (this.hasAuthoritativeParseTier() || !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key));
       return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, rowIndex: index, target, key };
     }
     applyCachedTranscriptRowHtml(hydration, html) {
@@ -59005,12 +59139,12 @@ ${spelling}`);
       return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
-      this.invalidateFullscreenHostCache();
+      this.fullscreenHost.invalidateHostCache();
       this.restoreSubtitleDragOffset();
       const fullscreenElement = currentFullscreenElement();
-      const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
+      const fullscreenHost = this.fullscreenHost.subtitleFullscreenHost(fullscreenElement);
       this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
-      this.syncSubtitleRootParent(fullscreenHost);
+      this.fullscreenHost.syncSubtitleRootParent(fullscreenHost);
       document.documentElement.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
@@ -59021,15 +59155,6 @@ ${spelling}`);
       }
       this.transcriptLayoutReferenceRect = void 0;
       this.transcriptLayoutReferenceViewport = "";
-    }
-    syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
-      if (!this.root) return;
-      const parent = this.fullscreenReaderRootParent(fullscreenHost);
-      if (this.root.parentElement !== parent) parent.appendChild(this.root);
-      if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) parent.appendChild(this.transcriptPanel);
-    }
-    fullscreenReaderRootParent(fullscreenHost) {
-      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body ?? document.documentElement : fullscreenHost;
     }
     syncTranscriptPanelFullscreenDisplayOverride() {
       const panel = this.transcriptPanel;
@@ -59045,55 +59170,6 @@ ${spelling}`);
         delete panel.dataset.jpdbFullscreenDisplayOverride;
       }
     }
-    subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
-      if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
-      const queriedHost = this.queriedFullscreenHost();
-      if (queriedHost) return queriedHost;
-      if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
-        const target = subtitleVideoLayoutTarget(this.video);
-        return target && target !== this.video ? target : null;
-      }
-      return null;
-    }
-    // The inline/CSS fullscreen host is read on every geometry sample (120ms
-    // frame sampler + 500ms tick via videoLayoutRect), and computing it walks
-    // document.querySelectorAll over the 10-selector fullscreen-host list —
-    // ~1.4% of a core on a YouTube watch page while NOT fullscreen (profiled).
-    // Fullscreen state only changes on discrete signals, so keep the result as
-    // event-driven cached state: invalidated on fullscreenchange events, the
-    // fullscreen-affecting attribute mutations the body observer already
-    // filters for (ytp-fullscreen classes, [fullscreen], the inline-fullscreen
-    // marker), SPA navigation, and video rebinds. A cached non-null host is
-    // revalidated per read with a cheap matches() so a missed signal degrades
-    // to a recompute, never to a stale host.
-    queriedFullscreenHost() {
-      const cached = this.fullscreenHostQuery;
-      if (cached) {
-        if (cached.host === null && performance.now() - cached.at < FULLSCREEN_HOST_NULL_CACHE_TTL_MS) return null;
-        if (cached.host && this.isStillLiveFullscreenHost(cached.host)) return cached.host;
-      }
-      const host = this.inlineFullscreenHostForVideo() ?? youtubeFullscreenHostForVideo(this.video);
-      this.fullscreenHostQuery = { host, at: performance.now() };
-      return host;
-    }
-    // Revalidate the SEMANTIC selection condition a fresh query would apply
-    // (video containment, the m.youtube shell predicate, or the visibility
-    // fallback) — mere selector membership could retain a hidden
-    // wrong-but-matching host after a style-only visibility handoff.
-    isStillLiveFullscreenHost(host) {
-      if (!host.isConnected || !host.matches(YOUTUBE_FULLSCREEN_HOST_SELECTOR)) return false;
-      return elementContainsVideo(host, this.video) || isYouTubeMobileFullscreenHost(host) || isVisibleYouTubeFullscreenHost(host);
-    }
-    invalidateFullscreenHostCache() {
-      this.fullscreenHostQuery = void 0;
-    }
-    shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
-      return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && fullscreenElement.contains(this.video));
-    }
-    inlineFullscreenHostForVideo() {
-      const host = this.video?.closest('[data-yomu-inline-fullscreen="true"]') ?? document.querySelector('[data-yomu-inline-fullscreen="true"]');
-      return host && (!this.video || host.contains(this.video) || isYouTubeMobileFullscreenHost(host)) ? host : null;
-    }
     scheduleAlignToVideo() {
       if (this.transcriptResizeActive) {
         this.alignAfterTranscriptResize = true;
@@ -59107,7 +59183,7 @@ ${spelling}`);
       });
     }
     videoLayoutRect() {
-      const fullscreenHost = this.subtitleFullscreenHost();
+      const fullscreenHost = this.fullscreenHost.subtitleFullscreenHost();
       if (fullscreenHost) {
         if (fullscreenHost === document.documentElement) return subtitleViewportRect();
         const rect = fullscreenHost.getBoundingClientRect();
