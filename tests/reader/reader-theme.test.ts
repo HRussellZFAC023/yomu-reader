@@ -458,11 +458,9 @@ describe('reader theme', () => {
         refreshReaderWordContrastForWord(word);
 
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-        const furiText = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
 
         expect(text).toBe('#ffffff');
         expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
-        expect(furiText).toBe('#ffffff');
     });
 
     it('infers dark transparent host surfaces from light native text instead of assuming a white page', () => {
@@ -528,7 +526,7 @@ describe('reader theme', () => {
         expect(contrastRatio(text, '#121214')).toBeGreaterThanOrEqual(4.5);
     });
 
-    it('keeps passive content highlights readable while keeping furigana readable on the page surface', () => {
+    it('keeps passive content highlights readable on the page surface', () => {
         document.body.innerHTML = `
             <p style="background: rgb(24, 27, 32); color: rgb(242, 243, 245);">
                 <span class="jpdb-reader-word jpdb-known jpdb-reader-scan-word jpdb-reader-passive-word" style="background: rgb(236, 244, 255); color: rgb(242, 243, 245);">
@@ -540,29 +538,12 @@ describe('reader theme', () => {
 
         refreshReaderWordContrastForWord(word);
 
+        // Furigana no longer carries its own accessible-colour variable: since
+        // 1.6.192 it inherits the base word's colour (which IS contrast-clamped
+        // here via --jpdb-reader-word-accessible-color), so the reading stays
+        // readable structurally rather than via a separate measured var.
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
-        const furiText = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
         expect(contrastRatio(text, '#ecf4ff')).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(furiText, '#181b20')).toBeGreaterThanOrEqual(4.5);
-    });
-
-    it('keeps generated furigana readable without changing native page text', () => {
-        document.body.innerHTML = `
-            <p style="background: rgb(255, 255, 255); color: rgb(32, 40, 52);">
-                <span class="jpdb-reader-word">
-                    <ruby>読<rt class="jpdb-reader-furi" style="color: rgb(170, 178, 192);">よ</rt></ruby>む
-                </span>
-            </p>
-        `;
-        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-
-        refreshReaderWordContrastForWord(word);
-
-        const furi = word.style.getPropertyValue('--jpdb-reader-furi-accessible-color');
-        expect(furi).not.toBe('');
-        expect(furi).not.toBe('#aab2c0');
-        expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight')).toBe('');
-        expect(contrastRatio(furi, '#ffffff')).toBeGreaterThanOrEqual(4.5);
     });
 
     it('leaves ASBPlayer subtitle overlays to subtitle-aware color styling', () => {
@@ -1120,7 +1101,6 @@ describe('reader theme', () => {
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');
-        expect(normalizedCss).toContain('color: var( --jpdb-reader-furi-accessible-color, color-mix(in srgb, var(--jpdb-reader-text, currentColor) 72%, var(--jpdb-reader-muted)) ) !important;');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.15; }');

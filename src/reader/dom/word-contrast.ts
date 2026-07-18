@@ -107,8 +107,6 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
     const measurements = activeWords.map((word) => {
         const style = getComputedStyle(word);
         const parentStyle = getComputedStyle(word.parentElement ?? word);
-        const furi = word.querySelector<HTMLElement>('rt.jpdb-reader-furi');
-        const furiStyle = furi ? getComputedStyle(furi) : null;
 
         return {
             bg: style.backgroundColor,
@@ -116,7 +114,6 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             fg: style.color,
             deco: measuredWordDecorationColor(style),
             parentFg: parentStyle.color,
-            furiFg: furiStyle?.color,
             hover: style.getPropertyValue('--jpdb-reader-hover'),
             hovered: word.matches(':hover, :focus'),
         };
@@ -139,7 +136,6 @@ type WordContrastMeasurement = {
     fg: string;
     deco: string;
     parentFg: string;
-    furiFg?: string;
     hover: string;
     hovered: boolean;
 };
@@ -169,15 +165,11 @@ function applyWordContrastVars(word: HTMLElement, background: PageBackground, m:
     const sourceText = cssColorToHex(m.fg, accessibleRgba);
     const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-    const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : (sourceText ?? nativeText);
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-    const furiBackgrounds = [background.hex];
 
     word.style.setProperty('--jpdb-reader-word-highlight-text', readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty('--jpdb-reader-word-accessible-color', readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty('--jpdb-reader-furi-accessible-color', readableOnAll(furiText, furiBackgrounds, TEXT_CONTRAST));
-    else word.style.removeProperty('--jpdb-reader-furi-accessible-color');
     if (decoration) word.style.setProperty('--jpdb-reader-word-accessible-underline', readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty('--jpdb-reader-word-accessible-underline');
 }

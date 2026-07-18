@@ -233,8 +233,8 @@ describe('reader stylesheet loading', () => {
         // the bare-until-hover rule paints them. It must NOT discard the
         // contrast system's --jpdb-reader-word-accessible-color: forcing the base
         // to raw currentColor collapses the base glyphs into the pill background
-        // while the furigana (which reads --jpdb-reader-furi-accessible-color)
-        // stays visible — "floating readings" with no base text (Discord/YT bug).
+        // while the furigana (which inherits the base word's colour) stays
+        // visible — "floating readings" with no base text (Discord/YT bug).
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         const chromeRestRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
 

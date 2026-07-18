@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.194] - 2026-07-18
+
+### Changed
+
+- Removed a redundant per-word furigana colour measurement from the reader's contrast pass. Since 1.6.192 furigana inherits its base word's already-adjusted colour, so the separate measurement no longer affected anything on screen. No behavior changes.
+
 ## [1.6.193] - 2026-07-18
 
 ### Fixed

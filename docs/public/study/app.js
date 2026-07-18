@@ -40175,7 +40175,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.193".trim() ? "1.6.193".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.194".trim() ? "1.6.194".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -65057,7 +65057,6 @@ ${component.reading}`;
   const RENDERED_WORD_CONTRAST_VARS = [
     "--jpdb-reader-page-bg",
     "--jpdb-reader-highlight-backdrop",
-    "--jpdb-reader-furi-accessible-color",
     "--jpdb-reader-word-accessible-color",
     "--jpdb-reader-word-accessible-highlight",
     "--jpdb-reader-word-accessible-underline",
@@ -88837,15 +88836,12 @@ ${entry.url}`),
     const measurements = activeWords.map((word) => {
       const style = getComputedStyle(word);
       const parentStyle = getComputedStyle(word.parentElement ?? word);
-      const furi = word.querySelector("rt.jpdb-reader-furi");
-      const furiStyle = furi ? getComputedStyle(furi) : null;
       return {
         bg: style.backgroundColor,
         hl: style.getPropertyValue("--jpdb-reader-word-highlight-source"),
         fg: style.color,
         deco: measuredWordDecorationColor(style),
         parentFg: parentStyle.color,
-        furiFg: furiStyle?.color,
         hover: style.getPropertyValue("--jpdb-reader-hover"),
         hovered: word.matches(":hover, :focus")
       };
@@ -88877,14 +88873,10 @@ ${entry.url}`),
     const sourceText = cssColorToHex(m.fg, accessibleRgba);
     const nativeText = cssColorToHex(m.parentFg, accessibleRgba) ?? bestTextColor(textBackdropHex);
     const decoration = resolveDecorationHex(word, m.deco, accessibleRgba);
-    const furiText = m.furiFg ? cssColorToHex(m.furiFg, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
     const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
-    const furiBackgrounds = [background.hex];
     word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
-    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOnAll(furiText, furiBackgrounds, TEXT_CONTRAST));
-    else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
     if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
     else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
   }
