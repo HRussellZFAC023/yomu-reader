@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.190] - 2026-07-18
+
+### Changed
+
+- Split the large subtitles-controller test file into focused per-topic test modules with a shared fixtures helper, and removed its bespoke shard-generator hook so the tests now run as ordinary files; no product behavior changes.
+
 ## [1.6.189] - 2026-07-18
 
 ### Changed
