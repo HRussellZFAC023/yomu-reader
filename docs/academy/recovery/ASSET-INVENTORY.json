@@ -18,10 +18,10 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 67,
-    "currentRasterFilesAccountedFor": 67,
+    "currentRasterFiles": 75,
+    "currentRasterFilesAccountedFor": 75,
     "active": 66,
-    "orphaned": 1,
+    "orphaned": 9,
     "deprecated": 9,
     "deprecatedPresent": 0,
     "missingExpressionVariants": 607,
@@ -29,7 +29,7 @@
     "approvedExpressionVariants": 12,
     "reviewCandidateExpressionVariants": 11,
     "deliveredMatrixExpressionVariants": 23,
-    "offMatrixDeliveredSprites": 1,
+    "offMatrixDeliveredSprites": 9,
     "activeByKind": {
       "character-sprite": 23,
       "protagonist-portrait": 4,
@@ -38,7 +38,7 @@
       "scene-item": 8
     },
     "orphanedByKind": {
-      "character-sprite": 1
+      "character-sprite": 9
     },
     "deprecatedByKind": {
       "character-sprite": 9
@@ -48,9 +48,9 @@
     "active": [
       {
         "id": "aakash-neutral-halfbody-v001",
-        "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
-        "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f",
-        "ledgerSha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f",
+        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+        "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f",
+        "ledgerSha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -1267,6 +1267,142 @@
     ],
     "orphaned": [
       {
+        "id": "aakash-sprite-concerned-left-three-quarter-halfbody-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
+        "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
+        "ledgerSha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-determined-left-three-quarter-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
+        "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
+        "ledgerSha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-embarrassed-front-near-front-halfbody-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
+        "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
+        "ledgerSha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-happy-right-three-quarter-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
+        "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
+        "ledgerSha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-laughing-left-three-quarter-halfbody-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
+        "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
+        "ledgerSha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-listening-right-three-quarter-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
+        "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
+        "ledgerSha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-surprised-right-three-quarter-halfbody-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
+        "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
+        "ledgerSha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
+        "id": "aakash-sprite-thoughtful-front-near-front-v005",
+        "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
+        "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
+        "ledgerSha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
+        "kind": "character-sprite",
+        "state": "orphaned",
+        "present": true,
+        "runtimeAuthorized": false,
+        "runtimeHomes": [],
+        "reviewHomes": [
+          "review:aakash-expression-gallery"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "review-candidate/non-runtime",
+        "ledgerStatus": "owner-requested-preview; release-blocked-pending-likeness-approval; not-runtime-bound"
+      },
+      {
         "id": "rie-thinking-halfbody-v001",
         "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
         "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
@@ -1453,6 +1589,78 @@
       "totalSlots": 630
     },
     "offMatrixDelivered": [
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
+        "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
+        "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
+        "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
+        "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
+        "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
+        "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
+        "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
+      {
+        "character": "aakash",
+        "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
+        "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
+        "currentState": "orphaned",
+        "coverageStatus": "off-matrix",
+        "migrationStatus": "retained-off-matrix-review-evidence",
+        "countsTowardExpressionMatrix": false
+      },
       {
         "character": "rie",
         "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
@@ -6979,8 +7187,8 @@
           "verdict": "approved-runtime-preview",
           "deliveries": [
             {
-              "path": "/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png",
-              "sha256": "66a6a1255debe222172f0f9616ec79319a896dcd32ed14f86b8f4cb73828072f"
+              "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+              "sha256": "e4b0d356e8c49416a6879bb4af5f5b7111c5206295920e8de97e6a5a2124309f"
             }
           ]
         }

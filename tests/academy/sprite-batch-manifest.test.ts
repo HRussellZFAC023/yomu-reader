@@ -51,7 +51,7 @@ describe('Academy sprite batch manifest', () => {
             character.currentAsset.status,
         ]));
 
-        expect(status.rie).toBe('approved-glasses-primary-trio-with-compatible-and-review-legacy');
+        expect(status.rie).toBe('approved-glasses-primary-performance-family');
         expect(status.aakash).toBe('unapproved-neutral-candidate');
         expect(status.peter).toBe('unapproved-performance-candidates');
         expect(status.felix).toBe('unapproved-performance-candidates');
@@ -72,10 +72,10 @@ describe('Academy sprite batch manifest', () => {
         const rie = ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'rie');
 
         expect(rie?.currentAsset).toMatchObject({
-            status: 'approved-glasses-primary-trio-with-compatible-and-review-legacy',
+            status: 'approved-glasses-primary-performance-family',
             paths: expect.arrayContaining(['/academy/art/characters/rie/rie__thinking__halfbody__v001.png']),
         });
-        expect(rie?.currentAsset.note).toMatch(/thinking remain unapproved review candidates/i);
+        expect(rie?.currentAsset.note).toMatch(/thinking remains non-runtime review evidence/i);
     });
 
     it('prepares an exact three-angle coverage batch without treating generation as approval', () => {

@@ -193,7 +193,7 @@ describe('learner evidence deep module', () => {
             sceneIds: ['scene:rainy-directions'],
         });
         expect(projectCharacterDirectory(evidence.projection).find(character => character.characterId === 'aakash'))
-            .toMatchObject({ unlocked: true, portrait: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png' });
+            .toMatchObject({ unlocked: true, portrait: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png' });
     });
 
     it('unlocks exactly the attendees of a completed class-wide introduction', async () => {

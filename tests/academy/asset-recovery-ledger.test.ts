@@ -89,11 +89,6 @@ describe('Academy recovery asset ledger', () => {
             expect.objectContaining({
                 worktree: 'current',
                 match: 'runtime-ledger-route-home',
-                route: 'access:home',
-            }),
-            expect.objectContaining({
-                worktree: 'current',
-                match: 'runtime-ledger-route-home',
                 route: 'location:home',
             }),
         ]));

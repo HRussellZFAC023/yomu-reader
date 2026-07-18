@@ -13,6 +13,7 @@ export type SpriteBatchAssetStatus =
     | 'approved-neutral-with-unapproved-expression-candidates'
     | 'approved-performance-trio-with-unapproved-legacy-expression-candidates'
     | 'approved-glasses-primary-trio-with-compatible-and-review-legacy'
+    | 'approved-glasses-primary-performance-family'
     | 'unapproved-neutral-candidate'
     | 'unapproved-performance-candidates'
     | 'rejected-only-removed'
@@ -253,9 +254,10 @@ function validateNextCoverageBatch(
         slotIds.add(slot.slotId);
         outputPaths.add(slot.plannedAssetPath);
 
-        const expectedPathPrefix = `/academy/art/characters/${slot.castId}/${slot.castId}__${slot.expression}__${slot.angle}__halfbody__`;
+        const expectedBase = `/academy/art/characters/${slot.castId}/${slot.castId}__${slot.expression}`;
+        const expectedPathPrefixes = [`${expectedBase}__${slot.angle}__halfbody__`, `${expectedBase}-glasses__${slot.angle}__halfbody__`];
         const outputIsCurrent = currentPaths.has(slot.plannedAssetPath);
-        if (!slot.plannedAssetPath.startsWith(expectedPathPrefix)
+        if (!expectedPathPrefixes.some(prefix => slot.plannedAssetPath.startsWith(prefix))
             || !slot.plannedAssetPath.endsWith('.png')
             || (slot.readiness === 'approved-and-bound' ? !outputIsCurrent : outputIsCurrent)
             || slot.generationBrief.trim().length < 500

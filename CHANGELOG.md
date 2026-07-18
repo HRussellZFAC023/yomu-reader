@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.198] - 2026-07-18
+
+### Fixed
+
+- Aligned the Academy character art records with the shipped sprite sets: Rie's completed glasses performances and Aakash's refreshed portraits are now consistently registered across the runtime, ledgers, and offline manifest, so the character book, journal unlocks, and asset audits all reference art that actually exists.
+
 ## [1.6.197] - 2026-07-18
 
 ### Changed

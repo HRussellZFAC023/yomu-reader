@@ -36,16 +36,16 @@
         "blockedBy": []
       },
       {
-        "slotId": "rie.left-three-quarter.sad-vulnerable.v1",
+        "slotId": "rie.front-near-front.happy.v1",
         "castId": "rie",
-        "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
+        "angle": "front-near-front",
+        "expression": "happy",
         "readiness": "approved-and-bound",
         "likenessReferenceIds": ["rie-approved-neutral", "rie-dedicated-refs"],
         "constraintReferenceIds": [],
-        "generationBrief": "Identity-preserving edit from the approved Rie neutral and dedicated approved Rie references. Preserve the same adult Japanese woman, face structure, age, skin tone, soft dark bun and loose strands, cream cardigan, navy blouse, small earrings, body proportions, outline weight, pixel texture, and warm classroom lighting. Keep a near-front angle. Use a distinct still posture with one hand resting lightly against the closed edge of the lesson book and the other relaxed at her side. Expression: quietly vulnerable and reflective, softened eyes, slightly gathered inner brows, lips gently parted, composure intact; no tears, melodrama, pity, or defeat. Frame head through upper thigh at the approved cast scale. Produce a flat removable chroma background for transparent RGBA delivery. No text, logos, watermark, scenery, cast shadow, extra people, photorealism, 3D gloss, chibi proportions, costume change, or identity drift.",
-        "plannedAssetPath": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
-        "intendedRuntimeHomes": ["scene:s4e04-three-true-versions", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"],
+        "generationBrief": "Identity-preserving edit from the approved Rie neutral and dedicated approved Rie references. Preserve the same adult Japanese woman, face structure, age, skin tone, soft dark bun and loose strands, cream cardigan, navy blouse, small earrings, body proportions, outline weight, pixel texture, and warm classroom lighting. Keep a near-front angle. Use a distinct open posture with the lesson book held lightly at her chest and shoulders relaxed toward the class. Expression: warm, bright happiness, eyes softly crinkled, brows lifted with ease, an open genuine smile that reaches the eyes; encouraging and human, never exaggerated or forced. Frame head through upper thigh at the approved cast scale. Produce a flat removable chroma background for transparent RGBA delivery. No text, logos, watermark, scenery, cast shadow, extra people, photorealism, 3D gloss, chibi proportions, costume change, or identity drift.",
+        "plannedAssetPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+        "intendedRuntimeHomes": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"],
         "blockedBy": []
       },
       {
@@ -199,7 +199,7 @@
         {"id": "aakash-class-photos", "kind": "class-photo-set", "locator": "preserved-reference:class-group-01.webp..class-group-06.webp", "use": "likeness", "gate": "owner-match-required"},
         {"id": "aakash-asset-status", "kind": "asset-ledger", "locator": "/academy/art/ASSET-USAGE.json#aakash-neutral-halfbody-v001", "use": "status-evidence", "gate": "reference-only"}
       ],
-      "currentAsset": {"status": "unapproved-neutral-candidate", "paths": ["/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png"], "note": "Owner-requested preview only; release blocked pending likeness approval."},
+      "currentAsset": {"status": "unapproved-neutral-candidate", "paths": ["/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png"], "note": "Owner-requested preview only; release blocked pending likeness approval."},
       "generationPriority": {"tier": 1, "rank": 16, "rationale": "High-use cast member with dedicated references and an existing neutral candidate.", "blockedBy": ["Approve or reject the neutral likeness before expanding angles or expressions."]}
     },
     {

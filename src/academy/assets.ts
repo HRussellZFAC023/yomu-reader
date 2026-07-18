@@ -34,7 +34,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     'character.rie.encouraging-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png' } }),
     'character.rie.sad-vulnerable-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png' } }),
     'character.rie.comedic-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png' } }),
-    'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:aakash'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png' } }),
+    'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:aakash'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png' } }),
     'character.felix.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-after-meeting', 'journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png' } }),
     'character.felix.happy-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png' } }),
     'character.felix.surprised-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png' } }),
@@ -335,11 +335,8 @@ export const ACADEMY_ASSETS = {
     characterSpriteGalleries: {
         rie: {
             'neutral:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.neutral,
-            'happy:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.happy,
             'determined:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.determined,
             'encouraging-listening:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging,
-            'sad-vulnerable:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie['sad-vulnerable'],
-            'comedic:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.comedic,
         },
         peter: {
             'left-three-quarter': assetFile('character.peter.thoughtful-left', 'default'),

@@ -33,6 +33,7 @@ const CURRENT_SLOT_OVERRIDES = new Map([
     ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png', ['front-near-front', 'neutral']],
     ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'determined']],
     ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png', ['right-three-quarter', 'encouraging-listening']],
+    ['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png', ['front-near-front', 'neutral']],
 ]);
 
 const SUPERSEDED_PATHS = new Set([

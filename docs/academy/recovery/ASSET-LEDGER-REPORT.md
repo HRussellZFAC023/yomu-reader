@@ -4,44 +4,44 @@ Snapshot: 2026-07-15. This report is derived deterministically from `ASSET-CARRY
 
 ## Scope and method
 
-- Hash-deduplicated Academy media from the current repository and 9 release worktrees.
+- Hash-deduplicated Academy media from the current repository and 20 release worktrees.
 - Included current and historical `public/academy/**` plus generated docs mirrors; excluded evidence screenshots, third-party reference apps, Downloads, and external generated-image stores.
 - Persona-like categories may inform the vocabulary for scene, character, prop, interaction, animation, SFX, ambience, and music slots. No Persona art or audio was copied or scanned.
 - `public/academy/art/ASSET-USAGE.json` remains the separate runtime authorization ledger. Recovery records do not authorize runtime binding.
 
 ## Inventory
 
-969 unique payloads across 3388 physical occurrences (886747180 unique bytes).
+1133 unique payloads across 11548 physical occurrences (1012859088 unique bytes).
 
 | File type | Payloads |
 | --- | ---: |
-| audio | 170 |
-| raster | 798 |
-| vector | 1 |
+| audio | 176 |
+| raster | 954 |
+| vector | 3 |
 
 | Quality verdict | Payloads |
 | --- | ---: |
-| approved-licensed-data | 1 |
-| current-runtime-ledgered | 14 |
+| approved-licensed-data | 3 |
+| current-runtime-ledgered | 32 |
 | rejected-production-derivative | 16 |
 | rejected-wrong-style | 488 |
 | review-likeness | 37 |
-| review-required | 64 |
-| rights-review-required | 170 |
+| review-required | 202 |
+| rights-review-required | 176 |
 | verified-manifest-reviewed | 104 |
 | verified-quality-carryover | 75 |
 
 | Orphan state | Payloads |
 | --- | ---: |
-| current-runtime | 55 |
+| current-runtime | 66 |
 | historical-runtime-only | 102 |
-| never-runtime-referenced | 296 |
+| never-runtime-referenced | 449 |
 | recovered-archive-only | 48 |
 | rejected-reference-only | 468 |
 
-Format coverage explicitly includes GIF/APNG/frame animation and audio slots: GIF=0, APNG=0, MP3=167, OGG=3, WAV=0, FLAC=0, M4A=0, video MP4/WebM=0. Zero means no file was found in the bounded worktree scope.
+Format coverage explicitly includes GIF/APNG/frame animation and audio slots: GIF=0, APNG=0, MP3=173, OGG=3, WAV=0, FLAC=0, M4A=0, video MP4/WebM=0. Zero means no file was found in the bounded worktree scope.
 
-Semantic slot coverage: frame/animation=0, UI SFX=3, lesson/listening audio=167, ambience=0, music=0.
+Semantic slot coverage: frame/animation=0, UI SFX=3, lesson/listening audio=173, ambience=0, music=0.
 
 ## Recovery
 

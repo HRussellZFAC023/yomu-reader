@@ -82,16 +82,16 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain('66 active, 1 orphaned, 9 deprecated, 607 missing expression variants');
+            .toContain('66 active, 9 orphaned, 9 deprecated, 607 missing expression variants');
         expect(currentRasterHashes()).toEqual(before);
     });
 
     it('accounts for every current raster exactly once without conflating authorization and presence', () => {
         expect(inventory.counts).toMatchObject({
-            currentRasterFiles: 67,
-            currentRasterFilesAccountedFor: 67,
+            currentRasterFiles: 75,
+            currentRasterFilesAccountedFor: 75,
             active: 66,
-            orphaned: 1,
+            orphaned: 9,
             deprecated: 9,
             deprecatedPresent: 0,
         });
@@ -102,21 +102,33 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             ...inventory.assets.active,
             ...inventory.assets.orphaned,
             ...inventory.assets.deprecated.filter(asset => asset.present),
-        ].map(asset => asset.path)).size).toBe(67);
+        ].map(asset => asset.path)).size).toBe(75);
     });
 
-    it('keeps the Rie thinking sprite orphaned as the sole off-matrix delivery', () => {
-        expect(inventory.assets.orphaned).toEqual([
-            expect.objectContaining({
-                id: 'rie-thinking-halfbody-v001',
-                path: '/academy/art/characters/rie/rie__thinking__halfbody__v001.png',
-                state: 'orphaned',
-                runtimeAuthorized: false,
-            }),
-        ]);
-        expect(inventory.expressionCoverage.offMatrixDelivered).toEqual([
-            expect.objectContaining({ path: '/academy/art/characters/rie/rie__thinking__halfbody__v001.png', currentState: 'orphaned', countsTowardExpressionMatrix: false }),
-        ]);
+    it('keeps the recovered Aakash expression family and the Rie thinking sprite orphaned as the off-matrix deliveries', () => {
+        const offMatrixEntries = [
+            ['aakash-sprite-concerned-left-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png'],
+            ['aakash-sprite-determined-left-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png'],
+            ['aakash-sprite-embarrassed-front-near-front-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png'],
+            ['aakash-sprite-happy-right-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png'],
+            ['aakash-sprite-laughing-left-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png'],
+            ['aakash-sprite-listening-right-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png'],
+            ['aakash-sprite-surprised-right-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png'],
+            ['aakash-sprite-thoughtful-front-near-front-v005', '/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png'],
+            ['rie-thinking-halfbody-v001', '/academy/art/characters/rie/rie__thinking__halfbody__v001.png'],
+        ] as const;
+
+        expect(inventory.assets.orphaned).toEqual(offMatrixEntries.map(([id, assetPath]) => expect.objectContaining({
+            id,
+            path: assetPath,
+            state: 'orphaned',
+            runtimeAuthorized: false,
+        })));
+        expect(inventory.expressionCoverage.offMatrixDelivered).toEqual(offMatrixEntries.map(([, assetPath]) => expect.objectContaining({
+            path: assetPath,
+            currentState: 'orphaned',
+            countsTowardExpressionMatrix: false,
+        })));
     });
 
     it('retains absent rejected and superseded sprites as non-destructive deprecation records', () => {
@@ -146,7 +158,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             reviewCandidateExpressionVariants: 11,
             deliveredMatrixExpressionVariants: 23,
             missingExpressionVariants: 607,
-            offMatrixDeliveredSprites: 1,
+            offMatrixDeliveredSprites: 9,
         });
         expect(inventory.expressionCoverage.missingVariants).toHaveLength(607);
         expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(607);

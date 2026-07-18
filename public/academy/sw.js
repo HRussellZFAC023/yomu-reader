@@ -41,7 +41,7 @@ const CAST_SPRITE_PRECACHE = [
     '/academy/art/ACADEMY-ASSET-REGISTRY.json',
     '/academy/art/ASSET-USAGE.json',
     '/academy/art/SPRITE-BATCH-MANIFEST.json',
-    '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+    '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
     '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
     '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',

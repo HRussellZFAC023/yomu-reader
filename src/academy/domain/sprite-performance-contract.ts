@@ -155,7 +155,7 @@ const RASTER_COVERAGE: Partial<Record<
     aakash: { 'front-near-front': {
         neutral: {
             status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__neutral__halfbody__v001.png',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png',
         },
     } },
     peter: {
@@ -249,6 +249,56 @@ const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly Unmap
             status: 'review-candidate',
             assetPath: '/academy/art/characters/rie/rie__thinking__halfbody__v001.png',
             note: 'Thinking is recovered review art outside the required expression vocabulary.',
+        },
+    ],
+    aakash: [
+        {
+            label: 'concerned',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png',
+            note: 'concerned is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'determined',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png',
+            note: 'determined is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'embarrassed',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png',
+            note: 'embarrassed is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'happy',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png',
+            note: 'happy is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'laughing',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png',
+            note: 'laughing is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'listening',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png',
+            note: 'listening is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'surprised',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png',
+            note: 'surprised is recovered v005 review art outside the required expression vocabulary.',
+        },
+        {
+            label: 'thoughtful',
+            status: 'review-candidate',
+            assetPath: '/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png',
+            note: 'thoughtful is recovered v005 review art outside the required expression vocabulary.',
         },
     ],
 };
