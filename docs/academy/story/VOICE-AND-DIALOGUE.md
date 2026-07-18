@@ -66,7 +66,7 @@ Stress narrows a voice before growth widens it. It must not replace everyone wit
 - Sophie overstates a clean inference; growth is marking confidence without abandoning precision.
 - Robert fills a gap with another option; growth is leaving the gap and redesigning after a no.
 - Peter waits so long that others decide around him; growth is asking the framing question in time.
-- Mika yields the floor even when her timing observation matters; growth is claiming the quiet role as expertise.
+- Mika (he/him) yields the floor even when his timing observation matters; growth is claiming the quiet role as expertise.
 - Aakash adds energy to a disagreement; growth is slowing the route and repeating another person's condition accurately.
 - Angel strengthens the spreadsheet when the premise is wrong; growth is exposing the assumption before rebuilding the plan.
 

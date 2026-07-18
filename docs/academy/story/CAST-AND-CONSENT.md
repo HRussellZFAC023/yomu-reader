@@ -8,6 +8,7 @@ The current registry contains:
 
 - teacher: Rie;
 - classmates: Henry, Aakash, Alex, Tom, Sam, Francis, Shin, Jodi, Christian, Jenny, Robert, Mika, Sophie, Xingyu, Angel, Stasi, Ruparna, Rose, Peter, Felix, Shaun;
+  - **Mika is male (he/him)** — a blond man; the class's quiet polyglot. (2026-07-18 owner sprite refinement; older docs' "she/her" tokens are superseded. Arc/beats/callback unchanged. Audio: his voice must move to a male Azure/Polly voice when voicing resumes — currently mis-mapped to a female voice.)
 - extended members (roster, but NOT classmates — Henry's personal orbit): Nanako and Mira;
   - **Nanako** — Henry's girlfriend, met on **HelloTalk**; native Japanese speaker; was in London ~4 months (met Aakash and Tom then), now long-distance splitting UK/Japan. She is the group's beloved informal sensei-figure and the emotional engine of Henry's motivation to learn ("working hard to be with her someday"). She appears via visits, reunions, group chat, and Japanese-anchor moments — never as a class lesson lead.
   - **Mira** — real name **Karen** ("Karen Mira"); Henry's Japanese-learning friend from an online circle, US/Miami-based; joins the group chat from a distance and visits (the RHS garden day out). Self-directed learner (meetups, ~30-60 min/day, the photo-vocab game). Extended cast, returns-after-absence arc.
