@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = testEnSettings();
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
 import type { SubtitleParsedHtmlCache } from '../../src/reader/subtitles/parsed-html-cache';
+import type { SubtitleFullscreenHost } from '../../src/reader/subtitles/fullscreen-host';
 import { subtitleCueSignature } from '../../src/reader/subtitles/subtitle-cues';
 import { renderDrawerHead } from '../../src/reader/subtitles/subtitle-surface';
 import { subtitleDrawerMetaText } from '../../src/reader/subtitles/subtitle-track-panel';
@@ -895,16 +896,16 @@ describe('SubtitlePlayerController', () => {
             // fullscreen-attribute observer under test are registered there.
             controller.init();
             attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
-            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            const internals = controllerInternals<{ fullscreenHost: SubtitleFullscreenHost }>(controller);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
 
             // The 120ms geometry sampler reads this on every sample while NOT
             // fullscreen; the 10-selector document.querySelectorAll walk was
             // ~1.4% of a core (profiled). Steady-state reads must be O(1).
             const querySpy = vi.spyOn(document, 'querySelectorAll');
             const singleQuerySpy = vi.spyOn(document, 'querySelector');
-            expect(internals.subtitleFullscreenHost()).toBeNull();
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
             expect(querySpy).not.toHaveBeenCalled();
             expect(singleQuerySpy.mock.calls.filter(call => String(call[0]).includes('data-yomu-inline-fullscreen'))).toHaveLength(0);
             querySpy.mockRestore();
@@ -914,11 +915,11 @@ describe('SubtitlePlayerController', () => {
             // fullscreenchange signal the redirect and browsers both emit.
             player.classList.add('ytp-fullscreen');
             document.dispatchEvent(new Event('fullscreenchange'));
-            expect(internals.subtitleFullscreenHost()).toBe(player);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
 
             player.classList.remove('ytp-fullscreen');
             document.dispatchEvent(new Event('fullscreenchange'));
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
 
             // Real element fullscreen on a NON-video container bypasses the
             // cache (the fullscreenElement-contains-video branch), so a stale
@@ -926,7 +927,7 @@ describe('SubtitlePlayerController', () => {
             // different path entirely (native-fullscreen handling), not this.
             const fullscreenStub = stubFullscreenElement(player);
             try {
-                expect(internals.subtitleFullscreenHost()).toBe(player);
+                expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
             } finally {
                 fullscreenStub.restore();
             }
@@ -949,8 +950,8 @@ describe('SubtitlePlayerController', () => {
             const video = player.querySelector('video') as HTMLVideoElement;
             controller.init();
             attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
-            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            const internals = controllerInternals<{ fullscreenHost: SubtitleFullscreenHost }>(controller);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
 
             // No fullscreenchange this time: the body attribute observer
             // (class/fullscreen/data-yomu-inline-fullscreen filter) is the
@@ -958,7 +959,7 @@ describe('SubtitlePlayerController', () => {
             player.classList.add('ytp-fullscreen');
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(internals.subtitleFullscreenHost()).toBe(player);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             controller.destroy();
@@ -981,19 +982,19 @@ describe('SubtitlePlayerController', () => {
             const video = document.querySelector('#player-container video') as HTMLVideoElement;
             controller.init();
             attachVideo(controller, { video, rect: new DOMRect(0, 0, 390, 220) });
-            const internals = controllerInternals<{ subtitleFullscreenHost: () => HTMLElement | null }>(controller);
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            const internals = controllerInternals<{ fullscreenHost: SubtitleFullscreenHost }>(controller);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
 
             const shell = document.createElement('ytm-player');
             shell.setAttribute('fullscreen', '');
             document.body.append(shell);
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(internals.subtitleFullscreenHost()).toBe(shell);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(shell);
 
             shell.remove();
             await new Promise(resolve => setTimeout(resolve, 0));
-            expect(internals.subtitleFullscreenHost()).toBeNull();
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBeNull();
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             controller.destroy();
@@ -1017,24 +1018,21 @@ describe('SubtitlePlayerController', () => {
             const video = player.querySelector('video') as HTMLVideoElement;
             mockElementRect(other, new DOMRect(0, 0, 0, 0));
             attachVideo(controller, { video, rect: new DOMRect(0, 0, 960, 540) });
-            const internals = controllerInternals<{
-                subtitleFullscreenHost: () => HTMLElement | null;
-                fullscreenHostQuery?: { host: HTMLElement | null; at: number };
-            }>(controller);
+            const internals = controllerInternals<{ fullscreenHost: SubtitleFullscreenHost }>(controller);
             // Start from a fresh (post-signal) cache: install() cached null
             // before this fixture existed, and this install-only harness has
             // no observer to invalidate it — the subject here is how a cached
             // NON-null host is revalidated on read.
-            internals.fullscreenHostQuery = undefined;
+            internals.fullscreenHost.hostQuery = undefined;
 
-            expect(internals.subtitleFullscreenHost()).toBe(player);
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
 
             // Simulate a visibility handoff: the cached host keeps matching the
             // selector but stops containing the video and is not visible — a
             // fresh query would reject it, so revalidation must too (sol P1b:
             // selector membership alone retained the wrong host).
-            internals.fullscreenHostQuery = { host: other, at: performance.now() };
-            expect(internals.subtitleFullscreenHost()).toBe(player);
+            internals.fullscreenHost.hostQuery = { host: other, at: performance.now() };
+            expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             controller.destroy();
