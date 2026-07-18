@@ -40175,7 +40175,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.192".trim() ? "1.6.192".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.193".trim() ? "1.6.193".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -69630,7 +69630,14 @@ ${component.reading}`;
           allowDirectCrossOrigin: false,
           allowConfiguredProxy: true,
           allowSensitiveConfiguredProxy: true,
-          allowPublicProxies: false,
+          // Keyless requests are read-only lookups against the shared-proxy
+          // allowlist (vocabulary/search, vocabulary info, kanji). api.jiten.moe
+          // sends no Access-Control-Allow-Origin, so on hosted pages with no GM
+          // bridge and no configured proxy the built-in Yomu edge proxy is the
+          // ONLY transport — refusing it here silently killed the cross-provider
+          // frequency rank on the lookup pills ("No configured proxy."). Requests
+          // carrying an API key stay off public proxies.
+          allowPublicProxies: !apiKey,
           preferFetch: true
         });
         return parseJitenPayload(payload);

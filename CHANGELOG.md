@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.193] - 2026-07-18
+
+### Fixed
+
+- Lookup pills now show each provider's own frequency rank (for example Jiten #1250 and JPDB #1400 side by side) on hosted pages: keyless Jiten lookups can use the built-in Yomu edge proxy again instead of failing silently, which previously left only one provider's rank visible.
+
 ## [1.6.192] - 2026-07-18
 
 ### Fixed

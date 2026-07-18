@@ -56,6 +56,33 @@ describe('JitenApiClient', () => {
         }));
     });
 
+    it('allows the built-in public proxy for keyless public lookups', async () => {
+        const requestMock = vi.fn(async () => ({ results: [] }));
+        const client = new JitenApiClient(() => '', { requestImpl: requestMock });
+
+        await expect(client.searchVocabulary('肉')).resolves.toEqual([]);
+
+        expect(requestMock).toHaveBeenCalledWith(
+            `${JITEN_API_BASE_URL}/vocabulary/search?query=%E8%82%89&limit=10`,
+            expect.objectContaining({
+                method: 'GET',
+                allowPublicProxies: true,
+            }),
+        );
+    });
+
+    it('keeps API-keyed requests off public proxies', async () => {
+        const requestMock = vi.fn(async () => ({ results: [] }));
+        const client = new JitenApiClient(() => 'jiten-token', { requestImpl: requestMock });
+
+        await expect(client.searchVocabulary('肉')).resolves.toEqual([]);
+
+        expect(requestMock).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ allowPublicProxies: false }),
+        );
+    });
+
     it('pings Jiten with the API key auth convention', async () => {
         const fetchMock = createFetchMock({ success: true });
         const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
