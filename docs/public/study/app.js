@@ -40345,7 +40345,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.202".trim() ? "1.6.202".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.203".trim() ? "1.6.203".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74400,7 +74400,7 @@ ${newTabCardReading(card)}`;
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state2} jpdb-reader-parseable" data-yomu-headword data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, "showKanji") })}</div>
+                <div class="jpdb-reader-spelling jpdb-${state2} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, "showKanji") })}</div>
                 ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$1(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
@@ -85156,7 +85156,7 @@ ${entry.url}`),
     }
     renderRecallSolution(card, state2) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
-      return el(
+      const solution = el(
         "div",
         { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
         el(
@@ -85166,6 +85166,30 @@ ${entry.url}`),
           this.renderStudyWordAudioButton(card)
         )
       );
+      this.ensureRecallAnswerReading(solution, card);
+      return solution;
+    }
+    // The recall solution is the answer: its reading must be visible no matter
+    // which sentence renderer produced it. The parsed-sentence path renders
+    // with the user's own furigana settings, so with furigana off (or a
+    // selective mode) the target word can come back with no ruby — force the
+    // headword treatment onto the target, or fall back to a reading chip.
+    ensureRecallAnswerReading(solution, card) {
+      if (solution.querySelector("[data-yomu-headword] rt.jpdb-reader-furi")) return;
+      const target = [...solution.querySelectorAll(".jpdb-reader-word")].find((word) => readerWordSurfaceText(word) === card.spelling);
+      if (target) {
+        setInnerHtml(target, renderCardSpellingWithFurigana(card, {
+          ...this.dependencies.getSettings(),
+          furiganaMode: "all",
+          showFurigana: true
+        }, { enabled: false, label: this.text("showKanji") }));
+        target.dataset.yomuHeadword = "true";
+        if (target.querySelector("rt.jpdb-reader-furi")) return;
+      }
+      const reading = newTabCardOptionalReading(card);
+      if (reading && reading !== card.spelling.trim()) {
+        solution.append(el("span", { class: "jpdb-reader-reading", dataset: { newtabRecallAnswerReading: true } }, reading));
+      }
     }
     renderRecallMeaning(meaning, card) {
       if (!meaning) return;

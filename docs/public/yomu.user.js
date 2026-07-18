@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.202
+// @version 1.6.203
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,9 +13,9 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.628b106456c9.user.js#sha256=YosQZFbJK33U9U0vyKUJg5aotu0UGab8Os17a5IGybI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.533228c26f7f.user.js#sha256=UzIowm9/kTJn+iznZ6PGIOUEANNFKYBqG6dJ+jTaDjM=
 // @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
-// @resource yomuCss  https://yomureader.com/yomu.9e7bcbdd1938.css#sha256=nnvL3Rk4he6bkTgTcGIFrcpbCV3pLypAvgyiFj1UiUg=
+// @resource yomuCss  https://yomureader.com/yomu.7324d07257b0.css#sha256=cyTQclew1QUtw4OHSsl1739yXaaBRT3UhsDQgaRDC/w=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -14327,22 +14327,27 @@ function cardHighlightTargetFromScope(scope) {
 const KANJI_RE$2 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 function compactReading(value) {
-  return value.replace(/\s+/g, "").trim();
+  return value.normalize("NFC").replace(/\s+/g, "").trim();
+}
+function headwordFuriganaSettings(settings) {
+  if (!settings.showFurigana || settings.furiganaMode === "off") return settings;
+  return { ...settings, furiganaMode: "all" };
 }
 function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
   const spelling = card.spelling.trim();
   if (!spelling) return "";
   const token = cardSpellingFuriganaToken(card, spelling);
-  return shouldRenderRuby(spelling, token, settings, true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
+  return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
 }
-function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
+function isPlainReadingRedundantForHeadword(card, settings, plainReading) {
   const spelling = card.spelling.trim();
   const normalizedPlainReading = compactReading(plainReading);
-  if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
+  if (!spelling || !normalizedPlainReading) return false;
+  if (normalizedPlainReading === compactReading(spelling)) return true;
   const token = cardSpellingFuriganaToken(card, spelling);
   const visibleReading = headwordFuriganaReading(spelling, token);
   if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
-  return shouldRenderRuby(spelling, token, settings, true, true);
+  return shouldRenderRuby(spelling, token, headwordFuriganaSettings(settings), true, true);
 }
 function cardSpellingFuriganaToken(card, spelling) {
   const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
@@ -16770,7 +16775,7 @@ class CardPopoverRenderer {
   const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
   const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
   return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
   }
@@ -17186,7 +17191,7 @@ function renderApiMiningActionDetails(language, state, addDeckSelect, provider, 
 }
 function renderMetaReading(card, settings) {
   const reading = cardPronunciationReading(card);
-  if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
+  if (isPlainReadingRedundantForHeadword(card, settings, reading)) return "";
   return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
 }
 function renderAnkiMeta(lookup, settings) {
@@ -36628,8 +36633,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.202"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.202"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.203"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.203"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36747,7 +36752,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.202"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.203"}`;
   } catch {
   return null;
   }
