@@ -1,3 +1,10 @@
+import {
+    redditLayoutPointToOverlay,
+    redditOverlayViewport,
+    redditOverlayViewportBounds,
+    redditSourceRectToOverlay,
+} from './reddit-overlay-scale';
+
 type NormalizedWritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr' | 'sideways-rl' | 'sideways-lr';
 
 interface PopoverRect {
@@ -234,9 +241,9 @@ function popoverMaxFrameHeight(viewportHeight: number, options: PopoverPositionO
 function positionPopoverWithoutAnchor(popover: HTMLElement, frame: PopoverPositionFrame): void {
     const margin = 8;
     const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
-    const fallbackTop = frame.viewportHeight * 0.18;
-    popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
-    popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
+    const fallbackTop = frame.viewport.top + frame.viewportHeight * 0.18;
+    popover.style.left = `${Math.max(frame.viewport.left + margin, Math.min(fallbackLeft, frame.viewport.right - frame.width - margin))}px`;
+    popover.style.top = `${Math.max(frame.viewport.top + margin, Math.min(fallbackTop, frame.viewport.bottom - frame.height - margin))}px`;
     restorePopoverScrollTop(popover, frame.scrollTop);
 }
 
@@ -265,14 +272,20 @@ function getPopoverSourceRects(anchor: HTMLElement | undefined, fallbackRect: DO
 
 function pointPopoverRects(point: { x: number; y: number }): PopoverRect[] {
     const radius = 14;
-    return [{ left: point.x - radius, top: point.y - radius, right: point.x + radius, bottom: point.y + radius }];
+    const overlayPoint = redditLayoutPointToOverlay(point);
+    return [{
+        left: overlayPoint.x - radius,
+        top: overlayPoint.y - radius,
+        right: overlayPoint.x + radius,
+        bottom: overlayPoint.y + radius,
+    }];
 }
 
 function anchorPopoverRects(anchor: HTMLElement | undefined): PopoverRect[] {
     if (!anchor) return [];
-    const clientRects = rectListToPopoverRects(anchor.getClientRects());
+    const clientRects = rectListToPopoverRects(anchor.getClientRects(), anchor);
     if (clientRects.length) return clientRects;
-    const rect = domRectToPopoverRect(anchor.getBoundingClientRect());
+    const rect = domRectToPopoverRect(anchor.getBoundingClientRect(), anchor);
     return hasRectArea(rect) ? [rect] : [];
 }
 
@@ -286,22 +299,28 @@ function selectionPopoverRects(): PopoverRect[] {
 
 function rangeClientPopoverRects(range: Range): PopoverRect[] {
     return typeof range.getClientRects === 'function'
-        ? rectListToPopoverRects(range.getClientRects())
+        ? rectListToPopoverRects(range.getClientRects(), range.commonAncestorContainer)
         : [];
 }
 
 function rangeBoundingPopoverRects(range: Range): PopoverRect[] {
     if (typeof range.getBoundingClientRect !== 'function') return [];
-    const rect = domRectToPopoverRect(range.getBoundingClientRect());
+    const rect = domRectToPopoverRect(range.getBoundingClientRect(), range.commonAncestorContainer);
     return hasRectArea(rect) ? [rect] : [];
 }
 
-function rectListToPopoverRects(rects: DOMRectList): PopoverRect[] {
-    return Array.from(rects, domRectToPopoverRect).filter(hasRectArea);
+function rectListToPopoverRects(rects: DOMRectList, source?: Node | null): PopoverRect[] {
+    return Array.from(rects, rect => domRectToPopoverRect(rect, source)).filter(hasRectArea);
 }
 
-function domRectToPopoverRect(rect: DOMRect | DOMRectReadOnly): PopoverRect {
-    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+function domRectToPopoverRect(rect: DOMRect | DOMRectReadOnly, source?: Node | null): PopoverRect {
+    const overlayRect = redditSourceRectToOverlay(rect, source);
+    return {
+        left: overlayRect.left,
+        top: overlayRect.top,
+        right: overlayRect.right,
+        bottom: overlayRect.bottom,
+    };
 }
 
 function hasRectArea(rect: PopoverRect): boolean {
@@ -309,6 +328,11 @@ function hasRectArea(rect: PopoverRect): boolean {
 }
 
 function getPopoverViewport(): PopoverRect {
+    const overlayViewport = redditOverlayViewport();
+    if (overlayViewport.pageScale > 1) {
+        const bounds = redditOverlayViewportBounds();
+        return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
+    }
     const { visualViewport } = window;
     if (visualViewport) {
         const left = visualViewport.offsetLeft;

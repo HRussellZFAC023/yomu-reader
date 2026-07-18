@@ -36,6 +36,7 @@ import type {
     TestCardPopoverHydrationContext,
     YomitanTermEntry,
 } from './fixtures';
+import { ReaderParser } from '../../../src/reader/lookup/parser';
 
 registerReaderHelpersCleanup();
 
@@ -343,6 +344,123 @@ describe('reader helpers', () => {
             expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
             expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('continues from Jiten detail hydration to JPDB pitch when the detail has no accent', async () => {
+        const app = new ReaderApp();
+        const parsed = testPublicCard({
+            vid: 5615641,
+            sid: 0,
+            spelling: '浜面',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+        });
+        const hydrated = testPublicCard({
+            ...parsed,
+            spelling: '浜面',
+            reading: 'はまも',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: '浜[はま]面[も]',
+            meanings: [{ glosses: ['Hamamo'], partOfSpeech: ['surname'] }],
+        });
+        const token = testTokenForCard(parsed, '浜面はそこに集まった。');
+        const word = appendRenderedReaderWord(parsed);
+        const hydrateCards = vi.fn(async () => new Map([['5615641:0', hydrated]]));
+        const publicPitch = vi.fn(async () => ['LHH']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
+
+            expect(hydrateCards).toHaveBeenCalled();
+            expect(publicPitch).toHaveBeenCalledWith('浜面', 'はまも');
+            expect(token.card).toBe(hydrated);
+            expect(hydrated.pitchAccent).toEqual(['LHH']);
+            expect(token.pitchClass).toBe('heiban');
+            expectRenderedPitchWord(word, 'heiban');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('renders aligned compound component accents without inventing a whole-word pitch', async () => {
+        const app = new ReaderApp();
+        const compound = testPublicCard({
+            vid: 2858295,
+            sid: 0,
+            spelling: '王子様',
+            reading: 'おうじさま',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: '王[おう]子[じ]様[さま]',
+            pitchComponents: [
+                { spelling: '王子', reading: 'おうじ', pitchAccent: [], wordWithReading: '王[おう]子[じ]' },
+                { spelling: '様', reading: 'さま', pitchAccent: [], wordWithReading: '様[さま]' },
+            ],
+        });
+        const token = testTokenForCard(compound, '彼女は「王子様」と呼んだ。');
+        const word = appendRenderedReaderWord(compound);
+        const hydrateCards = vi.fn(async () => new Map([['2858295:0', compound]]));
+        const publicPitch = vi.fn(async (spelling: string) => {
+            if (spelling === '王子') return ['HLLL'];
+            if (spelling === '様') return ['LHH'];
+            return [];
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
+
+            expect(publicPitch).toHaveBeenCalledWith('王子様', 'おうじさま');
+            expect(publicPitch).toHaveBeenCalledWith('王子', 'おうじ');
+            expect(publicPitch).toHaveBeenCalledWith('様', 'さま');
+            expect(compound.pitchAccent).toEqual([]);
+            expect(word.dataset.pitchComponents).toBe('true');
+            expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-atamadaka');
+            expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-heiban');
         } finally {
             word.remove();
             app.destroy();
@@ -1155,6 +1273,107 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('repairs a credentialed subtitle surname fragment and resolves its real lemma pitch before render', async () => {
+        const sentence = '訪れたのかもしれない。';
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            jitenApiKey: '',
+            parserProvider: 'jpdb' as const,
+            showPitchAccent: true,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        const surname = testPublicCard({
+            vid: 5639848,
+            sid: 0,
+            spelling: '訪',
+            reading: 'ほう',
+            source: 'jpdb',
+            pitchAccent: ['HLL'],
+            wordWithReading: '訪[ほう]',
+            partOfSpeech: ['name'],
+        });
+        const parser = new ReaderParser({
+            getSettings: () => settings,
+            jpdb: {
+                parse: vi.fn(async () => [[{
+                    card: surname,
+                    start: 0,
+                    end: 1,
+                    length: 1,
+                    rubies: [{ text: 'ほう', start: 0, end: 1, length: 1 }],
+                    pitchClass: 'atamadaka',
+                    sentence,
+                }]]),
+            } as never,
+            dictionaries: {} as never,
+        });
+        const [tokens] = await parser.parse([sentence], {
+            requireJpdb: true,
+            allowSegmentedFallback: true,
+        });
+        const repaired = tokens.find(token => token.start === 0);
+        expect(repaired?.card).toMatchObject({
+            spelling: '訪れた',
+            source: 'fallback',
+            fallbackLookupTerms: expect.arrayContaining(['訪れる']),
+        });
+        if (!repaired) throw new Error('Expected repaired 訪れた token.');
+
+        const app = new ReaderApp();
+        const verb = testPublicCard({
+            vid: 1518080,
+            sid: 0,
+            spelling: '訪れる',
+            reading: 'おとずれる',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: '訪[おとず]れる',
+            jitenWordId: 1518080,
+            jitenReadingIndex: 0,
+        });
+        const partialSurname = testPublicCard({
+            ...surname,
+            source: 'jiten',
+            jitenWordId: surname.vid,
+            jitenReadingIndex: surname.sid,
+        });
+        const lookupMany = vi.fn(async (terms: readonly string[]) => new Map<string, JPDBCard>([
+            ...(terms.includes('訪る') ? [['訪る', partialSurname] as const] : []),
+            ...(terms.includes('訪れる') ? [['訪れる', verb] as const] : []),
+        ]));
+        const publicPitch = vi.fn(async (spelling: string, reading: string) =>
+            spelling === '訪れる' && reading === 'おとずれる' ? ['LHHHHH'] : []);
+        const internals = app as unknown as {
+            settings: typeof settings;
+            jitenPublicVocabulary: { lookupMany: typeof lookupMany };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.jitenPublicVocabulary = { lookupMany };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichSubtitleTokensBeforeRender([repaired]);
+
+            expect(lookupMany).toHaveBeenCalledWith(
+                expect.arrayContaining(['訪る', '訪れる']),
+                { detailLimit: 1, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS },
+            );
+            expect(repaired.card).toBe(verb);
+            expect(repaired.card.reading).toBe('おとずれる');
+            expect(repaired.card.pitchAccent).toEqual(['LHHHHH']);
+            expect(repaired.pitchClass).toBe('heiban');
+            expect(publicPitch).toHaveBeenCalledWith('訪れる', 'おとずれる');
+        } finally {
+            app.destroy();
         }
     });
 

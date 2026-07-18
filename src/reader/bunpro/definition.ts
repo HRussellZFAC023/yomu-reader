@@ -121,7 +121,7 @@ const BUNPRO_FREQUENCY_LISTS = ['general', 'anime', 'novels', 'netflix', 'dictio
 // The reviewable-detail payload carries pitch, multi-list frequency, word
 // audio, JMdict relations and grammar metadata alongside the study questions;
 // read them off the same response instead of dropping them.
-export function applyBunproReviewableDetail(info: BunproDefinitionInfo, raw: unknown): void {
+function applyBunproReviewableDetail(info: BunproDefinitionInfo, raw: unknown): void {
     const attributes = objectRecord(objectRecord(objectRecord(raw)?.data)?.attributes);
     if (!attributes) return;
     info.pitchAccentStress = textValue(attributes.pitch_accent_stress);

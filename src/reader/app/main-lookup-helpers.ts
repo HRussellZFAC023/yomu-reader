@@ -6,7 +6,6 @@ import { contextPitchPattern } from '../lookup/pitch-accent';
 import { type PointerTextSpanCandidate } from '../lookup/pointer-text-lookup';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { cardPronunciationReading } from '../popup/pitch';
-import { hasJpdbApiCredential } from '../settings/api-credential';
 import { PITCH_ENRICHMENT_LIMIT, isYouTubeHostname, type PitchEnrichmentOptions } from './main-helpers';
 import { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
@@ -20,7 +19,7 @@ export function uniqueTokensByCard(tokens: JPDBToken[]): JPDBToken[] {
     });
 }
 
-export function normalizedNestedParseOptions(options: ReaderParserParseOptions, settings: ReaderSettings): Required<ReaderParserParseOptions> {
+export function normalizedNestedParseOptions(options: ReaderParserParseOptions, _settings: ReaderSettings): Required<ReaderParserParseOptions> {
     const apiTimeoutMs = nestedParseApiTimeoutMs(options);
     const allowApiTimeoutFallback = nestedParseAllowApiTimeoutFallback(options);
     const skipApi = nestedParseSkipApi(options);
@@ -35,7 +34,10 @@ export function normalizedNestedParseOptions(options: ReaderParserParseOptions, 
         skipJpdb: options.skipJpdb ?? skipApi,
         requireApi,
         requireJpdb: options.requireJpdb ?? requireApi,
-        allowSegmentedFallback: options.allowSegmentedFallback ?? !hasJpdbApiCredential(settings),
+        // Remote identity and local boundary repair are complementary. API
+        // credentials used to disable this pass, leaving dictionary examples
+        // with the same partial-name misparses as credentialed subtitles.
+        allowSegmentedFallback: options.allowSegmentedFallback ?? true,
     };
 }
 
@@ -165,4 +167,3 @@ export function cardHasContextPitch(card: JPDBCard): boolean {
 export function mergePitchPatterns(preferred: string[], existing: string[]): string[] {
     return [...preferred, ...existing.filter(pattern => !preferred.includes(pattern))];
 }
-

@@ -38,6 +38,12 @@ function jitenFallbackTokenMatches(term: string, token: JPDBToken): boolean {
         || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
 }
 
+function jitenFallbackCardMatchesTerm(term: string, card: JPDBCard): boolean {
+    const normalizedTerm = normalizedJitenLookupKey(term);
+    return normalizedJitenLookupKey(card.spelling) === normalizedTerm
+        || normalizedJitenLookupKey(card.reading) === normalizedTerm;
+}
+
 function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
     const seen = new Set<string>();
     const entries: FallbackLookupEntry[] = [];
@@ -77,8 +83,11 @@ export async function batchJitenFallbackCards(
     });
     uniqueTerms.forEach((term, index) => {
         const tokens = parsed[index] ?? [];
-        const card = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
-            ?? tokens.find(token => token.card.source === 'jiten')?.card;
+        // A deinflection candidate can itself be nonsense (訪れた also yields
+        // 訪る). Jiten then parses only the valid prefix 訪, whose first card is
+        // the surname "Hou". Accepting an arbitrary first token poisoned the
+        // whole fallback chain before it reached the correct 訪れる candidate.
+        const card = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card;
         if (card?.source === 'jiten') cards.set(normalizedJitenLookupKey(term), card);
     });
     return cards;
@@ -105,7 +114,13 @@ async function jitenFallbackCards(
     // lookupMany keys by its own whitespace-stripped normalization; re-key
     // here so a drift there can never silently miss.
     const cards = new Map<string, JPDBCard>();
-    loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
+    // lookupMany intentionally supports partial suggestions for search UI,
+    // but fallback resolution needs an exact candidate. Otherwise a malformed
+    // candidate such as 訪る is keyed to the partial surname 訪 and wins before
+    // the real dictionary form 訪れる is considered.
+    loaded.forEach((card, term) => {
+        if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
+    });
     return cards;
 }
 

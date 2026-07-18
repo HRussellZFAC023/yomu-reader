@@ -58,6 +58,7 @@ import { ensureReaderStylesForHost } from './shadow-styles';
 import { noteScannedShadowRoot } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
+import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export {
@@ -5275,6 +5276,7 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join('|');
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent) applyPitchComponentGradient(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
@@ -5330,8 +5332,19 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const pitchAccent = token.card.pitchAccent.join('|');
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : '';
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
+    const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : '';
+    const pitchComponentMetadata = pitchComponentGradient
+        ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"`
+        : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+}
+
+function applyPitchComponentGradient(word: HTMLElement, card: JPDBCard): void {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) return;
+    word.dataset.pitchComponents = 'true';
+    word.style.setProperty('--jpdb-reader-inline-pitch-gradient', gradient);
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {

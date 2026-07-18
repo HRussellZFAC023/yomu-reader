@@ -1,6 +1,7 @@
 import type { JPDBCard } from '../app/types';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
+import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
 
 const RENDERED_WORD_CARD_STATES = [
@@ -122,6 +123,17 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
 
+export function setRenderedWordPitchComponents(word: HTMLElement, card: JPDBCard): void {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) {
+        delete word.dataset.pitchComponents;
+        word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
+        return;
+    }
+    word.dataset.pitchComponents = 'true';
+    word.style.setProperty('--jpdb-reader-inline-pitch-gradient', gradient);
+}
+
 export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): void {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
@@ -140,6 +152,7 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     const pitchAccent = card.pitchAccent.join('|');
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
+    setRenderedWordPitchComponents(word, card);
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);

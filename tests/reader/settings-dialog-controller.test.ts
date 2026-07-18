@@ -220,6 +220,57 @@ function testRect(top: number, bottom: number, width = 320): DOMRect {
     } as DOMRect;
 }
 
+function scaledTestRect(top: number, bottom: number, scale: number, width = 320): DOMRect {
+    return testRect(top * scale, bottom * scale, width * scale);
+}
+
+function mockScaledRedditBrowser(): () => void {
+    const innerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const innerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    const outerWidth = Object.getOwnPropertyDescriptor(window, 'outerWidth');
+    const userAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+    const platform = Object.getOwnPropertyDescriptor(navigator, 'platform');
+    vi.stubGlobal('location', {
+        href: 'https://www.reddit.com/r/LearnJapanese/',
+        hostname: 'www.reddit.com',
+        origin: 'https://www.reddit.com',
+    });
+    Object.defineProperties(window, {
+        innerWidth: { configurable: true, value: 475 },
+        innerHeight: { configurable: true, value: 612.5 },
+        outerWidth: { configurable: true, value: 760 },
+    });
+    Object.defineProperties(navigator, {
+        userAgent: {
+            configurable: true,
+            value: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+        },
+        platform: { configurable: true, value: 'iPad' },
+    });
+    return () => {
+        restoreProperty(window, 'innerWidth', innerWidth);
+        restoreProperty(window, 'innerHeight', innerHeight);
+        restoreProperty(window, 'outerWidth', outerWidth);
+        restoreProperty(navigator, 'userAgent', userAgent);
+        restoreProperty(navigator, 'platform', platform);
+    };
+}
+
+function restoreProperty(target: object, property: string, descriptor: PropertyDescriptor | undefined): void {
+    if (descriptor) Object.defineProperty(target, property, descriptor);
+    else delete (target as Record<string, unknown>)[property];
+}
+
+function mockCompensatedRedditRoot(root: HTMLElement, rectScale: number): void {
+    root.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+    root.dataset.jpdbReaderScaleCompensation = '0.625';
+    Object.defineProperties(root, {
+        offsetWidth: { configurable: true, value: 400 },
+        offsetHeight: { configurable: true, value: 600 },
+    });
+    root.getBoundingClientRect = () => new DOMRect(0, 0, 400 * rectScale, 600 * rectScale);
+}
+
 function ankiStatus(form: HTMLFormElement): HTMLElement {
     return form.querySelector<HTMLElement>('[data-anki-status]')!;
 }
@@ -399,6 +450,57 @@ describe('settings dialog keyboard dismissal', () => {
 
             expect(scroll.scrollTop).toBe(56);
         } finally {
+            if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
+            else delete (window as unknown as Record<string, unknown>).requestAnimationFrame;
+            if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);
+            else delete (window as unknown as Record<string, unknown>).visualViewport;
+        }
+    });
+
+    it.each([
+        ['overlay-space BCRs', 1],
+        ['inverse-zoomed layout-space BCRs', 0.625],
+    ])('scrolls Reddit settings controls consistently with WebKit %s', (_mode, rectScale) => {
+        const restoreBrowser = mockScaledRedditBrowser();
+        const rafDescriptor = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+        const viewport = new EventTarget() as VisualViewport;
+        Object.defineProperties(viewport, {
+            height: { configurable: true, value: 287.5 },
+            width: { configurable: true, value: 243.75 },
+            offsetLeft: { configurable: true, value: 0 },
+            offsetTop: { configurable: true, value: 0 },
+            pageLeft: { configurable: true, value: 0 },
+            pageTop: { configurable: true, value: 0 },
+            scale: { configurable: true, value: 1 },
+        });
+        Object.defineProperty(window, 'requestAnimationFrame', {
+            configurable: true,
+            value: (callback: FrameRequestCallback) => {
+                callback(0);
+                return 1;
+            },
+        });
+        Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+
+        try {
+            const { form } = createSettingsDialog();
+            const scroll = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')!;
+            const footer = form.querySelector<HTMLElement>('.footer')!;
+            const input = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
+            mockCompensatedRedditRoot(form, rectScale);
+
+            vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue(scaledTestRect(118, 374, rectScale));
+            vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue(scaledTestRect(390, 454, rectScale));
+            vi.spyOn(input, 'getBoundingClientRect').mockReturnValue(scaledTestRect(360, 414, rectScale));
+
+            input.focus();
+            scroll.scrollTop = 0;
+            input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+            expect(scroll.scrollTop).toBe(56);
+        } finally {
+            restoreBrowser();
             if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);
             else delete (window as unknown as Record<string, unknown>).requestAnimationFrame;
             if (viewportDescriptor) Object.defineProperty(window, 'visualViewport', viewportDescriptor);

@@ -134,6 +134,17 @@ export interface JPDBMeaning {
     partOfSpeech: string[];
 }
 
+// A compound can have no defensible whole-expression accent while each
+// aligned lexical component does (王子様 → 王子 + 様). Keep those contours
+// separate so inline rendering can segment its underline instead of falsely
+// presenting either component as the pitch of the whole expression.
+export interface JPDBPitchComponent {
+    spelling: string;
+    reading: string;
+    pitchAccent: string[];
+    wordWithReading: string | null;
+}
+
 export type AnkiCardKind = 'word' | 'kanji' | 'kana' | 'sentence' | 'other';
 
 export interface JPDBCard {
@@ -198,6 +209,7 @@ export interface JPDBCard {
     kanjiKeyword?: string;
     sourceCardKey?: string;
     fallbackLookupTerms?: string[];
+    pitchComponents?: JPDBPitchComponent[];
 }
 
 export interface ApiDeck {

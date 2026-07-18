@@ -5,6 +5,7 @@ import {
     restorePopoverScrollFrameSoon,
 } from '../popup/shell';
 import type { ReaderSettings } from '../app/types';
+import { redditOverlayViewportBounds, redditSourceRectToOverlay } from '../ui/reddit-overlay-scale';
 
 function popoverScrollBody(popover: HTMLElement): HTMLElement {
     return popover.querySelector<HTMLElement>('.jpdb-reader-popover-body') ?? popover;
@@ -13,10 +14,10 @@ function popoverScrollBody(popover: HTMLElement): HTMLElement {
 function stabilizePopoverBodyAround(popover: HTMLElement, anchor: HTMLElement): void {
     const scrollBody = popoverScrollBody(popover);
     const scrollTop = scrollBody.scrollTop;
-    const anchorTop = anchor.getBoundingClientRect().top;
+    const anchorTop = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top;
     requestAnimationFrame(() => {
         if (!popover.isConnected || !anchor.isConnected) return;
-        const delta = anchor.getBoundingClientRect().top - anchorTop;
+        const delta = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top - anchorTop;
         if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
     });
 }
@@ -49,9 +50,13 @@ export function installPopoverBodyStabilizers(popover: HTMLElement): void {
     }, true);
 }
 
-export function popoverMaxHeightAtTop(settings: ReaderSettings, top: number): number {
+export function popoverMaxHeightAtTop(
+    settings: ReaderSettings,
+    top: number,
+    viewportBottom = redditOverlayViewportBounds().bottom,
+): number {
     const margin = 8;
-    const availableHeight = Math.max(0, window.innerHeight - top - margin);
+    const availableHeight = Math.max(0, viewportBottom - top - margin);
     const configuredMaxHeight = configuredPopoverMaxHeight(settings);
     return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
 }

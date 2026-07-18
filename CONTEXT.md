@@ -25,6 +25,8 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - Exact Boundary Evidence: A non-deinflected local dictionary match whose expression equals its surface, whose reading is present, and whose range crosses at least two provider or fallback parse tokens without discarding Japanese text. It may replace those fragments; token adjacency alone may not.
 - Tokyo Pitch Class: One positional class derived from a valid downstep number: heiban (0), atamadaka (1), nakadaka (inside the word), or odaka (after the final mora). `Kifuku` is an umbrella description for accents with a downstep, not a fifth positional class.
 - Pitch Variant: One independently sourced expression-and-reading contour. Several variants can be accepted for the same word; they remain separate identities and are never concatenated from morphemes or inferred from an inflection.
+- Pitch Component Evidence: Independently sourced pitch for every spelling-and-reading component in an exact aligned decomposition. It may colour proportional segments of one clickable compound, but it is never promoted into or presented as a whole-word contour.
+- Overlay Screen Space: Physical-pixel geometry used by Yomu-owned fixed chrome when a browser applies a full-page view scale. Host anchors and pointer coordinates cross into it exactly once; inline readings, subtitles, and OCR remain in page layout space so they stay aligned with their source content.
 
 ## Academy Terms
 

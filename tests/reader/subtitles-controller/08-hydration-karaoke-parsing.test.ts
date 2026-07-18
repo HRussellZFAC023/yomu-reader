@@ -819,7 +819,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             const pendingAuthoritativeHtml = internals.htmlCache.pendingParsedHtml.get(key);
 
             expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
-            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(provisionalHtml).toContain('jpdb-not-in-deck');
             expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();
@@ -878,7 +878,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             const pendingAuthoritativeHtml = internals.htmlCache.pendingParsedHtml.get(firstKey);
 
             expect(parseJapaneseBatch).toHaveBeenNthCalledWith(1, ['一番', '二番'], { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
-            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(2, ['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapaneseBatch).toHaveBeenNthCalledWith(2, ['一番', '二番'], { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(parsed.map(item => item.provisional)).toEqual([true, true]);
             expect(parsed[0]?.html).toContain('jpdb-not-in-deck');
             expect(internals.htmlCache.provisionalParsedHtmlCache.get(firstKey)).toContain('jpdb-not-in-deck');
@@ -940,7 +940,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             const html = await internals.parseCueHtml('読む', settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
 
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(html).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(false);
@@ -1001,7 +1001,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             });
 
             expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-            expect(parseJapaneseBatch).toHaveBeenCalledWith(['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapaneseBatch).toHaveBeenCalledWith(['一番', '二番'], { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(parsed.map(item => item.provisional)).toEqual([undefined, undefined]);
             expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
@@ -1059,7 +1059,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             });
 
             expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
-            expect(parseJapaneseBatch).toHaveBeenCalledWith(['今日は読む'], { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapaneseBatch).toHaveBeenCalledWith(['今日は読む'], { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(parsed[0]?.provisional).toBeUndefined();
             expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
@@ -1113,7 +1113,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 enrichBeforeRender: true,
             });
 
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(html).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
         } finally {

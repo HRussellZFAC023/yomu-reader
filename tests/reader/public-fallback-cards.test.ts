@@ -142,6 +142,30 @@ describe('publicLookupFallbackCards', () => {
         expect(result.get(cardKey(listening))).toBe(listeningVerb);
     });
 
+    it('rejects a partial surname hit and continues to the real inflected lemma', async () => {
+        const visited = fallbackCard({
+            vid: -1,
+            sid: -1,
+            spelling: '訪れた',
+            fallbackLookupTerms: ['訪る', '訪れる'],
+        });
+        const surname = jitenCard({ vid: 5639848, spelling: '訪', reading: 'ほう' });
+        const verb = jitenCard({ vid: 1518080, spelling: '訪れる', reading: 'おとずれる', pitchAccent: ['LHHHL'] });
+        const lookupMany = vi.fn(async () => new Map<string, JPDBCard>([
+            ['訪る', surname],
+            ['訪れる', verb],
+        ]));
+
+        const result = await publicLookupFallbackCards(
+            [visited],
+            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
+            { concurrency: 2, jpdbPublicLookup: false },
+        );
+
+        expect(result.get(cardKey(visited))).toBe(verb);
+        expect(result.get(cardKey(visited))).not.toBe(surname);
+    });
+
     it('sweeps only jiten misses through the bounded public lookup and stops at the first hit per entry', async () => {
         const resolvedByJiten = fallbackCard({ vid: -1, sid: -1, spelling: '青空' });
         const missed = fallbackCard({ vid: -2, sid: -2, spelling: '食べました', fallbackLookupTerms: ['食べる', '食う'] });
@@ -281,7 +305,7 @@ describe('batchJitenFallbackCards', () => {
         expect(cards.get('お茶')).toBe(teaCard);
     });
 
-    it('falls back to the first jiten token when nothing matches and never returns non-jiten cards', async () => {
+    it('rejects unrelated partial jiten tokens and never returns non-jiten cards', async () => {
         const strayJiten = jitenCard({ vid: 424200, spelling: 'コツ', reading: 'コツ' });
         const jpdbOnly = jitenCard({ vid: 1381470, spelling: '青空', reading: 'あおぞら', source: 'jpdb' });
         const parse = vi.fn(async (terms: string[]) => terms.map(term => {
@@ -292,8 +316,23 @@ describe('batchJitenFallbackCards', () => {
 
         const cards = await batchJitenFallbackCards(['ネコ', '青空'], parse);
 
-        expect(cards.get('ネコ')).toBe(strayJiten);
+        expect(cards.has('ネコ')).toBe(false);
         expect(cards.has('青空')).toBe(false);
+    });
+
+    it('does not let the 訪る deinflection candidate resolve to the surname 訪', async () => {
+        const surname = jitenCard({ vid: 5639848, spelling: '訪', reading: 'ほう' });
+        const verb = jitenCard({ vid: 1518080, spelling: '訪れる', reading: 'おとずれる' });
+        const parse = vi.fn(async (terms: string[]) => terms.map(term => {
+            if (term === '訪る') return [{ ...tokenFor(surname, '訪る'), end: 1, length: 1 }];
+            if (term === '訪れる') return [tokenFor(verb, '訪れる')];
+            return [];
+        }));
+
+        const cards = await batchJitenFallbackCards(['訪る', '訪れる'], parse);
+
+        expect(cards.has('訪る')).toBe(false);
+        expect(cards.get('訪れる')).toBe(verb);
     });
 
     it('returns an empty map when the batched parse fails', async () => {

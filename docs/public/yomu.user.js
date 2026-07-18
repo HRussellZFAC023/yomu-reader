@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.218
+// @version 1.6.219
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,13 +9,13 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.0eaa8f67e225.user.js#sha256=DqqPZ+IlswQCbMn5k6Wfcm+8mg0xINBPuXgincE71f8=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.1ae173128948.user.js#sha256=GuFzEolI8F1wx5VJzPkjavn7cGMPrU5MA/IO61tdSVE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.497d5a08521d.user.js#sha256=SX1aCFIds7YkRYAFMbZHt2yAFtv81B/2ppsWQ6pOgR8=
+// @require https://yomureader.com/greasyfork/yomu-anki.ac0e7d1be044.user.js#sha256=rA59G+BEokf756i4Ti4NfY0MUs1ga1RI9/3ys1/tTjQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.3e8b5bd61563.user.js#sha256=Potb1hVjybQZIgVl7JD34X4QK5X2FCSdhS1fPNaV98I=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a8fb41146c42.user.js#sha256=qPtBFGxCeLcC2QvNBBO3JtWTTSQWLZSIfdtUyouONGM=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.087ad06ab7ac.user.js#sha256=CHrQares/DuUXDwfl86m1Kd+e1ADh2vVoF78XgfGh8A=
-// @require https://yomureader.com/greasyfork/yomu-video.d264f68d5fe4.user.js#sha256=0mT2jV/kIelLo1AaPmUmzo5rvTbS/1ikZOgjypJ0ZKg=
-// @resource yomuCss  https://yomureader.com/yomu.475b9ad2620b.css#sha256=R1ua0mILyYPNNbYpzgBVmxyzWAQLb2i6KGDimiRyPfA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.83f839f10203.user.js#sha256=g/g58QIDM8WueCCF56tc/G/7FGqPyVQ9gQKZbXqPIfo=
+// @require https://yomureader.com/greasyfork/yomu-video.f7eb4cdbfe62.user.js#sha256=9+tM2/5i0ntAFQU/yb31V9VsV9ChrhLfvKy2CtLnwFQ=
+// @resource yomuCss  https://yomureader.com/yomu.61f72cee06a9.css#sha256=Yfcs7gapn0H5xP6evy4xTKeYeT/Nly1Pqy2w7YCeuSQ=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -743,8 +743,8 @@ function isCompactMediaContext(element2) {
   if (safeQuerySelector(element2, 'a[href], button, [role="link"], [role="button"]')) return true;
   const display = style.display;
   const structured = display.includes("grid") || display.includes("flex") || display === "block";
-  const compact = rect.width === 0 || rect.width <= 560;
-  return structured && compact;
+  const compact2 = rect.width === 0 || rect.width <= 560;
+  return structured && compact2;
 }
 const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
 const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
@@ -2270,7 +2270,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
@@ -4977,9 +4978,370 @@ function ensureBuiltInAudioSource(sources, source, beforeType) {
   if (insertIndex < 0) sources.push(source);
   else sources.splice(insertIndex, 0, source);
 }
+const PITCH_LEVELS = new Set(["H", "L"]);
+const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+const PITCH_CLASS_RULES = [
+  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+];
+function normalizePitchPatternForReading(pattern, reading) {
+  const levels = pitchLevels(pattern);
+  if (!levels.length) return "";
+  return normalizePitchLevelsForReading(levels, reading).join("");
+}
+function normalizePitchPatternsForReading(patterns, reading) {
+  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+}
+function pitchLevelsForDisplay(pattern, reading) {
+  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+}
+function pitchLevels(pattern) {
+  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+}
+function splitMorae(reading) {
+  if (!PRONUNCIATION_KANA.test(reading)) return [];
+  const morae = [];
+  for (const char of Array.from(reading)) {
+  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+  else morae.push(char);
+  }
+  return morae;
+}
+function countMorae(reading) {
+  return splitMorae(reading).length;
+}
+function pitchPatternFromPosition(reading, position) {
+  const moraCount = countMorae(reading);
+  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+  if (position === 0) return `L${"H".repeat(moraCount)}`;
+  if (position === 1) return `H${"L".repeat(moraCount)}`;
+  const highMorae = position - 1;
+  const lowTail = moraCount - position + 1;
+  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+}
+function pitchProfileForPattern(pattern, reading) {
+  const normalized = normalizePitchPatternForReading(pattern, reading);
+  const morae = splitMorae(reading);
+  const pitchNumber = pitchNumberFromPattern(normalized, reading);
+  return {
+  reading,
+  morae,
+  pitchNumber,
+  pattern: normalized,
+  className: pitchClassNameFromProfile(morae.length, pitchNumber)
+  };
+}
+function pitchClassNameForPattern(pattern, reading) {
+  return pitchProfileForPattern(pattern, reading).className;
+}
+function collectPitchVariants(reading, patterns, max = Infinity) {
+  const seen = new Set();
+  const variants = [];
+  for (const pattern of patterns) {
+  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+  const position = pitchNumberFromPattern(pattern, reading);
+  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+  if (seen.has(key)) continue;
+  seen.add(key);
+  variants.push({ pattern, position });
+  if (variants.length >= max) break;
+  }
+  return variants;
+}
+function contextPitchPattern(patterns, reading) {
+  if (!patterns?.length) return "";
+  if (!reading) return patterns[0];
+  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+}
+function pitchNumberFromPattern(pattern, reading) {
+  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+  const moraCount = countMorae(reading);
+  if (!moraCount) return null;
+  if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+  if (levels.length > moraCount + 1) return null;
+  for (let position = 0; position <= moraCount; position += 1) {
+  const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+  if (levels.every((level, index) => expected[index] === level)) return position;
+  }
+  return null;
+}
+function looksLikeCompactHeibanPattern(levels) {
+  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+}
+function pitchClassNameFromProfile(moraCount, pitchNumber) {
+  if (!moraCount || pitchNumber == null) return "";
+  return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+}
+function normalizePitchLevelsForReading(levels, reading) {
+  const chars = Array.from(reading);
+  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+  const normalized = [];
+  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+  normalized.push(levels[index]);
+  }
+  return normalized.concat(levels.slice(chars.length));
+}
+function looksCharacterAlignedPitch(levels, chars) {
+  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+  if (levels.length < chars.length) return false;
+  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+}
+function getPitchClass(pitchAccent, reading) {
+  const pattern = contextPitchPattern(pitchAccent, reading);
+  return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+}
+function assignSentenceInfo(paragraphs, tokens) {
+  paragraphs.forEach((paragraph, index) => {
+  const tokenData = tokens[index] ?? [];
+  const sentences = splitJapaneseSentences(paragraph);
+  if (sentences.length === 1) {
+    tokenData.forEach((token) => {
+      token.sentence = sentences[0];
+    });
+    return;
+  }
+  let offset = 0;
+  for (const sentence of sentences) {
+    const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+    const relativeStart = paragraph.slice(offset).indexOf(compare);
+    if (relativeStart === -1) {
+      offset += sentence.length;
+      continue;
+    }
+    const start = offset + relativeStart;
+    const end = start + sentence.length;
+    for (const token of tokenData) {
+      if (token.start >= start && token.end <= end) token.sentence = sentence;
+    }
+    offset += sentence.length;
+  }
+  });
+}
+function splitJapaneseSentences(text2) {
+  const sentences = [];
+  const state = { start: 0, quote: null };
+  for (let index = 0; index < text2.length; index++) {
+  index = advanceSentenceSplitter(sentences, text2, state, index);
+  }
+  const tail = text2.slice(state.start).trim();
+  if (tail) sentences.push(tail);
+  const nonEmptySentences = sentences.filter(Boolean);
+  const result = nonEmptySentences.length ? nonEmptySentences : [text2];
+  return result;
+}
+function advanceSentenceSplitter(sentences, text2, state, index) {
+  state.quote = closingQuoteFor(text2[index]) ?? state.quote;
+  if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
+  return advancePunctuationSentenceSplitter(sentences, text2, state, index);
+}
+function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
+  if (!state.quote) return index;
+  const boundary = quotedSentenceBoundary(text2, index, state.quote);
+  if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+  return index;
+}
+function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
+  const boundary = punctuationSentenceBoundary(text2, index);
+  if (!boundary) return index;
+  Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+  return boundary.nextIndex;
+}
+function pushSentenceBoundary(sentences, text2, start, end) {
+  sentences.push(text2.slice(start, end).trim());
+  return { start: end, quote: null };
+}
+function closingQuoteFor(char) {
+  if (char === "「") return "」";
+  if (char === "『") return "』";
+  return null;
+}
+function quotedSentenceBoundary(text2, index, quote) {
+  if (text2[index] !== quote) return null;
+  const next = text2[index + 1];
+  return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
+}
+function punctuationSentenceBoundary(text2, index) {
+  if (!"。！？".includes(text2[index])) return null;
+  const next = text2[index + 1];
+  const includesClosingQuote = next === "」" || next === "』";
+  return {
+  end: includesClosingQuote ? index + 2 : index + 1,
+  nextIndex: includesClosingQuote ? index + 1 : index
+  };
+}
 const KANJI_RE$3 = /[\u3400-\u9fff]/u;
-const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
 const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
+  const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
+  assignSentenceInfo(paragraphs, tokens);
+  return tokens;
+}
+function parseParagraphTokens(paragraph, rawTokens, cards) {
+  return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
+}
+function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
+  const card = cards[vocabularyIndex];
+  const rubies = parseRubies(furigana, position);
+  repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
+  const token = {
+  card,
+  start: position,
+  end: position + length,
+  length,
+  rubies,
+  pitchClass: currentPitchClass(card)
+  };
+  assignWordWithReading(token);
+  return token;
+}
+function parseRubies(furigana, startOffset) {
+  if (furigana === null) return [];
+  let offset = startOffset;
+  return furigana.flatMap((part) => {
+  if (typeof part === "string") {
+    offset += part.length;
+    return [];
+  }
+  const [base, ruby] = part;
+  const start = offset;
+  const end = offset = start + base.length;
+  return [{ text: ruby, start, end, length: base.length }];
+  });
+}
+function currentPitchClass(card) {
+  if (card.partOfSpeech.includes("prt")) return "";
+  return getPitchClass(card.pitchAccent, card.reading);
+}
+function assignWordWithReading(token) {
+  const { card, rubies, start: offset } = token;
+  if (!rubies.length) return;
+  const word = Array.from(card.spelling);
+  for (let i = rubies.length - 1; i >= 0; i--) {
+  const { text: text2, start, length } = rubies[i];
+  word.splice(start - offset + length, 0, `[${text2}]`);
+  }
+  card.wordWithReading = word.join("");
+}
+function repairCardReadingFromRubies(card, surface, rubies, offset) {
+  if (!shouldRepairCardReading(card, surface, rubies)) return;
+  const reading = surfaceReadingFromRubies(surface, rubies, offset);
+  if (!reading || !KANA_RE$1.test(reading)) return;
+  const previousReading = card.reading.trim();
+  if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
+  card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+  card.pitchAccent = [];
+  }
+  card.reading = reading;
+}
+function shouldRepairCardReading(card, surface, rubies) {
+  if (!rubies.length || !surface || card.spelling !== surface) return false;
+  if (!KANJI_RE$3.test(card.spelling)) return false;
+  const reading = card.reading.trim();
+  return !reading || reading === card.spelling || KANA_RE$1.test(reading);
+}
+function surfaceReadingFromRubies(surface, rubies, offset) {
+  let reading = "";
+  let cursor = 0;
+  for (const ruby of rubies) {
+  const start = ruby.start - offset;
+  const end = ruby.end - offset;
+  if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
+  reading += surface.slice(cursor, start);
+  reading += ruby.text;
+  cursor = end;
+  }
+  reading += surface.slice(cursor);
+  return reading;
+}
+function jpdbVocabularyToCards(vocabulary) {
+  if (!Array.isArray(vocabulary)) return [];
+  const cards = [];
+  for (const item of vocabulary) {
+  if (!Array.isArray(item)) continue;
+  const [
+    vid,
+    sid,
+    rid,
+    spelling,
+    reading,
+    frequencyRank2,
+    partOfSpeech,
+    meaningsChunks,
+    meaningsPartOfSpeech,
+    cardState,
+    pitchAccent,
+    dueAt,
+    sentence
+  ] = item;
+  cards.push({
+    vid,
+    sid,
+    rid,
+    spelling,
+    reading,
+    frequencyRank: frequencyRank2,
+    partOfSpeech,
+    meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+      glosses,
+      partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+    })),
+    cardState: normalizeCardStates(cardState),
+    pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+    dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
+    wordWithReading: null,
+    sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
+    source: "jpdb"
+  });
+  }
+  return cards;
+}
+const PITCH_CLASSES$1 = new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
+function resolvedPitchComponents(card) {
+  if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return [];
+  const components = card.pitchComponents ?? [];
+  if (components.length < 2) return [];
+  if (compact(components.map((component) => component.spelling).join("")) !== compact(card.spelling)) return [];
+  if (card.reading && compact(components.map((component) => component.reading).join("")) !== compact(card.reading)) return [];
+  const resolved = components.map((component) => ({
+  ...component,
+  pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
+  }));
+  return resolved.every((component) => PITCH_CLASSES$1.has(component.pitchClass)) ? resolved : [];
+}
+function hasResolvedPitchComponents(card) {
+  return resolvedPitchComponents(card).length > 0;
+}
+function pitchComponentUnderlineGradient(card) {
+  const components = resolvedPitchComponents(card);
+  if (!components.length) return "";
+  const lengths = components.map((component) => Array.from(component.spelling).length);
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  if (!total) return "";
+  let offset = 0;
+  const stops = [];
+  components.forEach((component, index) => {
+  const start = offset / total * 100;
+  offset += lengths[index] ?? 0;
+  const end = offset / total * 100;
+  const color = `var(--jpdb-reader-pitch-${component.pitchClass})`;
+  stops.push(`${color} ${formatPercent(start)}`, `${color} ${formatPercent(end)}`);
+  });
+  return `linear-gradient(to right, ${stops.join(", ")})`;
+}
+function compact(value) {
+  return value.replace(/\s+/g, "").trim();
+}
+function formatPercent(value) {
+  return `${Number(value.toFixed(3))}%`;
+}
+const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
+const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -5344,8 +5706,8 @@ function normalizedControlText(text2) {
   return text2.replace(/\s+/g, " ").trim();
 }
 function isCollectableControlText(text2) {
-  const compact = compactLength(text2);
-  return compact > 0 && compact <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE$1.test(text2);
+  const compact2 = compactLength(text2);
+  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE$1.test(text2);
 }
 function fragmentText(items) {
   return items.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
@@ -6619,9 +6981,9 @@ function openSafeDetachedReadingClips(element2) {
   if (!clips) continue;
   const rect = current.getBoundingClientRect();
   const measured = current.clientWidth > 0 && current.clientHeight > 0;
-  const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
+  const compact2 = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
   const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
-  if (compact && baseFits) openDetachedReadingClip(current);
+  if (compact2 && baseFits) openDetachedReadingClip(current);
   else restoreDetachedReadingClip(current);
   }
 }
@@ -8237,6 +8599,7 @@ function createReaderWordSpan(token, options) {
   if (token.card.reading) span.dataset.reading = token.card.reading;
   const pitchAccent = token.card.pitchAccent.join("|");
   if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+  if (showPitchAccent) applyPitchComponentGradient(span, token.card);
   applyDeckMembershipDataset(span, token.card);
   applyTokenRenderOptions(span, token, options);
   return span;
@@ -8289,8 +8652,16 @@ function renderTokenHtml(surface, token, settings, miningInsightKeys) {
   const pitchAccent = token.card.pitchAccent.join("|");
   const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
   const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
+  const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
+  const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$1(pitchComponentGradient)}"` : "";
   const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+  return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+}
+function applyPitchComponentGradient(word, card) {
+  const gradient = pitchComponentUnderlineGradient(card);
+  if (!gradient) return;
+  word.dataset.pitchComponents = "true";
+  word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
 }
 function renderDeckMembershipAttributes(card) {
   const membership = cardDeckMembership(card);
@@ -8311,7 +8682,7 @@ function furiganaModeAllowsRuby(mode, surface, token, settings) {
 }
 function hasDifficultKanji(surface) {
   for (const char of surface) {
-  if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+  if (KANJI_RE$2.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
   }
   return false;
 }
@@ -8372,19 +8743,19 @@ function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const baseSpelling = spelling.trim();
   const baseReading = reading.trim();
   if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-  if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+  if (!KANJI_RE$2.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
   for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
   if (!baseReading.endsWith(spellingSuffix)) continue;
   const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
   if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
   const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-  if (surfaceSuffix && !KANA_RE$1.test(surfaceSuffix)) continue;
+  if (surfaceSuffix && !KANA_RE.test(surfaceSuffix)) continue;
   const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
   if (rubies.length) return rubies;
   }
   if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
   const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-  if (!surfaceSuffix || KANA_RE$1.test(surfaceSuffix)) {
+  if (!surfaceSuffix || KANA_RE.test(surfaceSuffix)) {
     return [{
       text: baseReading,
       start: 0,
@@ -8399,14 +8770,14 @@ function trailingKanaSuffixes(value) {
   const suffixes = [];
   for (let index = 0; index < value.length; index += 1) {
   const suffix = value.slice(index);
-  if (suffix && KANA_RE$1.test(suffix)) suffixes.push(suffix);
+  if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
   }
   return suffixes.sort((first, second) => second.length - first.length);
 }
 function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
   const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
   if (!trimmed.surface || !trimmed.reading) return [];
-  if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+  if (!KANJI_RE$2.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
   return [{
   text: trimmed.reading,
   start: trimmed.offset,
@@ -8433,7 +8804,7 @@ function trimSharedKanaAffixes$1(surface, reading) {
   return { surface: trimmedSurface, reading: trimmedReading, offset };
 }
 function sameKanaCharacter(first, second) {
-  return Boolean(first && second && first === second && KANA_RE$1.test(first));
+  return Boolean(first && second && first === second && KANA_RE.test(first));
 }
 function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   const sources = sourceTokenRubies(surface, token);
@@ -8442,7 +8813,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const range = localRubyRange(surface, token, ruby);
     if (!range) return [];
     const base = surface.slice(range.start, range.end);
-    if (!KANJI_RE$3.test(base)) return [];
+    if (!KANJI_RE$2.test(base)) return [];
     if (!KANA_CHAR_RE$1.test(base)) return [ruby];
     const parts = kanjiOnlyRubySegments(surface, token, ruby);
     return parts.length ? parts : [ruby];
@@ -8453,7 +8824,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
 function sourceTokenRubies(surface, token) {
   if (token.rubies.length) return token.rubies;
   const reading = token.card.reading.trim();
-  if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+  if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
   if (inferred.length) {
   return inferred.map((ruby) => ({
@@ -8481,8 +8852,8 @@ function localRubyRange(surface, token, ruby) {
   return { start, end };
 }
 function kanjiRubyParts(base, reading) {
-  if (!base || !reading || !KANJI_RE$3.test(base)) return [];
-  if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+  if (!base || !reading || !KANJI_RE$2.test(base)) return [];
+  if (!KANA_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
   const anchors = alignRubyKanaAnchors(base, reading);
   if (!anchors) return trimRubyPartToKanji(base, reading);
   const parts = [];
@@ -8502,7 +8873,7 @@ function appendRubyGap(parts, base, start, end, reading) {
 }
 function trimRubyPartToKanji(base, reading) {
   const trimmed = trimSharedKanaAffixes$1(base, reading);
-  if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
+  if (!trimmed.surface || !trimmed.reading || !KANJI_RE$2.test(trimmed.surface)) return [];
   const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
   if (kanjiOnly) {
   return [{
@@ -8518,13 +8889,13 @@ function trimRubyPartToKanji(base, reading) {
   }];
 }
 function kanaTrimmedKanjiRange(base, reading) {
-  if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
+  if (!KANA_RE.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
   const chars = Array.from(base);
-  const first = chars.findIndex((char) => KANJI_RE$3.test(char));
+  const first = chars.findIndex((char) => KANJI_RE$2.test(char));
   if (first < 0) return null;
   let last = -1;
   for (let index = chars.length - 1; index >= first; index -= 1) {
-  if (KANJI_RE$3.test(chars[index])) {
+  if (KANJI_RE$2.test(chars[index])) {
     last = index;
     break;
   }
@@ -8571,7 +8942,7 @@ function rubyKanaAnchorPlanIsValid(base, reading, anchors) {
   return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
 }
 function rubyGapCanOwnReading(base, reading) {
-  return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
+  return KANJI_RE$2.test(base) ? reading.length > 0 : reading.length === 0;
 }
 function rubyBaseKanaRuns(base) {
   const runs = [];
@@ -12592,6 +12963,152 @@ function currentFullscreenElement() {
   const fullscreenDocument = document;
   return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
 }
+const SCALE_EPSILON = 0.05;
+const MAX_PAGE_SCALE = 3;
+const REDDIT_APPLE_TOUCH_ADAPTER = "reddit-apple-touch-page-scale";
+const rememberedRectScales = new WeakMap();
+function isRedditHostname(hostname) {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
+}
+function redditPageScale(environment) {
+  if (!isRedditHostname(environment.hostname) || !environment.appleTouch) return 1;
+  if (!positiveFinite(environment.innerWidth) || !positiveFinite(environment.outerWidth)) return 1;
+  const scale = environment.outerWidth / environment.innerWidth;
+  if (!Number.isFinite(scale) || scale <= 1 + SCALE_EPSILON) return 1;
+  return Math.min(scale, MAX_PAGE_SCALE);
+}
+function redditOverlayViewport(environment = currentEnvironment()) {
+  const pageScale = redditPageScale(environment);
+  return {
+  width: environment.innerWidth * pageScale,
+  height: environment.innerHeight * pageScale,
+  pageScale
+  };
+}
+function redditOverlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+  const pageScale = redditPageScale(environment);
+  const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
+  const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
+  const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
+  const top = finiteCoordinate(visualViewport?.offsetTop) * pageScale;
+  const scaledWidth = width * pageScale;
+  const scaledHeight = height * pageScale;
+  return {
+  left,
+  top,
+  right: left + scaledWidth,
+  bottom: top + scaledHeight,
+  width: scaledWidth,
+  height: scaledHeight,
+  pageScale
+  };
+}
+function redditOverlayViewportBottomInset(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+  const fullViewport = redditOverlayViewport(environment);
+  const visibleBounds = redditOverlayViewportBounds(environment, visualViewport);
+  return Math.max(0, fullViewport.height - visibleBounds.bottom);
+}
+function redditLayoutPointToOverlay(point, pageScale = redditOverlayViewport().pageScale) {
+  return {
+  x: point.x * pageScale,
+  y: point.y * pageScale
+  };
+}
+function redditLayoutRectToOverlay(rect, pageScale = redditOverlayViewport().pageScale) {
+  return new DOMRect(
+  rect.left * pageScale,
+  rect.top * pageScale,
+  rect.width * pageScale,
+  rect.height * pageScale
+  );
+}
+function rememberRedditSourceRect(rect, source, pageScale = redditOverlayViewport().pageScale) {
+  const root = compensatedRedditOverlayRoot(source);
+  if (root) rememberedRectScales.set(rect, compensatedRootRectScale(root, pageScale));
+  return rect;
+}
+function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewport().pageScale) {
+  const rememberedScale = rememberedRectScales.get(rect);
+  const root = compensatedRedditOverlayRoot(source);
+  const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
+  const overlayRect = scaleRect(rect, rectScale);
+  rememberedRectScales.set(overlayRect, 1);
+  return overlayRect;
+}
+function compensatedRedditOverlayRoot(source) {
+  const element2 = source instanceof Element ? source : source?.parentElement;
+  const root = element2?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
+  return root instanceof HTMLElement ? root : null;
+}
+function applyRedditOverlayScale(element2, environment = currentEnvironment()) {
+  const pageScale = redditPageScale(environment);
+  if (pageScale === 1) {
+  clearOwnedScale(element2);
+  return;
+  }
+  const inverseScale = 1 / pageScale;
+  element2.style.setProperty("zoom", formatScale(inverseScale), "important");
+  element2.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
+  element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
+  element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+}
+function hasRedditOverlayScale(element2) {
+  return element2?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
+}
+function currentEnvironment() {
+  return {
+  hostname: location.hostname,
+  appleTouch: isAppleTouchBrowser(),
+  innerWidth: window.innerWidth,
+  innerHeight: window.innerHeight,
+  outerWidth: window.outerWidth
+  };
+}
+function currentVisualViewport() {
+  const viewport = window.visualViewport;
+  return viewport ? {
+  width: viewport.width,
+  height: viewport.height,
+  offsetLeft: viewport.offsetLeft,
+  offsetTop: viewport.offsetTop
+  } : void 0;
+}
+function clearOwnedScale(element2) {
+  if (!hasRedditOverlayScale(element2)) return;
+  element2.style.removeProperty("zoom");
+  delete element2.dataset.jpdbReaderScaleAdapter;
+  delete element2.dataset.jpdbReaderPageScale;
+  delete element2.dataset.jpdbReaderScaleCompensation;
+}
+function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
+  if (pageScale === 1) return 1;
+  const rect = root.getBoundingClientRect();
+  const ratios = [
+  dimensionRatio(rect.width, root.offsetWidth),
+  dimensionRatio(rect.height, root.offsetHeight)
+  ].filter((ratio) => ratio !== void 0);
+  if (!ratios.length) return 1;
+  const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
+  return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
+}
+function dimensionRatio(rectSize, offsetSize) {
+  if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
+  return rectSize / offsetSize;
+}
+function scaleRect(rect, scale) {
+  return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+}
+function positiveFinite(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+function finiteCoordinate(value) {
+  return Number.isFinite(value) ? value ?? 0 : 0;
+}
+function formatScale(value) {
+  return String(Number(value.toFixed(6)));
+}
 const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
 const SUPPORTED_POPOVER_WRITING_MODES = new Set([
   "horizontal-tb",
@@ -12735,9 +13252,9 @@ function popoverMaxFrameHeight(viewportHeight, options) {
 function positionPopoverWithoutAnchor(popover, frame) {
   const margin = 8;
   const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
-  const fallbackTop = frame.viewportHeight * 0.18;
-  popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
-  popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
+  const fallbackTop = frame.viewport.top + frame.viewportHeight * 0.18;
+  popover.style.left = `${Math.max(frame.viewport.left + margin, Math.min(fallbackLeft, frame.viewport.right - frame.width - margin))}px`;
+  popover.style.top = `${Math.max(frame.viewport.top + margin, Math.min(fallbackTop, frame.viewport.bottom - frame.height - margin))}px`;
   restorePopoverScrollTop(popover, frame.scrollTop);
 }
 function positionAnchoredPopover(popover, anchor, frame) {
@@ -12762,13 +13279,19 @@ function getPopoverSourceRects(anchor, fallbackRect, options) {
 }
 function pointPopoverRects(point) {
   const radius = 14;
-  return [{ left: point.x - radius, top: point.y - radius, right: point.x + radius, bottom: point.y + radius }];
+  const overlayPoint = redditLayoutPointToOverlay(point);
+  return [{
+  left: overlayPoint.x - radius,
+  top: overlayPoint.y - radius,
+  right: overlayPoint.x + radius,
+  bottom: overlayPoint.y + radius
+  }];
 }
 function anchorPopoverRects(anchor) {
   if (!anchor) return [];
-  const clientRects = rectListToPopoverRects(anchor.getClientRects());
+  const clientRects = rectListToPopoverRects(anchor.getClientRects(), anchor);
   if (clientRects.length) return clientRects;
-  const rect = domRectToPopoverRect(anchor.getBoundingClientRect());
+  const rect = domRectToPopoverRect(anchor.getBoundingClientRect(), anchor);
   return hasRectArea(rect) ? [rect] : [];
 }
 function selectionPopoverRects() {
@@ -12779,23 +13302,34 @@ function selectionPopoverRects() {
   return clientRects.length ? clientRects : rangeBoundingPopoverRects(range);
 }
 function rangeClientPopoverRects(range) {
-  return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects()) : [];
+  return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects(), range.commonAncestorContainer) : [];
 }
 function rangeBoundingPopoverRects(range) {
   if (typeof range.getBoundingClientRect !== "function") return [];
-  const rect = domRectToPopoverRect(range.getBoundingClientRect());
+  const rect = domRectToPopoverRect(range.getBoundingClientRect(), range.commonAncestorContainer);
   return hasRectArea(rect) ? [rect] : [];
 }
-function rectListToPopoverRects(rects) {
-  return Array.from(rects, domRectToPopoverRect).filter(hasRectArea);
+function rectListToPopoverRects(rects, source) {
+  return Array.from(rects, (rect) => domRectToPopoverRect(rect, source)).filter(hasRectArea);
 }
-function domRectToPopoverRect(rect) {
-  return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+function domRectToPopoverRect(rect, source) {
+  const overlayRect = redditSourceRectToOverlay(rect, source);
+  return {
+  left: overlayRect.left,
+  top: overlayRect.top,
+  right: overlayRect.right,
+  bottom: overlayRect.bottom
+  };
 }
 function hasRectArea(rect) {
   return rect.right > rect.left || rect.bottom > rect.top;
 }
 function getPopoverViewport() {
+  const overlayViewport = redditOverlayViewport();
+  if (overlayViewport.pageScale > 1) {
+  const bounds = redditOverlayViewportBounds();
+  return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
+  }
   const { visualViewport } = window;
   if (visualViewport) {
   const left = visualViewport.offsetLeft;
@@ -14363,124 +14897,7 @@ function cardHighlightTargetFromScope(scope) {
   sid: scope.dataset.cardHighlightSid
   };
 }
-const PITCH_LEVELS = new Set(["H", "L"]);
-const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-const PITCH_CLASS_RULES = [
-  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-];
-function normalizePitchPatternForReading(pattern, reading) {
-  const levels = pitchLevels(pattern);
-  if (!levels.length) return "";
-  return normalizePitchLevelsForReading(levels, reading).join("");
-}
-function normalizePitchPatternsForReading(patterns, reading) {
-  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-}
-function pitchLevelsForDisplay(pattern, reading) {
-  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-}
-function pitchLevels(pattern) {
-  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-}
-function splitMorae(reading) {
-  if (!PRONUNCIATION_KANA.test(reading)) return [];
-  const morae = [];
-  for (const char of Array.from(reading)) {
-  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-  else morae.push(char);
-  }
-  return morae;
-}
-function countMorae(reading) {
-  return splitMorae(reading).length;
-}
-function pitchPatternFromPosition(reading, position) {
-  const moraCount = countMorae(reading);
-  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-  if (position === 0) return `L${"H".repeat(moraCount)}`;
-  if (position === 1) return `H${"L".repeat(moraCount)}`;
-  const highMorae = position - 1;
-  const lowTail = moraCount - position + 1;
-  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-}
-function pitchProfileForPattern(pattern, reading) {
-  const normalized = normalizePitchPatternForReading(pattern, reading);
-  const morae = splitMorae(reading);
-  const pitchNumber = pitchNumberFromPattern(normalized, reading);
-  return {
-  reading,
-  morae,
-  pitchNumber,
-  pattern: normalized,
-  className: pitchClassNameFromProfile(morae.length, pitchNumber)
-  };
-}
-function pitchClassNameForPattern(pattern, reading) {
-  return pitchProfileForPattern(pattern, reading).className;
-}
-function collectPitchVariants(reading, patterns, max = Infinity) {
-  const seen = new Set();
-  const variants = [];
-  for (const pattern of patterns) {
-  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-  const position = pitchNumberFromPattern(pattern, reading);
-  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-  if (seen.has(key)) continue;
-  seen.add(key);
-  variants.push({ pattern, position });
-  if (variants.length >= max) break;
-  }
-  return variants;
-}
-function contextPitchPattern(patterns, reading) {
-  if (!patterns?.length) return "";
-  if (!reading) return patterns[0];
-  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-}
-function pitchNumberFromPattern(pattern, reading) {
-  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-  const moraCount = countMorae(reading);
-  if (!moraCount) return null;
-  if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-  if (levels.length > moraCount + 1) return null;
-  for (let position = 0; position <= moraCount; position += 1) {
-  const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-  if (levels.every((level, index) => expected[index] === level)) return position;
-  }
-  return null;
-}
-function looksLikeCompactHeibanPattern(levels) {
-  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-}
-function pitchClassNameFromProfile(moraCount, pitchNumber) {
-  if (!moraCount || pitchNumber == null) return "";
-  return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-}
-function normalizePitchLevelsForReading(levels, reading) {
-  const chars = Array.from(reading);
-  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-  const normalized = [];
-  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-  normalized.push(levels[index]);
-  }
-  return normalized.concat(levels.slice(chars.length));
-}
-function looksCharacterAlignedPitch(levels, chars) {
-  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-  if (levels.length < chars.length) return false;
-  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-}
-function getPitchClass(pitchAccent, reading) {
-  const pattern = contextPitchPattern(pitchAccent, reading);
-  return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-}
-const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+const KANJI_RE$1 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 function compactReading(value) {
   return value.normalize("NFC").replace(/\s+/g, "").trim();
@@ -14559,7 +14976,7 @@ function readingFromSurfaceRubies(surface, rubies) {
   return reading;
 }
 function unannotatedPronunciationText$1(value) {
-  return Array.from(value).filter((character) => !KANJI_RE$2.test(character)).join("");
+  return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
 }
 function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
   const classified = segments.map((segment) => ({
@@ -16459,7 +16876,7 @@ function formatPartOfSpeechDetails(tags = []) {
   return tags.length ? tags.join(", ").toUpperCase() : "";
 }
 Logger.scope("KanjiOrigin");
-const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
+const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
 const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
 const JPDB_BASE_URL = "https://jpdb.io";
 const JAPANESE_RUN_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3005\u3006\u3007々〆ヶー]+/u;
@@ -16503,10 +16920,10 @@ function firstJapaneseRunOrEmpty(value) {
   return cleanText(value.match(JAPANESE_RUN_RE$1)?.[0] ?? "");
 }
 function firstReviewGlyph(text2) {
-  const direct = text2.match(KANJI_RE$1);
+  const direct = text2.match(KANJI_RE);
   if (direct) return direct[0];
   try {
-  return decodeURIComponent(text2).match(KANJI_RE$1)?.[0] ?? null;
+  return decodeURIComponent(text2).match(KANJI_RE)?.[0] ?? null;
   } catch {
   return null;
   }
@@ -18614,211 +19031,6 @@ function withInitialDakuten(reading) {
 }
 function toHiragana(value) {
   return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
-}
-function assignSentenceInfo(paragraphs, tokens) {
-  paragraphs.forEach((paragraph, index) => {
-  const tokenData = tokens[index] ?? [];
-  const sentences = splitJapaneseSentences(paragraph);
-  if (sentences.length === 1) {
-    tokenData.forEach((token) => {
-      token.sentence = sentences[0];
-    });
-    return;
-  }
-  let offset = 0;
-  for (const sentence of sentences) {
-    const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-    const relativeStart = paragraph.slice(offset).indexOf(compare);
-    if (relativeStart === -1) {
-      offset += sentence.length;
-      continue;
-    }
-    const start = offset + relativeStart;
-    const end = start + sentence.length;
-    for (const token of tokenData) {
-      if (token.start >= start && token.end <= end) token.sentence = sentence;
-    }
-    offset += sentence.length;
-  }
-  });
-}
-function splitJapaneseSentences(text2) {
-  const sentences = [];
-  const state = { start: 0, quote: null };
-  for (let index = 0; index < text2.length; index++) {
-  index = advanceSentenceSplitter(sentences, text2, state, index);
-  }
-  const tail = text2.slice(state.start).trim();
-  if (tail) sentences.push(tail);
-  const nonEmptySentences = sentences.filter(Boolean);
-  const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-  return result;
-}
-function advanceSentenceSplitter(sentences, text2, state, index) {
-  state.quote = closingQuoteFor(text2[index]) ?? state.quote;
-  if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
-  return advancePunctuationSentenceSplitter(sentences, text2, state, index);
-}
-function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
-  if (!state.quote) return index;
-  const boundary = quotedSentenceBoundary(text2, index, state.quote);
-  if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
-  return index;
-}
-function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
-  const boundary = punctuationSentenceBoundary(text2, index);
-  if (!boundary) return index;
-  Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
-  return boundary.nextIndex;
-}
-function pushSentenceBoundary(sentences, text2, start, end) {
-  sentences.push(text2.slice(start, end).trim());
-  return { start: end, quote: null };
-}
-function closingQuoteFor(char) {
-  if (char === "「") return "」";
-  if (char === "『") return "』";
-  return null;
-}
-function quotedSentenceBoundary(text2, index, quote) {
-  if (text2[index] !== quote) return null;
-  const next = text2[index + 1];
-  return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
-}
-function punctuationSentenceBoundary(text2, index) {
-  if (!"。！？".includes(text2[index])) return null;
-  const next = text2[index + 1];
-  const includesClosingQuote = next === "」" || next === "』";
-  return {
-  end: includesClosingQuote ? index + 2 : index + 1,
-  nextIndex: includesClosingQuote ? index + 1 : index
-  };
-}
-const KANJI_RE = /[\u3400-\u9fff]/u;
-const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
-function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-  const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
-  assignSentenceInfo(paragraphs, tokens);
-  return tokens;
-}
-function parseParagraphTokens(paragraph, rawTokens, cards) {
-  return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
-}
-function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
-  const card = cards[vocabularyIndex];
-  const rubies = parseRubies(furigana, position);
-  repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
-  const token = {
-  card,
-  start: position,
-  end: position + length,
-  length,
-  rubies,
-  pitchClass: currentPitchClass(card)
-  };
-  assignWordWithReading(token);
-  return token;
-}
-function parseRubies(furigana, startOffset) {
-  if (furigana === null) return [];
-  let offset = startOffset;
-  return furigana.flatMap((part) => {
-  if (typeof part === "string") {
-    offset += part.length;
-    return [];
-  }
-  const [base, ruby] = part;
-  const start = offset;
-  const end = offset = start + base.length;
-  return [{ text: ruby, start, end, length: base.length }];
-  });
-}
-function currentPitchClass(card) {
-  if (card.partOfSpeech.includes("prt")) return "";
-  return getPitchClass(card.pitchAccent, card.reading);
-}
-function assignWordWithReading(token) {
-  const { card, rubies, start: offset } = token;
-  if (!rubies.length) return;
-  const word = Array.from(card.spelling);
-  for (let i = rubies.length - 1; i >= 0; i--) {
-  const { text: text2, start, length } = rubies[i];
-  word.splice(start - offset + length, 0, `[${text2}]`);
-  }
-  card.wordWithReading = word.join("");
-}
-function repairCardReadingFromRubies(card, surface, rubies, offset) {
-  if (!shouldRepairCardReading(card, surface, rubies)) return;
-  const reading = surfaceReadingFromRubies(surface, rubies, offset);
-  if (!reading || !KANA_RE.test(reading)) return;
-  const previousReading = card.reading.trim();
-  if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
-  card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-  card.pitchAccent = [];
-  }
-  card.reading = reading;
-}
-function shouldRepairCardReading(card, surface, rubies) {
-  if (!rubies.length || !surface || card.spelling !== surface) return false;
-  if (!KANJI_RE.test(card.spelling)) return false;
-  const reading = card.reading.trim();
-  return !reading || reading === card.spelling || KANA_RE.test(reading);
-}
-function surfaceReadingFromRubies(surface, rubies, offset) {
-  let reading = "";
-  let cursor = 0;
-  for (const ruby of rubies) {
-  const start = ruby.start - offset;
-  const end = ruby.end - offset;
-  if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
-  reading += surface.slice(cursor, start);
-  reading += ruby.text;
-  cursor = end;
-  }
-  reading += surface.slice(cursor);
-  return reading;
-}
-function jpdbVocabularyToCards(vocabulary) {
-  if (!Array.isArray(vocabulary)) return [];
-  const cards = [];
-  for (const item of vocabulary) {
-  if (!Array.isArray(item)) continue;
-  const [
-    vid,
-    sid,
-    rid,
-    spelling,
-    reading,
-    frequencyRank2,
-    partOfSpeech,
-    meaningsChunks,
-    meaningsPartOfSpeech,
-    cardState,
-    pitchAccent,
-    dueAt,
-    sentence
-  ] = item;
-  cards.push({
-    vid,
-    sid,
-    rid,
-    spelling,
-    reading,
-    frequencyRank: frequencyRank2,
-    partOfSpeech,
-    meanings: (meaningsChunks ?? []).map((glosses, index) => ({
-      glosses,
-      partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
-    })),
-    cardState: normalizeCardStates(cardState),
-    pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-    dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
-    wordWithReading: null,
-    sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
-    source: "jpdb"
-  });
-  }
-  return cards;
 }
 function stableHash32(value) {
   let hash = 2166136261;
@@ -22730,6 +22942,7 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
   let sheetHeight = 0;
   let startHeight = 0;
   let rawDragHeight = 0;
+  let dragPageScale = 1;
   const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
   const syncHandle = (handle) => {
   handle.setAttribute("role", "button");
@@ -22752,8 +22965,12 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
   if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
   };
   const applyViewportSize = () => {
+  applyRedditOverlayScale(popover);
   const previousViewportHeight = viewportHeight;
-  viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
+  const overlayViewport = redditOverlayViewport();
+  viewportHeight = fixedChromeViewportHeight();
+  const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
+  popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
   popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
   popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
   popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
@@ -22802,15 +23019,16 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
   };
   const sheetDrag = createHandleDragController({
   tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-  movementDistance: (state) => Math.abs(state.deltaY),
+  movementDistance: (state) => Math.abs(state.deltaY * dragPageScale),
   onBegin: () => {
+    dragPageScale = redditOverlayViewport().pageScale;
     startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
     rawDragHeight = startHeight;
     popover.style.transition = "";
     popover.classList.add("jpdb-reader-sheet-resizing");
   },
   onUpdate: (state) => {
-    rawDragHeight = startHeight - state.deltaY;
+    rawDragHeight = startHeight - state.deltaY * dragPageScale;
     applySheetHeight(rawDragHeight);
   },
   onFinish: (_state, wasMoved) => {
@@ -23042,11 +23260,11 @@ function installMiningDrawerHandle(root, setExpanded) {
 function eventHasPointTarget(event) {
   return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
 }
-function shouldUseSheet(settings, trigger = "modal") {
+function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
   const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
   if (mode === "sheet") return true;
   if (mode === "popover") return false;
-  const { width, height } = lookupViewportSize();
+  const { width, height } = viewport;
   const popoverWidth = Math.max(0, settings.popoverWidth || 0);
   const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
   if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
@@ -23054,10 +23272,29 @@ function shouldUseSheet(settings, trigger = "modal") {
   return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
 }
 function lookupViewportSize() {
+  const overlayViewport = redditOverlayViewport();
+  if (overlayViewport.pageScale > 1) {
+  const bounds = redditOverlayViewportBounds();
+  return {
+    width: Math.max(0, Math.round(bounds.width)),
+    height: Math.max(0, Math.round(bounds.height)),
+    pageScale: overlayViewport.pageScale
+  };
+  }
   const visual = window.visualViewport;
   const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
   const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
-  return { width: Math.max(0, width), height: Math.max(0, height) };
+  return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
+}
+function fixedChromeViewportHeight() {
+  const overlayViewport = redditOverlayViewport();
+  return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
+}
+function visualViewportHeight() {
+  return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
+}
+function layoutViewportHeight() {
+  return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
 }
 function sheetMinHeight(viewportHeight) {
   if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
@@ -24014,14 +24251,6 @@ function scheduleIdleCallback(callback, timeoutMs = 75) {
   requestIdleCallback.call(window, callback, { timeout: timeoutMs });
   return true;
 }
-function isRedditHostname(hostname) {
-  const normalized = hostname.toLowerCase().replace(/\.$/, "");
-  return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
-}
-function applyRedditOverlayScale(element2, hostname = location.hostname) {
-  if (!isRedditHostname(hostname)) return;
-  element2.style.setProperty("zoom", "1", "important");
-}
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
@@ -24102,11 +24331,10 @@ class RadialMenuController {
   this.state = "closed";
   }
   layout(button2, backdrop, actions) {
-  const rect = button2.getBoundingClientRect();
+  const rect = redditSourceRectToOverlay(button2.getBoundingClientRect(), button2);
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const { width: vw, height: vh } = redditOverlayViewport();
   const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
   let hAngle = cx > vw / 2 ? PI : 0;
   while (hAngle - vAngle > PI) hAngle -= 2 * PI;
@@ -24423,6 +24651,7 @@ class FloatingButtonController {
   const controller = new AbortController();
   this.abortController = controller;
   const schedule = () => requestAnimationFrame(() => {
+    applyRedditOverlayScale(button2);
     if (this.settings) avoidVideoOverlap(button2, this.settings, this.save);
   });
   window.addEventListener("resize", schedule, { passive: true, signal: controller.signal });
@@ -24443,6 +24672,7 @@ class FloatingButtonController {
   let dragFrame;
   let dragFramePending = false;
   let dragPositionAnchored = false;
+  let dragPageScale = 1;
   const cancelDragFrame = () => {
     if (dragFrame !== void 0) window.cancelAnimationFrame(dragFrame);
     dragFrame = void 0;
@@ -24467,9 +24697,11 @@ class FloatingButtonController {
     dragging = true;
     moved = false;
     button2.dataset.jpdbReaderMoved = "false";
-    startX = event.clientX;
-    startY = event.clientY;
-    const rect = button2.getBoundingClientRect();
+    dragPageScale = redditOverlayViewport().pageScale;
+    const start = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+    startX = start.x;
+    startY = start.y;
+    const rect = overlayPuckRect(button2, dragPageScale);
     originX = rect.left;
     originY = rect.top;
     puckBox = { width: rect.width, height: rect.height };
@@ -24481,8 +24713,9 @@ class FloatingButtonController {
   });
   button2.addEventListener("pointermove", (event) => {
     if (!dragging || !puckBox) return;
-    const dx = event.clientX - startX;
-    const dy = event.clientY - startY;
+    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+    const dx = pointer.x - startX;
+    const dy = pointer.y - startY;
     if (Math.hypot(dx, dy) > 4) moved = true;
     if (!moved) return;
     event.preventDefault();
@@ -24548,11 +24781,11 @@ function isCoarsePointerDevice() {
 }
 function avoidVideoOverlap(button2, settings, saveSettings2) {
   if (!canAvoidVideoOverlap(button2)) return;
-  const rect = button2.getBoundingClientRect();
-  const video = overlappingVideo(rect);
-  button2.classList.toggle("jpdb-reader-fab-over-video", Boolean(video));
-  if (!shouldMoveAwayFromVideo(button2, video)) return;
-  for (const position of nonOverlappingPuckPositions(rect, video.getBoundingClientRect())) {
+  const rect = overlayPuckRect(button2);
+  const overlap = overlappingVideo(rect);
+  button2.classList.toggle("jpdb-reader-fab-over-video", Boolean(overlap));
+  if (!overlap || !shouldMoveAwayFromVideo(button2, overlap.video)) return;
+  for (const position of nonOverlappingPuckPositions(rect, overlap.rect)) {
   movePuck(button2, position, settings, saveSettings2);
   button2.classList.remove("jpdb-reader-fab-over-video");
   return;
@@ -24564,8 +24797,16 @@ function canAvoidVideoOverlap(button2) {
 function shouldMoveAwayFromVideo(button2, video) {
   return Boolean(video && !button2.matches(":hover, :focus, :focus-visible"));
 }
+function overlayPuckRect(button2, pageScale = redditOverlayViewport().pageScale) {
+  return redditSourceRectToOverlay(button2.getBoundingClientRect(), button2, pageScale);
+}
 function overlappingVideo(rect) {
-  return visibleVideos().find((candidate) => intersects(rect, candidate.getBoundingClientRect()));
+  const { pageScale } = redditOverlayViewport();
+  for (const video of visibleVideos()) {
+  const videoRect = redditLayoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+  if (intersects(rect, videoRect)) return { video, rect: videoRect };
+  }
+  return void 0;
 }
 function nonOverlappingPuckPositions(rect, videoRect) {
   const candidates = [
@@ -24590,7 +24831,7 @@ function clampRestoredButtonPosition(button2, settings) {
   if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
   requestAnimationFrame(() => {
   if (!button2.isConnected) return;
-  const rect = button2.getBoundingClientRect();
+  const rect = overlayPuckRect(button2);
   const position = clampPuck(button2, rect.left, rect.top);
   if (!position) return;
   if (Math.round(rect.left) === Math.round(position.x) && Math.round(rect.top) === Math.round(position.y)) return;
@@ -24610,31 +24851,32 @@ function resetPuckDragTransform(button2) {
   button2.style.removeProperty("transform");
 }
 function clampPuck(button2, x, y) {
-  const rect = button2.getBoundingClientRect();
+  const rect = overlayPuckRect(button2);
   return clampPuckToViewport(rect, x, y);
 }
 function clampPuckToViewport(box, x, y) {
   const margin = 8;
-  if (!canClampPuck(box, x, y, margin)) return null;
+  const viewport = redditOverlayViewport();
+  if (!canClampPuck(box, x, y, margin, viewport)) return null;
   return {
-  x: Math.max(margin, Math.min(window.innerWidth - box.width - margin, x)),
-  y: Math.max(margin, Math.min(window.innerHeight - box.height - margin, y))
+  x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),
+  y: Math.max(margin, Math.min(viewport.height - box.height - margin, y))
   };
 }
-function canClampPuck(box, x, y, margin) {
+function canClampPuck(box, x, y, margin, viewport) {
   if (!finitePuckPosition(x, y)) return false;
-  if (!finiteViewport()) return false;
-  if (!hasViewportRoom(margin)) return false;
+  if (!finiteViewport(viewport)) return false;
+  if (!hasViewportRoom(viewport, margin)) return false;
   return hasVisiblePuckRect(box);
 }
 function finitePuckPosition(x, y) {
   return Number.isFinite(x) && Number.isFinite(y);
 }
-function finiteViewport() {
-  return Number.isFinite(window.innerWidth) && Number.isFinite(window.innerHeight);
+function finiteViewport(viewport) {
+  return Number.isFinite(viewport.width) && Number.isFinite(viewport.height);
 }
-function hasViewportRoom(margin) {
-  return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
+function hasViewportRoom(viewport, margin) {
+  return viewport.width > margin * 2 && viewport.height > margin * 2;
 }
 function hasVisiblePuckRect(box) {
   return box.width > 0 && box.height > 0;
@@ -26097,7 +26339,7 @@ ${key}`] = { t: now, v: value };
   }
   };
 }
-const cache$1 = createPublicCache("yomu:jiten-public-cache:v1");
+const cache$1 = createPublicCache("yomu:jiten-public-cache:v2");
 const readPublicJitenCache = cache$1.read;
 const writePublicJitenCache = cache$1.write;
 const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
@@ -26390,6 +26632,7 @@ function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
   const annotatedReading = stringValue(mainReading.text) || requestedTerm;
   const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
   const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
+  const pitchComponents = publicJitenPitchComponents(payload.composedOf);
   return {
   vid: wordId,
   sid: fallback.readingIndex,
@@ -26408,7 +26651,8 @@ function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
   source: "jiten",
   reviewSource: "jiten-api",
   jitenWordId: wordId,
-  jitenReadingIndex: fallback.readingIndex
+  jitenReadingIndex: fallback.readingIndex,
+  ...pitchComponents.length ? { pitchComponents } : {}
   };
 }
 function publicJitenParsedCard(word, surface) {
@@ -26540,6 +26784,21 @@ function applyPublicParseChunk(result, chunk, parsed, paragraphs) {
 }
 function pitchPatterns(value, reading) {
   return Array.isArray(value) ? value.map(finiteInteger).filter((position) => position !== void 0).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean) : [];
+}
+function publicJitenPitchComponents(value) {
+  return arrayRecords(value).flatMap((record) => {
+  const annotated = stringValue(record.readingFurigana);
+  const rawReading = stringValue(record.reading);
+  const spelling = stringValue(record.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
+  const reading = (annotated.includes("[") ? cleanJitenAnnotatedReading(annotated) : "") || rawReading || spelling;
+  if (!spelling || !reading) return [];
+  return [{
+    spelling,
+    reading,
+    pitchAccent: pitchPatterns(record.pitchAccents, reading),
+    wordWithReading: annotated.includes("[") ? annotated : null
+  }];
+  });
 }
 function cleanJitenAnnotatedReading(value) {
   return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
@@ -28746,10 +29005,10 @@ function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
   return contextual ?? local;
 }
 function isLowValuePointerText(text2, parent) {
-  const compact = text2.replace(/\s+/g, "");
-  if (!compact) return true;
+  const compact2 = text2.replace(/\s+/g, "");
+  if (!compact2) return true;
   if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
-  const parts = compact.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
+  const parts = compact2.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
   if (!parts.length) return false;
   return parts.every((part) => METADATA_TOKEN_RE.test(part));
 }
@@ -29088,6 +29347,16 @@ function setRenderedWordPitchClass(word, pitchClass) {
   word.dataset.pitchClass = pitchClass;
   if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
+function setRenderedWordPitchComponents(word, card) {
+  const gradient = pitchComponentUnderlineGradient(card);
+  if (!gradient) {
+  delete word.dataset.pitchComponents;
+  word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+  return;
+  }
+  word.dataset.pitchComponents = "true";
+  word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
+}
 function setRenderedWordCardIdentity(word, card) {
   const source = renderedWordCardSource(card);
   const state = primaryCardState(card.cardState);
@@ -29106,6 +29375,7 @@ function setRenderedWordCardIdentity(word, card) {
   const pitchAccent = card.pitchAccent.join("|");
   if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
   else delete word.dataset.pitchAccent;
+  setRenderedWordPitchComponents(word, card);
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
@@ -31269,7 +31539,7 @@ function selectionIntersectsElement(selection, element2) {
 }
 function popoverAnchorRect(anchor, fallback) {
   const rect = anchor?.getBoundingClientRect();
-  return rect && (rect.width > 0 || rect.height > 0) ? rect : fallback;
+  return rect && (rect.width > 0 || rect.height > 0) ? rememberRedditSourceRect(rect, anchor) : fallback;
 }
 function shouldLockMountedPopoverPosition(popover, state) {
   return state.mode !== "hover" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(state.previousPopoverRect);
@@ -32041,10 +32311,10 @@ function popoverScrollBody(popover) {
 function stabilizePopoverBodyAround(popover, anchor) {
   const scrollBody = popoverScrollBody(popover);
   const scrollTop = scrollBody.scrollTop;
-  const anchorTop = anchor.getBoundingClientRect().top;
+  const anchorTop = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top;
   requestAnimationFrame(() => {
   if (!popover.isConnected || !anchor.isConnected) return;
-  const delta = anchor.getBoundingClientRect().top - anchorTop;
+  const delta = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top - anchorTop;
   if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
   });
 }
@@ -32075,9 +32345,9 @@ function installPopoverBodyStabilizers(popover) {
   restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
   }, true);
 }
-function popoverMaxHeightAtTop(settings, top) {
+function popoverMaxHeightAtTop(settings, top, viewportBottom = redditOverlayViewportBounds().bottom) {
   const margin = 8;
-  const availableHeight = Math.max(0, window.innerHeight - top - margin);
+  const availableHeight = Math.max(0, viewportBottom - top - margin);
   const configuredMaxHeight = configuredPopoverMaxHeight(settings);
   return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
 }
@@ -32728,6 +32998,10 @@ function jitenFallbackTokenMatches(term, token) {
   const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
   return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
 }
+function jitenFallbackCardMatchesTerm(term, card) {
+  const normalizedTerm = normalizedJitenLookupKey(term);
+  return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
+}
 function uniqueFallbackLookupEntries(cards, termLimit) {
   const seen = new Set();
   const entries2 = [];
@@ -32752,7 +33026,7 @@ async function batchJitenFallbackCards(terms, parse) {
   });
   uniqueTerms.forEach((term, index) => {
   const tokens = parsed[index] ?? [];
-  const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card ?? tokens.find((token) => token.card.source === "jiten")?.card;
+  const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
   if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
   });
   return cards;
@@ -32770,7 +33044,9 @@ async function jitenFallbackCards(terms, entryCount, deps, options) {
   return new Map();
   });
   const cards = new Map();
-  loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
+  loaded.forEach((card, term) => {
+  if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
+  });
   return cards;
 }
 async function publicLookupFallbackCards(cards, deps, options) {
@@ -33226,6 +33502,7 @@ class OnboardingController {
   this.syncThemeSwitch();
   this.syncAccentPicker(this.accentColorInput.value);
   this.syncManualPageScanShortcut();
+  applyRedditOverlayScale(this.panel);
   document.body.append(this.backdrop, this.panel);
   this.panel.focus();
   this.annotateJapanese();
@@ -36876,10 +37153,14 @@ function showReaderToast(message, durationMs = 3200) {
 }
 function ensureReaderToastStack() {
   const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
-  if (existing?.isConnected) return existing;
+  if (existing?.isConnected) {
+  applyRedditOverlayScale(existing);
+  return existing;
+  }
   const stack = document.createElement("div");
   stack.className = TOAST_STACK_CLASS;
   stack.dataset.jpdbReaderRoot = "true";
+  applyRedditOverlayScale(stack);
   document.body.append(stack);
   return stack;
 }
@@ -36968,8 +37249,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.218"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.218"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.219"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.219"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37089,7 +37370,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.218"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.219"}`;
   } catch {
   return null;
   }
@@ -37914,7 +38195,7 @@ function uniqueTokensByCard(tokens) {
   return true;
   });
 }
-function normalizedNestedParseOptions(options, settings) {
+function normalizedNestedParseOptions(options, _settings) {
   const apiTimeoutMs = nestedParseApiTimeoutMs(options);
   const allowApiTimeoutFallback = nestedParseAllowApiTimeoutFallback(options);
   const skipApi = nestedParseSkipApi(options);
@@ -37929,7 +38210,7 @@ function normalizedNestedParseOptions(options, settings) {
   skipJpdb: options.skipJpdb ?? skipApi,
   requireApi,
   requireJpdb: options.requireJpdb ?? requireApi,
-  allowSegmentedFallback: options.allowSegmentedFallback ?? !hasJpdbApiCredential(settings)
+  allowSegmentedFallback: options.allowSegmentedFallback ?? true
   };
 }
 function nestedParseApiTimeoutMs(options) {
@@ -38435,6 +38716,7 @@ class ReaderApp {
   hoverPointerMoveFrame;
   pendingHoverPointerMove;
   popoverRepositionFrame;
+  popoverViewportChangePending = false;
   settingsPreviewOriginalAccent;
   settingsPreviewOriginalLanguage;
   settingsPreviewOriginalTheme;
@@ -39469,6 +39751,7 @@ class ReaderApp {
     window.cancelAnimationFrame(this.popoverRepositionFrame);
     this.popoverRepositionFrame = void 0;
   }
+  this.popoverViewportChangePending = false;
   if (this.hoverPointerMoveFrame !== void 0) {
     window.cancelAnimationFrame(this.hoverPointerMoveFrame);
     this.hoverPointerMoveFrame = void 0;
@@ -39489,6 +39772,7 @@ class ReaderApp {
   }
   setupAutoScan() {
   const abortSignal = this.abortController.signal;
+  addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
   this.autoScanObserver?.disconnect();
   this.autoScanObserver = new MutationObserver((mutations) => {
     const canScanText = this.canParseJapanese();
@@ -39974,8 +40258,8 @@ class ReaderApp {
   return event.type.startsWith("pointer") && (pointerType === "touch" || pointerType === "pen");
   }
   boundSubtitleVideo() {
-  const subtitles = this.subtitles;
-  return subtitles.getBoundVideo?.();
+  if (!("getBoundVideo" in this.subtitles)) return void 0;
+  return this.subtitles.getBoundVideo();
   }
   shouldPauseForLookupAnchor(anchor) {
   if (!this.settings.subtitleMiningPause || !anchor) return false;
@@ -40947,8 +41231,32 @@ class ReaderApp {
   if (this.popoverRepositionFrame !== void 0) return;
   this.popoverRepositionFrame = window.requestAnimationFrame(() => {
     this.popoverRepositionFrame = void 0;
-    if (!this.isDestroyed) this.repositionActivePopover();
+    if (this.isDestroyed) return;
+    if (this.popoverViewportChangePending) {
+      this.popoverViewportChangePending = false;
+      this.repositionActivePopoverAfterViewportChange();
+      return;
+    }
+    this.repositionActivePopover();
   });
+  }
+  scheduleActivePopoverViewportChange() {
+  const popover = this.repositionableActivePopover();
+  if (!popover || redditOverlayViewport().pageScale === 1 && !hasRedditOverlayScale(popover)) return;
+  this.popoverViewportChangePending = true;
+  this.scheduleRepositionActivePopoverFrame();
+  }
+  repositionActivePopoverAfterViewportChange() {
+  const popover = this.repositionableActivePopover();
+  if (!popover) return;
+  const relock = this.activePopoverPositionLocked && this.activePopoverMode !== "hover";
+  if (relock) {
+    this.activePopoverPositionLocked = false;
+    this.activePopoverLockedPosition = void 0;
+    this.refreshActivePopoverAnchorRect();
+  }
+  this.repositionActivePopover();
+  if (relock && popover.isConnected) this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
   }
   scheduleHoverLookup(word, event) {
   const hoverLookupKey = this.hoverLookupKeyForWord(word);
@@ -41226,8 +41534,7 @@ class ReaderApp {
   return Boolean(this.activePopover && this.activePopoverMode === "hover" && anchor.isConnected);
   }
   captureActiveHoverAnchorRect(anchor) {
-  const rect = anchor.getBoundingClientRect();
-  if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+  this.activePopoverAnchorRect = popoverAnchorRect(anchor, this.activePopoverAnchorRect);
   }
   isInsideActivePopover(node) {
   return Boolean(this.activePopover && this.isInsideNode(node, this.activePopover));
@@ -43491,7 +43798,7 @@ class ReaderApp {
   const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
   const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
   const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
-  const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget ? Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3)) : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
+  const publicLookupTermLimit = Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3));
   return {
     ...background,
     urgent: true,
@@ -43695,7 +44002,7 @@ class ReaderApp {
   const seen = new Set();
   const tokensNeedingLookup = tokens.filter((token) => !this.applyCachedPublicVocabularyToToken(token));
   const uniqueTokens = tokensNeedingLookup.filter((token) => {
-    if (cardHasContextPitch(token.card)) return false;
+    if (cardHasContextPitch(token.card) || hasResolvedPitchComponents(token.card)) return false;
     if (isLowValuePitchEnrichmentToken(token)) return false;
     if (options.substantivePublicLookupOnly && token.card.source === "fallback" && !isSubstantivePublicPitchLookupToken(token)) return false;
     if (!token.card.spelling.trim()) return false;
@@ -43812,6 +44119,7 @@ class ReaderApp {
       const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
       if (fallback.source === "fallback") this.rememberResolvedFallbackVocabulary(fallback, card);
       this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+      if (this.settings.showPitchAccent && !cardHasContextPitch(card) && options.jpdbPublicLookup !== false) queuedTokens.push(token);
       this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
   }
@@ -43996,6 +44304,11 @@ class ReaderApp {
     this.queueSubtitleParsedHtmlRefresh(token.sentence);
     return;
   }
+  if (hasResolvedPitchComponents(card)) {
+    this.applyPitchComponentsToRenderedWords(card);
+    this.queueSubtitleParsedHtmlRefresh(token.sentence);
+    return;
+  }
   this.applyPitchClassToFallbackToken(token, card, pitchClass);
   if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
   }
@@ -44007,14 +44320,21 @@ class ReaderApp {
   return card;
   }
   async resolvePitchFallbackCard(fallback, options) {
-  if (cardHasContextPitch(fallback) || options.publicLookup === false) return fallback;
+  if (cardHasContextPitch(fallback) || hasResolvedPitchComponents(fallback) || options.publicLookup === false) return fallback;
   return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
   }
   async ensureCardPitchAccent(card, options) {
   if (!this.settings.showPitchAccent) return;
-  if (cardHasContextPitch(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
+  if (cardHasContextPitch(card) || hasResolvedPitchComponents(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
   const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-  if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+  if (pitchAccent.length) {
+    card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+    return;
+  }
+  await Promise.all((card.pitchComponents ?? []).map(async (component) => {
+    if (getPitchClass(component.pitchAccent, component.reading || component.spelling)) return;
+    component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
+  }));
   }
   async applyResolvedPitchCardToToken(token, fallback, card, pitchClass) {
   this.applyPublicVocabularyToRenderedWords(fallback, card, pitchClass || "unknown");
@@ -44355,10 +44675,30 @@ class ReaderApp {
     roots.forEach((root) => {
       if (root instanceof HTMLElement && root.matches(selector)) {
         this.applyPitchClassToRenderedSurface(root, pitchClass);
+        setRenderedWordPitchComponents(root, card);
         changedRoots.add(root);
       }
       root.querySelectorAll(selector).forEach((word) => {
         this.applyPitchClassToRenderedSurface(word, pitchClass);
+        setRenderedWordPitchComponents(word, card);
+        changedRoots.add(word.parentElement ?? word);
+      });
+    });
+    changedRoots.forEach((root) => refreshReaderWordContrast(root));
+  });
+  }
+  applyPitchComponentsToRenderedWords(card, roots = [document]) {
+  if (!hasResolvedPitchComponents(card)) return;
+  const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+  this.pauseAutoScanObserver(() => {
+    const changedRoots = new Set();
+    roots.forEach((root) => {
+      if (root instanceof HTMLElement && root.matches(selector)) {
+        setRenderedWordPitchComponents(root, card);
+        changedRoots.add(root);
+      }
+      root.querySelectorAll(selector).forEach((word) => {
+        setRenderedWordPitchComponents(word, card);
         changedRoots.add(word.parentElement ?? word);
       });
     });
@@ -44565,6 +44905,7 @@ class ReaderApp {
   }
   mountSettingsDialog(backdrop, form) {
   this.dismiss({ forceAll: true });
+  applyRedditOverlayScale(form);
   document.body.append(backdrop, form);
   this.activeBackdrop = backdrop;
   this.activePopover = form;
@@ -44604,7 +44945,7 @@ class ReaderApp {
   });
   const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
   const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
-  const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : void 0;
+  const previousPopoverRect = options.preservePosition && this.activePopover ? this.popoverOverlayRect(this.activePopover) : void 0;
   const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
   const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
   return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
@@ -44636,6 +44977,7 @@ class ReaderApp {
   appendMountedPopover(popover, state) {
   const useBackdrop = Boolean(state.backdrop);
   const mountParent = state.mountParent ?? document.body;
+  applyRedditOverlayScale(popover);
   popover.setAttribute("aria-modal", String(useBackdrop));
   if (state.backdrop) mountParent.append(state.backdrop, popover);
   else mountParent.append(popover);
@@ -44674,7 +45016,7 @@ class ReaderApp {
       this.activePopoverPositionLocked = false;
       this.activePopoverLockedPosition = void 0;
       this.repositionActivePopover();
-      if (state.mode !== "hover") this.lockActivePopoverPosition(popover.getBoundingClientRect());
+      if (state.mode !== "hover") this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
     }
     requestAnimationFrame(() => this.repositionActivePopover());
   } else {
@@ -44699,6 +45041,7 @@ class ReaderApp {
   repositionActivePopover() {
   const popover = this.repositionableActivePopover();
   if (!popover) return;
+  applyRedditOverlayScale(popover);
   const scrollBody = this.popoverScrollBody(popover);
   const scrollTop = scrollBody.scrollTop;
   this.prepareActivePopoverForPositioning(popover);
@@ -44738,9 +45081,13 @@ class ReaderApp {
   return this.activePopover;
   }
   repositionLockedActivePopover(popover) {
-  if (!this.activePopoverLockedPosition) this.lockActivePopoverPosition(popover.getBoundingClientRect());
-  this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? popover.getBoundingClientRect());
+  const rect = this.popoverOverlayRect(popover);
+  if (!this.activePopoverLockedPosition) this.lockActivePopoverPosition(rect);
+  this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? rect);
   this.syncActivePopoverFixedHeight();
+  }
+  popoverOverlayRect(popover) {
+  return redditSourceRectToOverlay(popover.getBoundingClientRect(), popover);
   }
   lockActivePopoverPosition(rect) {
   this.activePopoverPositionLocked = true;
@@ -44757,8 +45104,7 @@ class ReaderApp {
   }
   refreshActivePopoverAnchorRect() {
   if (!this.activePopoverAnchor?.isConnected) return;
-  const rect = this.activePopoverAnchor.getBoundingClientRect();
-  if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+  this.activePopoverAnchorRect = popoverAnchorRect(this.activePopoverAnchor, this.activePopoverAnchorRect);
   }
   shouldFollowActiveHoverPointer() {
   return this.activePopoverMode === "hover" && Boolean(this.hoverPopoverPointerPosition);

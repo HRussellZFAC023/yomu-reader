@@ -5,6 +5,12 @@ import { renderReviewButtons } from '../anki/render';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
+import {
+    applyRedditOverlayScale,
+    hasRedditOverlayScale,
+    redditOverlayViewport,
+    redditSourceRectToOverlay,
+} from '../ui/reddit-overlay-scale';
 import { installReaderControlPointerActivation as installControlPointerActivation } from '../ui/pointer-activation';
 import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, popoverBunproGradeMode, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
@@ -106,6 +112,7 @@ import {
     pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
+import { hasResolvedPitchComponents } from '../lookup/pitch-components';
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
 import {
@@ -279,6 +286,7 @@ import {
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
+import { addViewportChangeListeners } from '../popup/handle-drag';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import type { RtkInfo } from '../kanji/rtk';
 import { ReaderAudioActions } from '../audio/actions';
@@ -302,6 +310,7 @@ import {
     renderedWordSelectorForKey,
     rootContainsRenderedWord,
     setRenderedWordCardIdentity,
+    setRenderedWordPitchComponents,
     setRenderedWordPitchClass,
     uniqueParentNodes,
 } from '../dom/rendered-word-state';
@@ -918,6 +927,7 @@ export class ReaderApp {
     private hoverPointerMoveFrame?: number;
     private pendingHoverPointerMove?: PointerEvent;
     private popoverRepositionFrame?: number;
+    private popoverViewportChangePending = false;
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
@@ -2161,6 +2171,7 @@ export class ReaderApp {
             window.cancelAnimationFrame(this.popoverRepositionFrame);
             this.popoverRepositionFrame = undefined;
         }
+        this.popoverViewportChangePending = false;
         if (this.hoverPointerMoveFrame !== undefined) {
             window.cancelAnimationFrame(this.hoverPointerMoveFrame);
             this.hoverPointerMoveFrame = undefined;
@@ -2186,6 +2197,7 @@ export class ReaderApp {
 
     private setupAutoScan(): void {
         const abortSignal = this.abortController.signal;
+        addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
         this.autoScanObserver?.disconnect();
         this.autoScanObserver = new MutationObserver(mutations => {
             const canScanText = this.canParseJapanese();
@@ -2867,12 +2879,8 @@ export class ReaderApp {
     // pause targets the exact player the overlay tracks (not an ad/preview/
     // miniplayer). The companion may be a lifecycle stub, hence the optional call.
     private boundSubtitleVideo(): HTMLVideoElement | undefined {
-        // Single `as {...}` cast (the same pattern as refreshParsedCueTexts) so
-        // the optional getBoundVideo stays statically visible to dead-code
-        // analysis: the companion is either the real controller (has it) or a
-        // lifecycle stub (does not).
-        const subtitles = this.subtitles as { getBoundVideo?: () => HTMLVideoElement | undefined };
-        return subtitles.getBoundVideo?.();
+        if (!('getBoundVideo' in this.subtitles)) return undefined;
+        return this.subtitles.getBoundVideo();
     }
 
     // Pause the bound video on ANY lookup over page text while it is playing —
@@ -4133,8 +4141,34 @@ export class ReaderApp {
         if (this.popoverRepositionFrame !== undefined) return;
         this.popoverRepositionFrame = window.requestAnimationFrame(() => {
             this.popoverRepositionFrame = undefined;
-            if (!this.isDestroyed) this.repositionActivePopover();
+            if (this.isDestroyed) return;
+            if (this.popoverViewportChangePending) {
+                this.popoverViewportChangePending = false;
+                this.repositionActivePopoverAfterViewportChange();
+                return;
+            }
+            this.repositionActivePopover();
         });
+    }
+
+    private scheduleActivePopoverViewportChange(): void {
+        const popover = this.repositionableActivePopover();
+        if (!popover || (redditOverlayViewport().pageScale === 1 && !hasRedditOverlayScale(popover))) return;
+        this.popoverViewportChangePending = true;
+        this.scheduleRepositionActivePopoverFrame();
+    }
+
+    private repositionActivePopoverAfterViewportChange(): void {
+        const popover = this.repositionableActivePopover();
+        if (!popover) return;
+        const relock = this.activePopoverPositionLocked && this.activePopoverMode !== 'hover';
+        if (relock) {
+            this.activePopoverPositionLocked = false;
+            this.activePopoverLockedPosition = undefined;
+            this.refreshActivePopoverAnchorRect();
+        }
+        this.repositionActivePopover();
+        if (relock && popover.isConnected) this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
     }
 
     private scheduleHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent): void {
@@ -4502,8 +4536,7 @@ export class ReaderApp {
     }
 
     private captureActiveHoverAnchorRect(anchor: HTMLElement): void {
-        const rect = anchor.getBoundingClientRect();
-        if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+        this.activePopoverAnchorRect = popoverAnchorRect(anchor, this.activePopoverAnchorRect);
     }
 
     private isInsideActivePopover(node: Node | null): boolean {
@@ -7506,16 +7539,12 @@ export class ReaderApp {
         const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
         const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
         const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
-        // Keyless YouTube subtitles: dictionaryFirstFallbackLookupTerms places
-        // the surface (dictionary) form LAST, and publicLookupFallbackCard only
-        // tries terms.slice(0, termLimit). A 2-term window can drop an inflected
-        // verb's resolvable dictionary form (e.g. 戦う), leaving it without
-        // furigana; widen to 3 so the dictionary form is reachable. The loop
-        // stops at the first resolving term, so this only adds lookups when the
-        // earlier candidates fail.
-        const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget
-            ? Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3))
-            : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
+        // dictionaryFirstFallbackLookupTerms can put malformed shallow
+        // deinflections before the real lemma (訪れた -> 訪る, 訪れる). Keep the
+        // same bounded three-candidate window as background enrichment so the
+        // exact-match Jiten guard can reject a partial first hit and still reach
+        // the real reading/pitch before authoritative subtitle HTML is painted.
+        const publicLookupTermLimit = Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3));
         return {
             ...background,
             urgent: true,
@@ -7771,7 +7800,7 @@ export class ReaderApp {
             // patterns fit a DIFFERENT reading (dictionary form vs the
             // conjugated/contextual one) renders jpdb-pitch-unknown forever if
             // pitchAccent.length excludes it from every enrichment pass.
-            if (cardHasContextPitch(token.card)) return false;
+            if (cardHasContextPitch(token.card) || hasResolvedPitchComponents(token.card)) return false;
             if (isLowValuePitchEnrichmentToken(token)) return false;
             if (options.substantivePublicLookupOnly && token.card.source === 'fallback' && !isSubstantivePublicPitchLookupToken(token)) return false;
             if (!token.card.spelling.trim()) return false;
@@ -7930,6 +7959,14 @@ export class ReaderApp {
                 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
                 if (fallback.source === 'fallback') this.rememberResolvedFallbackVocabulary(fallback, card);
                 this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+                // Detail hydration can resolve reading/furigana while still
+                // carrying no pitch (浜面 is a real Jiten example). Keep that
+                // token in the pitch lane so the independent JPDB/local pitch
+                // fallback gets its turn instead of treating "card found" as
+                // "pitch found" and leaving the underline permanently blank.
+                if (this.settings.showPitchAccent
+                    && !cardHasContextPitch(card)
+                    && options.jpdbPublicLookup !== false) queuedTokens.push(token);
                 this.queueSubtitleParsedHtmlRefresh(token.sentence);
             }
         }
@@ -8158,6 +8195,11 @@ export class ReaderApp {
             this.queueSubtitleParsedHtmlRefresh(token.sentence);
             return;
         }
+        if (hasResolvedPitchComponents(card)) {
+            this.applyPitchComponentsToRenderedWords(card);
+            this.queueSubtitleParsedHtmlRefresh(token.sentence);
+            return;
+        }
         this.applyPitchClassToFallbackToken(token, card, pitchClass);
         if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
@@ -8171,15 +8213,22 @@ export class ReaderApp {
     }
 
     private async resolvePitchFallbackCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
-        if (cardHasContextPitch(fallback) || options.publicLookup === false) return fallback;
+        if (cardHasContextPitch(fallback) || hasResolvedPitchComponents(fallback) || options.publicLookup === false) return fallback;
         return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
     }
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup'>): Promise<void> {
         if (!this.settings.showPitchAccent) return;
-        if (cardHasContextPitch(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
+        if (cardHasContextPitch(card) || hasResolvedPitchComponents(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
         const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-        if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+        if (pitchAccent.length) {
+            card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+            return;
+        }
+        await Promise.all((card.pitchComponents ?? []).map(async component => {
+            if (getPitchClass(component.pitchAccent, component.reading || component.spelling)) return;
+            component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
+        }));
     }
 
     private async applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): Promise<void> {
@@ -8600,10 +8649,31 @@ export class ReaderApp {
             roots.forEach(root => {
                 if (root instanceof HTMLElement && root.matches(selector)) {
                     this.applyPitchClassToRenderedSurface(root, pitchClass);
+                    setRenderedWordPitchComponents(root, card);
                     changedRoots.add(root);
                 }
                 root.querySelectorAll<HTMLElement>(selector).forEach(word => {
                     this.applyPitchClassToRenderedSurface(word, pitchClass);
+                    setRenderedWordPitchComponents(word, card);
+                    changedRoots.add(word.parentElement ?? word);
+                });
+            });
+            changedRoots.forEach(root => refreshReaderWordContrast(root));
+        });
+    }
+
+    private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document]): void {
+        if (!hasResolvedPitchComponents(card)) return;
+        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
+        this.pauseAutoScanObserver(() => {
+            const changedRoots = new Set<ParentNode>();
+            roots.forEach(root => {
+                if (root instanceof HTMLElement && root.matches(selector)) {
+                    setRenderedWordPitchComponents(root, card);
+                    changedRoots.add(root);
+                }
+                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+                    setRenderedWordPitchComponents(word, card);
                     changedRoots.add(word.parentElement ?? word);
                 });
             });
@@ -8848,6 +8918,7 @@ export class ReaderApp {
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
         this.dismiss({ forceAll: true });
+        applyRedditOverlayScale(form);
         document.body.append(backdrop, form);
         this.activeBackdrop = backdrop;
         this.activePopover = form;
@@ -8897,7 +8968,9 @@ export class ReaderApp {
             });
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
         const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
-        const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : undefined;
+        const previousPopoverRect = options.preservePosition && this.activePopover
+            ? this.popoverOverlayRect(this.activePopover)
+            : undefined;
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
         const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
         return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
@@ -8934,6 +9007,7 @@ export class ReaderApp {
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
         const useBackdrop = Boolean(state.backdrop);
         const mountParent = state.mountParent ?? document.body;
+        applyRedditOverlayScale(popover);
         popover.setAttribute('aria-modal', String(useBackdrop));
         if (state.backdrop) mountParent.append(state.backdrop, popover);
         else mountParent.append(popover);
@@ -8989,7 +9063,7 @@ export class ReaderApp {
                 this.activePopoverPositionLocked = false;
                 this.activePopoverLockedPosition = undefined;
                 this.repositionActivePopover();
-                if (state.mode !== 'hover') this.lockActivePopoverPosition(popover.getBoundingClientRect());
+                if (state.mode !== 'hover') this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
             }
             requestAnimationFrame(() => this.repositionActivePopover());
         } else {
@@ -9019,6 +9093,7 @@ export class ReaderApp {
     private repositionActivePopover(): void {
         const popover = this.repositionableActivePopover();
         if (!popover) return;
+        applyRedditOverlayScale(popover);
         // Title suppression is set up once at mount (suppressForPopover) and its
         // MutationObserver re-suppresses any titles added during hydration, so a
         // full popover [title] re-scan on every reposition was redundant — and
@@ -9068,9 +9143,14 @@ export class ReaderApp {
     }
 
     private repositionLockedActivePopover(popover: HTMLElement): void {
-        if (!this.activePopoverLockedPosition) this.lockActivePopoverPosition(popover.getBoundingClientRect());
-        this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? popover.getBoundingClientRect());
+        const rect = this.popoverOverlayRect(popover);
+        if (!this.activePopoverLockedPosition) this.lockActivePopoverPosition(rect);
+        this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? rect);
         this.syncActivePopoverFixedHeight();
+    }
+
+    private popoverOverlayRect(popover: HTMLElement): DOMRect {
+        return redditSourceRectToOverlay(popover.getBoundingClientRect(), popover);
     }
 
     private lockActivePopoverPosition(rect: Pick<DOMRect, 'left' | 'top'>): void {
@@ -9091,8 +9171,7 @@ export class ReaderApp {
 
     private refreshActivePopoverAnchorRect(): void {
         if (!this.activePopoverAnchor?.isConnected) return;
-        const rect = this.activePopoverAnchor.getBoundingClientRect();
-        if (rect.width > 0 || rect.height > 0) this.activePopoverAnchorRect = rect;
+        this.activePopoverAnchorRect = popoverAnchorRect(this.activePopoverAnchor, this.activePopoverAnchorRect);
     }
 
     private shouldFollowActiveHoverPointer(): boolean {

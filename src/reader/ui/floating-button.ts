@@ -15,7 +15,13 @@ import {
     type RadialAction,
 } from './radial-menu';
 import type { OcrInteractionMode } from '../ocr/mode';
-import { applyRedditOverlayScale } from './reddit-overlay-scale';
+import {
+    applyRedditOverlayScale,
+    redditLayoutPointToOverlay,
+    redditLayoutRectToOverlay,
+    redditOverlayViewport,
+    redditSourceRectToOverlay,
+} from './reddit-overlay-scale';
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -260,6 +266,7 @@ export class FloatingButtonController {
         const controller = new AbortController();
         this.abortController = controller;
         const schedule = () => requestAnimationFrame(() => {
+            applyRedditOverlayScale(button);
             if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
         });
         window.addEventListener('resize', schedule, { passive: true, signal: controller.signal });
@@ -281,6 +288,7 @@ export class FloatingButtonController {
         let dragFrame: number | undefined;
         let dragFramePending = false;
         let dragPositionAnchored = false;
+        let dragPageScale = 1;
         const cancelDragFrame = (): void => {
             if (dragFrame !== undefined) window.cancelAnimationFrame(dragFrame);
             dragFrame = undefined;
@@ -305,9 +313,11 @@ export class FloatingButtonController {
             dragging = true;
             moved = false;
             button.dataset.jpdbReaderMoved = 'false';
-            startX = event.clientX;
-            startY = event.clientY;
-            const rect = button.getBoundingClientRect();
+            dragPageScale = redditOverlayViewport().pageScale;
+            const start = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            startX = start.x;
+            startY = start.y;
+            const rect = overlayPuckRect(button, dragPageScale);
             originX = rect.left;
             originY = rect.top;
             puckBox = { width: rect.width, height: rect.height };
@@ -319,8 +329,9 @@ export class FloatingButtonController {
         });
         button.addEventListener('pointermove', event => {
             if (!dragging || !puckBox) return;
-            const dx = event.clientX - startX;
-            const dy = event.clientY - startY;
+            const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
+            const dx = pointer.x - startX;
+            const dy = pointer.y - startY;
             if (Math.hypot(dx, dy) > 4) moved = true;
             if (!moved) return;
             event.preventDefault();
@@ -391,12 +402,12 @@ function isCoarsePointerDevice(): boolean {
 
 function avoidVideoOverlap(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
     if (!canAvoidVideoOverlap(button)) return;
-    const rect = button.getBoundingClientRect();
-    const video = overlappingVideo(rect);
-    button.classList.toggle('jpdb-reader-fab-over-video', Boolean(video));
-    if (!shouldMoveAwayFromVideo(button, video)) return;
+    const rect = overlayPuckRect(button);
+    const overlap = overlappingVideo(rect);
+    button.classList.toggle('jpdb-reader-fab-over-video', Boolean(overlap));
+    if (!overlap || !shouldMoveAwayFromVideo(button, overlap.video)) return;
 
-    for (const position of nonOverlappingPuckPositions(rect, video.getBoundingClientRect())) {
+    for (const position of nonOverlappingPuckPositions(rect, overlap.rect)) {
         movePuck(button, position, settings, saveSettings);
         button.classList.remove('jpdb-reader-fab-over-video');
         return;
@@ -411,8 +422,17 @@ function shouldMoveAwayFromVideo(button: HTMLButtonElement, video: HTMLVideoElem
     return Boolean(video && !button.matches(':hover, :focus, :focus-visible'));
 }
 
-function overlappingVideo(rect: DOMRect): HTMLVideoElement | undefined {
-    return visibleVideos().find(candidate => intersects(rect, candidate.getBoundingClientRect()));
+function overlayPuckRect(button: HTMLButtonElement, pageScale = redditOverlayViewport().pageScale): DOMRect {
+    return redditSourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
+}
+
+function overlappingVideo(rect: DOMRect): { video: HTMLVideoElement; rect: DOMRect } | undefined {
+    const { pageScale } = redditOverlayViewport();
+    for (const video of visibleVideos()) {
+        const videoRect = redditLayoutRectToOverlay(video.getBoundingClientRect(), pageScale);
+        if (intersects(rect, videoRect)) return { video, rect: videoRect };
+    }
+    return undefined;
 }
 
 function nonOverlappingPuckPositions(rect: DOMRect, videoRect: DOMRect): Array<{ x: number; y: number }> {
@@ -444,7 +464,7 @@ function clampRestoredButtonPosition(button: HTMLButtonElement, settings: Reader
     if (settings.puckPositionX === undefined || settings.puckPositionY === undefined) return;
     requestAnimationFrame(() => {
         if (!button.isConnected) return;
-        const rect = button.getBoundingClientRect();
+        const rect = overlayPuckRect(button);
         const position = clampPuck(button, rect.left, rect.top);
         if (!position) return;
         if (Math.round(rect.left) === Math.round(position.x) && Math.round(rect.top) === Math.round(position.y)) return;
@@ -472,23 +492,24 @@ function resetPuckDragTransform(button: HTMLButtonElement): void {
 }
 
 function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number; y: number } | null {
-    const rect = button.getBoundingClientRect();
+    const rect = overlayPuckRect(button);
     return clampPuckToViewport(rect, x, y);
 }
 
 function clampPuckToViewport(box: PuckBox, x: number, y: number): { x: number; y: number } | null {
     const margin = 8;
-    if (!canClampPuck(box, x, y, margin)) return null;
+    const viewport = redditOverlayViewport();
+    if (!canClampPuck(box, x, y, margin, viewport)) return null;
     return {
-        x: Math.max(margin, Math.min(window.innerWidth - box.width - margin, x)),
-        y: Math.max(margin, Math.min(window.innerHeight - box.height - margin, y)),
+        x: Math.max(margin, Math.min(viewport.width - box.width - margin, x)),
+        y: Math.max(margin, Math.min(viewport.height - box.height - margin, y)),
     };
 }
 
-function canClampPuck(box: PuckBox, x: number, y: number, margin: number): boolean {
+function canClampPuck(box: PuckBox, x: number, y: number, margin: number, viewport: { width: number; height: number }): boolean {
     if (!finitePuckPosition(x, y)) return false;
-    if (!finiteViewport()) return false;
-    if (!hasViewportRoom(margin)) return false;
+    if (!finiteViewport(viewport)) return false;
+    if (!hasViewportRoom(viewport, margin)) return false;
     return hasVisiblePuckRect(box);
 }
 
@@ -496,12 +517,12 @@ function finitePuckPosition(x: number, y: number): boolean {
     return Number.isFinite(x) && Number.isFinite(y);
 }
 
-function finiteViewport(): boolean {
-    return Number.isFinite(window.innerWidth) && Number.isFinite(window.innerHeight);
+function finiteViewport(viewport: { width: number; height: number }): boolean {
+    return Number.isFinite(viewport.width) && Number.isFinite(viewport.height);
 }
 
-function hasViewportRoom(margin: number): boolean {
-    return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
+function hasViewportRoom(viewport: { width: number; height: number }, margin: number): boolean {
+    return viewport.width > margin * 2 && viewport.height > margin * 2;
 }
 
 function hasVisiblePuckRect(box: PuckBox): boolean {

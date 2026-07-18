@@ -117,6 +117,98 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(parsed[0]?.map(token => token.card.spelling)).toEqual(['本', 'を', '読む']);
     });
 
+    it('repairs a credentialed remote surname fragment to the whole inflected verb span', async () => {
+        const sentence = '訪れたのかもしれない。';
+        const surname: JPDBToken = {
+            card: {
+                vid: 5639848,
+                sid: 0,
+                rid: 0,
+                spelling: '訪',
+                reading: 'ほう',
+                frequencyRank: null,
+                partOfSpeech: ['name'],
+                meanings: [{ glosses: ['Hou'], partOfSpeech: ['surname'] }],
+                cardState: ['not-in-deck'],
+                pitchAccent: ['HL'],
+                wordWithReading: '訪[ほう]',
+                source: 'jpdb',
+            },
+            start: 0,
+            end: 1,
+            length: 1,
+            rubies: [{ text: 'ほう', start: 0, end: 1, length: 1 }],
+            pitchClass: 'atamadaka',
+            sentence,
+        };
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+                parserProvider: 'jpdb',
+            }),
+            jpdb: { parse: vi.fn(async () => [[surname]]) } as never,
+            dictionaries: {} as never,
+        });
+
+        const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });
+
+        expect(tokens.find(token => token.start === 0)).toMatchObject({
+            start: 0,
+            end: 3,
+            card: {
+                spelling: '訪れた',
+                source: 'fallback',
+                fallbackLookupTerms: expect.arrayContaining(['訪れる']),
+            },
+        });
+        expect(tokens.some(token => token.card.spelling === '訪' && token.card.reading === 'ほう')).toBe(false);
+    });
+
+    it('keeps complete authoritative lexical and auxiliary tokens instead of merging them heuristically', async () => {
+        const sentence = '食べた。';
+        const lexical: JPDBToken = {
+            card: {
+                vid: 1001, sid: 0, rid: 0,
+                spelling: '食べる', reading: 'たべる',
+                frequencyRank: null, partOfSpeech: ['v1'], meanings: [],
+                cardState: ['not-in-deck'], pitchAccent: ['LHHH'], wordWithReading: '食[た]べる',
+                source: 'jpdb',
+            },
+            start: 0, end: 2, length: 2,
+            rubies: [{ text: 'た', start: 0, end: 1, length: 1 }],
+            pitchClass: 'heiban', sentence,
+        };
+        const auxiliary: JPDBToken = {
+            card: {
+                vid: 1002, sid: 0, rid: 0,
+                spelling: 'た', reading: 'た',
+                frequencyRank: null, partOfSpeech: ['aux'], meanings: [],
+                cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null,
+                source: 'jpdb',
+            },
+            start: 2, end: 3, length: 1,
+            rubies: [], pitchClass: '', sentence,
+        };
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+                parserProvider: 'jpdb',
+            }),
+            jpdb: { parse: vi.fn(async () => [[lexical, auxiliary]]) } as never,
+            dictionaries: {} as never,
+        });
+
+        const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });
+
+        expect(tokens).toEqual([lexical, auxiliary]);
+        expect(tokens.some(token => token.card.source === 'fallback')).toBe(false);
+    });
+
     it('parses 好きなものを読む coherently', () => {
         expect(surfaces('好きなものを読む')).toEqual(['好き', 'な', 'もの', 'を', '読む']);
     });

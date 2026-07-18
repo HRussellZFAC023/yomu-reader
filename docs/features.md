@@ -23,6 +23,8 @@ API mining actions can add a word, mark it Never Forget, blacklist it, or send r
 
 Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off.
 
+Pitch stays attached to the vocabulary it actually describes. A word with an exact accent gets one whole-word underline; an aligned compound with only component accents keeps one clickable lookup target but shows separate component-colour segments. On a wide tablet sheet, multiple pitch graphs use the upper-right header space instead of consuming a full row.
+
 The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links.
 
 <figure class="yomu-feature-shot">
@@ -107,7 +109,7 @@ The YouTube filter is on by default so recommendations stay focused on Japanese.
 
 YouTube page text uses the same generic scanner and web-component boundaries as Reddit and other dynamic sites, including late comments, menus, navigation labels, and controls. Subscribe, Join, tabs, and filter chips stay lookupable and show pitch plus detached furigana without changing the control's native centring or height.
 
-On Reddit mobile and tablet layouts, the Yomu puck and radial menu keep their normal touch-target dimensions even when Reddit applies broad control scaling. This isolation is limited to Yomu's overlay controls and does not resize Reddit content.
+On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate Safari's per-site full-page view scale. Their text, touch targets, anchors, and screen-edge placement stay at the intended physical size without resizing Reddit content. Inline readings, subtitles, and OCR remain in the page's coordinate space so they stay aligned; normal-scale Reddit, other browsers, and other sites are left unchanged.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
 

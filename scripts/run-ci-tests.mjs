@@ -13,7 +13,7 @@ const READER_TESTS_DIR = join(ROOT, 'tests/reader');
 // is the jpdb lane; everything else is "regular".
 const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 
-// These tests cannot safely share a fork yet. The first five still use vi.mock
+// These tests cannot safely share a fork yet. The first six still use vi.mock
 // against shared reader modules; the remainder depend on indexedDB absence,
 // ReaderApp internals, or large fixtures whose state leaked in the fork-reuse
 // hunt. settings-form.test.ts was later split into eight real files, so keep all
@@ -25,6 +25,7 @@ const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/cloud-sync-web.test.ts'),
     join(ROOT, 'tests/reader/jisho-audio.test.ts'),
     join(ROOT, 'tests/reader/runtime-health.test.ts'),
+    join(ROOT, 'tests/reader/origin-graph-interactions.test.ts'),
     join(ROOT, 'tests/reader/anki.test.ts'),
     join(ROOT, 'tests/reader/reader-shortcuts.test.ts'),
     join(ROOT, 'tests/reader/public-vocabulary-repaint.test.ts'),

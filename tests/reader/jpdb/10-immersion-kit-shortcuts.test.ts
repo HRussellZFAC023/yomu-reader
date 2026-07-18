@@ -271,6 +271,11 @@ describe('reader helpers', () => {
         const { app, container, popover } = testImmersionPopoverSurface();
         const example = testImmersionKitExample();
         const playSpy = vi.fn(async () => undefined);
+        const scheduledFrames: FrameRequestCallback[] = [];
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            scheduledFrames.push(callback);
+            return scheduledFrames.length;
+        });
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             parseJapanese(texts: string[]): Promise<JPDBToken[][]>;
@@ -302,7 +307,9 @@ describe('reader helpers', () => {
         await internals.immersionPopover.loadExamples(popover, card);
 
         expect(playSpy).not.toHaveBeenCalled();
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        scheduledFrames.splice(0).forEach(callback => callback(performance.now()));
+        await Promise.resolve();
+        expect(playSpy).not.toHaveBeenCalled();
 
         container.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]')?.click();
 

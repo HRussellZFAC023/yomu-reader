@@ -7395,6 +7395,19 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
 
+/* Some expressions have no defensible whole-word accent, but Jiten provides
+   an exact aligned decomposition whose components each do (王子様 → 王子 +
+   様). Paint proportional component colours on the one clickable word's
+   underline; never collapse one component into a fake whole-expression class. */
+
+.jpdb-reader-word-underline-pitch .jpdb-reader-word[data-pitch-components="true"]::after {
+  height: var(--jpdb-reader-word-underline-thickness);
+  border-block-end: 0;
+  background-image: var(--jpdb-reader-inline-pitch-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
 :is(
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-underline-jpdb,
@@ -9337,7 +9350,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   left: 0 !important;
   right: 0 !important;
   top: auto !important;
-  bottom: 0 !important;
+  bottom: var(--jpdb-reader-sheet-bottom, 0px) !important;
   width: 100%;
   height: var(--jpdb-reader-sheet-height, var(--jpdb-reader-sheet-collapsed-height, 70dvh));
   min-height: var(--jpdb-reader-sheet-min-height, 180px);
@@ -9527,40 +9540,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
-}
-
-/* Multi-graph pitch (per-component or accent variants) does not fit the
-   narrow tools column. Give the header explicit rows so the audio control
-   stays pinned beside the title while two or three graphs share a compact,
-   full-width row below the heading. */
-
-.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 8px 10px;
-}
-
-.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-heading {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-  display: contents;
-}
-
-.jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  width: 100%;
-  margin-block: 0;
-}
-
-.jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
-  grid-column: 2;
-  grid-row: 1;
-  margin-left: auto;
 }
 
 .jpdb-reader-popover .jpdb-reader-icon-btn,
@@ -10443,6 +10422,37 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
 
 .jpdb-reader-word-pills::-webkit-scrollbar {
   display: none;
+}
+
+/* Wide sheets keep multi-accent/component graphs in the otherwise-unused
+   upper-right tools area. Only a genuinely narrow popup needs a full-width
+   second row; the old unconditional grid wasted most of an iPad header. */
+
+@container (max-width: 520px) {
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px 10px;
+  }
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-heading {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+    display: contents;
+  }
+  .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    margin-block: 0;
+  }
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: auto;
+  }
 }
 
 @container (max-width: 340px) {

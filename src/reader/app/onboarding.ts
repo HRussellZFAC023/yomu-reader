@@ -6,6 +6,7 @@ import { defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor,
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { runningAsBrowserExtension } from './runtime-env';
+import { applyRedditOverlayScale } from '../ui/reddit-overlay-scale';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
@@ -277,6 +278,7 @@ export class OnboardingController {
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         this.syncManualPageScanShortcut();
+        applyRedditOverlayScale(this.panel);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
         this.annotateJapanese();

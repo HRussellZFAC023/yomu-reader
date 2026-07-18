@@ -19,7 +19,7 @@ const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_
 const PAGE_PATH = '/popover-headword-furigana.html';
 const LOOKUP_WORD = '大変';
 const VOCABULARY = [
-    [LOOKUP_WORD, LOOKUP_WORD, 'たいへん', 'difficult; serious', ['adj-na'], 1500, ['not-in-deck'], ['LHHH']],
+    [LOOKUP_WORD, LOOKUP_WORD, 'たいへん', 'difficult; serious', ['adj-na'], 1500, ['not-in-deck'], ['LHHH', 'HLLL']],
 ];
 
 const settings = {
@@ -29,7 +29,7 @@ const settings = {
     jitenApiKey: '',
     showFurigana: true,
     furiganaMode: 'all',
-    showPitchAccent: false,
+    showPitchAccent: true,
     jpdbMiningEnabled: false,
     jpdbDefinitionsEnabled: false,
     jitenDefinitionsEnabled: false,
@@ -44,11 +44,11 @@ const settings = {
     newTabAnkiEnabled: false,
     audioEnabled: false,
     autoPlayAudio: false,
-    lookupOnHover: true,
+    lookupOnHover: false,
     lookupOnClick: true,
     hoverOpenDelayMs: 0,
     hoverCloseDelayMs: 300,
-    popupActivationMode: 'hover',
+    popupActivationMode: 'click',
     immersionKitEnabled: false,
     studyTranslationEnabled: false,
     studyGrammarEnabled: false,
@@ -74,7 +74,13 @@ const requests = [];
 const browser = await chromium.launch({ headless: true });
 
 try {
-    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1024, height: 768 } });
+    // Match the wide touch-triggered iPad sheet in the acceptance screenshot;
+    // the 490px desktop hover card is intentionally a narrow-container case.
+    const context = await browser.newContext({
+        bypassCSP: true,
+        viewport: { width: 1024, height: 1180 },
+        hasTouch: true,
+    });
     const page = await context.newPage();
     await page.exposeFunction('__yomuHeadwordFuriganaRequest', request => handleYomuRequest(request, requests));
     await addGmStorageBridgeInitScript(page, {
@@ -93,9 +99,14 @@ try {
     );
 
     const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${LOOKUP_WORD}"]`).first();
-    await word.hover();
+    await word.click();
     const headword = await waitForHeadwordFurigana(page);
     assert(headword.metaReading === '', 'Popup still showed duplicate reading metadata beside ruby headword', headword);
+    const widePitchLayout = await waitForWidePitchLayout(page);
+    assert(widePitchLayout.sameTopRow, 'Wide popup pitch variants did not use the upper-right header space', widePitchLayout);
+    assert(widePitchLayout.rightOfMidpoint, 'Wide popup pitch variants were not right-aligned', widePitchLayout);
+    const widePitchScreenshot = path.join(ARTIFACTS, 'popover-headword-furigana-wide-pitch.png');
+    await page.screenshot({ path: widePitchScreenshot, fullPage: false });
 
     await page.locator('.jpdb-reader-popover .jpdb-reader-spelling .jpdb-reader-kanji-inline[data-kanji="変"]').click();
     await page.waitForFunction(
@@ -111,7 +122,7 @@ try {
 
     const screenshot = path.join(ARTIFACTS, 'popover-headword-furigana.png');
     await page.screenshot({ path: screenshot, fullPage: false });
-    const report = { ok: true, headword, kanji, requests, screenshot };
+    const report = { ok: true, headword, widePitchLayout, widePitchScreenshot, kanji, requests, screenshot };
     writeFileSync(path.join(ARTIFACTS, 'popover-headword-furigana-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     await context.close();
@@ -140,6 +151,32 @@ async function waitForHeadwordFurigana(page) {
             buttons,
             metaReading: document.querySelector('.jpdb-reader-popover .jpdb-reader-meta-reading')?.textContent?.trim() ?? '',
         };
+    }, null, { timeout: 15_000 });
+    return await handle.jsonValue();
+}
+
+async function waitForWidePitchLayout(page) {
+    const handle = await page.waitForFunction(() => {
+        const header = document.querySelector('.jpdb-reader-popover .jpdb-reader-header');
+        const heading = header?.querySelector('.jpdb-reader-heading');
+        const pitch = header?.querySelector('.jpdb-reader-pitch-variants');
+        if (!(header instanceof HTMLElement) || !(heading instanceof HTMLElement) || !(pitch instanceof HTMLElement)) return null;
+        if (pitch.querySelectorAll('svg').length !== 2) return null;
+        const headerBox = header.getBoundingClientRect();
+        const headingBox = heading.getBoundingClientRect();
+        const pitchBox = pitch.getBoundingClientRect();
+        if (!headerBox.width || !pitchBox.width) return null;
+        return {
+            header: rectJson(headerBox),
+            heading: rectJson(headingBox),
+            pitch: rectJson(pitchBox),
+            sameTopRow: Math.abs(pitchBox.top - headerBox.top) <= 4,
+            rightOfMidpoint: pitchBox.left >= headerBox.left + headerBox.width / 2,
+        };
+
+        function rectJson(rect) {
+            return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left };
+        }
     }, null, { timeout: 15_000 });
     return await handle.jsonValue();
 }

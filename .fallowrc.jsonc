@@ -19,6 +19,7 @@
     "scripts/academy-audio-media.mjs",
     "scripts/academy-source-pipeline.mjs",
     "scripts/generate-academy-achievements.mjs",
+    "scripts/validate-story-package.mjs",
     "scripts/academy-lesson-uniqueness-conformance.mjs",
     "scripts/academy-sprite-migration-ledger.mjs",
     "scripts/current-place-world-geometry.mjs",
@@ -49,6 +50,9 @@
     "scripts/manual/youtube-fullscreen-smoke.mjs",
     "scripts/yt-live-harness.mjs",
     "scripts/manual/extension-boot-smoke.mjs",
+    // Documented check-performance profiler; invoked directly when capturing
+    // timing baselines rather than from an npm script.
+    "scripts/measure-check.mjs",
     "scripts/study-flow-stability-smoke.mjs",
     "scripts/manual/bookwalker-live-firefox-smoke.mjs",
     "tests/reader/**/*.test.ts",

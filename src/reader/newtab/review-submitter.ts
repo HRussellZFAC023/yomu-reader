@@ -20,7 +20,7 @@ type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 's
 // ladders dispatch; `refreshState`/`undo` capture each provider's post-review and
 // reversal semantics (only Jiten reverses server-side — the rest requeue locally,
 // which the controller owns, so their `undo` rejects as not-server-reversible).
-export interface NewTabReviewProviderAdapter {
+interface NewTabReviewProviderAdapter {
     // Whether this provider currently holds the credential/gating to grade the
     // card. `review` still enforces its own precise, message-specific gate.
     hasCredential(card: JPDBCard): boolean;

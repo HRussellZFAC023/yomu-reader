@@ -82,6 +82,11 @@ export function provisionalSubtitleParseOptions(): SubtitleParseOptions {
 export function authoritativeSubtitleParseOptions(): SubtitleParseOptions {
     return {
         requireJpdb: true,
+        // JPDB identity remains authoritative, but its token boundaries are
+        // not infallible (訪れた has been returned as the surname 訪). Let the
+        // deterministic segmenter repair partial inflected spans before the
+        // subtitle HTML is cached; this does not relax the required API tier.
+        allowSegmentedFallback: true,
         includeLocalPitch: true,
     };
 }

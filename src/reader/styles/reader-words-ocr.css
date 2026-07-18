@@ -752,6 +752,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-underline-pitch .jpdb-reader-word {
   --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
 }
+/* Some expressions have no defensible whole-word accent, but Jiten provides
+   an exact aligned decomposition whose components each do (王子様 → 王子 +
+   様). Paint proportional component colours on the one clickable word's
+   underline; never collapse one component into a fake whole-expression class. */
+.jpdb-reader-word-underline-pitch .jpdb-reader-word[data-pitch-components="true"]::after {
+  height: var(--jpdb-reader-word-underline-thickness);
+  border-block-end: 0;
+  background-image: var(--jpdb-reader-inline-pitch-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
 :is(
   .jpdb-reader-word-underline-status,
   .jpdb-reader-word-underline-jpdb,

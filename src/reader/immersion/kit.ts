@@ -343,7 +343,6 @@ export class ImmersionKitClient {
     }
 
     // Compatibility helper for callers that still expect the first media candidate.
-    // fallow-ignore-next-line unused-class-member
     mediaUrl(example: ImmersionKitExample, kind: 'image' | 'sound'): string {
         return this.mediaUrls(example, kind)[0] ?? '';
     }

@@ -78,7 +78,7 @@ const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
 
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 
-export interface NewTabSearchResults {
+interface NewTabSearchResults {
     query: string;
     words: JPDBCard[];
     kanji: NewTabSearchKanjiResult[];
@@ -86,12 +86,12 @@ export interface NewTabSearchResults {
     hasLocalDictionaries: boolean;
 }
 
-export interface NewTabSearchWordDetail extends NewTabSearchWordDetailData {
+interface NewTabSearchWordDetail extends NewTabSearchWordDetailData {
     wordKanjiDetails?: NewTabSearchWordKanjiDetail[];
     wordKanjiLoading?: boolean;
 }
 
-export interface NewTabSearchWordKanjiDetail {
+interface NewTabSearchWordKanjiDetail {
     kanji: string;
     details: KanjiDetailBundle;
 }

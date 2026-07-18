@@ -17,6 +17,7 @@ import {
     nestedPitchEnrichmentOptionsForHost,
     throttledAutoScanDelay,
 } from '../../src/reader/app/main-helpers';
+import { normalizedNestedParseOptions } from '../../src/reader/app/main-lookup-helpers';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
@@ -103,6 +104,17 @@ describe('reader runtime helpers', () => {
         expect(backgroundPitchEnrichmentOptionsForHost('m.youtube.com', true)).toEqual(mobile);
         expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookupLimit: 3 });
         expect(nestedPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({ publicLookupLimit: 3 });
+    });
+
+    it('keeps segmented boundary repair enabled for credentialed popup examples', () => {
+        expect(normalizedNestedParseOptions({}, {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+        }).allowSegmentedFallback).toBe(true);
+        expect(normalizedNestedParseOptions({ allowSegmentedFallback: false }, {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+        }).allowSegmentedFallback).toBe(false);
     });
 
     it('treats large visible image feeds as OCR reading pages without Japanese DOM text', () => {

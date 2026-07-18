@@ -103,7 +103,7 @@ async function fallbackSentenceTokens(): Promise<JPDBToken[]> {
 
 beforeEach(() => {
     document.body.innerHTML = '';
-    localStorage.removeItem('yomu:jiten-public-cache:v1');
+    localStorage.removeItem('yomu:jiten-public-cache:v2');
 });
 
 afterEach(() => {

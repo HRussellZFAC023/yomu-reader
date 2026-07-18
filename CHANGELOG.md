@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.219] - 2026-07-19
+
+### Fixed
+
+- Repaired partial remote token boundaries before subtitle and popup-example rendering, so `訪れた` is resolved as the inflected verb `訪れる` instead of the surname `訪` (`ほう`), restoring the correct furigana and pitch underline.
+- Continued pitch enrichment when Jiten resolves a word but has no accent of its own: exact JPDB pitch now reaches words such as `浜面`, while aligned compounds such as `王子様` keep one lookup target and show honest per-component pitch segments rather than borrowing a false whole-word accent.
+- Kept multi-accent and component pitch graphs in the otherwise-unused upper-right header space on wide iPad sheets; narrow phone and desktop-hover popups still use the readable full-width row.
+- Fixed the remaining double-size Yomu interface on Reddit in iPad Safari by compensating Safari's per-site full-page view scale across popovers, sheets, settings, notices, and the puck menu. Anchors, nested lookups, dragging, video avoidance, and screen-edge placement now share one coherent coordinate space, while inline readings, subtitles, OCR, normal-scale Reddit, other browsers, and other sites remain unchanged.
+
 ## [1.6.218] - 2026-07-19
 
 ### Changed

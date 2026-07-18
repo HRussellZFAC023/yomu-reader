@@ -1045,7 +1045,7 @@ describe('reader helpers', () => {
 
             expect(shouldUseSheet(settings)).toBe(true);
             expect(popover.classList.contains('jpdb-reader-sheet')).toBe(true);
-            expect(normalizedCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet { left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;');
+            expect(normalizedCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet { left: 0 !important; right: 0 !important; top: auto !important; bottom: var(--jpdb-reader-sheet-bottom, 0px) !important;');
             expect(normalizedCss).toContain('.jpdb-reader-sheet .jpdb-reader-sheet-handle { display: block; }');
         });
     });
@@ -1071,6 +1071,14 @@ describe('reader helpers', () => {
             expect(popover.classList.contains('jpdb-reader-sheet')).toBe(false);
             expect(popover.style.width).toBe(`${settings.popoverWidth}px`);
         });
+    });
+
+    it('chooses auto lookup surfaces from Reddit physical viewport dimensions', () => {
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'auto' as const, popoverWidth: 520 };
+
+        expect(shouldUseSheet(settings, 'modal', { width: 760, height: 980, pageScale: 1.6 })).toBe(true);
+        expect(shouldUseSheet(settings, 'modal', { width: 1180, height: 820, pageScale: 1.6 })).toBe(false);
+        expect(shouldUseSheet(settings, 'modal', { width: 540, height: 980, pageScale: 1.6 })).toBe(true);
     });
 
     it('keeps auto lookups in a drawer on constrained phone-sized viewports', () => {
@@ -1208,8 +1216,13 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps sheet popover body scroll stable after in-body control actions', async () => {
+    it('keeps sheet popover body scroll stable after in-body control actions', () => {
         const app = new ReaderApp();
+        const frameCallbacks: FrameRequestCallback[] = [];
+        const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            frameCallbacks.push(callback);
+            return frameCallbacks.length;
+        });
         const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
         const internals = app as unknown as {
             settings: typeof settings;
@@ -1232,13 +1245,16 @@ describe('reader helpers', () => {
 
         try {
             internals.mountPopover(popover, undefined, { mode: 'modal' });
+            frameCallbacks.length = 0;
             body.scrollTop = 320;
 
             button.click();
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            expect(frameCallbacks).not.toHaveLength(0);
+            frameCallbacks.splice(0).forEach(callback => callback(0));
 
             expect(body.scrollTop).toBe(320);
         } finally {
+            frameSpy.mockRestore();
             app.destroy();
             document.body.replaceChildren();
         }

@@ -2,6 +2,7 @@ import { DOODLE_COLOR_TOKENS } from '../theme/color-tokens';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import type { InterfaceLanguage } from '../app/types';
+import { redditLayoutPointToOverlay, redditSourceRectToOverlay } from '../ui/reddit-overlay-scale';
 
 export type DoodlePoint = { x: number; y: number; pressure: number };
 export type DoodleStroke = DoodlePoint[];
@@ -65,7 +66,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     let traceVisible = !ghost.hidden && !stage.classList.contains('trace-hidden');
     let points: DoodlePoint[] = [];
     let strokes: DoodleStroke[] = [];
-    let canvasRect = canvas.getBoundingClientRect();
+    let canvasRect = doodleOverlayRect(canvas);
     let suppressNativeGestureUntil = 0;
     let activeClassRemovalTimer = 0;
     const controller = new AbortController();
@@ -100,11 +101,11 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const resize = () => {
-        const rect = stage.getBoundingClientRect();
+        const rect = doodleOverlayRect(stage);
         dpr = Math.max(window.devicePixelRatio || 1, 1);
         const width = Math.max(1, Math.round(rect.width * dpr));
         const height = Math.max(1, Math.round(rect.height * dpr));
-        canvasRect = canvas.getBoundingClientRect();
+        canvasRect = doodleOverlayRect(canvas);
         measureGhost();
         if (canvas.width !== width || canvas.height !== height) {
             canvas.width = width;
@@ -114,9 +115,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     };
 
     const toPoint = (event: PointerEvent): DoodlePoint => {
+        const point = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
         return {
-            x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
-            y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
+            x: Math.max(0, Math.min(1, (point.x - canvasRect.left) / Math.max(canvasRect.width, 1))),
+            y: Math.max(0, Math.min(1, (point.y - canvasRect.top) / Math.max(canvasRect.height, 1))),
             pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55)),
         };
     };
@@ -125,7 +127,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const measureGhost = (): void => {
         const svg = ghost.querySelector('svg');
         if (!svg) return;
-        const rect = svg.getBoundingClientRect();
+        const rect = redditSourceRectToOverlay(svg.getBoundingClientRect(), svg);
         const size = Math.min(rect.width, rect.height);
         if (size > 0) measuredGhostSize = size;
     };
@@ -253,7 +255,7 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
         pointerType = event.pointerType;
         keepDoodleInteractionActive();
         clearSelection();
-        canvasRect = canvas.getBoundingClientRect();
+        canvasRect = doodleOverlayRect(canvas);
         points = [];
         appendPoint(toPoint(event));
         setDoodlePointerCapture(canvas, event.pointerId);
@@ -431,4 +433,8 @@ function kanjiDoodleElements(popover: HTMLElement): KanjiDoodleElements | null {
     const ghost = popover.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
     if (stage && canvas && ghost) return { stage, canvas, ghost };
     return null;
+}
+
+function doodleOverlayRect(element: Element): DOMRect {
+    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
 }

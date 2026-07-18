@@ -1,5 +1,10 @@
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
+import {
+    redditLayoutPointToOverlay,
+    redditOverlayViewport,
+    redditSourceRectToOverlay,
+} from '../ui/reddit-overlay-scale';
 
 export function updateSourceRowEditor(action: string, control?: HTMLElement | null): void {
     const row = control?.closest<HTMLElement>('[data-source-row]');
@@ -25,7 +30,16 @@ export function installSourceRowDrag(root: HTMLElement): void {
         if (!row || !container) return;
         event.preventDefault();
         setSourceRowPointerCapture(handle, event.pointerId);
-        drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
+        const pageScale = redditOverlayViewport().pageScale;
+        drag = {
+            active: false,
+            container,
+            handle,
+            pageScale,
+            pointerId: event.pointerId,
+            row,
+            startY: sourceRowOverlayY(event.clientY, pageScale),
+        };
         row.classList.add('jpdb-reader-order-row-drag-pending');
         dragDocument.addEventListener('pointermove', moveDrag);
         dragDocument.addEventListener('pointerup', finishDrag);
@@ -34,11 +48,12 @@ export function installSourceRowDrag(root: HTMLElement): void {
 
     const moveDrag = (event: PointerEvent): void => {
         if (!drag || event.pointerId !== drag.pointerId) return;
-        if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
+        const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+        if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
         event.preventDefault();
         drag.active = true;
         drag.row.classList.add('jpdb-reader-order-row-dragging');
-        moveSourceRowToPointer(drag.container, drag.row, event.clientY);
+        moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
     };
 
     const finishDrag = (event: PointerEvent): void => {
@@ -70,6 +85,7 @@ interface SourceRowDragState {
     active: boolean;
     container: HTMLElement;
     handle: HTMLElement;
+    pageScale: number;
     pointerId: number;
     row: HTMLElement;
     startY: number;
@@ -91,16 +107,20 @@ function releaseSourceRowPointerCapture(handle: HTMLElement, pointerId: number):
     }
 }
 
-function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, clientY: number): void {
+function moveSourceRowToPointer(container: HTMLElement, row: HTMLElement, overlayY: number, pageScale: number): void {
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'))
         .filter(candidate => candidate !== row);
     const target = rows.find(candidate => {
-        const rect = candidate.getBoundingClientRect();
-        return clientY < rect.top + rect.height / 2;
+        const rect = redditSourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+        return overlayY < rect.top + rect.height / 2;
     });
     if (target) container.insertBefore(row, target);
     else container.appendChild(row);
     syncSourceRowOrder(container);
+}
+
+function sourceRowOverlayY(clientY: number, pageScale: number): number {
+    return redditLayoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
 }
 
 function canMoveSourceRow(index: number, targetIndex: number, rowCount: number): boolean {

@@ -1,6 +1,6 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
 import { Logger } from '../app/logger';
-import type { JPDBCard, JPDBToken } from '../app/types';
+import type { JPDBCard, JPDBPitchComponent, JPDBToken } from '../app/types';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
@@ -397,6 +397,7 @@ function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fall
     const annotatedReading = stringValue(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
+    const pitchComponents = publicJitenPitchComponents(payload.composedOf);
     return {
         vid: wordId,
         sid: fallback.readingIndex,
@@ -416,6 +417,7 @@ function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fall
         reviewSource: 'jiten-api',
         jitenWordId: wordId,
         jitenReadingIndex: fallback.readingIndex,
+        ...(pitchComponents.length ? { pitchComponents } : {}),
     };
 }
 
@@ -562,6 +564,30 @@ function pitchPatterns(value: unknown, reading: string): string[] {
             .map(position => pitchPatternFromPosition(reading, position))
             .filter(Boolean)
         : [];
+}
+
+function publicJitenPitchComponents(value: unknown): JPDBPitchComponent[] {
+    return arrayRecords(value).flatMap(record => {
+        // Jiten word summaries expose the written surface separately from the
+        // kana reading. readingFurigana may be annotated (王[おう]子[じ]) or may
+        // itself be kana-only (こう); matchSurface is authoritative in the
+        // latter shape. Do not rely on the nonexistent `kanaReading` field.
+        const annotated = stringValue(record.readingFurigana);
+        const rawReading = stringValue(record.reading);
+        const spelling = stringValue(record.matchSurface)
+            || cleanAnnotatedJitenText(annotated)
+            || cleanAnnotatedJitenText(rawReading);
+        const reading = (annotated.includes('[') ? cleanJitenAnnotatedReading(annotated) : '')
+            || rawReading
+            || spelling;
+        if (!spelling || !reading) return [];
+        return [{
+            spelling,
+            reading,
+            pitchAccent: pitchPatterns(record.pitchAccents, reading),
+            wordWithReading: annotated.includes('[') ? annotated : null,
+        }];
+    });
 }
 
 function cleanJitenAnnotatedReading(value: string): string {

@@ -3,6 +3,7 @@
 //
 // This is a deterministic routed fixture, not visual proof from reddit.com.
 // It reproduces the structural facts observed on the live site:
+//   - WebKit's 760px browser surface over a 475px layout viewport (1.6×);
 //   - a Join button two open-shadow boundaries below a Latin-only shell;
 //   - fixed-height header/sort/share controls;
 //   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
@@ -13,7 +14,7 @@
 // not grow, and only source ranges that actually contain Japanese are painted.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium, webkit } from 'playwright';
+import { pathToFileURL } from 'node:url';
 import {
     assert,
     assertBuiltArtifacts,
@@ -25,9 +26,19 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
+const playwrightModule = await import(process.env.YOMU_REDDIT_PLAYWRIGHT_MODULE
+    ? pathToFileURL(path.resolve(process.env.YOMU_REDDIT_PLAYWRIGHT_MODULE)).href
+    : 'playwright');
+const { chromium, webkit } = playwrightModule;
+
 const REQUEST_BRIDGE = '__yomuRedditChromeRequest';
 const PAGE_PATH = '/reddit-ipad-annotation-regression.html';
-const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
+const smokePaths = createSmokePaths(import.meta.dirname);
+const ROOT = smokePaths.root;
+const ARTIFACTS = smokePaths.artifacts;
+const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
+const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
+const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 
 const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -56,20 +67,20 @@ const VOCABULARY = [
 const settings = createReaderSmokeSettings({
     preferJapaneseSiteLanguage: false,
     showFloatingButton: true,
+    popupMode: 'popover',
+    popoverWidth: 520,
 });
 
+const IPAD_SAFARI_UA = 'Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1';
 const PAGE = `<!doctype html>
-<html lang="ja">
+<html lang="ja" data-yomu-fixture="deterministic-reddit-structure">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="__VIEWPORT_CONTENT__">
 <title>Reddit iPad Annotation Regression</title>
 <style>
 html, body { margin: 0; min-height: 100%; background: #0b1416; color: #f2f4f5; font: 16px/1.25 system-ui, sans-serif; }
 body { display: grid; place-items: start center; }
-/* Reproduce Reddit's broad tablet control rules hitting body-mounted Yomu UI.
-   Inline-priority isolation must win without changing Reddit's own layout. */
-body > button, body > [role="menu"] { zoom: 1.6 !important; }
 .shell { width: min(760px, 100vw); padding: 18px; box-sizing: border-box; }
 .community { font-size: 30px; font-weight: 700; margin: 18px 0; }
 .actions, .feed-tools, .post-actions { display: flex; align-items: center; gap: 10px; }
@@ -93,6 +104,11 @@ body > button, body > [role="menu"] { zoom: 1.6 !important; }
 #subreddit, #punctuation { display: inline-block; margin-right: 10px; }
 .foreign-stack { margin-top: 12px; }
 .foreign-row { box-sizing: border-box; height: 28px; font: 600 28px/28px system-ui, sans-serif; white-space: nowrap; }
+#popup-anchor {
+  position: fixed; right: 18px; bottom: 112px; z-index: 2;
+  box-sizing: border-box; padding: 8px 12px; border: 1px solid #748087; border-radius: 10px;
+  background: #172126; color: #f2f4f5; font: 600 18px/24px system-ui, sans-serif;
+}
 </style>
 </head>
 <body>
@@ -116,6 +132,7 @@ body > button, body > [role="menu"] { zoom: 1.6 !important; }
       <h2>GPT Solves Yet Another Problem</h2>
       <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
     </article>
+    <span id="popup-anchor">投稿</span>
   </main>
 </shreddit-app>
 <script>
@@ -165,11 +182,19 @@ customElements.define('reddit-clipped-title', RedditClippedTitle);
 </html>`;
 
 mkdirSync(ARTIFACTS, { recursive: true });
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+assert(REQUIRED_COMPANION_PATHS.length > 0, 'Built userscript has no local companion fixtures to load');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...REQUIRED_COMPANION_PATHS], ROOT, 'Run npm run build first.');
 
 const summaries = [];
 const failures = [];
-for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', type: webkit }]) {
+const requestedEngines = new Set(
+    (process.env.YOMU_REDDIT_SMOKE_ENGINES ?? 'chromium,webkit')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean),
+);
+for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', type: webkit }]
+    .filter(engine => requestedEngines.has(engine.name))) {
     const launched = await launchOptionalBrowser(engine.type, engine.name, { headless: true });
     if (launched.skipped) {
         summaries.push({ engine: engine.name, skipped: true, reason: launched.reason });
@@ -201,6 +226,7 @@ async function runEngine(engineName, browser) {
         viewport: { width: 760, height: 980 },
         hasTouch: true,
         isMobile: true,
+        userAgent: IPAD_SAFARI_UA,
     });
     const page = await context.newPage();
     const pageErrors = [];
@@ -209,7 +235,12 @@ async function runEngine(engineName, browser) {
         await page.route(`https://www.reddit.com${PAGE_PATH}*`, route => route.fulfill({
             status: 200,
             contentType: 'text/html',
-            body: PAGE,
+            // WebKit models Safari full-page zoom as a narrower layout viewport
+            // scaled to the unchanged browser surface. Chromium stays at 1× as
+            // the normal-scale compatibility lane.
+            body: PAGE.replace('__VIEWPORT_CONTENT__', engineName === 'webkit'
+                ? 'width=475'
+                : 'width=device-width, initial-scale=1'),
         }));
         await installUserscriptFixtureBridge(page, {
             requestBridgeName: REQUEST_BRIDGE,
@@ -220,6 +251,9 @@ async function runEngine(engineName, browser) {
         await page.goto(`https://www.reddit.com${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotRedditLayout);
         await page.addStyleTag({ path: CSS_PATH });
+        for (const companionPath of REQUIRED_COMPANION_PATHS) {
+            await page.addScriptTag({ path: companionPath });
+        }
         await page.addScriptTag({ path: SCRIPT_PATH });
 
         await Promise.all([
@@ -228,6 +262,7 @@ async function runEngine(engineName, browser) {
             page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#popup-anchor .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
         ]);
@@ -244,11 +279,7 @@ async function runEngine(engineName, browser) {
         });
         await page.locator('#menu-heading .jpdb-reader-word').waitFor({ timeout: 20_000 });
         await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
-        // Dispatch through the control itself: Chromium's synthetic hit-test
-        // does not compensate an ancestor zoom the same way WebKit does, while
-        // the product contract here is rendered geometry (ordinary control
-        // click-through is covered above and in the floating-button unit suite).
-        await page.locator('.jpdb-reader-fab').evaluate(button => button.click());
+        await page.locator('.jpdb-reader-fab').click();
         await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
         await page.waitForTimeout(400);
 
@@ -257,6 +288,12 @@ async function runEngine(engineName, browser) {
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors);
+        const fixedChrome = await exerciseCompensatedFixedChrome(page);
+        assertCompensatedFixedChrome(engineName, fixedChrome);
+        const videoAvoidance = await exerciseCompensatedVideoAvoidance(page);
+        assertCompensatedVideoAvoidance(engineName, videoAvoidance);
+        const puckDrag = await exerciseCompensatedPuckDrag(page);
+        assertCompensatedPuckDrag(engineName, puckDrag);
         const mirrorRemovalFallback = await page.evaluate(() => {
             const join = document.querySelector('reddit-header-shell').shadowRoot
                 .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
@@ -276,11 +313,641 @@ async function runEngine(engineName, browser) {
             && mirrorRemovalFallback.color !== 'rgba(0, 0, 0, 0)'
             && mirrorRemovalFallback.width > 0,
         `${engineName}: removing a framework mirror left a blank control`, mirrorRemovalFallback);
-        return { engine: engineName, screenshot, requests: requests.length, baseline, touchHover, mirrorRemovalFallback, ...snapshot };
+        assert(pageErrors.length === 0, `${engineName}: pointer/video checks raised page errors`, pageErrors);
+        return {
+            engine: engineName,
+            screenshot,
+            requests: requests.length,
+            baseline,
+            touchHover,
+            fixedChrome,
+            videoAvoidance,
+            puckDrag,
+            mirrorRemovalFallback,
+            ...snapshot,
+        };
     } finally {
         await context.close().catch(() => undefined);
     }
 }
+
+function userscriptCompanionPaths(userscriptPath) {
+    return readFileSync(userscriptPath, 'utf8')
+        .split(/\r?\n/u)
+        .flatMap(line => {
+            const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)(?:#\S+)?$/u);
+            if (!match) return [];
+            const fileName = path.basename(match[1]);
+            assert(fileName === match[1], `Unsafe userscript companion path: ${match[1]}`);
+            return [path.join(ROOT, 'docs/public/greasyfork', fileName)];
+        });
+}
+
+async function exerciseCompensatedFixedChrome(page) {
+    const radialSurface = await snapshotFixedSurface(page, '.jpdb-reader-fab-radial.is-open');
+    const settingsAction = page.locator('[data-radial-id="settings"]');
+    await settingsAction.click();
+    const settingsRoot = page.locator('.jpdb-reader-settings');
+    await settingsRoot.waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(250);
+    const settingsSurface = await snapshotFixedSurface(page, '.jpdb-reader-settings');
+    const settingsDrag = await dragFixedSurface(page, '.jpdb-reader-settings', '.jpdb-reader-settings-drag-handle', 40);
+
+    await settingsRoot.locator('select[name="popupMode"]').selectOption('sheet');
+    await settingsRoot.locator('button[type="submit"]').click();
+    await settingsRoot.waitFor({ state: 'detached', timeout: 10_000 });
+    const toastStack = page.locator('.jpdb-reader-toast-stack');
+    await toastStack.waitFor({ timeout: 10_000 });
+    const toastSurface = await snapshotFixedSurface(page, '.jpdb-reader-toast-stack');
+
+    const popupAnchor = page.locator('#popup-anchor .jpdb-reader-word').first();
+    await popupAnchor.click();
+    const sheet = page.locator('.jpdb-reader-popover.jpdb-reader-sheet');
+    await sheet.waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(250);
+    const sheetSurface = await snapshotFixedSurface(page, '.jpdb-reader-popover.jpdb-reader-sheet');
+    const sheetDrag = await dragFixedSurface(page, '.jpdb-reader-popover.jpdb-reader-sheet', '.jpdb-reader-sheet-handle', -40);
+    await page.keyboard.press('Escape');
+    await sheet.waitFor({ state: 'detached', timeout: 10_000 });
+
+    await page.locator('.jpdb-reader-fab').click();
+    await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
+    await page.locator('[data-radial-id="settings"]').click();
+    await settingsRoot.waitFor({ timeout: 10_000 });
+    await settingsRoot.locator('select[name="popupMode"]').selectOption('popover');
+    await settingsRoot.locator('input[name="popoverWidth"]').fill('520');
+    await settingsRoot.locator('button[type="submit"]').click();
+    await settingsRoot.waitFor({ state: 'detached', timeout: 10_000 });
+
+    await popupAnchor.click();
+    const popover = page.locator('.jpdb-reader-popover:not(.jpdb-reader-sheet)');
+    await popover.waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(350);
+    const popoverSurface = await snapshotAnchoredPopover(page);
+    const sourceSummary = popover.locator('details > summary').first();
+    let popupControlClick = { available: false, changed: false };
+    if (await sourceSummary.count()) {
+        const beforeOpen = await sourceSummary.evaluate(summary => summary.parentElement?.hasAttribute('open') ?? false);
+        await sourceSummary.click();
+        const afterOpen = await sourceSummary.evaluate(summary => summary.parentElement?.hasAttribute('open') ?? false);
+        popupControlClick = { available: true, changed: beforeOpen !== afterOpen };
+    }
+    await page.keyboard.press('Escape');
+    await popover.waitFor({ state: 'detached', timeout: 10_000 });
+
+    return {
+        radial: radialSurface,
+        settings: settingsSurface,
+        settingsDrag,
+        toast: toastSurface,
+        sheet: sheetSurface,
+        sheetDrag,
+        popover: popoverSurface,
+        popupControlClick,
+    };
+}
+
+async function snapshotFixedSurface(page, selector) {
+    return page.locator(selector).evaluate(root => {
+        const pageScale = outerWidth / innerWidth;
+        const rawRootRect = root.getBoundingClientRect();
+        const compensatedRectScale = measuredCompensatedRectScale(root, rawRootRect, pageScale);
+        const plainRect = (rect, scale = 1) => ({
+            left: rect.left * scale,
+            top: rect.top * scale,
+            right: rect.right * scale,
+            bottom: rect.bottom * scale,
+            width: rect.width * scale,
+            height: rect.height * scale,
+        });
+        const textRect = firstTextRect(root);
+        const backdrop = document.querySelector('.jpdb-reader-backdrop');
+        const backdropRect = backdrop?.getBoundingClientRect();
+        return {
+            rect: plainRect(rawRootRect, compensatedRectScale),
+            textRect: textRect ? plainRect(textRect, compensatedRectScale) : null,
+            fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
+            inlineZoom: root.style.getPropertyValue('zoom'),
+            zoomPriority: root.style.getPropertyPriority('zoom'),
+            adapter: root.dataset.jpdbReaderScaleAdapter ?? '',
+            pageScale,
+            compensatedRectScale,
+            browser: { width: outerWidth, height: innerHeight * pageScale },
+            backdrop: backdrop && backdropRect ? {
+                rect: plainRect(backdropRect),
+                physicalWidth: backdropRect.width * pageScale,
+                physicalHeight: backdropRect.height * pageScale,
+                inlineZoom: backdrop.style.getPropertyValue('zoom'),
+                adapter: backdrop.dataset.jpdbReaderScaleAdapter ?? '',
+            } : null,
+        };
+
+        function firstTextRect(scope) {
+            const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+                if (!node.data.trim() || node.parentElement?.closest('[hidden]')) continue;
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const rect = range.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) return rect;
+            }
+            return null;
+        }
+
+        function measuredCompensatedRectScale(element, rect, scale) {
+            if (scale <= 1 || !element.offsetWidth) return 1;
+            const measured = rect.width / element.offsetWidth;
+            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
+        }
+    });
+}
+
+async function dragFixedSurface(page, rootSelector, handleSelector, deltaLayoutY) {
+    return page.evaluate(async ({ rootSelector, handleSelector, deltaLayoutY }) => {
+        const root = document.querySelector(rootSelector);
+        const handle = root?.querySelector(handleSelector);
+        if (!(root instanceof HTMLElement) || !(handle instanceof HTMLElement)) {
+            return { available: false };
+        }
+        const before = root.getBoundingClientRect();
+        const pageScale = outerWidth / innerWidth;
+        const compensatedRectScale = measuredCompensatedRectScale(root, before, pageScale);
+        const init = {
+            bubbles: true,
+            cancelable: true,
+            pointerId: 73,
+            pointerType: 'touch',
+            isPrimary: true,
+            button: 0,
+            buttons: 1,
+            clientX: 120,
+            clientY: 220,
+        };
+        handle.dispatchEvent(new PointerEvent('pointerdown', init));
+        document.dispatchEvent(new PointerEvent('pointermove', {
+            ...init,
+            clientY: init.clientY + deltaLayoutY,
+        }));
+        document.dispatchEvent(new PointerEvent('pointerup', {
+            ...init,
+            buttons: 0,
+            clientY: init.clientY + deltaLayoutY,
+        }));
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const after = root.getBoundingClientRect();
+        return {
+            available: true,
+            pageScale,
+            compensatedRectScale,
+            deltaLayoutY,
+            expectedHeightChange: -deltaLayoutY * pageScale,
+            beforeHeight: before.height * compensatedRectScale,
+            afterHeight: after.height * compensatedRectScale,
+            actualHeightChange: (after.height - before.height) * compensatedRectScale,
+        };
+
+        function measuredCompensatedRectScale(element, rect, scale) {
+            if (scale <= 1 || !element.offsetWidth) return 1;
+            const measured = rect.width / element.offsetWidth;
+            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
+        }
+    }, { rootSelector, handleSelector, deltaLayoutY });
+}
+
+async function snapshotAnchoredPopover(page) {
+    return page.evaluate(() => {
+        const popover = document.querySelector('.jpdb-reader-popover:not(.jpdb-reader-sheet)');
+        const anchor = document.querySelector('#popup-anchor .jpdb-reader-word');
+        if (!(popover instanceof HTMLElement) || !(anchor instanceof HTMLElement)) return null;
+        const plainRect = rect => ({
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+        });
+        const pageScale = outerWidth / innerWidth;
+        const anchorLayout = anchor.getBoundingClientRect();
+        const anchorOverlay = {
+            left: anchorLayout.left * pageScale,
+            top: anchorLayout.top * pageScale,
+            right: anchorLayout.right * pageScale,
+            bottom: anchorLayout.bottom * pageScale,
+            width: anchorLayout.width * pageScale,
+            height: anchorLayout.height * pageScale,
+        };
+        const popoverRect = popover.getBoundingClientRect();
+        const compensatedRectScale = measuredCompensatedRectScale(popover, popoverRect, pageScale);
+        const title = popover.querySelector('.jpdb-reader-title-row, .jpdb-reader-heading, h2');
+        const walker = title ? document.createTreeWalker(title, NodeFilter.SHOW_TEXT) : null;
+        let textNode = walker?.nextNode() ?? null;
+        while (textNode && !textNode.data.trim()) textNode = walker?.nextNode() ?? null;
+        const range = textNode ? document.createRange() : null;
+        if (range && textNode) range.selectNodeContents(textNode);
+        const textRect = range?.getBoundingClientRect();
+        const header = popover.querySelector('.jpdb-reader-header');
+        const components = popover.querySelectorAll('.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants');
+        return {
+            rect: scalePlainRect(popoverRect, compensatedRectScale),
+            anchorLayout: plainRect(anchorLayout),
+            anchorOverlay,
+            pageScale,
+            compensatedRectScale,
+            browser: { width: outerWidth, height: innerHeight * pageScale },
+            placementSide: popover.dataset.jpdbReaderPlacementSide ?? '',
+            inlineZoom: popover.style.getPropertyValue('zoom'),
+            zoomPriority: popover.style.getPropertyPriority('zoom'),
+            adapter: popover.dataset.jpdbReaderScaleAdapter ?? '',
+            configuredWidth: popover.style.width,
+            computedFontSize: Number.parseFloat(getComputedStyle(popover).fontSize),
+            textHeight: (textRect?.height ?? 0) * compensatedRectScale,
+            componentCount: components.length,
+            headerDisplay: header ? getComputedStyle(header).display : '',
+        };
+
+        function scalePlainRect(rect, scale) {
+            return {
+                left: rect.left * scale,
+                top: rect.top * scale,
+                right: rect.right * scale,
+                bottom: rect.bottom * scale,
+                width: rect.width * scale,
+                height: rect.height * scale,
+            };
+        }
+
+
+        function measuredCompensatedRectScale(element, rect, scale) {
+            if (scale <= 1 || !element.offsetWidth) return 1;
+            const measured = rect.width / element.offsetWidth;
+            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
+        }
+    });
+}
+
+function assertCompensatedFixedChrome(engineName, result) {
+    const expectedAdapter = engineName === 'webkit' ? 'reddit-apple-touch-page-scale' : '';
+    assert(result.radial.adapter === expectedAdapter,
+        `${engineName}: radial menu has the wrong Reddit scale ownership`, result.radial);
+    assert(Math.abs(result.radial.rect.width - result.radial.browser.width) <= 2
+        && Math.abs(result.radial.rect.height - result.radial.browser.height) <= 2,
+    `${engineName}: compensated radial menu did not cover the physical browser viewport`, result.radial);
+    if (engineName === 'webkit') {
+        assert(result.radial.inlineZoom === '0.625' && result.radial.zoomPriority === 'important',
+            `${engineName}: radial menu did not receive inverse page-scale isolation`, result.radial);
+    } else {
+        assert(result.radial.inlineZoom === '',
+            `${engineName}: radial menu received unnecessary scale compensation`, result.radial);
+    }
+    for (const [name, surface] of Object.entries({
+        settings: result.settings,
+        toast: result.toast,
+        sheet: result.sheet,
+    })) {
+        assert(surface.adapter === expectedAdapter,
+            `${engineName}: ${name} fixed surface has the wrong Reddit scale ownership`, surface);
+        assert(surface.rect.width > 0 && surface.rect.width <= surface.browser.width + 1
+            && surface.rect.height > 0 && surface.rect.height <= surface.browser.height + 1,
+        `${engineName}: ${name} fixed surface escaped the physical browser viewport`, surface);
+        assert(surface.textRect && surface.textRect.height >= 10 && surface.textRect.height <= 32,
+            `${engineName}: ${name} text remained physically enlarged`, surface);
+        if (engineName === 'webkit') {
+            assert(surface.inlineZoom === '0.625' && surface.zoomPriority === 'important',
+                `${engineName}: ${name} did not receive inverse page-scale isolation`, surface);
+        } else {
+            assert(surface.inlineZoom === '',
+                `${engineName}: ${name} received unnecessary scale compensation`, surface);
+        }
+    }
+    assert(result.settings.backdrop && result.settings.backdrop.inlineZoom === '' && result.settings.backdrop.adapter === '',
+        `${engineName}: settings scrim was inverse-scaled with its content root`, result.settings);
+    assert(Math.abs(result.settings.backdrop.physicalWidth - result.settings.browser.width) <= 2
+        && Math.abs(result.settings.backdrop.physicalHeight - result.settings.browser.height) <= 2,
+    `${engineName}: unscaled settings scrim did not cover the physical browser viewport`, result.settings);
+    assert(result.settingsDrag.available
+        && Math.abs(result.settingsDrag.actualHeightChange - result.settingsDrag.expectedHeightChange) <= 4,
+    `${engineName}: compensated settings drag did not track physical movement`, result.settingsDrag);
+    assert(result.sheetDrag.available
+        && Math.abs(result.sheetDrag.actualHeightChange - result.sheetDrag.expectedHeightChange) <= 4,
+    `${engineName}: compensated sheet drag did not track physical movement`, result.sheetDrag);
+    assert(Math.abs(result.sheet.rect.width - result.sheet.browser.width) <= 2,
+        `${engineName}: compensated bottom sheet did not span the physical browser width`, result.sheet);
+
+    const popup = result.popover;
+    assert(popup && popup.adapter === expectedAdapter,
+        `${engineName}: anchored popover has the wrong Reddit scale ownership`, popup);
+    assert(Math.abs(popup.rect.width - 520) <= 2,
+        `${engineName}: Reddit page scale enlarged the configured popup width`, popup);
+    assert(popup.rect.left >= -1 && popup.rect.top >= -1
+        && popup.rect.right <= popup.browser.width + 1 && popup.rect.bottom <= popup.browser.height + 1,
+    `${engineName}: anchored popup was not clamped to the physical browser viewport`, popup);
+    assert(popup.placementSide === 'above'
+        && popup.rect.top < popup.anchorOverlay.top
+        && popup.rect.bottom >= popup.anchorOverlay.top - 24
+        && popup.rect.bottom <= popup.anchorOverlay.bottom + 1,
+        `${engineName}: anchored popup was not placed against the normalized host anchor`, popup);
+    assert(popup.textHeight >= 12 && popup.textHeight <= 32,
+        `${engineName}: popup title text remained physically enlarged`, popup);
+    if (popup.componentCount > 0) {
+        assert(popup.headerDisplay === 'grid',
+            `${engineName}: popup container query did not use the compensated content width`, popup);
+    }
+    if (result.popupControlClick.available) {
+        assert(result.popupControlClick.changed,
+            `${engineName}: a control inside the compensated popup did not receive its click`, result.popupControlClick);
+    }
+}
+
+async function exerciseCompensatedVideoAvoidance(page) {
+    const puck = page.locator('.jpdb-reader-fab');
+    const radial = page.locator('.jpdb-reader-fab-radial');
+    if (await radial.count()) {
+        await puck.click();
+        await radial.waitFor({ state: 'detached', timeout: 5_000 });
+    }
+    await page.mouse.move(0, 0);
+
+    const marked = await page.evaluate(async () => {
+        const asPlainRect = rect => ({
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+        });
+        const waitFrames = count => new Promise(resolve => {
+            const next = () => {
+                if (count-- <= 0) resolve();
+                else requestAnimationFrame(next);
+            };
+            next();
+        });
+        const button = document.querySelector('.jpdb-reader-fab');
+        const pageScale = outerWidth / innerWidth;
+        const rawBefore = asPlainRect(button.getBoundingClientRect());
+        const compensatedRectScale = measuredCompensatedRectScale(button, rawBefore, pageScale);
+        const before = scaleRect(rawBefore, compensatedRectScale);
+        const beforePosition = { left: button.style.left, top: button.style.top };
+        const center = {
+            x: (before.left + before.right) / (2 * pageScale),
+            y: (before.top + before.bottom) / (2 * pageScale),
+        };
+        const video = document.createElement('video');
+        video.id = 'reddit-overlay-scale-video';
+        Object.assign(video.style, {
+            position: 'fixed',
+            left: `${center.x - 80}px`,
+            top: `${center.y - 60}px`,
+            width: '160px',
+            height: '120px',
+            pointerEvents: 'none',
+        });
+        document.body.appendChild(video);
+        button.focus({ preventScroll: true });
+        window.dispatchEvent(new Event('resize'));
+        await waitFrames(3);
+        return {
+            pageScale,
+            compensatedRectScale,
+            before,
+            beforePosition,
+            position: { left: button.style.left, top: button.style.top },
+            puck: scaleRect(asPlainRect(button.getBoundingClientRect()), compensatedRectScale),
+            video: asPlainRect(video.getBoundingClientRect()),
+            marked: button.classList.contains('jpdb-reader-fab-over-video'),
+            focused: document.activeElement === button,
+        };
+
+        function scaleRect(rect, scale) {
+            return Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, value * scale]));
+        }
+
+
+        function measuredCompensatedRectScale(element, rect, scale) {
+            if (scale <= 1 || !element.offsetWidth) return 1;
+            const measured = rect.width / element.offsetWidth;
+            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
+        }
+    });
+
+    await page.mouse.move(0, 0);
+    const moved = await page.evaluate(async () => {
+        const asPlainRect = rect => ({
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+        });
+        const waitFrames = count => new Promise(resolve => {
+            const next = () => {
+                if (count-- <= 0) resolve();
+                else requestAnimationFrame(next);
+            };
+            next();
+        });
+        const button = document.querySelector('.jpdb-reader-fab');
+        const video = document.querySelector('#reddit-overlay-scale-video');
+        const pageScale = outerWidth / innerWidth;
+        const rawPuck = asPlainRect(button.getBoundingClientRect());
+        const compensatedRectScale = measuredCompensatedRectScale(button, rawPuck, pageScale);
+        button.blur();
+        window.dispatchEvent(new Event('resize'));
+        await waitFrames(3);
+        const result = {
+            puck: scaleRect(asPlainRect(button.getBoundingClientRect()), compensatedRectScale),
+            video: asPlainRect(video.getBoundingClientRect()),
+            marked: button.classList.contains('jpdb-reader-fab-over-video'),
+            focused: document.activeElement === button,
+        };
+        video.remove();
+        window.dispatchEvent(new Event('resize'));
+        await waitFrames(2);
+        return result;
+
+        function scaleRect(rect, scale) {
+            return Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, value * scale]));
+        }
+
+
+        function measuredCompensatedRectScale(element, rect, scale) {
+            if (scale <= 1 || !element.offsetWidth) return 1;
+            const measured = rect.width / element.offsetWidth;
+            return Math.abs(measured - 1 / scale) < Math.abs(measured - 1) ? scale : 1;
+        }
+    });
+
+    return { marked, moved };
+}
+
+async function exerciseCompensatedPuckDrag(page) {
+    const puck = page.locator('.jpdb-reader-fab');
+    const before = await puck.evaluate(button => {
+        const box = button.getBoundingClientRect();
+        const rawRect = {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            width: box.width,
+            height: box.height,
+        };
+        const pageScale = outerWidth / innerWidth;
+        const measured = button.offsetWidth ? rawRect.width / button.offsetWidth : 1;
+        const compensatedRectScale = pageScale > 1
+            && Math.abs(measured - 1 / pageScale) < Math.abs(measured - 1)
+            ? pageScale
+            : 1;
+        return {
+            rawRect,
+            rect: scalePlainRect(rawRect, compensatedRectScale),
+            compensatedRectScale,
+            pageScale,
+            layoutWidth: innerWidth,
+            browserWidth: outerWidth,
+            target: { x: outerWidth - 70, y: 150 },
+        };
+
+        function scalePlainRect(rect, scale) {
+            return Object.fromEntries(Object.entries(rect).map(([key, value]) => [key, value * scale]));
+        }
+    });
+    const start = {
+        x: (before.rect.left + before.rect.right) / 2,
+        y: (before.rect.top + before.rect.bottom) / 2,
+    };
+    await page.mouse.move(start.x / before.pageScale, start.y / before.pageScale);
+    await puck.evaluate(button => {
+        window.__redditPuckPointerLog = [];
+        const record = event => window.__redditPuckPointerLog.push({
+            type: event.type,
+            clientX: event.clientX,
+            clientY: event.clientY,
+        });
+        button.addEventListener('pointerdown', record, { once: true });
+        button.addEventListener('pointermove', record);
+        button.addEventListener('pointerup', record, { once: true });
+    });
+    await page.mouse.down();
+    await page.mouse.move(
+        before.target.x / before.pageScale,
+        before.target.y / before.pageScale,
+        { steps: 6 },
+    );
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+
+    return puck.evaluate((button, details) => {
+        const box = button.getBoundingClientRect();
+        const rawAfter = {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            width: box.width,
+            height: box.height,
+        };
+        return {
+            ...details,
+            rawAfter,
+            after: Object.fromEntries(Object.entries(rawAfter)
+                .map(([key, value]) => [key, value * details.compensatedRectScale])),
+            pointerLog: window.__redditPuckPointerLog ?? [],
+            saved: {
+                left: Number.parseFloat(button.style.left),
+                top: Number.parseFloat(button.style.top),
+            },
+        };
+    }, { ...before, start });
+}
+
+function assertCompensatedVideoAvoidance(engineName, result) {
+    const { marked, moved } = result;
+    const normalizedVideo = scaleRect(marked.video, marked.pageScale);
+    assert(marked.focused && marked.marked,
+        `${engineName}: focused puck did not mark the normalized video overlap`, result);
+    assert(marked.position.left === marked.beforePosition.left
+        && marked.position.top === marked.beforePosition.top,
+    `${engineName}: focused puck persisted a video-avoidance move`, result);
+    assert(rectanglesIntersect(marked.puck, normalizedVideo),
+        `${engineName}: video fixture did not physically cover the compensated puck`, result);
+    if (engineName === 'webkit') {
+        assert(!rectanglesIntersect(marked.puck, marked.video),
+            `${engineName}: fixture did not reproduce layout/screen rect divergence`, result);
+    } else {
+        assert(rectanglesIntersect(marked.puck, marked.video),
+            `${engineName}: normal-scale video unexpectedly changed coordinate space`, result);
+    }
+    assert(!moved.focused && !moved.marked && rectCenterDistance(marked.puck, moved.puck) >= 10,
+        `${engineName}: puck did not move away after focus cleared`, result);
+    assert(!rectanglesIntersect(moved.puck, scaleRect(moved.video, marked.pageScale)),
+        `${engineName}: moved puck still overlaps the video in overlay space`, result);
+}
+
+function assertCompensatedPuckDrag(engineName, result) {
+    const pointerDown = result.pointerLog.find(entry => entry.type === 'pointerdown');
+    const pointerMoves = result.pointerLog.filter(entry => entry.type === 'pointermove');
+    const pointerUp = result.pointerLog.find(entry => entry.type === 'pointerup');
+    const finalMove = pointerMoves.at(-1);
+    assert(pointerDown && finalMove && pointerUp,
+        `${engineName}: browser drag did not deliver the full pointer sequence`, result);
+    assert(pointDistance(scalePoint(pointerDown, result.pageScale), result.start) <= 2,
+        `${engineName}: pointerdown did not expose the expected layout-space coordinate`, result);
+    assert(pointDistance(scalePoint(finalMove, result.pageScale), result.target) <= 2
+        && pointDistance(scalePoint(pointerUp, result.pageScale), result.target) <= 2,
+    `${engineName}: pointer endpoint did not map to the browser surface`, result);
+    const center = {
+        x: (result.after.left + result.after.right) / 2,
+        y: (result.after.top + result.after.bottom) / 2,
+    };
+    assert(pointDistance(center, result.target) <= 3,
+        `${engineName}: compensated puck did not track the physical drag endpoint`, result);
+    assert(center.x > result.browserWidth - 100,
+        `${engineName}: puck did not reach the far side of the full browser viewport`, result);
+    if (engineName === 'webkit') {
+        assert(center.x > result.layoutWidth,
+            `${engineName}: puck remained trapped inside the narrowed layout viewport`, result);
+    } else {
+        assert(Math.abs(result.pageScale - 1) <= 0.01 && center.x < result.layoutWidth,
+            `${engineName}: normal-scale drag unexpectedly changed coordinate space`, result);
+    }
+}
+
+function scalePoint(point, scale) {
+    return { x: point.clientX * scale, y: point.clientY * scale };
+}
+
+function scaleRect(rect, scale) {
+    return {
+        left: rect.left * scale,
+        top: rect.top * scale,
+        right: rect.right * scale,
+        bottom: rect.bottom * scale,
+        width: rect.width * scale,
+        height: rect.height * scale,
+    };
+}
+
+function pointDistance(left, right) {
+    return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function rectCenterDistance(left, right) {
+    return Math.hypot(
+        (left.left + left.right - right.left - right.right) / 2,
+        (left.top + left.bottom - right.top - right.bottom) / 2,
+    );
+}
+
+function rectanglesIntersect(left, right) {
+    return left.left < right.right && left.right > right.left
+        && left.top < right.bottom && left.bottom > right.top;
+}
+
 
 function mockedYomuRequest(request, requestLog) {
     return mockJpdbApiRequest(request, requestLog, VOCABULARY, {
@@ -551,17 +1218,29 @@ function snapshotRedditPageSummary() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
     const puck = document.querySelector('.jpdb-reader-fab');
-    const puckRect = puck.getBoundingClientRect();
+    const pageScale = outerWidth / innerWidth;
+    const rawPuckRect = puck.getBoundingClientRect();
+    const measuredPuckScale = puck.offsetWidth ? rawPuckRect.width / puck.offsetWidth : 1;
+    const compensatedRectScale = pageScale > 1
+        && Math.abs(measuredPuckScale - 1 / pageScale) < Math.abs(measuredPuckScale - 1)
+        ? pageScale
+        : 1;
+    const puckRect = scalePlainRect(rawPuckRect, compensatedRectScale);
     const radialItems = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
-    const radialRects = radialItems.map(item => item.getBoundingClientRect());
+    const radialRects = radialItems.map(item => scalePlainRect(item.getBoundingClientRect(), compensatedRectScale));
     const radialCenters = radialRects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
     return {
         layout: {
+            fixture: document.documentElement.dataset.yomuFixture,
             createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
             shareHeight: document.querySelector('#share').getBoundingClientRect().height,
             cardHeight: card.height,
             cardToPostGap: post.top - card.bottom,
             viewportWidth: innerWidth,
+            viewportHeight: innerHeight,
+            browserWidth: outerWidth,
+            browserToLayoutScale: pageScale,
+            visualViewportScale: visualViewport?.scale ?? null,
             scrollWidth: document.documentElement.scrollWidth,
             rubyRoomCount: document.querySelectorAll('[data-yomu-ruby-room]').length,
         },
@@ -569,8 +1248,17 @@ function snapshotRedditPageSummary() {
             hostname: location.hostname,
             bodyZoom: getComputedStyle(document.body).zoom,
             puckZoom: getComputedStyle(puck).zoom,
+            puckInlineZoom: puck.style.getPropertyValue('zoom'),
+            puckZoomPriority: puck.style.getPropertyPriority('zoom'),
+            scaleAdapter: puck.dataset.jpdbReaderScaleAdapter ?? '',
+            stampedPageScale: Number(puck.dataset.jpdbReaderPageScale || 1),
+            stampedCompensation: Number(puck.dataset.jpdbReaderScaleCompensation || 1),
+            compensatedRectScale,
+            rawPuckWidth: rawPuckRect.width,
             puckWidth: puckRect.width,
             puckHeight: puckRect.height,
+            puckRightGap: outerWidth - puckRect.right,
+            puckBottomGap: innerHeight * (outerWidth / innerWidth) - puckRect.bottom,
             radialWidths: radialRects.map(rect => rect.width),
             adjacentDistances: radialCenters.slice(1).map((center, index) => Math.hypot(
                 center.x - radialCenters[index].x,
@@ -579,18 +1267,49 @@ function snapshotRedditPageSummary() {
         },
         clicks: window.__redditSmokeClicks,
     };
+
+    function scalePlainRect(rect, scale) {
+        return {
+            left: rect.left * scale,
+            top: rect.top * scale,
+            right: rect.right * scale,
+            bottom: rect.bottom * scale,
+            width: rect.width * scale,
+            height: rect.height * scale,
+        };
+    }
 }
 
 function assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors) {
     assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
+    assert(snapshot.layout.fixture === 'deterministic-reddit-structure',
+        `${engineName}: browser artifact was not labelled as a deterministic fixture`, snapshot.layout);
     assert(snapshot.overlay.hostname === 'www.reddit.com', `${engineName}: Reddit scale fixture lost its production hostname`, snapshot.overlay);
-    // The open hub deliberately grows to 1.06×; the host's 1.6× zoom must not
-    // multiply that again (52 × 1.06 = 55.12px).
+    if (engineName === 'webkit') {
+        assert(Math.abs(snapshot.layout.browserToLayoutScale - 1.6) <= 0.01,
+            `${engineName}: fixture did not reproduce Safari's page-view scale`, snapshot.layout);
+        assert(snapshot.overlay.scaleAdapter === 'reddit-apple-touch-page-scale'
+            && Math.abs(snapshot.overlay.stampedPageScale - 1.6) <= 0.01
+            && Math.abs(snapshot.overlay.stampedCompensation - 0.625) <= 0.01,
+        `${engineName}: Reddit page-scale adapter did not stamp its active compensation`, snapshot.overlay);
+        assert(snapshot.overlay.puckInlineZoom === '0.625' && snapshot.overlay.puckZoomPriority === 'important',
+            `${engineName}: puck did not receive inverse page-scale isolation`, snapshot.overlay);
+    } else {
+        assert(Math.abs(snapshot.layout.browserToLayoutScale - 1) <= 0.01,
+            `${engineName}: normal-scale compatibility lane unexpectedly changed viewport scale`, snapshot.layout);
+        assert(snapshot.overlay.scaleAdapter === '' && snapshot.overlay.puckInlineZoom === '',
+            `${engineName}: normal-scale Reddit received unnecessary compensation`, snapshot.overlay);
+    }
+    // The open hub deliberately grows to 1.06× (52 × 1.06 = 55.12px). It must
+    // stay that physical size even when WebKit renders the page itself at 1.6×.
     assert(Math.abs(snapshot.overlay.puckWidth - 55.12) <= 1 && Math.abs(snapshot.overlay.puckHeight - 55.12) <= 1,
-        `${engineName}: Reddit host zoom enlarged the Yomu puck`, snapshot.overlay);
+        `${engineName}: Reddit page scale enlarged the Yomu puck`, snapshot.overlay);
+    assert(snapshot.overlay.puckRightGap >= 8 && snapshot.overlay.puckRightGap <= 24
+        && snapshot.overlay.puckBottomGap >= 8 && snapshot.overlay.puckBottomGap <= 24,
+    `${engineName}: compensated puck left the visible browser viewport`, snapshot.overlay);
     assert(snapshot.overlay.radialWidths.length >= 6
         && snapshot.overlay.radialWidths.every(width => width >= 45 && width <= 51),
-    `${engineName}: Reddit host zoom enlarged the Yomu radial controls`, snapshot.overlay);
+    `${engineName}: Reddit page scale enlarged the Yomu radial controls`, snapshot.overlay);
     assert(Math.min(...snapshot.overlay.adjacentDistances) >= 60,
         `${engineName}: Reddit scale isolation collapsed radial finger spacing`, snapshot.overlay);
     for (const [name, label] of Object.entries(snapshot.labels)) {

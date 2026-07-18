@@ -63,6 +63,11 @@ import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '..
 import { formatUiText, uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
+import {
+    redditOverlayViewport,
+    redditOverlayViewportBounds,
+    redditSourceRectToOverlay,
+} from '../ui/reddit-overlay-scale';
 
 interface Refreshable {
     refresh: () => void;
@@ -390,10 +395,11 @@ function settingsControlScrollGeometry(form: HTMLFormElement, control: HTMLInput
     if (!canScrollFocusedSettingsControl(form, control)) return null;
     const scroll = settingsControlScrollContainer(form, control);
     if (!scroll) return null;
-    const scrollRect = scroll.getBoundingClientRect();
-    const controlRect = control.getBoundingClientRect();
+    const pageScale = redditOverlayViewport().pageScale;
+    const scrollRect = redditSourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = redditSourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
     if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form, scrollRect);
+    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
     return limits ? { scroll, controlRect, ...limits } : null;
 }
 
@@ -406,14 +412,18 @@ function settingsControlScrollContainer(form: HTMLFormElement, control: HTMLElem
     return scroll && form.contains(scroll) ? scroll : null;
 }
 
-function settingsControlScrollLimits(form: HTMLFormElement, scrollRect: DOMRect): { bottomLimit: number; topLimit: number } | null {
-    const viewport = settingsControlViewportBounds(scrollRect);
+function settingsControlScrollLimits(form: HTMLFormElement, scrollRect: DOMRect, pageScale: number): { bottomLimit: number; topLimit: number } | null {
+    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
     const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
     return validSettingsControlScrollLimits(bottomLimit, topLimit);
 }
 
-function settingsControlViewportBounds(scrollRect: DOMRect): { bottom: number; top: number } {
+function settingsControlViewportBounds(scrollRect: DOMRect, pageScale: number): { bottom: number; top: number } {
+    if (pageScale > 1) {
+        const viewport = redditOverlayViewportBounds();
+        return { bottom: viewport.bottom, top: viewport.top };
+    }
     const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
     const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
     return { bottom: top + height, top };
@@ -425,8 +435,11 @@ function settingsControlViewportHeightFallback(scrollRect: DOMRect): number {
     return scrollRect.bottom;
 }
 
-function measuredSettingsFooterTop(form: HTMLFormElement): number {
-    const footerRect = form.querySelector<HTMLElement>('.footer')?.getBoundingClientRect();
+function measuredSettingsFooterTop(form: HTMLFormElement, pageScale: number): number {
+    const footer = form.querySelector<HTMLElement>('.footer');
+    const footerRect = footer
+        ? redditSourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale)
+        : undefined;
     if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
     return footerRect.top;
 }

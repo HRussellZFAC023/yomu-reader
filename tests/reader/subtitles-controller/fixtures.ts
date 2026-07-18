@@ -25,6 +25,7 @@ import { withViewport } from '../helpers/browser-fixtures';
 export const SUBTITLES_YOUTUBE_CSS = readFileSync('src/reader/styles/subtitles-youtube.css', 'utf8');
 export const AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS = {
     requireJpdb: true,
+    allowSegmentedFallback: true,
     includeLocalPitch: true,
 };
 

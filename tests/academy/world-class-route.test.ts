@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../../src/academy/content/lesson-content-registry';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
 import { createWorldFlow } from '../../src/academy/routing/world-flow';
 import type { AcademyShell } from '../../src/academy/ui/shell';
@@ -98,7 +99,13 @@ describe('World Class route', () => {
         });
         appShell.current?.querySelector<HTMLButtonElement>('.academy-class-path-back')?.click();
         expect(back).toHaveBeenCalledOnce();
-        expect(fetch).toHaveBeenCalledTimes(61);
+        const lessonRequests = vi.mocked(fetch).mock.calls
+            .map(([input]) => String(input))
+            .filter(url => url.includes('/content/lessons/'));
+        const expectedLessonRequests = ACADEMY_LESSON_CONTENT_REGISTRY
+            .filter(registration => registration.kind !== 'support-shard')
+            .map(registration => `/academy/content/lessons/${registration.filename}`);
+        expect(lessonRequests).toEqual(expectedLessonRequests);
     });
 
     it('enters Week 1 through its located classroom cast, action, and real exits', async () => {

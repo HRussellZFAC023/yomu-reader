@@ -2027,6 +2027,7 @@ export class SubtitlePlayerController {
     // in the DOM. Consumed by the mining-pause path so it pauses the exact
     // player the overlay is tracking instead of a document-wide largest-video
     // heuristic (which mis-fires with ads/previews/miniplayers).
+    // fallow-ignore-next-line unused-class-member
     getBoundVideo(): HTMLVideoElement | undefined {
         return this.video && this.video.isConnected ? this.video : undefined;
     }

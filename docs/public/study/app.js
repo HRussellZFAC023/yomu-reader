@@ -4029,7 +4029,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+    { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
     { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
     // store's own deleteDatabase during reset; registered so the invariant test
@@ -6284,8 +6285,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
     const display = style.display;
     const structured = display.includes("grid") || display.includes("flex") || display === "block";
-    const compact = rect.width === 0 || rect.width <= 560;
-    return structured && compact;
+    const compact2 = rect.width === 0 || rect.width <= 560;
+    return structured && compact2;
   }
   const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
   const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
@@ -8702,9 +8703,380 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function normalizePitchPatternsForReading(patterns, reading) {
+    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+  }
+  function pitchLevelsForDisplay(pattern, reading) {
+    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function collectPitchVariants(reading, patterns, max2 = Infinity) {
+    const seen = /* @__PURE__ */ new Set();
+    const variants = [];
+    for (const pattern of patterns) {
+      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+      const position = pitchNumberFromPattern(pattern, reading);
+      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      variants.push({ pattern, position });
+      if (variants.length >= max2) break;
+    }
+    return variants;
+  }
+  function validPitchPositions(reading, patterns) {
+    const positions = /* @__PURE__ */ new Set();
+    for (const variant of collectPitchVariants(reading, patterns)) {
+      if (variant.position != null) positions.add(variant.position);
+    }
+    return positions;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
+    }
+    return null;
+  }
+  function looksLikeCompactHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
+  function assignSentenceInfo(paragraphs, tokens) {
+    paragraphs.forEach((paragraph, index) => {
+      const tokenData = tokens[index] ?? [];
+      const sentences = splitJapaneseSentences$1(paragraph);
+      if (sentences.length === 1) {
+        tokenData.forEach((token) => {
+          token.sentence = sentences[0];
+        });
+        return;
+      }
+      let offset = 0;
+      for (const sentence of sentences) {
+        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+        const relativeStart = paragraph.slice(offset).indexOf(compare);
+        if (relativeStart === -1) {
+          offset += sentence.length;
+          continue;
+        }
+        const start = offset + relativeStart;
+        const end = start + sentence.length;
+        for (const token of tokenData) {
+          if (token.start >= start && token.end <= end) token.sentence = sentence;
+        }
+        offset += sentence.length;
+      }
+    });
+  }
+  function splitJapaneseSentences$1(text2) {
+    const sentences = [];
+    const state2 = { start: 0, quote: null };
+    for (let index = 0; index < text2.length; index++) {
+      index = advanceSentenceSplitter(sentences, text2, state2, index);
+    }
+    const tail = text2.slice(state2.start).trim();
+    if (tail) sentences.push(tail);
+    const nonEmptySentences = sentences.filter(Boolean);
+    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
+    return result;
+  }
+  function advanceSentenceSplitter(sentences, text2, state2, index) {
+    state2.quote = closingQuoteFor(text2[index]) ?? state2.quote;
+    if (state2.quote) return advanceQuotedSentenceSplitter(sentences, text2, state2, index);
+    return advancePunctuationSentenceSplitter(sentences, text2, state2, index);
+  }
+  function advanceQuotedSentenceSplitter(sentences, text2, state2, index) {
+    if (!state2.quote) return index;
+    const boundary = quotedSentenceBoundary(text2, index, state2.quote);
+    if (boundary) Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
+    return index;
+  }
+  function advancePunctuationSentenceSplitter(sentences, text2, state2, index) {
+    const boundary = punctuationSentenceBoundary(text2, index);
+    if (!boundary) return index;
+    Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
+    return boundary.nextIndex;
+  }
+  function pushSentenceBoundary(sentences, text2, start, end) {
+    sentences.push(text2.slice(start, end).trim());
+    return { start: end, quote: null };
+  }
+  function closingQuoteFor(char) {
+    if (char === "「") return "」";
+    if (char === "『") return "』";
+    return null;
+  }
+  function quotedSentenceBoundary(text2, index, quote) {
+    if (text2[index] !== quote) return null;
+    const next = text2[index + 1];
+    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
+  }
+  function punctuationSentenceBoundary(text2, index) {
+    if (!"。！？".includes(text2[index])) return null;
+    const next = text2[index + 1];
+    const includesClosingQuote = next === "」" || next === "』";
+    return {
+      end: includesClosingQuote ? index + 2 : index + 1,
+      nextIndex: includesClosingQuote ? index + 1 : index
+    };
+  }
   const KANJI_RE$4 = /[\u3400-\u9fff]/u;
-  const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
+  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
+    const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
+    assignSentenceInfo(paragraphs, tokens);
+    return tokens;
+  }
+  function parseParagraphTokens(paragraph, rawTokens, cards) {
+    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
+  }
+  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
+    const card = cards[vocabularyIndex];
+    const rubies = parseRubies(furigana, position);
+    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
+    const token = {
+      card,
+      start: position,
+      end: position + length,
+      length,
+      rubies,
+      pitchClass: currentPitchClass(card)
+    };
+    assignWordWithReading(token);
+    return token;
+  }
+  function parseRubies(furigana, startOffset) {
+    if (furigana === null) return [];
+    let offset = startOffset;
+    return furigana.flatMap((part) => {
+      if (typeof part === "string") {
+        offset += part.length;
+        return [];
+      }
+      const [base, ruby] = part;
+      const start = offset;
+      const end = offset = start + base.length;
+      return [{ text: ruby, start, end, length: base.length }];
+    });
+  }
+  function currentPitchClass(card) {
+    if (card.partOfSpeech.includes("prt")) return "";
+    return getPitchClass(card.pitchAccent, card.reading);
+  }
+  function assignWordWithReading(token) {
+    const { card, rubies, start: offset } = token;
+    if (!rubies.length) return;
+    const word = Array.from(card.spelling);
+    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
+      const { text: text2, start, length } = rubies[i2];
+      word.splice(start - offset + length, 0, `[${text2}]`);
+    }
+    card.wordWithReading = word.join("");
+  }
+  function repairCardReadingFromRubies(card, surface, rubies, offset) {
+    if (!shouldRepairCardReading(card, surface, rubies)) return;
+    const reading = surfaceReadingFromRubies(surface, rubies, offset);
+    if (!reading || !KANA_RE$1.test(reading)) return;
+    const previousReading = card.reading.trim();
+    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
+      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+      card.pitchAccent = [];
+    }
+    card.reading = reading;
+  }
+  function shouldRepairCardReading(card, surface, rubies) {
+    if (!rubies.length || !surface || card.spelling !== surface) return false;
+    if (!KANJI_RE$4.test(card.spelling)) return false;
+    const reading = card.reading.trim();
+    return !reading || reading === card.spelling || KANA_RE$1.test(reading);
+  }
+  function surfaceReadingFromRubies(surface, rubies, offset) {
+    let reading = "";
+    let cursor = 0;
+    for (const ruby of rubies) {
+      const start = ruby.start - offset;
+      const end = ruby.end - offset;
+      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
+      reading += surface.slice(cursor, start);
+      reading += ruby.text;
+      cursor = end;
+    }
+    reading += surface.slice(cursor);
+    return reading;
+  }
+  function jpdbVocabularyToCards(vocabulary2) {
+    if (!Array.isArray(vocabulary2)) return [];
+    const cards = [];
+    for (const item of vocabulary2) {
+      if (!Array.isArray(item)) continue;
+      const [
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank2,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent,
+        dueAt,
+        sentence
+      ] = item;
+      cards.push({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank: frequencyRank2,
+        partOfSpeech,
+        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+          glosses,
+          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+        })),
+        cardState: normalizeCardStates(cardState),
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
+        wordWithReading: null,
+        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
+        source: "jpdb"
+      });
+    }
+    return cards;
+  }
+  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
+  function resolvedPitchComponents(card) {
+    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return [];
+    const components2 = card.pitchComponents ?? [];
+    if (components2.length < 2) return [];
+    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return [];
+    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return [];
+    const resolved = components2.map((component) => ({
+      ...component,
+      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
+    }));
+    return resolved.every((component) => PITCH_CLASSES$1.has(component.pitchClass)) ? resolved : [];
+  }
+  function pitchComponentUnderlineGradient(card) {
+    const components2 = resolvedPitchComponents(card);
+    if (!components2.length) return "";
+    const lengths = components2.map((component) => Array.from(component.spelling).length);
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    if (!total) return "";
+    let offset = 0;
+    const stops = [];
+    components2.forEach((component, index) => {
+      const start = offset / total * 100;
+      offset += lengths[index] ?? 0;
+      const end = offset / total * 100;
+      const color = `var(--jpdb-reader-pitch-${component.pitchClass})`;
+      stops.push(`${color} ${formatPercent$2(start)}`, `${color} ${formatPercent$2(end)}`);
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function compact(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function formatPercent$2(value) {
+    return `${Number(value.toFixed(3))}%`;
+  }
+  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
+  const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
+  const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
   const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
   const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
   const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -8892,8 +9264,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return text2.replace(/\s+/g, " ").trim();
   }
   function isCollectableControlText(text2) {
-    const compact = compactLength(text2);
-    return compact > 0 && compact <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text2);
+    const compact2 = compactLength(text2);
+    return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text2);
   }
   function fragmentText(items) {
     return items.map((fragment2) => fragment2.node.data.slice(fragment2.start, fragment2.end)).join("");
@@ -10143,9 +10515,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!clips) continue;
       const rect = current.getBoundingClientRect();
       const measured = current.clientWidth > 0 && current.clientHeight > 0;
-      const compact = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
+      const compact2 = rect.height > 0 && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT && !detachedClipRowIsMultiLineClamp(style);
       const baseFits = measured && (detachedBaseContentFits(current) || openedDetachedReadingChildFits(current));
-      if (compact && baseFits) openDetachedReadingClip(current);
+      if (compact2 && baseFits) openDetachedReadingClip(current);
       else restoreDetachedReadingClip(current);
     }
   }
@@ -11544,6 +11916,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (token.card.reading) span.dataset.reading = token.card.reading;
     const pitchAccent = token.card.pitchAccent.join("|");
     if (showPitchAccent && pitchAccent) span.dataset.pitchAccent = pitchAccent;
+    if (showPitchAccent) applyPitchComponentGradient(span, token.card);
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
@@ -11596,8 +11969,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml$1(pitchAccent)}"` : "";
+    const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
+    const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml$1(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes2}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+  }
+  function applyPitchComponentGradient(word, card) {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) return;
+    word.dataset.pitchComponents = "true";
+    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -11618,7 +11999,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
-      if (KANJI_RE$4.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
     }
     return false;
   }
@@ -11679,19 +12060,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$4.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
       if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
       const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (surfaceSuffix && !KANA_RE$1.test(surfaceSuffix)) continue;
+      if (surfaceSuffix && !KANA_RE.test(surfaceSuffix)) continue;
       const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
       if (rubies.length) return rubies;
     }
     if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
       const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-      if (!surfaceSuffix || KANA_RE$1.test(surfaceSuffix)) {
+      if (!surfaceSuffix || KANA_RE.test(surfaceSuffix)) {
         return [{
           text: baseReading,
           start: 0,
@@ -11706,14 +12087,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const suffixes = [];
     for (let index = 0; index < value.length; index += 1) {
       const suffix = value.slice(index);
-      if (suffix && KANA_RE$1.test(suffix)) suffixes.push(suffix);
+      if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
     }
     return suffixes.sort((first2, second) => second.length - first2.length);
   }
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$4.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+    if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -11740,7 +12121,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { surface: trimmedSurface, reading: trimmedReading, offset };
   }
   function sameKanaCharacter(first2, second) {
-    return Boolean(first2 && second && first2 === second && KANA_RE$1.test(first2));
+    return Boolean(first2 && second && first2 === second && KANA_RE.test(first2));
   }
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const sources = sourceTokenRubies(surface, token);
@@ -11749,7 +12130,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const range = localRubyRange(surface, token, ruby);
         if (!range) return [];
         const base = surface.slice(range.start, range.end);
-        if (!KANJI_RE$4.test(base)) return [];
+        if (!KANJI_RE$3.test(base)) return [];
         if (!KANA_CHAR_RE$1.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
@@ -11760,7 +12141,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$4.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -11788,8 +12169,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { start, end };
   }
   function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$4.test(base)) return [];
-    if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+    if (!base || !reading || !KANJI_RE$3.test(base)) return [];
+    if (!KANA_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
     const parts = [];
@@ -11809,7 +12190,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes$1(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$4.test(trimmed.surface)) return [];
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
     const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
     if (kanjiOnly) {
       return [{
@@ -11825,13 +12206,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }];
   }
   function kanaTrimmedKanjiRange(base, reading) {
-    if (!KANA_RE$1.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
+    if (!KANA_RE.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
     const chars = Array.from(base);
-    const first2 = chars.findIndex((char) => KANJI_RE$4.test(char));
+    const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
     if (first2 < 0) return null;
     let last = -1;
     for (let index = chars.length - 1; index >= first2; index -= 1) {
-      if (KANJI_RE$4.test(chars[index])) {
+      if (KANJI_RE$3.test(chars[index])) {
         last = index;
         break;
       }
@@ -11878,7 +12259,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
   }
   function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$4.test(base) ? reading.length > 0 : reading.length === 0;
+    return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
   }
   function rubyBaseKanaRuns(base) {
     const runs = [];
@@ -23504,132 +23885,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function rtkElementFallbackGlyph(keyword) {
     return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
   }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function normalizePitchPatternsForReading(patterns, reading) {
-    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-  }
-  function pitchLevelsForDisplay(pattern, reading) {
-    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function collectPitchVariants(reading, patterns, max2 = Infinity) {
-    const seen = /* @__PURE__ */ new Set();
-    const variants = [];
-    for (const pattern of patterns) {
-      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-      const position = pitchNumberFromPattern(pattern, reading);
-      const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      variants.push({ pattern, position });
-      if (variants.length >= max2) break;
-    }
-    return variants;
-  }
-  function validPitchPositions(reading, patterns) {
-    const positions = /* @__PURE__ */ new Set();
-    for (const variant of collectPitchVariants(reading, patterns)) {
-      if (variant.position != null) positions.add(variant.position);
-    }
-    return positions;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberForReading(patterns, reading) {
-    if (!reading || !patterns?.length) return null;
-    const pattern = contextPitchPattern(patterns, reading);
-    if (!pattern) return null;
-    return pitchNumberFromPattern(pattern, reading);
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-    if (levels.length > moraCount + 1) return null;
-    for (let position = 0; position <= moraCount; position += 1) {
-      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-      if (levels.every((level, index) => expected[index] === level)) return position;
-    }
-    return null;
-  }
-  function looksLikeCompactHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(moraCount, pitchNumber) {
-    if (!moraCount || pitchNumber == null) return "";
-    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
   async function localPitchPatternsFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
     return (await localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options)).patterns;
   }
@@ -25117,6 +25372,139 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       y: y1 + (y2 - y1) * t
     };
   }
+  const SCALE_EPSILON = 0.05;
+  const MAX_PAGE_SCALE = 3;
+  const REDDIT_APPLE_TOUCH_ADAPTER = "reddit-apple-touch-page-scale";
+  const rememberedRectScales = /* @__PURE__ */ new WeakMap();
+  function isRedditHostname(hostname) {
+    const normalized = hostname.toLowerCase().replace(/\.$/, "");
+    return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
+  }
+  function redditPageScale(environment) {
+    if (!isRedditHostname(environment.hostname) || !environment.appleTouch) return 1;
+    if (!positiveFinite(environment.innerWidth) || !positiveFinite(environment.outerWidth)) return 1;
+    const scale = environment.outerWidth / environment.innerWidth;
+    if (!Number.isFinite(scale) || scale <= 1 + SCALE_EPSILON) return 1;
+    return Math.min(scale, MAX_PAGE_SCALE);
+  }
+  function redditOverlayViewport(environment = currentEnvironment()) {
+    const pageScale = redditPageScale(environment);
+    return {
+      width: environment.innerWidth * pageScale,
+      height: environment.innerHeight * pageScale,
+      pageScale
+    };
+  }
+  function redditOverlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+    const pageScale = redditPageScale(environment);
+    const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
+    const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
+    const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
+    const top = finiteCoordinate(visualViewport?.offsetTop) * pageScale;
+    const scaledWidth = width * pageScale;
+    const scaledHeight = height * pageScale;
+    return {
+      left,
+      top,
+      right: left + scaledWidth,
+      bottom: top + scaledHeight,
+      width: scaledWidth,
+      height: scaledHeight,
+      pageScale
+    };
+  }
+  function redditOverlayViewportBottomInset(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+    const fullViewport = redditOverlayViewport(environment);
+    const visibleBounds = redditOverlayViewportBounds(environment, visualViewport);
+    return Math.max(0, fullViewport.height - visibleBounds.bottom);
+  }
+  function redditLayoutPointToOverlay(point, pageScale = redditOverlayViewport().pageScale) {
+    return {
+      x: point.x * pageScale,
+      y: point.y * pageScale
+    };
+  }
+  function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewport().pageScale) {
+    const rememberedScale = rememberedRectScales.get(rect);
+    const root = compensatedRedditOverlayRoot(source);
+    const rectScale2 = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
+    const overlayRect = scaleRect(rect, rectScale2);
+    rememberedRectScales.set(overlayRect, 1);
+    return overlayRect;
+  }
+  function compensatedRedditOverlayRoot(source) {
+    const element = source instanceof Element ? source : source?.parentElement;
+    const root = element?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
+    return root instanceof HTMLElement ? root : null;
+  }
+  function applyRedditOverlayScale(element, environment = currentEnvironment()) {
+    const pageScale = redditPageScale(environment);
+    if (pageScale === 1) {
+      clearOwnedScale(element);
+      return;
+    }
+    const inverseScale = 1 / pageScale;
+    element.style.setProperty("zoom", formatScale(inverseScale), "important");
+    element.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
+    element.dataset.jpdbReaderPageScale = formatScale(pageScale);
+    element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  }
+  function hasRedditOverlayScale(element) {
+    return element?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
+  }
+  function currentEnvironment() {
+    return {
+      hostname: location.hostname,
+      appleTouch: isAppleTouchBrowser(),
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      outerWidth: window.outerWidth
+    };
+  }
+  function currentVisualViewport() {
+    const viewport = window.visualViewport;
+    return viewport ? {
+      width: viewport.width,
+      height: viewport.height,
+      offsetLeft: viewport.offsetLeft,
+      offsetTop: viewport.offsetTop
+    } : void 0;
+  }
+  function clearOwnedScale(element) {
+    if (!hasRedditOverlayScale(element)) return;
+    element.style.removeProperty("zoom");
+    delete element.dataset.jpdbReaderScaleAdapter;
+    delete element.dataset.jpdbReaderPageScale;
+    delete element.dataset.jpdbReaderScaleCompensation;
+  }
+  function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
+    if (pageScale === 1) return 1;
+    const rect = root.getBoundingClientRect();
+    const ratios = [
+      dimensionRatio(rect.width, root.offsetWidth),
+      dimensionRatio(rect.height, root.offsetHeight)
+    ].filter((ratio) => ratio !== void 0);
+    if (!ratios.length) return 1;
+    const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+    const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
+    return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
+  }
+  function dimensionRatio(rectSize, offsetSize) {
+    if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
+    return rectSize / offsetSize;
+  }
+  function scaleRect(rect, scale) {
+    return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+  }
+  function positiveFinite(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0;
+  }
+  function finiteCoordinate(value) {
+    return Number.isFinite(value) ? value ?? 0 : 0;
+  }
+  function formatScale(value) {
+    return String(Number(value.toFixed(6)));
+  }
   const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
   const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
   function installOriginGraphInteractions(root) {
@@ -25195,7 +25583,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   function pointerDistance(active, event) {
-    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
+    const distance = redditLayoutPointToOverlay({
+      x: event.clientX - active.startX,
+      y: event.clientY - active.startY
+    });
+    return Math.hypot(distance.x, distance.y);
   }
   function refreshOriginGraphEdgesAfterLayout(wrap) {
     setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
@@ -25215,11 +25607,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   function originGraphPointerPercent(wrap, event) {
-    const rect = wrap.getBoundingClientRect();
+    const rect = originGraphOverlayRect(wrap);
     if (!rect.width || !rect.height) return { x: 50, y: 50 };
+    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
     return {
-      x: (event.clientX - rect.left) / rect.width * 100,
-      y: (event.clientY - rect.top) / rect.height * 100
+      x: (pointer.x - rect.left) / rect.width * 100,
+      y: (pointer.y - rect.top) / rect.height * 100
     };
   }
   function clampOriginGraphNodePosition(wrap, node, x2, y) {
@@ -25240,7 +25633,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     node.style.top = `${y}%`;
   }
   function refreshOriginGraphEdges(wrap) {
-    const wrapRect = wrap.getBoundingClientRect();
+    const wrapRect = originGraphOverlayRect(wrap);
     if (!wrapRect.width || !wrapRect.height) return false;
     wrap.querySelectorAll(".jpdb-reader-origin-edge-group").forEach((group) => {
       const from = originGraphNodeGeometry(wrap, group.dataset.from);
@@ -25270,14 +25663,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function measuredOriginGraphNodeRadii(wrap, node) {
-    const wrapRect = wrap.getBoundingClientRect();
+    const wrapRect = originGraphOverlayRect(wrap);
     if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
-    const width = node.offsetWidth || node.getBoundingClientRect().width;
-    const height = node.offsetHeight || node.getBoundingClientRect().height;
+    const nodeRect = !node.offsetWidth || !node.offsetHeight ? originGraphOverlayRect(node) : void 0;
+    const width = node.offsetWidth || nodeRect?.width || 0;
+    const height = node.offsetHeight || nodeRect?.height || 0;
     return {
       rx: width > 0 ? width / 2 / wrapRect.width * 100 : 0,
       ry: height > 0 ? height / 2 / wrapRect.height * 100 : 0
     };
+  }
+  function originGraphOverlayRect(element) {
+    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
   }
   function originGraphTargetZone(value) {
     return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
@@ -27135,7 +27532,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
     let points = [];
     let strokes = [];
-    let canvasRect = canvas.getBoundingClientRect();
+    let canvasRect = doodleOverlayRect(canvas);
     let suppressNativeGestureUntil = 0;
     let activeClassRemovalTimer = 0;
     const controller = new AbortController();
@@ -27165,11 +27562,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       suppressNativeCanvasGesture(event);
     };
     const resize = () => {
-      const rect = stage.getBoundingClientRect();
+      const rect = doodleOverlayRect(stage);
       dpr = Math.max(window.devicePixelRatio || 1, 1);
       const width = Math.max(1, Math.round(rect.width * dpr));
       const height = Math.max(1, Math.round(rect.height * dpr));
-      canvasRect = canvas.getBoundingClientRect();
+      canvasRect = doodleOverlayRect(canvas);
       measureGhost();
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
@@ -27178,9 +27575,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     };
     const toPoint = (event) => {
+      const point = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
       return {
-        x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
-        y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
+        x: Math.max(0, Math.min(1, (point.x - canvasRect.left) / Math.max(canvasRect.width, 1))),
+        y: Math.max(0, Math.min(1, (point.y - canvasRect.top) / Math.max(canvasRect.height, 1))),
         pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
       };
     };
@@ -27188,7 +27586,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const measureGhost = () => {
       const svg = ghost.querySelector("svg");
       if (!svg) return;
-      const rect = svg.getBoundingClientRect();
+      const rect = redditSourceRectToOverlay(svg.getBoundingClientRect(), svg);
       const size = Math.min(rect.width, rect.height);
       if (size > 0) measuredGhostSize = size;
     };
@@ -27298,7 +27696,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       pointerType = event.pointerType;
       keepDoodleInteractionActive();
       clearSelection();
-      canvasRect = canvas.getBoundingClientRect();
+      canvasRect = doodleOverlayRect(canvas);
       points = [];
       appendPoint(toPoint(event));
       setDoodlePointerCapture(canvas, event.pointerId);
@@ -27454,6 +27852,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
     if (stage && canvas && ghost) return { stage, canvas, ghost };
     return null;
+  }
+  function doodleOverlayRect(element) {
+    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
   }
   const FEATURE_INTERVAL = 20;
   const NORMALIZED_SIZE = 256;
@@ -27754,14 +28155,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const log$u = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
     // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
-      if (!KANJI_RE$3.test(kanji)) return Promise.resolve(null);
+      if (!KANJI_RE$2.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
@@ -27820,7 +28221,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       onYomi,
       kunYomi,
       elements,
-      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$3.test(character) && character !== kanji))],
+      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$2.test(character) && character !== kanji))],
       heisigStory,
       heisigComment,
       koohiiStories
@@ -27886,7 +28287,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
   }
   function isKanjiCharacter(character) {
-    return KANJI_RE$3.test(character);
+    return KANJI_RE$2.test(character);
   }
   function addRtkKeywordIndexEntry(entries2, collisions, key, kanji) {
     if (!key || collisions.has(key)) return;
@@ -29286,6 +29687,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let sheetHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
+    let dragPageScale = 1;
     const isFullHeight = () => viewportHeight > 0 && sheetHeight >= viewportHeight - SHEET_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
       handle.setAttribute("role", "button");
@@ -29308,8 +29710,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (persist) storeSheetHeightRatio(nextHeight, viewportHeight);
     };
     const applyViewportSize = () => {
+      applyRedditOverlayScale(popover);
       const previousViewportHeight = viewportHeight;
-      viewportHeight = Math.max(0, Math.round(window.visualViewport?.height ?? window.innerHeight));
+      const overlayViewport = redditOverlayViewport();
+      viewportHeight = fixedChromeViewportHeight();
+      const bottomInset = overlayViewport.pageScale > 1 ? Math.round(redditOverlayViewportBottomInset()) : 0;
+      popover.style.setProperty("--jpdb-reader-sheet-bottom", `${bottomInset}px`);
       popover.style.setProperty("--jpdb-reader-sheet-viewport-height", `${viewportHeight}px`);
       popover.style.setProperty("--jpdb-reader-sheet-collapsed-height", `${Math.round(viewportHeight * DEFAULT_SHEET_HEIGHT_RATIO)}px`);
       popover.style.setProperty("--jpdb-reader-sheet-min-height", `${sheetMinHeight(viewportHeight)}px`);
@@ -29358,15 +29764,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
     const sheetDrag = createHandleDragController({
       tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-      movementDistance: (state2) => Math.abs(state2.deltaY),
+      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
       onBegin: () => {
+        dragPageScale = redditOverlayViewport().pageScale;
         startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
         rawDragHeight = startHeight;
         popover.style.transition = "";
         popover.classList.add("jpdb-reader-sheet-resizing");
       },
       onUpdate: (state2) => {
-        rawDragHeight = startHeight - state2.deltaY;
+        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
         applySheetHeight(rawDragHeight);
       },
       onFinish: (_state, wasMoved) => {
@@ -29499,6 +29906,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let drawerHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
+    let dragPageScale = 1;
     let suppressNextHandleClick = false;
     const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
@@ -29522,9 +29930,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (persist) storeHeightRatio(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY, nextHeight, viewportHeight);
     };
     const applyViewportSize = () => {
+      applyRedditOverlayScale(drawer);
       const previousViewportHeight = viewportHeight;
-      const bottomInset = settingsDrawerBottomInset();
-      viewportHeight = visualViewportHeight();
+      const { pageScale } = redditOverlayViewport();
+      const bottomInset = settingsDrawerBottomInset() * pageScale;
+      viewportHeight = fixedChromeViewportHeight();
       drawer.style.setProperty("--jpdb-reader-settings-drawer-bottom", `${bottomInset}px`);
       drawer.style.setProperty("--jpdb-reader-settings-drawer-viewport-height", `${viewportHeight}px`);
       drawer.style.setProperty("--jpdb-reader-settings-drawer-min-height", `${settingsDrawerMinHeight(viewportHeight)}px`);
@@ -29545,15 +29955,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
     const drawerDrag = createHandleDragController({
       tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
-      movementDistance: (state2) => Math.abs(state2.deltaY),
+      movementDistance: (state2) => Math.abs(state2.deltaY * dragPageScale),
       onBegin: () => {
+        dragPageScale = redditOverlayViewport().pageScale;
         startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
         rawDragHeight = startHeight;
         drawer.style.transition = "";
         drawer.classList.add("jpdb-reader-settings-drawer-resizing");
       },
       onUpdate: (state2) => {
-        rawDragHeight = startHeight - state2.deltaY;
+        rawDragHeight = startHeight - state2.deltaY * dragPageScale;
         applyDrawerHeight(rawDragHeight);
       },
       onFinish: (_state, wasMoved) => {
@@ -29730,11 +30141,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function eventHasPointTarget(event) {
     return event.type !== "click" || event.detail > 0 || event.clientX !== 0 || event.clientY !== 0;
   }
-  function shouldUseSheet(settings, trigger = "modal") {
+  function shouldUseSheet(settings, trigger = "modal", viewport = lookupViewportSize()) {
     const mode = trigger === "hover" ? settings.hoverPopupMode : settings.popupMode;
     if (mode === "sheet") return true;
     if (mode === "popover") return false;
-    const { width, height } = lookupViewportSize();
+    const { width, height } = viewport;
     const popoverWidth = Math.max(0, settings.popoverWidth || 0);
     const requiredPopoverWidth = popoverWidth + AUTO_POPOVER_VIEWPORT_MARGIN_PX;
     if (width <= AUTO_SHEET_COMPACT_WIDTH_PX || width < requiredPopoverWidth) return true;
@@ -29742,10 +30153,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return height > width && width <= AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX;
   }
   function lookupViewportSize() {
+    const overlayViewport = redditOverlayViewport();
+    if (overlayViewport.pageScale > 1) {
+      const bounds = redditOverlayViewportBounds();
+      return {
+        width: Math.max(0, Math.round(bounds.width)),
+        height: Math.max(0, Math.round(bounds.height)),
+        pageScale: overlayViewport.pageScale
+      };
+    }
     const visual = window.visualViewport;
     const width = Math.round(visual?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 0);
     const height = Math.round(visual?.height ?? window.innerHeight ?? document.documentElement.clientHeight ?? 0);
-    return { width: Math.max(0, width), height: Math.max(0, height) };
+    return { width: Math.max(0, width), height: Math.max(0, height), pageScale: 1 };
+  }
+  function fixedChromeViewportHeight() {
+    const overlayViewport = redditOverlayViewport();
+    return overlayViewport.pageScale > 1 ? Math.max(0, Math.round(redditOverlayViewportBounds().height)) : visualViewportHeight();
   }
   function visualViewportHeight() {
     return Math.max(0, Math.round(window.visualViewport?.height ?? layoutViewportHeight()));
@@ -34698,10 +35122,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
@@ -35156,211 +35576,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function toHiragana(value) {
     return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
-  }
-  function assignSentenceInfo(paragraphs, tokens) {
-    paragraphs.forEach((paragraph, index) => {
-      const tokenData = tokens[index] ?? [];
-      const sentences = splitJapaneseSentences$1(paragraph);
-      if (sentences.length === 1) {
-        tokenData.forEach((token) => {
-          token.sentence = sentences[0];
-        });
-        return;
-      }
-      let offset = 0;
-      for (const sentence of sentences) {
-        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-        const relativeStart = paragraph.slice(offset).indexOf(compare);
-        if (relativeStart === -1) {
-          offset += sentence.length;
-          continue;
-        }
-        const start = offset + relativeStart;
-        const end = start + sentence.length;
-        for (const token of tokenData) {
-          if (token.start >= start && token.end <= end) token.sentence = sentence;
-        }
-        offset += sentence.length;
-      }
-    });
-  }
-  function splitJapaneseSentences$1(text2) {
-    const sentences = [];
-    const state2 = { start: 0, quote: null };
-    for (let index = 0; index < text2.length; index++) {
-      index = advanceSentenceSplitter(sentences, text2, state2, index);
-    }
-    const tail = text2.slice(state2.start).trim();
-    if (tail) sentences.push(tail);
-    const nonEmptySentences = sentences.filter(Boolean);
-    const result = nonEmptySentences.length ? nonEmptySentences : [text2];
-    return result;
-  }
-  function advanceSentenceSplitter(sentences, text2, state2, index) {
-    state2.quote = closingQuoteFor(text2[index]) ?? state2.quote;
-    if (state2.quote) return advanceQuotedSentenceSplitter(sentences, text2, state2, index);
-    return advancePunctuationSentenceSplitter(sentences, text2, state2, index);
-  }
-  function advanceQuotedSentenceSplitter(sentences, text2, state2, index) {
-    if (!state2.quote) return index;
-    const boundary = quotedSentenceBoundary(text2, index, state2.quote);
-    if (boundary) Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
-    return index;
-  }
-  function advancePunctuationSentenceSplitter(sentences, text2, state2, index) {
-    const boundary = punctuationSentenceBoundary(text2, index);
-    if (!boundary) return index;
-    Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
-    return boundary.nextIndex;
-  }
-  function pushSentenceBoundary(sentences, text2, start, end) {
-    sentences.push(text2.slice(start, end).trim());
-    return { start: end, quote: null };
-  }
-  function closingQuoteFor(char) {
-    if (char === "「") return "」";
-    if (char === "『") return "』";
-    return null;
-  }
-  function quotedSentenceBoundary(text2, index, quote) {
-    if (text2[index] !== quote) return null;
-    const next = text2[index + 1];
-    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
-  }
-  function punctuationSentenceBoundary(text2, index) {
-    if (!"。！？".includes(text2[index])) return null;
-    const next = text2[index + 1];
-    const includesClosingQuote = next === "」" || next === "』";
-    return {
-      end: includesClosingQuote ? index + 2 : index + 1,
-      nextIndex: includesClosingQuote ? index + 1 : index
-    };
-  }
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
-  const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
-  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-    const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
-    assignSentenceInfo(paragraphs, tokens);
-    return tokens;
-  }
-  function parseParagraphTokens(paragraph, rawTokens, cards) {
-    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
-  }
-  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
-    const card = cards[vocabularyIndex];
-    const rubies = parseRubies(furigana, position);
-    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
-    const token = {
-      card,
-      start: position,
-      end: position + length,
-      length,
-      rubies,
-      pitchClass: currentPitchClass(card)
-    };
-    assignWordWithReading(token);
-    return token;
-  }
-  function parseRubies(furigana, startOffset) {
-    if (furigana === null) return [];
-    let offset = startOffset;
-    return furigana.flatMap((part) => {
-      if (typeof part === "string") {
-        offset += part.length;
-        return [];
-      }
-      const [base, ruby] = part;
-      const start = offset;
-      const end = offset = start + base.length;
-      return [{ text: ruby, start, end, length: base.length }];
-    });
-  }
-  function currentPitchClass(card) {
-    if (card.partOfSpeech.includes("prt")) return "";
-    return getPitchClass(card.pitchAccent, card.reading);
-  }
-  function assignWordWithReading(token) {
-    const { card, rubies, start: offset } = token;
-    if (!rubies.length) return;
-    const word = Array.from(card.spelling);
-    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
-      const { text: text2, start, length } = rubies[i2];
-      word.splice(start - offset + length, 0, `[${text2}]`);
-    }
-    card.wordWithReading = word.join("");
-  }
-  function repairCardReadingFromRubies(card, surface, rubies, offset) {
-    if (!shouldRepairCardReading(card, surface, rubies)) return;
-    const reading = surfaceReadingFromRubies(surface, rubies, offset);
-    if (!reading || !KANA_RE.test(reading)) return;
-    const previousReading = card.reading.trim();
-    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
-      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-      card.pitchAccent = [];
-    }
-    card.reading = reading;
-  }
-  function shouldRepairCardReading(card, surface, rubies) {
-    if (!rubies.length || !surface || card.spelling !== surface) return false;
-    if (!KANJI_RE$2.test(card.spelling)) return false;
-    const reading = card.reading.trim();
-    return !reading || reading === card.spelling || KANA_RE.test(reading);
-  }
-  function surfaceReadingFromRubies(surface, rubies, offset) {
-    let reading = "";
-    let cursor = 0;
-    for (const ruby of rubies) {
-      const start = ruby.start - offset;
-      const end = ruby.end - offset;
-      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
-      reading += surface.slice(cursor, start);
-      reading += ruby.text;
-      cursor = end;
-    }
-    reading += surface.slice(cursor);
-    return reading;
-  }
-  function jpdbVocabularyToCards(vocabulary2) {
-    if (!Array.isArray(vocabulary2)) return [];
-    const cards = [];
-    for (const item of vocabulary2) {
-      if (!Array.isArray(item)) continue;
-      const [
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank2,
-        partOfSpeech,
-        meaningsChunks,
-        meaningsPartOfSpeech,
-        cardState,
-        pitchAccent,
-        dueAt,
-        sentence
-      ] = item;
-      cards.push({
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank: frequencyRank2,
-        partOfSpeech,
-        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
-          glosses,
-          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
-        })),
-        cardState: normalizeCardStates(cardState),
-        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
-        wordWithReading: null,
-        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
-        source: "jpdb"
-      });
-    }
-    return cards;
   }
   function stableHash32(value) {
     let hash = 2166136261;
@@ -40128,9 +40343,9 @@ ${spelling}`);
   function positionPopoverWithoutAnchor(popover, frame) {
     const margin = 8;
     const fallbackLeft = (frame.viewport.left + frame.viewport.right - frame.width) / 2;
-    const fallbackTop = frame.viewportHeight * 0.18;
-    popover.style.left = `${Math.max(margin, Math.min(fallbackLeft, window.innerWidth - frame.width - margin))}px`;
-    popover.style.top = `${Math.max(margin, Math.min(fallbackTop, window.innerHeight - frame.height - margin))}px`;
+    const fallbackTop = frame.viewport.top + frame.viewportHeight * 0.18;
+    popover.style.left = `${Math.max(frame.viewport.left + margin, Math.min(fallbackLeft, frame.viewport.right - frame.width - margin))}px`;
+    popover.style.top = `${Math.max(frame.viewport.top + margin, Math.min(fallbackTop, frame.viewport.bottom - frame.height - margin))}px`;
     restorePopoverScrollTop(popover, frame.scrollTop);
   }
   function positionAnchoredPopover(popover, anchor, frame) {
@@ -40154,13 +40369,19 @@ ${spelling}`);
   }
   function pointPopoverRects(point) {
     const radius = 14;
-    return [{ left: point.x - radius, top: point.y - radius, right: point.x + radius, bottom: point.y + radius }];
+    const overlayPoint = redditLayoutPointToOverlay(point);
+    return [{
+      left: overlayPoint.x - radius,
+      top: overlayPoint.y - radius,
+      right: overlayPoint.x + radius,
+      bottom: overlayPoint.y + radius
+    }];
   }
   function anchorPopoverRects(anchor) {
     if (!anchor) return [];
-    const clientRects = rectListToPopoverRects(anchor.getClientRects());
+    const clientRects = rectListToPopoverRects(anchor.getClientRects(), anchor);
     if (clientRects.length) return clientRects;
-    const rect = domRectToPopoverRect(anchor.getBoundingClientRect());
+    const rect = domRectToPopoverRect(anchor.getBoundingClientRect(), anchor);
     return hasRectArea(rect) ? [rect] : [];
   }
   function selectionPopoverRects() {
@@ -40171,23 +40392,34 @@ ${spelling}`);
     return clientRects.length ? clientRects : rangeBoundingPopoverRects(range);
   }
   function rangeClientPopoverRects(range) {
-    return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects()) : [];
+    return typeof range.getClientRects === "function" ? rectListToPopoverRects(range.getClientRects(), range.commonAncestorContainer) : [];
   }
   function rangeBoundingPopoverRects(range) {
     if (typeof range.getBoundingClientRect !== "function") return [];
-    const rect = domRectToPopoverRect(range.getBoundingClientRect());
+    const rect = domRectToPopoverRect(range.getBoundingClientRect(), range.commonAncestorContainer);
     return hasRectArea(rect) ? [rect] : [];
   }
-  function rectListToPopoverRects(rects) {
-    return Array.from(rects, domRectToPopoverRect).filter(hasRectArea);
+  function rectListToPopoverRects(rects, source) {
+    return Array.from(rects, (rect) => domRectToPopoverRect(rect, source)).filter(hasRectArea);
   }
-  function domRectToPopoverRect(rect) {
-    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+  function domRectToPopoverRect(rect, source) {
+    const overlayRect = redditSourceRectToOverlay(rect, source);
+    return {
+      left: overlayRect.left,
+      top: overlayRect.top,
+      right: overlayRect.right,
+      bottom: overlayRect.bottom
+    };
   }
   function hasRectArea(rect) {
     return rect.right > rect.left || rect.bottom > rect.top;
   }
   function getPopoverViewport() {
+    const overlayViewport = redditOverlayViewport();
+    if (overlayViewport.pageScale > 1) {
+      const bounds = redditOverlayViewportBounds();
+      return { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
+    }
     const { visualViewport } = window;
     if (visualViewport) {
       const left = visualViewport.offsetLeft;
@@ -40430,7 +40662,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.218".trim() ? "1.6.218".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.219".trim() ? "1.6.219".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -40629,7 +40861,16 @@ ${spelling}`);
       if (!row || !container) return;
       event.preventDefault();
       setSourceRowPointerCapture(handle, event.pointerId);
-      drag = { active: false, container, handle, pointerId: event.pointerId, row, startY: event.clientY };
+      const pageScale = redditOverlayViewport().pageScale;
+      drag = {
+        active: false,
+        container,
+        handle,
+        pageScale,
+        pointerId: event.pointerId,
+        row,
+        startY: sourceRowOverlayY(event.clientY, pageScale)
+      };
       row.classList.add("jpdb-reader-order-row-drag-pending");
       dragDocument.addEventListener("pointermove", moveDrag);
       dragDocument.addEventListener("pointerup", finishDrag);
@@ -40637,11 +40878,12 @@ ${spelling}`);
     });
     const moveDrag = (event) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
+      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
       event.preventDefault();
       drag.active = true;
       drag.row.classList.add("jpdb-reader-order-row-dragging");
-      moveSourceRowToPointer(drag.container, drag.row, event.clientY);
+      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
     };
     const finishDrag = (event) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
@@ -40678,15 +40920,18 @@ ${spelling}`);
     } catch {
     }
   }
-  function moveSourceRowToPointer(container, row, clientY) {
+  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
     const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
     const target = rows.find((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      return clientY < rect.top + rect.height / 2;
+      const rect = redditSourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+      return overlayY < rect.top + rect.height / 2;
     });
     if (target) container.insertBefore(row, target);
     else container.appendChild(row);
     syncSourceRowOrder(container);
+  }
+  function sourceRowOverlayY(clientY, pageScale) {
+    return redditLayoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
   }
   function canMoveSourceRow(index, targetIndex, rowCount) {
     return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
@@ -45202,10 +45447,11 @@ ${spelling}`);
     if (!canScrollFocusedSettingsControl(form, control)) return null;
     const scroll = settingsControlScrollContainer(form, control);
     if (!scroll) return null;
-    const scrollRect = scroll.getBoundingClientRect();
-    const controlRect = control.getBoundingClientRect();
+    const pageScale = redditOverlayViewport().pageScale;
+    const scrollRect = redditSourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = redditSourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
     if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form, scrollRect);
+    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
     return limits ? { scroll, controlRect, ...limits } : null;
   }
   function canScrollFocusedSettingsControl(form, control) {
@@ -45215,13 +45461,17 @@ ${spelling}`);
     const scroll = control.closest(".jpdb-reader-settings-scroll");
     return scroll && form.contains(scroll) ? scroll : null;
   }
-  function settingsControlScrollLimits(form, scrollRect) {
-    const viewport = settingsControlViewportBounds(scrollRect);
+  function settingsControlScrollLimits(form, scrollRect, pageScale) {
+    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
     const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
     return validSettingsControlScrollLimits(bottomLimit, topLimit);
   }
-  function settingsControlViewportBounds(scrollRect) {
+  function settingsControlViewportBounds(scrollRect, pageScale) {
+    if (pageScale > 1) {
+      const viewport = redditOverlayViewportBounds();
+      return { bottom: viewport.bottom, top: viewport.top };
+    }
     const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
     const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
     return { bottom: top + height, top };
@@ -45231,8 +45481,9 @@ ${spelling}`);
     if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
     return scrollRect.bottom;
   }
-  function measuredSettingsFooterTop(form) {
-    const footerRect = form.querySelector(".footer")?.getBoundingClientRect();
+  function measuredSettingsFooterTop(form, pageScale) {
+    const footer = form.querySelector(".footer");
+    const footerRect = footer ? redditSourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
     if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
     return footerRect.top;
   }
@@ -47600,8 +47851,8 @@ ${spelling}`);
     return /^[、。，．！？!?…・]+$/u.test(text2.trim());
   }
   function isShortYouTubeContinuationFragment(text2) {
-    const compact = compactCaptionText(text2);
-    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
+    const compact2 = compactCaptionText(text2);
+    return compact2.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact2);
   }
   function hasYouTubeCaptionTextOverlap(left, right) {
     return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
@@ -51909,6 +52160,11 @@ ${spelling}`);
   function authoritativeSubtitleParseOptions() {
     return {
       requireJpdb: true,
+      // JPDB identity remains authoritative, but its token boundaries are
+      // not infallible (訪れた has been returned as the surname 訪). Let the
+      // deterministic segmenter repair partial inflected spans before the
+      // subtitle HTML is cached; this does not relax the required API tier.
+      allowSegmentedFallback: true,
       includeLocalPitch: true
     };
   }
@@ -54605,6 +54861,7 @@ ${spelling}`);
     // in the DOM. Consumed by the mining-pause path so it pauses the exact
     // player the overlay is tracking instead of a document-wide largest-video
     // heuristic (which mis-fires with ads/previews/miniplayers).
+    // fallow-ignore-next-line unused-class-member
     getBoundVideo() {
       return this.video && this.video.isConnected ? this.video : void 0;
     }
@@ -59803,10 +60060,10 @@ ${spelling}`);
     return { decisions, filteredCount, shownCount, visibleVideoIds };
   }
   function isProbablyJapaneseYouTubeText(text2) {
-    const compact = normalizeYouTubeTitleForLanguageCheck(text2);
-    if (JAPANESE_LEARNING_INTENT_RE.test(compact)) return true;
-    if (!HAS_JAPANESE.test(compact)) return false;
-    return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
+    const compact2 = normalizeYouTubeTitleForLanguageCheck(text2);
+    if (JAPANESE_LEARNING_INTENT_RE.test(compact2)) return true;
+    if (!HAS_JAPANESE.test(compact2)) return false;
+    return HIRAGANA_RE.test(compact2) || KATAKANA_RE.test(compact2) || HAN_RE.test(compact2);
   }
   function classifyYouTubeFilterCandidate(candidate, options) {
     for (const rule of YOUTUBE_FILTER_DECISION_RULES) {
@@ -65689,6 +65946,16 @@ ${component.reading}`;
     word.dataset.pitchClass = pitchClass;
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
   }
+  function setRenderedWordPitchComponents(word, card) {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) {
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      return;
+    }
+    word.dataset.pitchComponents = "true";
+    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
+  }
   function setRenderedWordCardIdentity(word, card) {
     const source = renderedWordCardSource(card);
     const state2 = primaryCardState(card.cardState);
@@ -65707,6 +65974,7 @@ ${component.reading}`;
     const pitchAccent = card.pitchAccent.join("|");
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
+    setRenderedWordPitchComponents(word, card);
     word.classList.add(`jpdb-${state2}`);
     if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
     applyRenderedWordDeckMembership(word, card);
@@ -66824,7 +67092,6 @@ ${component.reading}`;
       return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
     }
     // Compatibility helper for callers that still expect the first media candidate.
-    // fallow-ignore-next-line unused-class-member
     mediaUrl(example, kind) {
       return this.mediaUrls(example, kind)[0] ?? "";
     }
@@ -69399,7 +69666,6 @@ ${component.reading}`;
     parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     userDeckPoolCache;
     // Used by ReaderParser as the live JPDB parse backend.
-    // fallow-ignore-next-line unused-class-member
     async parse(paragraphs) {
       const text2 = normalizeParagraphs(paragraphs);
       if (!text2.length) return [];
@@ -69451,7 +69717,6 @@ ${component.reading}`;
       }
     }
     // Used by new-tab study and stats loaders to sample deck cards.
-    // fallow-ignore-next-line unused-class-member
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
@@ -69465,7 +69730,6 @@ ${component.reading}`;
       }
     }
     // Used by card render data to hydrate deck-membership status.
-    // fallow-ignore-next-line unused-class-member
     async isInUserDeckPool(card) {
       if (!isDeckMembershipCard(card)) return false;
       const pool = await this.cachedUserDeckPool();
@@ -71162,7 +71426,7 @@ ${key}`] = { t: now, v: value };
       }
     };
   }
-  const cache$1 = createPublicCache("yomu:jiten-public-cache:v1");
+  const cache$1 = createPublicCache("yomu:jiten-public-cache:v2");
   const readPublicJitenCache = cache$1.read;
   const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
@@ -71464,6 +71728,7 @@ ${key}`] = { t: now, v: value };
     const annotatedReading = stringValue(mainReading.text) || requestedTerm;
     const spelling = cleanAnnotatedJitenText(annotatedReading) || requestedTerm;
     const reading = cleanJitenAnnotatedReading(annotatedReading) || spelling;
+    const pitchComponents = publicJitenPitchComponents(payload.composedOf);
     return {
       vid: wordId,
       sid: fallback.readingIndex,
@@ -71482,7 +71747,8 @@ ${key}`] = { t: now, v: value };
       source: "jiten",
       reviewSource: "jiten-api",
       jitenWordId: wordId,
-      jitenReadingIndex: fallback.readingIndex
+      jitenReadingIndex: fallback.readingIndex,
+      ...pitchComponents.length ? { pitchComponents } : {}
     };
   }
   function publicJitenParsedCard(word, surface) {
@@ -71614,6 +71880,21 @@ ${key}`] = { t: now, v: value };
   }
   function pitchPatterns(value, reading) {
     return Array.isArray(value) ? value.map(finiteInteger).filter((position) => position !== void 0).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean) : [];
+  }
+  function publicJitenPitchComponents(value) {
+    return arrayRecords(value).flatMap((record) => {
+      const annotated = stringValue(record.readingFurigana);
+      const rawReading = stringValue(record.reading);
+      const spelling = stringValue(record.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
+      const reading = (annotated.includes("[") ? cleanJitenAnnotatedReading(annotated) : "") || rawReading || spelling;
+      if (!spelling || !reading) return [];
+      return [{
+        spelling,
+        reading,
+        pitchAccent: pitchPatterns(record.pitchAccents, reading),
+        wordWithReading: annotated.includes("[") ? annotated : null
+      }];
+    });
   }
   function cleanJitenAnnotatedReading(value) {
     return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
@@ -72947,6 +73228,10 @@ ${normalizedReading}`;
     const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
     return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
   }
+  function jitenFallbackCardMatchesTerm(term, card) {
+    const normalizedTerm = normalizedJitenLookupKey(term);
+    return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
+  }
   function uniqueFallbackLookupEntries(cards, termLimit) {
     const seen = /* @__PURE__ */ new Set();
     const entries2 = [];
@@ -72971,7 +73256,7 @@ ${normalizedReading}`;
     });
     uniqueTerms.forEach((term, index) => {
       const tokens = parsed[index] ?? [];
-      const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card ?? tokens.find((token) => token.card.source === "jiten")?.card;
+      const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
       if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
     });
     return cards;
@@ -72989,7 +73274,9 @@ ${normalizedReading}`;
       return /* @__PURE__ */ new Map();
     });
     const cards = /* @__PURE__ */ new Map();
-    loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
+    loaded.forEach((card, term) => {
+      if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
+    });
     return cards;
   }
   async function publicLookupFallbackCards(cards, deps, options) {
@@ -89871,10 +90158,14 @@ ${entry.url}`),
   }
   function ensureReaderToastStack() {
     const existing = document.querySelector(`.${TOAST_STACK_CLASS}`);
-    if (existing?.isConnected) return existing;
+    if (existing?.isConnected) {
+      applyRedditOverlayScale(existing);
+      return existing;
+    }
     const stack = document.createElement("div");
     stack.className = TOAST_STACK_CLASS;
     stack.dataset.jpdbReaderRoot = "true";
+    applyRedditOverlayScale(stack);
     document.body.append(stack);
     return stack;
   }
@@ -90178,10 +90469,10 @@ ${entry.url}`),
   function stabilizePopoverBodyAround(popover, anchor) {
     const scrollBody = popoverScrollBody(popover);
     const scrollTop = scrollBody.scrollTop;
-    const anchorTop = anchor.getBoundingClientRect().top;
+    const anchorTop = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top;
     requestAnimationFrame(() => {
       if (!popover.isConnected || !anchor.isConnected) return;
-      const delta = anchor.getBoundingClientRect().top - anchorTop;
+      const delta = redditSourceRectToOverlay(anchor.getBoundingClientRect(), anchor).top - anchorTop;
       if (Math.abs(delta) > 0.5) scrollBody.scrollTop = scrollTop + delta;
     });
   }
@@ -90212,9 +90503,9 @@ ${entry.url}`),
       restorePopoverScrollFrameSoon(capturePopoverScrollFrame(scrollBody));
     }, true);
   }
-  function popoverMaxHeightAtTop(settings, top) {
+  function popoverMaxHeightAtTop(settings, top, viewportBottom = redditOverlayViewportBounds().bottom) {
     const margin = 8;
-    const availableHeight = Math.max(0, window.innerHeight - top - margin);
+    const availableHeight = Math.max(0, viewportBottom - top - margin);
     const configuredMaxHeight = configuredPopoverMaxHeight(settings);
     return configuredMaxHeight ? Math.min(availableHeight, configuredMaxHeight) : availableHeight;
   }

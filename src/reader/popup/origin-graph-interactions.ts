@@ -1,4 +1,5 @@
 import { graphEdgePath, type GraphAnchorZone } from '../kanji/graph-geometry';
+import { redditLayoutPointToOverlay, redditSourceRectToOverlay } from '../ui/reddit-overlay-scale';
 
 const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
 const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
@@ -92,7 +93,11 @@ function installOriginGraphRefreshHooks(wrap: HTMLElement): void {
 }
 
 function pointerDistance(active: { startX: number; startY: number }, event: PointerEvent): number {
-    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
+    const distance = redditLayoutPointToOverlay({
+        x: event.clientX - active.startX,
+        y: event.clientY - active.startY,
+    });
+    return Math.hypot(distance.x, distance.y);
 }
 
 function refreshOriginGraphEdgesAfterLayout(wrap: HTMLElement): void {
@@ -118,11 +123,12 @@ function setOriginGraphReady(wrap: HTMLElement, ready: boolean): void {
 }
 
 function originGraphPointerPercent(wrap: HTMLElement, event: PointerEvent): { x: number; y: number } {
-    const rect = wrap.getBoundingClientRect();
+    const rect = originGraphOverlayRect(wrap);
     if (!rect.width || !rect.height) return { x: 50, y: 50 };
+    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
     return {
-        x: ((event.clientX - rect.left) / rect.width) * 100,
-        y: ((event.clientY - rect.top) / rect.height) * 100,
+        x: ((pointer.x - rect.left) / rect.width) * 100,
+        y: ((pointer.y - rect.top) / rect.height) * 100,
     };
 }
 
@@ -146,7 +152,7 @@ function moveOriginGraphNode(node: HTMLElement, x: number, y: number): void {
 }
 
 function refreshOriginGraphEdges(wrap: HTMLElement): boolean {
-    const wrapRect = wrap.getBoundingClientRect();
+    const wrapRect = originGraphOverlayRect(wrap);
     if (!wrapRect.width || !wrapRect.height) return false;
     wrap.querySelectorAll<SVGGElement>('.jpdb-reader-origin-edge-group').forEach(group => {
         const from = originGraphNodeGeometry(wrap, group.dataset.from);
@@ -180,14 +186,21 @@ function originGraphNodeCenter(node: HTMLElement): { x: number; y: number } {
 }
 
 function measuredOriginGraphNodeRadii(wrap: HTMLElement, node: HTMLElement): { rx: number; ry: number } {
-    const wrapRect = wrap.getBoundingClientRect();
+    const wrapRect = originGraphOverlayRect(wrap);
     if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
-    const width = node.offsetWidth || node.getBoundingClientRect().width;
-    const height = node.offsetHeight || node.getBoundingClientRect().height;
+    const nodeRect = !node.offsetWidth || !node.offsetHeight
+        ? originGraphOverlayRect(node)
+        : undefined;
+    const width = node.offsetWidth || nodeRect?.width || 0;
+    const height = node.offsetHeight || nodeRect?.height || 0;
     return {
         rx: width > 0 ? (width / 2 / wrapRect.width) * 100 : 0,
         ry: height > 0 ? (height / 2 / wrapRect.height) * 100 : 0,
     };
+}
+
+function originGraphOverlayRect(element: HTMLElement): DOMRect {
+    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
 }
 
 function originGraphTargetZone(value: string | undefined): GraphAnchorZone {

@@ -69,7 +69,6 @@ export class JpdbClient {
     }
 
     // Used by ReaderParser as the live JPDB parse backend.
-    // fallow-ignore-next-line unused-class-member
     async parse(paragraphs: string[]): Promise<JPDBToken[][]> {
         const text = normalizeParagraphs(paragraphs);
         if (!text.length) return [];
@@ -130,7 +129,6 @@ export class JpdbClient {
     }
 
     // Used by new-tab study and stats loaders to sample deck cards.
-    // fallow-ignore-next-line unused-class-member
     async listDeckCards(deckId: string, limit = 80, options: JpdbListDeckCardsOptions = {}): Promise<JPDBCard[]> {
         const id = normalizeDeckRequestId(deckId);
         const maxCards = Math.max(1, Math.floor(limit));
@@ -148,7 +146,6 @@ export class JpdbClient {
     }
 
     // Used by card render data to hydrate deck-membership status.
-    // fallow-ignore-next-line unused-class-member
     async isInUserDeckPool(card: JPDBCard): Promise<boolean> {
         if (!isDeckMembershipCard(card)) return false;
         const pool = await this.cachedUserDeckPool();

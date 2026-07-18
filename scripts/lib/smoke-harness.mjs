@@ -120,21 +120,6 @@ export function createFixtureServer(handler, bindErrorMessage = 'Could not bind 
     return startLoopbackServer(handler, bindErrorMessage);
 }
 
-export function startHtmlFixtureServer(pagePath, html, bindErrorMessage) {
-    return startLoopbackServer((request, response) => serveHtmlFixture(request, response, pagePath, html), bindErrorMessage);
-}
-
-function serveHtmlFixture(request, response, pagePath, html) {
-    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-    if (url.pathname !== pagePath) {
-        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end('Not found');
-        return;
-    }
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(html);
-}
-
 async function listenOnLoopback(server, bindErrorMessage = 'Could not bind fixture server') {
     return await new Promise((resolve, reject) => {
         server.once('error', reject);

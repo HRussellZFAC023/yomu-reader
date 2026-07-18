@@ -67,6 +67,7 @@ import {
     testImmersionKitExample,
     testImmersionPopoverController,
     unproxiedFetchTarget,
+    withWindowProperty,
 } from './fixtures';
 import type {
     ImmersionKitExample,
@@ -131,6 +132,38 @@ describe('reader helpers', () => {
         dragSourceRow(form, rows, 500, 'touch', document);
 
         expect(Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]')).at(-1)?.dataset.sourceId).toBe(firstId);
+    });
+
+    it.each([
+        ['overlay-space BCRs', 1],
+        ['inverse-zoomed layout-space BCRs', 0.625],
+    ])('reorders Reddit settings rows with WebKit %s', (_mode, rectScale) => {
+        const restoreAppleBrowser = mockAppleMobileBrowser();
+        stubTestLocation('https://www.reddit.com/r/LearnJapanese/');
+
+        try {
+            withWindowProperty('innerWidth', 475, () => withWindowProperty('outerWidth', 760, () => {
+                const { form, rows } = createSourceRowDragFixture(
+                    `<div class="jpdb-reader-dictionary-priorities" data-source-editor>${renderDictionarySourceRows(DEFAULT_SETTINGS)}</div>`,
+                    '[data-dictionary-source-row]',
+                );
+                mockCompensatedRedditRoot(form, rectScale);
+                rows.forEach((row, index) => {
+                    row.getBoundingClientRect = () => scaledTestRect(0, index * 48, 300, 40, rectScale);
+                });
+
+                const first = rows[0];
+                const handle = first.querySelector<HTMLElement>('[data-source-drag-handle]')!;
+                dispatchPointerEvent(handle, 'pointerdown', 4 / 1.6);
+                dispatchPointerEvent(document, 'pointermove', 90 / 1.6);
+                dispatchPointerEvent(document, 'pointerup', 90 / 1.6);
+
+                const reordered = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]'));
+                expect(reordered[1]).toBe(first);
+            }));
+        } finally {
+            restoreAppleBrowser();
+        }
     });
 
     it('reorders lookup pill rows through the drag handle', () => {
@@ -1733,3 +1766,17 @@ describe('reader helpers', () => {
     });
 
 });
+
+function mockCompensatedRedditRoot(root: HTMLElement, rectScale: number): void {
+    root.dataset.jpdbReaderScaleAdapter = 'reddit-apple-touch-page-scale';
+    root.dataset.jpdbReaderScaleCompensation = '0.625';
+    Object.defineProperties(root, {
+        offsetWidth: { configurable: true, value: 400 },
+        offsetHeight: { configurable: true, value: 600 },
+    });
+    root.getBoundingClientRect = () => scaledTestRect(0, 0, 400, 600, rectScale);
+}
+
+function scaledTestRect(left: number, top: number, width: number, height: number, scale: number): DOMRect {
+    return new DOMRect(left * scale, top * scale, width * scale, height * scale);
+}

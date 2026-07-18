@@ -24,7 +24,7 @@ function parsedJitenCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 describe('JitenPublicVocabularyClient', () => {
     afterEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
-        localStorage.removeItem('yomu:jiten-public-cache:v1');
+        localStorage.removeItem('yomu:jiten-public-cache:v2');
     });
 
     it('hydrates keyless vocabulary details with reading and pitch accents', async () => {
@@ -66,6 +66,68 @@ describe('JitenPublicVocabularyClient', () => {
 
         await expect(client.lookup('青空')).resolves.toBe(card);
         expect(requestJson).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves Jiten compound decomposition for honest component pitch rendering', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return [{ wordId: 2858295, readingIndex: 0, originalText: '王子様' }];
+            }
+            if (url.includes('/vocabulary/2858295/0/info')) {
+                return {
+                    wordId: 2858295,
+                    mainReading: { text: '王[おう]子[じ]様[さま]' },
+                    definitions: [{ meanings: ['prince'], partsOfSpeech: ['noun'] }],
+                    pitchAccents: [],
+                    composedOf: [
+                        { wordId: 1181500, readingIndex: 0, reading: 'おうじ', readingFurigana: '王[おう]子[じ]', matchSurface: '王子' },
+                        { wordId: 1545790, readingIndex: 0, reading: 'さま', readingFurigana: '様[さま]', matchSurface: '様' },
+                    ],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const card = await client.lookup('王子様');
+
+        expect(card).toMatchObject({
+            spelling: '王子様',
+            reading: 'おうじさま',
+            pitchAccent: [],
+            pitchComponents: [
+                { spelling: '王子', reading: 'おうじ', pitchAccent: [], wordWithReading: '王[おう]子[じ]' },
+                { spelling: '様', reading: 'さま', pitchAccent: [], wordWithReading: '様[さま]' },
+            ],
+        });
+    });
+
+    it('maps kana-only component furigana through matchSurface', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return [{ wordId: 900100, readingIndex: 0, originalText: '高評価' }];
+            }
+            if (url.includes('/vocabulary/900100/0/info')) {
+                return {
+                    wordId: 900100,
+                    mainReading: { text: '高[こう]評[ひょう]価[か]' },
+                    pitchAccents: [],
+                    composedOf: [
+                        { wordId: 900101, readingIndex: 0, reading: 'こう', readingFurigana: 'こう', matchSurface: '高', pitchAccents: [1] },
+                        { wordId: 900102, readingIndex: 0, reading: 'ひょうか', readingFurigana: 'ひょうか', matchSurface: '評価', pitchAccents: [0] },
+                    ],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const card = await client.lookup('高評価');
+
+        expect(card?.pitchComponents).toEqual([
+            { spelling: '高', reading: 'こう', pitchAccent: ['HLL'], wordWithReading: null },
+            { spelling: '評価', reading: 'ひょうか', pitchAccent: ['LHHH'], wordWithReading: null },
+        ]);
     });
 
     it('dedupes batched public detail requests', async () => {
@@ -158,7 +220,7 @@ describe('JitenPublicVocabularyClient', () => {
         expect(second).toMatchObject({ spelling: '青空', reading: 'あおぞら', source: 'jiten' });
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
-        expect(localStorage.getItem('yomu:jiten-public-cache:v1')).toContain('card');
+        expect(localStorage.getItem('yomu:jiten-public-cache:v2')).toContain('card');
     });
 
     it('caps keyless public detail fan-out for large batches', async () => {
