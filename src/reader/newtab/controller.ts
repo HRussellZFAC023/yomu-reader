@@ -2856,7 +2856,17 @@ export class NewTabController {
 
     private sourceCardForVisibleCard(card: JPDBCard | undefined): JPDBCard | undefined {
         if (!card?.sourceCardKey) return card;
-        return this.allWords.find(item => cardKey(item) === card.sourceCardKey) ?? card;
+        const sourceCard = this.allWords.find(item => cardKey(item) === card.sourceCardKey);
+        // Portable/shared cards can be wrapped as a local Study item while
+        // pitch resolves asynchronously on that visible wrapper. Popover and
+        // grading paths deliberately recover the provider source card, so keep
+        // the monotonic pitch enrichment when crossing that seam; otherwise
+        // Study can offer Listen/Speak while the same word's popover falsely
+        // says that exact pitch is unavailable.
+        if (sourceCard && !sourceCard.pitchAccent.length && card.pitchAccent.length) {
+            sourceCard.pitchAccent = [...card.pitchAccent];
+        }
+        return sourceCard ?? card;
     }
 
     private sourceReviewLookupCard(card: JPDBCard | undefined): JPDBCard | undefined {

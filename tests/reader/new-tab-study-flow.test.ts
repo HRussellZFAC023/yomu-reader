@@ -532,6 +532,35 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
             controller.destroy();
         }
     });
+
+    it('carries late pitch enrichment from a shared Study wrapper into the source-card popover', () => {
+        const source = headwordCard({ pitchAccent: [], reviewSource: 'jpdb-api' });
+        const visible = headwordCard({
+            source: 'local',
+            reviewSource: 'yomu-local',
+            sourceCardKey: cardKey(source),
+            pitchAccent: ['LHHH'],
+        });
+        const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const { controller, internals } = studyController([source], {
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+        }, { showLookupCard });
+        const root = studyRoot();
+        try {
+            internals.visibleWords = [visible];
+            internals.state.mode = 'word';
+            internals.bindRootEvents(root);
+            internals.renderWord(root, visible);
+
+            root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(showLookupCard).toHaveBeenCalledWith(source, source.sentence, expect.any(HTMLElement), expect.any(Object));
+            expect(source.pitchAccent).toEqual(['LHHH']);
+        } finally {
+            controller.destroy();
+        }
+    });
 });
 
 describe('study flow: revealed answer reading stays visible', () => {

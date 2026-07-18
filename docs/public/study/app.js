@@ -40361,7 +40361,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.206".trim() ? "1.6.206".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.207".trim() ? "1.6.207".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -82469,7 +82469,11 @@ ${entry.url}`),
     }
     sourceCardForVisibleCard(card) {
       if (!card?.sourceCardKey) return card;
-      return this.allWords.find((item) => cardKey(item) === card.sourceCardKey) ?? card;
+      const sourceCard = this.allWords.find((item) => cardKey(item) === card.sourceCardKey);
+      if (sourceCard && !sourceCard.pitchAccent.length && card.pitchAccent.length) {
+        sourceCard.pitchAccent = [...card.pitchAccent];
+      }
+      return sourceCard ?? card;
     }
     sourceReviewLookupCard(card) {
       const sourceCard = this.sourceCardForVisibleCard(card);

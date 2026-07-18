@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.207] - 2026-07-19
+
+### Fixed
+
+- Fixed shared Study cards losing late-resolved pitch when their word popover reopened the provider source card, which made `自（じ）` offer Listen/Speak but still claim “Exact pitch unavailable” in the popover.
+
 ## [1.6.206] - 2026-07-18
 
 ### Fixed
