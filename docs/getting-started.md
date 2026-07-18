@@ -155,6 +155,8 @@ That's the whole loop. Everything below is optional.
 
 For Bunpro, open Bunpro's API settings while signed in and use the **Import into Yomu** button. Yomu needs only the imported **frontend token** for definitions, queue, mining, and Study grading; it does not use the older Bunpro API key. The token grants review read/write access, so treat it like a password. Yomu uses Bunpro's private frontend endpoint, which is not a documented public API and may change.
 
+The same authenticated Bunpro detail can add separately labelled General, Anime, Novels, Netflix, and Dictionary frequency ranks plus supplemental pitch evidence. These are different corpus ranks, not one universal score. **Bunpro pronunciation** appears in Settings → Audio but is disabled by default; enable it only if you want direct runtime requests to Bunpro's public audio CDN.
+
 Bunpro grading is deliberately tied to a live Study queue session: regular reveal cards use **Hard / Good**, and FSRS cards use **Again / Hard / Good / Easy**. There is no Bunpro five-point scale, and Bunpro grades are not stored for later while offline because session and ghost-review ids can change.
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.

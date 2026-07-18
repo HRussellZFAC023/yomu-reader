@@ -95,7 +95,7 @@ const SCENARIOS = [
     {
         id: 'all-three-sources',
         label: 'Jiten, JPDB, and Bunpro definitions enabled',
-        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproFrontendApiToken: BUNPRO_TOKEN, bunproMiningEnabled: true },
+        settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY, bunproFrontendApiToken: BUNPRO_TOKEN, bunproMiningEnabled: true, showPitchAccent: true },
         expect: { jpdb: true, jiten: true, bunpro: true },
     },
     {
@@ -338,6 +338,12 @@ function summarizeSourceDom(node) {
         bunproExampleSentence: /毎日.*復習.*する/u.test(bunproText),
         bunproExampleReading: Boolean(bunpro?.querySelector('.jpdb-reader-jpdb-examples-group rt.jpdb-reader-furi')),
         bunproExampleAvailability: bunpro?.querySelector('.jpdb-reader-jpdb-examples-group')?.getAttribute('data-examples-availability') ?? '',
+        bunproSharedExampleRowCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-examples > .jpdb-reader-jpdb-example').length ?? 0,
+        bunproImmersionCardCount: bunpro?.querySelectorAll('.jpdb-reader-example-card').length ?? 0,
+        bunproParseableRubyCount: bunpro?.querySelectorAll('.jpdb-reader-local-glossary .jpdb-reader-parseable rt.jpdb-reader-furi').length ?? 0,
+        bunproHasInlineKanaBrackets: /（[ぁ-ゖァ-ヺー・]+）/u.test(bunproText),
+        bunproFrequencyPills: Array.from(node.querySelectorAll('[data-frequency-source="bunpro"]'))
+            .map(pill => clean(pill.textContent ?? '')),
         bunproExampleAudioButtonCount: bunpro?.querySelectorAll('.jpdb-reader-jpdb-example-audio').length ?? 0,
         hasOpenInBunproButton: Boolean(bunpro?.querySelector('a[href*="bunpro.jp/vocabs/"]')),
         jpdbMeaning: jpdbText.includes('review; revision'),
@@ -406,6 +412,13 @@ function assertBunproSurface(scenario, dom, surface, expected) {
     assert(dom.bunproExampleSentence, `${scenario.label} ${surface}: Bunpro source did not render detail examples`, dom);
     assert(dom.bunproExampleReading, `${scenario.label} ${surface}: Bunpro example lost its exact upstream reading`, dom);
     assert(dom.bunproExampleAvailability === 'loaded', `${scenario.label} ${surface}: Bunpro example availability was not loaded`, dom);
+    assert(dom.bunproSharedExampleRowCount >= 1 && dom.bunproImmersionCardCount === 0,
+        `${scenario.label} ${surface}: Bunpro examples did not use the shared Jiten/JPDB row layout`, dom);
+    assert(dom.bunproParseableRubyCount >= 1 && !dom.bunproHasInlineKanaBrackets,
+        `${scenario.label} ${surface}: Bunpro Japanese text did not hand furigana ownership to Yomu`, dom);
+    assert(['一般 #178', 'アニメ #793', '小説 #6,182', 'Netflix #778', '辞書 #40,271']
+        .every(label => dom.bunproFrequencyPills.includes(label)),
+    `${scenario.label} ${surface}: Bunpro corpus ranks were not all visible and separately labelled`, dom);
     assert(dom.bunproExampleAudioButtonCount >= 1, `${scenario.label} ${surface}: Bunpro source did not render example audio`, dom);
     assert(!dom.hasOpenInBunproButton, `${scenario.label} ${surface}: Bunpro source rendered a redundant internal action`, dom);
 }
@@ -555,7 +568,7 @@ function bunproSearchPayload() {
                 slug: TERM,
                 meaning: GLOSS,
                 nuance: 'Study again to strengthen memory',
-                nuance_translation: '記憶を強くするためにもう一度勉強する',
+                nuance_translation: '復習（ふくしゅう）は記憶を強くする。',
                 accepted_answers: ['to review'],
                 jmdict_pos: ['n', 'suru verb'],
                 jlpt_level: 'unclassified',
@@ -566,7 +579,20 @@ function bunproSearchPayload() {
 
 function bunproDetailPayload() {
     return {
-        data: { id: '77', type: 'vocab' },
+        data: {
+            id: '77',
+            type: 'vocab',
+            attributes: {
+                pitch_accent_stress: 'LHHH',
+                frequency_general: 178,
+                frequency_anime: 793,
+                frequency_novels: 6182,
+                frequency_netflix: 778,
+                frequency_dictionary: 40271,
+                female_audio_url: 'https://audio.example.test/bunpro-word-female.mp3',
+                male_audio_url: 'https://audio.example.test/bunpro-word-male.mp3',
+            },
+        },
         included: [{
             id: '7701',
             type: 'study_question',

@@ -39,6 +39,8 @@ What it is *not* is an SRS. Yomitan shows you a word; it does not schedule that 
 
 [Bunpro](https://bunpro.jp/) is a Japanese SRS best known for grammar, with vocabulary decks and contextual review sentences too. In よむ, the imported Bunpro frontend token supplies your review queue, word states, mining, and a Bunpro definition source with meanings, nuance, and example sentences. Study uses self-graded reveal controls: **Hard / Good** for regular reviews and **Again / Hard / Good / Easy** for FSRS, never JPDB's five choices.
 
+Those dictionary entries follow the same compact example layout as Jiten and JPDB. よむ replaces Bunpro's inline kana brackets with its own furigana annotations, labels each Bunpro frequency corpus separately, supplements existing pitch evidence, and offers Bunpro pronunciation as an audio source that is disabled until you opt in.
+
 ### Anki — a general-purpose SRS you fully control
 
 [Anki](https://apps.ankiweb.net) is a **general-purpose SRS**. You own the note types, the card templates, and the scheduling. That flexibility is its strength: you can build exactly the cards you want (sentence cards, audio cards, image cards) and they are yours forever, synced across devices. The trade-off is more upfront setup than Jiten or JPDB.

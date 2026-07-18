@@ -4931,6 +4931,14 @@ function scanFragmentAllowsRuby(hasNativeRuby: boolean): boolean {
 }
 
 function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
+    // Provider example rows are owned, expandable prose. They are initially
+    // rendered inside a closed <details> with overflow:hidden; treating that
+    // temporary collapsed container as a permanently clipped host turns the
+    // target reading into a hidden detached overlay. Keep normal in-flow ruby
+    // here so Bunpro, Jiten, and JPDB examples all reveal Yomu annotations
+    // when the shared example group opens.
+    if (isInsideOwnedReaderRoot(target.parent)
+        && target.parent.closest('.jpdb-reader-example-sentence')) return Boolean(target.suppressRuby);
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
 

@@ -45,6 +45,7 @@
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine while reading:** create Anki cards or add words to Jiten, Bunpro, or JPDB with source context; grade Bunpro safely from its live Study queue.
+- **Keep connected sources consistent:** Bunpro definitions use the same compact example rows as Jiten and JPDB, expose labelled per-corpus frequency and pitch evidence, and offer pronunciation recordings as an audio source that stays off until you enable it.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
@@ -207,6 +208,6 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
-| [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), and [JPDB](https://jpdb.io/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora. Bunpro uses a private, unsupported frontend endpoint that may change. |
+| [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), and [JPDB](https://jpdb.io/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. Bunpro uses a private, unsupported frontend endpoint that may change; its opt-in pronunciation source requests recordings directly from Bunpro's public CDN only at runtime. |
 
 </details>
