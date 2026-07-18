@@ -1,0 +1,216 @@
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { type UiCopyKey } from '../app/i18n';
+import { type NewTabCopyKey } from './i18n';
+import { cardKey } from '../cards/utils';
+import { newTabCardReading, sentenceForCard } from './study-queue';
+import { isJitenSrsCard, type NewTabReviewTarget } from './review-targets';
+import type { QueuedNewTabGrade } from './grade-queue';
+import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
+import type { JpdbClient } from '../jpdb/jpdb';
+import type { JitenApiClient } from '../dictionaries/jiten';
+import type { YomuSrsAdapter, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs/types';
+
+type NewTabTextKey = UiCopyKey | NewTabCopyKey;
+type NewTabSrsAdapterSource = 'bunpro' | 'yomu-local';
+type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
+
+// Cycle-9 unification: one uniform shape for every SRS provider's grading path
+// so the two grade ladders (live submit + queue flush) dispatch through a single
+// table instead of parallel per-provider `if` chains. `review` is the member both
+// ladders dispatch; `refreshState`/`undo` capture each provider's post-review and
+// reversal semantics (only Jiten reverses server-side — the rest requeue locally,
+// which the controller owns, so their `undo` rejects as not-server-reversible).
+export interface NewTabReviewProviderAdapter {
+    // Whether this provider currently holds the credential/gating to grade the
+    // card. `review` still enforces its own precise, message-specific gate.
+    hasCredential(card: JPDBCard): boolean;
+    // Submit the grade to the provider. jpdb-live is synchronous; the rest async.
+    review(card: JPDBCard, grade: JPDBGrade): Promise<void> | void;
+    // Pull post-review provider state onto the card. No-op where the provider
+    // refreshes internally (jpdb) or keeps no server state (live/anki/local).
+    refreshState(card: JPDBCard): Promise<void>;
+    // Reverse the last review on the provider. Rejects where the provider cannot
+    // reverse server-side (UT-57: those requeue locally in the controller).
+    undo(card: JPDBCard): Promise<void>;
+}
+
+// Everything the submitter reads back off the controller: the review-source
+// clients plus the few controller-owned side effects (cross-tab broadcast, the
+// one-shot Jiten undo arm) and the two genuinely-special submit primitives kept
+// on the controller — jpdb-live (synchronous bridge grade + state read-back) and
+// Anki (returns lookup state the lookup surface consumes). Every provider grade
+// flows through NewTabReviewSubmitterDeps.
+export interface NewTabReviewSubmitterDeps {
+    getSettings(): ReaderSettings;
+    text(key: NewTabTextKey): string;
+    jpdb: Pick<JpdbClient, 'reviewCard'>;
+    jiten?: Pick<JitenApiClient, 'reviewCard'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview'>>;
+    srsAdapters?: Partial<Record<NewTabSrsAdapterSource, NewTabSrsQueueAdapter>>;
+    publishGradedCardState(card: JPDBCard): void;
+    armJitenUndo(card: JPDBCard): void;
+    reviewLiveJpdb(card: JPDBCard, grade: JPDBGrade): void;
+    reviewAnki(card: JPDBCard, grade: JPDBGrade): Promise<unknown>;
+}
+
+const NOT_SERVER_REVERSIBLE = 'review is not server-reversible';
+
+export class NewTabReviewSubmitter {
+    private readonly adapters: Record<NewTabReviewTarget, NewTabReviewProviderAdapter>;
+
+    constructor(private readonly deps: NewTabReviewSubmitterDeps) {
+        this.adapters = this.buildAdapters();
+    }
+
+    // Table-driven replacement for the old submitReviewTarget ladder: every
+    // target (jpdb-api fell through the ladder's default) resolves to its own
+    // adapter, preserving the exact per-provider routing.
+    async submitTarget(card: JPDBCard, target: NewTabReviewTarget, grade: JPDBGrade): Promise<void> {
+        await this.adapters[target].review(card, grade);
+    }
+
+    // Table-driven replacement for the old submitQueuedGrade ladder. Queued
+    // grades never carry jpdb-live (live grading never queues); the bunpro guard
+    // stays explicit — a queue written before Bunpro grading became
+    // live-session-only must never replay a stale session review id.
+    async submitQueued(item: QueuedNewTabGrade): Promise<boolean> {
+        if (item.target === 'bunpro-api') return false;
+        await this.adapters[item.target].review(item.card, item.grade);
+        return true;
+    }
+
+    // Jiten reviews reverse server-side; the controller's undo flow delegates the
+    // provider side here and keeps the local card-restoration.
+    undoServerReview(card: JPDBCard): Promise<void> {
+        return this.adapters['jiten-api'].undo(card);
+    }
+
+    private buildAdapters(): Record<NewTabReviewTarget, NewTabReviewProviderAdapter> {
+        const notReversible = (): Promise<void> => Promise.reject(new Error(NOT_SERVER_REVERSIBLE));
+        const noRefresh = (): Promise<void> => Promise.resolve();
+        return {
+            'jpdb-api': {
+                hasCredential: card => (card.source === 'jpdb' || card.reviewSource === 'jpdb-api')
+                    && this.deps.getSettings().jpdbMiningEnabled
+                    && hasJpdbApiCredential(this.deps.getSettings()),
+                review: (card, grade) => this.reviewJpdbApi(card, grade),
+                // jpdb.reviewCard refreshes the card state internally.
+                refreshState: noRefresh,
+                undo: notReversible,
+            },
+            'jpdb-live': {
+                hasCredential: card => card.reviewSource === 'jpdb-live' && this.deps.getSettings().jpdbMiningEnabled,
+                review: (card, grade) => { this.deps.reviewLiveJpdb(card, grade); },
+                refreshState: noRefresh,
+                undo: notReversible,
+            },
+            'jiten-api': {
+                hasCredential: card => isJitenSrsCard(card)
+                    && this.deps.getSettings().jpdbMiningEnabled
+                    && hasJitenApiCredential(this.deps.getSettings())
+                    && typeof this.deps.jiten?.reviewCard === 'function',
+                review: (card, grade) => this.reviewJitenApi(card, grade),
+                refreshState: card => this.refreshJitenState(card),
+                undo: card => this.undoJitenReview(card),
+            },
+            anki: {
+                hasCredential: card => Boolean(card.ankiCardId),
+                review: async (card, grade) => { await this.deps.reviewAnki(card, grade); },
+                refreshState: noRefresh,
+                undo: notReversible,
+            },
+            'bunpro-api': this.srsAdapterEntry('bunpro-api'),
+            'yomu-local': this.srsAdapterEntry('yomu-local'),
+        };
+    }
+
+    private srsAdapterEntry(target: 'bunpro-api' | 'yomu-local'): NewTabReviewProviderAdapter {
+        const source: NewTabSrsAdapterSource = target === 'bunpro-api' ? 'bunpro' : 'yomu-local';
+        return {
+            hasCredential: () => Boolean(this.deps.srsAdapters?.[source]?.hasCredential()),
+            review: (card, grade) => this.reviewSrsAdapter(source, card, grade),
+            refreshState: () => Promise.resolve(),
+            undo: () => Promise.reject(new Error(NOT_SERVER_REVERSIBLE)),
+        };
+    }
+
+    private async reviewJpdbApi(card: JPDBCard, grade: JPDBGrade): Promise<void> {
+        if (card.source !== 'jpdb' && card.reviewSource !== 'jpdb-api') throw new Error(this.deps.text('couldNotSubmitGrade'));
+        const settings = this.deps.getSettings();
+        if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text('apiSrsActionsDisabled'));
+        if (!hasJpdbApiCredential(settings)) throw new Error(this.deps.text('addJpdbApiKeyReview'));
+        await this.deps.jpdb.reviewCard(card, grade);
+        this.deps.publishGradedCardState(card);
+    }
+
+    private async reviewJitenApi(card: JPDBCard, grade: JPDBGrade): Promise<void> {
+        if (!isJitenSrsCard(card)) throw new Error(this.deps.text('couldNotSubmitGrade'));
+        const settings = this.deps.getSettings();
+        if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text('apiSrsActionsDisabled'));
+        if (!hasJitenApiCredential(settings)) throw new Error(this.deps.text('addJitenApiKeyReview'));
+        if (typeof this.deps.jiten?.reviewCard !== 'function') throw new Error(this.deps.text('couldNotSubmitGrade'));
+        await this.deps.jiten.reviewCard(card, grade);
+        // Jiten reviews are server-reversible — record the undo here too so every
+        // submit path (not only gradeCurrentCard) arms the affordance.
+        this.deps.armJitenUndo(card);
+        // Parity with the JPDB path (jpdb.reviewCard refreshes internally): pull
+        // the post-review state so the review summary reflects reality.
+        await this.refreshJitenState(card);
+        this.deps.publishGradedCardState(card);
+    }
+
+    private async refreshJitenState(card: JPDBCard): Promise<void> {
+        if (typeof this.deps.jiten?.refreshCardState === 'function') {
+            await this.deps.jiten.refreshCardState(card).catch(() => undefined);
+        }
+    }
+
+    private async undoJitenReview(card: JPDBCard): Promise<void> {
+        await this.deps.jiten?.undoReview?.(card);
+        await this.refreshJitenState(card);
+        this.deps.publishGradedCardState(card);
+    }
+
+    private async reviewSrsAdapter(source: NewTabSrsAdapterSource, card: JPDBCard, grade: JPDBGrade): Promise<void> {
+        const adapter = this.deps.srsAdapters?.[source];
+        if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text('couldNotSubmitGrade'));
+        await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
+        this.deps.publishGradedCardState(card);
+    }
+
+    private newTabCardToSrsReviewable(card: JPDBCard, source: NewTabSrsAdapterSource): YomuSrsReviewable {
+        const expression = card.spelling.trim();
+        const reading = newTabCardReading(card).trim() || expression;
+        const providerCardId = source === 'bunpro'
+            ? card.bunproReviewId || stringifyPositiveNumber(card.bunproReviewableId) || card.sourceCardKey || cardKey(card)
+            : card.sourceCardKey || cardKey(card);
+        return {
+            providerId: source,
+            providerCardId,
+            providerReviewId: source === 'bunpro' ? card.bunproReviewId || providerCardId : providerCardId,
+            providerReviewableId: source === 'bunpro' ? stringifyPositiveNumber(card.bunproReviewableId) : undefined,
+            reviewSession: source === 'bunpro' && card.bunproReviewSessionId && card.bunproReviewInputMode && card.bunproReviewEndpoint ? {
+                id: card.bunproReviewSessionId,
+                inputMode: card.bunproReviewInputMode,
+                endpoint: card.bunproReviewEndpoint,
+            } : undefined,
+            kind: source === 'bunpro' ? bunproReviewableKind(card.bunproReviewableType) : 'vocabulary',
+            expression,
+            reading,
+            meanings: card.meanings,
+            state: card.cardState,
+            srsLevel: source === 'bunpro' ? card.bunproSrsLevel : undefined,
+            dueAt: card.dueAt,
+            lastReviewAt: card.lastReviewAt,
+            raw: card,
+        };
+    }
+}
+
+function stringifyPositiveNumber(value: number | undefined): string | undefined {
+    return value !== undefined && Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : undefined;
+}
+
+function bunproReviewableKind(type: JPDBCard['bunproReviewableType']): YomuSrsReviewableKind {
+    if (type === 'grammar' || type === 'vocabulary' || type === 'sentence') return type;
+    return 'unknown';
+}

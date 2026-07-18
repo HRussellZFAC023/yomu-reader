@@ -288,7 +288,7 @@ describe('undo last review (community ask, Jiten undo endpoint)', () => {
         } as never);
         try {
             const internals = controller as unknown as {
-                submitJitenApiGrade(card: JPDBCard, grade: 'okay'): Promise<void>;
+                reviewSubmitter: { submitTarget(card: JPDBCard, target: string, grade: 'okay'): Promise<void> };
                 canUndoLastReview(): boolean;
                 undoLastReview(root: HTMLElement): Promise<void>;
                 visibleWords: JPDBCard[];
@@ -302,7 +302,7 @@ describe('undo last review (community ask, Jiten undo endpoint)', () => {
             } as unknown as JPDBCard;
             expect(internals.canUndoLastReview()).toBe(false);
 
-            await internals.submitJitenApiGrade(card, 'okay');
+            await internals.reviewSubmitter.submitTarget(card, 'jiten-api', 'okay');
             expect(internals.canUndoLastReview()).toBe(true);
 
             internals.visibleWords = [card];
