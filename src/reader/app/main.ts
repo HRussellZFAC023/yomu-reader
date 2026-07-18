@@ -176,6 +176,7 @@ import {
     UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS,
     PUBLIC_VOCABULARY_MISS_RETRY_LIMIT,
     DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS,
+    MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT,
     allowsFrequentVisibleAutoScan,
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
@@ -942,6 +943,7 @@ export class ReaderApp {
     // readings/pitch forever (the yomureader.com homepage was the canary).
     private unresolvedFallbackVocabularyCache = new Map<string, number>();
     private publicVocabularyMissRetries = new Map<string, number>();
+    private misalignedPublicFuriganaRecoveries = new Set<string>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
@@ -1379,6 +1381,7 @@ export class ReaderApp {
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
         this.publicVocabularyMissRetries.clear();
+        this.misalignedPublicFuriganaRecoveries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
@@ -1568,6 +1571,7 @@ export class ReaderApp {
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
         this.publicVocabularyMissRetries.clear();
+        this.misalignedPublicFuriganaRecoveries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -2143,6 +2147,7 @@ export class ReaderApp {
         this.resolvedFallbackVocabularyCache.clear();
         this.unresolvedFallbackVocabularyCache.clear();
         this.publicVocabularyMissRetries.clear();
+        this.misalignedPublicFuriganaRecoveries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.subtitleRebakeTimer);
@@ -7921,6 +7926,7 @@ export class ReaderApp {
         this.backgroundPublicPitchLookupBudgetUsed = 0;
         this.deferredPublicPitchEnqueuedForUrl = 0;
         this.publicVocabularyMissRetries.clear();
+        this.misalignedPublicFuriganaRecoveries.clear();
     }
 
     private queueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
@@ -8629,6 +8635,29 @@ export class ReaderApp {
         setRenderedWordCardIdentity(word, card);
         this.registerRenderedWord(word);
         applyPublicVocabularyFurigana(word, card, this.settings);
+        this.recoverMisalignedPublicVocabularyWord(word, card);
+    }
+
+    // Chunk-context tokenization can hand a span a DIFFERENT word than its own
+    // surface (離れ resolved as 離[り], 調べ as 調[ちょう]): the reading cannot
+    // align, so the span keeps no furigana and wears the wrong word's pitch.
+    // Standalone parses pick the right word, so re-resolve the exact surface
+    // once through the cached public term lookup and re-apply. Bounded by the
+    // per-surface dedupe, the per-page cap, and the client's own caches/backoff.
+    private recoverMisalignedPublicVocabularyWord(word: HTMLElement, card: JPDBCard): void {
+        if (!this.shouldRunPitchOrReadingEnrichment()) return;
+        if (word.classList.contains('jpdb-reader-has-furi') || word.closest('ruby')) return;
+        const surface = (word.dataset.surface ?? '').trim();
+        if (!surface || surface === card.spelling.trim()) return;
+        if (![...surface].some(isKanjiCharacter)) return;
+        if (this.misalignedPublicFuriganaRecoveries.has(surface)) return;
+        if (this.misalignedPublicFuriganaRecoveries.size >= MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT) return;
+        this.misalignedPublicFuriganaRecoveries.add(surface);
+        void this.jitenPublicVocabulary.lookup(surface).then(better => {
+            if (!better || this.isDestroyed) return;
+            if (better.spelling.trim() === card.spelling.trim() && better.reading.trim() === card.reading.trim()) return;
+            this.applyPublicVocabularyToRenderedWords(card, better);
+        }).catch(() => undefined);
     }
 
     private applyPitchClassToRenderedSurface(word: HTMLElement, pitchClass: string): void {

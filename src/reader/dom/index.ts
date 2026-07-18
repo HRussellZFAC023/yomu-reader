@@ -5418,10 +5418,33 @@ export function inferredInflectedSurfaceRubies(surface: string, spelling: string
         if (!baseReading.endsWith(spellingSuffix)) continue;
         const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
         if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
+        // An EMPTY surface suffix is legal: parse boundaries can leave a bare
+        // verb stem in the span (見 for 見る, the okurigana tokenized apart) —
+        // the stem still deserves its reading-stem ruby.
         const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-        if (!surfaceSuffix || !KANA_RE.test(surfaceSuffix)) continue;
+        if (surfaceSuffix && !KANA_RE.test(surfaceSuffix)) continue;
         const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
         if (rubies.length) return rubies;
+    }
+
+    // Kanji-only spelling (接続, 練習, 理想的) has no trailing kana, so the
+    // suffix loop above yields nothing. When the inflected surface simply
+    // appends okurigana/auxiliaries to the whole spelling (接続して, 練習し,
+    // 理想的な), the entire spelling still reads as baseReading — emit one
+    // ruby covering it.
+    if (
+        visibleSurface.startsWith(baseSpelling) &&
+        !KANA_CHAR_RE.test(baseSpelling)
+    ) {
+        const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
+        if (!surfaceSuffix || KANA_RE.test(surfaceSuffix)) {
+            return [{
+                text: baseReading,
+                start: 0,
+                end: baseSpelling.length,
+                length: baseSpelling.length,
+            }];
+        }
     }
     return [];
 }

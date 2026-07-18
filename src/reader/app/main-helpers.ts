@@ -70,6 +70,9 @@ export const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
 // While the shared public-jiten backoff is active the deferred lane sleeps in
 // these slices instead of consuming its queue into guaranteed misses.
 export const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3_000;
+// Per-page cap on surface re-resolution lookups for spans whose hydrated card
+// cannot align with their own surface (chunk-context mis-tokenization).
+export const MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT = 24;
 // DOM strategy threshold only: small updates use exact selectors, larger updates may build a rendered-word index.
 // This is not an Anki cache/card cap.
 export const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
