@@ -801,14 +801,14 @@ function renderNewTabSearchRoot(controller: NewTabController, source = 'jpdb'): 
 
 function renderBoundNewTabSearchRoot(controller: NewTabController, source = 'jpdb'): HTMLElement {
     const root = renderNewTabSearchRoot(controller, source);
-    (controller as unknown as { bindRootEvents(root: HTMLElement): void; renderSearch(root: HTMLElement): void }).bindRootEvents(root);
-    (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+    (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
+    (controller as unknown as { searchController: { renderSearch(root: HTMLElement): void } }).searchController.renderSearch(root);
     return root;
 }
 
 function renderPerformedNewTabSearch(controller: NewTabController, query: string, source = 'jpdb'): HTMLElement {
     const root = renderBoundNewTabSearchRoot(controller, source);
-    (controller as unknown as { performSearch(root: HTMLElement, query: string): void }).performSearch(root, query);
+    (controller as unknown as { searchController: { performSearch(root: HTMLElement, query: string): void } }).searchController.performSearch(root, query);
     return root;
 }
 
@@ -1428,7 +1428,6 @@ function renderTestKanjiDetails(options: {
 }
 
 type NewTabSearchModeApi = {
-    bindRootEvents(root: HTMLElement): void;
     renderSearch(root: HTMLElement): void;
     renderSearchHandwritingCandidates(root: HTMLElement, candidates: string[], message: string): void;
     performSearch(root: HTMLElement, query: string): void;
@@ -1468,7 +1467,7 @@ function createDictionarySearchModeFixture() {
             searchTerms,
         } as never,
     });
-    const searchApi = controller as unknown as NewTabSearchModeApi;
+    const searchApi = (controller as unknown as { searchController: NewTabSearchModeApi }).searchController;
     const root = renderBoundNewTabSearchRoot(controller, 'dictionary');
 
     return { settings, searchTerms, root, searchApi, controller };
@@ -2219,8 +2218,8 @@ describe('new tab review helpers', () => {
 
             // With a chip active, typing searches MY cards instead of the
             // dictionaries (SH-3 v2).
-            (controller as unknown as { searchQuery: string }).searchQuery = 'よむ';
-            (controller as unknown as { renderSearch(root: HTMLElement): void }).renderSearch(root);
+            (controller as unknown as { searchController: { setInitialQuery(query: string): void } }).searchController.setInitialQuery('よむ');
+            (controller as unknown as { searchController: { renderSearch(root: HTMLElement): void } }).searchController.renderSearch(root);
             const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
             expect(rows).toHaveLength(0); // 読む is known, filter is still 'due'
             const knownChip = [...root.querySelectorAll<HTMLElement>('[data-newtab-action="browse-filter"]')]
@@ -2493,15 +2492,16 @@ describe('new tab review helpers', () => {
         document.body.append(root);
         Object.assign(controller as unknown as {
             state: { mode: string };
-            searchHandwritingGeneration: number;
         }, {
             state: { mode: 'search' },
-            searchHandwritingGeneration: 7,
         });
-
-        await (controller as unknown as {
+        const handwritingInternals = (controller as unknown as { searchController: {
+            searchHandwritingGeneration: number;
             recognizeSearchHandwriting(root: HTMLElement, strokes: Parameters<typeof rankKanjiStrokeCandidates>[0], generation: number): Promise<void>;
-        }).recognizeSearchHandwriting(root, [
+        } }).searchController;
+        handwritingInternals.searchHandwritingGeneration = 7;
+
+        await handwritingInternals.recognizeSearchHandwriting(root, [
             [{ x: 0.3, y: 0.2, pressure: 0.5 }, { x: 0.8, y: 0.3, pressure: 0.5 }],
             [{ x: 0.3, y: 0.2, pressure: 0.5 }, { x: 0.3, y: 0.8, pressure: 0.5 }],
         ], 7);
@@ -10936,7 +10936,7 @@ describe('new tab review helpers', () => {
         });
         const root = renderBoundNewTabSearchRoot(controller, 'dictionary');
         try {
-            (controller as unknown as NewTabSearchModeApi).renderSearchHandwritingCandidates(root, ['水'], '');
+            (controller as unknown as { searchController: NewTabSearchModeApi }).searchController.renderSearchHandwritingCandidates(root, ['水'], '');
             root.querySelector<HTMLButtonElement>('[data-newtab-action="handwriting-candidate"]')?.click();
 
             await waitForExpect(() => {
@@ -11248,7 +11248,7 @@ describe('new tab review helpers', () => {
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }, {
             parser: { fallbackCardFromText: vi.fn(newTabFallbackCardFromText) } as never,
         });
-        const internals = controller as unknown as {
+        const internals = (controller as unknown as { searchController: unknown }).searchController as {
             renderSearchWordKanjiItem(card: JPDBCard, item: {
                 kanji: string;
                 details: {
@@ -11378,7 +11378,7 @@ describe('new tab review helpers', () => {
                 }]),
             } as never,
         });
-        const internals = controller as unknown as {
+        const internals = (controller as unknown as { searchController: unknown }).searchController as {
             searchKanjiCards(query: string, wordCards?: JPDBCard[]): Promise<Array<{ character: string; keyword: string; meanings: string[] }>>;
         };
         const parent = newTabTestCard({
@@ -11424,14 +11424,16 @@ describe('new tab review helpers', () => {
             playJpdbExampleAudio,
         });
         const internals = controller as unknown as {
-            searchWordCardCache: Map<string, JPDBCard>;
-            renderSearchWordDetail(mount: HTMLElement, card: JPDBCard, detail: never): void;
             handleSearchWordAudioAction(actionTarget: HTMLElement, event: MouseEvent): boolean;
         };
-        internals.searchWordCardCache = new Map([[cardKey(renderedCard), staleJpdbCard]]);
+        const searchInternals = (controller as unknown as { searchController: {
+            searchWordCardCache: Map<string, JPDBCard>;
+            renderSearchWordDetail(mount: HTMLElement, card: JPDBCard, detail: never): void;
+        } }).searchController;
+        searchInternals.searchWordCardCache = new Map([[cardKey(renderedCard), staleJpdbCard]]);
         const mount = document.createElement('div');
 
-        internals.renderSearchWordDetail(mount, renderedCard, {
+        searchInternals.renderSearchWordDetail(mount, renderedCard, {
             localEntries: [],
             kanjiEntries: [],
             metaEntries: [],
@@ -11441,7 +11443,7 @@ describe('new tab review helpers', () => {
 
         const button = mount.querySelector<HTMLButtonElement>('[data-action="search-word-audio"]');
         expect(button).not.toBeNull();
-        expect(internals.searchWordCardCache.get(cardKey(renderedCard))).toBe(renderedCard);
+        expect(searchInternals.searchWordCardCache.get(cardKey(renderedCard))).toBe(renderedCard);
         expect(internals.handleSearchWordAudioAction(button as HTMLButtonElement, new MouseEvent('click'))).toBe(true);
         expect(internals.handleSearchWordAudioAction(button as HTMLButtonElement, new MouseEvent('click'))).toBe(true);
         expect(playWordAudio).toHaveBeenCalledTimes(2);
@@ -11598,10 +11600,10 @@ describe('new tab review helpers', () => {
                 pressure: 0,
             }));
 
-            const internals = controller as unknown as {
+            const internals = (controller as unknown as { searchController: {
                 searchHandwritingStrokes: Array<Array<{ x: number; y: number }>>;
                 clearSearchHandwritingDebounce(): void;
-            };
+            } }).searchController;
             expect(internals.searchHandwritingStrokes).toHaveLength(1);
             expect(internals.searchHandwritingStrokes[0]).toEqual(expect.arrayContaining([
                 expect.objectContaining({ x: 0.12, y: 0.12 }),
@@ -11621,10 +11623,10 @@ describe('new tab review helpers', () => {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=mum',
         });
         const controller = newTabBareController(DEFAULT_SETTINGS);
-        const internals = controller as unknown as { state: { mode: string }; searchQuery: string };
+        const internals = controller as unknown as { state: { mode: string } };
 
         expect(internals.state.mode).toBe('search');
-        expect(internals.searchQuery).toBe('mum');
+        expect((controller as unknown as { searchController: { query: string } }).searchController.query).toBe('mum');
     });
 
     it('syncs search query params and restores browser history searches', async () => {
@@ -11776,8 +11778,8 @@ describe('new tab review helpers', () => {
     });
 
     it('does not search local dictionaries when the hosted store is empty', async () => {
-        const { searchTerms, root, searchApi } = createDictionarySearchModeFixture();
-        (searchApi as unknown as { dependencies: { dictionaries: { hasDictionaries: () => Promise<boolean> } } })
+        const { searchTerms, root, searchApi, controller } = createDictionarySearchModeFixture();
+        (controller as unknown as { dependencies: { dictionaries: { hasDictionaries: () => Promise<boolean> } } })
             .dependencies.dictionaries.hasDictionaries = vi.fn(async () => false);
 
         try {
@@ -16156,11 +16158,7 @@ describe('new tab review helpers', () => {
 
     it('uses keyless fallback material for a query-bearing empty dictionary Word tab', async () => {
         const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('dictionary');
-        const internals = controller as unknown as {
-            searchQuery: string;
-            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
-        };
-        internals.searchQuery = '読み取る';
+        (controller as unknown as { searchController: { setInitialQuery(query: string): void } }).searchController.setInitialQuery('読み取る');
 
         try {
             const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
@@ -16174,11 +16172,10 @@ describe('new tab review helpers', () => {
     it('uses keyless fallback material for a query-bearing empty dictionary Kanji tab', async () => {
         const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('dictionary');
         const internals = controller as unknown as {
-            searchQuery: string;
             state: NewTabRenderedState['state'];
             kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[];
         };
-        internals.searchQuery = 'よむ';
+        (controller as unknown as { searchController: { setInitialQuery(query: string): void } }).searchController.setInitialQuery('よむ');
         internals.state = { ...internals.state, mode: 'kanji', revealAnswer: false };
 
         try {
