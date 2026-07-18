@@ -16,9 +16,9 @@ Only load-bearing or surprising decisions belong here. Routine implementation ch
 
 ## D-003 — Reference engines are reproducible evidence, not vendored dependencies
 
-**Decision:** The six exact shallow clones live locally under `references/academy-engine/*/` and are ignored. Pins and recreation commands are tracked.
+**Decision:** Third-party checkouts and research corpora live outside this product repository. The audited engine commits are `inkle/ink@35c63e52f1d36060930dc7ed3cfba38ea224b528`, `y-lohse/inkjs@1b17540a619021b551ecc4bc5bf873758e6b509b`, `Monogatari/Monogatari@86659baf065178071f0956092f754e1d76be0072`, `goldfire/howler.js@1d3053576a860e9854645493ad6c4a72c6cc6e45`, `GoogleChrome/workbox@62b9d8ba8eb3c1a2ab8aac9d84c90cda7865d6a3`, and `open-spaced-repetition/ts-fsrs@cdec8d2f8340f8e62ced596c1da02e20e70073f0`. The read-only Jiten audit used `obfusk/jiten@02e625520927670590780e7b0f7ccb48987102e0` (AGPL-3.0-or-later); no Jiten code or assets are copied into Yomu.
 
-**Why:** Academy adopts small mechanisms behind its own interfaces; committing roughly 100 MB of nested Git repositories would obscure ownership and supply-chain review.
+**Why:** Academy adopts small mechanisms behind its own interfaces. Vendoring research inputs obscures ownership and supply-chain review, while recording immutable upstream commits preserves reproducibility without publishing local working material.
 
 ## D-004 — One event log and one Yomu learning source of truth
 

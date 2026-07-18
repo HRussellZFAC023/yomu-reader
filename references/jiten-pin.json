@@ -1,8 +1,0 @@
-{
-  "repository": "https://github.com/obfusk/jiten",
-  "commit": "02e625520927670590780e7b0f7ccb48987102e0",
-  "clonedAt": "2026-07-12",
-  "license": "AGPL-3.0-or-later",
-  "localReference": "references/jiten (read-only, ignored)",
-  "audit": ["jiten/jiten/app.py", "README.md", "LICENSE.AGPLv3"]
-}

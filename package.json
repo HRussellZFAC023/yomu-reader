@@ -44,6 +44,7 @@
     "build:gaming:renderer": "vite build --config config/vite/gaming.config.ts",
     "build:userscript": "vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/build-greasyfork-libraries.mjs && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs && node scripts/trim-userscript-indent.cjs && node scripts/annotate-greasyfork-requires.cjs",
     "build:userscript:self-contained": "YOMU_USERSCRIPT_BUNDLE_MODE=self-contained vite build && node scripts/build-reader-css.mjs && vite build --config config/vite/newtab.config.ts && node scripts/format-userscript-css.cjs && node scripts/annotate-userscript-compliance.cjs",
+    "check:repository": "node scripts/check-repository-hygiene.mjs",
     "check": "node scripts/run-check.mjs",
     "check:release": "YOMU_CHECK_RELEASE=1 YOMU_HASH_MEMO=0 node scripts/run-check.mjs",
     "check:quick": "node scripts/check-quick.mjs",

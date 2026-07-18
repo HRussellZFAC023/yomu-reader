@@ -2,6 +2,25 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Local agent, editor, browser, and worktree state
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.idea/
+/.playwright-mcp/
+/.vscode/
+/release-worktrees/
+/screens/
+/tmp/
+/verify/
+
+# Research corpora and third-party checkouts stay outside the product repository.
+/references/
+/references-academy/
+/cast-standardize/
+
 dist/*
 !dist/yomu.user.js
 !dist/yomu.css
@@ -31,9 +50,6 @@ docs/.vitepress/dist/
 /docs/research/
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
-/references/academy-engine/*/
-/references/jiten/
-/references/kotoba-upstream/
 qa-audit-a3/
 .dev.vars
 .wrangler/

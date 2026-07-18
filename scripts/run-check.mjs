@@ -65,6 +65,13 @@ async function lane(...stages) {
     for (const s of stages) await runStage(s);
 }
 
+try {
+    await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
+} catch {
+    printSummary(false);
+    process.exit(1);
+}
+
 const lanes = [
     lane(stage('typecheck', 'npm run -s typecheck')),
     lane(
