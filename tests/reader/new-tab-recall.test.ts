@@ -111,6 +111,44 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
+describe('recall solution answer reading', () => {
+    function recallSolutionFor(settings: Partial<ReaderSettings>): { solution: HTMLElement; destroy: () => void } {
+        const card = recallCard();
+        const { controller, internals } = recallController(card, settings);
+        const root = recallRoot();
+        internals.renderWord(root, card);
+        const solution = (controller as unknown as {
+            renderRecallSolution(card: JPDBCard, state: string): HTMLElement;
+        }).renderRecallSolution(card, 'due');
+        return { solution, destroy: () => controller.destroy() };
+    }
+
+    it('keeps the revealed cloze answer reading visible even with furigana off', () => {
+        // The parsed-sentence renderer honours the user's furigana settings, so
+        // with furigana off the revealed cloze target must be force-annotated
+        // (or fall back to a reading chip) — the reading IS the answer.
+        const { solution, destroy } = recallSolutionFor({ showFurigana: false, furiganaMode: 'off' });
+        try {
+            const rt = solution.querySelector('[data-yomu-headword] rt.jpdb-reader-furi');
+            const chip = solution.querySelector('[data-newtab-recall-answer-reading]');
+            expect(rt?.textContent ?? chip?.textContent).toBe('べんごし');
+        } finally {
+            destroy();
+        }
+    });
+
+    it('keeps the revealed cloze answer reading visible in selective furigana modes', () => {
+        const { solution, destroy } = recallSolutionFor({ showFurigana: true, furiganaMode: 'known-status', furiganaHiddenStateGroups: ['due'] });
+        try {
+            const rt = solution.querySelector('[data-yomu-headword] rt.jpdb-reader-furi');
+            const chip = solution.querySelector('[data-newtab-recall-answer-reading]');
+            expect(rt?.textContent ?? chip?.textContent).toBe('べんごし');
+        } finally {
+            destroy();
+        }
+    });
+});
+
 describe('new-tab recall answer matching', () => {
     it('normalizes typed Japanese answers and accepts spelling or reading', () => {
         const card = recallCard({ fallbackLookupTerms: ['べんごし'] });

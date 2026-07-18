@@ -1778,6 +1778,11 @@ describe('new tab review — search mode', () => {
         const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
         expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(true);
         expect(spelling.hasAttribute('data-yomu-headword')).toBe(true);
+        // No kanji-nav host on the header: the async nested-parse pass treats
+        // its presence as enabled and wraps each kanji in a button, which then
+        // swallows whole-word taps before parseable lookup. Kanji drilldown
+        // lives in the popover's composed-of chips instead.
+        expect(spelling.hasAttribute('data-jpdb-reader-kanji-nav')).toBe(false);
         expect(spelling.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('にんげん');
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();

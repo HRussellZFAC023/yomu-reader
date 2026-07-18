@@ -6070,7 +6070,7 @@ export class NewTabController {
 
     private renderRecallSolution(card: JPDBCard, state: ReturnType<typeof primaryCardState>): HTMLElement {
         const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
-        return el('div', { class: 'jpdb-reader-newtab-recall-solution', lang: 'ja' },
+        const solution = el('div', { class: 'jpdb-reader-newtab-recall-solution', lang: 'ja' },
             el('span', { class: 'jpdb-reader-newtab-term-row' },
                 cloze.hasCloze
                     ? this.renderWordPromptSentenceNode(card, state, cloze.sentence)
@@ -6078,6 +6078,32 @@ export class NewTabController {
                 this.renderStudyWordAudioButton(card),
             ),
         );
+        this.ensureRecallAnswerReading(solution, card);
+        return solution;
+    }
+
+    // The recall solution is the answer: its reading must be visible no matter
+    // which sentence renderer produced it. The parsed-sentence path renders
+    // with the user's own furigana settings, so with furigana off (or a
+    // selective mode) the target word can come back with no ruby — force the
+    // headword treatment onto the target, or fall back to a reading chip.
+    private ensureRecallAnswerReading(solution: HTMLElement, card: JPDBCard): void {
+        if (solution.querySelector('[data-yomu-headword] rt.jpdb-reader-furi')) return;
+        const target = [...solution.querySelectorAll<HTMLElement>('.jpdb-reader-word')]
+            .find(word => readerWordSurfaceText(word) === card.spelling);
+        if (target) {
+            setInnerHtml(target, renderCardSpellingWithFurigana(card, {
+                ...this.dependencies.getSettings(),
+                furiganaMode: 'all',
+                showFurigana: true,
+            }, { enabled: false, label: this.text('showKanji') }));
+            target.dataset.yomuHeadword = 'true';
+            if (target.querySelector('rt.jpdb-reader-furi')) return;
+        }
+        const reading = newTabCardOptionalReading(card);
+        if (reading && reading !== card.spelling.trim()) {
+            solution.append(el('span', { class: 'jpdb-reader-reading', dataset: { newtabRecallAnswerReading: true } }, reading));
+        }
     }
 
     private renderRecallMeaning(meaning: HTMLElement | null, card: JPDBCard): void {

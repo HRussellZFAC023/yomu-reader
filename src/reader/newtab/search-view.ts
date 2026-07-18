@@ -227,7 +227,7 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header"${bunproStatusAttributes}>
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, 'showKanji') })}</div>
+                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-yomu-headword>${renderCardSpellingWithFurigana(card, settings, { enabled: false, label: uiText(settings.interfaceLanguage, 'showKanji') })}</div>
                 ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml(visibleReading)}</div>` : ''}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
             </div>
