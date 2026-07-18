@@ -284,4 +284,15 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)');
         expect(css).not.toMatch(/jpdb-ocr-line[^{}]*:focus(?!-visible)/u);
     });
+
+    it('allows whole and component popup headwords to show pitch underlines without decorating furigana', () => {
+        const wordCss = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const popoverCss = readFileSync('src/reader/styles/popover-core.css', 'utf8');
+
+        expect(wordCss).toContain('.jpdb-reader-pitch-component-headword.jpdb-pitch-heiban');
+        expect(wordCss).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-pitch-component-headword:is(');
+        expect(wordCss).toContain('text-decoration-color: var(--jpdb-reader-pitch-color, transparent)');
+        expect(popoverCss).not.toContain('.jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling');
+        expect(popoverCss).toMatch(/\.jpdb-reader-spelling rt\s*\{[^}]*text-decoration: none !important;/s);
+    });
 });

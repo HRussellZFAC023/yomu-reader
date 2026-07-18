@@ -23694,41 +23694,55 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const characters = Array.from(component.text);
     return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
   }
-  function alignedExpressionComponentPitches(card, components2, componentPitches) {
-    if (!components2.length) return [];
+  function alignExpressionComponentSegments(card, components2, componentPitches) {
+    if (!components2.length) return null;
     const spellingChars = Array.from(card.spelling.trim());
     const readingChars = Array.from(cardPronunciationReading(card));
-    const aligned = [];
+    const segments = [];
     let spellingCursor = 0;
     let readingCursor = 0;
-    let skippedConnectives = 0;
+    let hadSkippedConnective = false;
     const skipConnectives = (next) => {
+      let run = "";
       while (spellingCursor < spellingChars.length && spellingChars[spellingCursor] === readingChars[readingCursor] && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor]) && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+        run += spellingChars[spellingCursor];
         spellingCursor += 1;
         readingCursor += 1;
-        skippedConnectives += 1;
+        hadSkippedConnective = true;
       }
+      if (run) segments.push({ text: run, pitch: null });
     };
     for (const component of components2) {
       skipConnectives(component);
-      if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+      if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
+      const text2 = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
       spellingCursor += Array.from(component.text).length;
       readingCursor += Array.from(component.reading).length;
       const pitch = componentPitches.find((candidate) => candidate.text === component.text && candidate.reading === component.reading);
       if (pitch) {
-        aligned.push(pitch);
+        segments.push({ text: text2, pitch });
         continue;
       }
       if (isConnectiveKanaOnly(component)) {
-        skippedConnectives += 1;
+        hadSkippedConnective = true;
+        segments.push({ text: text2, pitch: null });
         continue;
       }
-      return [];
+      return null;
     }
     skipConnectives();
-    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
-    if (!aligned.length || aligned.length < 2 && !skippedConnectives) return [];
-    return aligned;
+    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
+    const aligned = segments.filter((segment) => segment.pitch);
+    if (!aligned.length || aligned.length < 2 && !hadSkippedConnective) return null;
+    return segments;
+  }
+  function alignedExpressionComponentPitches(card, components2, componentPitches) {
+    const segments = alignExpressionComponentSegments(card, components2, componentPitches);
+    if (!segments) return [];
+    return segments.map((segment) => segment.pitch).filter((pitch) => Boolean(pitch));
+  }
+  function headwordComponentPitchSegments(card, components2, componentPitches) {
+    return alignExpressionComponentSegments(card, components2, componentPitches) ?? [];
   }
   function renderExpressionComponentPitches(components2) {
     const graphs = components2.map((component) => ({
@@ -40361,7 +40375,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.211".trim() ? "1.6.211".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.212".trim() ? "1.6.212".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -63354,6 +63368,24 @@ ${spelling}`);
   function unannotatedPronunciationText(value) {
     return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
   }
+  function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
+    const classified = segments.map((segment) => ({
+      segment,
+      pitchClass: segment.pitch ? getPitchClass([segment.pitch.pitch], segment.pitch.reading) : ""
+    }));
+    if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return "";
+    return classified.map(({ segment, pitchClass }) => {
+      if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
+      const { text: text2, reading } = segment.pitch;
+      const content = renderCardSpellingWithFurigana({
+        ...card,
+        spelling: text2,
+        reading,
+        wordWithReading: null
+      }, settings, kanjiNavigation);
+      return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$1(pitchClass)}">${content}</span>`;
+    }).join("");
+  }
   function pickTokenForSelection(tokens = [], selected) {
     const exact = tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
     if (exact) {
@@ -63433,7 +63465,7 @@ ${spelling}`);
     renderHeader(card, data, view, trigger) {
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
-                ${this.renderTitleRow(card, view)}
+                ${this.renderTitleRow(card, data, view)}
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
@@ -63442,12 +63474,16 @@ ${spelling}`);
             </div>
         </div>`;
     }
-    renderTitleRow(card, view) {
+    renderTitleRow(card, data, view) {
       const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
+      const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
+      const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
+      const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
+      const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

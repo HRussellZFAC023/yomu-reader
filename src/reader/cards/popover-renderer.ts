@@ -4,14 +4,14 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
-import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana } from './reading-display';
+import { isPlainReadingRedundantForHeadword, renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { alignedExpressionComponentPitches, cardPronunciationReading, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
+import { alignedExpressionComponentPitches, cardPronunciationReading, headwordComponentPitchSegments, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -156,7 +156,7 @@ export class CardPopoverRenderer {
     private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
         return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
-                ${this.renderTitleRow(card, view)}
+                ${this.renderTitleRow(card, data, view)}
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
@@ -166,15 +166,23 @@ export class CardPopoverRenderer {
         </div>`;
     }
 
-    private renderTitleRow(card: JPDBCard, view: CardPopoverRenderView): string {
+    private renderTitleRow(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
         // Carry the pitch class on the headword so it shows the same pitch-accent
         // underline as words on the page (the underline CSS keys off jpdb-pitch-*);
         // the card header only showed the pitch graph before, never the underline.
         const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
         const kanjiNavigation = { enabled: true, label: uiText(view.language, 'showKanji') };
+        const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent
+            ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? [])
+            : [];
+        const componentSpelling = componentSegments.length
+            ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation)
+            : '';
+        const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
+        const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : '';
         return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

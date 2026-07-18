@@ -10,9 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from 'playwright';
 import * as esbuild from 'esbuild';
 
-const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const ARTIFACTS = path.join(ROOT, 'artifacts', 'yomu-reader');
 const DIST_CSS = loadDistCss();
+const REQUESTED_BROWSER = process.env.YOMU_LOOKUP_POPOVER_BROWSER ?? 'all';
 
 function loadDistCss() {
     const distCssPath = path.join(ROOT, 'dist/yomu.css');
@@ -38,7 +39,7 @@ writeFileSync(entryPath, `
     import { DEFAULT_SETTINGS } from ${JSON.stringify(path.join(ROOT, 'src/reader/settings/index.ts'))};
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
-    const settings = { ...DEFAULT_SETTINGS, showPitchAccent: true };
+    const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', showPitchAccent: true };
 
     function card(overrides: Partial<JPDBCard>): JPDBCard {
         return {
@@ -114,6 +115,45 @@ writeFileSync(entryPath, `
                 ],
             } as never);
 
+            const componentCardHost = document.querySelector<HTMLElement>('#component-card')!;
+            componentCardHost.innerHTML = renderer.render(card({
+                spelling: '利用料金',
+                reading: 'りようりょうきん',
+            }), '利用料金です。', 'modal', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+                loading: false,
+                expressionComponents: [
+                    { text: '利用', reading: 'りよう' },
+                    { text: '料金', reading: 'りょうきん' },
+                ],
+                componentPitches: [
+                    { text: '利用', reading: 'りよう', pitch: 'LHH' },
+                    { text: '料金', reading: 'りょうきん', pitch: 'HLLL' },
+                ],
+            } as never);
+
+            const exactCardHost = document.querySelector<HTMLElement>('#exact-card')!;
+            exactCardHost.innerHTML = renderer.render(card({
+                spelling: '英会話',
+                reading: 'えいかいわ',
+                pitchAccent: ['LHHHH'],
+            }), '英会話です。', 'modal', {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+                loading: false,
+            } as never);
+
             const strip = listHost.querySelector<HTMLElement>('.jpdb-reader-token-sentence')!;
             const chips = [...strip.querySelectorAll<HTMLButtonElement>('button[data-token-choice]')];
             const chipRects = chips.map(chip => {
@@ -130,13 +170,16 @@ writeFileSync(entryPath, `
             });
             const pos = cardHost.querySelector<HTMLElement>('.jpdb-reader-pos');
             // Pitch graph SVG in the card header (whole-word or per-component).
-            const pitchContainer = cardHost.querySelector<HTMLElement>('.jpdb-reader-pitch');
-            const pitchComponents = [...cardHost.querySelectorAll<HTMLElement>('.jpdb-reader-pitch-component')];
+            const pitchContainer = componentCardHost.querySelector<HTMLElement>('.jpdb-reader-pitch');
+            const pitchComponents = [...componentCardHost.querySelectorAll<HTMLElement>('.jpdb-reader-pitch-component')];
             const pitchSvg = pitchContainer?.querySelector<SVGSVGElement>('svg') ?? null;
             const polyline = pitchContainer?.querySelector<SVGPolylineElement>('polyline') ?? null;
-            const header = cardHost.querySelector<HTMLElement>('.jpdb-reader-header');
-            const heading = cardHost.querySelector<HTMLElement>('.jpdb-reader-heading');
-            const audioButton = cardHost.querySelector<HTMLElement>('.jpdb-reader-audio-control');
+            const header = componentCardHost.querySelector<HTMLElement>('.jpdb-reader-header');
+            const heading = componentCardHost.querySelector<HTMLElement>('.jpdb-reader-heading');
+            const audioButton = componentCardHost.querySelector<HTMLElement>('.jpdb-reader-audio-control');
+            const componentHeadword = componentCardHost.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+            const componentHeadwordSpans = [...componentHeadword.querySelectorAll<HTMLElement>('.jpdb-reader-pitch-component-headword')];
+            const exactHeadword = exactCardHost.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
             const rectOf = (el: Element | null) => {
                 if (!el) return null;
                 const box = el.getBoundingClientRect();
@@ -178,6 +221,18 @@ writeFileSync(entryPath, `
                 pitchRect: rectOf(pitchContainer),
                 pitchComponentRects: pitchComponents.map(rectOf),
                 audioRect: rectOf(audioButton),
+                componentHeadwordPitchClass: componentHeadword.dataset.pitchClass ?? '',
+                componentHeadwordEvidence: componentHeadword.dataset.pitchEvidence ?? '',
+                componentHeadwordSpanClasses: componentHeadwordSpans.map(span => span.dataset.pitchClass ?? ''),
+                componentHeadwordUnderlines: componentHeadwordSpans.map(span => {
+                    const style = getComputedStyle(span);
+                    return { line: style.textDecorationLine, color: style.textDecorationColor };
+                }),
+                componentHeadwordRuby: [...componentHeadword.querySelectorAll('rt')].map(rt => rt.textContent ?? ''),
+                componentHeadwordKanji: [...componentHeadword.querySelectorAll<HTMLElement>('.jpdb-reader-kanji-inline')].map(button => button.dataset.kanji ?? ''),
+                componentHeadwordLookupTargets: componentHeadword.querySelectorAll('[data-dictionary-lookup], .jpdb-reader-word').length,
+                exactHeadwordPitchClass: exactHeadword.dataset.pitchClass ?? '',
+                exactHeadwordDecoration: getComputedStyle(exactHeadword).textDecorationLine,
                 stripRubyRects,
                 stripWordRects,
             };
@@ -197,10 +252,12 @@ main { display: grid; gap: 24px; padding: 16px; }
 .jpdb-reader-popover { width: 320px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; padding: 4px; }
 </style>
 </head>
-<body>
+<body class="jpdb-reader-word-underline-pitch">
 <main>
   <div id="token-list" class="jpdb-reader-popover"></div>
   <div id="card" class="jpdb-reader-popover"></div>
+  <div id="component-card" class="jpdb-reader-popover"></div>
+  <div id="exact-card" class="jpdb-reader-popover"></div>
 </main>
 </body>
 </html>`;
@@ -216,7 +273,7 @@ async function runProbe(browserType, name) {
     const browser = await browserType.launch({ headless: true });
     try {
         const page = await browser.newPage({ viewport: { width: 390, height: 720 } });
-        await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
+        await page.setContent(fixture, { waitUntil: 'domcontentloaded', timeout: 60_000 });
         // Load the SAME concatenated stylesheet the product ships (base +
         // reader-words-ocr + popover-core + kanji + …) so the rendered pitch
         // graph and layout are faithful. kanji.css is what caps the pitch SVG at
@@ -263,6 +320,21 @@ async function runProbe(browserType, name) {
         // Redesign: borderless div, no collapse/label.
         assert(result.componentsTag === 'DIV' && !result.hasSummary,
             `${name}: composed-of section should be a borderless div without a summary label`, result);
+
+        // A compound with no exact whole-word pitch keeps one lookup identity,
+        // but each fully aligned component exposes its own sourced underline.
+        assert(result.componentHeadwordPitchClass === '' && result.componentHeadwordEvidence === 'components',
+            `${name}: pitchless compound headword was mislabelled as a whole-word pitch`, result);
+        assert(result.componentHeadwordSpanClasses.join(',') === 'heiban,atamadaka',
+            `${name}: component headword pitch classes are missing or out of order`, result);
+        assert(result.componentHeadwordUnderlines.every(decoration => decoration.line.includes('underline') && !decoration.color.includes('0, 0, 0, 0')),
+            `${name}: component headword underlines are not visibly painted`, result);
+        assert(result.componentHeadwordRuby.join('').includes('りよう') && result.componentHeadwordRuby.join('').includes('りょうきん'),
+            `${name}: component headword lost furigana`, result);
+        assert(result.componentHeadwordKanji.join('') === '利用料金' && result.componentHeadwordLookupTargets === 0,
+            `${name}: component decoration changed kanji navigation or nested the compound lookup identity`, result);
+        assert(result.exactHeadwordPitchClass === 'heiban' && result.exactHeadwordDecoration.includes('underline'),
+            `${name}: exact whole-word popup pitch remains suppressed`, result);
 
         // Pitch graph must be capped by kanji.css (height: 42px), not the
         // browser's intrinsic SVG default — a missing cascade renders it oversized.
@@ -333,8 +405,15 @@ try {
         target: 'es2020',
         logLevel: 'silent',
     });
-    await runProbe(chromium, 'chromium');
-    await runProbe(webkit, 'webkit');
+    const probes = REQUESTED_BROWSER === 'all'
+        ? [[chromium, 'chromium'], [webkit, 'webkit']]
+        : REQUESTED_BROWSER === 'chromium'
+            ? [[chromium, 'chromium']]
+            : REQUESTED_BROWSER === 'webkit'
+                ? [[webkit, 'webkit']]
+                : [];
+    assert(probes.length > 0, 'YOMU_LOOKUP_POPOVER_BROWSER must be chromium, webkit, or all', { requested: REQUESTED_BROWSER });
+    for (const [browserType, name] of probes) await runProbe(browserType, name);
     console.log('lookup-popover-strip smoke passed');
 } finally {
     rmSync(tempDir, { recursive: true, force: true });

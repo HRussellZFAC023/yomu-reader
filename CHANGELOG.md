@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.212] - 2026-07-19
+
+### Fixed
+
+- Pitchless compound popup headwords such as 利用料金 now underline each fully aligned component with that component's own sourced pitch colour. Exact whole-word pitch still takes priority, partial or misaligned component evidence stays undecorated, and Yomu never combines component contours into a guessed whole-word accent. A stale popup rule that also hid valid exact-pitch headword underlines has been removed.
+
 ## [1.6.211] - 2026-07-19
 
 ### Fixed

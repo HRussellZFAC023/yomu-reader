@@ -1043,7 +1043,17 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
 .jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
 .jpdb-reader-spelling.jpdb-pitch-odaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka); }
+.jpdb-reader-pitch-component-headword.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
+.jpdb-reader-pitch-component-headword.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
+.jpdb-reader-pitch-component-headword.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
+.jpdb-reader-pitch-component-headword.jpdb-pitch-odaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka); }
 .jpdb-reader-word-underline-pitch .jpdb-reader-spelling:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka
+),
+.jpdb-reader-word-underline-pitch .jpdb-reader-pitch-component-headword:is(
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
@@ -3761,9 +3771,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 }
 .jpdb-reader-spelling .jpdb-reader-ruby-base {
   display: ruby-base;
-}
-.jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling {
-  text-decoration: none !important;
 }
 .jpdb-reader-title-row {
   display: flex;

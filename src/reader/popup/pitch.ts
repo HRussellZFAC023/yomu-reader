@@ -90,57 +90,95 @@ function isConnectiveKanaOnly(component: ExpressionComponentLookup): boolean {
         && characters.every(character => EXPRESSION_CONNECTIVE_KANA.has(character));
 }
 
+// One contiguous run of the card's spelling: either a component with an
+// aligned pitch, a connective-kana-only component, or a skipped connective
+// run between/around components. `pitch` is null for the latter two, which
+// lets headword rendering keep connective kana plain while still covering
+// the full spelling for a lossless re-render.
+export interface HeadwordComponentPitchSegment {
+    text: string;
+    pitch: ExpressionComponentPitch | null;
+}
+
 // Aligns the looked-up components against the card's spelling AND reading,
 // tolerating connective kana between and around them: 為すがまま aligns
 // 為す + まま across the が, and 実際は aligns 実際 before the trailing は. A
 // component that fails to match either text or reading in sequence, or a
 // content component with no pitch, still voids the whole alignment — a
 // partially-labelled contour would silently misattribute accents.
+function alignExpressionComponentSegments(
+    card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
+    components: ExpressionComponentLookup[],
+    componentPitches: ExpressionComponentPitch[],
+): HeadwordComponentPitchSegment[] | null {
+    if (!components.length) return null;
+    const spellingChars = Array.from(card.spelling.trim());
+    const readingChars = Array.from(cardPronunciationReading(card));
+    const segments: HeadwordComponentPitchSegment[] = [];
+    let spellingCursor = 0;
+    let readingCursor = 0;
+    let hadSkippedConnective = false;
+    const skipConnectives = (next?: ExpressionComponentLookup) => {
+        let run = '';
+        while (spellingCursor < spellingChars.length
+            && spellingChars[spellingCursor] === readingChars[readingCursor]
+            && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor])
+            && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+            run += spellingChars[spellingCursor];
+            spellingCursor += 1;
+            readingCursor += 1;
+            hadSkippedConnective = true;
+        }
+        if (run) segments.push({ text: run, pitch: null });
+    };
+    for (const component of components) {
+        skipConnectives(component);
+        if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
+        const text = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join('');
+        spellingCursor += Array.from(component.text).length;
+        readingCursor += Array.from(component.reading).length;
+        const pitch = componentPitches.find(candidate => candidate.text === component.text && candidate.reading === component.reading);
+        if (pitch) {
+            segments.push({ text, pitch });
+            continue;
+        }
+        if (isConnectiveKanaOnly(component)) {
+            hadSkippedConnective = true;
+            segments.push({ text, pitch: null });
+            continue;
+        }
+        return null;
+    }
+    skipConnectives();
+    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
+    const aligned = segments.filter(segment => segment.pitch);
+    // A single component covering the whole spelling is just the word itself;
+    // the whole-word pitch path owns that case. With particles consumed, the
+    // lone content word's accent is genuinely informative (実際は → 実際).
+    if (!aligned.length || (aligned.length < 2 && !hadSkippedConnective)) return null;
+    return segments;
+}
+
 export function alignedExpressionComponentPitches(
     card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
     components: ExpressionComponentLookup[],
     componentPitches: ExpressionComponentPitch[],
 ): ExpressionComponentPitch[] {
-    if (!components.length) return [];
-    const spellingChars = Array.from(card.spelling.trim());
-    const readingChars = Array.from(cardPronunciationReading(card));
-    const aligned: ExpressionComponentPitch[] = [];
-    let spellingCursor = 0;
-    let readingCursor = 0;
-    let skippedConnectives = 0;
-    const skipConnectives = (next?: ExpressionComponentLookup) => {
-        while (spellingCursor < spellingChars.length
-            && spellingChars[spellingCursor] === readingChars[readingCursor]
-            && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor])
-            && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
-            spellingCursor += 1;
-            readingCursor += 1;
-            skippedConnectives += 1;
-        }
-    };
-    for (const component of components) {
-        skipConnectives(component);
-        if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
-        spellingCursor += Array.from(component.text).length;
-        readingCursor += Array.from(component.reading).length;
-        const pitch = componentPitches.find(candidate => candidate.text === component.text && candidate.reading === component.reading);
-        if (pitch) {
-            aligned.push(pitch);
-            continue;
-        }
-        if (isConnectiveKanaOnly(component)) {
-            skippedConnectives += 1;
-            continue;
-        }
-        return [];
-    }
-    skipConnectives();
-    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
-    // A single component covering the whole spelling is just the word itself;
-    // the whole-word pitch path owns that case. With particles consumed, the
-    // lone content word's accent is genuinely informative (実際は → 実際).
-    if (!aligned.length || (aligned.length < 2 && !skippedConnectives)) return [];
-    return aligned;
+    const segments = alignExpressionComponentSegments(card, components, componentPitches);
+    if (!segments) return [];
+    return segments.map(segment => segment.pitch).filter((pitch): pitch is ExpressionComponentPitch => Boolean(pitch));
+}
+
+// Segments covering the entire headword spelling, for rendering per-component
+// pitch decoration on the headword itself. Returns [] under the exact same
+// all-or-nothing conditions as alignedExpressionComponentPitches (partial or
+// misaligned evidence yields no decoration at all).
+export function headwordComponentPitchSegments(
+    card: Pick<JPDBCard, 'spelling' | 'reading' | 'wordWithReading'>,
+    components: ExpressionComponentLookup[],
+    componentPitches: ExpressionComponentPitch[],
+): HeadwordComponentPitchSegment[] {
+    return alignExpressionComponentSegments(card, components, componentPitches) ?? [];
 }
 
 export interface PitchGraphRenderOptions {

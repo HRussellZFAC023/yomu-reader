@@ -11,6 +11,8 @@ description: Everything よむ does — popup dictionary lookup and mining, Yomi
 
 Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten, Bunpro, and JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
+Pitch decoration follows the available evidence: an exact whole-word accent takes priority, while a compound with no exact accent can show separate sourced underlines for fully aligned components. Partial component data stays undecorated rather than being combined into a guessed whole-word contour.
+
 The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.
 
 To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CardRenderDataLoader } from '../../src/reader/cards/render-data';
 import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
-import { alignedExpressionComponentPitches, renderExpressionComponentPitches } from '../../src/reader/popup/render';
+import { renderHeadwordComponentPitchSpans } from '../../src/reader/cards/reading-display';
+import { alignedExpressionComponentPitches, headwordComponentPitchSegments, renderExpressionComponentPitches } from '../../src/reader/popup/render';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
@@ -312,6 +313,103 @@ describe('expression component pitch', () => {
         expect(data.componentPitches?.map(component => component.text)).toEqual(['登録', '者', '数']);
     });
 
+    it('underlines a pitchless compound headword from complete component evidence without changing its lookup identity', () => {
+        const card = expressionCard('利用料金', 'りようりょうきん');
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                showFurigana: true,
+                furiganaMode: 'all',
+                showPitchAccent: true,
+            }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render(card, card.spelling, 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            expressionComponents: [
+                { text: '利用', reading: 'りよう' },
+                { text: '料金', reading: 'りょうきん' },
+            ],
+            componentPitches: [
+                { text: '利用', reading: 'りよう', pitch: 'LHH' },
+                { text: '料金', reading: 'りょうきん', pitch: 'HLLL' },
+            ],
+            loading: false,
+        });
+
+        const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+        const components = [...spelling.querySelectorAll<HTMLElement>('.jpdb-reader-pitch-component-headword')];
+        expect(spelling.dataset.pitchClass).toBe('');
+        expect(spelling.dataset.pitchEvidence).toBe('components');
+        expect([...spelling.classList].filter(name => name.startsWith('jpdb-pitch-'))).toEqual([]);
+        expect(components.map(component => component.dataset.pitchClass)).toEqual(['heiban', 'atamadaka']);
+        expect(components.map(component => component.textContent?.replace(/\s+/g, ''))).toEqual([
+            expect.stringContaining('利用'),
+            expect.stringContaining('料金'),
+        ]);
+        expect([...spelling.querySelectorAll('rt')].map(reading => reading.textContent).join('')).toContain('りよう');
+        expect([...spelling.querySelectorAll('rt')].map(reading => reading.textContent).join('')).toContain('りょうきん');
+        expect([...spelling.querySelectorAll<HTMLElement>('.jpdb-reader-kanji-inline')].map(button => button.dataset.kanji)).toEqual(['利', '用', '料', '金']);
+        expect(spelling.querySelector('.jpdb-reader-word')).toBeNull();
+        expect(spelling.querySelector('[data-dictionary-lookup]')).toBeNull();
+    });
+
+    it('leaves a pitchless compound headword undecorated when component evidence is partial or reading-misaligned', () => {
+        const card = expressionCard('利用料金', 'りようりょうきん');
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, showPitchAccent: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+        const baseData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck' as const, notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            expressionComponents: [
+                { text: '利用', reading: 'りよう' },
+                { text: '料金', reading: 'りょうきん' },
+            ],
+            loading: false,
+        };
+
+        for (const componentPitches of [
+            [{ text: '利用', reading: 'りよう', pitch: 'LHH' }],
+            [
+                { text: '利用', reading: 'りよう', pitch: 'LHH' },
+                { text: '料金', reading: 'りょうきん違い', pitch: 'HLLL' },
+            ],
+            [
+                { text: '利用', reading: 'りよう', pitch: 'LHH' },
+                { text: '料金', reading: 'りょうきん', pitch: 'not-a-pitch-pattern' },
+            ],
+        ]) {
+            document.body.innerHTML = renderer.render(card, card.spelling, 'modal', { ...baseData, componentPitches });
+            const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+            expect(spelling.dataset.pitchEvidence).toBeUndefined();
+            expect(spelling.querySelector('.jpdb-reader-pitch-component-headword')).toBeNull();
+        }
+    });
+
     it('keeps component pitch data when the card already has a whole pitch', async () => {
         const loader = createLoader({
             entriesByTerm: {
@@ -370,6 +468,9 @@ describe('expression component pitch', () => {
         expect(document.querySelector('.jpdb-reader-pitch-components')).toBeNull();
         expect(document.querySelectorAll('.jpdb-reader-card-tools .jpdb-reader-pitch svg')).toHaveLength(1);
         expect(document.querySelector('.jpdb-reader-pitch-variants')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-spelling')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(document.querySelector('.jpdb-reader-spelling')?.getAttribute('data-pitch-evidence')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-pitch-component-headword')).toBeNull();
         expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('双子座');
         expect(document.querySelector('.jpdb-reader-expression-component-list')?.textContent).toContain('流星群');
     });
@@ -398,6 +499,24 @@ describe('expression component pitch', () => {
         const pitches = components.map(component => ({ ...component, pitch: 'LHH' }));
 
         expect(alignedExpressionComponentPitches(card, components, pitches).map(component => component.text)).toEqual(['為す', 'まま']);
+        expect(headwordComponentPitchSegments(card, components, pitches)).toEqual([
+            { text: '為す', pitch: pitches[0] },
+            { text: 'が', pitch: null },
+            { text: 'まま', pitch: pitches[1] },
+        ]);
+
+        const html = renderHeadwordComponentPitchSpans(
+            card,
+            headwordComponentPitchSegments(card, components, pitches),
+            { ...DEFAULT_SETTINGS, showFurigana: false },
+        );
+        const host = document.createElement('div');
+        host.innerHTML = html;
+        expect([...host.childNodes].map(node => node instanceof HTMLElement ? node.dataset.pitchClass : node.textContent)).toEqual([
+            'heiban',
+            'が',
+            'heiban',
+        ]);
     });
 
     it('keeps a whole-spelling single component out of the component pitch fallback', () => {

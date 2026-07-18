@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.211
+// @version 1.6.212
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,9 +13,9 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.a119bca462bd.user.js#sha256=oRm8pGK9kgEbIXyVWVE+YaW3aeszKWeT9THvKV+ZMgU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.aa98ee9328c0.user.js#sha256=qpjukyjAc9y2rVPUX867lUOY/9r07QVRcxdJ9+seb9c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d85364a15b86.user.js#sha256=2FNkoVuGvbCgSyFvjcd1JLRv356ngn31HQ8rwBFSqcY=
 // @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
-// @resource yomuCss  https://yomureader.com/yomu.86750b919d9d.css#sha256=hnULkZ2du3tnyRGiszILyG277nRBw32XpK0YDzf8UgI=
+// @resource yomuCss  https://yomureader.com/yomu.475b9ad2620b.css#sha256=R1ua0mILyYPNNbYpzgBVmxyzWAQLb2i6KGDimiRyPfA=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -14324,6 +14324,123 @@ function cardHighlightTargetFromScope(scope) {
   sid: scope.dataset.cardHighlightSid
   };
 }
+const PITCH_LEVELS = new Set(["H", "L"]);
+const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+const PITCH_CLASS_RULES = [
+  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+];
+function normalizePitchPatternForReading(pattern, reading) {
+  const levels = pitchLevels(pattern);
+  if (!levels.length) return "";
+  return normalizePitchLevelsForReading(levels, reading).join("");
+}
+function normalizePitchPatternsForReading(patterns, reading) {
+  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+}
+function pitchLevelsForDisplay(pattern, reading) {
+  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+}
+function pitchLevels(pattern) {
+  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+}
+function splitMorae(reading) {
+  if (!PRONUNCIATION_KANA.test(reading)) return [];
+  const morae = [];
+  for (const char of Array.from(reading)) {
+  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+  else morae.push(char);
+  }
+  return morae;
+}
+function countMorae(reading) {
+  return splitMorae(reading).length;
+}
+function pitchPatternFromPosition(reading, position) {
+  const moraCount = countMorae(reading);
+  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+  if (position === 0) return `L${"H".repeat(moraCount)}`;
+  if (position === 1) return `H${"L".repeat(moraCount)}`;
+  const highMorae = position - 1;
+  const lowTail = moraCount - position + 1;
+  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+}
+function pitchProfileForPattern(pattern, reading) {
+  const normalized = normalizePitchPatternForReading(pattern, reading);
+  const morae = splitMorae(reading);
+  const pitchNumber = pitchNumberFromPattern(normalized, reading);
+  return {
+  reading,
+  morae,
+  pitchNumber,
+  pattern: normalized,
+  className: pitchClassNameFromProfile(morae.length, pitchNumber)
+  };
+}
+function pitchClassNameForPattern(pattern, reading) {
+  return pitchProfileForPattern(pattern, reading).className;
+}
+function collectPitchVariants(reading, patterns, max = Infinity) {
+  const seen = new Set();
+  const variants = [];
+  for (const pattern of patterns) {
+  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+  const position = pitchNumberFromPattern(pattern, reading);
+  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+  if (seen.has(key)) continue;
+  seen.add(key);
+  variants.push({ pattern, position });
+  if (variants.length >= max) break;
+  }
+  return variants;
+}
+function contextPitchPattern(patterns, reading) {
+  if (!patterns?.length) return "";
+  if (!reading) return patterns[0];
+  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+}
+function pitchNumberFromPattern(pattern, reading) {
+  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+  const moraCount = countMorae(reading);
+  if (!moraCount) return null;
+  if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+  if (levels.length > moraCount + 1) return null;
+  for (let position = 0; position <= moraCount; position += 1) {
+  const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+  if (levels.every((level, index) => expected[index] === level)) return position;
+  }
+  return null;
+}
+function looksLikeCompactHeibanPattern(levels) {
+  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+}
+function pitchClassNameFromProfile(moraCount, pitchNumber) {
+  if (!moraCount || pitchNumber == null) return "";
+  return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+}
+function normalizePitchLevelsForReading(levels, reading) {
+  const chars = Array.from(reading);
+  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+  const normalized = [];
+  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+  normalized.push(levels[index]);
+  }
+  return normalized.concat(levels.slice(chars.length));
+}
+function looksCharacterAlignedPitch(levels, chars) {
+  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+  if (levels.length < chars.length) return false;
+  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+}
+function getPitchClass(pitchAccent, reading) {
+  const pattern = contextPitchPattern(pitchAccent, reading);
+  return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+}
 const KANJI_RE$2 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 function compactReading(value) {
@@ -14404,6 +14521,24 @@ function readingFromSurfaceRubies(surface, rubies) {
 }
 function unannotatedPronunciationText$1(value) {
   return Array.from(value).filter((character) => !KANJI_RE$2.test(character)).join("");
+}
+function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
+  const classified = segments.map((segment) => ({
+  segment,
+  pitchClass: segment.pitch ? getPitchClass([segment.pitch.pitch], segment.pitch.reading) : ""
+  }));
+  if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return "";
+  return classified.map(({ segment, pitchClass }) => {
+  if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
+  const { text: text2, reading } = segment.pitch;
+  const content = renderCardSpellingWithFurigana({
+    ...card,
+    spelling: text2,
+    reading,
+    wordWithReading: null
+  }, settings, kanjiNavigation);
+  return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$1(pitchClass)}">${content}</span>`;
+  }).join("");
 }
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
@@ -16344,119 +16479,6 @@ new Map(
   return [key, kanji ? { glyph, kanji } : { glyph }];
   })
 );
-const PITCH_LEVELS = new Set(["H", "L"]);
-const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-const PITCH_CLASS_RULES = [
-  { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-  { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-  { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-  { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-];
-function normalizePitchPatternForReading(pattern, reading) {
-  const levels = pitchLevels(pattern);
-  if (!levels.length) return "";
-  return normalizePitchLevelsForReading(levels, reading).join("");
-}
-function normalizePitchPatternsForReading(patterns, reading) {
-  return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-}
-function pitchLevelsForDisplay(pattern, reading) {
-  return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-}
-function pitchLevels(pattern) {
-  return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-}
-function splitMorae(reading) {
-  if (!PRONUNCIATION_KANA.test(reading)) return [];
-  const morae = [];
-  for (const char of Array.from(reading)) {
-  if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-  else morae.push(char);
-  }
-  return morae;
-}
-function countMorae(reading) {
-  return splitMorae(reading).length;
-}
-function pitchPatternFromPosition(reading, position) {
-  const moraCount = countMorae(reading);
-  if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-  if (position === 0) return `L${"H".repeat(moraCount)}`;
-  if (position === 1) return `H${"L".repeat(moraCount)}`;
-  const highMorae = position - 1;
-  const lowTail = moraCount - position + 1;
-  return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-}
-function pitchProfileForPattern(pattern, reading) {
-  const normalized = normalizePitchPatternForReading(pattern, reading);
-  const morae = splitMorae(reading);
-  const pitchNumber = pitchNumberFromPattern(normalized, reading);
-  return {
-  reading,
-  morae,
-  pitchNumber,
-  pattern: normalized,
-  className: pitchClassNameFromProfile(morae.length, pitchNumber)
-  };
-}
-function pitchClassNameForPattern(pattern, reading) {
-  return pitchProfileForPattern(pattern, reading).className;
-}
-function collectPitchVariants(reading, patterns, max = Infinity) {
-  const seen = new Set();
-  const variants = [];
-  for (const pattern of patterns) {
-  if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-  const position = pitchNumberFromPattern(pattern, reading);
-  const key = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-  if (seen.has(key)) continue;
-  seen.add(key);
-  variants.push({ pattern, position });
-  if (variants.length >= max) break;
-  }
-  return variants;
-}
-function contextPitchPattern(patterns, reading) {
-  if (!patterns?.length) return "";
-  if (!reading) return patterns[0];
-  return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-}
-function pitchNumberFromPattern(pattern, reading) {
-  const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-  const moraCount = countMorae(reading);
-  if (!moraCount) return null;
-  if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-  if (levels.length > moraCount + 1) return null;
-  for (let position = 0; position <= moraCount; position += 1) {
-  const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-  if (levels.every((level, index) => expected[index] === level)) return position;
-  }
-  return null;
-}
-function looksLikeCompactHeibanPattern(levels) {
-  return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-}
-function pitchClassNameFromProfile(moraCount, pitchNumber) {
-  if (!moraCount || pitchNumber == null) return "";
-  return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-}
-function normalizePitchLevelsForReading(levels, reading) {
-  const chars = Array.from(reading);
-  if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-  if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-  const normalized = [];
-  for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-  if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-  normalized.push(levels[index]);
-  }
-  return normalized.concat(levels.slice(chars.length));
-}
-function looksCharacterAlignedPitch(levels, chars) {
-  if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-  if (levels.length < chars.length) return false;
-  return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-}
 async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta, options = {}) {
   const expression = spelling.trim();
   const pronunciation = reading.trim();
@@ -16573,41 +16595,55 @@ function isConnectiveKanaOnly(component) {
   const characters = Array.from(component.text);
   return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
 }
-function alignedExpressionComponentPitches(card, components, componentPitches) {
-  if (!components.length) return [];
+function alignExpressionComponentSegments(card, components, componentPitches) {
+  if (!components.length) return null;
   const spellingChars = Array.from(card.spelling.trim());
   const readingChars = Array.from(cardPronunciationReading(card));
-  const aligned = [];
+  const segments = [];
   let spellingCursor = 0;
   let readingCursor = 0;
-  let skippedConnectives = 0;
+  let hadSkippedConnective = false;
   const skipConnectives = (next) => {
+  let run = "";
   while (spellingCursor < spellingChars.length && spellingChars[spellingCursor] === readingChars[readingCursor] && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor]) && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+    run += spellingChars[spellingCursor];
     spellingCursor += 1;
     readingCursor += 1;
-    skippedConnectives += 1;
+    hadSkippedConnective = true;
   }
+  if (run) segments.push({ text: run, pitch: null });
   };
   for (const component of components) {
   skipConnectives(component);
-  if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+  if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
+  const text2 = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
   spellingCursor += Array.from(component.text).length;
   readingCursor += Array.from(component.reading).length;
   const pitch = componentPitches.find((candidate) => candidate.text === component.text && candidate.reading === component.reading);
   if (pitch) {
-    aligned.push(pitch);
+    segments.push({ text: text2, pitch });
     continue;
   }
   if (isConnectiveKanaOnly(component)) {
-    skippedConnectives += 1;
+    hadSkippedConnective = true;
+    segments.push({ text: text2, pitch: null });
     continue;
   }
-  return [];
+  return null;
   }
   skipConnectives();
-  if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
-  if (!aligned.length || aligned.length < 2 && !skippedConnectives) return [];
-  return aligned;
+  if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
+  const aligned = segments.filter((segment) => segment.pitch);
+  if (!aligned.length || aligned.length < 2 && !hadSkippedConnective) return null;
+  return segments;
+}
+function alignedExpressionComponentPitches(card, components, componentPitches) {
+  const segments = alignExpressionComponentSegments(card, components, componentPitches);
+  if (!segments) return [];
+  return segments.map((segment) => segment.pitch).filter((pitch) => Boolean(pitch));
+}
+function headwordComponentPitchSegments(card, components, componentPitches) {
+  return alignExpressionComponentSegments(card, components, componentPitches) ?? [];
 }
 function renderExpressionComponentPitches(components) {
   const graphs = components.map((component) => ({
@@ -16711,10 +16747,6 @@ function tokensOverlappingSelection(tokens = [], selected, parsedText = selected
   const end = start + selected.length;
   return tokens.filter((token) => token.start < end && token.end > start);
 }
-function getPitchClass(pitchAccent, reading) {
-  const pattern = contextPitchPattern(pitchAccent, reading);
-  return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-}
 function bunproDefinitionStatusAttributes(status) {
   if (!status) return "";
   const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$1(status.reason)}"` : "";
@@ -16786,7 +16818,7 @@ class CardPopoverRenderer {
   renderHeader(card, data, view, trigger) {
   return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
-                ${this.renderTitleRow(card, view)}
+                ${this.renderTitleRow(card, data, view)}
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
@@ -16795,12 +16827,16 @@ class CardPopoverRenderer {
             </div>
         </div>`;
   }
-  renderTitleRow(card, view) {
+  renderTitleRow(card, data, view) {
   const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
   const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
   const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
+  const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
+  const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
+  const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
+  const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
   return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
   }
@@ -36651,8 +36687,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.211"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.211"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.212"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.212"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36772,7 +36808,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.211"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.212"}`;
   } catch {
   return null;
   }

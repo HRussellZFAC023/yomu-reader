@@ -1,5 +1,7 @@
-import { renderKanjiNavigationText, renderRuby, shouldRenderRuby } from '../dom/index';
+import { escapeHtml, renderKanjiNavigationText, renderRuby, shouldRenderRuby } from '../dom/index';
 import { normalizedJapaneseCardReading } from './highlight';
+import type { HeadwordComponentPitchSegment } from '../popup/pitch';
+import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 type HeadwordFuriganaCard = Pick<JPDBCard, 'spelling' | 'reading' | 'cardState' | 'partOfSpeech' | 'wordWithReading'>;
@@ -120,4 +122,33 @@ function readingFromSurfaceRubies(surface: string, rubies: JPDBToken['rubies']):
 
 function unannotatedPronunciationText(value: string): string {
     return Array.from(value).filter(character => !KANJI_RE.test(character)).join('');
+}
+
+// Renders a headword whose exact whole-word pitch is missing but whose full
+// spelling decomposes into components with exact pitches (利用料金 → 利用 +
+// 料金). Each pitched component gets its own presentational underline; the
+// spans are decoration only — no dictionary lookup, no jpdb-reader-word
+// identity — so the single compound lookup and kanji navigation stay intact.
+export function renderHeadwordComponentPitchSpans(
+    card: HeadwordFuriganaCard,
+    segments: HeadwordComponentPitchSegment[],
+    settings: ReaderSettings,
+    kanjiNavigation?: KanjiNavigationOptions,
+): string {
+    const classified = segments.map(segment => ({
+        segment,
+        pitchClass: segment.pitch ? getPitchClass([segment.pitch.pitch], segment.pitch.reading) : '',
+    }));
+    if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return '';
+    return classified.map(({ segment, pitchClass }) => {
+        if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
+        const { text, reading } = segment.pitch;
+        const content = renderCardSpellingWithFurigana({
+            ...card,
+            spelling: text,
+            reading,
+            wordWithReading: null,
+        }, settings, kanjiNavigation);
+        return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml(pitchClass)}">${content}</span>`;
+    }).join('');
 }
