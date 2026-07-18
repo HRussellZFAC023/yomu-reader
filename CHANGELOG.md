@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.184] - 2026-07-18
+
+### Changed
+
+- Extracted the New Tab statistics surface into a dedicated stats controller module, shrinking the New Tab controller and isolating stats rendering, source selection, and activity metrics behind a narrow interface; no behavior changes.
+
 ## [1.6.183] - 2026-07-18
 
 ### Fixed
