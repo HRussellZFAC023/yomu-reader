@@ -22,6 +22,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { vitestOutputIndicatesFailure } from './lib/check-log-guard.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const LOG_DIR = join(ROOT, 'artifacts', 'check-logs');
@@ -29,11 +30,18 @@ mkdirSync(LOG_DIR, { recursive: true });
 const startedAt = Date.now();
 const timings = [];
 
-function stage(name, command) {
-    return { name, command };
+function stage(name, command, options = {}) {
+    return { name, command, ...options };
 }
 
-function runStage({ name, command }) {
+// Test stages get a log-content backstop: if the child prints a Vitest failure
+// summary but still exits 0 (swallowed exit code anywhere down the npm→runner→
+// vitest chain), the gate must fail anyway. Never turns a failure into a pass.
+function testStage(name, command) {
+    return stage(name, command, { guardTestLog: true });
+}
+
+function runStage({ name, command, guardTestLog = false }) {
     const start = Date.now();
     console.log(`[check] start ${name}`);
     return new Promise((resolve, reject) => {
@@ -42,20 +50,32 @@ function runStage({ name, command }) {
         child.stdout.on('data', chunk => output.push(chunk));
         child.stderr.on('data', chunk => output.push(chunk));
         child.on('error', reject);
-        child.on('exit', code => {
+        // 'close' (not 'exit') so stdio is fully drained before the log is
+        // written and scanned — 'exit' can fire with output still in flight.
+        child.on('close', (code, signal) => {
             const seconds = (Date.now() - start) / 1000;
             timings.push({ name, seconds });
             // Full per-stage output always lands on disk, pass or fail, so a
             // green run's test/build logs stay inspectable.
             writeFileSync(join(LOG_DIR, `${name.replace(/[^a-z0-9:-]+/gi, '_')}.log`), Buffer.concat(output));
-            if (code === 0) {
+            if (code === 0 && signal == null && guardTestLog) {
+                const swallowed = vitestOutputIndicatesFailure(Buffer.concat(output).toString('utf8'));
+                if (swallowed) {
+                    process.stderr.write(`\n[check] FAIL ${name} (exit 0 but ${swallowed}, ${seconds.toFixed(1)}s) — full output:\n`);
+                    process.stderr.write(Buffer.concat(output));
+                    reject(new Error(`${name} exited 0 but ${swallowed}`));
+                    return;
+                }
+            }
+            if (code === 0 && signal == null) {
                 console.log(`[check] pass  ${name} (${seconds.toFixed(1)}s)`);
                 resolve();
             } else {
                 // Print the failing stage's FULL output — never truncate failures.
-                process.stderr.write(`\n[check] FAIL ${name} (exit ${code}, ${seconds.toFixed(1)}s) — full output:\n`);
+                const cause = signal ? `signal ${signal}` : `exit ${code}`;
+                process.stderr.write(`\n[check] FAIL ${name} (${cause}, ${seconds.toFixed(1)}s) — full output:\n`);
                 process.stderr.write(Buffer.concat(output));
-                reject(new Error(`${name} failed with exit ${code}`));
+                reject(new Error(`${name} failed with ${cause}`));
             }
         });
     });
@@ -75,8 +95,8 @@ try {
 const lanes = [
     lane(stage('typecheck', 'npm run -s typecheck')),
     lane(
-        stage('test:ci', 'npm run -s test:ci'),
-        stage('test:academy', 'npm run -s test:academy'),
+        testStage('test:ci', 'npm run -s test:ci'),
+        testStage('test:academy', 'npm run -s test:academy'),
     ),
     lane(
         stage('build', 'npm run -s build'),
