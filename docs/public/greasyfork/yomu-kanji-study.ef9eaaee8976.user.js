@@ -133,9 +133,9 @@
     const value = safeReadProperty(source, key);
     return typeof value === "string" ? value : void 0;
   }
-  let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  let initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
   function createWindowCustomEvent(type, detail, init = {}) {
     const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
     const documentEvent = createDocumentCustomEvent(type, eventInit);

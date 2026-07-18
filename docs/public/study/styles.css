@@ -12629,17 +12629,23 @@ mark.jpdb-reader-example-target {
   overflow: hidden;
   white-space: nowrap;
 }
-.jpdb-reader-kanji-keyword small {
-  display: inline;
+.jpdb-reader-kanji-keyword[data-canonical] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 62%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 76%, var(--jpdb-reader-accent) 24%);
+}
+.jpdb-reader-kanji-keyword small,
+.jpdb-reader-kanji-keyword-source {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
   height: auto;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
   color: var(--jpdb-reader-muted);
   font-size: 9px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.2;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -12648,6 +12654,12 @@ mark.jpdb-reader-example-target {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.jpdb-reader-kanji-keyword-more {
+  color: var(--jpdb-reader-muted);
+  border-color: var(--jpdb-reader-border);
+  background: var(--jpdb-reader-surface-2);
+  cursor: default;
 }
 .jpdb-reader-kanji-facts {
   display: flex;

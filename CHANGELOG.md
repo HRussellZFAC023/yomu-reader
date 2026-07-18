@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.204] - 2026-07-18
+
+### Changed
+
+- Kanji keyword pills are easier to scan: JPDB or Jiten, RTK, and installed kanji dictionaries that agree now merge into one pill with a combined source badge; the primary source is highlighted, and a +N pill summarises any overflow instead of silently dropping it.
+
 ## [1.6.203] - 2026-07-18
 
 ### Fixed

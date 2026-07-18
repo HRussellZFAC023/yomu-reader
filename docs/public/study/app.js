@@ -23797,6 +23797,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function unannotatedPronunciationText$1(value) {
     return Array.from(value).filter((character) => !isKanjiCharacter$1(character)).join("");
   }
+  const MAX_VISIBLE_KANJI_KEYWORDS = 5;
+  function renderKanjiKeywordChips(sources, language) {
+    const keywords = /* @__PURE__ */ new Map();
+    for (const { text: text2, label, canonical } of sources) {
+      const normalized = text2?.trim();
+      if (!normalized) continue;
+      const key = normalized.toLocaleLowerCase();
+      const existing = keywords.get(key) ?? { text: normalized, labels: [], canonical: false };
+      if (!existing.labels.includes(label)) existing.labels.push(label);
+      existing.canonical ||= Boolean(canonical);
+      keywords.set(key, existing);
+    }
+    const all = Array.from(keywords.values());
+    const shown = all.slice(0, MAX_VISIBLE_KANJI_KEYWORDS);
+    const overflow = all.slice(MAX_VISIBLE_KANJI_KEYWORDS);
+    const chips = shown.map((keyword) => renderKanjiKeywordChip(keyword)).join("") + renderKanjiKeywordOverflowChip(overflow);
+    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  }
+  function renderKanjiKeywordChip(keyword) {
+    return `<span class="jpdb-reader-kanji-keyword"${keyword.canonical ? ' data-canonical=""' : ""} title="${escapeHtml$1(keyword.labels.join(" · "))}"><small class="jpdb-reader-kanji-keyword-source">${escapeHtml$1(keyword.labels.join("/"))}</small><span class="jpdb-reader-kanji-keyword-text">${escapeHtml$1(keyword.text)}</span></span>`;
+  }
+  function renderKanjiKeywordOverflowChip(overflow) {
+    if (!overflow.length) return "";
+    return `<span class="jpdb-reader-kanji-keyword jpdb-reader-kanji-keyword-more" title="${escapeHtml$1(overflow.map((keyword) => keyword.text).join(" · "))}">+${overflow.length}</span>`;
+  }
   function sourceStateAttribute$1(sourceStateKey, initiallyExpanded) {
     return sourceStateKey ? `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"` : "";
   }
@@ -23812,20 +23837,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return summaries;
   }
   function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en") {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source) => {
-      const normalized = text2?.trim();
-      if (!normalized) return;
-      const key = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-      if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key, existing);
-    };
-    addKeyword(jpdbInfo?.keyword, "JPDB");
-    addKeyword(rtkInfo?.keyword, "RTK");
-    entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+    return renderKanjiKeywordChips([
+      { text: jpdbInfo?.keyword, label: "JPDB", canonical: true },
+      { text: rtkInfo?.keyword, label: "RTK" },
+      ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
+    ], language);
   }
   function parseRtkElementChip(value) {
     const match = value.match(/^([^\sA-Za-z0-9])\s*(.+)$/u);
@@ -40345,7 +40361,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.203".trim() ? "1.6.203".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.204".trim() ? "1.6.204".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -71444,20 +71460,11 @@ ${key}`] = { t: now, v: value };
     return info?.meanings?.[0] ?? "";
   }
   function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
-    const keywords = /* @__PURE__ */ new Map();
-    const addKeyword = (text2, source) => {
-      const normalized = text2?.trim();
-      if (!normalized) return;
-      const key = normalized.toLocaleLowerCase();
-      const existing = keywords.get(key) ?? { text: normalized, sources: [] };
-      if (!existing.sources.includes(source)) existing.sources.push(source);
-      keywords.set(key, existing);
-    };
-    addKeyword(jitenKanjiKeyword(info), "Jiten");
-    addKeyword(rtkInfo?.keyword, "RTK");
-    entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).forEach((keyword) => addKeyword(keyword, uiText(language, "dict")));
-    const chips = Array.from(keywords.values()).slice(0, 6).map((keyword) => `<span class="jpdb-reader-kanji-keyword" title="${escapeHtml$1(keyword.sources.join(" · "))}"><small>${escapeHtml$1(keyword.sources.join("/"))}</small><span>${escapeHtml$1(keyword.text)}</span></span>`).join("");
-    return chips ? `<div class="jpdb-reader-kanji-keywords">${chips}</div>` : `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+    return renderKanjiKeywordChips([
+      { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
+      { text: rtkInfo?.keyword, label: "RTK" },
+      ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
+    ], language);
   }
   function jitenKanjiFactRows(info, language) {
     if (!info) return [];
