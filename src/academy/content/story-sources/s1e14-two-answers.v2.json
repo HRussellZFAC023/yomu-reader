@@ -104,9 +104,9 @@
           "attentionTarget": "the open particle slot in the caption",
           "variants": {
             "n5": {
-              "japanese": "ここ、助詞が決まっていません。「一時間◯三回つきます」。「に」か「で」か。わたしは「に」だと思います。「に」は、毎時のことです。",
-              "reading": "ここ、じょしがきまっていません。「いちじかん◯さんかいつきます」。「に」か「で」か。わたしは「に」だとおもいます。「に」は、まいじのことです。",
-              "english": "The particle here isn't settled. \"It lights three times ◯ an hour.\" は with に, or で? I think it's に. に means \"per hour.\""
+              "japanese": "ここ、助詞が決まっていません。「一時間◯三回つきます」。「に」か「で」か。わたしは「に」だと思います。「に」だと、一時間に三回、という意味です。",
+              "reading": "ここ、じょしがきまっていません。「いちじかん◯さんかいつきます」。「に」か「で」か。わたしは「に」だとおもいます。「に」だと、いちじかんにさんかい、といういみです。",
+              "english": "The particle here isn't settled. \"It lights three times ◯ an hour.\" Is it に, or で? I think it's に. With に it means \"three times per hour.\""
             },
             "n4": {
               "japanese": "このキャプション、助詞がまだ決まってないんです。「一時間◯三回つきます」の、「に」か「で」か。たぶん「に」でいいと思います。毎時、っていう意味になるから。",
@@ -282,7 +282,7 @@
             },
             "n1": {
               "japanese": "…ええ、これではっきりしました。「に」も「で」も、どちらも正しい。ただ、それが正解になる場面が違う、というだけの話で。なら一方に決めてしまうより、両方とも残しておきましょう。三回という数字を、それがどの場面で数えたものなのか、という但し書きごと書き留めておく。",
-              "reading": "…ええ、これではっきりしました。「に」も「で」も、どちらもただしい。ただ、それがせいかいになるばめんがちがう、というだけのはなしで。なら いっぽうにきめてしまうより、りょうほうとものこしておきましょう。さんかいというすうじを、それがどのばめんでかぞえたものなのか、というただしがきごとかきとめておく。",
+              "reading": "…ええ、これではっきりしました。「に」も「で」も、どちらもただしい。ただ、それがせいかいになるばめんがちがう、というだけのはなしで。ならいっぽうにきめてしまうより、りょうほうとものこしておきましょう。さんかいというすうじを、それがどのばめんでかぞえたものなのか、というただしがきごとかきとめておく。",
               "english": "…Yes, that settles it. Both に and で are correct. It's simply that the context in which each becomes the right answer differs. So rather than commit to one side, let's keep them both. I'll note down the number \"three\" together with the caveat of which context it was counted in."
             }
           },

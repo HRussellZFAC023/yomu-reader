@@ -200,9 +200,9 @@
           "attentionTarget": "the gap between the remembered order and the card in front of her",
           "variants": {
             "n5": {
-              "japanese": "わたしの記憶は、少しちがいます。むかしは、市場の前に川があった。でも、このカードには、市場のあとに川、と書いてあります。どちらも、本当だと思う。",
-              "reading": "わたしのきおくは、すこしちがいます。むかしは、いちばのまえにかわがあった。でも、このカードには、いちばのあとにかわ、とかいてあります。どちらも、ほんとうだとおもう。",
-              "english": "My memory is a little different. Back then, the river came before the market. But this card says: river after the market. I think both are true."
+              "japanese": "わたしの記憶は、少しちがいます。むかしは、市場のまえに、川をわたりました。でも、このカードには、市場のあとに川、と書いてあります。どちらも、本当だと思う。",
+              "reading": "わたしのきおくは、すこしちがいます。むかしは、いちばのまえに、かわをわたりました。でも、このカードには、いちばのあとにかわ、とかいてあります。どちらも、ほんとうだとおもう。",
+              "english": "My memory is a little different. Back then, we crossed the river before the market. But this card says: river after the market. I think both are true."
             },
             "n4": {
               "japanese": "私が覚えてるのは、ちょっと違うんです。昔は、市場の前に川を渡った気がする。でも、今このカードには「市場のあとに川」って書いてある。どっちが正しいって、決めなくていいと思うんです。",

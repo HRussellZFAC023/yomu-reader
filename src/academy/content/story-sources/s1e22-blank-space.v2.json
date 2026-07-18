@@ -1,0 +1,605 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s1e22-blank-space",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 2,
+  "chapter": 22,
+  "title": {
+    "en": "The Blank Space on the Board",
+    "ja": "黒板の空白"
+  },
+  "synopsis": "Tom turns the rebuilt route's dialogue into a timed speaking game, but its polite lines jam under the clock and one card on the board stays blank. Shaun, arriving late, makes a single bounded observation — the stalled line reads like a written notice where the game needs casual speech — and the learner flips the register to reopen the exchange. The class folds a late arrival's one contribution in without enlarging it into a role he did not ask for.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "shaun",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shaun",
+        "docs/academy/story/CAST-AND-CONSENT.md#shaun"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "lesson ownership or an invented learning specialty",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed game IP or proprietary noun"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e21-questions-in-the-dark",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [
+            "l2-l23",
+            "l2-l24",
+            "l2-l25"
+          ],
+          "function": "shift-register-and-reopen-a-conversation"
+        }
+      ],
+      "recommendedBand": "n4",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twentytwo-first-meeting-shaun"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:blank-space:reads-too-formal",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Play the rebuilt route as a fast speaking game and hit the point where its polite lines jam under the clock.",
+      "dramaticQuestion": "When a formal line stalls under time, will the class add more polish or change the register?",
+      "learnerNeed": "A register shift that reopens a stalled exchange when the wording, not the meaning, is what broke.",
+      "curriculum": {
+        "sectionId": "shift-register-to-reopen",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-space:board-of-lines",
+          "beatId": "beat:blank-space:arrival-image",
+          "cueId": "cue:route-cards-and-game-timer",
+          "description": "The classroom board carries the rebuilt route as a row of dialogue cards, each pinned in order. A five-second game timer sits under them. One card near the middle is still blank, its slot unfilled."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:tom-make-it-a-game",
+          "beatId": "beat:blank-space:host-want",
+          "speakerId": "tom",
+          "intent": "Turn the rebuilt route dialogue into a timed speaking game so visitors will actually talk instead of read the cards.",
+          "attentionTarget": "the game timer and the row of route-line cards",
+          "variants": {
+            "n5": {
+              "japanese": "よし、ゲームにしよう。カードを見て、すぐ言う。時間は五秒。読むだけはだめ。話すんだ。",
+              "reading": "よし、ゲームにしよう。カードをみて、すぐいう。じかんはごびょう。よむだけはだめ。はなすんだ。",
+              "english": "Okay, let's make it a game. Look at a card, say it right away. Five seconds. No just reading — you talk."
+            },
+            "n4": {
+              "japanese": "このルートのセリフ、ゲームにしちゃおう。カードを見たら五秒で口に出す。読み上げるんじゃなくて、その場で話す感じで。",
+              "reading": "このルートのセリフ、ゲームにしちゃおう。カードをみたらごびょうでくちにだす。よみあげるんじゃなくて、そのばではなすかんじで。",
+              "english": "Let's turn these route lines into a game. See a card, say it out loud in five seconds. Not reading it off — more like you're actually talking on the spot."
+            },
+            "n3": {
+              "japanese": "ルートのセリフ、いっそゲーム形式でいこう。カードを見て五秒以内に声に出す。棒読みは無し、その場のノリで話すのがルール。",
+              "reading": "ルートのセリフ、いっそゲームけいしきでいこう。カードをみてごびょういないにこえにだす。ぼうよみはなし、そのばのノリではなすのがルール。",
+              "english": "Let's just do the route lines as a game. See a card, get it out within five seconds. No flat reading — the rule is you talk with the momentum of the moment."
+            },
+            "n2": {
+              "japanese": "このルートのセリフ、思いきってゲームにしよう。カードをめくったら五秒で声に出す。読み上げるだけっていうのは無しで、あくまでその場で喋る感じでやってほしい。",
+              "reading": "このルートのセリフ、おもいきってゲームにしよう。カードをめくったらごびょうでこえにだす。よみあげるだけっていうのはなしで、あくまでそのばでしゃべるかんじでやってほしい。",
+              "english": "Let's go all in and make these route lines a game. Flip a card, out loud in five seconds. None of this just-reading-it-out stuff — I want it done like you're genuinely speaking in the moment."
+            },
+            "n1": {
+              "japanese": "このルートのセリフ、いっそのことゲームにしてしまおう。カードをめくって五秒、声に出す。棒読みで済ませるのは無しだ。要するに、その場で相手に話しかけるみたいにやってくれ。",
+              "reading": "このルートのセリフ、いっそのことゲームにしてしまおう。カードをめくってごびょう、こえにだす。ぼうよみですませるのはなしだ。ようするに、そのばであいてにはなしかけるみたいにやってくれ。",
+              "english": "Let's just go ahead and make these route lines a game outright. Flip a card, five seconds, out loud. Getting away with a flat read is off the table. Bottom line — do it like you're actually speaking to someone right there."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-space:timer-jams",
+          "beatId": "beat:blank-space:obstruction",
+          "cueId": "cue:buzzer-on-the-long-polite-line",
+          "description": "A player reaches the keigo card and runs out of sentence before the timer runs out; the buzzer cuts in. As it does the door opens and Shaun slips in late, setting a flattened paper bag on the side table. The blank card is still blank."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:shaun-late",
+          "beatId": "beat:blank-space:late-arrival",
+          "speakerId": "shaun",
+          "intent": "Enter late with a light, self-deprecating remark and take up as little space as possible.",
+          "attentionTarget": "the squashed pastry, then the room mid-game",
+          "variants": {
+            "n5": {
+              "japanese": "遅れてすみません。あ、パン、つぶれちゃった。…続けてください、どうぞ。",
+              "reading": "おくれてすみません。あ、パン、つぶれちゃった。…つづけてください、どうぞ。",
+              "english": "Sorry I'm late. Ah — the pastry got squashed. …Please, keep going."
+            },
+            "n4": {
+              "japanese": "遅くなってすみません。パン、かばんの中でつぶれちゃって。あ、気にしないで続けてください。",
+              "reading": "おそくなってすみません。パン、かばんのなかでつぶれちゃって。あ、きにしないでつづけてください。",
+              "english": "Sorry I'm late. The pastry got squashed in my bag. Oh — don't mind me, keep going."
+            },
+            "n3": {
+              "japanese": "すみません、遅くなりました。パン、かばんの中でぺしゃんこです。どうぞ気にせず続けてください。",
+              "reading": "すみません、おそくなりました。パン、かばんのなかでぺしゃんこです。どうぞきにせずつづけてください。",
+              "english": "Sorry, I'm late. The pastry's completely flat, from my bag. Please, don't mind me, carry on."
+            },
+            "n2": {
+              "japanese": "遅くなってすみません。パン、かばんの中でぺしゃんこになっちゃいました。…あ、止めなくて大丈夫です、続けてください。",
+              "reading": "おそくなってすみません。パン、かばんのなかでぺしゃんこになっちゃいました。…あ、とめなくてだいじょうぶです、つづけてください。",
+              "english": "Sorry I'm late. The pastry ended up completely flattened in my bag. …Oh, no need to stop for me, please carry on."
+            },
+            "n1": {
+              "japanese": "遅れてしまってすみません。パン、かばんの中で見事にぺしゃんこで。…いえ、こちらのことは気にせず、どうぞそのまま続けてください。",
+              "reading": "おくれてしまってすみません。パン、かばんのなかでみごとにぺしゃんこで。…いえ、こちらのことはきにせず、どうぞそのままつづけてください。",
+              "english": "Terribly sorry I'm late. The pastry got magnificently flattened in my bag. …No, don't mind me at all — please, just carry on as you were."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:shaun-register-read",
+          "beatId": "beat:blank-space:register-read",
+          "speakerId": "shaun",
+          "intent": "Make one bounded observation that the stalled line is in written-notice register where a fast game needs casual speech, offered as an option and easy to ignore.",
+          "attentionTarget": "the blank card and the over-polite line beside it",
+          "variants": {
+            "n5": {
+              "japanese": "今の言い方、お知らせみたいですね。友だちに言うなら、もっと短いはず。そこだけ、くだけた言い方にしてみたら?",
+              "reading": "いまのいいかた、おしらせみたいですね。ともだちにいうなら、もっとみじかいはず。そこだけ、くだけたいいかたにしてみたら?",
+              "english": "That line just now sounds like a notice. If you were saying it to a friend, it'd be shorter. What if just that part were more casual?"
+            },
+            "n4": {
+              "japanese": "今のセリフ、貼り紙みたいに聞こえません? ゲームでその場で言うなら、もっとくだけた感じのはずなんですよね。その一枚だけ、話し言葉にしてみたらどうかな。",
+              "reading": "いまのセリフ、はりがみみたいにきこえません? ゲームでそのばでいうなら、もっとくだけたかんじのはずなんですよね。そのいちまいだけ、はなしことばにしてみたらどうかな。",
+              "english": "That line — doesn't it sound like a posted notice? If you're saying it on the spot in a game, it should be more casual, right? Maybe just that one card, put it into spoken form?"
+            },
+            "n3": {
+              "japanese": "今のって、案内文みたいに聞こえちゃいますね。ゲームでとっさに言うセリフなら、本当はもっとくだけてるはずで。そのカードだけ、話し言葉に寄せてみるのはどうでしょう。",
+              "reading": "いまのって、あんないぶんみたいにきこえちゃいますね。ゲームでとっさにいうセリフなら、ほんとうはもっとくだけてるはずで。そのカードだけ、はなしことばによせてみるのはどうでしょう。",
+              "english": "That one comes across like a guide notice, doesn't it. For a line you'd blurt out in a game, it really ought to be more casual. Just that card — how about nudging it toward spoken language?"
+            },
+            "n2": {
+              "japanese": "今のセリフ、なんだか案内板の文章みたいに響きますよね。ゲームでとっさに口から出すものなら、本来はもっとくだけているはずで。そこの一枚だけ、話し言葉の方に寄せてみてもいいかもしれません。",
+              "reading": "いまのセリフ、なんだかあんないばんのぶんしょうみたいにひびきますよね。ゲームでとっさにくちからだすものなら、ほんらいはもっとくだけているはずで。そこのいちまいだけ、はなしことばのほうによせてみてもいいかもしれません。",
+              "english": "That line kind of rings like text off a signboard, doesn't it. For something you'd let out of your mouth on the spot in a game, it should really be more casual. Just that one card — might be worth nudging it toward spoken language."
+            },
+            "n1": {
+              "japanese": "今のセリフ、どうも案内板の文面みたいに響くんですよね。ゲームでとっさに口をつくものなら、本来はもっとくだけているはずで。…まあ、そこの一枚だけ、話し言葉の側に寄せてみる手もあるかな、くらいの話ですけど。",
+              "reading": "いまのセリフ、どうもあんないばんのぶんめんみたいにひびくんですよね。ゲームでとっさにくちをつくものなら、ほんらいはもっとくだけているはずで。…まあ、そこのいちまいだけ、はなしことばのがわによせてみるてもあるかな、くらいのはなしですけど。",
+              "english": "That line, it somehow rings like the wording off a signboard. For something that'd spill out on the spot in a game, it really ought to be more casual. …Well — just that one card, there's the option of nudging it toward the spoken side, is all I'm saying."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:tom-challenge",
+          "beatId": "beat:blank-space:challenge",
+          "speakerId": "tom",
+          "intent": "Seize the observation as a game move and dare the learner to flip the stalled line live — reopen the exchange casually, then land the reply polite, inside the timer.",
+          "attentionTarget": "the timer and the blank card",
+          "variants": {
+            "n5": {
+              "japanese": "いいね、それ。じゃあ君、やってみて。まず、くだけた言い方で言い直す。それから、ていねいに返す。時間は五秒。いける?",
+              "reading": "いいね、それ。じゃあきみ、やってみて。まず、くだけたいいかたでいいなおす。それから、ていねいにかえす。じかんはごびょう。いける?",
+              "english": "Nice, I like it. Okay — you, try it. First, say it again casual. Then answer back polite. Five seconds. You up for it?"
+            },
+            "n4": {
+              "japanese": "お、それいいじゃん。じゃあ試しにやってみてよ。まずくだけた言い方に直して、そのあとちゃんと丁寧に返す。止まった会話、もう一回開いてみて。五秒ね。",
+              "reading": "お、それいいじゃん。じゃあためしにやってみてよ。まずくだけたいいかたになおして、そのあとちゃんとていねいにかえす。とまったかいわ、もういっかいひらいてみて。ごびょうね。",
+              "english": "Oh, that's good. Okay, give it a shot. First switch it to casual, then answer back properly polite. That conversation that stalled — reopen it. Five seconds."
+            },
+            "n3": {
+              "japanese": "お、それ面白い。じゃあ実際にやってみせてよ。止まったところ、くだけた言い方で切り出して、返しはちゃんと丁寧に。会話をもう一回開き直す感じで。制限は五秒ね。",
+              "reading": "お、それおもしろい。じゃあじっさいにやってみせてよ。とまったところ、くだけたいいかたできりだして、かえしはちゃんとていねいに。かいわをもういっかいひらきなおすかんじで。せいげんはごびょうね。",
+              "english": "Oh, that's interesting. Okay, actually show us. Where it stalled — open with the casual version, and make the reply properly polite. Like you're reopening the conversation. Limit's five seconds."
+            },
+            "n2": {
+              "japanese": "へえ、それは面白い。じゃあ実演してみてよ。止まった箇所を、まずはくだけた言い方で切り出して、返しはきっちり丁寧に持っていく。要は会話をもう一度開き直すわけ。制限時間は五秒でどう?",
+              "reading": "へえ、それはおもしろい。じゃあじつえんしてみてよ。とまったかしょを、まずはくだけたいいかたできりだして、かえしはきっちりていねいにもっていく。ようはかいわをもういちどひらきなおすわけ。せいげんじかんはごびょうでどう?",
+              "english": "Huh, that's interesting. Okay, demo it. That stalled spot — open with the casual version first, then take the reply firmly polite. Point is, you reopen the conversation. Five-second limit, sound good?"
+            },
+            "n1": {
+              "japanese": "へえ、それは面白い。なら実演といこうじゃないか。止まった箇所を、まずはくだけた口調で切り出して、返しはきっちり丁寧に着地させる。つまりは、途切れた会話をもう一度こじ開けるわけだ。制限時間は五秒、どうだ?",
+              "reading": "へえ、それはおもしろい。ならじつえんといこうじゃないか。とまったかしょを、まずはくだけたくちょうできりだして、かえしはきっちりていねいにちゃくちさせる。つまりは、とぎれたかいわをもういちどこじあけるわけだ。せいげんじかんはごびょう、どうだ?",
+              "english": "Huh, that's interesting. Then let's have a demo. That stalled spot — open with a casual tone first, then land the reply firmly polite. In other words, you pry the broken-off conversation open again. Five-second limit — how about it?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-space:before-shift",
+          "beatId": "beat:blank-space:shift-attempt",
+          "resume": "Shaun has named the register mismatch and Tom has turned it into a live challenge. The learner steps up to flip the stalled line casual, then answer it polite, and reopen the exchange under the timer."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-space:register-shift",
+          "beatId": "beat:blank-space:shift-attempt",
+          "hook": {
+            "packageId": "l2-l24",
+            "componentType": "transfer",
+            "exerciseId": "activity:s1e22-blank-space-register-shift"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s1e22-blank-space-register-shift"
+          },
+          "resumeContext": "The stalled line sits blank on the board. The learner recasts it in casual speech to reopen the exchange, then delivers the reply in polite form, matching each register to who is speaking and how fast the game moment moves.",
+          "onReady": "checkpoint:blank-space:after-shift",
+          "onRepair": "node:blank-space:shift-repair",
+          "onDefer": "checkpoint:blank-space:before-shift"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-space:shift-repair",
+          "beatId": "beat:blank-space:shift-repair",
+          "cueId": "cue:one-card-split-two-registers",
+          "description": "The single blank card is split down the middle: the casual opening on one side, the polite reply on the other. Only the register that slipped is offered again; the choice of which line goes where stays."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-space:after-shift",
+          "beatId": "beat:blank-space:shift-response",
+          "resume": "The line is reopened casual and answered polite, both inside the five seconds. The blank card now carries two registers, and Tom watches the timer stop with time to spare."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:tom-it-flows",
+          "beatId": "beat:blank-space:repair",
+          "speakerId": "tom",
+          "intent": "Confirm the flipped line runs inside the timer and the game finally flows, and credit Shaun's register read without ceremony.",
+          "attentionTarget": "the stopped timer and the now-filled card",
+          "variants": {
+            "n5": {
+              "japanese": "あ、今のは速い。ちゃんと五秒に収まった。そうか、くだけると話しやすいんだ。シャウンさん、当たりだね。",
+              "reading": "あ、いまのははやい。ちゃんとごびょうにおさまった。そうか、くだけるとはなしやすいんだ。シャウンさん、あたりだね。",
+              "english": "Oh, that was fast. It fit in five seconds. Huh — casual makes it easier to say. Shaun, good call."
+            },
+            "n4": {
+              "japanese": "お、今のはスムーズだった。ちゃんと五秒に収まってる。なるほど、くだけた方がぱっと出るんだな。シャウンさんの言った通りだ。",
+              "reading": "お、いまのはスムーズだった。ちゃんとごびょうにおさまってる。なるほど、くだけたほうがぱっとでるんだな。シャウンさんのいったとおりだ。",
+              "english": "Oh, that ran smooth. It sits inside five seconds. Right, the casual one comes out quicker. Just like Shaun said."
+            },
+            "n3": {
+              "japanese": "お、今のは一気に流れたね。余裕で五秒以内。くだけた方が口から出やすいってことか。シャウンさん、読み通りだ。",
+              "reading": "お、いまのはいっきにながれたね。よゆうでごびょういない。くだけたほうがくちからでやすいってことか。シャウンさん、よみどおりだ。",
+              "english": "Oh, that flowed straight through. Well within five seconds. So the casual one's easier to get out. Shaun, called it exactly."
+            },
+            "n2": {
+              "japanese": "お、今のはひと息で流れたな。余裕で五秒以内に収まってる。なるほど、くだけた言い方の方がとっさに口をつくわけだ。シャウンさんの読み、当たってたね。",
+              "reading": "お、いまのはひといきでながれたな。よゆうでごびょういないにおさまってる。なるほど、くだけたいいかたのほうがとっさにくちをつくわけだ。シャウンさんのよみ、あたってたね。",
+              "english": "Oh, that flowed in one breath. Comfortably inside five seconds. Right — the casual version's the one that comes out on reflex. Shaun's read was spot on."
+            },
+            "n1": {
+              "japanese": "お、今のはひと息で通ったな。五秒どころか、だいぶ余ってる。なるほど、とっさに口をつくのはくだけた方だってわけだ。シャウンさん、見立て通りだったね。",
+              "reading": "お、いまのはひといきでとおったな。ごびょうどころか、だいぶあまってる。なるほど、とっさにくちをつくのはくだけたほうだってわけだ。シャウンさん、みたてどおりだったね。",
+              "english": "Oh, that went through in one breath. Not just inside five seconds — plenty to spare. Right, the one that comes out on reflex is the casual one. Shaun, your read was right on the mark."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-space:card-now-two-lines",
+          "beatId": "beat:blank-space:exit-image",
+          "cueId": "cue:blank-card-holds-casual-and-polite",
+          "description": "The card that stood blank now holds two lines — one casual, one polite — with a small arrow between them. The other route cards stay in their formal register, unchanged. The game timer resets to zero."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:blank-space:a-bounded-seat"
+      }
+    },
+    {
+      "id": "scene:blank-space:a-bounded-seat",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Fold the late arrival's register read into the game without turning it into a role he did not ask for.",
+      "dramaticQuestion": "Can a bounded contribution count without being enlarged into a job?",
+      "learnerNeed": "A stance choice about how much to hand a person who offered exactly one small thing.",
+      "curriculum": {
+        "sectionId": "back-the-bounded-contribution",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:blank-space:two-columns",
+          "beatId": "beat:blank-space:regroup-image",
+          "cueId": "cue:board-casual-and-polite-columns",
+          "description": "The board now shows each route beat in two columns — casual and polite — with the once-blank card at the head of the row. Shaun stays near the door, the flattened pastry unwrapped on a napkin, watching the next round set up."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:shaun-bounded-offer",
+          "beatId": "beat:blank-space:bounded-offer",
+          "speakerId": "shaun",
+          "intent": "Offer one small, bounded thing — call out when a line's register turns stiff during the round — and make it easy to wave away.",
+          "attentionTarget": "the two columns on the board",
+          "variants": {
+            "n5": {
+              "japanese": "あの、もし良かったら。ゲームの間、言い方がかたい所だけ、僕が声をかけます。それだけです。いらなければ、言ってください。",
+              "reading": "あの、もしよかったら。ゲームのあいだ、いいかたがかたいところだけ、ぼくがこえをかけます。それだけです。いらなければ、いってください。",
+              "english": "Um, if it's alright — during the game, I'll just call out the spots where a line sounds stiff. Only that. If you don't need it, just say so."
+            },
+            "n4": {
+              "japanese": "もし邪魔じゃなければ、ですけど。ゲームの間、言い回しがかたい所だけ、僕がちょっと声かけますよ。役ってほどじゃなくて、それだけ。いらなかったら遠慮なく言ってください。",
+              "reading": "もしじゃまじゃなければ、ですけど。ゲームのあいだ、いいまわしがかたいところだけ、ぼくがちょっとこえかけますよ。やくってほどじゃなくて、それだけ。いらなかったらえんりょなくいってください。",
+              "english": "If it's not in the way — during the game I'll just flag the spots where the phrasing's stiff. Not really a role, just that. If you don't want it, tell me, no worries."
+            },
+            "n3": {
+              "japanese": "差し出がましくなければ、なんですけど。ゲームの間、言い回しがかたい所だけ、僕が横から声をかけます。大した役じゃなくて、本当にそれだけ。不要なら遠慮なく外してください。",
+              "reading": "さしでがましくなければ、なんですけど。ゲームのあいだ、いいまわしがかたいところだけ、ぼくがよこからこえをかけます。たいしたやくじゃなくて、ほんとうにそれだけ。ふようならえんりょなくはずしてください。",
+              "english": "If it's not overstepping — during the game I'll just flag from the side wherever the phrasing's stiff. Not much of a role, honestly just that. If it's not needed, drop it, no hesitation."
+            },
+            "n2": {
+              "japanese": "出しゃばるようなら申し訳ないんですが。ゲームの間、言い回しがかたくなった所だけ、僕が横から一言入れます。役というほどのものでもなくて、本当にそれっきり。要らなければ、遠慮なく外してもらって構いません。",
+              "reading": "でしゃばるようならもうしわけないんですが。ゲームのあいだ、いいまわしがかたくなったところだけ、ぼくがよこからひとこといれます。やくというほどのものでもなくて、ほんとうにそれっきり。いらなければ、えんりょなくはずしてもらってかまいません。",
+              "english": "Sorry if this is overstepping — during the game, I'll just put in a word from the side wherever the phrasing turns stiff. Not even really a role, honestly just that and nothing more. If it's not wanted, feel free to drop it, no hard feelings."
+            },
+            "n1": {
+              "japanese": "差し出がましいようなら申し訳ないんですけど。ゲームの間、言い回しがかたく転んだ所だけ、僕が横から一言添えます。役と呼べるほどのものでもなくて、本当にそれっきりの話で。要らないと思ったら、遠慮なく外してもらってかまいませんから。",
+              "reading": "さしでがましいようならもうしわけないんですけど。ゲームのあいだ、いいまわしがかたくころんだところだけ、ぼくがよこからひとことそえます。やくとよべるほどのものでもなくて、ほんとうにそれっきりのはなしで。いらないとおもったら、えんりょなくはずしてもらってかまいませんから。",
+              "english": "If it comes off as overstepping, I'm sorry — but during the game, just wherever the phrasing tips over into stiff, I'll add a word from the side. Nothing you could call a role, honestly just that and no more. If you decide it's not wanted, feel free to drop it entirely, really."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:blank-space:take-up-the-offer",
+          "beatId": "beat:blank-space:stance",
+          "question": "How do you take up Shaun's offer?",
+          "options": [
+            {
+              "id": "option:blank-space:accept-as-bounded",
+              "action": "Take him up on exactly what he offered — the register check, nothing added.",
+              "japaneseByBand": {
+                "n5": "じゃあ、それでお願いします。言い方だけ、見ててください。増やさなくて大丈夫です。",
+                "n4": "じゃあ、その言い方チェックだけお願いします。それ以上は増やさないので、気楽にどうぞ。",
+                "n3": "では、言い回しのチェックだけお願いします。役を広げたりはしないので、そのままで大丈夫です。",
+                "n2": "では、その言い回しのチェックだけ、お願いできますか。無理に役を広げたりはしませんので、それだけで十分助かります。",
+                "n1": "では、お言葉に甘えて、言い回しのチェックだけお願いします。そこから役を膨らませたりはしませんので、その一点だけで十分ありがたいです。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:blank-space:before-shaun-answers"
+            },
+            {
+              "id": "option:blank-space:ask-first",
+              "action": "Ask Shaun what he'd actually want to do before handing him even that.",
+              "japaneseByBand": {
+                "n5": "その前に、シャウンさんは何がしたいですか。それも聞いてから決めましょう。",
+                "n4": "決める前に、シャウンさん自身は何がやりたいですか。押しつけたくないので、先に聞かせてください。",
+                "n3": "決めちゃう前に、シャウンさんは本当は何をやりたいですか。こっちで役を決める前に、一度聞いておきたくて。",
+                "n2": "役を決めてしまう前に、シャウンさんとしては本当は何をやりたいんでしょう。こちらで勝手に振る前に、一度伺っておきたいんです。",
+                "n1": "こちらで役を決めてしまう前に、シャウンさんご自身は本当のところ何をやりたいんでしょうか。勝手に振ってしまう前に、一度だけ伺っておきたくて。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:blank-space:before-shaun-answers"
+            }
+          ],
+          "convergence": "checkpoint:blank-space:before-shaun-answers"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-space:before-shaun-answers",
+          "beatId": "beat:blank-space:back-attempt",
+          "resume": "The learner has taken a stance on Shaun's offer. Shaun answers by keeping his part exactly as small as he named it."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:shaun-keeps-it-small",
+          "beatId": "beat:blank-space:back-response",
+          "speakerId": "shaun",
+          "intent": "Accept the small part as small, decline any enlargement, and stay light without explaining himself.",
+          "attentionTarget": "the door he came in through, then the board",
+          "variants": {
+            "n5": {
+              "japanese": "はい、それでいいです。声をかけるだけ。前に出るのは、遠慮しときます。それで十分です。",
+              "reading": "はい、それでいいです。こえをかけるだけ。まえにでるのは、えんりょしときます。それでじゅうぶんです。",
+              "english": "Yeah, that's fine. Just calling things out. Stepping up front — I'll pass on that. This is plenty."
+            },
+            "n4": {
+              "japanese": "はい、それで十分です。横から声かけるだけで。前に立ってどうこうは、今日は遠慮しときます。これくらいがちょうどいいので。",
+              "reading": "はい、それでじゅうぶんです。よこからこえかけるだけで。まえにたってどうこうは、きょうはえんりょしときます。これくらいがちょうどいいので。",
+              "english": "Yeah, that's plenty. Just calling out from the side. Standing up front and all that — I'll pass today. This much is just right for me."
+            },
+            "n3": {
+              "japanese": "ええ、それで十分です。横から一言入れるくらいで。前に出て仕切るのは、今日は遠慮しときます。このくらいが性に合ってるので。",
+              "reading": "ええ、それでじゅうぶんです。よこからひとこといれるくらいで。まえにでてしきるのは、きょうはえんりょしときます。このくらいがしょうにあってるので。",
+              "english": "Yeah, that's plenty. Just a word from the side. Getting up front and running it — I'll pass today. This much suits me better."
+            },
+            "n2": {
+              "japanese": "ええ、それで十分ですよ。横から一言添えるくらいがちょうどよくて。前に出て仕切る役は、今日のところは遠慮しときます。このくらいの距離が、性に合ってるので。",
+              "reading": "ええ、それでじゅうぶんですよ。よこからひとことそえるくらいがちょうどよくて。まえにでてしきるやくは、きょうのところはえんりょしときます。このくらいのきょりが、しょうにあってるので。",
+              "english": "Yeah, that's plenty. A word from the side is just about right. The up-front, running-it role — I'll pass on that for today. This kind of distance suits me."
+            },
+            "n1": {
+              "japanese": "ええ、それで十分すぎるくらいです。横から一言添えるくらいが、ちょうど性に合ってて。前に出て仕切る役どころは、今日のところは遠慮させてください。このくらいの立ち位置が、いちばん楽なので。",
+              "reading": "ええ、それでじゅうぶんすぎるくらいです。よこからひとことそえるくらいが、ちょうどしょうにあってて。まえにでてしきるやくどころは、きょうのところはえんりょさせてください。このくらいのたちいちが、いちばんらくなので。",
+              "english": "Yeah, more than plenty. A word from the side is just what suits me. The up-front, running-it part — let me pass on that for today. This kind of position is the easiest for me."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-space:tom-rematch",
+          "beatId": "beat:blank-space:rematch",
+          "speakerId": "tom",
+          "intent": "Design the next round so the casual/polite toggle is the game itself, and write Shaun's call-out into the rules as a fair signal rather than a spotlight.",
+          "attentionTarget": "the two columns and the reset timer",
+          "variants": {
+            "n5": {
+              "japanese": "よし、次はこうしよう。カードごとに、くだけた方かていねいな方か選ぶ。かたかったら、シャウンさんが合図。それでもう一回。",
+              "reading": "よし、つぎはこうしよう。カードごとに、くだけたほうかていねいなほうかえらぶ。かたかったら、シャウンさんがあいず。それでもういっかい。",
+              "english": "Okay, next round like this: each card, you pick casual or polite. If it's stiff, Shaun signals. And we go again."
+            },
+            "n4": {
+              "japanese": "よし、次のルールはこう。カードごとに、くだけた方か丁寧な方か自分で選ぶ。かたく出ちゃったら、シャウンさんが合図を出す。それでもう一回まわそう。",
+              "reading": "よし、つぎのルールはこう。カードごとに、くだけたほうかていねいなほうかじぶんでえらぶ。かたくでちゃったら、シャウンさんがあいずをだす。それでもういっかいまわそう。",
+              "english": "Okay, next round's rule: for each card, you pick casual or polite yourself. If it comes out stiff, Shaun gives a signal. And we run it again."
+            },
+            "n3": {
+              "japanese": "よし、次のルールはこうしよう。カードごとに、くだけた方か丁寧な方か自分で選んで言う。かたく転んだら、シャウンさんが横から合図。それでもう一周まわそう。",
+              "reading": "よし、つぎのルールはこうしよう。カードごとに、くだけたほうかていねいなほうかじぶんでえらんでいう。かたくころんだら、シャウンさんがよこからあいず。それでもういっしゅうまわそう。",
+              "english": "Okay, next round's rule: for each card, you choose casual or polite and say it. If it tips stiff, Shaun signals from the side. And we run one more lap."
+            },
+            "n2": {
+              "japanese": "よし、次はこういうルールでいこう。カードごとに、くだけた方か丁寧な方か、自分で選んで口に出す。かたく転んだら、そこでシャウンさんが横から合図を入れる。その一往復で、もう一周まわそう。",
+              "reading": "よし、つぎはこういうルールでいこう。カードごとに、くだけたほうかていねいなほうか、じぶんでえらんでくちにだす。かたくころんだら、そこでシャウンさんがよこからあいずをいれる。そのいちおうふくで、もういっしゅうまわそう。",
+              "english": "Okay, next round let's use this rule: for each card, you choose casual or polite yourself and say it out. If it tips stiff, that's where Shaun puts in a signal from the side. One exchange each — and we run another lap."
+            },
+            "n1": {
+              "japanese": "よし、次はこういうルールでいこうか。カードごとに、くだけた方か丁寧な方か、自分で選んで口に出す。かたく転んだ瞬間だけ、シャウンさんが横から合図を入れる——スポットライトじゃなく、あくまで目印としてね。その一往復で、もう一周まわそう。",
+              "reading": "よし、つぎはこういうルールでいこうか。カードごとに、くだけたほうかていねいなほうか、じぶんでえらんでくちにだす。かたくころんだしゅんかんだけ、シャウンさんがよこからあいずをいれる——スポットライトじゃなく、あくまでめじるしとしてね。そのいちおうふくで、もういっしゅうまわそう。",
+              "english": "Okay, next round let's go with this rule: for each card, you choose casual or polite yourself and say it out. The moment it tips stiff, that's the only time Shaun puts in a signal from the side — not a spotlight, just a marker. One exchange each, and we run another lap."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-space:game-runs-both-registers",
+          "beatId": "beat:blank-space:exit-image-2",
+          "cueId": "cue:board-two-columns-game-runs",
+          "description": "The next round starts with each card offering two registers and a small marker beside the once-blank slot for Shaun's signal. He stays by the door, calling out only when a line turns stiff. The blank space on the board is gone, filled not by one right answer but by a register chosen out loud each time."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:blank-space:register-toggle",
+      "kind": "story",
+      "description": "The rebuilt route keeps its formal cards but gains a casual register where a fast game moment needs it; the once-blank card is filled by a register chosen out loud rather than one fixed line."
+    },
+    {
+      "id": "outcome:blank-space:shaun-arrival",
+      "kind": "bond",
+      "castId": "shaun",
+      "chapter": 22,
+      "beat": "arrival",
+      "description": "Shaun enters late and is established by a single bounded register observation — hearing when a line is written-notice formal where spoken casual is needed — and takes up an intentionally small part without being enlarged into a role he did not ask for."
+    },
+    {
+      "id": "outcome:blank-space:transfer-return",
+      "kind": "curriculum-return",
+      "lessonId": "l2-l24",
+      "description": "Shift-register-and-reopen-a-conversation evidence returns through the registered transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n5",
+      "n4",
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:shaun-watches-from-the-door"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-register-step"
+    ],
+    "withdrawnContentFallback": "Use the same register-shift-and-reopen evidence with neutral nameplates and a generic latecomer who flags one over-formal line during a timed speaking game."
+  }
+}
