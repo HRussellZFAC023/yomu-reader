@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.192] - 2026-07-18
+
+### Fixed
+
+- Furigana readings now use the same colour as the base word they annotate rather than a muted grey, including in pitch-accent and word-status colour modes and in Firefox, where the reading previously stayed grey even when the base word was coloured.
+
 ## [1.6.191] - 2026-07-18
 
 ### Fixed

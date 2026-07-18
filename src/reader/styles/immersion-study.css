@@ -526,7 +526,8 @@ mark.jpdb-reader-example-target {
   word-break: normal;
 }
 .jpdb-reader-study-original rt {
-  color: var(--jpdb-reader-muted);
+  /* Furigana matches the sentence text it annotates rather than a muted grey. */
+  color: inherit;
   font-size: 0.58em;
   line-height: 1;
 }

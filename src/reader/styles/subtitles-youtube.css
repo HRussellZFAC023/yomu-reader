@@ -500,8 +500,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
    want the outline in both themes. Listed together so the shadow is declared once. */
 .jpdb-subtitle-primary .jpdb-reader-furi,
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-subtitle-primary .jpdb-reader-furi {
+  /* Full opacity so the reading is the exact same colour as the caption text it
+     annotates; the outline below keeps it legible over video. */
   color: currentColor;
-  opacity: .82;
+  opacity: 1;
   text-shadow:
     0 1px 1px var(--subtitle-outline),
     0 0 3px var(--subtitle-outline),

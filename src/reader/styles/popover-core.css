@@ -1507,7 +1507,9 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   white-space: normal;
 }
 .jpdb-reader-jiten-related-head .jpdb-reader-furi {
-  color: color-mix(in srgb, var(--jpdb-reader-text) 66%, var(--jpdb-reader-muted));
+  /* Furigana matches the headword text it annotates rather than a muted mix. */
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
   font-size: 0.58em;
   font-weight: 650;
   line-height: 1;

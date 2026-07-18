@@ -2656,6 +2656,9 @@
   line-height: 1.28;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
-  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
+  /* Match the live reader: furigana takes its base word's colour, not a muted
+     grey, so the appearance preview shows the true on-page result. */
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
   font-size: .43em;
 }

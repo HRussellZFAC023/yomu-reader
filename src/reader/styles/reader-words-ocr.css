@@ -882,10 +882,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-furi {
   font-size: 0.58em;
   font-weight: 700;
-  color: var(
-    --jpdb-reader-furi-accessible-color,
-    color-mix(in srgb, var(--jpdb-reader-text, currentColor) 72%, var(--jpdb-reader-muted))
-  ) !important;
+  /* Furigana always tracks the base word it annotates: `inherit` takes the
+     word's own computed colour (page text, pitch/status/jpdb/anki tint, or the
+     contrast-adjusted --jpdb-reader-word-accessible-color), so the reading is
+     never a muted grey that diverges from its base. -webkit-text-fill-color is
+     pinned to currentColor so WebKit fills the kana with that same inherited
+     colour instead of inheriting the word's own fill channel. Mirror readings
+     use .jpdb-reader-detached-furi, whose higher-specificity rule keeps them on
+     the native colour where the base glyph is painted transparent. */
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
   line-height: 1.08;
   user-select: none;
   /* -webkit- too: iOS Safari (the OOM/copy target) needs the prefixed property

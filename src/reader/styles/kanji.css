@@ -758,7 +758,9 @@
 }
 .jpdb-reader-jiten-kanji-word-term rt,
 .jpdb-reader-jiten-kanji-word-term .jpdb-reader-furi {
-  color: var(--jpdb-reader-muted);
+  /* Furigana matches the term text it annotates rather than a muted grey. */
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
   font-size: 9px;
   line-height: 1;
 }
