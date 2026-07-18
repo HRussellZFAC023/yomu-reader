@@ -1,15 +1,13 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
 import { currentFullscreenElement } from '../core/fullscreen';
-import { escapeHtml, readerWordSurfaceText, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
+import { escapeHtml, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
-    compactTextLength,
     cueHasExactWordTimings,
     escapeWithBreaks,
     findActiveSubtitleCue,
     findInitialLeadInCue,
     findAlignedCue,
     formatSubtitleTime,
-    karaokeCharacterProgress,
     normalizeSubtitleCues,
     parseSubtitleText,
     subtitleCueSignature,
@@ -183,6 +181,7 @@ import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut } from '../settings/ind
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { primaryCardState } from '../cards/state';
 import { SubtitleParsedHtmlCache, SUBTITLE_PARSE_CACHE_MAX_ENTRIES } from './parsed-html-cache';
+import { SubtitleKaraokeSampler } from './karaoke-sampler';
 import {
     SubtitleFullscreenHost,
     isMobileYouTubePage,
@@ -374,21 +373,6 @@ function nextSubtitleFontSize(element: HTMLElement, fitted: number, minimum: num
     const heightScale = element.clientHeight / Math.max(1, element.scrollHeight);
     const widthScale = element.clientWidth / Math.max(1, element.scrollWidth);
     return Math.max(minimum, Math.floor(fitted * Math.min(.92, heightScale, widthScale)));
-}
-
-function applyKaraokeClassToWordElement(element: HTMLElement, cursor: number, progress: number): number {
-    element.classList.remove('jpdb-subtitle-word-pending', 'jpdb-subtitle-word-spoken', 'jpdb-subtitle-word-current');
-    const surface = readerWordSurfaceText(element).replace(/\s+/g, '');
-    if (!surface) return cursor;
-    const start = cursor;
-    const end = cursor + compactTextLength(surface);
-    element.classList.add(karaokeWordClass(progress, start, end));
-    return end;
-}
-
-function karaokeWordClass(progress: number, start: number, end: number): string {
-    if (progress >= end) return 'jpdb-subtitle-word-spoken';
-    return progress > start ? 'jpdb-subtitle-word-current' : 'jpdb-subtitle-word-pending';
 }
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
@@ -942,10 +926,13 @@ export class SubtitlePlayerController {
     // frame. Only `playing` releases this snapshot.
     private bufferingPlayback?: { video: HTMLVideoElement; time: number };
     private lastFrameGeometrySampleAt = 0;
-    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
-    // character boundaries, so skip the class churn between crossings.
-    private lastKaraokeProgressKey?: number;
-    private lastKaraokePrimaryWord?: HTMLElement | null;
+    // Word-level karaoke highlight progression (per-frame dirty-check + the
+    // pending/current/spoken class pass over the rendered primary word spans)
+    // lives in this collaborator; the controller keeps the frame/tick sampler
+    // that decides when to sample and delegates the highlight pass to it.
+    private readonly karaokeSampler = new SubtitleKaraokeSampler({
+        getSubtitleElement: () => this.subtitleEl,
+    });
     private alignFrame?: number;
     private alignAfterTranscriptResize = false;
     private lastAlignedVideoRectKey = '';
@@ -3323,36 +3310,7 @@ export class SubtitlePlayerController {
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
-        const state = this.primaryKaraokeState(cue);
-        if (!state) {
-            this.lastKaraokeProgressKey = undefined;
-            this.lastKaraokePrimaryWord = undefined;
-            return;
-        }
-
-        const progress = karaokeCharacterProgress(cue, state.words, time);
-        const progressKey = Math.floor(progress);
-        const primaryWord = state.wordElements[0] ?? null;
-        // The sampler runs this every presented frame, but karaoke classes only
-        // flip when the integer character progress crosses a word boundary. Skip
-        // the per-word classList churn while neither the progress bucket nor the
-        // rendered primary (a re-render makes new word elements) has changed.
-        if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
-        this.lastKaraokeProgressKey = progressKey;
-        this.lastKaraokePrimaryWord = primaryWord;
-
-        let cursor = 0;
-        for (const element of state.wordElements) {
-            cursor = applyKaraokeClassToWordElement(element, cursor, progress);
-        }
-    }
-
-    private primaryKaraokeState(cue: SubtitleCue): { words: SubtitleWordTiming[]; wordElements: HTMLElement[] } | null {
-        const primary = this.subtitleEl?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
-        if (!primary || !cueHasExactWordTimings(cue)) return null;
-        const words = cue.words;
-        const wordElements = Array.from(primary.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        return words.length && wordElements.length ? { words, wordElements } : null;
+        this.karaokeSampler.applyKaraokeStateToPrimary(cue, time);
     }
 
     private handleClick(event: MouseEvent): void {

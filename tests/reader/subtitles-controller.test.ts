@@ -8483,8 +8483,8 @@ Watch the cat
             };
 
             controllerInternals<{
-                applyKaraokeStateToPrimary: (cueArg: unknown, time: number) => void;
-            }>(controller).applyKaraokeStateToPrimary(cue, 1.2);
+                karaokeSampler: { applyKaraokeStateToPrimary: (cueArg: unknown, time: number) => void };
+            }>(controller).karaokeSampler.applyKaraokeStateToPrimary(cue, 1.2);
 
             const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word'));
             expect(words[0]?.classList.contains('jpdb-subtitle-word-spoken')).toBe(true);
