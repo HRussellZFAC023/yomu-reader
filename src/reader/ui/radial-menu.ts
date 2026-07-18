@@ -1,4 +1,5 @@
 import { escapeHtml, setInnerHtml } from '../dom/index';
+import { applyRedditOverlayScale } from './reddit-overlay-scale';
 
 export type RadialActionTone = 'on' | 'off' | 'partial' | 'neutral';
 
@@ -77,6 +78,7 @@ export class RadialMenuController {
         backdrop.setAttribute('role', 'menu');
         backdrop.setAttribute('aria-label', this.host.menuLabel());
         document.body.appendChild(backdrop);
+        applyRedditOverlayScale(backdrop);
         this.backdrop = backdrop;
 
         this.layout(button, backdrop, actions);

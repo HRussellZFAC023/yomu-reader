@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // iPad-shaped Reddit annotation regression smoke.
 //
-// This is a deterministic loopback fixture, not visual proof from reddit.com.
+// This is a deterministic routed fixture, not visual proof from reddit.com.
 // It reproduces the structural facts observed on the live site:
 //   - a Join button two open-shadow boundaries below a Latin-only shell;
 //   - fixed-height header/sort/share controls;
@@ -22,8 +22,6 @@ import {
     installUserscriptFixtureBridge,
     launchOptionalBrowser,
     mockJpdbApiRequest,
-    startHtmlFixtureServer,
-    closeServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
@@ -55,7 +53,10 @@ const VOCABULARY = [
     ['…', '日本語', 'にほんご', 'invalid punctuation token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
 ];
 
-const settings = createReaderSmokeSettings();
+const settings = createReaderSmokeSettings({
+    preferJapaneseSiteLanguage: false,
+    showFloatingButton: true,
+});
 
 const PAGE = `<!doctype html>
 <html lang="ja">
@@ -66,6 +67,9 @@ const PAGE = `<!doctype html>
 <style>
 html, body { margin: 0; min-height: 100%; background: #0b1416; color: #f2f4f5; font: 16px/1.25 system-ui, sans-serif; }
 body { display: grid; place-items: start center; }
+/* Reproduce Reddit's broad tablet control rules hitting body-mounted Yomu UI.
+   Inline-priority isolation must win without changing Reddit's own layout. */
+body > button, body > [role="menu"] { zoom: 1.6 !important; }
 .shell { width: min(760px, 100vw); padding: 18px; box-sizing: border-box; }
 .community { font-size: 30px; font-weight: 700; margin: 18px 0; }
 .actions, .feed-tools, .post-actions { display: flex; align-items: center; gap: 10px; }
@@ -163,27 +167,21 @@ customElements.define('reddit-clipped-title', RedditClippedTitle);
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
 
-const server = await startHtmlFixtureServer(PAGE_PATH, PAGE, 'Could not bind Reddit iPad regression server');
-
 const summaries = [];
 const failures = [];
-try {
-    for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', type: webkit }]) {
-        const launched = await launchOptionalBrowser(engine.type, engine.name, { headless: true });
-        if (launched.skipped) {
-            summaries.push({ engine: engine.name, skipped: true, reason: launched.reason });
-            continue;
-        }
-        try {
-            summaries.push(await runEngine(engine.name, launched.browser));
-        } catch (error) {
-            failures.push(`${engine.name}: ${String(error).slice(0, 8000)}`);
-        } finally {
-            await launched.browser.close().catch(() => undefined);
-        }
+for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', type: webkit }]) {
+    const launched = await launchOptionalBrowser(engine.type, engine.name, { headless: true });
+    if (launched.skipped) {
+        summaries.push({ engine: engine.name, skipped: true, reason: launched.reason });
+        continue;
     }
-} finally {
-    await closeServer(server);
+    try {
+        summaries.push(await runEngine(engine.name, launched.browser));
+    } catch (error) {
+        failures.push(`${engine.name}: ${String(error).slice(0, 8000)}`);
+    } finally {
+        await launched.browser.close().catch(() => undefined);
+    }
 }
 
 console.log(JSON.stringify({ summaries }, null, 2));
@@ -208,13 +206,18 @@ async function runEngine(engineName, browser) {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(String(error)));
     try {
+        await page.route(`https://www.reddit.com${PAGE_PATH}*`, route => route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: PAGE,
+        }));
         await installUserscriptFixtureBridge(page, {
             requestBridgeName: REQUEST_BRIDGE,
             requestHandler: request => mockedYomuRequest(request, requests),
             settings,
             css: readFileSync(CSS_PATH, 'utf8'),
         });
-        await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`https://www.reddit.com${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
         const baseline = await page.evaluate(snapshotRedditLayout);
         await page.addStyleTag({ path: CSS_PATH });
         await page.addScriptTag({ path: SCRIPT_PATH });
@@ -226,6 +229,7 @@ async function runEngine(engineName, browser) {
             page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
+            page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
         ]);
         await page.waitForTimeout(400);
 
@@ -240,6 +244,12 @@ async function runEngine(engineName, browser) {
         });
         await page.locator('#menu-heading .jpdb-reader-word').waitFor({ timeout: 20_000 });
         await page.locator('#menu-votes .jpdb-reader-word').waitFor({ timeout: 20_000 });
+        // Dispatch through the control itself: Chromium's synthetic hit-test
+        // does not compensate an ancestor zoom the same way WebKit does, while
+        // the product contract here is rendered geometry (ordinary control
+        // click-through is covered above and in the floating-button unit suite).
+        await page.locator('.jpdb-reader-fab').evaluate(button => button.click());
+        await page.locator('.jpdb-reader-fab-radial.is-open').waitFor({ timeout: 5_000 });
         await page.waitForTimeout(400);
 
         const snapshot = await snapshotRedditRegression(page);
@@ -540,6 +550,11 @@ function touchHoverState(element) {
 function snapshotRedditPageSummary() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
+    const puck = document.querySelector('.jpdb-reader-fab');
+    const puckRect = puck.getBoundingClientRect();
+    const radialItems = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
+    const radialRects = radialItems.map(item => item.getBoundingClientRect());
+    const radialCenters = radialRects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
     return {
         layout: {
             createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
@@ -550,12 +565,34 @@ function snapshotRedditPageSummary() {
             scrollWidth: document.documentElement.scrollWidth,
             rubyRoomCount: document.querySelectorAll('[data-yomu-ruby-room]').length,
         },
+        overlay: {
+            hostname: location.hostname,
+            bodyZoom: getComputedStyle(document.body).zoom,
+            puckZoom: getComputedStyle(puck).zoom,
+            puckWidth: puckRect.width,
+            puckHeight: puckRect.height,
+            radialWidths: radialRects.map(rect => rect.width),
+            adjacentDistances: radialCenters.slice(1).map((center, index) => Math.hypot(
+                center.x - radialCenters[index].x,
+                center.y - radialCenters[index].y,
+            )),
+        },
         clicks: window.__redditSmokeClicks,
     };
 }
 
 function assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors) {
     assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
+    assert(snapshot.overlay.hostname === 'www.reddit.com', `${engineName}: Reddit scale fixture lost its production hostname`, snapshot.overlay);
+    // The open hub deliberately grows to 1.06×; the host's 1.6× zoom must not
+    // multiply that again (52 × 1.06 = 55.12px).
+    assert(Math.abs(snapshot.overlay.puckWidth - 55.12) <= 1 && Math.abs(snapshot.overlay.puckHeight - 55.12) <= 1,
+        `${engineName}: Reddit host zoom enlarged the Yomu puck`, snapshot.overlay);
+    assert(snapshot.overlay.radialWidths.length >= 6
+        && snapshot.overlay.radialWidths.every(width => width >= 45 && width <= 51),
+    `${engineName}: Reddit host zoom enlarged the Yomu radial controls`, snapshot.overlay);
+    assert(Math.min(...snapshot.overlay.adjacentDistances) >= 60,
+        `${engineName}: Reddit scale isolation collapsed radial finger spacing`, snapshot.overlay);
     for (const [name, label] of Object.entries(snapshot.labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
         assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.201] - 2026-07-18
+
+### Fixed
+
+- Kept Yomu's floating puck and radial controls at their intended size on Reddit mobile and tablet layouts by isolating them from Reddit's broad control zoom rules; other sites keep their existing sizing.
+
 ## [1.6.200] - 2026-07-18
 
 ### Fixed

@@ -101,6 +101,8 @@ The YouTube filter is on by default so recommendations stay focused on Japanese.
 
 YouTube page text uses the same generic scanner and web-component boundaries as Reddit and other dynamic sites, including late comments, menus, navigation labels, and controls. Subscribe, Join, tabs, and filter chips stay lookupable and show pitch plus detached furigana without changing the control's native centring or height.
 
+On Reddit mobile and tablet layouts, the Yomu puck and radial menu keep their normal touch-target dimensions even when Reddit applies broad control scaling. This isolation is limited to Yomu's overlay controls and does not resize Reddit content.
+
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
 
 The separate **Prefer Japanese site language and location** setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies, `hreflang` alternates, existing locale query hints such as `locale=en-US`, and common URL patterns such as `en.example.com` or `/en`. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.

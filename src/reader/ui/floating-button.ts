@@ -15,6 +15,7 @@ import {
     type RadialAction,
 } from './radial-menu';
 import type { OcrInteractionMode } from '../ocr/mode';
+import { applyRedditOverlayScale } from './reddit-overlay-scale';
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -136,6 +137,7 @@ export class FloatingButtonController {
             this.radial?.toggle();
         });
         document.body.appendChild(button);
+        applyRedditOverlayScale(button);
         clampRestoredButtonPosition(button, settings);
         this.installVideoAvoidance(button);
     }

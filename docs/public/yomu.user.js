@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.200
+// @version 1.6.201
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.304eb8db6924.user.js#sha256=ME6422kkaglyPci2abVUs+hewlD5G/wuCOXCiwMjX9c=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.98b6d9c7c4ab.user.js#sha256=mLbZx8Sr5xlAA8Yb/wn8sjMqQpwD5oB4OrquxCyHtxs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8f359be5a563.user.js#sha256=jzWb5aVjxcJPf+SI9ufMemhMNfCGl4zxyo/NWfWN5aQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.efa45f48498c.user.js#sha256=76RfSEmMeYUIl9W2PmYkrrbrDE+M0LrTcy42IVCDJzY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d4c5d108ec6e.user.js#sha256=1MXRCOxugKZuI9Oe/meyq8ONJZCOwSlGY5HiyI0/JZQ=
 // @require https://yomureader.com/greasyfork/yomu-video.9da7b7941a9f.user.js#sha256=nae3lBqfB1H7asY6VdeBlBF4Bht//0SCsvnK6CBKfac=
 // @resource yomuCss  https://yomureader.com/yomu.b2961b03bd43.css#sha256=spYbA71DZOP0+ogjRg8S8Hru6V4jZEknOtmVdbBeQfA=
 // @connect api.jiten.moe
@@ -23555,6 +23555,14 @@ function scheduleIdleCallback(callback, timeoutMs = 75) {
   requestIdleCallback.call(window, callback, { timeout: timeoutMs });
   return true;
 }
+function isRedditHostname(hostname) {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
+}
+function applyRedditOverlayScale(element2, hostname = location.hostname) {
+  if (!isRedditHostname(hostname)) return;
+  element2.style.setProperty("zoom", "1", "important");
+}
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
@@ -23589,6 +23597,7 @@ class RadialMenuController {
   backdrop.setAttribute("role", "menu");
   backdrop.setAttribute("aria-label", this.host.menuLabel());
   document.body.appendChild(backdrop);
+  applyRedditOverlayScale(backdrop);
   this.backdrop = backdrop;
   this.layout(button2, backdrop, actions);
   button2.classList.add("jpdb-reader-fab--menu-open");
@@ -23847,6 +23856,7 @@ class FloatingButtonController {
     this.radial?.toggle();
   });
   document.body.appendChild(button2);
+  applyRedditOverlayScale(button2);
   clampRestoredButtonPosition(button2, settings);
   this.installVideoAvoidance(button2);
   }
@@ -36468,8 +36478,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.200"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.200"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.201"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.201"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36587,7 +36597,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.200"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.201"}`;
   } catch {
   return null;
   }
