@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.185] - 2026-07-18
+
+### Fixed
+
+- Restored reliable furigana and pitch annotation across the homepage and every site in keyless mode. Jiten hydration now matches the correct entry key so fetched readings are applied instead of dropped, the background /info lookup timeout was raised from 1.5s to 4s so slower details still arrive, and transient network failures are cached with bounded TTLs plus limited retries and a backoff-aware deferred lane so a single hiccup no longer starves annotation.
+- Aligned furigana for conjugated and okurigana-suffixed kanji-only surfaces (e.g. 接続して, 練習し, 理想的な, 追加する, 開始します), which previously rendered with no reading, and added re-resolution for misaligned public vocabulary words.
+
 ## [1.6.184] - 2026-07-18
 
 ### Changed

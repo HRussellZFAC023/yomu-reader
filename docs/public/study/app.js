@@ -11643,9 +11643,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
       if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
       const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
+      if (surfaceSuffix && !KANA_RE$1.test(surfaceSuffix)) continue;
       const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
       if (rubies.length) return rubies;
+    }
+    if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
+      const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
+      if (!surfaceSuffix || KANA_RE$1.test(surfaceSuffix)) {
+        return [{
+          text: baseReading,
+          start: 0,
+          end: baseSpelling.length,
+          length: baseSpelling.length
+        }];
+      }
     }
     return [];
   }
@@ -40164,7 +40175,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.184".trim() ? "1.6.184".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.185".trim() ? "1.6.185".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

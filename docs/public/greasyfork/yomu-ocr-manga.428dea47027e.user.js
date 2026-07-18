@@ -4129,22 +4129,6 @@
     crypto.getRandomValues(bytes);
     return bytes;
   }
-  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
-  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
-    return Math.max(floorMs, settings.audioTimeoutMs);
-  }
-  function imageCacheKey(image) {
-    const contentKey = image.dataset?.ocrContentKey;
-    if (contentKey) return contentKey;
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
-  function localOcrEndpointUrl(settings) {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-  }
-  function isOcrRequestTimeout(error) {
-    return error instanceof Error && /timed out|timeout/i.test(error.message);
-  }
   const log$1 = Logger.scope("OCR");
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
@@ -6351,7 +6335,6 @@
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
-      academy: "Academy",
       newTabPage: "Study",
       localAudio: "Local Audio",
       changelog: "Changelog",
@@ -7757,7 +7740,6 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
-academy	アカデミー
 newTabPage	学習
 localAudio	ローカル音声
 changelog	変更履歴
@@ -8651,6 +8633,10 @@ ${candidate.depth}`;
   const READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS = 3;
   const READER_RASTER_EMPTY_RETRY_MS = 400;
   const READER_RASTER_MAX_PROVIDER_ATTEMPTS = 3;
+  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
+  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
+    return Math.max(floorMs, settings.audioTimeoutMs);
+  }
   const READER_RASTER_PROVIDER_RETRY_BASE_MS = 350;
   const READER_RASTER_PENDING_CAPTURE_TIMEOUT_MS = 4e4;
   const READER_RASTER_FRAME_LOAD_TIMEOUT_MS = 8e3;
@@ -8664,6 +8650,7 @@ ${candidate.depth}`;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
+  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
@@ -12365,6 +12352,11 @@ ${spelling}`);
         return "contain";
     }
   }
+  function imageCacheKey(image) {
+    const contentKey = image.dataset?.ocrContentKey;
+    if (contentKey) return contentKey;
+    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
   function ocrResultTextKey(result) {
     return result?.lines.map((line) => line.text).join("\n") ?? "";
   }
@@ -12487,10 +12479,16 @@ ${spelling}`);
   function ocrEngineLabel(settings) {
     return settings.ocrEngine || "auto";
   }
+  function localOcrEndpointUrl(settings) {
+    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+  }
   function isLocalOcrConnectionError(error) {
     if (isLocalOcrUnavailableError(error)) return true;
     if (!(error instanceof Error)) return true;
     return error.name === "TypeError" || error.name === "AbortError" || /network|failed to fetch|load failed|cors|blocked|timed out|timeout|request failed/i.test(error.message);
+  }
+  function isOcrRequestTimeout(error) {
+    return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
