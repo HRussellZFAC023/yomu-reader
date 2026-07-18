@@ -31416,9 +31416,9 @@ describe('reader helpers', () => {
                 lapses: 0,
             },
         };
-        const internals = controller as unknown as {
+        const internals = (controller as unknown as { searchController: {
             searchDetailViewContext(): NewTabSearchDetailViewContext;
-        };
+        } }).searchController;
 
         try {
             document.body.innerHTML = searchWordDetailHtml(lookupCard, {

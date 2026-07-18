@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.188] - 2026-07-18
+
+### Changed
+
+- Extracted the New Tab word-search surface into a dedicated search controller module, moving search state, query handling, suggestions, handwriting recognition, and result rendering behind a narrow interface; the New Tab controller shrinks by roughly 1,200 lines with no behavior changes.
+
 ## [1.6.187] - 2026-07-18
 
 ### Changed
