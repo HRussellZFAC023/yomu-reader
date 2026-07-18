@@ -4390,15 +4390,20 @@ export class ReaderApp {
         // can keep treating a live DOM node as the source of truth.
         if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
         if (!options.ignoreCssHover && (word.matches(':hover') || this.isHoverWordHostControlCssHoverActive(word))) return true;
-        if (options.ignorePointerPosition) return false;
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        // Framework-owned words (pointer-transparent mirrors over reactive-framework text) are
+        // excluded from hit-testing, so CSS :hover above never matches them even while the
+        // pointer sits on them. The geometry re-resolution below is the same word-identity check
+        // used to open the hover in the first place, so it stays trustworthy even when the
+        // watchdog asks to ignore pointer position for the *loose* containment fallback below.
         if (target instanceof Element) {
-            if (this.isPointerInsideActiveOcrWordLine(word, target)) return true;
+            if (!options.ignorePointerPosition && this.isPointerInsideActiveOcrWordLine(word, target)) return true;
             if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
         }
+        if (options.ignorePointerPosition) return false;
         return this.isInsideNode(target, word);
     }
 

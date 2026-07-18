@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.210] - 2026-07-19
+
+### Fixed
+
+- Hover lookups no longer flicker open and closed over Japanese words rendered by reactive sites. The popover watchdog now accepts an exact live word hit from Yomu's pointer geometry while still closing after the pointer moves away.
+
 ## [1.6.209] - 2026-07-19
 
 ### Fixed

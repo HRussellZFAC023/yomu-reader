@@ -2579,11 +2579,9 @@ describe('hover lookup', () => {
             }
         });
 
-        it('keeps the connected-node path unchanged (still hovering true, moved-away false)', () => {
-            // The connected path resolves the live word via geometry (jsdom has no layout, so
-            // `:hover` is always false and ignorePointerPosition short-circuits — that pre-existing
-            // behavior must be preserved). Exercise it without ignorePointerPosition so the
-            // geometry resolver runs, proving the connected branch is unchanged.
+        it('lets the watchdog trust an exact connected-word hit but not a moved-away pointer', () => {
+            // jsdom never reports `:hover`, so these checks exercise geometry. The strict
+            // watchdog may trust an exact word hit, but not the loose containment fallback.
             const word = readerWordFixture('今日は読む', '読む');
             const { app, internals } = setupHoverWordContext(word);
             const restoreStack = stubElementsFromPoint([word]);
@@ -2592,10 +2590,28 @@ describe('hover lookup', () => {
             try {
                 expect(word.isConnected).toBe(true);
                 expect(internals.isHoverContextActive({})).toBe(true);
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
                 expect(internals.activeHoverWord).toBe(word);
             } finally {
                 restorePoint();
                 restoreStack();
+            }
+
+            // A generic descendant hit is only loose DOM containment, not semantic word
+            // geometry. Normal close checks may use it; the watchdog must not.
+            const child = document.createElement('span');
+            word.append(child);
+            const nonWordStackTarget = document.createElement('div');
+            document.body.append(nonWordStackTarget);
+            const restoreContainedStack = stubElementsFromPoint([nonWordStackTarget]);
+            const restoreContainedPoint = stubElementFromPoint(child);
+
+            try {
+                expect(internals.isHoverContextActive({})).toBe(true);
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
+            } finally {
+                restoreContainedPoint();
+                restoreContainedStack();
             }
 
             // Pointer moved away: nothing under the point, connected node not hovered.
@@ -2606,6 +2622,7 @@ describe('hover lookup', () => {
 
             try {
                 expect(internals.isHoverContextActive({})).toBe(false);
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
                 expect(internals.activeHoverWord).toBe(word);
             } finally {
                 restorePointAway();

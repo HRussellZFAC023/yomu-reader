@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.209
+// @version 1.6.210
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.a119bca462bd.user.js#sha256=oRm8pGK9kgEbIXyVWVE+YaW3aeszKWeT9THvKV+ZMgU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.7a08ec67e61a.user.js#sha256=egjsZ+YaE9PYt/rW7dvZgEFY3WQm0jwO4TxIOLHcDOU=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.f7f5d805005d.user.js#sha256=9/XYBQBd0uCHAvjgI4axpnWrkFikHAbTrmtYv9hSXBY=
 // @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
 // @resource yomuCss  https://yomureader.com/yomu.86750b919d9d.css#sha256=hnULkZ2du3tnyRGiszILyG277nRBw32XpK0YDzf8UgI=
 // @connect api.jiten.moe
@@ -36651,8 +36651,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.209"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.209"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.210"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.210"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36770,7 +36770,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.209"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.210"}`;
   } catch {
   return null;
   }
@@ -40821,15 +40821,15 @@ class ReaderApp {
   isWordHoverActive(word, options = {}) {
   if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
   if (!options.ignoreCssHover && (word.matches(":hover") || this.isHoverWordHostControlCssHoverActive(word))) return true;
-  if (options.ignorePointerPosition) return false;
   if (!this.lastPointerPosition) return false;
   const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
   if (target instanceof Element) {
-    if (this.isPointerInsideActiveOcrWordLine(word, target)) return true;
+    if (!options.ignorePointerPosition && this.isPointerInsideActiveOcrWordLine(word, target)) return true;
     if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
     if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
     if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
   }
+  if (options.ignorePointerPosition) return false;
   return this.isInsideNode(target, word);
   }
   isHoverWordHostControlCssHoverActive(word) {
