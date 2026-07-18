@@ -9,6 +9,7 @@ import { testEnSettings } from './helpers/settings-fixture';
 const DEFAULT_SETTINGS = testEnSettings();
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
+import type { SubtitleParsedHtmlCache } from '../../src/reader/subtitles/parsed-html-cache';
 import { subtitleCueSignature } from '../../src/reader/subtitles/subtitle-cues';
 import { renderDrawerHead } from '../../src/reader/subtitles/subtitle-surface';
 import { subtitleDrawerMetaText } from '../../src/reader/subtitles/subtitle-track-panel';
@@ -6361,7 +6362,7 @@ Watch the cat
             cues: Array<{ start: number; end: number; text: string; transcriptEligible?: boolean }>;
             currentCue?: { start: number; end: number; text: string; transcriptEligible?: boolean };
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            parsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
             render: () => void;
             clearPrimaryTrack: () => void;
         }>(controller);
@@ -6381,7 +6382,7 @@ Watch the cat
             internals.selectedTrackId = 'file-ja';
             internals.cues = [{ start: 0, end: 2, text: '日本語を読む', transcriptEligible: true }];
             internals.currentCue = internals.cues[0];
-            internals.parsedHtmlCache.set(
+            internals.htmlCache.parsedHtmlCache.set(
                 internals.parseCacheKey('日本語を読む', settings),
                 '<span class="jpdb-reader-word">日本語</span>を読む',
             );
@@ -8238,7 +8239,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { enrichBeforeRender?: boolean },
                 ) => Promise<Array<{ html: string; provisional?: boolean }>>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
             }>([cue], {
                 hooks: { parseJapaneseBatch, beforeRenderTokens },
@@ -8254,8 +8255,8 @@ Watch the cat
             const key = internals.parseCacheKey('日本語', settings);
 
             await internals.parseCueHtmlBatch(['日本語'], settings, { enrichBeforeRender: false });
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
-            expect(internals.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-reader-furi');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-reader-furi');
 
             internals.openLinesPanel();
             expect(document.querySelector('.jpdb-subtitle-row-text')?.innerHTML).not.toContain('jpdb-reader-furi');
@@ -8271,7 +8272,7 @@ Watch the cat
             const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
             expect(row?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
             expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('にほんご');
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-furi');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-furi');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -8309,7 +8310,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { enrichBeforeRender?: boolean; refreshProvisional?: boolean },
                 ) => Promise<Array<{ html: string; provisional?: boolean }>>;
-                enrichedProvisionalParsedHtmlKeys: Set<string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
             }>([cue], {
                 hooks: { parseJapaneseBatch, beforeRenderTokens },
@@ -8322,13 +8323,13 @@ Watch the cat
             // marked enriched, so a later hydration pass (e.g. after orientation)
             // can retry instead of freezing the missing ruby forever.
             await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
-            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
+            expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
 
             // The retry resolves the reading: now the cue is fully enriched and
             // becomes sticky.
             resolveReading = true;
             await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
-            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
+            expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
@@ -8360,7 +8361,7 @@ Watch the cat
             const { internals } = setupTranscriptCueController<typeof cue, {
                 hydrateTranscriptRows: (preferredIndex: number) => Promise<void>;
                 scheduleTranscriptCacheWarmup: () => void;
-                enrichedProvisionalParsedHtmlKeys: Set<string>;
+                htmlCache: SubtitleParsedHtmlCache;
             }>([cue], {
                 hooks: { parseJapaneseBatch, beforeRenderTokens },
                 selectedTrackId: 'youtube-0',
@@ -8378,7 +8379,7 @@ Watch the cat
             expect(row?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
             // The row stays re-hydratable so later passes keep improving it.
             expect(row?.dataset.parsedProvisional).toBe('true');
-            expect(internals.enrichedProvisionalParsedHtmlKeys.size).toBe(0);
+            expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.size).toBe(0);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             window.requestAnimationFrame = originalRequestAnimationFrame;
@@ -8408,7 +8409,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { enrichBeforeRender?: boolean; refreshProvisional?: boolean },
                 ) => Promise<unknown>;
-                enrichedProvisionalParsedHtmlKeys: Set<string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
             }>([cue], {
                 hooks: { parseJapaneseBatch, beforeRenderTokens },
@@ -8422,10 +8423,10 @@ Watch the cat
             // is no longer re-parsed/re-looked-up on every tick.
             for (let attempt = 0; attempt < 5; attempt++) {
                 await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
-                expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
+                expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
             }
             await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
-            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
+            expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
@@ -8553,8 +8554,7 @@ Watch the cat
             const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
             const { settings, internals } = setupTranscriptCueController<typeof cue, {
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
-                enrichedProvisionalParsedHtmlKeys: Set<string>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 render: () => void;
             }>([cue], {
                 hooks: { parseJapanese },
@@ -8566,7 +8566,7 @@ Watch the cat
                 },
             });
             const key = internals.parseCacheKey('読む', settings);
-            internals.provisionalParsedHtmlCache.set(
+            internals.htmlCache.provisionalParsedHtmlCache.set(
                 key,
                 '<span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む</span>',
             );
@@ -8574,7 +8574,7 @@ Watch the cat
             internals.render();
             expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
 
-            internals.enrichedProvisionalParsedHtmlKeys.add(key);
+            internals.htmlCache.enrichedProvisionalParsedHtmlKeys.add(key);
             internals.render();
 
             const word = document.querySelector<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word')!;
@@ -8646,7 +8646,7 @@ Watch the cat
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
         const { internals } = setupTranscriptCueController<typeof cue, {
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            provisionalParsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
             render: () => void;
         }>([cue], {
             selectedTrackId: 'youtube-0',
@@ -8813,19 +8813,19 @@ Watch the cat
         const internals = controller as unknown as {
             parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            parsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
         };
         const key = internals.parseCacheKey('読む', settings);
 
         await expect(internals.parseCueHtml('読む', settings)).resolves.toBe('読む');
-        expect(internals.parsedHtmlCache.has(key)).toBe(false);
+        expect(internals.htmlCache.parsedHtmlCache.has(key)).toBe(false);
         await expect(internals.parseCueHtml('読む', settings)).resolves.toBe('読む');
         expect(parseJapanese).toHaveBeenCalledTimes(1);
 
         await vi.advanceTimersByTimeAsync(2501);
         const parsed = await internals.parseCueHtml('読む', settings);
         expect(parsed).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
-        expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+        expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-reader-word');
         expect(parseJapanese).toHaveBeenCalledTimes(2);
     });
 
@@ -8877,9 +8877,7 @@ Watch the cat
                 panelMode: 'lines' | 'tracks';
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
                 parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
-                parsedHtmlCache: Map<string, string>;
-                pendingParsedHtml: Map<string, Promise<string>>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 selectedTrackId: string;
                 subtitleEl: HTMLElement;
                 transcriptPanel: HTMLElement;
@@ -8902,19 +8900,19 @@ Watch the cat
             internals.transcriptPanel.replaceChildren(rowText);
 
             const provisionalHtml = await internals.parseCueHtml('読む', settings);
-            const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(key);
+            const pendingAuthoritativeHtml = internals.htmlCache.pendingParsedHtml.get(key);
 
             expect(parseJapanese).toHaveBeenNthCalledWith(1, '読む', { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(parseJapanese).toHaveBeenNthCalledWith(2, '読む', { requireJpdb: true, includeLocalPitch: true });
             expect(provisionalHtml).toContain('jpdb-not-in-deck');
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();
 
             authoritative.resolve([finalToken]);
             await expect(pendingAuthoritativeHtml).resolves.toContain('jpdb-known jpdb-pitch-heiban');
 
-            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.provisionalParsedHtmlCache.has(key)).toBe(false);
+            expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(false);
             expect(rowText.dataset.parsedProvisional).toBeUndefined();
             expect(rowText.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(rowText.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
@@ -8956,20 +8954,18 @@ Watch the cat
             const internals = controller as unknown as {
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
                 parseCueHtmlBatch: (texts: string[], settings: ReaderSettings) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
-                parsedHtmlCache: Map<string, string>;
-                pendingParsedHtml: Map<string, Promise<string>>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
             const firstKey = internals.parseCacheKey('一番', settings);
 
             const parsed = await internals.parseCueHtmlBatch(['一番', '二番'], settings);
-            const pendingAuthoritativeHtml = internals.pendingParsedHtml.get(firstKey);
+            const pendingAuthoritativeHtml = internals.htmlCache.pendingParsedHtml.get(firstKey);
 
             expect(parseJapaneseBatch).toHaveBeenNthCalledWith(1, ['一番', '二番'], { skipJpdb: true, allowSegmentedFallback: true, includeLocalPitch: true });
             expect(parseJapaneseBatch).toHaveBeenNthCalledWith(2, ['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
             expect(parsed.map(item => item.provisional)).toEqual([true, true]);
             expect(parsed[0]?.html).toContain('jpdb-not-in-deck');
-            expect(internals.provisionalParsedHtmlCache.get(firstKey)).toContain('jpdb-not-in-deck');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(firstKey)).toContain('jpdb-not-in-deck');
             expect(pendingAuthoritativeHtml).toBeDefined();
 
             authoritative.resolve([
@@ -8978,8 +8974,8 @@ Watch the cat
             ]);
             await expect(pendingAuthoritativeHtml).resolves.toContain('jpdb-known jpdb-pitch-heiban');
 
-            expect(internals.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
+            expect(internals.htmlCache.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -9021,8 +9017,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { enrichBeforeRender?: boolean; requireEnrichedProvisional?: boolean },
                 ) => Promise<string>;
-                parsedHtmlCache: Map<string, string>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
             const key = internals.parseCacheKey('読む', settings);
 
@@ -9031,8 +9026,8 @@ Watch the cat
             expect(parseJapanese).toHaveBeenCalledTimes(1);
             expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
             expect(html).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.provisionalParsedHtmlCache.has(key)).toBe(false);
+            expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -9079,8 +9074,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { enrichBeforeRender?: boolean; requireEnrichedProvisional?: boolean; refreshProvisional?: boolean },
                 ) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
-                parsedHtmlCache: Map<string, string>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
             const firstKey = internals.parseCacheKey('一番', settings);
 
@@ -9094,8 +9088,8 @@ Watch the cat
             expect(parseJapaneseBatch).toHaveBeenCalledWith(['一番', '二番'], { requireJpdb: true, includeLocalPitch: true });
             expect(parsed.map(item => item.provisional)).toEqual([undefined, undefined]);
             expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
+            expect(internals.htmlCache.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -9139,7 +9133,7 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { allowProvisional?: boolean; enrichBeforeRender?: boolean },
                 ) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
-                parsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
             const key = internals.parseCacheKey('今日は読む', settings);
 
@@ -9152,7 +9146,7 @@ Watch the cat
             expect(parseJapaneseBatch).toHaveBeenCalledWith(['今日は読む'], { requireJpdb: true, includeLocalPitch: true });
             expect(parsed[0]?.provisional).toBeUndefined();
             expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -9190,10 +9184,10 @@ Watch the cat
                     settings: ReaderSettings,
                     options?: { allowProvisional?: boolean; enrichBeforeRender?: boolean },
                 ) => Promise<string>;
-                parsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
             const key = internals.parseCacheKey('読む', settings);
-            internals.parsedHtmlCache.set(
+            internals.htmlCache.parsedHtmlCache.set(
                 key,
                 '<span class="jpdb-reader-word jpdb-not-in-deck fallback-not-in-deck jpdb-pitch-unknown" data-card-source="fallback">読む</span>',
             );
@@ -9205,7 +9199,7 @@ Watch the cat
 
             expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
             expect(html).toContain('jpdb-known jpdb-pitch-heiban');
-            expect(internals.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
+            expect(internals.htmlCache.parsedHtmlCache.get(key)).toContain('jpdb-known jpdb-pitch-heiban');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -9231,7 +9225,7 @@ Watch the cat
         const internals = controller as unknown as {
             panelMode: 'lines' | 'tracks';
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            parsedTokenCache: Map<string, JPDBToken[]>;
+            htmlCache: SubtitleParsedHtmlCache;
             transcriptPanel: HTMLElement;
             transcriptPanelClosing: boolean;
             updateTranscriptRowsForParseKey(key: string, html: string): void;
@@ -9249,7 +9243,7 @@ Watch the cat
         internals.panelMode = 'lines';
         internals.transcriptPanel = panel;
         internals.transcriptPanelClosing = false;
-        internals.parsedTokenCache.set(key, [token]);
+        internals.htmlCache.parsedTokenCache.set(key, [token]);
 
         try {
             internals.updateTranscriptRowsForParseKey(
@@ -9311,24 +9305,23 @@ Watch the cat
         }));
         const internals = controllerInternals<{
             cues: typeof cues;
-            parsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            pruneParsedSubtitleCaches: () => void;
         }>(controller);
         internals.cues = cues;
 
         for (let index = 0; index < 240; index++) {
-            internals.parsedHtmlCache.set(
+            internals.htmlCache.parsedHtmlCache.set(
                 internals.parseCacheKey(`字幕${index}`, settings),
                 `<span class="jpdb-reader-word">字幕${index}</span>`,
             );
         }
 
-        internals.pruneParsedSubtitleCaches();
+        internals.htmlCache.pruneParsedSubtitleCaches();
 
-        expect(internals.parsedHtmlCache.size).toBe(240);
-        expect(internals.parsedHtmlCache.has(internals.parseCacheKey('字幕0', settings))).toBe(true);
-        expect(internals.parsedHtmlCache.has(internals.parseCacheKey('字幕239', settings))).toBe(true);
+        expect(internals.htmlCache.parsedHtmlCache.size).toBe(240);
+        expect(internals.htmlCache.parsedHtmlCache.has(internals.parseCacheKey('字幕0', settings))).toBe(true);
+        expect(internals.htmlCache.parsedHtmlCache.has(internals.parseCacheKey('字幕239', settings))).toBe(true);
     });
 
     it('batches active subtitle warmup instead of parsing cues one by one', async () => {
@@ -9721,8 +9714,7 @@ Watch the cat
                 selectedTrackId: string;
                 updateFromLoadedCues: () => void;
                 subtitleWarmupTexts: (start: number, end: number, settings: ReaderSettings) => string[];
-                parsedHtmlCache: Map<string, string>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             }>(controller);
             internals.selectedTrackId = 'file-0';
             internals.cues = cues;
@@ -9741,7 +9733,7 @@ Watch the cat
             expect(misses).toEqual([]);
             // Keyless results live in the provisional tier (it IS the final
             // tier without a key); nothing may dangle waiting on an upgrade.
-            expect(internals.provisionalParsedHtmlCache.size).toBeGreaterThan(0);
+            expect(internals.htmlCache.provisionalParsedHtmlCache.size).toBeGreaterThan(0);
             // No call may demand the JPDB API keyless...
             expect(parseJapaneseBatch.mock.calls.some(call => (call[1] as { requireJpdb?: boolean })?.requireJpdb === true)).toBe(false);
             // ...and no cue text is tokenized twice: the provisional result is
@@ -9977,7 +9969,7 @@ Watch the cat
                 updateFromLoadedCues: () => void;
                 subtitleEl: HTMLElement;
                 render: () => void;
-                emptyParsedHtmlCache: Map<string, unknown>;
+                htmlCache: SubtitleParsedHtmlCache;
             }>(controller);
             internals.selectedTrackId = 'file-0';
             internals.cues = cues;
@@ -9986,7 +9978,7 @@ Watch the cat
             await vi.advanceTimersByTimeAsync(10);
             const initialParseCalls = totalParseCalls();
             expect(initialParseCalls).toBeGreaterThan(0);
-            expect(internals.emptyParsedHtmlCache.size).toBe(1);
+            expect(internals.htmlCache.emptyParsedHtmlCache.size).toBe(1);
 
             // Within the TTL the cue is known-empty: ticks neither re-parse
             // nor render the loading shimmer.
@@ -10039,7 +10031,7 @@ Watch the cat
                 currentCue: { start: number; end: number; text: string } | undefined;
                 keepDomCaptionCueAlive: (text: string) => void;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             }>(controller);
 
             // First sighting starts the parse DURING the stability window —
@@ -10050,7 +10042,7 @@ Watch the cat
             expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
             expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['こんにちは先生。', '元気ですか。']);
             const firstPartKey = internals.parseCacheKey('こんにちは先生。', settings);
-            await vi.waitFor(() => expect(internals.provisionalParsedHtmlCache.has(firstPartKey)).toBe(true));
+            await vi.waitFor(() => expect(internals.htmlCache.provisionalParsedHtmlCache.has(firstPartKey)).toBe(true));
 
             // Stability passing renders the first part pre-parsed: no loading
             // shimmer, reader words present immediately.
@@ -10104,8 +10096,7 @@ Watch the cat
                 selectedTrackId: string;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
                 parseCueHtmlBatch: (texts: string[]) => Promise<unknown>;
-                parsedTokenCache: Map<string, JPDBToken[]>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
                 render: () => void;
                 subtitleEl: HTMLElement;
                 transcriptPanel: HTMLElement;
@@ -10116,8 +10107,8 @@ Watch the cat
             const key = internals.parseCacheKey('読む', settings);
 
             await internals.parseCueHtmlBatch(['読む']);
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
-            expect(internals.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-pitch-heiban');
             // The cue is on screen with the pre-enrichment html.
             internals.render();
             expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
@@ -10129,12 +10120,12 @@ Watch the cat
             rowText.dataset.parseKey = key;
             rowText.dataset.parsedKey = key;
             rowText.dataset.parsedProvisional = 'true';
-            rowText.innerHTML = internals.provisionalParsedHtmlCache.get(key) ?? '';
+            rowText.innerHTML = internals.htmlCache.provisionalParsedHtmlCache.get(key) ?? '';
             internals.transcriptPanel.hidden = false;
             internals.transcriptPanel.replaceChildren(rowText);
 
             // Late enrichment mutates the cached tokens (public jpdb pitch).
-            const tokens = internals.parsedTokenCache.get(key)!;
+            const tokens = internals.htmlCache.parsedTokenCache.get(key)!;
             tokens[0].pitchClass = 'heiban';
             tokens[0].card.pitchAccent = ['LHL'];
             controller.refreshParsedCueTexts(['読む']);
@@ -10142,7 +10133,7 @@ Watch the cat
             // The cache, the live primary, and the hydrated transcript row all
             // carry the enriched pitch now — stepping back re-renders from
             // this html, so pitch survives Previous/Next.
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-pitch-heiban');
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-pitch-heiban');
             expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).not.toBeNull();
             expect(rowText.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
         } finally {
@@ -10231,15 +10222,15 @@ Watch the cat
                 serial: number,
             ) => Promise<void>;
             transcriptRowParseKey: (row: WarmupRows[number], rowIndex: number, rows: WarmupRows, settings: ReaderSettings) => string;
-            parsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
         };
 
         internals.transcriptCacheWarmupSerial = 1;
         await internals.warmTranscriptParseCache(rows, 0, settings, 1);
 
         expect(parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[])).toContain('大学');
-        const firstHtml = internals.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[0], 0, rows, settings)) ?? '';
-        const secondHtml = internals.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[1], 1, rows, settings)) ?? '';
+        const firstHtml = internals.htmlCache.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[0], 0, rows, settings)) ?? '';
+        const secondHtml = internals.htmlCache.parsedHtmlCache.get(internals.transcriptRowParseKey(rows[1], 1, rows, settings)) ?? '';
         expect(firstHtml).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
         expect(firstHtml).toContain('<rt class="jpdb-reader-furi">だいがく</rt>');
         expect(secondHtml).toContain('jpdb-reader-word jpdb-known jpdb-pitch-heiban');
@@ -10285,8 +10276,7 @@ Watch the cat
                     serial: number,
                 ) => Promise<void>;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
-                parsedHtmlCache: Map<string, string>;
-                provisionalParsedHtmlCache: Map<string, string>;
+                htmlCache: SubtitleParsedHtmlCache;
             };
 
             internals.cues = cues;
@@ -10298,8 +10288,8 @@ Watch the cat
             expect(parseJapaneseBatch.mock.calls.some(call => (call[1] as { requireJpdb?: boolean })?.requireJpdb === true)).toBe(false);
             expect(beforeRenderTokens).not.toHaveBeenCalled();
             const key = internals.parseCacheKey('長い字幕0', settings);
-            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
-            expect(internals.parsedHtmlCache.has(key)).toBe(false);
+            expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+            expect(internals.htmlCache.parsedHtmlCache.has(key)).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -10341,13 +10331,13 @@ Watch the cat
                 serial: number,
             ) => Promise<void>;
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
-            parsedHtmlCache: Map<string, string>;
+            htmlCache: SubtitleParsedHtmlCache;
         };
 
         internals.transcriptCacheWarmupSerial = 1;
         await internals.warmTranscriptParseCache(rows, 0, settings, 1);
 
-        const html = internals.parsedHtmlCache.get(internals.parseCacheKey('本', settings)) ?? '';
+        const html = internals.htmlCache.parsedHtmlCache.get(internals.parseCacheKey('本', settings)) ?? '';
         expect(beforeRenderTokens).toHaveBeenCalledWith([token]);
         expect(html).toContain('jpdb-pitch-atamadaka');
         expect(html).toContain('<rt class="jpdb-reader-furi">ほん</rt>');

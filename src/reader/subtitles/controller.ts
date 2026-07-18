@@ -123,9 +123,7 @@ import {
     parsedSubtitleHtmlHasReaderWords,
     provisionalSubtitleParseOptions,
     shouldApplyParsedTranscriptHtml,
-    SUBTITLE_EMPTY_PARSE_RETRY_MS,
     subtitleParseOptions,
-    subtitleParseSourceSignature,
     waitForBackgroundTranscriptParseTurn,
     type SubtitleParseOptions,
 } from './subtitle-parse-policy';
@@ -184,23 +182,7 @@ import { Logger } from '../app/logger';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { primaryCardState } from '../cards/state';
-
-// UT-48: parsed cue html survives reloads via sessionStorage (same-tab,
-// same video session). Keys are hashed — raw parse keys embed whole cue
-// texts and would blow past storage key-size sanity.
-const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v3:';
-const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-
-function subtitleSessionParseHash(key: string): string {
-    let h1 = 0x811c9dc5;
-    let h2 = 0x1505;
-    for (let i = 0; i < key.length; i += 1) {
-        const code = key.charCodeAt(i);
-        h1 = Math.imul(h1 ^ code, 0x01000193) >>> 0;
-        h2 = (Math.imul(h2, 33) ^ code) >>> 0;
-    }
-    return `${h1.toString(36)}${h2.toString(36)}`;
-}
+import { SubtitleParsedHtmlCache, SUBTITLE_PARSE_CACHE_MAX_ENTRIES } from './parsed-html-cache';
 import type { InterfaceLanguage, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 
 export { requestSubtitleText } from './subtitle-request';
@@ -579,24 +561,9 @@ const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
 const YOUTUBE_TRANSCRIPT_CHEAP_WARMUP_ROW_THRESHOLD = 240;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
-const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
-const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5000;
-const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
-// Mirror the furigana gate in dom/index.ts (sourceTokenRubies): a kanji surface
-// with a usable kana reading is the only thing that renders ruby. Kept local
-// because those regexes are module-private in the dom module.
-const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
-const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
-// A cue whose furigana is still incomplete stays re-hydratable so a later pass
-// (orientation/resize/scroll, or once the public-lookup term window finds the
-// reading) can retry. Subtitle lookups are urgent and bypass the unresolved
-// negative cache, so cap retries: a word genuinely absent from public Jiten
-// must settle to bare rather than re-request on every hydration tick. The cap
-// is generous enough to outlast the open/drag/scroll/orientation sequence.
-const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
 // Cues near the playhead must colorise immediately; only the whole-transcript
 // tail of the warmup queue is paced.
 const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
@@ -1048,16 +1015,15 @@ export class SubtitlePlayerController {
     private lastDomCaption = '';
     private pendingDomCaption?: { text: string; firstSeenAt: number };
     private lastDomCaptionSeenAt = 0;
-    private parsedHtmlCache = new Map<string, string>();
-    private provisionalParsedHtmlCache = new Map<string, string>();
-    private enrichedProvisionalParsedHtmlKeys = new Set<string>();
-    private incompleteEnrichmentAttempts = new Map<string, number>();
-    private sessionParseCacheChecked = new Set<string>();
-    private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
-    private pendingParsedHtml = new Map<string, Promise<string>>();
-    private pendingProvisionalParsedHtml = new Map<string, Promise<string>>();
-    private parsedTokenCache = new Map<string, JPDBToken[]>();
-    private parsedTokenNotifiedAt = new Map<string, number>();
+    // Parsed subtitle/transcript HTML caching (all tiers, TTL empties, in-flight
+    // dedupe, token cache, session persistence, bounded eviction) lives in this
+    // collaborator; the controller keeps the parse/render orchestration.
+    private readonly htmlCache = new SubtitleParsedHtmlCache({
+        getSettings: () => this.options.getSettings(),
+        shouldParseSubtitles: () => this.shouldParseSubtitles(),
+        hasAuthoritativeParseTier: (settings?: ReaderSettings) => this.hasAuthoritativeParseTier(settings),
+        transcriptRowCount: () => this.cues.filter(cue => cue.transcriptEligible !== false).length,
+    });
     private transcriptTextTargetsByParseKey = new Map<string, HTMLElement[]>();
     private renderSerial = 0;
     private panelMode: SubtitlePanelMode = 'lines';
@@ -2732,16 +2698,16 @@ export class SubtitlePlayerController {
     private primaryParsedHtmlForRender(text: string, settings: ReaderSettings, key: string): string | undefined {
         const cached = this.cachedParsedCueHtml(key, settings);
         if (cached !== undefined) return cached;
-        const provisional = this.provisionalParsedHtmlCache.get(key);
+        const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
         if (provisional !== undefined) {
             if (this.shouldUseProvisionalSubtitleParse(settings)) {
-                if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+                if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
                     if (this.hasAuthoritativeParseTier(settings)) {
                         this.ensureAuthoritativeParsedCueHtml(text, settings, key);
                         return undefined;
                     }
                     this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
-                    if (!this.parsedTokenCache.has(key)) return undefined;
+                    if (!this.htmlCache.parsedTokenCache.has(key)) return undefined;
                 } else {
                     this.ensureAuthoritativeParsedCueHtml(text, settings, key);
                 }
@@ -2784,7 +2750,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const key = this.parseCacheKey(text, settings);
         const serial = ++this.renderSerial;
-        const cached = this.parsedHtmlCache.get(key);
+        const cached = this.htmlCache.parsedHtmlCache.get(key);
         if (cached) {
             const root = this.replacePrimaryHtml(cached, serial);
             if (root) this.notifyParsedTokensForKey(key, true, [root]);
@@ -2843,19 +2809,7 @@ export class SubtitlePlayerController {
     }
 
     private parseCacheKey(text: string, settings = this.options.getSettings()): string {
-        return [
-            subtitleParseSourceSignature(settings),
-            settings.showFurigana,
-            settings.furiganaMode,
-            settings.hideKnownFurigana,
-            settings.wordHighlightColorSource,
-            settings.wordUnderlineColorSource,
-            settings.wordTextColorSource,
-            settings.subtitleHighlightColorSource,
-            settings.subtitleUnderlineColorSource,
-            settings.subtitleTextColorSource,
-            text,
-        ].join(':');
+        return this.htmlCache.parseCacheKey(text, settings);
     }
 
     private async parseCueHtml(text: string, settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<string> {
@@ -2879,17 +2833,17 @@ export class SubtitlePlayerController {
             this.rememberParsedCueHtml(key, html, tokens);
             return html;
         })();
-        this.pendingParsedHtml.set(key, promise);
+        this.htmlCache.pendingParsedHtml.set(key, promise);
         try {
             return await promise;
         } finally {
-            this.pendingParsedHtml.delete(key);
+            this.htmlCache.pendingParsedHtml.delete(key);
         }
     }
 
     private async parseAuthoritativeCueHtml(text: string, settings: ReaderSettings, key: string): Promise<string> {
         this.ensureAuthoritativeParsedCueHtml(text, settings, key);
-        const pending = this.pendingParsedHtml.get(key);
+        const pending = this.htmlCache.pendingParsedHtml.get(key);
         if (pending) return pending;
         const cached = this.cachedParsedCueHtml(key, settings);
         if (cached) return cached;
@@ -2901,11 +2855,11 @@ export class SubtitlePlayerController {
             this.applyAuthoritativeParsedCueHtml(key, text, html);
             return html;
         })();
-        this.pendingParsedHtml.set(key, promise);
+        this.htmlCache.pendingParsedHtml.set(key, promise);
         try {
             return await promise;
         } finally {
-            if (this.pendingParsedHtml.get(key) === promise) this.pendingParsedHtml.delete(key);
+            if (this.htmlCache.pendingParsedHtml.get(key) === promise) this.htmlCache.pendingParsedHtml.delete(key);
         }
     }
 
@@ -2913,8 +2867,8 @@ export class SubtitlePlayerController {
         const restored = this.restoreSessionParsedCueHtml(key);
         if (restored) return restored;
         const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
-        const cached = this.provisionalParsedHtmlCache.get(key);
-        const cachedIsEnriched = this.enrichedProvisionalParsedHtmlKeys.has(key);
+        const cached = this.htmlCache.provisionalParsedHtmlCache.get(key);
+        const cachedIsEnriched = this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
         if (cached
             && (!options.refreshProvisional || cachedIsEnriched)
             && (!options.requireEnrichedProvisional || cachedIsEnriched)) {
@@ -2922,7 +2876,7 @@ export class SubtitlePlayerController {
             return cached;
         }
         const pending = options.refreshProvisional
-            ? options.requireEnrichedProvisional ? undefined : this.pendingProvisionalParsedHtml.get(key)
+            ? options.requireEnrichedProvisional ? undefined : this.htmlCache.pendingProvisionalParsedHtml.get(key)
             : this.pendingParsedCueHtml(key, 'provisional');
         if (pending) {
             const html = await pending;
@@ -2936,25 +2890,25 @@ export class SubtitlePlayerController {
             this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
             return html;
         })();
-        this.pendingProvisionalParsedHtml.set(key, promise);
+        this.htmlCache.pendingProvisionalParsedHtml.set(key, promise);
         try {
             const html = await promise;
             if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
             return html;
         } finally {
-            this.pendingProvisionalParsedHtml.delete(key);
+            this.htmlCache.pendingProvisionalParsedHtml.delete(key);
         }
     }
 
     private ensureEnrichedProvisionalParsedCueHtml(text: string, settings: ReaderSettings, key: string): void {
-        if (this.enrichedProvisionalParsedHtmlKeys.has(key) || this.pendingProvisionalParsedHtml.has(key)) return;
+        if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || this.htmlCache.pendingProvisionalParsedHtml.has(key)) return;
         void this.parseProvisionalCueHtml(text, settings, key, {
             authoritativeUpgrade: false,
             enrichBeforeRender: true,
             requireEnrichedProvisional: true,
             refreshProvisional: true,
         }).then(html => {
-            if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) return;
+            if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) return;
             this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
             if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
         }).catch(() => undefined);
@@ -2969,7 +2923,7 @@ export class SubtitlePlayerController {
         // Without an API credential there is no authoritative tier to upgrade
         // to; the provisional parse is the final result for both surfaces.
         if (!this.hasAuthoritativeParseTier(settings)) return;
-        const missing = items.filter(item => this.cachedParsedCueHtml(item.key, settings) === undefined && !this.pendingParsedHtml.has(item.key));
+        const missing = items.filter(item => this.cachedParsedCueHtml(item.key, settings) === undefined && !this.htmlCache.pendingParsedHtml.has(item.key));
         if (!missing.length) return;
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(missing.map(item => item.text), authoritativeSubtitleParseOptions())
@@ -2982,10 +2936,10 @@ export class SubtitlePlayerController {
             this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
             return html;
         }));
-        missing.forEach((item, index) => this.pendingParsedHtml.set(item.key, parsedHtml[index]));
+        missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
         void Promise.allSettled(parsedHtml).finally(() => {
             missing.forEach((item, index) => {
-                if (this.pendingParsedHtml.get(item.key) === parsedHtml[index]) this.pendingParsedHtml.delete(item.key);
+                if (this.htmlCache.pendingParsedHtml.get(item.key) === parsedHtml[index]) this.htmlCache.pendingParsedHtml.delete(item.key);
             });
         });
     }
@@ -3017,10 +2971,10 @@ export class SubtitlePlayerController {
     }
 
     private rebakeParsedCueHtml(key: string, text: string, settings: ReaderSettings): void {
-        const tokens = this.parsedTokenCache.get(key);
+        const tokens = this.htmlCache.parsedTokenCache.get(key);
         if (!tokens?.length) return;
-        const provisional = !this.parsedHtmlCache.has(key) && this.provisionalParsedHtmlCache.has(key);
-        const previous = provisional ? this.provisionalParsedHtmlCache.get(key) : this.parsedHtmlCache.get(key);
+        const provisional = !this.htmlCache.parsedHtmlCache.has(key) && this.htmlCache.provisionalParsedHtmlCache.has(key);
+        const previous = provisional ? this.htmlCache.provisionalParsedHtmlCache.get(key) : this.htmlCache.parsedHtmlCache.get(key);
         if (previous === undefined) return;
         const html = withBreaks(renderTokensToHtml(text, tokens, settings));
         if (html === previous) return;
@@ -3059,7 +3013,7 @@ export class SubtitlePlayerController {
             // second time through the local tokenizer.
             key => this.cachedParsedCueHtml(key, settings)
                 ?? this.freshEmptyParsedHtml(key)
-                ?? (this.hasAuthoritativeParseTier(settings) ? undefined : this.provisionalParsedHtmlCache.get(key)),
+                ?? (this.hasAuthoritativeParseTier(settings) ? undefined : this.htmlCache.provisionalParsedHtmlCache.get(key)),
             key => this.pendingParsedCueHtml(key, 'authoritative'),
         );
         if (!batch.length) return Promise.all(ready);
@@ -3072,7 +3026,7 @@ export class SubtitlePlayerController {
 
         const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), this.finalSubtitleParseOptions(settings));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
-        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingParsedHtml);
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
     }
 
     private async parseAuthoritativeCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
@@ -3081,7 +3035,7 @@ export class SubtitlePlayerController {
         return await Promise.all(items.map(async item => {
             const cached = this.cachedParsedCueHtml(item.key, settings);
             if (cached) return { key: item.key, html: cached };
-            const pending = this.pendingParsedHtml.get(item.key);
+            const pending = this.htmlCache.pendingParsedHtml.get(item.key);
             return { key: item.key, html: pending ? await pending : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
         }));
     }
@@ -3094,7 +3048,7 @@ export class SubtitlePlayerController {
         const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
         const { ready, batch } = planProvisionalSubtitleParseBatch(
             items,
-            key => this.parsedHtmlCache.get(key),
+            key => this.htmlCache.parsedHtmlCache.get(key),
             key => this.usableProvisionalParsedHtml(key, options),
             key => options.refreshProvisional ? undefined : this.pendingParsedCueHtml(key, 'provisional'),
             key => this.freshEmptyParsedHtml(key),
@@ -3108,7 +3062,7 @@ export class SubtitlePlayerController {
             ? this.options.parseJapaneseBatch(batch.map(item => item.text), provisionalSubtitleParseOptions())
             : Promise.all(batch.map(item => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
-        const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.pendingProvisionalParsedHtml);
+        const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
         return results;
     }
@@ -3156,7 +3110,7 @@ export class SubtitlePlayerController {
         const provisional = options.allowProvisional !== false
             && this.shouldUseProvisionalSubtitleParse(settings)
             && !this.shouldBypassProvisionalForAuthoritative(settings, options);
-        const pendingCache = provisional ? this.pendingProvisionalParsedHtml : this.pendingParsedHtml;
+        const pendingCache = provisional ? this.htmlCache.pendingProvisionalParsedHtml : this.htmlCache.pendingParsedHtml;
         const parseOptions = provisional ? provisionalSubtitleParseOptions() : this.finalSubtitleParseOptions(settings);
         const ready: Promise<ParsedSubtitleHtmlResult>[] = [];
         const batch: Array<TranscriptParseItem & { context: TranscriptContextWindow }> = [];
@@ -3206,7 +3160,7 @@ export class SubtitlePlayerController {
             const html = this.usableProvisionalParsedHtml(key, options);
             if (html) return { key, html, provisional: true };
         } else if (!this.hasAuthoritativeParseTier(settings)) {
-            const html = this.provisionalParsedHtmlCache.get(key);
+            const html = this.htmlCache.provisionalParsedHtmlCache.get(key);
             if (html) return { key, html, provisional: true };
         }
         return undefined;
@@ -3272,98 +3226,15 @@ export class SubtitlePlayerController {
     }
 
     private usableProvisionalParsedHtml(key: string, options: Pick<ParseCueHtmlOptions, 'refreshProvisional' | 'requireEnrichedProvisional'>): string | undefined {
-        const html = this.provisionalParsedHtmlCache.get(key);
-        if (!html) return undefined;
-        if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return undefined;
-        return html;
+        return this.htmlCache.usableProvisionalParsedHtml(key, options);
     }
 
-    // A cue is only "fully enriched" when every kanji-bearing token can render
-    // furigana (explicit rubies, or a usable kana reading != surface). A
-    // fallback token whose public lookup has not resolved yet leaves the cue
-    // re-hydratable, so a later pass (e.g. after orientationchange/resize) can
-    // retry it instead of the enriched-once flag freezing the missing furigana
-    // forever. Local/authoritative tokens are final and never block. Mirrors
-    // sourceTokenRubies (dom/index.ts).
-    private tokensFullyEnriched(tokens: JPDBToken[]): boolean {
-        return tokens.every(token => {
-            if (token.rubies.length) return true;
-            const surface = token.card.spelling || '';
-            if (!SUBTITLE_FURIGANA_KANJI_RE.test(surface)) return true;
-            if (token.card.source !== 'fallback') return true;
-            const reading = token.card.reading.trim();
-            return Boolean(reading) && reading !== surface && SUBTITLE_FURIGANA_KANA_RE.test(reading);
-        });
-    }
-
-    // Decide whether a freshly parsed provisional cue is "enriched" (sticky, no
-    // re-hydration). A fully-resolved cue is sticky immediately. A cue that
-    // still has an unresolved fallback kanji word is left re-hydratable so a
-    // later pass can retry — but only up to a bounded number of attempts, after
-    // which it settles to bare to avoid re-requesting an unresolvable word on
-    // every hydration tick.
     private shouldMarkCueEnriched(key: string, tokens: JPDBToken[], enrichRequested: boolean): boolean {
-        if (!enrichRequested) return false;
-        if (this.tokensFullyEnriched(tokens)) {
-            this.incompleteEnrichmentAttempts.delete(key);
-            return true;
-        }
-        const attempts = (this.incompleteEnrichmentAttempts.get(key) ?? 0) + 1;
-        if (attempts >= SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT) {
-            this.incompleteEnrichmentAttempts.delete(key);
-            return true;
-        }
-        if (this.incompleteEnrichmentAttempts.size >= SUBTITLE_PARSE_CACHE_MAX_ENTRIES) {
-            this.incompleteEnrichmentAttempts.delete(this.incompleteEnrichmentAttempts.keys().next().value ?? '');
-        }
-        this.incompleteEnrichmentAttempts.set(key, attempts);
-        return false;
+        return this.htmlCache.shouldMarkCueEnriched(key, tokens, enrichRequested);
     }
 
     private rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): void {
-        if (!this.shouldParseSubtitles()) return;
-        if (parsedSubtitleHtmlHasReaderWords(html)) {
-            if (options.provisional) {
-                this.provisionalParsedHtmlCache.set(key, html);
-                if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
-                else this.enrichedProvisionalParsedHtmlKeys.delete(key);
-            }
-            else {
-                this.parsedHtmlCache.set(key, html);
-                this.provisionalParsedHtmlCache.delete(key);
-                this.enrichedProvisionalParsedHtmlKeys.delete(key);
-            }
-            // UT-48: refreshing the page must keep parsed ruby. Keyless cheap
-            // warmup is provisional-only; persist it only after visible
-            // enrichment has rebaked furigana/pitch into the HTML.
-            if (!options.provisional || (!this.hasAuthoritativeParseTier() && options.enriched)) this.persistSessionParsedCueHtml(key, html);
-            this.emptyParsedHtmlCache.delete(key);
-            if (tokens.length) this.parsedTokenCache.set(key, tokens);
-            this.pruneParsedSubtitleCaches();
-        } else {
-            // Provisional empties are cached too: keyless they ARE the final
-            // tier (re-parsing every tick rendered word-less cues as a
-            // perpetual loading shimmer), keyed the authoritative upgrade is
-            // already in flight and overwrites this entry when it lands.
-            this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
-            this.pruneParsedSubtitleCaches();
-        }
-    }
-
-    private pruneParsedSubtitleCaches(): void {
-        const limit = this.parsedSubtitleCacheLimit();
-        this.pruneParsedSubtitleCache(this.parsedHtmlCache, limit);
-        this.pruneParsedSubtitleCache(this.provisionalParsedHtmlCache, limit);
-        while (this.emptyParsedHtmlCache.size > SUBTITLE_PARSE_CACHE_MIN_ENTRIES) this.deleteParsedSubtitleKey(this.emptyParsedHtmlCache.keys().next().value ?? '');
-        while (this.parsedTokenCache.size > limit) this.deleteParsedSubtitleKey(this.parsedTokenCache.keys().next().value ?? '');
-    }
-
-    private parsedSubtitleCacheLimit(): number {
-        const transcriptRows = this.cues.filter(cue => cue.transcriptEligible !== false).length;
-        return Math.min(
-            SUBTITLE_PARSE_CACHE_MAX_ENTRIES,
-            Math.max(SUBTITLE_PARSE_CACHE_MIN_ENTRIES, transcriptRows + SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM),
-        );
+        this.htmlCache.rememberParsedCueHtml(key, html, tokens, options);
     }
 
     private hasAuthoritativeParseTier(settings = this.options.getSettings()): boolean {
@@ -3378,57 +3249,18 @@ export class SubtitlePlayerController {
         return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
 
-    // UT-48 session persistence: parsed cue html survives reloads of the
-    // same video/session. Quota errors and disabled storage degrade to the
-    // in-memory caches silently.
-    private persistSessionParsedCueHtml(key: string, html: string): void {
-        try {
-            sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
-        } catch {
-            // Storage full or unavailable — in-memory cache still applies.
-        }
-    }
-
     private restoreSessionParsedCueHtml(key: string): string | undefined {
-        if (this.sessionParseCacheChecked.has(key)) return undefined;
-        this.sessionParseCacheChecked.add(key);
-        try {
-            const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
-            if (!raw) return undefined;
-            const value = JSON.parse(raw) as { at?: number; html?: string };
-            if (typeof value.html !== 'string' || typeof value.at !== 'number') return undefined;
-            if (Date.now() - value.at > SUBTITLE_SESSION_PARSE_CACHE_TTL_MS) return undefined;
-            this.parsedHtmlCache.set(key, value.html);
-            this.pruneParsedSubtitleCaches();
-            return value.html;
-        } catch {
-            return undefined;
-        }
-    }
-
-    private pruneParsedSubtitleCache(cache: Map<string, string>, limit = this.parsedSubtitleCacheLimit()): void {
-        while (cache.size > limit) this.deleteParsedSubtitleKey(cache.keys().next().value ?? '');
-    }
-
-    private deleteParsedSubtitleKey(key: string): void {
-        if (!key) return;
-        this.parsedHtmlCache.delete(key);
-        this.provisionalParsedHtmlCache.delete(key);
-        this.emptyParsedHtmlCache.delete(key);
-        this.pendingParsedHtml.delete(key);
-        this.pendingProvisionalParsedHtml.delete(key);
-        this.parsedTokenCache.delete(key);
-        this.parsedTokenNotifiedAt.delete(key);
+        return this.htmlCache.restoreSessionParsedCueHtml(key);
     }
 
     private notifyParsedTokensForKey(key: string, force = false, roots?: ParentNode[]): void {
         if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
-        const tokens = this.parsedTokenCache.get(key);
+        const tokens = this.htmlCache.parsedTokenCache.get(key);
         if (!tokens?.length) return;
         const now = Date.now();
-        const lastNotifiedAt = this.parsedTokenNotifiedAt.get(key) ?? 0;
+        const lastNotifiedAt = this.htmlCache.parsedTokenNotifiedAt.get(key) ?? 0;
         if (!force && now - lastNotifiedAt < SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS) return;
-        this.parsedTokenNotifiedAt.set(key, now);
+        this.htmlCache.parsedTokenNotifiedAt.set(key, now);
         this.options.afterParseTokens(tokens, roots);
     }
 
@@ -3440,15 +3272,11 @@ export class SubtitlePlayerController {
     }
 
     private hasFreshEmptyParsedHtml(key: string): boolean {
-        return Boolean(this.freshEmptyParsedHtml(key));
+        return this.htmlCache.hasFreshEmptyParsedHtml(key);
     }
 
     private freshEmptyParsedHtml(key: string): string | undefined {
-        const cached = this.emptyParsedHtmlCache.get(key);
-        if (!cached) return undefined;
-        if (cached.expiresAt > Date.now()) return cached.html;
-        this.emptyParsedHtmlCache.delete(key);
-        return undefined;
+        return this.htmlCache.freshEmptyParsedHtml(key);
     }
 
     private warmParseAroundActiveCue(): void {
@@ -3504,27 +3332,15 @@ export class SubtitlePlayerController {
     // a failed authoritative upgrade is retried by the next warmup turn.
     private isWarmParsedCueKey(key: string, settings = this.options.getSettings()): boolean {
         if (this.cachedParsedCueHtml(key, settings) !== undefined || this.hasFreshEmptyParsedHtml(key)) return true;
-        return !this.hasAuthoritativeParseTier(settings) && this.enrichedProvisionalParsedHtmlKeys.has(key);
+        return !this.hasAuthoritativeParseTier(settings) && this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
     }
 
     private cachedParsedCueHtml(key: string, settings: ReaderSettings): string | undefined {
-        const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
-        if (!cached) return undefined;
-        if (this.hasAuthoritativeParseTier(settings) && cached.includes('data-card-source="fallback"')) {
-            this.parsedHtmlCache.delete(key);
-            return undefined;
-        }
-        return cached;
+        return this.htmlCache.cachedParsedCueHtml(key, settings);
     }
 
-    // Keyless both tiers produce the same local-tokenizer result, so an
-    // in-flight parse on EITHER tier satisfies the other — without this the
-    // overlay warmup and the transcript-tail warmup tokenized the same cue
-    // twice whenever their windows overlapped.
     private pendingParsedCueHtml(key: string, tier: 'authoritative' | 'provisional'): Promise<string> | undefined {
-        const own = tier === 'provisional' ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedHtml.get(key);
-        if (own || this.hasAuthoritativeParseTier()) return own;
-        return tier === 'provisional' ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
+        return this.htmlCache.pendingParsedCueHtml(key, tier);
     }
 
     private applyEffectiveSubtitleBottom(): void {
@@ -6297,9 +6113,9 @@ export class SubtitlePlayerController {
     }
 
     private shadowParsedLine(cueText: string, parseKey: string, settings: ReaderSettings): ShadowParsedLine {
-        const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.provisionalParsedHtmlCache.get(parseKey);
+        const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
         const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parseKey)}"` : '';
-        const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : '';
+        const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : '';
         return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
     }
 
@@ -6349,7 +6165,7 @@ export class SubtitlePlayerController {
     private requestParsedShadowLineIfNeeded(cue: SubtitleCue, key: string, signature: string, settings: ReaderSettings): void {
         if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== undefined) {
             const target = this.transcriptPanel ? this.transcriptTextTargetsForParseKey(this.transcriptPanel, key)[0] : undefined;
-            if (target && this.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
+            if (target && this.htmlCache.parsedHtmlCache.has(key)) this.notifyParsedTokensForKey(key, true, [target]);
             return;
         }
         void this.parseCueHtml(cue.text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true })
@@ -6425,7 +6241,7 @@ export class SubtitlePlayerController {
                 start: row.cue.start,
                 end: row.cue.end,
                 text: row.cue.text,
-                tokens: this.parsedTokenCache.get(key) ?? [],
+                tokens: this.htmlCache.parsedTokenCache.get(key) ?? [],
             };
         });
     }
@@ -6490,7 +6306,7 @@ export class SubtitlePlayerController {
             const target = this.batchMiningRows[startIndex + offset];
             if (!row || !target) continue;
             const key = this.parseCacheKey(row.cue.text, settings);
-            target.tokens = this.parsedTokenCache.get(key) ?? [];
+            target.tokens = this.htmlCache.parsedTokenCache.get(key) ?? [];
         }
     }
 
@@ -6829,9 +6645,9 @@ export class SubtitlePlayerController {
         const cue = row.cue;
         const settings = this.options.getSettings();
         const parsedKey = this.transcriptRowParseKey(row, index, rows, settings);
-        const parsed = this.parsedHtmlCache.get(parsedKey) ?? this.provisionalParsedHtmlCache.get(parsedKey);
+        const parsed = this.htmlCache.parsedHtmlCache.get(parsedKey) ?? this.htmlCache.provisionalParsedHtmlCache.get(parsedKey);
         const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parsedKey)}"` : '';
-        const provisionalAttribute = parsed && !this.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : '';
+        const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : '';
         const seekLabel = `${uiText(settings.interfaceLanguage, 'seekSubtitleLine')} ${formatSubtitleTime(cue.start)}`;
         return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
@@ -7371,7 +7187,7 @@ export class SubtitlePlayerController {
             if (serial !== this.transcriptHydrationSerial) return;
             const hydration = this.transcriptRowHydrationTarget(index, request.settings, request.rows);
             if (!hydration) continue;
-            const cached = this.parsedHtmlCache.get(hydration.key);
+            const cached = this.htmlCache.parsedHtmlCache.get(hydration.key);
             if (cached) this.applyCachedTranscriptRowHtml(hydration, cached);
             else targets.push(hydration);
         }
@@ -7428,7 +7244,7 @@ export class SubtitlePlayerController {
                 // even though enriched html for every other word was cached.
                 this.updateTranscriptRowsForParseKey(item.key, item.html, {
                     provisional: item.provisional === true,
-                    refreshProvisional: item.provisional === true && !this.parsedHtmlCache.has(item.key),
+                    refreshProvisional: item.provisional === true && !this.htmlCache.parsedHtmlCache.has(item.key),
                 });
             }
         } catch {
@@ -7446,8 +7262,8 @@ export class SubtitlePlayerController {
         if (!cue || !target) return null;
         const key = this.transcriptRowParseKey(rows[index], index, rows, settings);
         const provisionalNeedsHydration = (target.dataset.parsedProvisional === 'true'
-            || (this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)))
-            && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
+            || (this.htmlCache.provisionalParsedHtmlCache.has(key) && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)))
+            && (this.hasAuthoritativeParseTier() || !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key));
         return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, rowIndex: index, target, key };
     }
 
