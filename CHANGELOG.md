@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.191] - 2026-07-18
+
+### Fixed
+
+- Yomu popovers, sheets, and other overlay panels no longer render double-sized on mobile and iPad on sites like reddit.com; every Yomu surface now pins its declared text size so mobile-browser font boosting cannot inflate it.
+
 ## [1.6.190] - 2026-07-18
 
 ### Changed

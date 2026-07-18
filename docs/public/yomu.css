@@ -253,6 +253,14 @@
   direction: ltr;
   font: 14px/1.45 var(--jpdb-reader-font);
   letter-spacing: 0;
+  /* Mobile browsers (iPadOS Safari desktop-mode, Chrome Android) inflate
+     px-sized text via font boosting unless it is pinned; `all: initial`
+     above resets text-size-adjust back to `auto`, so without this pin
+     every Yomu surface renders ~2x on hosts whose own reset pins their
+     text (e.g. reddit.com). In-content word decorations are untouched so
+     they keep matching surrounding (possibly boosted) host text. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   text-transform: none;
   unicode-bidi: isolate;
 }
