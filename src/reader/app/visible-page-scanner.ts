@@ -3,6 +3,7 @@ import {
     collectTextTargetsIn,
     healTextMirrorPageVisibility,
     isCurrentScanTarget,
+    healUngrowableInFlowClampRows,
     makeRoomForRubyInCroppedRows,
     refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
@@ -183,6 +184,8 @@ export class VisiblePageScanner {
             if (this.destroyed || typeof document === 'undefined') return;
             const adjusted = this.makeRoomForRuby(document);
             if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
+            const healed = healUngrowableInFlowClampRows(document);
+            if (healed) log.info('Rest-hid in-flow readings on ungrowable clamp rows', { healed });
             refreshWrappedScanWordUnderlines(document);
         };
         // Silent auto-scans skip the immediate document-wide pass: apply-time
@@ -539,9 +542,15 @@ export class VisiblePageScanner {
             if (this.destroyed) return;
             this.makeRoomForRuby(root);
         }
-        // Wrapped-word underline stamping shares the same write profile
-        // (attribute-only; observers ignore it) and must follow the room
-        // growth above — growing a row can rewrap its words.
+        // The in-flow clamp heal and wrapped-word underline stamping share the
+        // same write profile (attribute-only; observers ignore it) and must
+        // follow the room growth above — growing a row can rewrap its words.
+        // Heal runs first: flipping an ungrowable row to rest-hidden removes
+        // its rt from layout, which changes what wraps.
+        for (const root of roots) {
+            if (this.destroyed) return;
+            healUngrowableInFlowClampRows(root);
+        }
         for (const root of roots) {
             if (this.destroyed) return;
             refreshWrappedScanWordUnderlines(root);

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTokensToScanTarget, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
+import { applyTokensToScanTarget, healUngrowableInFlowClampRows, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { clampRowAllowsInFlowRestRuby, contentClipRowShowsRestReadings } from '../../src/reader/dom/decoration-policy';
 import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
@@ -147,6 +147,34 @@ describe('clamped content preserves base text and bounded geometry', () => {
         // Nowrap ellipsis rows cannot rewrap a ruby-spread base, so the
         // in-flow channel never claims them.
         expect(clampRowAllowsInFlowRestRuby('prose-full', single)).toBe(false);
+    });
+
+    it('flips an ungrowable in-flow clamp row back to rest-hidden when bases leave its box', () => {
+        // Engine guard: CI Linux Chrome does not grow the -webkit-box line
+        // box for rt — bases fall below the clip (row 11px, readings-only).
+        document.body.innerHTML = `
+            <div id="row" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">東京</span><rt class="jpdb-reader-furi">とうきょう</rt></ruby></span>
+            </div>
+            <div id="healthy" data-yomu-clip-constrained="content" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">
+                <span class="jpdb-reader-word jpdb-reader-scan-word"><ruby><span class="jpdb-reader-ruby-base">大阪</span><rt class="jpdb-reader-furi">おおさか</rt></ruby></span>
+            </div>`;
+        const stampRects = (rowId: string, rowRect: Partial<DOMRect>, baseRect: Partial<DOMRect>) => {
+            const row = document.getElementById(rowId)!;
+            Object.defineProperty(row, 'getBoundingClientRect', {
+                configurable: true, value: () => ({ toJSON: () => ({}), ...rowRect }) as DOMRect,
+            });
+            const base = row.querySelector<HTMLElement>('.jpdb-reader-ruby-base')!;
+            Object.defineProperty(base, 'getBoundingClientRect', {
+                configurable: true, value: () => ({ toJSON: () => ({}), ...baseRect }) as DOMRect,
+            });
+        };
+        stampRects('row', { top: 100, bottom: 111, height: 11 }, { top: 112, bottom: 132, height: 20 });
+        stampRects('healthy', { top: 200, bottom: 258, height: 58 }, { top: 212, bottom: 232, height: 20 });
+
+        expect(healUngrowableInFlowClampRows(document)).toBe(1);
+        expect(document.getElementById('row')!.dataset.yomuClipConstrained).toBe('true');
+        expect(document.getElementById('healthy')!.dataset.yomuClipConstrained).toBe('content');
     });
 
     it('vetoes in-flow clamp readings under a fixed-height clipping shell', () => {

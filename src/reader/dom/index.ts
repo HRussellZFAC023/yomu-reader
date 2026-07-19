@@ -6969,6 +6969,34 @@ const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 // pass only ever grows (previousRubyRoomHeight guard), so it terminates.
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
 
+// Engine guard for the in-flow clamp reading channel: some engine/font
+// combinations (CI's Linux Chrome, observed v1.6.244 Release run) do NOT grow
+// a -webkit-box line-clamp row when rt joins the line box — the base glyphs
+// fall below the clip and only the readings stay visible (the historical
+// only-furigana row). Growth is measured after paint: a "content" row whose
+// FIRST annotated base is no longer inside its own box flips back to the
+// rest-hidden "true" stamp, which removes rt from layout and restores the
+// plain line. Engines that grow correctly (macOS Chromium/WebKit verified)
+// never trip this. Reads complete before the attribute writes.
+export function healUngrowableInFlowClampRows(root: ParentNode = document): number {
+    const rows = root.querySelectorAll<HTMLElement>('[data-yomu-clip-constrained="content"]');
+    if (!rows.length) return 0;
+    const broken: HTMLElement[] = [];
+    for (const row of rows) {
+        if (row.classList.contains('jpdb-reader-text-mirror')) continue;
+        const word = row.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word');
+        if (!word || !word.querySelector('rt.jpdb-reader-furi')) continue;
+        const rect = row.getBoundingClientRect();
+        if (!rect.height) continue;
+        const base = word.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? word;
+        const baseRect = base.getBoundingClientRect();
+        if (!baseRect.height) continue;
+        if (baseRect.top < rect.top - 1 || baseRect.bottom > rect.bottom + 1) broken.push(row);
+    }
+    for (const row of broken) row.dataset.yomuClipConstrained = 'true';
+    return broken.length;
+}
+
 // A token that wraps across line boxes cannot be underlined by the single
 // absolutely-positioned ::after overlay — it anchors to the word's border box,
 // so continuation lines lose their pitch/status underline entirely (iPad
