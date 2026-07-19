@@ -580,6 +580,7 @@ declare global {
     // guard tree-shake out of the size-limited userscript bundle.
     const __YOMU_NEWTAB_BUILD__: undefined | boolean;
     const __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: undefined | string;
+    const __YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__: undefined | boolean;
 
     type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };
     type UserscriptHttpRequestHandle = { abort?: () => void };

@@ -23,7 +23,6 @@
 ### Changed
 
 - Moved the Bunpro provider suite, including the API client, SRS adapter, word-state colouring, token importer, and the popup definition section, into a new Yomu Bunpro companion script. Together with the Immersion Kit move this restores the intended safety margin under Greasy Fork's 2 MB core-script limit. Behavior is unchanged: the companion is always required by the userscript, bundled into hosted builds, and loaded by the Academy reader runtime.
-
 ## [1.6.236] - 2026-07-19
 
 ### Changed

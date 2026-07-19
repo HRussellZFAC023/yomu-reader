@@ -221,7 +221,7 @@ const listen = () => server.listen(port, host, () => {
     console.log(`[yomu-dev] serving ${origin}`);
     console.log(`[yomu-dev] install ${origin}/yomu.user.js`);
     console.log(`[yomu-dev] Vite is rebuilding ${path.relative(process.cwd(), distUserscript)} on changes`);
-    console.log(`[yomu-dev] docs are served by VitePress; open the printed VitePress URL for /yomu-reader/newtab/index.html`);
+    console.log(`[yomu-dev] docs are served by VitePress; open the printed VitePress URL for /study/`);
 });
 
 server.on('error', error => {

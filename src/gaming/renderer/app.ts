@@ -337,7 +337,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         }
         if (action === 'copy-newtab-url') {
             event.preventDefault();
-            void navigator.clipboard?.writeText('https://yomureader.com/newtab/index.html').then(() => {
+            void navigator.clipboard?.writeText('https://yomureader.com/study/').then(() => {
                 setShellStatus('Study address copied.', 'success');
             }).catch(() => {
                 setShellStatus('Could not copy from this shell.', 'warning');

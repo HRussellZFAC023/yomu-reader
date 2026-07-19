@@ -112,7 +112,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         // The Greasy Fork listing is searched by this text — the name is よむ,
         // so without "Yomu" and feature keywords here the script is
         // unfindable by its romaji name.
-        description: 'Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.',
+        description: 'Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and optional Study new tabs.',
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read Japanese anywhere" behavior.
         match: userscriptMatchForCommand(command),
@@ -163,6 +163,9 @@ function readerDefines(command: string) {
             // Public OAuth client id for serverless Google Drive settings sync.
             // No secret, safe to embed; empty leaves the feature inert.
             __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
+            __YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__: JSON.stringify(Boolean(
+                process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_OAUTH_CLIENT_ID,
+            )),
         };
     }
     return defines;

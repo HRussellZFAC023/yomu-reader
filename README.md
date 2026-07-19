@@ -67,7 +67,7 @@ https://yomureader.com/yomu.user.js
 
 To update on Chrome or Edge, use **Tampermonkey Dashboard → Utilities → Check for userscript updates**. A browser warning that userscripts cannot be added is a disabled Tampermonkey permission, not a bad download host; the setup guide covers **Allow User Scripts** and Developer mode.
 
-Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript is the production install path.
+Signed browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript and the release-page extension packages are the production install paths.
 
 ## What It Does
 
@@ -100,7 +100,7 @@ The imported Bunpro frontend token grants account read/write access for reviews.
 
 Yomu Gaming sends captured images only to the local OCR endpoint you configure. Clipboard capture, screenshot capture, audio capture, and cloud OCR or translation services outside that endpoint are external unless you explicitly choose them.
 
-For the fuller privacy and setup notes, read the docs at [yomureader.com](https://yomureader.com/).
+For the complete data-use disclosure, read the [Yomu privacy policy](https://yomureader.com/privacy).
 
 ## Development
 

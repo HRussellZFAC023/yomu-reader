@@ -14,7 +14,7 @@ import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
-import { yomuKanjiStudyCompanion } from '../companions/registry';
+import { yomuKanjiStudyCompanion, yomuOnboardingController } from '../companions/registry';
 import {
     kanjiFactProviderTitle,
     kanjiSourceStateKey,
@@ -117,6 +117,8 @@ import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
 import { SettingsDialogController } from '../settings/dialog-controller';
+import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
+import { runningAsBrowserExtension } from '../app/runtime-env';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
@@ -283,6 +285,7 @@ export class NewTabRuntime {
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private newTab?: NewTabController;
+    private offlineDictionarySetupInFlight = false;
 
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -472,6 +475,7 @@ export class NewTabRuntime {
             this.settingsPreviewOriginalTheme = undefined;
         },
     });
+    private onboarding = this.createOnboardingController();
 
     constructor(private readonly options: NewTabRuntimeOptions = {}) {}
 
@@ -491,6 +495,9 @@ export class NewTabRuntime {
         this.assertSessionVocabularyReadOnly();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
+        if (!this.options.mountHost && runningAsBrowserExtension()) {
+            await this.onboarding.showIfNeeded();
+        }
         void this.refreshDictionaryStyles();
         if (this.settings.localDictionariesEnabled) {
             window.setTimeout(() => {
@@ -501,6 +508,44 @@ export class NewTabRuntime {
         this.installCardStateSignalSubscription();
         this.installSettingsStorageSubscription();
         void this.settingsDialog.resumePendingCloudSettingsSync();
+    }
+
+    private createOnboardingController() {
+        const Controller = yomuOnboardingController();
+        if (!Controller) return { showIfNeeded: async () => false };
+        return new Controller({
+            getSettings: () => this.settings,
+            setSettings: settings => {
+                this.settings = settings;
+                this.applyTheme(settings);
+                this.applyWordColors(settings);
+            },
+            showSettings: panel => this.showSettings(panel),
+            parseJapanese: panel => void this.parseNewTabContent(panel),
+            lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
+            installOfflineDictionaries: () => void this.installOfflineDictionaries(),
+            onComplete: settings => this.applyRemoteSettings(settings),
+        });
+    }
+
+    private async installOfflineDictionaries(): Promise<void> {
+        if (this.offlineDictionarySetupInFlight) return;
+        this.offlineDictionarySetupInFlight = true;
+        try {
+            const result = await installOfflineParsingDictionaries({
+                dictionaries: this.dictionaries,
+                getSettings: () => this.settings,
+                applySettings: async settings => {
+                    this.settings = settings;
+                    await saveSettings(settings);
+                },
+            });
+            if (result.installed.length) await this.refreshDictionaryStyles();
+            if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupFailed'));
+            else if (result.installed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupComplete'));
+        } finally {
+            this.offlineDictionarySetupInFlight = false;
+        }
     }
 
     private assertSessionVocabularyReadOnly(): void {

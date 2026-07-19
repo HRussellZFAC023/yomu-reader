@@ -156,7 +156,7 @@ describe('OnboardingController', () => {
         expect(settings.localDictionariesEnabled).toBe(false);
     });
 
-    it('surfaces the "Set Study as the new tab" toggle for extension users and honours unchecking it', async () => {
+    it('requires an explicit welcome-screen opt-in before enabling Study for new tabs', async () => {
         vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en', newTabEnabled: true };
         const controller = new OnboardingController({
@@ -172,10 +172,32 @@ describe('OnboardingController', () => {
 
         const newTabToggle = document.querySelector<HTMLInputElement>('input[name="newTabEnabled"]');
         expect(newTabToggle).not.toBeNull();
-        expect(newTabToggle?.checked).toBe(true);
+        expect(newTabToggle?.checked).toBe(false);
         expect(document.body.textContent).toContain('Set Study as the new tab');
 
-        newTabToggle!.checked = false;
+        newTabToggle!.checked = true;
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
+        await settleAsyncHandlers();
+
+        expect(settings.onboardingSeen).toBe(true);
+        expect(settings.newTabEnabled).toBe(true);
+    });
+
+    it('leaves Study off when an extension user completes welcome without opting in', async () => {
+        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: nextSettings => {
+                settings = nextSettings;
+            },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+        });
+
+        await controller.showIfNeeded();
+        expect(document.querySelector<HTMLInputElement>('input[name="newTabEnabled"]')?.checked).toBe(false);
+        document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
         await settleAsyncHandlers();
 

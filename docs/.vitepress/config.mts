@@ -228,6 +228,7 @@ export default defineConfig({
                     { text: 'Stats', link: statsLink, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Changelog', link: '/changelog' },
+                    { text: 'Privacy', link: '/privacy' },
                     { text: 'Support', link: '/support' },
                 ],
             },

@@ -30,6 +30,9 @@ interface OnboardingOptions {
     lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void;
     // Background download of the default offline parsing dictionaries.
     installOfflineDictionaries?: () => void;
+    // Lets the owning runtime refresh its surface only after the completed
+    // preferences have been durably stored.
+    onComplete?: (settings: ReaderSettings) => Promise<void> | void;
 }
 
 function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -188,7 +191,7 @@ export class OnboardingController {
         // not find where to disable it). Userscript builds cannot override the
         // browser new tab, so the control is hidden there.
         this.newTabEnabledInput = runningAsBrowserExtension()
-            ? checkboxInput('newTabEnabled', this.options.getSettings().newTabEnabled)
+            ? checkboxInput('newTabEnabled', false)
             : undefined;
         const pageScanMode = createModeGroup(
             'pageScanMode',
@@ -373,6 +376,7 @@ export class OnboardingController {
             this.options.setSettings(settings);
             await saveSettings(settings);
             this.close();
+            await this.options.onComplete?.(settings);
             if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
             this.openPostOnboardingSettings(openSettings);
             log.info('Onboarding completed', { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });

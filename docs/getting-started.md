@@ -92,7 +92,7 @@ To update later, open the same link again and let Tampermonkey replace the old v
 
 ## Prefer a browser extension? (Chrome and Firefox)
 
-On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, and it also turns your new-tab page into the [Study page](/study/). The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
+On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox. The extension reserves the browser's new-tab page, but Study starts **off**: new tabs stay on a quiet disabled page unless you explicitly check **Set Study as the new tab** on the welcome screen. The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
 
 Grab the latest packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 
@@ -128,7 +128,7 @@ The first time よむ runs, it shows a **welcome panel**. The top half is quick 
 
 A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
 
-The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.
+The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources. Browser-extension users also see **Set Study as the new tab**, unchecked by default; enable it only if you want every new tab to open Study.
 
 Choose **Use without API key**, then try a lookup:
 

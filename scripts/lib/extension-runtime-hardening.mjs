@@ -16,12 +16,15 @@ const UNSAFE_EXTENSION_EVENT_PATTERNS = [
     [/\bbrowser\.tabs\.onRemoved\.removeListener\(/g, 'browser.tabs?.onRemoved?.removeListener?.('],
 ];
 
-export function hardenExtensionBackgroundSource(source) {
+export function hardenExtensionBackgroundSource(source, options = {}) {
     const hardened = UNSAFE_EXTENSION_EVENT_PATTERNS.reduce(
         (current, [pattern, replacement]) => current.replace(pattern, replacement),
         source,
     );
-    return installGoogleDriveSettingsSyncBridgeSource(installExtensionScreenshotBridgeSource(hardened));
+    const withScreenshotBridge = installExtensionScreenshotBridgeSource(hardened);
+    return options.target === 'chrome' && options.googleOAuthClientId
+        ? installGoogleDriveSettingsSyncBridgeSource(withScreenshotBridge)
+        : withScreenshotBridge;
 }
 
 function installExtensionScreenshotBridgeSource(source) {
@@ -36,12 +39,17 @@ function installGoogleDriveSettingsSyncBridgeSource(source) {
 
 export function hardenExtensionManifest(manifest, options = {}) {
     const version = Number(manifest.manifest_version || 2);
+    const target = options.target ?? '';
     const googleOAuthClientId = options.googleOAuthClientId
         ?? process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
         ?? process.env.GOOGLE_OAUTH_CLIENT_ID
         ?? '';
-    const permissions = uniqueArray([...(manifest.permissions ?? []), 'tabs', ...(googleOAuthClientId ? ['identity'] : [])]);
-    const oauth2 = googleOAuthClientId
+    const chromeOAuthConfigured = target === 'chrome' && Boolean(googleOAuthClientId);
+    const permissions = uniqueArray([
+        ...(manifest.permissions ?? []).filter(permission => permission !== 'tabs'),
+        ...(chromeOAuthConfigured ? ['identity'] : []),
+    ]);
+    const oauth2 = chromeOAuthConfigured
         ? {
             ...(manifest.oauth2 ?? {}),
             client_id: googleOAuthClientId,
@@ -56,12 +64,18 @@ export function hardenExtensionManifest(manifest, options = {}) {
     if (version >= 3) {
         return {
             ...withPermissions,
-            host_permissions: uniqueArray([...(manifest.host_permissions ?? []), '<all_urls>']),
+            host_permissions: uniqueArray([
+                ...(manifest.host_permissions ?? []).filter(permission => permission !== 'file:///*'),
+                '<all_urls>',
+            ]),
         };
     }
     return {
         ...withPermissions,
-        permissions: uniqueArray([...withPermissions.permissions, '<all_urls>']),
+        permissions: uniqueArray([
+            ...withPermissions.permissions.filter(permission => permission !== 'file:///*'),
+            '<all_urls>',
+        ]),
     };
 }
 
@@ -69,7 +83,11 @@ export async function hardenGeneratedExtensionBackgrounds(root) {
     const files = await collectBackgroundFiles(root);
     for (const file of files) {
         const source = await readFile(file, 'utf8');
-        const hardened = hardenExtensionBackgroundSource(source);
+        const target = extensionTargetFromPath(file, root);
+        const googleOAuthClientId = process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
+            ?? process.env.GOOGLE_OAUTH_CLIENT_ID
+            ?? '';
+        const hardened = hardenExtensionBackgroundSource(source, { target, googleOAuthClientId });
         if (hardened !== source) await writeFile(file, hardened);
     }
     await hardenGeneratedExtensionManifests(root);
@@ -81,10 +99,15 @@ async function hardenGeneratedExtensionManifests(root) {
     for (const file of files) {
         const source = await readFile(file, 'utf8');
         const manifest = JSON.parse(source);
-        const hardened = hardenExtensionManifest(manifest);
+        const hardened = hardenExtensionManifest(manifest, { target: extensionTargetFromPath(file, root) });
         const output = `${JSON.stringify(hardened, null, 2)}\n`;
         if (output !== source) await writeFile(file, output);
     }
+}
+
+function extensionTargetFromPath(file, root) {
+    const relative = path.relative(root, file);
+    return ['chrome', 'firefox', 'safari'].find(target => relative.split(path.sep).includes(target)) ?? '';
 }
 
 async function collectBackgroundFiles(directory) {

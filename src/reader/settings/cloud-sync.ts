@@ -38,7 +38,10 @@ interface CloudSettingsSyncResponse {
 }
 
 const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === 'boolean' ? __YOMU_EXTENSION_BUILD__ : false;
-export const CLOUD_SETTINGS_SYNC_ENABLED = EXTENSION_BUILD_FLAG;
+const EXTENSION_OAUTH_CONFIGURED = typeof __YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__ === 'boolean'
+    ? __YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__
+    : false;
+export const CLOUD_SETTINGS_SYNC_ENABLED = EXTENSION_BUILD_FLAG && EXTENSION_OAUTH_CONFIGURED;
 const GOOGLE_DRIVE_SYNC_MESSAGE = 'yomu.googleDriveSettingsSync';
 const GOOGLE_DRIVE_SYNC_TIMEOUT_MS = 20_000;
 
@@ -144,4 +147,3 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
         );
     });
 }
-

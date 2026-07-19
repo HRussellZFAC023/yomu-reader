@@ -24,6 +24,7 @@ describe('Google Drive settings sync client', () => {
     it('uploads settings through the extension Google Drive bridge', async () => {
         const messages: unknown[] = [];
         vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
+        vi.stubGlobal('__YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__', true);
         localStorage.setItem('yomu:srs-local:v1', JSON.stringify({ version: 1, cards: { local: { expression: '読む' } } }));
         vi.stubGlobal('chrome', {
             runtime: {
@@ -66,6 +67,7 @@ describe('Google Drive settings sync client', () => {
 
     it('renders Google Drive controls in extension builds', async () => {
         vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
+        vi.stubGlobal('__YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__', true);
         const { renderSettingsForm } = await import('../../src/reader/settings/form');
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }, 'https://jpdb.io/settings');
@@ -78,6 +80,7 @@ describe('Google Drive settings sync client', () => {
 
     it('restores settings through the extension Google Drive bridge', async () => {
         vi.stubGlobal('__YOMU_EXTENSION_BUILD__', true);
+        vi.stubGlobal('__YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__', true);
         vi.stubGlobal('chrome', {
             runtime: {
                 id: 'extension-id',

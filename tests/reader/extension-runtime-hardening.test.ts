@@ -26,22 +26,29 @@ describe('extension runtime hardening', () => {
         expect(hardenExtensionBackgroundSource(hardened).match(/yomu-extension-screenshot-bridge/g)).toHaveLength(1);
     });
 
-    it('adds the Google Drive settings sync bridge to generated backgrounds once', () => {
+    it('adds the Google Drive settings sync bridge only to configured Chrome backgrounds', () => {
         const source = 'console.log("background");';
-        const hardened = hardenExtensionBackgroundSource(source);
+        const hardened = hardenExtensionBackgroundSource(source, {
+            target: 'chrome',
+            googleOAuthClientId: 'client-id.apps.googleusercontent.com',
+        });
 
         expect(hardened).toContain('yomu-google-drive-settings-sync-bridge');
         expect(hardened).toContain('yomu.googleDriveSettingsSync');
         expect(hardened).toContain('appDataFolder');
-        expect(hardenExtensionBackgroundSource(hardened).match(/yomu-google-drive-settings-sync-bridge/g)).toHaveLength(1);
+        expect(hardenExtensionBackgroundSource(hardened, {
+            target: 'chrome',
+            googleOAuthClientId: 'client-id.apps.googleusercontent.com',
+        }).match(/yomu-google-drive-settings-sync-bridge/g)).toHaveLength(1);
+        expect(hardenExtensionBackgroundSource(source, { target: 'firefox' })).not.toContain('yomu-google-drive-settings-sync-bridge');
     });
 
-    it('adds screenshot permissions to MV2 and MV3 manifests', () => {
+    it('uses host access for screenshots without requesting browsing-history tabs access', () => {
         expect(hardenExtensionManifest({ manifest_version: 2, permissions: ['storage'] })).toMatchObject({
-            permissions: ['storage', 'tabs', '<all_urls>'],
+            permissions: ['storage', '<all_urls>'],
         });
-        expect(hardenExtensionManifest({ manifest_version: 3, permissions: ['storage'], host_permissions: ['https://example.com/*'] })).toMatchObject({
-            permissions: ['storage', 'tabs'],
+        expect(hardenExtensionManifest({ manifest_version: 3, permissions: ['storage', 'tabs'], host_permissions: ['https://example.com/*', 'file:///*'] })).toMatchObject({
+            permissions: ['storage'],
             host_permissions: ['https://example.com/*', '<all_urls>'],
         });
     });
@@ -49,13 +56,17 @@ describe('extension runtime hardening', () => {
     it('adds Google Drive OAuth manifest fields when configured', () => {
         expect(hardenExtensionManifest(
             { manifest_version: 3, permissions: [], host_permissions: [] },
-            { googleOAuthClientId: 'client-id.apps.googleusercontent.com' },
+            { target: 'chrome', googleOAuthClientId: 'client-id.apps.googleusercontent.com' },
         )).toMatchObject({
-            permissions: ['tabs', 'identity'],
+            permissions: ['identity'],
             oauth2: {
                 client_id: 'client-id.apps.googleusercontent.com',
                 scopes: ['https://www.googleapis.com/auth/drive.appdata'],
             },
         });
+        expect(hardenExtensionManifest(
+            { manifest_version: 3, permissions: [], host_permissions: [] },
+            { target: 'firefox', googleOAuthClientId: 'client-id.apps.googleusercontent.com' },
+        )).not.toHaveProperty('oauth2');
     });
 });

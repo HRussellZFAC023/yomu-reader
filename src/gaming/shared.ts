@@ -60,7 +60,7 @@ export function gamingLookupCandidates(text: string): string[] {
 }
 
 export function yomuStudySearchUrl(term: string): string {
-    const url = new URL('/newtab/index.html', 'https://yomureader.com');
+    const url = new URL('/study/', 'https://yomureader.com');
     url.searchParams.set('mode', 'search');
     url.searchParams.set('q', term);
     return url.toString();

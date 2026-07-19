@@ -2,17 +2,20 @@
 // verify the extension-specific machinery the userscript smokes never touch:
 // service worker boot, content-script injection at document_start, popup
 // page, storage, and a real lookup popover on a Japanese page.
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 // Branded Chrome 137+ ignores --load-extension; this probe uses Playwright's
 // bundled Chromium (chromium.launchPersistentContext), which still honors it.
 // Override EXT_DIR to point at a freshly built package.
-const EXT_DIR = process.env.EXT_DIR || '/private/tmp/claude-503/-Users-heru-Documents-Projects-yomu/5d668c75-5935-4335-b84e-1da58246ba3f/scratchpad/ext/chrome-ext';
-const ART = '/private/tmp/claude-503/-Users-heru-Documents-Projects-yomu/5d668c75-5935-4335-b84e-1da58246ba3f/scratchpad/ext';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const EXT_DIR = process.env.EXT_DIR || path.join(ROOT, 'dist', 'extension', 'chrome');
+const ART = process.env.ART_DIR || path.join(ROOT, 'artifacts', 'manual-extension-boot');
+mkdirSync(ART, { recursive: true });
 
 const PAGE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>probe</title></head>
 <body><main><p id="target">日本語を読む練習です。図書館で勉強します。</p></main></body></html>`;
@@ -66,30 +69,15 @@ try {
         step('content script initializes runtime (warm SW after reload)', afterReload);
     }
 
-    // 3. First-run onboarding state (fresh profile should surface onboarding).
-    // Onboarding renders during app.init() which awaits settings, so wait for it
-    // rather than sampling instantaneously.
+    // 3. Browser-extension onboarding belongs only on the packaged Study page,
+    // never over arbitrary content sites.
     const onboarding = await page.waitForFunction(
         () => Boolean(document.querySelector('.jpdb-reader-onboarding, [data-onboarding], .jpdb-reader-welcome, .jpdb-reader-onboarding-backdrop')),
-        null, { timeout: 15_000 },
+        null, { timeout: 2_000 },
     ).then(() => true).catch(() => false);
-    step('first-run onboarding visible on fresh profile', onboarding, onboarding ? '' : 'no onboarding element found (check first-run UX)');
-    await page.screenshot({ path: path.join(ART, 'ext-first-run.png') });
+    step('first-run onboarding suppressed on content pages', !onboarding);
 
-    // 4. Close onboarding (its backdrop intercepts pointer events) then confirm
-    // Japanese text gets scanned (reader words appear).
-    if (onboarding) {
-        await page.evaluate(() => {
-            const close = document.querySelector('[data-onboarding-action="close"]');
-            if (close instanceof HTMLElement) { close.click(); return; }
-            const skip = [...document.querySelectorAll('button')].find(b => /skip|close|later|×|始める|閉じる/i.test(b.textContent || ''));
-            skip?.click();
-        });
-        await page.waitForFunction(
-            () => !document.querySelector('.jpdb-reader-onboarding-backdrop, .jpdb-reader-onboarding'),
-            null, { timeout: 8_000 },
-        ).catch(() => {});
-    }
+    // 4. Confirm Japanese text gets scanned (reader words appear).
     const scanned = await page.waitForFunction(
         () => document.querySelectorAll('#target .jpdb-reader-word, #target [data-surface]').length > 0,
         null, { timeout: 25_000 },
@@ -123,15 +111,34 @@ try {
         step('action popup renders content', popupOk.ok, popupOk.text);
         await popup.screenshot({ path: path.join(ART, 'ext-popup.png') });
 
-        // 7. New tab override / newtab page if shipped
+        // 7. The shipped new-tab page starts disabled and presents the real
+        // welcome opt-in. Enabling its checkbox must switch to Study.
         const newtab = await popup.goto(`chrome-extension://${extensionId}/newtab/index.html`, { timeout: 15_000 })
             .then(async () => {
-                await popup.waitForTimeout(3000);
-                return await popup.evaluate(() => document.body.childElementCount > 0 && !document.body.innerText.includes('ERR'));
+                await popup.waitForSelector('.jpdb-reader-onboarding', { timeout: 15_000 });
+                return await popup.evaluate(() => ({
+                    rendered: document.body.childElementCount > 0 && !document.body.innerText.includes('ERR'),
+                    disabled: Boolean(document.querySelector('[data-newtab-optout]')),
+                    optInUnchecked: document.querySelector('input[name="newTabEnabled"]') instanceof HTMLInputElement
+                        && !document.querySelector('input[name="newTabEnabled"]').checked,
+                }));
             })
-            .catch(() => false);
-        step('bundled newtab page renders', newtab);
-        await popup.screenshot({ path: path.join(ART, 'ext-newtab.png') });
+            .catch(() => ({ rendered: false, disabled: false, optInUnchecked: false }));
+        step('bundled newtab page renders', newtab.rendered);
+        step('fresh extension keeps Study off', newtab.disabled);
+        step('welcome Study opt-in starts unchecked', newtab.optInUnchecked);
+        await popup.screenshot({ path: path.join(ART, 'ext-newtab-welcome-off.png') });
+        if (newtab.optInUnchecked) {
+            await popup.check('input[name="newTabEnabled"]');
+            const offline = popup.locator('input[name="onboardingInstallOfflineDictionaries"]');
+            if (await offline.count()) await offline.uncheck();
+            await popup.click('[data-onboarding-action="without-api"]');
+            const enabled = await popup.waitForSelector('[data-newtab-study]', { timeout: 15_000 })
+                .then(() => true)
+                .catch(() => false);
+            step('welcome opt-in enables Study', enabled);
+            await popup.screenshot({ path: path.join(ART, 'ext-newtab-study-enabled.png') });
+        }
     }
 } finally {
     writeFileSync(path.join(ART, 'ext-probe-report.json'), JSON.stringify(report, null, 2));

@@ -784,6 +784,10 @@ describe('extension new-tab opt-out', () => {
         document.body.replaceChildren();
     });
 
+    it('defaults fresh installs to the opt-out state', () => {
+        expect(DEFAULT_SETTINGS.newTabEnabled).toBe(false);
+    });
+
     it('renders a minimal opt-out page and never re-enables newTabEnabled when off in an extension', async () => {
         vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
         const { controller, settings, onSettingsChange } = optOutController(false);

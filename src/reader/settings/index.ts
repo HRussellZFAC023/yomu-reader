@@ -367,7 +367,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // never flips a user's explicit false back to true, so unchecking sticks.
     // Userscript / hosted new-tab is not gated by this flag, so the default is
     // harmless there.
-    newTabEnabled: true,
+    newTabEnabled: false,
     newTabAnkiEnabled: false,
     newTabAnkiDisabledDecks: [],
     newTabSource: 'auto',

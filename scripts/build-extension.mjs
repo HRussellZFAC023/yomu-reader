@@ -59,6 +59,7 @@ await run(process.execPath, [
 await hardenGeneratedExtensionBackgrounds(out);
 await run(process.execPath, [path.join(out, 'tools', 'verify.mjs')], { cwd: out });
 await verifyReleaseArtifacts();
+await verifyStoreReadiness();
 
 console.log(`Yomu extension packages written to ${out}`);
 
@@ -215,6 +216,46 @@ async function verifyReleaseArtifacts() {
     await verifyZipArtifact(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), requiredFiles);
     await verifyZipArtifact(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), requiredFiles);
     verifyDirectoryArtifact(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), requiredFiles);
+}
+
+async function verifyStoreReadiness() {
+    await verifyStoreZip(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), 'chrome');
+    await verifyStoreZip(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), 'firefox');
+}
+
+async function verifyStoreZip(artifact, target) {
+    const entries = unzipSync(new Uint8Array(await readFile(artifact)));
+    const decode = file => new TextDecoder().decode(entries[file]);
+    const manifest = JSON.parse(decode('manifest.json'));
+    const permissions = manifest.permissions ?? [];
+    const hostPermissions = manifest.manifest_version >= 3
+        ? manifest.host_permissions ?? []
+        : permissions;
+    if (permissions.includes('tabs')) {
+        throw new Error(`${target} store package requests the unnecessary tabs browsing-history permission.`);
+    }
+    if (hostPermissions.includes('<all_urls>') && hostPermissions.includes('file:///*')) {
+        throw new Error(`${target} store package has redundant <all_urls> and file:///* host access.`);
+    }
+    if (String(manifest.description ?? '').length > 132) {
+        throw new Error(`${target} manifest description exceeds Chrome Web Store's 132-character limit.`);
+    }
+    if (target === 'firefox') {
+        const geckoId = manifest.browser_specific_settings?.gecko?.id ?? manifest.applications?.gecko?.id;
+        if (geckoId !== 'yomu@yomureader.com') {
+            throw new Error(`Firefox store package must use the stable yomu@yomureader.com add-on ID.`);
+        }
+    }
+    const executableSource = Object.entries(entries)
+        .filter(([file]) => file.endsWith('.js') || file.endsWith('.html'))
+        .map(([file, bytes]) => `${file}\n${new TextDecoder().decode(bytes)}`)
+        .join('\n');
+    if (executableSource.includes('https://accounts.google.com/gsi/client')) {
+        throw new Error(`${target} store package contains the hosted Google Identity Services script URL.`);
+    }
+    if (executableSource.includes('video-player/index.html')) {
+        throw new Error(`${target} store popup references a video-player page that is not packaged.`);
+    }
 }
 
 async function verifyZipArtifact(artifact, requiredFiles) {

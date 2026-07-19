@@ -12,6 +12,9 @@ export default defineConfig({
         __YOMU_EXTENSION_BUILD__: JSON.stringify(extensionBuild),
         __YOMU_NEWTAB_BUILD__: JSON.stringify(true),
         __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
+        __YOMU_GOOGLE_OAUTH_EXTENSION_CONFIGURED__: JSON.stringify(Boolean(
+            process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_OAUTH_CLIENT_ID,
+        )),
     },
     resolve: extensionBuild ? undefined : {
         alias: {
