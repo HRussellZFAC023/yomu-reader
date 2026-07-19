@@ -330,10 +330,12 @@ class WorldFlow implements AcademyRouteFlow {
 
     private async travelWorldPlace(place: WorldPlaceId, context: AcademyRouteContext): Promise<void> {
         const route = worldRouteForPlace(place);
-        const isFirstCafeArrival = place === 'cafe'
-            && !hasSeenIntroduction(context.checkpoint.seenIntroductions, introductionId('place', 'cafe'));
+        const isFirstArrival = !hasSeenIntroduction(
+            context.checkpoint.seenIntroductions,
+            introductionId('place', place),
+        );
         await context.go(route, {
-            worldVisits: isFirstCafeArrival
+            worldVisits: isFirstArrival
                 ? context.checkpoint.worldVisits ?? {}
                 : markWorldVisit(context.checkpoint.worldVisits, place),
             ...(route === 'world' ? { worldPlace: place } : {}),
