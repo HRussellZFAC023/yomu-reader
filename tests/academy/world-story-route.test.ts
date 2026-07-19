@@ -49,9 +49,9 @@ describe('World Story route', () => {
         expect(back).toHaveBeenCalledOnce();
         finishScene(current!);
         current?.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
-        // Episode 2 is outlined in canon but has no playable scene package yet.
-        // Completion must return to the episode list instead of opening a false-ready route.
-        expect(go).toHaveBeenCalledWith('story', { sectionId: undefined });
+        // The generic story loader now owns Episode 2, so completing the
+        // opening arc must continue into its authored package.
+        expect(go).toHaveBeenCalledWith('story', { sectionId: 's1e02-margin-map' });
         expect(recordEncounter).not.toHaveBeenCalled();
         current?.querySelector<HTMLButtonElement>('.academy-story-list-return')?.click();
         expect(go).toHaveBeenCalledWith('story', { sectionId: undefined });
