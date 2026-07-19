@@ -203,50 +203,19 @@ describe('reader stylesheet loading', () => {
         // Passive CONTENT words keep the status highlight at rest exactly like
         // active words (owner report 2026-07-19: docs cards / link-wrapped
         // words showed their state only on hover and read as bare host links
-        // at rest). The 1.6.2 blanket hover-only rule must NOT come back —
-        // only chrome contexts (the :is(button, nav, …) rule below) go
-        // bare-until-hover.
+        // at rest). The 1.6.2 blanket hover-only rule must NOT come back.
         expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)\s*\{[^}]*\}/);
         expect(css).not.toMatch(/\n\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)::after/);
-        const strippedAtRest = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
-        // Chrome bare-until-hover strips only the highlight (background) paint;
-        // the text/underline channels stay visible at rest (pitch underlines on
-        // Shorts subscribe buttons must survive), and the base colour honours the
-        // contrast-computed accessible colour so ruby base glyphs stay legible.
-        expect(strippedAtRest).toContain('--jpdb-reader-word-highlight-source: transparent');
-        expect(strippedAtRest).toContain('color: var(--jpdb-reader-word-accessible-color, currentColor) !important');
-        expect(strippedAtRest).not.toContain('--jpdb-reader-word-underline: transparent');
-        expect(strippedAtRest).toContain('nav');
-        expect(strippedAtRest).toContain('[role="navigation"]');
-        // YouTube chrome roots without a button/nav ancestor live in the CSS
-        // scope (not a scanner-side mark) because the stylesheet ships outside
-        // the 2 MB userscript bundle.
-        expect(strippedAtRest).toContain('ytm-pivot-bar-renderer');
-        // These YouTube surfaces are carved OUT of bare-until-hover: their
-        // Japanese is reading material, so pitch underlines stay on at rest.
-        expect(strippedAtRest).toContain(':not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word)');
-        expect(strippedAtRest.slice(0, strippedAtRest.indexOf(':not('))).not.toContain('yt-chip-cloud-chip-view-model');
+        // Chrome passive words honour the user's highlight setting at rest
+        // like content words (owner reports: YouTube 作成/共有/質問する, Reddit
+        // sort chips / timestamps / 参加 / 共有, 2026-07-19). No rule may strip
+        // the highlight channel behind a chrome or passive-chrome scope, and
+        // the old per-site carve-out list must stay gone with it.
+        expect(css).not.toMatch(/passive-chrome[^{]*\{[^}]*--jpdb-reader-word-highlight-source: transparent/);
+        expect(css).not.toMatch(/passive-chrome[^{]*:hover[^{]*\{[^}]*background-image: none/);
+        expect(css).not.toContain('yt-chip-cloud-chip-renderer');
     });
 
-    it('keeps passive-chrome ruby base glyphs legible at rest via the contrast-computed colour', () => {
-        // YouTube Shorts channel/title pills mark their words passive chrome, so
-        // the bare-until-hover rule paints them. It must NOT discard the
-        // contrast system's --jpdb-reader-word-accessible-color: forcing the base
-        // to raw currentColor collapses the base glyphs into the pill background
-        // while the furigana (which inherits the base word's colour) stays
-        // visible — "floating readings" with no base text (Discord/YT bug).
-        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
-        const chromeRestRule = css.match(/:is\([^)]*\[data-jpdb-reader-passive-chrome="true"\]\s*\)\s*\.jpdb-reader-word\.jpdb-reader-passive-word:not\(:hover\):not\(:focus\):not\(\.jpdb-reader-keyboard-active\)(?::not\([^{]*?\))?\s*\{[^}]*\}/)?.[0] ?? '';
-
-        // The rule must never reset the accessible colour to currentColor (that
-        // clobbers the contrast var so the fallback below can never fire) …
-        expect(chromeRestRule).not.toContain('--jpdb-reader-word-accessible-color: currentColor');
-        // … and the base text paint must honour the accessible colour (falling
-        // back to currentColor only when contrast has not computed one).
-        expect(chromeRestRule).toContain('color: var(--jpdb-reader-word-accessible-color, currentColor) !important');
-        expect(chromeRestRule).toContain('-webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor)');
-        expect(chromeRestRule).not.toContain('color: currentColor !important');
-    });
 
     it('keeps the pitch-accent underline on passive chrome at rest like subtitles', () => {
         // The Shorts subscribe button (チャンネル登録) carries furigana AND a pitch

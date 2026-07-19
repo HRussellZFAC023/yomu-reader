@@ -245,12 +245,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   white-space: nowrap;
 }
 
-:is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"])
-  .jpdb-reader-word.jpdb-reader-passive-word {
-  --jpdb-reader-word-highlight-source: transparent;
-  --jpdb-reader-word-highlight-shadow-source: none;
-}
-
 /* Touch reading without a stylus (Canna feedback): manga text boxes pack small,
    dense words that are hard to tap with a fingertip. On coarse pointers, grow
    each word's tap target with a transparent, layout-neutral hit expander so a
@@ -305,14 +299,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
-}
-
-:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:hover,
-:is(button, [role="button"], [role="tab"], summary, label, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word:focus,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover,
-.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus {
-  background-image: none !important;
-  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -827,78 +813,14 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    bare-until-hover through the scoped rules below — buttons/nav/tabs and any
    host the scanner stamped interactive-passive (which covers busy list pages
    such as search results) never repaint wall-to-wall. */
-/* Bare-until-hover applies to CHROME passive words only (buttons, tabs, menus,
-   nav links, compact controls the scanner marked). Only the highlight
-   (background) channel is stripped here — filled highlights across every
-   button/tab/menu repaint chrome wall-to-wall. Text colour, the pitch/state
-   underline, and furigana all stay visible at rest, matching the passive-
-   CONTENT rule and subtitles. Two prior regressions lived in this rule: (1)
-   1.5.4 stripped the underline/decoration on every passive word, flickering
-   pitch underlines on link-wrapped prose in/out on hover; (2) forcing the base
-   text to raw currentColor (and resetting --jpdb-reader-word-accessible-color)
-   collapsed the ruby base into the host pill background on YouTube Shorts
-   channel pills while the furigana kept its own accessible colour — readings
-   "floated" with no base text. The base colour now honours the contrast-
-   computed --jpdb-reader-word-accessible-color, and the pitch underline (drawn
-   via the ::after border) is no longer zeroed at rest.
-   YouTube's feed filter chips, engagement panels, watch metadata (action
-   row, description), masthead, and guide are carved OUT via the trailing
-   :not() — their Japanese is reading material despite the [role=tab]/
-   [role=button] wrappers, so highlights stay on at rest there like content
-   (owner feedback: 作成/共有/質問する read as broken without them). */
-:is(
-  button,
-  [role="button"],
-  [role="tab"],
-  [role="menuitem"],
-  [role="menuitemcheckbox"],
-  [role="menuitemradio"],
-  [role="option"],
-  [role="checkbox"],
-  [role="radio"],
-  [role="switch"],
-  [role="menu"],
-  [role="menubar"],
-  [role="toolbar"],
-  [role="tablist"],
-  [role="listbox"],
-  [role="navigation"],
-  nav,
-  summary,
-  label,
-  select,
-  /* Legacy mobile player components without useful button/nav semantics.
-     New component surfaces use the generic DecorationPolicy stamp below. */
-  ytm-pivot-bar-renderer,
-  ytm-pivot-bar-item-renderer,
-  ytm-mobile-topbar-renderer,
-  ytm-app-header,
-  ytm-searchbox,
-  ytm-shorts-player-controls,
-  ytm-actions-renderer,
-  ytm-menu-renderer,
-  ytm-button-renderer,
-  ytm-toggle-button-renderer,
-  ytm-bottom-sheet-renderer,
-  ytm-reel-player-overlay-renderer,
-  ytm-shorts-video-title-view-model,
-  .jpdb-reader-control-text-mirror,
-  /* The DecorationPolicy stamp: ONE attribute the scanner writes at apply
-     time for every interactive-passive host — colour and pitch underline
-     stay; only the highlight channel is stripped at rest. */
-  [data-yomu-decoration="interactive-passive"],
-  [data-jpdb-reader-passive-chrome="true"]
-) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) {
-  --jpdb-reader-word-accessible-highlight: transparent;
-  --jpdb-reader-word-highlight-source: transparent;
-  --jpdb-reader-word-highlight-shadow-source: none;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  color: var(--jpdb-reader-word-accessible-color, currentColor) !important;
-  -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor);
-  text-shadow: none;
-}
+/* Chrome passive words (buttons, tabs, menus, timestamps, compact controls)
+   paint their configured word-state highlight at rest exactly like content
+   words. Bare-until-hover chrome previously stripped the highlight channel
+   here behind a per-site carve-out list (YouTube chips/metadata), but the
+   owner's standing feedback — 作成/共有/質問する on YouTube, and the Reddit
+   sort chips, timestamps, 参加/共有 buttons (2026-07-19) — is that unpainted
+   chrome reads as broken when a highlight mode is enabled. The user's
+   highlight setting is the single switch now; no per-surface exceptions. */
 :is(.jpdb-reader-word-text-status, .jpdb-reader-word-text-jpdb, .jpdb-reader-word-text-anki, .jpdb-reader-word-text-pitch)
   .jpdb-reader-word:is(:hover, :focus, .jpdb-reader-keyboard-active) {
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor)) !important;

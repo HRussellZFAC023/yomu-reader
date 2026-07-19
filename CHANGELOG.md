@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.255] - 2026-07-19
+
+### Changed
+
+- Japanese in interactive chrome — buttons, tabs, sort chips, menu labels, timestamps, and other compact controls — now honours the configured word-state highlight at rest, exactly like content words. The previous bare-until-hover rule stripped the highlight channel from chrome behind a growing per-site exception list; the highlight setting is now the single switch, with no per-surface exceptions.
+
+### Fixed
+
+- Detached furigana that straddled the painted border of a compact control — half on the page background, half on the pill — now lifts fully clear of the control so the reading sits on one background and stays legible; the existing collision checks judge the lifted position.
+
 ## [1.6.254] - 2026-07-19
 
 ### Fixed

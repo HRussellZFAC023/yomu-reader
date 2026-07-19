@@ -3057,6 +3057,22 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
     for (const { reading, shift } of viewportShifts) {
         if (shift) reading.style.setProperty('margin-left', `${Math.round(shift)}px`);
     }
+    // A reading that straddles its control's painted top border renders half
+    // on the page background and half on the control surface (join/share
+    // pills) — unreadable in both themes. Lift a straddling reading fully
+    // clear of the control's border so it sits on one background; the
+    // collision verdicts below then judge the lifted position.
+    for (const reading of readings) {
+        const rect = reading.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        const host = reading.closest<HTMLElement>(ANNOTATABLE_CONTROL_SELECTOR);
+        if (!host) continue;
+        const hostRect = host.getBoundingClientRect();
+        if (rect.top < hostRect.top - 1 && rect.bottom > hostRect.top + 1) {
+            const lift = Math.ceil(rect.bottom - hostRect.top) + 1;
+            reading.style.setProperty('inset-block-end', `calc(100% + ${3 + lift}px)`);
+        }
+    }
 
     const readingRects = readings
         .map(reading => ({ element: reading, rect: reading.getBoundingClientRect() }))

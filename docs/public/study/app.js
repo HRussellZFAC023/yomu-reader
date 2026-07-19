@@ -10185,6 +10185,7 @@ ${spelling}`);
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   const canvasFallbackTextLayers = /* @__PURE__ */ new WeakMap();
+  const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR;
   function isComposerActionControl(control) {
     return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
   }
@@ -11575,6 +11576,17 @@ ${spelling}`);
     });
     for (const { reading, shift } of viewportShifts) {
       if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
+    }
+    for (const reading of readings2) {
+      const rect = reading.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      const host = reading.closest(ANNOTATABLE_CONTROL_SELECTOR);
+      if (!host) continue;
+      const hostRect = host.getBoundingClientRect();
+      if (rect.top < hostRect.top - 1 && rect.bottom > hostRect.top + 1) {
+        const lift = Math.ceil(rect.bottom - hostRect.top) + 1;
+        reading.style.setProperty("inset-block-end", `calc(100% + ${3 + lift}px)`);
+      }
     }
     const readingRects = readings2.map((reading) => ({ element: reading, rect: reading.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0).sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
     const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element: element2, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element2).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
@@ -15653,7 +15665,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -45294,7 +45305,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.253".trim() ? "1.6.253".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.255".trim() ? "1.6.255".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -69854,7 +69865,7 @@ ${spelling}`);
       }, data.ankiFieldTargetPlan);
     }
     renderActions(view) {
-      const hasMiningPanel = Boolean(view.miningActions);
+      const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
       const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
       const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
       const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
@@ -70273,6 +70284,9 @@ ${component.reading}`;
   function renderProviderToggle(nextProvider, language, content = "") {
     const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
     return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
+  }
+  function canExpandMiningDrawer() {
+    return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
   }
   function renderMiningGutter(miningActions, language) {
     const label = uiText(language, "showMiningActions");

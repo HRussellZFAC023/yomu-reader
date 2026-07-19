@@ -1090,14 +1090,14 @@ describe('reader theme', () => {
         // sources at rest; only chrome-scoped rules strip them (1.5.4's blanket
         // strip regressed pitch underlines into hover-only flicker).
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; display: inline !important; white-space: inherit; word-break: inherit; overflow-wrap: inherit !important; line-break: inherit; cursor: inherit; }');
-        // The trailing :not() carves YouTube's filter chips, live chat, channel
-        // headers, and engagement panels out of bare-until-hover: their
-        // Japanese is reading material.
-        expect(normalizedCss).toContain('[data-jpdb-reader-passive-chrome="true"] ) .jpdb-reader-word.jpdb-reader-passive-word:not(:hover):not(:focus):not(.jpdb-reader-keyboard-active):not(:is(yt-chip-cloud-chip-renderer, yt-chip-cloud-chip-view-model, yt-chip-cloud-renderer, ytd-feed-filter-chip-bar-renderer, ytm-feed-filter-chip-bar-renderer, ytd-engagement-panel-section-list-renderer, ytm-engagement-panel-section-list-renderer, ytd-watch-metadata, ytd-live-chat-frame, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer, yt-page-header-view-model, ytd-c4-tabbed-header-renderer, yt-tab-shape, ytm-slim-video-action-bar-renderer, .jpdb-reader-text-mirror) .jpdb-reader-word) { --jpdb-reader-word-accessible-highlight: transparent; --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none;');
-        expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]) .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
-        expect(normalizedCss).toContain(') .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-color-source: currentColor; color: var(--jpdb-reader-word-accessible-color, currentColor) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, currentColor); }');
-        expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus');
-        expect(normalizedCss).toContain('background-image: none !important; box-shadow: none;');
+        // Chrome passive words honour the configured highlight at rest like
+        // content words (owner reports 2026-07-19: Reddit sort chips,
+        // timestamps, join/share pills; earlier YouTube 作成/共有/質問する).
+        // No chrome- or passive-chrome-scoped rule may strip the highlight
+        // channel, and the old YouTube carve-out list stays gone with it.
+        expect(normalizedCss).not.toMatch(/passive-chrome[^{]*\{[^}]*--jpdb-reader-word-highlight-source: transparent/);
+        expect(normalizedCss).not.toContain('yt-chip-cloud-chip-renderer');
+        expect(normalizedCss).not.toMatch(/passive-chrome[^{]*:hover[^{]*\{[^}]*background-image: none/);
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');
