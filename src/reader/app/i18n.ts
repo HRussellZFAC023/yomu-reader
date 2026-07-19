@@ -1037,8 +1037,6 @@ const COPY = {
         jitenCompositeWords: 'Composite words',
         usedInVocabulary: 'Used in vocabulary',
         exampleSentences: 'Example sentences',
-        noExampleSentences: 'No example sentences',
-        exampleSentencesUnavailable: 'Example sentences unavailable',
         acceptedInputs: 'Accepted inputs',
         relatedWords: 'Related words',
         bunproUsedInVocab: 'Used in',
@@ -1626,8 +1624,6 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
-noExampleSentences	例文はありません
-exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
 bunproUsedInVocab	使われている単語

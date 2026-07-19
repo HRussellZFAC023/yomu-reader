@@ -36,20 +36,18 @@ export function renderProviderExamples(
     language: InterfaceLanguage,
 ): string {
     const availability = collection.availability;
-    const unavailableReason = availability === 'unavailable'
-        ? ` data-examples-unavailable-reason="${collection.reason}"`
-        : '';
-    const count = availability === 'loaded' ? String(collection.items.length) : availability === 'empty' ? '0' : '—';
+    // A section with nothing to show does not earn a header: resolved-empty
+    // and failed-to-load collections render nothing at all instead of a
+    // count-0 shell or an "unavailable" placeholder row.
+    if (availability !== 'loaded' || !collection.items.length) return '';
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}"${unavailableReason} ${sourceAttributes(definitionSourceStateKey(`${sourceId}:examples`))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey(`${sourceId}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${count}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                ${availability === 'loaded'
-                    ? `<ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join('')}</ul>`
-                    : `<p class="jpdb-reader-example-availability">${escapeHtml(uiText(language, availability === 'empty' ? 'noExampleSentences' : 'exampleSentencesUnavailable'))}</p>`}
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join('')}</ul>
             </div>
         </details>
     `;

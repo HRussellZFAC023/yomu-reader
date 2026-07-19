@@ -6,7 +6,14 @@ import {
     ReaderParser,
 } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { deinflectJapaneseTerm } from '../../src/reader/lookup/deinflect';
 import type { JPDBToken } from '../../src/reader/app/types';
+
+function deinflected(surface: string, lemma: string) {
+    const candidate = deinflectJapaneseTerm(surface).find(item => item.term === lemma);
+    expect(candidate, `${surface} should deinflect to ${lemma}`).toBeTruthy();
+    return candidate!;
+}
 
 /**
  * Regression coverage for the keyless local segmenter that drives parsing when
@@ -540,5 +547,60 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(tokens.map(token => token.card.reading)).toEqual(['むらさき', 'おと']);
         expect(tokens.some(token => token.card.spelling === '紫音')).toBe(false);
         expect(tokens.some(token => token.card.reading === 'しおん')).toBe(false);
+    });
+
+    it('fills remote coverage gaps with deinflected local-dictionary tokens, not bare segments', async () => {
+        const sentence = 'パスキーを使って本人確認を行います';
+        const findTermMatches = vi.fn().mockResolvedValue([
+            {
+                entry: { expression: '使う', reading: 'つかう', rules: 'v5u', glossary: ['to use'], dictionary: 'Jitendex' },
+                start: 5,
+                end: 8,
+                surface: '使って',
+                deinflected: deinflected('使って', '使う'),
+            },
+            {
+                entry: { expression: '行う', reading: 'おこなう', rules: 'v5u', glossary: ['to carry out'], dictionary: 'Jitendex' },
+                start: 13,
+                end: 17,
+                surface: '行います',
+                deinflected: deinflected('行います', '行う'),
+            },
+        ]);
+        const lookupTermMeta = vi.fn(async () => []);
+        const jpdbParse = vi.fn(async (): Promise<JPDBToken[][]> => [[
+            publicProviderToken(sentence, 'パスキー', 0, 4),
+            publicProviderToken(sentence, '本人確認', 8, 12),
+        ]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'test-key',
+                jitenApiKey: '',
+                localDictionariesEnabled: true,
+                parserProvider: 'jpdb',
+            }),
+            jpdb: { parse: jpdbParse } as never,
+            dictionaries: { findTermMatches, lookupTermMeta } as never,
+        });
+
+        const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });
+
+        const used = tokens.find(token => sentence.slice(token.start, token.end) === '使って');
+        expect(used).toMatchObject({
+            card: { spelling: '使う', reading: 'つかう', source: 'local' },
+            rubies: [{ text: 'つか', start: 5, end: 6, length: 1 }],
+        });
+        const performed = tokens.find(token => sentence.slice(token.start, token.end) === '行います');
+        expect(performed).toMatchObject({
+            card: { spelling: '行う', reading: 'おこなう', source: 'local' },
+            rubies: [{ text: 'おこな', start: 13, end: 14, length: 1 }],
+        });
+        // Provider tokens keep their identity; the gaps never regress to
+        // reading-less fallback cards.
+        expect(tokens.find(token => token.card.spelling === 'パスキー')?.card.source).toBe('jiten');
+        expect(tokens.find(token => token.card.spelling === '本人確認')?.card.source).toBe('jiten');
+        expect(tokens.filter(token => token.card.source === 'fallback').every(token =>
+            !/[一-龯]/.test(sentence.slice(token.start, token.end)))).toBe(true);
     });
 });

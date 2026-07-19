@@ -339,6 +339,34 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#row')).toBe('skip');
     });
 
+    it('annotates a non-editable listbox trigger (select-like combobox) passively', () => {
+        document.body.innerHTML = `
+            <div id="picker" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                <span id="face">日本語</span>
+            </div>
+        `;
+        expect(classifyText('#face')).toBe('interactive-passive');
+    });
+
+    it('keeps an autocomplete combobox on the editor skip path', () => {
+        document.body.innerHTML = `
+            <div id="autocombo" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                <span id="typed">日本語</span>
+            </div>
+        `;
+        expect(classifyText('#typed')).toBe('skip');
+    });
+
+    it('keeps an ARIA 1.1 combobox wrapper with a text-entry child on the editor skip path', () => {
+        document.body.innerHTML = `
+            <div id="wrapper" role="combobox" aria-expanded="false">
+                <span id="hint">日本語で検索</span>
+                <input type="text">
+            </div>
+        `;
+        expect(classifyText('#hint')).toBe('skip');
+    });
+
     it('annotates a declared menu choice inside a combobox-owned popup passively', () => {
         document.body.innerHTML = `
             <input role="combobox" aria-controls="popup" type="text">

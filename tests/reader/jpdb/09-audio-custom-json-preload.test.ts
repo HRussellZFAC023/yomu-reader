@@ -1221,7 +1221,9 @@ describe('reader helpers', () => {
             await load;
 
             expect(container.dataset.immersionEmpty).toBe('true');
-            expect(container.textContent).toContain('No examples');
+            // The empty verdict hides the whole section instead of rendering a
+            // "no examples" note; the loading shell must be gone either way.
+            expect(container.hidden).toBe(true);
             expect(container.textContent).not.toContain('Loading examples');
         } finally {
             app.destroy();

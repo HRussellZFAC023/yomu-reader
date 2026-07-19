@@ -482,7 +482,7 @@ export class ReaderParser {
         });
     }
 
-    private withSegmentedFallbackGaps(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): JPDBToken[][] {
+    private async withSegmentedFallbackGaps(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
         // Parsing is a one-result-per-input contract. Provider adapters are
         // allowed to fail partially, but their response cardinality must never
         // leak into callers: a short response used to leave the tail DOM
@@ -490,12 +490,34 @@ export class ReaderParser {
         const hasExactCardinality = parsed.length === paragraphs.length
             && paragraphs.every((_, index) => Array.isArray(parsed[index]));
         if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-        return paragraphs.map((text, index) => {
+        return Promise.all(paragraphs.map(async (text, index) => {
             const tokens = parsed[index] ?? [];
-            return options.allowSegmentedFallback === true
-                ? this.fillSegmentedFallbackGaps(text, tokens)
-                : tokens;
-        });
+            if (options.allowSegmentedFallback !== true) return tokens;
+            const withLocal = await this.fillGapsWithLocalDictionaryTokens(text, tokens, options);
+            return this.fillSegmentedFallbackGaps(text, withLocal);
+        }));
+    }
+
+    // Remote coverage gaps were previously filled ONLY by the bare segmenter,
+    // whose fallback cards carry no reading/ruby/pitch — so an inflected verb
+    // the provider skipped (使って, 行います) rendered with no decoration at
+    // all while its neighbours annotated. When local term dictionaries are
+    // available, fill the uncovered ranges with deinflected, enriched local
+    // tokens first; the bare segmenter only covers what the dictionary also
+    // misses.
+    private async fillGapsWithLocalDictionaryTokens(
+        text: string,
+        tokens: JPDBToken[],
+        options: ReaderParserParseOptions,
+    ): Promise<JPDBToken[]> {
+        if (!this.canUseLocalDictionaryFallback()) return tokens;
+        if (!await this.hasLocalTermDictionaries()) return tokens;
+        const localTokens = await this.parseLocalDictionaryText(text, options).catch(() => [] as JPDBToken[]);
+        // Only fill ranges no provider token touches; fillSegmentedFallbackGaps
+        // afterwards sorts and prunes any residual overlap among the merge.
+        const additions = localTokens.filter(local =>
+            !tokens.some(token => rangesOverlap(local.start, local.end, token.start, token.end)));
+        return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
     }
 
     private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {

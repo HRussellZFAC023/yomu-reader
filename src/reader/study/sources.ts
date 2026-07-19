@@ -83,13 +83,24 @@ export class StudySourceController {
     private preloadStudySources(popover: HTMLElement, sentence?: string): void {
         if (!sentence) return;
         const settings = this.settings();
-        if (settings.studyGrammarEnabled && popover.querySelector('[data-study-grammar]')) {
-            void this.cachedGrammarHints(sentence).catch(() => undefined);
+        const grammar = popover.querySelector<HTMLElement>('[data-study-grammar]');
+        if (settings.studyGrammarEnabled && grammar) {
+            // The open-gated lazy loader only removes an empty grammar section
+            // once the user expands it; resolve the (cached, local) hints
+            // eagerly so a no-hint section never shows its header at all.
+            void this.cachedGrammarHints(sentence).then(hints => {
+                if (!hints.length && grammar.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) grammar.remove();
+            }).catch(() => undefined);
             preloadGrammarResources(sentence, settings.interfaceLanguage);
         }
-        if (settings.studyTranslationEnabled && popover.querySelector('[data-study-translation]')) {
+        const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
+        if (settings.studyTranslationEnabled && translation) {
             preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-            void this.cachedTranslationContent(sentence).catch(() => undefined);
+            // Same async-empty rule as grammar: an untranslatable sentence
+            // hides the whole section instead of leaving a header shell.
+            void this.cachedTranslationContent(sentence).then(result => {
+                if (!result.translated && translation.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation.hidden = true;
+            }).catch(() => undefined);
         }
     }
 

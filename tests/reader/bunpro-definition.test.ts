@@ -479,14 +479,17 @@ describe('Bunpro example sentences', () => {
         const schema = await lookupBunproDefinition({ ...client, getVocab: async () => ({ data: {} }) } as unknown as BunproClient, card);
         expect(schema).toMatchObject({ examplesAvailability: 'unavailable', examples: [], examplesUnavailableReason: 'schema' });
 
-        const unavailableHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, network, 'en');
-        expect(unavailableHtml).toContain('Example sentences unavailable');
-        expect(unavailableHtml).toContain('data-examples-unavailable-reason="network"');
-        const emptyHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, empty, 'en');
-        expect(emptyHtml).toContain('No example sentences');
-        expect(emptyHtml).not.toContain('Example sentences unavailable');
-        const japaneseHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, network, 'ja');
-        expect(japaneseHtml).toContain('例文を読み込めません');
-        expect(japaneseHtml).not.toContain('未翻訳');
+        // Empty and failed example collections render NO examples section at
+        // all — no count-0 header, no placeholder row (loaded sections keep
+        // rendering, asserted above via the 'loaded' info fixture).
+        const loadedHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info!, 'en');
+        expect(loadedHtml).toContain('jpdb-reader-jpdb-examples-group');
+        for (const [collection, language] of [[network, 'en'], [empty, 'en'], [network, 'ja']] as const) {
+            const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, collection!, language);
+            expect(html).not.toContain('jpdb-reader-jpdb-examples-group');
+            expect(html).not.toContain('Example sentences unavailable');
+            expect(html).not.toContain('No example sentences');
+            expect(html).not.toContain('例文を読み込めません');
+        }
     });
 });

@@ -37,6 +37,7 @@ import {
     isLikelyProseElement,
     isLikelyProseLink,
     isNavigationChromeContext,
+    isNonEditableListboxTrigger,
     isPassiveInteractionElement,
     isPositionedTextOverlay,
     isReadableProseContext,
@@ -106,7 +107,10 @@ const EASY_FURIGANA_KANJI = new Set(
 // letter soup, but "Kanji used" spellings are real JPDB links and should
 // keep the same ruby/color treatment as other dictionary terms.
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
-const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+// role=combobox is only an editable surface when it declares an autocomplete
+// contract; a bare combobox is a select-like listbox trigger whose label rides
+// the passive chip channel (see isNonEditableListboxTrigger in the policy).
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
 const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
@@ -594,6 +598,7 @@ const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR
 
 function isAnnotatableChipControl(blocked: Element): boolean {
     if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
+    if (blocked.matches('[role="combobox"]') && !isNonEditableListboxTrigger(blocked)) return false;
     const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
     if (isComposerActionControl(control)) return false;
     const text = control.textContent?.replace(/\s+/g, '').trim() ?? '';
@@ -845,7 +850,12 @@ function selectLookupText(select: HTMLSelectElement, mode: 'options' | 'selected
     const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText))
         .filter(text => HAS_JAPANESE.test(text));
     const compactOptionList = compactSelectOptionListText(optionTextList);
-    return compactOptionList || selectedText.join(' / ');
+    // A picker whose lone Japanese option is not the selected one (language
+    // pickers on Latin-selected pages) must still surface that option instead
+    // of dropping the control entirely.
+    return compactOptionList
+        || selectedText.join(' / ')
+        || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(' / ');
 }
 
 function compactSelectOptionListText(options: string[]): string {

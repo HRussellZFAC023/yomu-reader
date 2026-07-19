@@ -565,6 +565,21 @@ describe('generic reader layout overflow guards', () => {
 
         expect(targets.map(target => target.text)).toEqual(['日本語']);
     });
+
+    it('surfaces the lone Japanese option of a Latin-selected picker', () => {
+        document.body.innerHTML = `
+            <form>
+                <select>
+                    <option selected>English</option>
+                    <option>日本語</option>
+                </select>
+            </form>
+        `;
+
+        const targets = collectFormControlTextTargetsIn(document.body, 20, false);
+
+        expect(targets.map(target => target.text)).toEqual(['日本語']);
+    });
 });
 
 function collectTargets(root: Node = document.body): FragmentTextTarget[] {

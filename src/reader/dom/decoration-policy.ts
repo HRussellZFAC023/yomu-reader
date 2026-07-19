@@ -446,7 +446,7 @@ function readableContextPassiveChromeElement(element: HTMLElement): HTMLElement 
 
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
-export const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch')}`;
+export const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch,combobox')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar')}`;
@@ -626,9 +626,12 @@ function isCompactInteractiveChromeLink(link: HTMLElement, parent: HTMLElement, 
 function isCompactInteractiveChromeControl(control: HTMLElement, parent: HTMLElement): boolean {
     if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
     if (safeElementMatches(control, '[role="button"]') && control.tagName !== 'BUTTON' && !isCompactInteractiveChromeContext(control)) return false;
+    // Only the non-editable listbox-trigger form of role=combobox is chip
+    // chrome; a composing combobox never annotates.
+    if (safeElementMatches(control, '[role="combobox"]') && !isNonEditableListboxTrigger(control)) return false;
     const chromeLike = isCompactInteractiveChromeContext(control)
         || hasCompactInteractiveChromeGeometry(control)
-        || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+        || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
     return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
 }
 
@@ -790,7 +793,7 @@ function isCompactMediaContext(element: HTMLElement): boolean {
 // aria-owns/aria-controls. Never decorate the editor itself. Declared choices
 // are different: a visible option/menuitem is read-only text, so it follows the
 // passive-control channel even when its listbox belongs to a live combobox.
-const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
 const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
 const PASSIVE_CHOICE_SELECTOR = roleSelectors('option,menuitem,menuitemcheckbox,menuitemradio');
 const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
@@ -800,9 +803,33 @@ function isEditableComposingContext(element: Element): boolean {
     // choice escape hatch. Native <option> also stays on the control-mirror
     // path because browser-native select popups cannot host DOM decoration.
     if (element.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    // role=combobox splits: a combobox that composes text (autocomplete, a
+    // text-entry descendant) is an editor surface; a select-like listbox
+    // TRIGGER (Google's language picker, Material selects) is read-only
+    // chrome whose visible face follows the passive-control channel.
+    const combobox = element.closest('[role="combobox"]');
+    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
     if (element.closest(PASSIVE_CHOICE_SELECTOR)) return false;
     if (element.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
     return isComboboxOwnedPopup(element);
+}
+
+// A combobox is a text-composing surface only when it can actually compose
+// text: an input/textarea tag, an autocomplete contract, contenteditable, or
+// a text-entry descendant (ARIA 1.1 wrapper pattern). Everything else with
+// role=combobox is a select-like listbox trigger — a read-only label that
+// safely takes passive annotation like any button chip.
+const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
+
+export function isNonEditableListboxTrigger(element: Element): boolean {
+    if (!(element instanceof HTMLElement)) return false;
+    if (!safeElementMatches(element, '[role="combobox"]')) return false;
+    const tag = element.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+    const autocomplete = element.getAttribute('aria-autocomplete');
+    if (autocomplete && autocomplete.toLowerCase() !== 'none') return false;
+    if (safeElementMatches(element, '[contenteditable]:not([contenteditable="false"])')) return false;
+    return !safeQuerySelector(element, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
 }
 
 // Only genuine combobox/search facts may own a popup: role=combobox,
@@ -864,7 +891,10 @@ function isComboboxOwnedPopup(element: Element): boolean {
 // body strips its ruby. The bare attributes still contribute to the CSS
 // passivity channel (PASSIVE_INTERACTION_SELECTOR) and compact toggles are
 // still caught by the compact cascade.
-const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors('button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio')},[slot="more-button"],.more-button,#more,#less`;
+// role=combobox joins the control set for its non-editable listbox-trigger
+// form only (editable comboboxes are already 'skip' via
+// isEditableComposingContext, which classifyDecoration tests first).
+const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors('button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox')},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 // Strict control contexts only: links in header/nav/footer/breadcrumbs are
 // content-bearing (owner-pinned: breadcrumb, footer-help, global-nav labels

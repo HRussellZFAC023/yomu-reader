@@ -10,7 +10,11 @@ const NESTED_PARSE_ROOT_SELECTOR = [
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
 const NESTED_PARSE_EXCLUDE_SELECTOR = '.gloss-image-link';
-export const SETTINGS_PARSE_TARGET_LIMIT = 48;
+// One pass should cover a whole settings panel: at 48 the larger panels
+// (Appearance) needed several interaction-triggered refreshes before every
+// label carried furigana, which read as "annotation only appears on click".
+// The per-pass parse work is bounded by the settings surface itself.
+export const SETTINGS_PARSE_TARGET_LIMIT = 120;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',

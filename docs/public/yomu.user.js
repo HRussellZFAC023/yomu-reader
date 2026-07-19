@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.227
+// @version 1.6.228
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,12 +9,12 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.11f02808bcb8.user.js#sha256=EfAoCLy4vyIm1VnSgbLhB44a6oUaYsQ+JM/wwVBPXd8=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.26040d7f5a1e.user.js#sha256=JgQNf1oelF9FVS1TokpD1pG1TSrptCuCS51gG5vs7LI=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.3cde77317781.user.js#sha256=PN53MXeB0vkwXyLX72hNCP2JwJOeFIXrae7bPjaL7Js=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.eaa469262902.user.js#sha256=6qRpJikCUBRbRKUKl4MqlPRCeIEYNA1Xlt9pM7CQ7GI=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.315fe016731b.user.js#sha256=MV/gFnMb+iZPuO/ZtinfGTAjcY4DLMw958v4AxStzpA=
-// @require https://yomureader.com/greasyfork/yomu-video.ac52e0f4c662.user.js#sha256=rFLg9MZidLdmZckY+4Q0zNP+pd7kBWfrQqN7Taf25/s=
+// @require https://yomureader.com/greasyfork/yomu-anki.9379b4304b96.user.js#sha256=k3m0MEuWEK7Z7HtWmFjzJ2xNJt6VCQItToRPq6TwaQY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.fd72d9615c73.user.js#sha256=/XLZYVxzrv8ulrrWuPceZOqOPOnYOKH4HrPzfmYpfoY=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.52bbd06a32b7.user.js#sha256=UrvQajK3aNrWgWCkjZh3XB35+Duc6SqtDkOtClo5j10=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.3ccb6e7efa82.user.js#sha256=PMtufvqCLypaeixtzIBVKnebioF1QOvWbLHlhLm7VDk=
+// @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -505,7 +505,7 @@ function readableContextPassiveChromeElement(element) {
 }
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
-const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
+const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
@@ -628,7 +628,8 @@ function isCompactInteractiveChromeLink(link, parent, text2) {
 function isCompactInteractiveChromeControl(control, parent) {
   if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
   if (safeElementMatches$1(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
-  const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches$1(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+  if (safeElementMatches$1(control, '[role="combobox"]') && !isNonEditableListboxTrigger(control)) return false;
+  const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches$1(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
   return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
 }
 function isCompactInteractiveChromeContext(element) {
@@ -746,15 +747,28 @@ function isCompactMediaContext(element) {
   const compact2 = rect.width === 0 || rect.width <= 560;
   return structured && compact2;
 }
-const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
 const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
 const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
 const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
 function isEditableComposingContext(element) {
   if (element.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+  const combobox = element.closest('[role="combobox"]');
+  if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
   if (element.closest(PASSIVE_CHOICE_SELECTOR)) return false;
   if (element.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
   return isComboboxOwnedPopup(element);
+}
+const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
+function isNonEditableListboxTrigger(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (!safeElementMatches$1(element, '[role="combobox"]')) return false;
+  const tag = element.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+  const autocomplete = element.getAttribute("aria-autocomplete");
+  if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
+  if (safeElementMatches$1(element, '[contenteditable]:not([contenteditable="false"])')) return false;
+  return !safeQuerySelector(element, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
 }
 const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
 let comboboxOwnedIdMemo = new WeakMap();
@@ -785,7 +799,7 @@ function isComboboxOwnedPopup(element) {
   }
   return false;
 }
-const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
+const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
 const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
@@ -5540,7 +5554,7 @@ const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
-const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = BASE_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
@@ -5732,6 +5746,7 @@ const CONTROL_LABEL_TEXT_LIMIT = 60;
 const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR;
 function isAnnotatableChipControl(blocked) {
   if (!blocked.matches(ANNOTATABLE_CONTROL_SELECTOR)) return false;
+  if (blocked.matches('[role="combobox"]') && !isNonEditableListboxTrigger(blocked)) return false;
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
   if (isComposerActionControl(control)) return false;
   const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
@@ -5918,7 +5933,7 @@ function selectLookupText(select, mode) {
   if (mode === "selected") return selectedText.join(" / ");
   const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text2) => HAS_JAPANESE.test(text2));
   const compactOptionList = compactSelectOptionListText(optionTextList);
-  return compactOptionList || selectedText.join(" / ");
+  return compactOptionList || selectedText.join(" / ") || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(" / ");
 }
 function compactSelectOptionListText(options) {
   if (options.length < 2 || options.length > FORM_CONTROL_SELECT_OPTION_LIMIT) return "";
@@ -17003,16 +17018,15 @@ function renderedJpdbRelatedWordCard(word) {
 }
 function renderProviderExamples(provider, sourceId, collection, sourceAttributes, language) {
   const availability = collection.availability;
-  const unavailableReason = availability === "unavailable" ? ` data-examples-unavailable-reason="${collection.reason}"` : "";
-  const count = availability === "loaded" ? String(collection.items.length) : availability === "empty" ? "0" : "—";
+  if (availability !== "loaded" || !collection.items.length) return "";
   return `
-    <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}"${unavailableReason} ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
+    <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId}:examples`))}>
         <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
             <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-            <span class="jpdb-reader-source-status jpdb-reader-example-count">${count}</span>
+            <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
         </summary>
         <div class="jpdb-reader-local-glossary">
-            ${availability === "loaded" ? `<ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>` : `<p class="jpdb-reader-example-availability">${escapeHtml$1(uiText(language, availability === "empty" ? "noExampleSentences" : "exampleSentencesUnavailable"))}</p>`}
+            <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
         </div>
     </details>
   `;
@@ -20157,13 +20171,22 @@ ${spelling}`);
     };
   });
   }
-  withSegmentedFallbackGaps(paragraphs, parsed, options) {
+  async withSegmentedFallbackGaps(paragraphs, parsed, options) {
   const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
   if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-  return paragraphs.map((text2, index) => {
+  return Promise.all(paragraphs.map(async (text2, index) => {
     const tokens = parsed[index] ?? [];
-    return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
-  });
+    if (options.allowSegmentedFallback !== true) return tokens;
+    const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
+    return this.fillSegmentedFallbackGaps(text2, withLocal);
+  }));
+  }
+  async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
+  if (!this.canUseLocalDictionaryFallback()) return tokens;
+  if (!await this.hasLocalTermDictionaries()) return tokens;
+  const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
+  const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap$1(local.start, local.end, token.start, token.end)));
+  return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
   }
   fillSegmentedFallbackGaps(text2, tokens) {
   tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text2);
@@ -24603,15 +24626,10 @@ class ImmersionPopoverController {
   return tokens ?? [];
   }
   renderEmpty(container) {
-  const settings = this.options.getSettings();
   container.removeAttribute("open");
   container.dataset.immersionEmpty = "true";
-  setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>
-                <span>${uiText(settings.interfaceLanguage, "immersionKit")}</span>
-                <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, "noImmersionExamplesCompact")}</span>
-            </summary>
-        `);
+  container.hidden = true;
+  setInnerHtml(container, "");
   this.options.repositionPopover();
   }
   startIndex(card, examples) {
@@ -24635,6 +24653,7 @@ class ImmersionPopoverController {
   const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
   this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
   delete container.dataset.immersionEmpty;
+  container.hidden = false;
   const scrollFrame = capturePopoverScrollFrame(container);
   setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
   this.loadRenderedExampleImages(container, imageUrls, isCurrent);
@@ -33647,7 +33666,7 @@ const NESTED_PARSE_ROOT_SELECTOR = [
 const READER_WORD_SELECTOR = ".jpdb-reader-word";
 const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
 const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
-const SETTINGS_PARSE_TARGET_LIMIT = 48;
+const SETTINGS_PARSE_TARGET_LIMIT = 120;
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
   ".jpdb-reader-settings-actions",
   ".jpdb-reader-settings-drag-handle",
@@ -37517,8 +37536,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.227"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.227"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.228"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.228"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37638,7 +37657,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.227"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.228"}`;
   } catch {
   return null;
   }
@@ -42335,6 +42354,7 @@ class ReaderApp {
     await this.handleMissingRenderedWordCard(word, { ...options, stackOverSettings }, insideReaderPopup);
     return;
   }
+  if (stackOverSettings && !insideReaderPopup && options.trigger !== "hover" && !card.meanings.length && await this.lookupUncachedPageWord(word, { ...options, stackOverSettings })) return;
   this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
   const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
   if (this.refreshActiveRenderedWordHover(word, context)) return;

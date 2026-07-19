@@ -14974,7 +14974,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
   const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
-  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch")}`;
+  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
   const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
   const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
   const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
@@ -15097,7 +15097,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isCompactInteractiveChromeControl(control2, parent) {
     if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control2)) return false;
     if (safeElementMatches(control2, '[role="button"]') && control2.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control2)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(control2) || hasCompactInteractiveChromeGeometry(control2) || safeElementMatches(control2, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
+    if (safeElementMatches(control2, '[role="combobox"]') && !isNonEditableListboxTrigger(control2)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(control2) || hasCompactInteractiveChromeGeometry(control2) || safeElementMatches(control2, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
     return chromeLike && hasCompactInteractiveChromeRubyRisk(control2);
   }
   function isCompactInteractiveChromeContext(element2) {
@@ -15211,15 +15212,28 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const compact2 = rect.width === 0 || rect.width <= 560;
     return structured && compact2;
   }
-  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
   const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
   const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
   const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
   function isEditableComposingContext(element2) {
     if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    const combobox = element2.closest('[role="combobox"]');
+    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
     if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
     if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
     return isComboboxOwnedPopup(element2);
+  }
+  const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
+  function isNonEditableListboxTrigger(element2) {
+    if (!(element2 instanceof HTMLElement)) return false;
+    if (!safeElementMatches(element2, '[role="combobox"]')) return false;
+    const tag = element2.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    const autocomplete = element2.getAttribute("aria-autocomplete");
+    if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
+    if (safeElementMatches(element2, '[contenteditable]:not([contenteditable="false"])')) return false;
+    return !safeQuerySelector(element2, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
   }
   const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
   let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
@@ -15250,7 +15264,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return false;
   }
-  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio")},[slot="more-button"],.more-button,#more,#less`;
+  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
   const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = "ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button";
@@ -18314,7 +18328,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
   const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
-  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
   const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
   const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
   const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
@@ -18470,7 +18484,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (mode === "selected") return selectedText.join(" / ");
     const optionTextList = uniqueControlTexts(Array.from(select2.options).map(optionText)).filter((text2) => HAS_JAPANESE$2.test(text2));
     const compactOptionList = compactSelectOptionListText(optionTextList);
-    return compactOptionList || selectedText.join(" / ");
+    return compactOptionList || selectedText.join(" / ") || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(" / ");
   }
   function compactSelectOptionListText(options) {
     if (options.length < 2 || options.length > FORM_CONTROL_SELECT_OPTION_LIMIT) return "";
@@ -35108,10 +35122,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
-      noExampleSentences: "No example sentences",
-      exampleSentencesUnavailable: "Example sentences unavailable",
       acceptedInputs: "Accepted inputs",
       relatedWords: "Related words",
+      bunproUsedInVocab: "Used in",
       relatedGrammar: "Related grammar",
       antonymWord: "Antonym",
       bunproCaution: "Caution",
@@ -35691,10 +35704,9 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
-noExampleSentences	例文はありません
-exampleSentencesUnavailable	例文を読み込めません
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
+bunproUsedInVocab	使われている単語
 relatedGrammar	関連文法
 antonymWord	対義語
 bunproCaution	注意
@@ -265438,16 +265450,15 @@ ${entry2.reading || ""}`;
   }
   function renderProviderExamples(provider, sourceId2, collection, sourceAttributes, language) {
     const availability = collection.availability;
-    const unavailableReason = availability === "unavailable" ? ` data-examples-unavailable-reason="${collection.reason}"` : "";
-    const count2 = availability === "loaded" ? String(collection.items.length) : availability === "empty" ? "0" : "—";
+    if (availability !== "loaded" || !collection.items.length) return "";
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}"${unavailableReason} ${sourceAttributes(definitionSourceStateKey$3(`${sourceId2}:examples`))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId2}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${count2}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                ${availability === "loaded" ? `<ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>` : `<p class="jpdb-reader-example-availability">${escapeHtml$1(uiText(language, availability === "empty" ? "noExampleSentences" : "exampleSentencesUnavailable"))}</p>`}
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(renderProviderExample).join("")}</ul>
             </div>
         </details>
     `;
@@ -269151,6 +269162,33 @@ ${component.reading}`;
     if (!Array.isArray(value.data)) return section;
     return { ...value, data: value.data.slice(0, limit) };
   }
+  class LruCache {
+    constructor(maxSize) {
+      this.maxSize = maxSize;
+    }
+    map = /* @__PURE__ */ new Map();
+    get(key2) {
+      const value = this.map.get(key2);
+      if (value !== void 0) {
+        this.map.delete(key2);
+        this.map.set(key2, value);
+      }
+      return value;
+    }
+    set(key2, value) {
+      this.map.delete(key2);
+      this.map.set(key2, value);
+      if (this.map.size > this.maxSize) {
+        const oldest = this.map.keys().next().value;
+        if (oldest !== void 0) {
+          this.map.delete(oldest);
+        }
+      }
+    }
+    clear() {
+      this.map.clear();
+    }
+  }
   const BUNPRO_EXAMPLE_LIMIT = 10;
   async function lookupBunproDefinitionResult(client, card) {
     const raw = await client.search(card.spelling, { grammar: true, vocab: true, limit: 12 });
@@ -269167,6 +269205,7 @@ ${component.reading}`;
     } catch (error) {
       applyBunproExampleCollection(info, { availability: "unavailable", items: [], reason: bunproExampleFailureReason(error) });
     }
+    await resolveBunproUsedInVocab(client, info);
     return { state: "success", info };
   }
   const BUNPRO_FREQUENCY_LISTS = ["general", "anime", "novels", "netflix", "dictionary"];
@@ -269188,6 +269227,45 @@ ${component.reading}`;
       bunproRelatedGrammarPoint(attributes.previous_grammar_point),
       bunproRelatedGrammarPoint(attributes.next_grammar_point)
     ]).filter((entry2) => entry2.id !== info.id);
+    info.coverageVocabIds = bunproCoverageVocabIds(attributes.coverage_vocab_ids);
+  }
+  function bunproCoverageVocabIds(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((value) => numberValue$1(value)).filter((id2) => id2 > 0).slice(0, 50);
+  }
+  const BUNPRO_USED_IN_LIMIT = 5;
+  const BUNPRO_USED_IN_TIMEOUT_MS = 4e3;
+  const bunproUsedInVocabCache = new LruCache(200);
+  async function resolveBunproUsedInVocab(client, info) {
+    if (info.kind !== "grammar") return;
+    const ids2 = info.coverageVocabIds.slice(0, BUNPRO_USED_IN_LIMIT);
+    if (!ids2.length) return;
+    const resolved = await Promise.race([
+      Promise.all(ids2.map((id2) => bunproUsedInVocabEntry(client, id2))),
+      new Promise((resolve) => setTimeout(() => resolve(null), BUNPRO_USED_IN_TIMEOUT_MS))
+    ]);
+    if (!resolved) return;
+    info.usedInVocab = resolved.filter((entry2) => entry2 !== null);
+  }
+  async function bunproUsedInVocabEntry(client, id2) {
+    const cached = bunproUsedInVocabCache.get(id2);
+    if (cached) return cached;
+    try {
+      const attributes = objectRecord(objectRecord(objectRecord(await client.getVocab(id2))?.data)?.attributes);
+      const kana = textValue(attributes?.kana);
+      const text2 = textValue(attributes?.word) || kana;
+      if (!text2) return null;
+      const entry2 = {
+        id: id2,
+        text: text2,
+        reading: kana && kana !== text2 ? kana : "",
+        meaning: stripBunproMarkup(textValue(attributes?.meaning))
+      };
+      bunproUsedInVocabCache.set(id2, entry2);
+      return entry2;
+    } catch {
+      return null;
+    }
   }
   function bunproJmdictRelatedWords(raw, info) {
     const senses = objectRecord(raw)?.sense;
@@ -269360,7 +269438,7 @@ ${component.reading}`;
     const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
     const nuanceLabel = japanese2 ? "ニュアンス" : "Nuance";
     const glosses = distinctBunproGlosses(info);
-    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproUsedInVocab(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title2)}</summary>
@@ -269402,6 +269480,31 @@ ${component.reading}`;
         </div>
     `).join("");
     return `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproStructure"))}</strong>${blocks}</div>`;
+  }
+  function renderBunproUsedInVocab(info, sourceAttributes, language) {
+    if (!info.usedInVocab.length) return "";
+    const rows = info.usedInVocab.map((entry2) => `
+        <li class="jpdb-reader-jpdb-used-in-row">
+            <span class="jpdb-reader-jpdb-used-in-main">
+                <a class="gloss-link jpdb-reader-jpdb-used-in-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(entry2.text)}" data-dictionary="Bunpro" data-external="false">
+                    <span class="jpdb-reader-jpdb-compound-head">${escapeHtml$1(entry2.text)}</span>
+                </a>
+                ${entry2.reading ? `<small lang="ja">${escapeHtml$1(entry2.reading)}</small>` : ""}
+                ${entry2.meaning ? `<small>${escapeHtml$1(entry2.meaning)}</small>` : ""}
+            </span>
+        </li>
+    `).join("");
+    return `
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group" ${sourceAttributes(definitionSourceStateKey$1(`${BUNPRO_DEFINITION_SOURCE_ID}:used-in`))}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
+                <span class="jpdb-reader-example-source">${escapeHtml$1(uiText(language, "bunproUsedInVocab"))}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${info.usedInVocab.length}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <ul class="jpdb-reader-jpdb-used-in">${rows}</ul>
+            </div>
+        </details>
+    `;
   }
   function renderBunproRelatedWords(info, sourceAttributes, language) {
     if (!info.relatedWords.length) return "";
@@ -269530,7 +269633,9 @@ ${component.reading}`;
       register: "",
       registerTranslation: "",
       structures: [],
-      relatedGrammar: []
+      relatedGrammar: [],
+      coverageVocabIds: [],
+      usedInVocab: []
     };
   }
   function searchItems(raw, key2) {
@@ -270421,13 +270526,32 @@ ${spelling}`);
         };
       });
     }
-    withSegmentedFallbackGaps(paragraphs, parsed, options) {
+    async withSegmentedFallbackGaps(paragraphs, parsed, options) {
       const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
       if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-      return paragraphs.map((text2, index) => {
+      return Promise.all(paragraphs.map(async (text2, index) => {
         const tokens = parsed[index] ?? [];
-        return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
-      });
+        if (options.allowSegmentedFallback !== true) return tokens;
+        const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
+        return this.fillSegmentedFallbackGaps(text2, withLocal);
+      }));
+    }
+    // Remote coverage gaps were previously filled ONLY by the bare segmenter,
+    // whose fallback cards carry no reading/ruby/pitch — so an inflected verb
+    // the provider skipped (使って, 行います) rendered with no decoration at
+    // all while its neighbours annotated. When local term dictionaries are
+    // available, fill the uncovered ranges with deinflected, enriched local
+    // tokens first; the bare segmenter only covers what the dictionary also
+    // misses.
+    async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
+      if (!this.canUseLocalDictionaryFallback()) return tokens;
+      if (!await this.hasLocalTermDictionaries()) return tokens;
+      const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
+      if (!localTokens.length) return tokens;
+      const kept = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
+      const additions = nonOverlappingTokens([...localTokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2).filter((local) => !kept.some((token) => rangesOverlap(local.start, local.end, token.start, token.end)));
+      if (!additions.length) return tokens;
+      return [...kept, ...additions].sort(compareTokensByOffset);
     }
     fillSegmentedFallbackGaps(text2, tokens) {
       tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
@@ -274831,15 +274955,10 @@ ${component.reading}`;
       return tokens ?? [];
     }
     renderEmpty(container) {
-      const settings = this.options.getSettings();
       container.removeAttribute("open");
       container.dataset.immersionEmpty = "true";
-      setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>
-                <span>${uiText(settings.interfaceLanguage, "immersionKit")}</span>
-                <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, "noImmersionExamplesCompact")}</span>
-            </summary>
-        `);
+      container.hidden = true;
+      setInnerHtml(container, "");
       this.options.repositionPopover();
     }
     startIndex(card, examples) {
@@ -274863,6 +274982,7 @@ ${component.reading}`;
       const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
       this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
       delete container.dataset.immersionEmpty;
+      container.hidden = false;
       const scrollFrame = capturePopoverScrollFrame(container);
       setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
       this.loadRenderedExampleImages(container, imageUrls, isCurrent);
@@ -275624,33 +275744,6 @@ ${component.reading}`;
   }
   function isTestRuntime$1() {
     return typeof process !== "undefined" && (process.env?.VITEST === "true" || process.env?.NODE_ENV === "test");
-  }
-  class LruCache {
-    constructor(maxSize) {
-      this.maxSize = maxSize;
-    }
-    map = /* @__PURE__ */ new Map();
-    get(key2) {
-      const value = this.map.get(key2);
-      if (value !== void 0) {
-        this.map.delete(key2);
-        this.map.set(key2, value);
-      }
-      return value;
-    }
-    set(key2, value) {
-      this.map.delete(key2);
-      this.map.set(key2, value);
-      if (this.map.size > this.maxSize) {
-        const oldest = this.map.keys().next().value;
-        if (oldest !== void 0) {
-          this.map.delete(oldest);
-        }
-      }
-    }
-    clear() {
-      this.map.clear();
-    }
   }
   const TOKEN_FIELDS = ["vocabulary_index", "position", "length", "furigana"];
   const VOCABULARY_FIELDS = [
@@ -279342,7 +279435,7 @@ ${normalizedReading}`;
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
   const NESTED_PARSE_EXCLUDE_SELECTOR = ".gloss-image-link";
-  const SETTINGS_PARSE_TARGET_LIMIT = 48;
+  const SETTINGS_PARSE_TARGET_LIMIT = 120;
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
@@ -300916,6 +301009,7 @@ ${entry2.url}`),
     });
   }
   function setBlockLabelText(label, text2) {
+    resetAnnotatedLabelText(label);
     const container = directSettingsLabelTextContainer(label);
     if (container) {
       setLeadingText(container, text2);
@@ -300926,6 +301020,7 @@ ${entry2.url}`),
     else label.insertBefore(document.createTextNode(text2), label.firstChild);
   }
   function setInlineLabelText(label, text2) {
+    resetAnnotatedLabelText(label);
     const container = directSettingsLabelTextContainer(label);
     if (container) {
       container.replaceChildren(text2);
@@ -300934,6 +301029,13 @@ ${entry2.url}`),
     const textNode = Array.from(label.childNodes).find((node2) => node2.nodeType === Node.TEXT_NODE && (node2.textContent ?? "").trim());
     if (textNode) textNode.textContent = text2;
     else label.append(document.createTextNode(text2));
+  }
+  function resetAnnotatedLabelText(label) {
+    if (!(label instanceof HTMLElement) || !label.querySelector(".jpdb-reader-word")) return;
+    unwrapReaderWords(label, {
+      includeReaderRoot: true,
+      excludeSelector: ".jpdb-reader-control-text-mirror .jpdb-reader-word, [data-settings-preview-lookup] .jpdb-reader-word"
+    });
   }
   function directSettingsLabelTextContainer(label) {
     return Array.from(label.children).find(
@@ -303627,13 +303729,19 @@ ${entry2.url}`),
     preloadStudySources(popover, sentence) {
       if (!sentence) return;
       const settings = this.settings();
-      if (settings.studyGrammarEnabled && popover.querySelector("[data-study-grammar]")) {
-        void this.cachedGrammarHints(sentence).catch(() => void 0);
+      const grammar = popover.querySelector("[data-study-grammar]");
+      if (settings.studyGrammarEnabled && grammar) {
+        void this.cachedGrammarHints(sentence).then((hints2) => {
+          if (!hints2.length && grammar.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) grammar.remove();
+        }).catch(() => void 0);
         preloadGrammarResources(sentence, settings.interfaceLanguage);
       }
-      if (settings.studyTranslationEnabled && popover.querySelector("[data-study-translation]")) {
+      const translation2 = popover.querySelector("[data-study-translation]");
+      if (settings.studyTranslationEnabled && translation2) {
         preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
-        void this.cachedTranslationContent(sentence).catch(() => void 0);
+        void this.cachedTranslationContent(sentence).then((result) => {
+          if (!result.translated && translation2.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation2.hidden = true;
+        }).catch(() => void 0);
       }
     }
     renderTranslationPanel(sentence) {

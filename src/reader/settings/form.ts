@@ -2106,6 +2106,7 @@ function setControlLabel(form: HTMLFormElement, name: string, label: string): vo
 }
 
 function setBlockLabelText(label: Element, text: string): void {
+    resetAnnotatedLabelText(label);
     const container = directSettingsLabelTextContainer(label);
     if (container) {
         setLeadingText(container, text);
@@ -2117,6 +2118,7 @@ function setBlockLabelText(label: Element, text: string): void {
 }
 
 function setInlineLabelText(label: Element, text: string): void {
+    resetAnnotatedLabelText(label);
     const container = directSettingsLabelTextContainer(label);
     if (container) {
         container.replaceChildren(text);
@@ -2125,6 +2127,18 @@ function setInlineLabelText(label: Element, text: string): void {
     const textNode = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) as Text | undefined;
     if (textNode) textNode.textContent = text;
     else label.append(document.createTextNode(text));
+}
+
+// A label whose text was already wrapped into reader-word spans has no direct
+// text node left; writing a new text node NEXT TO the still-annotated spans
+// renders the label twice (ポップアップ表示ポップアップ表示). Restore plain
+// text first — the next settings self-annotation pass re-annotates it.
+function resetAnnotatedLabelText(label: Element): void {
+    if (!(label instanceof HTMLElement) || !label.querySelector('.jpdb-reader-word')) return;
+    unwrapReaderWords(label, {
+        includeReaderRoot: true,
+        excludeSelector: '.jpdb-reader-control-text-mirror .jpdb-reader-word, [data-settings-preview-lookup] .jpdb-reader-word',
+    });
 }
 
 function directSettingsLabelTextContainer(label: Element): HTMLElement | null {

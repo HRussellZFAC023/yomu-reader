@@ -1,9 +1,9 @@
 {
   "name": "yomu-reader",
-  "version": "1.6.227",
+  "version": "1.6.228",
   "private": true,
   "type": "module",
-  "description": "\u3088\u3080: a Jiten/Bunpro/JPDB/Yomitan popup dictionary, study, and subtitle-mining userscript.",
+  "description": "よむ: a Jiten/Bunpro/JPDB/Yomitan popup dictionary, study, and subtitle-mining userscript.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.228] - 2026-07-19
+
+### Fixed
+
+- Inflected verbs that a remote parse skipped, such as 使って and 行います, no longer render without furigana or pitch while their neighbours annotate. When local dictionaries are enabled, remote coverage gaps are filled with deinflected dictionary tokens that carry reading, furigana, and pitch, and only ranges the dictionary also misses fall back to plain segmenter fragments.
+- Dictionary popup sections with nothing to show are hidden entirely: example-sentence groups no longer render a count-zero header or a no-examples placeholder, grammar and translation sections remove themselves when the sentence has no hints or no translation, and the Immersion Kit section disappears instead of announcing that no examples exist.
+- The Japanese settings dialog now annotates a whole panel in one pass, so furigana no longer trickles in only after clicking around, and rewriting a label can no longer duplicate its text next to a still-annotated copy.
+- Clicking an annotated word inside the settings dialog now runs a full dictionary lookup instead of showing an empty popup that contained only search links.
+
+### Added
+
+- Select-like dropdown triggers, such as language pickers built as role=combobox listbox buttons, are now annotated through the passive control channel, while genuinely editable comboboxes stay untouched. A native select whose only Japanese option is not the selected one now still surfaces that option in its annotated mirror.
+
 ## [1.6.227] - 2026-07-19
 
 ### Fixed

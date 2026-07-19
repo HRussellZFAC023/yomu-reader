@@ -625,15 +625,14 @@ export class ImmersionPopoverController {
     }
 
     private renderEmpty(container: HTMLElement): void {
-        const settings = this.options.getSettings();
+        // No examples → no visible section (a header-only "no examples" shell
+        // is dead weight). The mount stays in the DOM, marked empty and
+        // hidden, so popover re-renders preserve the verdict instead of
+        // re-querying the API for a word known to have no examples.
         container.removeAttribute('open');
         container.dataset.immersionEmpty = 'true';
-        setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>
-                <span>${uiText(settings.interfaceLanguage, 'immersionKit')}</span>
-                <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, 'noImmersionExamplesCompact')}</span>
-            </summary>
-        `);
+        container.hidden = true;
+        setInnerHtml(container, '');
         this.options.repositionPopover();
     }
 
@@ -674,6 +673,7 @@ export class ImmersionPopoverController {
 
         this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
         delete container.dataset.immersionEmpty;
+        container.hidden = false;
         const scrollFrame = capturePopoverScrollFrame(container);
         setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
         this.loadRenderedExampleImages(container, imageUrls, isCurrent);

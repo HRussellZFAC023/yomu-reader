@@ -5358,6 +5358,13 @@ export class ReaderApp {
             await this.handleMissingRenderedWordCard(word, { ...options, stackOverSettings }, insideReaderPopup);
             return;
         }
+        // The settings self-annotation parse caches reading/pitch skeleton
+        // cards without meanings; showing one yields a header-only popup with
+        // an empty body. Route those clicks through the fresh uncached-word
+        // lookup (full dictionary/public fetch) instead.
+        if (stackOverSettings && !insideReaderPopup && options.trigger !== 'hover'
+            && !card.meanings.length
+            && await this.lookupUncachedPageWord(word, { ...options, stackOverSettings })) return;
         this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (this.refreshActiveRenderedWordHover(word, context)) return;
