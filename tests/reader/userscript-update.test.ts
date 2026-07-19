@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
-import { detectYomuUpdateFlow, INSTALL_GUIDE_URL, UPDATE_GUIDE_URL, updateFlowNoteKey } from '../../src/reader/app/userscript-update';
+import { EXTENSION_STORE_URLS, USERSCRIPT_INSTALL_URL } from '../../src/reader/app/constants';
+import { detectYomuUpdateFlow, extensionStoreBrowser, INSTALL_GUIDE_URL, UPDATE_GUIDE_URL, updateFlowNoteKey } from '../../src/reader/app/userscript-update';
 import { uiText } from '../../src/reader/app/i18n';
 
 // A wrong branch here regresses straight into the Chromium "Apps, extensions,
@@ -76,8 +76,27 @@ describe('yomu update flow detection', () => {
         expect(detectYomuUpdateFlow().kind).toBe('external-manager');
     });
 
+    it('sends extension builds to their browser store, even when GM globals are shimmed', () => {
+        // The extension runtime shims GM_info, so the extension check must win
+        // over every manager branch.
+        const flow = detectYomuUpdateFlow({ scriptHandler: 'Tampermonkey' }, true, 'Mozilla/5.0 Chrome/138.0.0.0 Safari/537.36', true);
+        expect(flow.kind).toBe('extension-store');
+        expect(flow.url).toBe(EXTENSION_STORE_URLS.chrome);
+        expect(flow.url.endsWith('.user.js')).toBe(false);
+        expect(uiText('en', updateFlowNoteKey(flow.kind))).toContain('extension store');
+    });
+
+    it('maps the user agent to the matching extension store route', () => {
+        expect(extensionStoreBrowser('Mozilla/5.0 (Macintosh) Gecko/20100101 Firefox/140.0')).toBe('firefox');
+        expect(extensionStoreBrowser('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Version/17.0 Safari/604.1')).toBe('safari');
+        expect(extensionStoreBrowser('Mozilla/5.0 Chrome/138.0.0.0 Safari/537.36')).toBe('chrome');
+        // Edge and other Chromium forks install the chrome package.
+        expect(extensionStoreBrowser('Mozilla/5.0 Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0')).toBe('chrome');
+        expect(extensionStoreBrowser('')).toBe('chrome');
+    });
+
     it('has en and ja guidance for every flow kind', () => {
-        for (const kind of ['manager', 'manager-dashboard', 'external-manager', 'no-manager'] as const) {
+        for (const kind of ['manager', 'manager-dashboard', 'external-manager', 'extension-store', 'no-manager'] as const) {
             const key = updateFlowNoteKey(kind);
             expect(uiText('en', key).length, kind).toBeGreaterThan(10);
             expect(uiText('ja', key).length, kind).toBeGreaterThan(10);

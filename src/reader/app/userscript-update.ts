@@ -1,5 +1,7 @@
 import type { UiCopyKey } from './i18n';
-import { DOCS_BASE_URL, USERSCRIPT_INSTALL_URL } from './constants';
+import type { ExtensionStoreBrowser } from './constants';
+import { DOCS_BASE_URL, EXTENSION_STORE_URLS, USERSCRIPT_INSTALL_URL } from './constants';
+import { runningAsBrowserExtension } from './runtime-env';
 
 // The getting-started page carries per-browser install/update instructions,
 // including the fix for the Chromium "Apps, extensions, and user scripts
@@ -7,7 +9,7 @@ import { DOCS_BASE_URL, USERSCRIPT_INSTALL_URL } from './constants';
 export const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
 export const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
 
-export type YomuUpdateFlowKind = 'manager' | 'manager-dashboard' | 'external-manager' | 'no-manager';
+export type YomuUpdateFlowKind = 'manager' | 'manager-dashboard' | 'external-manager' | 'extension-store' | 'no-manager';
 
 export interface YomuUpdateFlow {
     kind: YomuUpdateFlowKind;
@@ -54,21 +56,36 @@ function isChromiumBrowser(userAgent: string): boolean {
     return /(?:Chrome|Chromium|Edg)\/\d/i.test(userAgent);
 }
 
+// Extension builds ship as chrome/firefox/safari packages; Chromium-family
+// browsers (Chrome, Edge, Brave, ...) all install the chrome package from the
+// Chrome Web Store, so anything that isn't Firefox or genuine Safari maps to
+// the chrome store route.
+export function extensionStoreBrowser(userAgent: string): ExtensionStoreBrowser {
+    if (/Firefox\/\d/i.test(userAgent)) return 'firefox';
+    if (/Safari\/\d/i.test(userAgent) && !isChromiumBrowser(userAgent)) return 'safari';
+    return 'chrome';
+}
+
 // Decides where the settings "Update" affordance should send the user so a
 // click never dead-ends in the Chromium sideload-block banner:
+// - an extension build updates through its browser's extension store, never a
+//   .user.js navigation (the extension runtime also shims GM globals, so this
+//   check must run before any GM_info sniffing);
 // - Chromium Tampermonkey updates through Dashboard -> Utilities so Chrome
 //   never mistakes the update for a website sideload;
 // - another userscript manager runtime (Violentmonkey/...) intercepts
 //   .user.js navigations, so the raw script URL is the right target;
 // - Userscripts (iOS) / Stay read the raw source from an open Safari tab;
-// - no manager at all (hosted reader, extension build, dead bridge) means a
+// - no manager at all (hosted reader, dead bridge) means a
 //   .user.js navigation would trigger the browser's blocked-install banner,
 //   so the button opens the install guide instead.
 export function detectYomuUpdateFlow(
     info: unknown = readGmInfo(),
     openInTabAvailable: boolean = hasCallableOpenInTab(),
     userAgent: string = readUserAgent(),
+    isExtensionBuild: boolean = runningAsBrowserExtension(),
 ): YomuUpdateFlow {
+    if (isExtensionBuild) return { kind: 'extension-store', handler: '', url: EXTENSION_STORE_URLS[extensionStoreBrowser(userAgent)] };
     if (!info || typeof info !== 'object') return { kind: 'no-manager', handler: '', url: INSTALL_GUIDE_URL };
     const handler = scriptHandlerName(info);
     const normalizedHandler = handler.toLowerCase();
@@ -89,6 +106,8 @@ export function updateFlowNoteKey(kind: YomuUpdateFlowKind): UiCopyKey {
             return 'updateHelpNotesManagerDashboard';
         case 'external-manager':
             return 'updateHelpNotesExternalManager';
+        case 'extension-store':
+            return 'updateHelpNotesExtensionStore';
         case 'no-manager':
             return 'updateHelpNotesNoManager';
         case 'manager':

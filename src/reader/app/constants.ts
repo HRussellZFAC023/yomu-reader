@@ -15,6 +15,15 @@ export const DONATE_URL = 'https://support.yomureader.com/donate';
 export const SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
 export const YOMU_HOSTED_AUDIO_URL = 'https://audio.yomureader.com/?term={term}&reading={reading}';
 export const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
+// Stable per-browser store routes on the docs origin. The hosted stubs under
+// docs/public/store/ redirect to the live listing for each browser's store,
+// so listing URLs can change without shipping a new build.
+export const EXTENSION_STORE_URLS = {
+    chrome: `${DOCS_BASE_URL}store/chrome/`,
+    firefox: `${DOCS_BASE_URL}store/firefox/`,
+    safari: `${DOCS_BASE_URL}store/safari/`,
+} as const;
+export type ExtensionStoreBrowser = keyof typeof EXTENSION_STORE_URLS;
 /** Canonical hosted Study route. `/newtab/` remains a compatibility route. */
 export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 export const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
