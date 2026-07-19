@@ -258,8 +258,8 @@ describe('Academy character directory presentation', () => {
         expect(styles).toMatch(/\.academy-journal-screen \.academy-journal-book\s*\{[^}]*overflow:\s*visible[^}]*animation:\s*academy-journal-book-open/s);
         expect(styles).toMatch(/\.academy-journal-screen \.academy-journal-book-content\s*\{[^}]*overflow:\s*hidden/s);
         expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.academy-journal-screen \.academy-journal-book,[\s\S]*animation:\s*none !important/s);
-        expect(styles).toContain('animation: academy-courtyard-petal-drift 6.5s linear infinite;');
-        expect(styles).not.toContain('academy-courtyard-petal-drift 6.5s ease-in-out infinite alternate');
+        expect(styles).toContain('animation: academy-courtyard-petal-drift 6.5s linear 1 both;');
+        expect(styles).not.toMatch(/academy-courtyard-petal-drift[^;]*infinite/);
         expect(styles).toMatch(/@keyframes academy-courtyard-petal-drift\s*\{[^}]*0%[^}]*translate:\s*-8px -12px[\s\S]*100%[^}]*translate:\s*28px 52px/s);
     });
 
