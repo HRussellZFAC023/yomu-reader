@@ -642,10 +642,14 @@ describe('reader helpers', () => {
             expect(particle?.classList.contains('jpdb-reader-particle')).toBe(true);
             expect(particle?.dataset.vid).toBe('11');
             expect(particle?.classList.contains('jpdb-known')).toBe(true);
-            expect(particle?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            // Particles are deliberately accentless: a leaked homophone
+            // pattern must not paint an underline, and ALL particles share the
+            // same class instead of splitting into heiban/unknown by luck.
+            expect(particle?.classList.contains('jpdb-pitch-particle')).toBe(true);
+            expect(particle?.classList.contains('jpdb-pitch-heiban')).toBe(false);
             expect(fallbackParticle?.classList.contains('jpdb-reader-particle')).toBe(true);
             expect(fallbackParticle?.classList.contains('fallback-not-in-deck')).toBe(true);
-            expect(fallbackParticle?.classList.contains('jpdb-pitch-unknown')).toBe(true);
+            expect(fallbackParticle?.classList.contains('jpdb-pitch-particle')).toBe(true);
         } finally {
             document.body.replaceChildren();
         }

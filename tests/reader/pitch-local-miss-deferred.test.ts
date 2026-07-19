@@ -134,6 +134,9 @@ describe('local pitch misses feed the deferred public lane (class F)', () => {
         expect(word.dataset.pitchClass).toBeTruthy();
         expect(word.dataset.pitchClass).not.toBe('unknown');
         expect(Array.from(word.classList).some(name => name.startsWith('jpdb-pitch-') && name !== 'jpdb-pitch-unknown')).toBe(true);
+        // The repaint must carry the resolved pattern too — a class with no
+        // data-pitch-accent left popups and the underline disagreeing.
+        expect(word.dataset.pitchAccent).toBe('LHHH');
     });
 
     it('drains the deferred lane publicly even when a local dictionary is installed (the class-F no-op)', async () => {

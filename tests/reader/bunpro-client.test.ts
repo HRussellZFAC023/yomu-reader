@@ -22,7 +22,9 @@ describe('BunproClient', () => {
         });
         expect(options.allowDirectCrossOrigin).toBe(true);
         expect(options.allowPublicProxies).toBe(false);
-        expect(options.allowSensitiveConfiguredProxy).toBe(false);
+        // The user's OWN configured proxy may carry the token (it is their
+        // infrastructure) — only the shared public proxy stays forbidden.
+        expect(options.allowSensitiveConfiguredProxy).toBe(true);
         expect(options.credentials).toBe('omit');
     });
 
