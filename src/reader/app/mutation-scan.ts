@@ -1,4 +1,6 @@
 import { mutationInsideClosest } from '../dom/mutation';
+import { HAS_JAPANESE } from '../dom/constants';
+import { watchPotentialOpenShadowRootHost } from '../dom/shadow-scan-registry';
 
 export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     childList: true,
@@ -13,10 +15,10 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled', 'style', 'class'],
     attributeOldValue: true,
 };
-const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
+const MUTATION_ELEMENT_SCAN_LIMIT = 240;
 const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled']);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
@@ -147,22 +149,44 @@ function nodeTextMayContainJapanese(node: Node): boolean {
 
 function nodeTreeTextMayContainJapanese(root: Node): boolean {
     let inspectedLength = 0;
-    let inspectedNodes = 0;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-        const text = node.textContent ?? '';
-        inspectedNodes += 1;
-        inspectedLength += text.length;
-        if (HAS_JAPANESE.test(text)) return true;
-        if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT) break;
+    let inspectedTextNodes = 0;
+    let inspectedElements = 0;
+    const pendingRoots: Node[] = [root];
+    while (pendingRoots.length) {
+        const branch = pendingRoots.shift()!;
+        enqueueOpenShadowRoot(branch, pendingRoots);
+        const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                inspectedElements += 1;
+                enqueueOpenShadowRoot(node, pendingRoots);
+            } else {
+                const text = node.textContent ?? '';
+                inspectedTextNodes += 1;
+                inspectedLength += text.length;
+                if (HAS_JAPANESE.test(text)) return true;
+            }
+            if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT
+                || inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT
+                || inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT) return true;
+        }
     }
     // Reaching the sampling budget is not evidence that the remaining subtree
     // is English-only. Treat an exhausted sample as a potential match so the
     // caller schedules its normal bounded scan/continuation; otherwise a large
     // framework insertion can permanently strand Japanese text after the
     // sampled head.
-    return inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT;
+    return false;
+}
+
+function enqueueOpenShadowRoot(node: Node, pendingRoots: Node[]): void {
+    if (!(node instanceof HTMLElement)) return;
+    // Newly inserted native hosts can attach a page-realm shadow root later,
+    // just like custom elements. Poll them during the bounded bridge fallback.
+    const shadowRoot = watchPotentialOpenShadowRootHost(node, true);
+    if (!shadowRoot) return;
+    pendingRoots.push(shadowRoot);
 }
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {

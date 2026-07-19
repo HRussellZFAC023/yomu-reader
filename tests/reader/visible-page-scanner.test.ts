@@ -69,6 +69,93 @@ describe('VisiblePageScanner', () => {
         }
     }, 15000);
 
+    it('recovers a failed parse batch locally without dropping later page targets', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[], _options?: { skipApi?: boolean }) => {
+            if (parseJapanese.mock.calls.length === 1) throw new Error('provider batch failed');
+            return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).toHaveBeenCalledTimes(4);
+            expect(parseJapanese.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ skipApi: true }));
+            expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(170);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    }, 15000);
+
+    it('continues beyond the collection cap when every attempted batch rejects twice', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 250 }, (_, index) => (
+            `<p id="paragraph-${index}">${index === 0
+                ? `日本語の文0です。${'長い本文です。'.repeat(300)}`
+                : `日本語の文${index}`}</p>`
+        )).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => {
+            if (parseJapanese.mock.calls.length <= 6) {
+                // Move a failed source between the capped pass and its
+                // continuation. Continuations must exclude the exact source
+                // nodes that failed, not an ordinal prefix of the new DOM.
+                if (parseJapanese.mock.calls.length === 6) {
+                    document.body.append(document.querySelector('#paragraph-0')!);
+                }
+                throw new Error('unrecoverable capped head');
+            }
+            return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+        const scanVisiblePage = vi.spyOn(scanner, 'scanVisiblePage');
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            await vi.waitFor(() => {
+                expect(document.querySelector('#paragraph-200 .jpdb-reader-word')).not.toBeNull();
+                expect(document.querySelector('#paragraph-249 .jpdb-reader-word')).not.toBeNull();
+            }, { timeout: 10_000 });
+            expect(parseJapanese.mock.calls.length).toBeGreaterThan(6);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            expect(scanVisiblePage, 'one capped pass and one uncapped tail pass').toHaveBeenCalledTimes(2);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    }, 15_000);
+
+    it('reaches the tail of a broad mirrored root across a manual continuation chain', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `<main id="feed">${Array.from(
+            { length: 460 },
+            (_, index) => `<p id="feed-${index}">日本語の文${index}</p>`,
+        ).join('')}</main>`;
+        const feed = document.getElementById('feed')!;
+        Object.defineProperty(feed, '__reactFiber$coverage', { configurable: true, value: {} });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+            testToken(text, text, 0, text.length),
+        ]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: false });
+            await vi.waitFor(() => {
+                expect(document.querySelector('#feed-459 .jpdb-reader-text-mirror')).not.toBeNull();
+            }, { timeout: 15_000 });
+            expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain('日本語の文459');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    }, 20_000);
+
     it('refreshes page-word contrast before yielding between apply chunks', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 50 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
@@ -1604,22 +1691,61 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('chunks a very long text node without corrupting later token offsets', async () => {
+    it('paints every chunk of a long destructive target across mobile parse batches', async () => {
         const restoreRects = mockVisibleElementRects();
         const longText = Array.from({ length: 320 }, () => '日本語の説明を確認します。').join('');
         document.body.innerHTML = `<main><p>${longText}</p></main>`;
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        let tokenId = 0;
+        const parsedTokenIds: string[] = [];
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => {
+            const token = testToken(text, '日本語', 0, 3);
+            tokenId += 1;
+            token.card = { ...token.card, vid: tokenId, sid: tokenId };
+            parsedTokenIds.push(String(tokenId));
+            return [token];
+        }));
         const scanner = createVisiblePageScanner({ parseJapanese });
 
         try {
-            await scanner.scanVisiblePage({ silent: true });
+            await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
 
             const parsedParagraphs = parseJapanese.mock.calls.flatMap(call => call[0]);
             const words = [...document.querySelectorAll<HTMLElement>('p .jpdb-reader-word')];
             expect(parsedParagraphs.length).toBeGreaterThan(1);
-            expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThanOrEqual(2100);
-            expect(words).toHaveLength(parsedParagraphs.length);
+            expect(parseJapanese.mock.calls.length, 'the paragraph must cross the mobile parse budget').toBeGreaterThan(1);
+            // The chunker may merge a sub-280-character final tail into the
+            // preceding 700-character mobile chunk.
+            expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThan(980);
+            expect(parsedParagraphs.reduce((length, text) => length + text.length, 0)).toBe(longText.length);
+            expect(words.map(word => word.dataset.vid).sort())
+                .toEqual(parsedTokenIds.sort());
+            expect(document.querySelector('p .jpdb-reader-text-mirror'), 'chunk slices must not impersonate a repaint loop').toBeNull();
             expect(document.querySelector('p')?.textContent).toBe(longText);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('switches a repeatedly reverted long source to one complete mirror', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const longText = Array.from({ length: 180 }, () => '日本語の説明を確認します。').join('');
+        document.body.innerHTML = `<main><p>${longText}</p></main>`;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+        const paragraph = document.querySelector('p')!;
+
+        try {
+            for (let attempt = 0; attempt < 5 && !paragraph.querySelector('.jpdb-reader-text-mirror'); attempt += 1) {
+                paragraph.textContent = longText;
+                await scanner.scanVisiblePage({ silent: true });
+            }
+
+            const mirror = paragraph.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+            expect(mirror, 'the full source must graduate to the repaint-loop mirror').not.toBeNull();
+            expect(mirror?.textContent).toBe(longText);
+            expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain(longText);
         } finally {
             scanner.destroy();
             restoreRects();
@@ -1673,7 +1799,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('lets hover lookups interrupt an in-flight visible page scan', async () => {
+    it('lets an explicit annotations-off cancellation stop an in-flight visible page scan', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>日本語の文です。</p>';
         const parsed = deferred<JPDBToken[][]>();
@@ -1684,12 +1810,35 @@ describe('VisiblePageScanner', () => {
             const scan = scanner.scanVisiblePage({ silent: true });
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
 
-            scanner.interruptVisiblePageScan();
+            scanner.cancelVisiblePageScan();
             parsed.resolve([[rubyToken('日本語の文です。', '日本語', 'にほんご', 0, 3)]]);
             await scan;
 
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             expect(document.querySelector('p')?.textContent).toBe('日本語の文です。');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not start local recovery after an explicit cancellation', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>日本語の文です。</p>';
+        const parsed = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+            scanner.cancelVisiblePageScan();
+            parsed.reject(new Error('provider stopped'));
+            await scan;
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
         } finally {
             scanner.destroy();
             restoreRects();
@@ -2426,6 +2575,31 @@ describe('VisiblePageScanner', () => {
             document.body.innerHTML = '';
         }
     });
+
+    it('cancels a coalesced scan that was queued for the next scheduler turn', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>今日は読む。</p>';
+        const firstParse = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn(() => firstParse.promise);
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const firstScan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+            await scanner.scanVisiblePage({ silent: true });
+
+            firstParse.resolve([[]]);
+            await firstScan;
+            scanner.cancelVisiblePageScan();
+            await new Promise(resolve => window.setTimeout(resolve, 10));
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
 });
 
 function mockVisibleElementRects(): () => void {
@@ -2451,10 +2625,14 @@ function mockOverflow(el: HTMLElement, scrollHeight: number, clientHeight: numbe
     Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true });
 }
 
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>(settle => { resolve = settle; });
-    return { promise, resolve };
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((settle, fail) => {
+        resolve = settle;
+        reject = fail;
+    });
+    return { promise, resolve, reject };
 }
 
 function testToken(sentence: string, spelling: string, start: number, end: number): JPDBToken {
@@ -2869,14 +3047,14 @@ function readingForHostedCoverage(surface: string): string {
     ]).get(surface) ?? '';
 }
 
-describe('abortable visible-work scheduling (P1)', () => {
+describe('lossless visible-work scheduling', () => {
     // See the note in the VisiblePageScanner block: a loopback root matches the
     // hosted-docs profile, so pin these generic batching tests to a plain page.
     beforeEach(() => {
         window.history.pushState({}, '', '/reading/');
     });
 
-    it('stops an in-flight scan between batches when a newer scan is requested', async () => {
+    it('finishes an in-flight scan before coalescing a newer scan request', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
         let resolveFirst: ((value: JPDBToken[][]) => void) | undefined;
@@ -2884,7 +3062,9 @@ describe('abortable visible-work scheduling (P1)', () => {
         const parseJapanese = vi.fn(async (paragraphs: string[], _options?: unknown) => {
             call += 1;
             if (call === 1) {
-                return await new Promise<JPDBToken[][]>(resolve => { resolveFirst = () => resolve(paragraphs.map(() => [])); });
+                return await new Promise<JPDBToken[][]>(resolve => {
+                    resolveFirst = () => resolve(paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+                });
             }
             return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
         });
@@ -2898,18 +3078,17 @@ describe('abortable visible-work scheduling (P1)', () => {
             // pins the abort-BETWEEN-BATCHES contract, not collection timing
             // (an abort during collection is strictly earlier and cheaper).
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1), { timeout: 15_000 });
-            // A newer request lands while batch 1 of the old scan is parsing.
+            // A newer request lands while batch 1 is parsing. It must queue a
+            // trailing pass without invalidating the active generation.
             const second = scanner.scanVisiblePage({ silent: true });
             resolveFirst?.([]);
             await Promise.all([first, second]);
-            // The queued rescan runs detached after a scheduler turn.
-            for (let waits = 0; waits < 200 && parseJapanese.mock.calls.length < 4; waits += 1) {
+            for (let waits = 0; waits < 200 && document.querySelectorAll('.jpdb-reader-word').length < 170; waits += 1) {
                 await new Promise(resolve => setTimeout(resolve, 5));
             }
 
-            // Old scan: 1 batch then aborted (stale generation); fresh scan
-            // re-collects and parses all 3 batches => 4 total, not 6.
-            expect(parseJapanese).toHaveBeenCalledTimes(4);
+            expect(parseJapanese).toHaveBeenCalledTimes(3);
+            expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(170);
         } finally {
             restoreRects();
             document.body.innerHTML = '';

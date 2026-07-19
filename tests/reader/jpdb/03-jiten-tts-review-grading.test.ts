@@ -1701,4 +1701,45 @@ describe('reader helpers', () => {
         expect(words.map(word => readerWordSurfaceText(word))).toEqual(['や', 'やさしい']);
     });
 
+    it('repairs short hiragana and katakana partial overlaps instead of leaving raw Japanese tails', async () => {
+        for (const text of ['ここ', 'テスト']) {
+            const firstCharacter = text[0]!;
+            const partial: JPDBToken = {
+                card: {
+                    ...card,
+                    vid: 91,
+                    sid: 91,
+                    spelling: firstCharacter,
+                    reading: firstCharacter,
+                    cardState: ['not-in-deck'],
+                    pitchAccent: [],
+                    source: 'jpdb',
+                },
+                start: 0,
+                end: 1,
+                length: 1,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            };
+            const tokens = await parseSegmentedFallbackTokens(
+                [{ segment: text, index: 0, isWordLike: true }],
+                text,
+                {
+                    getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'api-key', localDictionariesEnabled: false }),
+                    jpdb: { parse: vi.fn().mockResolvedValue([[partial]]) } as never,
+                    dictionaries: {} as never,
+                },
+            );
+
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, text.length]]);
+            expect(tokens.map(token => token.card.spelling)).toEqual([text]);
+            expect(tokens[0]?.card.source).toBe('fallback');
+
+            document.body.innerHTML = renderTokensToHtml(text, tokens, DEFAULT_SETTINGS);
+            expect([...document.querySelectorAll<HTMLElement>('.jpdb-reader-word')]
+                .map(word => readerWordSurfaceText(word))).toEqual([text]);
+        }
+    });
+
 });

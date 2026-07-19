@@ -1,10 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const AUDIO = {
     a13: 'b61ec5374c6c31fb3c1d3cef4fee142e0b6ee2d79e5a7359d70df65f93d44d2d',
     a14: '72537c6e4c3eb82bb6800a4c52ec906abb0c7b58f94b1663573426289e62cf2d',
 } as const;
+const PRIVATE_PAYLOAD_ROOT = 'artifacts/yomu-academy/source-pipeline/payloads';
+const PRIVATE_AUDIO_PAYLOADS_AVAILABLE = Object.values(AUDIO)
+    .every(hash => existsSync(join(PRIVATE_PAYLOAD_ROOT, hash)));
 const WORKSHEET = 'a2198ef675e48009c697cea535495e9bdf5785597f430448cc3a4385ff311499';
 const UNRELATED_TRACKS = [
     '289b21f780998f2935689396532c5c7edb8262517ac0399bcb6ee344ac23545f',
@@ -61,13 +65,19 @@ describe('l2-l14 chronological Chapter 29 source frontier', () => {
         expect(frontier.every(entry => entry.sourceQuestionId.includes(WORKSHEET))).toBe(true);
         expect(frontier.every(entry => entry.verification.answerGate === 'after-attempt')).toBe(true);
         expect(JSON.stringify(frontier)).not.toMatch(/"correct"|"correctAnswer"|"answers"|"transcript"/i);
-
-        for (const source of listening.entries.filter(entry => Object.values(AUDIO).includes(entry.source?.sha256))) {
-            expect(sha256File(source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(source.source.sha256);
-            expect(filesHaveSameContent(`public${source.delivery.url}`, source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(true);
-            expect(filesHaveSameContent(`docs/public${source.delivery.url}`, source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, ''))).toBe(true);
-        }
     });
+
+    it.runIf(PRIVATE_AUDIO_PAYLOADS_AVAILABLE)(
+        'matches delivered A-13/A-14 audio to the ignored private source payloads when available',
+        () => {
+            for (const source of listening.entries.filter(entry => Object.values(AUDIO).includes(entry.source?.sha256))) {
+                const sourcePath = source.source.repositoryRelativePath.replace(/^apps\/yomu-reader\//u, '');
+                expect(sha256File(sourcePath)).toBe(source.source.sha256);
+                expect(filesHaveSameContent(`public${source.delivery.url}`, sourcePath)).toBe(true);
+                expect(filesHaveSameContent(`docs/public${source.delivery.url}`, sourcePath)).toBe(true);
+            }
+        },
+    );
 
     it('uses Japanese-folder duplicates as provenance, not extra curriculum tasks', () => {
         const duplicates = sourceInventory.bindings.filter(binding => (

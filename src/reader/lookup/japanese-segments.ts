@@ -2,9 +2,9 @@ import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import type { JPDBCard } from '../app/types';
 
-export const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-export const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+export const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
+const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
+export const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
@@ -37,7 +37,7 @@ const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
 // Any kanji or katakana — its presence means a segment is NOT pure hiragana, so
 // the kana-merge pass leaves the surrounding (real, mixed-script) sentence alone.
-const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
+const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
 
 export function normalizeFallbackTerm(text: string): string {
     return text.replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -514,4 +514,3 @@ function hasAmbiguousContinuativeStemCandidate(source: string): boolean {
 function isTerminalDictionaryFallbackTerm(term: string): boolean {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
-

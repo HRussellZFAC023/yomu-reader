@@ -6,7 +6,7 @@ const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 
 export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
-    const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? '', innerTokens, cards));
+    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
     assignSentenceInfo(paragraphs, tokens);
     return tokens;
 }

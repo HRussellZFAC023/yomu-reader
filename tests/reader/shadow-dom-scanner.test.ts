@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
+    documentHasJapaneseText,
     readerWordSurfaceText,
     removeNonDestructiveScanMirrors,
     withMirrorTokenApply,
@@ -56,6 +57,24 @@ afterEach(() => {
 });
 
 describe('shadow DOM scanner (Phase 1)', () => {
+    it('detects an initial page whose Japanese exists only inside an open shadow root', () => {
+        defineShadowHost('yomu-shadow-only-host', 'open', '<button>参加</button>');
+        document.body.innerHTML = '<yomu-shadow-only-host></yomu-shadow-only-host>';
+
+        expect(document.body.textContent).toBe('');
+        expect(documentHasJapaneseText()).toBe(true);
+    });
+
+    it('does not walk every element after light-DOM Japanese is already proven', () => {
+        document.body.innerHTML = `<p>日本語</p>${'<div>loading</div>'.repeat(500)}`;
+        const createWalker = vi.spyOn(document, 'createTreeWalker');
+
+        expect(documentHasJapaneseText()).toBe(true);
+        expect(createWalker).toHaveBeenCalledTimes(1);
+
+        createWalker.mockRestore();
+    });
+
     it('annotates Japanese inside an open shadow root via the mirror (never destructive)', () => {
         defineShadowHost('yomu-open-host', 'open', `<p>${TEXT}</p>`);
         document.body.innerHTML = '<yomu-open-host></yomu-open-host>';
@@ -246,6 +265,13 @@ describe('shadow DOM scanner (Phase 1)', () => {
             expect(texts.some(text => text.includes('第六階層')), 'depth-6 must be covered across rounds').toBe(true);
             const deep = targets.find(target => target.text.includes('第五階層'));
             expect(deep?.passiveInteraction, 'deferred deep coverage stays passive').toBe(true);
+            const deepest = targets.find(target => target.text.includes('第六階層'))!;
+            withMirrorTokenApply(() => applyTokensToScanTarget(deepest, [token(deepest.text)], SETTINGS));
+            expect(deepest.shadowRoot?.querySelector('.jpdb-reader-text-mirror'), 'deep deferred mirror painted').toBeTruthy();
+
+            removeNonDestructiveScanMirrors(document);
+
+            expect(deepest.shadowRoot?.querySelector('.jpdb-reader-text-mirror'), 'global clear reaches beyond the scan depth cap').toBeNull();
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
         }

@@ -1,4 +1,5 @@
 import {
+    HAS_JAPANESE,
     classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
@@ -49,6 +50,8 @@ interface GenericProseCollection {
     targets: FragmentTextTarget[];
     seen: Set<Text>;
     limit: number;
+    skipMirroredHosts?: boolean;
+    candidateHeadroom?: number;
 }
 
 interface FragmentTargetAdmissionOptions {
@@ -1139,6 +1142,16 @@ export interface SiteScanOptions {
     // Silent auto-scans set this so hosts whose text mirror already renders
     // the same text are skipped at collection time instead of re-parsed.
     skipMirroredHosts?: boolean;
+    // Each capped continuation can have another budget-width of already
+    // mirrored text ahead of its tail. Candidate headroom grows with the
+    // bounded continuation depth so a single broad root still advances.
+    mirroredHeadTargetCount?: number;
+    // Continuation scans can exclude exact already-attempted, still-unmirrored
+    // targets without letting them consume the collection cap again. The count
+    // supplies bounded admission headroom; the predicate preserves correctness
+    // when the DOM reorders or long source targets split into parse chunks.
+    skipTarget?: (target: ScanTextTarget) => boolean;
+    skipTargetCount?: number;
 }
 
 // The scanner's continuation gate must compare against the limit collection
@@ -1180,6 +1193,7 @@ interface SiteScanContext {
     targets: FragmentTextTarget[];
     seen: Set<Text>;
     skipMirroredHosts: boolean;
+    mirroredHeadTargetCount: number;
     // Per-pass selector→elements cache: profiles share many root selectors
     // (the YouTube chrome roots ride in two profiles), so each distinct
     // selector hits the DOM once per collection pass.
@@ -1188,10 +1202,11 @@ interface SiteScanContext {
 
 function createSiteScanContext(profiles: SiteParserProfile[], limit: number, options: SiteScanOptions = {}): SiteScanContext {
     return {
-        effectiveLimit: effectiveScanTargetLimit(profiles, limit),
+        effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipTargetCount ?? 0),
         targets: [],
         seen: new Set(),
         skipMirroredHosts: Boolean(options.skipMirroredHosts),
+        mirroredHeadTargetCount: Math.max(0, options.mirroredHeadTargetCount ?? 0),
         rootQueryCache: new Map(),
     };
 }
@@ -1214,7 +1229,7 @@ function collectYouTubeSyntheticTextTargets(profile: SiteParserProfile, context:
         if (!siteScanHasRoom(context)) break;
         if (context.targets.some(target => target.parent === root)) continue;
         const text = syntheticYouTubeElementText(root);
-        if (!text || !hasJapaneseText(text)) continue;
+        if (!text || !HAS_JAPANESE.test(text)) continue;
         context.targets.push(siteScanTargetWithProfileOptions(profile, {
             text,
             parent: root,
@@ -1233,7 +1248,7 @@ function syntheticYouTubeElementText(root: HTMLElement): string {
         root.textContent,
     ]) {
         const normalized = text?.replace(/\s+/g, ' ').trim();
-        if (normalized && hasJapaneseText(normalized)) return normalized;
+        if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
     }
     return '';
 }
@@ -1243,10 +1258,10 @@ function syntheticYouTubeWatchInfoText(root: HTMLElement): string {
         .map(element => normalizedAttributeText(element, 'aria-label'))
         .filter((text): text is string => Boolean(text));
     const text = parts.join(' • ');
-    if (hasJapaneseText(text)) return text;
+    if (HAS_JAPANESE.test(text)) return text;
     for (const attribute of ['aria-label', 'title']) {
         const fallback = normalizedAttributeText(root, attribute);
-        if (fallback && hasJapaneseText(fallback)) return fallback;
+        if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
     }
     return '';
 }
@@ -1257,7 +1272,8 @@ function normalizedAttributeText(element: HTMLElement, attribute: string): strin
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
     if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-    const collected = collectFragmentTextTargetsIn(root, mirrorSkipAwareCandidateLimit(context), profile.visibleOnly ?? true, excludeSelector, {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context)
+        + (context.skipMirroredHosts ? context.mirroredHeadTargetCount + 24 : 0), profile.visibleOnly ?? true, excludeSelector, {
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
@@ -1288,7 +1304,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
 
 function collectCanvasFallbackTextTarget(profile: SiteParserProfile, canvas: HTMLCanvasElement, context: SiteScanContext): boolean {
     const text = canvasFallbackText(canvas);
-    if (!text || !hasJapaneseText(text)) return false;
+    if (!text || !HAS_JAPANESE.test(text)) return false;
     context.targets.push(siteScanTargetWithProfileOptions(profile, {
         text,
         parent: canvas,
@@ -1470,17 +1486,6 @@ function siteScanRemaining(context: SiteScanContext): number {
     return context.effectiveLimit - context.targets.length;
 }
 
-// When silent scans skip already-mirrored hosts, the SKIPPED head must not
-// consume the candidate budget or continuation scans re-collect the same
-// decorated head and never reach the tail (sol review P1: one broad root with
-// 2x the budget of targets starved forever). Bounded headroom, not an
-// unbounded walk: each continuation reaches one budget-width deeper.
-function mirrorSkipAwareCandidateLimit(context: SiteScanContext): number {
-    const remaining = siteScanRemaining(context);
-    if (!context.skipMirroredHosts) return remaining;
-    return remaining * 2 + 24;
-}
-
 function siteScanHasRoom(context: SiteScanContext): boolean {
     return siteScanRemaining(context) > 0;
 }
@@ -1511,9 +1516,17 @@ export function collectScanTargetsInSteps(
 const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
 
 function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
+    const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
+    const collectionLimit = limit + skipTargetCount;
     const matchingProfiles = getMatchingSiteParsers(href);
-    const targets = yield* scanTargetPhaseSteps(limit, href, options);
-    return yield* withDeferredShadowScanTargets(targets, effectiveScanTargetLimit(matchingProfiles, limit), matchingProfiles);
+    const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
+    const withDeferred = yield* withDeferredShadowScanTargets(
+        targets,
+        effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
+        matchingProfiles,
+    );
+    const eligible = options.skipTarget ? withDeferred.filter(target => !options.skipTarget!(target)) : withDeferred;
+    return eligible.slice(0, limit);
 }
 
 // Depth-capped shadow hosts queued during any phase above get a bounded
@@ -1557,7 +1570,9 @@ function* withDeferredShadowScanTargets(
 
 function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
-    const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
+    const effectiveLimit = matchingProfiles.length
+        ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipTargetCount ?? 0)
+        : limit;
     const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
     const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
     const baseTargets = siteTargets ?? [];
@@ -1577,7 +1592,7 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
             : baseTargets;
     }
     yield;
-    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles, options);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
         // Profile roots are curated, not exhaustive: any visible Japanese they
         // miss (e.g. a metadata row the selectors never named) still gets a
@@ -1601,11 +1616,13 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
     const genericTargets = collectGenericProseTargets(
         genericPhaseRemaining - uiChromeReserve,
         [...baseTargets, ...profileUiChromeTargets],
+        options,
     );
     yield;
     const uiChromeTargets = collectSafeUiChromeTargets(
         genericPhaseRemaining - genericTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
+        options,
     );
     yield;
     // A page with little or no chrome should not leave the reserved slice
@@ -1614,6 +1631,7 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
     const supplementalGenericTargets = collectGenericProseTargets(
         genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
+        options,
     );
     const collectedTargets = [
         ...baseTargets,
@@ -1697,7 +1715,9 @@ function collectResidualVisibleJapaneseTargets(
         seen: seenTextNodes(existingTargets),
         limit,
     };
-    const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+    const candidateLimit = Number.isFinite(limit)
+        ? Math.max(limit, existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0) + limit + 24)
+        : limit;
     const nonDestructiveProfile = profiles.some(profile => profile.nonDestructive);
     const collected = scanScopeRoots().flatMap(root => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
@@ -1737,11 +1757,6 @@ function collectResidualVisibleJapaneseTargets(
     return collection.targets;
 }
 
-function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCount: number): number {
-    if (!Number.isFinite(limit)) return limit;
-    return Math.max(limit, existingTargetCount + limit + 24);
-}
-
 function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): string {
     // Native ruby already carries its reading (jpdb.io headwords, NHK prose);
     // this last-resort pass must not re-annotate it. Ruby-aware enrichment
@@ -1776,8 +1791,11 @@ function hasWholePageFallback(profiles: SiteParserProfile[]): boolean {
     return profiles.some(profile => profile.fallbackToWholePage);
 }
 
-function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit: number): number {
-    const profileLimit = profiles.reduce((limit, profile) => Math.min(limit, profile.scanLimit ?? limit), requestedLimit);
+function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit: number, profileLimitOffset = 0): number {
+    const profileLimit = profiles.reduce(
+        (limit, profile) => Math.min(limit, profile.scanLimit === undefined ? limit : profile.scanLimit + profileLimitOffset),
+        requestedLimit,
+    );
     return Math.max(1, profileLimit);
 }
 
@@ -1794,16 +1812,34 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
 }
 
-function collectGenericProseTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
+function collectGenericProseTargets(
+    limit: number,
+    existingTargets: ScanTextTarget[] = [],
+    options: SiteScanOptions = {},
+): FragmentTextTarget[] {
     const roots = genericProseRoots();
-    const collection: GenericProseCollection = { targets: [], seen: seenTextNodes(existingTargets), limit };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
     for (const root of roots) {
-        collectGenericProseTargetsFromRoot(root, collection);
+        collectFragmentTargetsFromRoot(root, collection, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
         if (genericProseCollectionFull(collection)) break;
     }
 
     return collection.targets;
+}
+
+function createGenericProseCollection(
+    limit: number,
+    existingTargets: ScanTextTarget[],
+    options: SiteScanOptions,
+): GenericProseCollection {
+    return {
+        targets: [],
+        seen: seenTextNodes(existingTargets),
+        limit,
+        skipMirroredHosts: options.skipMirroredHosts,
+        candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0),
+    };
 }
 
 function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
@@ -1818,35 +1854,32 @@ function collectProfileSafeUiChromeTargets(
     existingTargets: ScanTextTarget[] = [],
     enabled = true,
     profiles: SiteParserProfile[] = [],
+    options: SiteScanOptions = {},
 ): FragmentTextTarget[] {
     if (!enabled || limit <= 0) return [];
-    const collection: GenericProseCollection = {
-        targets: [],
-        seen: seenTextNodes(existingTargets),
-        limit,
-    };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
     const extraExclude = profiles.map(p => p.exclude).filter(Boolean).join(',');
 
     const parserId = profiles.length === 1 ? profiles[0].id : 'safe-ui-chrome-parser';
     const nonDestructive = profiles.some(profile => profile.nonDestructive);
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+    collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, 'ui', extraExclude, parserId, nonDestructive);
+    collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form', '', parserId, nonDestructive);
     collectSafeFormControlTextTargets(collection, extraExclude);
 
     return collection.targets;
 }
 
-function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
+function collectSafeUiChromeTargets(
+    limit: number,
+    existingTargets: ScanTextTarget[] = [],
+    options: SiteScanOptions = {},
+): FragmentTextTarget[] {
     if (limit <= 0) return [];
-    const collection: GenericProseCollection = {
-        targets: [],
-        seen: seenTextNodes(existingTargets),
-        limit,
-    };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
-    collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+    collectSafeChromeRootTargets(safeUiChromeRoots(), collection, 'ui');
+    collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form');
     collectSafeFormControlTextTargets(collection);
 
     return collection.targets;
@@ -1865,15 +1898,35 @@ function collectSafeFormControlTextTargets(
     }
 }
 
-function collectSafeUiChromeRootTargets(
+function collectSafeChromeRootTargets(
     roots: HTMLElement[],
     collection: GenericProseCollection,
+    kind: 'ui' | 'form',
     extraExclude = '',
     parserId = 'safe-ui-chrome-parser',
     nonDestructive = false,
 ): void {
     for (const root of roots) {
-        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId, nonDestructive);
+        if (kind === 'ui') {
+            const baseExclude = safeUiChromeExcludeForRoot(root);
+            collectFragmentTargetsFromRoot(root, collection, extraExclude ? `${baseExclude},${extraExclude}` : baseExclude, {
+                allowUiText: true,
+                includeUiChrome: true,
+                includeTabChrome: true,
+                includePassiveInteractions: true,
+                heading: true,
+                allowShortCenteredHeadings: true,
+                minLength: 1,
+            }, parserId, nonDestructive);
+        } else {
+            collectFragmentTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, {
+                allowUiText: true,
+                includeFormChrome: true,
+                includePassiveInteractions: true,
+                heading: true,
+                minLength: 1,
+            }, parserId, nonDestructive);
+        }
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1890,46 +1943,10 @@ function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
     return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));
 }
 
-function collectSafeUiChromeTargetsFromRoot(
-    root: HTMLElement,
-    collection: GenericProseCollection,
-    extraExclude = '',
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    const baseExclude = safeUiChromeExcludeForRoot(root);
-    const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, nonDestructive, {
-        allowUiText: true,
-        includeUiChrome: true,
-        includeTabChrome: true,
-        includePassiveInteractions: true,
-        heading: true,
-        // Panel/dialog headings are functional chrome even when centered and
-        // very short (for example a playback-speed submenu title). The roots
-        // here are already restricted to safe UI surfaces, so the generic page
-        // rule that protects decorative centered headings does not apply.
-        allowShortCenteredHeadings: true,
-        minLength: 1,
-    });
-}
-
 function safeUiChromeExcludeForRoot(root: HTMLElement): string {
     return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]')
         ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE
         : SAFE_UI_CHROME_EXCLUDE;
-}
-
-function collectSafeFormChromeRootTargets(
-    roots: HTMLElement[],
-    collection: GenericProseCollection,
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    for (const root of roots) {
-        collectSafeFormChromeTargetsFromRoot(root, collection, parserId, nonDestructive);
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function safeFormChromeRoots(): HTMLElement[] {
@@ -1937,37 +1954,26 @@ function safeFormChromeRoots(): HTMLElement[] {
         .filter(root => isUsefulSafeFormChromeRoot(root)));
 }
 
-function collectSafeFormChromeTargetsFromRoot(
-    root: HTMLElement,
-    collection: GenericProseCollection,
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, nonDestructive, {
-        allowUiText: true,
-        includeFormChrome: true,
-        includePassiveInteractions: true,
-        heading: true,
-        minLength: 1,
-    });
-}
-
-function collectPassiveChromeTargetsFromRoot(
+function collectFragmentTargetsFromRoot(
     root: HTMLElement,
     collection: GenericProseCollection,
     exclude: string,
-    parserId: string,
-    nonDestructive: boolean,
     options: Parameters<typeof collectFragmentTextTargetsIn>[4],
+    passiveParserId?: string,
+    nonDestructive = false,
 ): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
+    const remaining = genericProseRemaining(collection);
+    const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts
+        ? remaining + (collection.candidateHeadroom ?? 0) + 24
+        : remaining, true, exclude, options);
     for (const target of collected) {
-        appendGenericProseTarget(collection.targets, collection.seen, {
+        if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+        appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
             ...target,
-            parserId,
+            parserId: passiveParserId,
             passiveInteraction: true,
             nonDestructive: nonDestructive || undefined,
-        });
+        } : target);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1975,14 +1981,6 @@ function collectPassiveChromeTargetsFromRoot(
 function genericProseRoots(): HTMLElement[] {
     return queryWithinAnnotationScope<HTMLElement>(GENERIC_PROSE_ROOTS)
         .filter(root => isUsefulGenericProseRoot(root));
-}
-
-function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-    for (const target of collected) {
-        appendGenericProseTarget(collection.targets, collection.seen, target);
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function genericProseRemaining(collection: GenericProseCollection): number {
@@ -2022,7 +2020,7 @@ function appendResidualVisibleTarget(
         const parent = fragments[0]?.node.parentElement;
         if (!parent) continue;
         const text = fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
-        if (!hasJapaneseText(text)) continue;
+        if (!HAS_JAPANESE.test(text)) continue;
         const decoration = classifyDecoration(parent);
         if (decoration === 'skip') continue;
         appendAdmittedFragmentTarget(targets, seen, {
@@ -2117,7 +2115,7 @@ function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
     const text = compactRootText(root);
     if (text.length < 12) return false;
-    return hasJapaneseText(text);
+    return HAS_JAPANESE.test(text);
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
@@ -2132,15 +2130,11 @@ function isUsefulCompactJapaneseRoot(root: HTMLElement, exclude: string, minLeng
     if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
     const text = compactRootText(root);
-    return hasJapaneseText(text) && text.length >= minLength && text.length <= maxLength;
+    return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
 }
 
 function compactRootText(root: HTMLElement): string {
     return root.textContent?.replace(/\s+/g, '').trim() ?? '';
-}
-
-function hasJapaneseText(text: string): boolean {
-    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
 }
 
 function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {

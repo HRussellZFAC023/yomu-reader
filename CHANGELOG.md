@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.222] - 2026-07-19
+
+### Fixed
+
+- Fixed apparently random bare words, sentence fragments, and paragraph tails on dynamic pages such as Reddit. Hover and mutation activity now coalesce behind the active annotation pass instead of cancelling it, provider failures retry locally without dropping later batches, and capped scans continue past a failed head.
+- Made parser output lossless and renderer-safe: short provider responses preserve one result per input, malformed or overlapping spans cannot claim coverage the renderer rejects, and uncovered Japanese—including half-width katakana—is repaired even when provider offsets drift across Latin text or punctuation.
+- Registered open web-component roots before and during hydration, including roots attached after their host entered the page, and included them in delayed furigana, pitch, and word-status updates. Compact rows still hide only furigana that cannot fit safely; their base word and pitch/status annotation remain intact.
+
 ## [1.6.221] - 2026-07-19
 
 ### Fixed
@@ -16,7 +24,6 @@
 ### Changed
 
 - On yomureader.com, よむ now annotates only declared demos and reading surfaces instead of translated navigation and documentation copy. Japanese interface mode stays responsive while the Try Me and other intentional reader surfaces retain furigana, pitch, and lookups.
-
 ## [1.6.219] - 2026-07-19
 
 ### Fixed

@@ -44,6 +44,7 @@ const VOCABULARY = [
     ['投稿', '投稿', 'とうこう', 'post', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['作成', '作成', 'さくせい', 'create', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
+    ['フィード', 'フィード', 'フィード', 'feed', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
     ['並べ替え', '並べ替え', 'ならべかえ', 'sort', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['注目順', '注目順', 'ちゅうもくじゅん', 'hot', ['noun'], 100, ['not-in-deck'], ['LHHH']],
@@ -120,7 +121,7 @@ body { display: grid; place-items: start center; }
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
     <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><div id="foreign-jp" class="foreign-row" role="menuitem">共有</div></div>
-    <div class="feed-tools"><span>フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
+    <div class="feed-tools"><span id="feed">フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
     <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
       <h2>Discord Server Link</h2>
@@ -1073,6 +1074,7 @@ async function snapshotRedditRegression(page) {
     const specs = {
         create: ['#create-post', '投稿を作成'],
         join: ['#join', '参加'],
+        feed: ['#feed', 'フィード'],
         sort: ['#sort', '賛成票率順'],
         flair: ['#flair', '告知'],
         metadata: ['#card-metadata', '賛成票・コメント'],
@@ -1380,6 +1382,18 @@ function snapshotRedditPageSummary() {
     }
 }
 
+function radialGeometryHasSettled() {
+    const items = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
+    if (items.length < 6) return false;
+    const rects = items.map(item => item.getBoundingClientRect());
+    const centers = rects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
+    return rects.every(rect => rect.width >= 45 && rect.width <= 51)
+        && centers.slice(1).every((center, index) => Math.hypot(
+            center.x - centers[index].x,
+            center.y - centers[index].y,
+        ) >= 60);
+}
+
 function assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors) {
     assert(pageErrors.length === 0, `${engineName}: page errors during Reddit smoke`, { pageErrors, snapshot });
     assert(snapshot.layout.fixture === 'deterministic-reddit-structure',
@@ -1421,9 +1435,36 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     `${engineName}: Reddit page scale enlarged the Yomu radial controls`, snapshot.overlay);
     assert(Math.min(...snapshot.overlay.adjacentDistances) >= 60,
         `${engineName}: Reddit scale isolation collapsed radial finger spacing`, snapshot.overlay);
-    for (const [name, label] of Object.entries(snapshot.labels)) {
+    assertOverlayScaleIsolation(engineName, snapshot.overlay);
+    assertAnnotatedLabels(engineName, snapshot.labels);
+    assertRejectedSourceRanges(engineName, snapshot.rejected);
+    assertStableFixtureLayout(engineName, baseline, snapshot.layout);
+    assertSortMenuSafety(engineName, snapshot.menuSafety);
+    assertForeignTextCollisionSafety(engineName, snapshot.labels.foreign);
+    assertControlBehavior(engineName, baseline, snapshot);
+    assertCoarsePointerSafety(engineName, touchHover);
+}
+
+function assertOverlayScaleIsolation(engineName, overlay) {
+    assert(overlay.hostname === 'www.reddit.com', `${engineName}: Reddit scale fixture lost its production hostname`, overlay);
+    // The open hub deliberately grows to 1.06×; the host's 1.6× zoom must not
+    // multiply that again (52 × 1.06 = 55.12px).
+    assert(Math.abs(overlay.puckWidth - 55.12) <= 1 && Math.abs(overlay.puckHeight - 55.12) <= 1,
+        `${engineName}: Reddit host zoom enlarged the Yomu puck`, overlay);
+    assert(overlay.radialWidths.length >= 6
+        && overlay.radialWidths.every(width => width >= 45 && width <= 51),
+    `${engineName}: Reddit host zoom enlarged the Yomu radial controls`, overlay);
+    assert(Math.min(...overlay.adjacentDistances) >= 60,
+        `${engineName}: Reddit scale isolation collapsed radial finger spacing`, overlay);
+}
+
+function assertAnnotatedLabels(engineName, labels) {
+    for (const [name, label] of Object.entries(labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
-        assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        // Kana-only labels do not need redundant ruby, but they still need a
+        // resolved pitch/status-capable word wrapper.
+        if (name !== 'feed') assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        assert(label.pitchWordCount > 0, `${engineName}: ${name} is missing pitch annotation`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
@@ -1436,56 +1477,85 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
         }
     }
     for (const name of ['create', 'join', 'sort', 'time', 'share']) {
-        const label = snapshot.labels[name];
+        const label = labels[name];
         assert(label.visibleReadingCount === label.readingCount,
             `${engineName}: ${name} hid furigana despite a safe measured lane`, label);
     }
-    assert(snapshot.rejected.subredditWords === 0, `${engineName}: Latin-only r/singularity was annotated`, snapshot.rejected);
-    assert(snapshot.rejected.punctuationWords === 0, `${engineName}: punctuation-only range was annotated`, snapshot.rejected);
-    assert(snapshot.rejected.subredditText === 'r/singularity' && snapshot.rejected.punctuationText === '…', `${engineName}: rejected source text changed`, snapshot.rejected);
-    assert(Math.abs(snapshot.layout.createHeight - baseline.createHeight) <= 1, `${engineName}: create button height changed`, { baseline, layout: snapshot.layout });
-    assert(Math.abs(snapshot.layout.shareHeight - baseline.shareHeight) <= 1, `${engineName}: share button height changed`, { baseline, layout: snapshot.layout });
-    assert(Math.abs(snapshot.layout.cardHeight - baseline.cardHeight) <= 1, `${engineName}: highlight card grew`, { baseline, layout: snapshot.layout });
-    assert(snapshot.layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout: snapshot.layout });
-    assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, snapshot.layout);
-    assert(snapshot.layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, snapshot.layout);
-    assert(snapshot.menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, snapshot.menuSafety);
-    assert(snapshot.menuSafety.hiddenReadingCount > 0, `${engineName}: tight menu did not exercise the no-safe-lane fallback`, snapshot.menuSafety);
-    assert(snapshot.menuSafety.hiddenReadingsKeepWord && snapshot.menuSafety.hiddenReadingsKeepPitch,
-        `${engineName}: hiding unsafe furigana removed the word or pitch annotation`, snapshot.menuSafety);
-    assert(snapshot.menuSafety.readingBaseOverlap === 0 && snapshot.menuSafety.readingReadingOverlap === 0,
-        `${engineName}: visible menu furigana overlaps another reading or base line`, snapshot.menuSafety);
-    assert(snapshot.menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
-        `${engineName}: unsafe furigana was truncated instead of preserved in full`, snapshot.menuSafety);
-    assert(snapshot.labels.foreign.hiddenReadingCount > 0,
-        `${engineName}: furigana covered an ordinary unannotated line above it`, snapshot.labels.foreign);
-    assert(snapshot.labels.foreign.safetyHiddenReadingCount === snapshot.labels.foreign.hiddenReadingCount,
-        `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, snapshot.labels.foreign);
-    assert(snapshot.labels.foreign.pitchWordCount > 0,
-        `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, snapshot.labels.foreign);
+}
+
+function assertRejectedSourceRanges(engineName, rejected) {
+    assert(rejected.subredditWords === 0, `${engineName}: Latin-only r/singularity was annotated`, rejected);
+    assert(rejected.punctuationWords === 0, `${engineName}: punctuation-only range was annotated`, rejected);
+    assert(rejected.subredditText === 'r/singularity' && rejected.punctuationText === '…', `${engineName}: rejected source text changed`, rejected);
+}
+
+function assertStableFixtureLayout(engineName, baseline, layout) {
+    assert(Math.abs(layout.createHeight - baseline.createHeight) <= 1, `${engineName}: create button height changed`, { baseline, layout });
+    assert(Math.abs(layout.shareHeight - baseline.shareHeight) <= 1, `${engineName}: share button height changed`, { baseline, layout });
+    assert(Math.abs(layout.cardHeight - baseline.cardHeight) <= 1, `${engineName}: highlight card grew`, { baseline, layout });
+    assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
+    assert(layout.scrollWidth <= layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, layout);
+    assert(layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, layout);
+}
+
+function assertSortMenuSafety(engineName, menuSafety) {
+    assert(menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, menuSafety);
+    assert(menuSafety.hiddenReadingCount > 0, `${engineName}: tight menu did not exercise the no-safe-lane fallback`, menuSafety);
+    assert(menuSafety.hiddenReadingsKeepWord && menuSafety.hiddenReadingsKeepPitch,
+        `${engineName}: hiding unsafe furigana removed the word or pitch annotation`, menuSafety);
+    assert(menuSafety.readingBaseOverlap === 0 && menuSafety.readingReadingOverlap === 0,
+        `${engineName}: visible menu furigana overlaps another reading or base line`, menuSafety);
+    assert(menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
+        `${engineName}: unsafe furigana was truncated instead of preserved in full`, menuSafety);
+}
+
+function assertForeignTextCollisionSafety(engineName, foreignLabel) {
+    assert(foreignLabel.hiddenReadingCount > 0,
+        `${engineName}: furigana covered an ordinary unannotated line above it`, foreignLabel);
+    assert(foreignLabel.safetyHiddenReadingCount === foreignLabel.hiddenReadingCount,
+        `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, foreignLabel);
+    assert(foreignLabel.pitchWordCount > 0,
+        `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, foreignLabel);
+}
+
+function assertControlBehavior(engineName, baseline, snapshot) {
     assert(Object.values(snapshot.clicks).every(count => count === 1), `${engineName}: an annotated control stopped receiving clicks`, snapshot.clicks);
     assert(Math.abs(snapshot.labels.join.wordCenterOffset - baseline.joinTextCenterOffset) <= 2,
         `${engineName}: mirrored Join label moved away from its native vertical alignment`, { baseline, join: snapshot.labels.join });
     assert(Math.abs(snapshot.labels.sort.wordCenterOffset - baseline.sortTextCenterOffset) <= 2,
         `${engineName}: mirrored sort label moved away from its native vertical alignment`, { baseline, sort: snapshot.labels.sort });
+}
+
+function assertCoarsePointerSafety(engineName, touchHover) {
+    assertCoarsePointerInventory(engineName, touchHover);
+    assertCoarsePointerReadingSafety(engineName, touchHover);
+    assertCoarsePointerFallback(engineName, touchHover);
+    assertCoarsePointerGeometry(engineName, touchHover);
+}
+
+function assertCoarsePointerInventory(engineName, touchHover) {
     assert(touchHover.mirrorWords > 0 && touchHover.mirrorPitchWords > 0 && touchHover.mirrorRuby > 0,
         `${engineName}: touch fixture did not retain its annotated mirror`, touchHover);
     assert(touchHover.before.mirrorVisibility === 'visible' && touchHover.hovered.mirrorVisibility === 'visible',
         `${engineName}: coarse-pointer annotations still depend on a sticky hover transition`, touchHover);
-    assert(touchHover.before.detachedReadings > 0
-        && touchHover.before.visibleRuby + touchHover.before.safetyHiddenReadings === touchHover.before.detachedReadings
-        && touchHover.hovered.visibleRuby + touchHover.hovered.safetyHiddenReadings === touchHover.hovered.detachedReadings
-        && touchHover.after.visibleRuby + touchHover.after.safetyHiddenReadings === touchHover.after.detachedReadings,
+}
+
+function assertCoarsePointerReadingSafety(engineName, touchHover) {
+    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => hasSafetyVerdict(touchHover[state])),
     `${engineName}: coarse-pointer mirror lost detached readings without a safety verdict`, touchHover);
     assert(touchHover.hovered.visibleRuby === touchHover.before.visibleRuby
         && touchHover.after.visibleRuby === touchHover.before.visibleRuby,
     `${engineName}: coarse-pointer detached readings changed across sticky hover`, touchHover);
     assert(touchHover.before.readingBaseOverlap === 0 && touchHover.hovered.readingBaseOverlap === 0,
         `${engineName}: coarse-pointer furigana overlaps base text`, touchHover);
-    assert(touchHover.before.hostVisibility !== 'hidden' && touchHover.hovered.hostVisibility !== 'hidden'
-        && touchHover.after.hostVisibility !== 'hidden'
-        && touchHover.before.hostPaintVisible && touchHover.hovered.hostPaintVisible && touchHover.after.hostPaintVisible,
+}
+
+function assertCoarsePointerFallback(engineName, touchHover) {
+    assert(['before', 'hovered', 'after'].every(state => nativeFallbackIsVisible(touchHover[state])),
         `${engineName}: additive mirror hid the native fallback text`, touchHover);
+}
+
+function assertCoarsePointerGeometry(engineName, touchHover) {
     assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
         && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
     `${engineName}: coarse-pointer hover changed row geometry`, touchHover);
@@ -1493,4 +1563,12 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
 
 function isLinuxWebKitPort(engineName) {
     return engineName === 'webkit' && process.platform === 'linux';
+}
+
+function hasSafetyVerdict(state) {
+    return state.visibleRuby + state.safetyHiddenReadings === state.detachedReadings;
+}
+
+function nativeFallbackIsVisible(state) {
+    return state.hostVisibility !== 'hidden' && state.hostPaintVisible;
 }

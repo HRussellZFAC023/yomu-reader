@@ -55,7 +55,7 @@ import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { ensureReaderStylesForHost } from './shadow-styles';
-import { noteScannedShadowRoot } from './shadow-scan-registry';
+import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
@@ -464,7 +464,31 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
 
 export function documentHasJapaneseText(limit = 200000): boolean {
     if (!document.body) return false;
-    return textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+    const hasLightDomJapanese = textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+    // The normal page scan will discover/register component roots. Returning
+    // immediately avoids a second synchronous whole-document element walk on
+    // the overwhelmingly common light-DOM-positive path (especially costly on
+    // component-heavy iPad pages).
+    if (hasLightDomJapanese) return true;
+
+    // document TreeWalkers do not enter shadow DOM. Without this bounded host
+    // pass, a page whose Japanese exists only inside web components never
+    // starts the first scan that would discover those components. Stop at the
+    // first positive branch; mutation discovery registers dynamic/loading roots.
+    const roots: Node[] = [document.body];
+    let inspected = 0;
+    while (roots.length && inspected < limit) {
+        const root = roots.shift()!;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
+            const element = node as HTMLElement;
+            const shadowRoot = watchPotentialOpenShadowRootHost(element);
+            if (!shadowRoot) continue;
+            roots.push(shadowRoot);
+            if (shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH)) return true;
+        }
+    }
+    return false;
 }
 
 function visibleTextWalker(root: HTMLElement): TreeWalker {
@@ -956,10 +980,14 @@ const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 
 function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
+    const shadowRoot = watchPotentialOpenShadowRootHost(element);
     // element.shadowRoot is null for a closed root (mode:'closed') — silently
     // skip, it is unreachable and not an error.
-    const shadowRoot = element.shadowRoot;
     if (!shadowRoot) return;
+    // Observe every open root we encounter, even while it is empty or still
+    // showing Latin loading chrome. MutationObservers on document.body cannot
+    // cross this boundary; delaying registration until Japanese was already
+    // present made later Lit/Reddit hydration permanently invisible.
     if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
         // Depth-capped: never silently drop the branch. The host is queued for
         // a deferred continuation walk that re-roots HERE (its own walk starts
@@ -985,10 +1013,6 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // target could land ahead of an earlier-in-document light run.
     flushFragmentTextTarget(state);
     if (fragmentCollectionComplete(state)) return;
-    // Committed to descending: register the root so the app's auto-scan
-    // observer watches its re-renders (subtree observers never cross shadow
-    // boundaries, so without this a component re-render schedules no rescan).
-    noteScannedShadowRoot(shadowRoot);
     // A <slot> projects light-DOM children into the shadow tree, but those text
     // nodes are ALREADY walked in the light-DOM pass above (their real parent is
     // in light DOM). Walking shadowRoot.childNodes reaches a <slot>'s fallback
@@ -1546,6 +1570,18 @@ function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
     return true;
 }
 
+// Long destructive sources are normally chunked for provider and paint
+// budgets. Keep the source whole when the renderer must use one mirror:
+// independently mirroring slices would replace the host overlay with only the
+// latest slice. Stable sources record one repaint attempt here, while their
+// deliberate slices suppress duplicate counting during apply.
+export function scanTargetRequiresWholeSourceMirror(target: ScanTextTarget): boolean {
+    if (target.nonDestructive || target.insideShadowDOM) return true;
+    const host = nonDestructiveScanHost(target);
+    if (scanHostRequiresSourcePreservingMirror(host)) return true;
+    return !target.suppressRepaintLoopMirror && scanHostIsRepaintLooping(host, target.text);
+}
+
 // React/Vue/Angular/Svelte tag every DOM node they render with a private expando
 // (e.g. __reactFiber$<hash>, __reactProps$<hash>, __vnode, __ngContext__) and keep
 // a live reference to the original Text node in their fiber/vnode/render tree. Our
@@ -1645,10 +1681,11 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
     const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-    const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost
+    const repaintLooping = !target.nonDestructive
+        && !target.suppressRepaintLoopMirror
+        && !sourcePreservingFrameworkHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
-    const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
     // Clip-constrained rows are NOT mirror-rerouted (paint-invariant design,
     // 2026-07-10 third live gate): hiding the host and anchoring the mirror to
     // a clamped box collapsed feed titles to 0px. They render in place — the
@@ -1656,7 +1693,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // REQUIRE the mirror (framework/shadow/nonDestructive) keep it, where the
     // mirror becomes a hover-only overlay over the still-painted host text.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-    if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
+    if ((!target.forceInlineRender || repaintLooping)
         && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
@@ -2770,11 +2807,11 @@ function detachedReadingRestHidden(reading: HTMLElement): boolean {
 function reconcilePendingDetachedReadingLanes(): void {
     const surfaces = [...pendingDetachedReadingSurfaces];
     pendingDetachedReadingSurfaces.clear();
-    const readings = uniqueElements(surfaces.flatMap(surface => queryAllPiercingShadow(surface, '.jpdb-reader-detached-furi')));
+    const readings = uniqueElements(surfaces.flatMap(surface => queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-furi')));
     if (!readings.length) return;
     settleDetachedReadingLanes(
         readings,
-        uniqueElements(surfaces.flatMap(surface => queryAllPiercingShadow(surface, '.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'))),
+        uniqueElements(surfaces.flatMap(surface => queryAllInAnnotationRoots(surface, '.jpdb-reader-detached-ruby .jpdb-reader-ruby-base'))),
     );
 }
 
@@ -2823,7 +2860,7 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
     restoreOwnedDetachedReadingClips(element);
     let current: HTMLElement | null = element;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
-        if (!queryAllPiercingShadow(current, '.jpdb-reader-detached-furi').length) continue;
+        if (!queryAllInAnnotationRoots(current, '.jpdb-reader-detached-furi').length) continue;
         // Collapsible descriptions and accordions own their overflow. Opening
         // it for an out-of-flow reading lets annotated paint escape the panel
         // and overlap neighbouring media after expansion.
@@ -4209,23 +4246,22 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     // would leave the shadow mirror painted AND its per-host observer connected
     // after clear/destroy — the exact leak class 1.6.109/1.6.112 closed. Bounded
     // and open-only, consistent with the scan-side descent.
-    queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
-        const host = registeredTextMirrorHostFor(mirror);
-        if (host) hosts.add(host);
-        else if (mirror.parentElement) hosts.add(mirror.parentElement);
-        else mirror.remove();
-    });
     const controlHosts = new Set<HTMLElement>();
-    root.querySelectorAll<HTMLElement>(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
-        const host = mirror.previousElementSibling;
-        if (host instanceof HTMLElement) controlHosts.add(host);
-        else mirror.remove();
-    });
     const canvasHosts = new Set<HTMLCanvasElement>();
-    root.querySelectorAll<HTMLElement>(READER_CANVAS_TEXT_LAYER_SELECTOR).forEach(layer => {
-        const canvas = canvasForFallbackTextLayer(layer);
-        if (canvas) canvasHosts.add(canvas);
-        else layer.remove();
+    queryAllInAnnotationRoots(root, `${READER_TEXT_MIRROR_SELECTOR},${READER_CONTROL_TEXT_MIRROR_SELECTOR},${READER_CANVAS_TEXT_LAYER_SELECTOR}`).forEach(surface => {
+        if (surface.matches(READER_TEXT_MIRROR_SELECTOR)) {
+            const host = registeredTextMirrorHostFor(surface) ?? surface.parentElement;
+            if (host) hosts.add(host);
+            else surface.remove();
+        } else if (surface.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR)) {
+            const host = surface.previousElementSibling;
+            if (host instanceof HTMLElement) controlHosts.add(host);
+            else surface.remove();
+        } else {
+            const canvas = canvasForFallbackTextLayer(surface);
+            if (canvas) canvasHosts.add(canvas);
+            else surface.remove();
+        }
     });
     hosts.forEach(removeTextMirror);
     controlHosts.forEach(removeControlTextMirror);
@@ -4239,18 +4275,31 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     return hosts.size + controlHosts.size + canvasHosts.size;
 }
 
-// querySelectorAll that also reaches into OPEN shadow roots one level deep
-// (SHADOW_SCAN_MAX_DEPTH), matching the scan side. Only used by teardown paths
-// that must remove shadow-hosted mirrors (and disconnect their observers), so it
-// stays a shallow, open-only descent rather than a full recursive pierce.
-function queryAllPiercingShadow(root: ParentNode, selector: string, depth = 0): HTMLElement[] {
-    const matches = Array.from(root.querySelectorAll<HTMLElement>(selector));
-    if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
-    for (const host of root.querySelectorAll<HTMLElement>('*')) {
-        const shadowRoot = host.shadowRoot;
-        if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+function queryAllInAnnotationRoots(root: ParentNode, selector: string): HTMLElement[] {
+    const matches = new Set<HTMLElement>();
+    const collect = (annotationRoot: ParentNode): void => {
+        if (annotationRoot instanceof HTMLElement && annotationRoot.matches(selector)) matches.add(annotationRoot);
+        annotationRoot.querySelectorAll<HTMLElement>(selector).forEach(match => matches.add(match));
+    };
+    collect(root);
+    // Annotation passes register every open root they enter, including deferred
+    // depth continuations, so this reaches mirrors at any depth and while a
+    // framework temporarily caches their hosts off-DOM.
+    forEachScannedShadowRoot(shadowRoot => {
+        if (root === document || composedTreeContains(root, shadowRoot.host)) collect(shadowRoot);
+    }, true);
+    return [...matches];
+}
+
+function composedTreeContains(root: ParentNode, node: Node): boolean {
+    const rootNode = root as Node;
+    let current: Node | null = node;
+    while (current) {
+        if (current === rootNode || rootNode.contains(current)) return true;
+        const tree = current.getRootNode();
+        current = tree instanceof ShadowRoot ? tree.host : null;
     }
-    return matches;
+    return false;
 }
 
 export function removeStaleControlTextMirrors(root: ParentNode = document): number {
@@ -5191,7 +5240,7 @@ function uniqueNonEmptyStrings(values: string[]): string[] {
     return [...new Set(values.map(value => value.trim()).filter(Boolean))];
 }
 
-function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
+export function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
     const safe: JPDBToken[] = [];
     let offset = 0;
     for (const token of tokens) {
@@ -5203,7 +5252,9 @@ function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
 }
 
 function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolean {
-    if (token.start < offset
+    if (!Number.isInteger(token.start)
+        || !Number.isInteger(token.end)
+        || token.start < offset
         || token.start < 0
         || token.end <= token.start
         || token.end > text.length) return false;
@@ -6269,9 +6320,7 @@ function recordRubyRoomGrowthWrite(box: HTMLElement): void {
 }
 
 export function releaseRubyRoomGrowth(root: ParentNode = document): number {
-    const boxes: HTMLElement[] = [];
-    if (root instanceof HTMLElement && root.matches('[data-yomu-ruby-room]')) boxes.push(root);
-    boxes.push(...Array.from(root.querySelectorAll<HTMLElement>('[data-yomu-ruby-room]')));
+    const boxes = queryAllInAnnotationRoots(root, '[data-yomu-ruby-room]');
     for (const box of boxes) {
         const record = rubyRoomGrowthRecords.get(box);
         restoreRubyRoomProperty(box, 'min-height', record, r => [r.minHeight, r.minHeightPriority]);
@@ -6283,10 +6332,7 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
         delete box.dataset.yomuRubyRoomPadTop;
         rubyRoomGrowthRecords.delete(box);
     }
-    if (root instanceof HTMLElement && root.dataset.yomuDetachedReadingOverflow === 'true') {
-        restoreDetachedReadingClip(root);
-    }
-    root.querySelectorAll<HTMLElement>('[data-yomu-detached-reading-overflow="true"]')
+    queryAllInAnnotationRoots(root, '[data-yomu-detached-reading-overflow="true"]')
         .forEach(restoreDetachedReadingClip);
     return boxes.length;
 }

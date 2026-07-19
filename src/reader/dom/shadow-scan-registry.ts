@@ -7,35 +7,221 @@
 // auto-scan observer to it — the tap stops being the scan trigger.
 
 const scannedShadowRootRefs = new Set<WeakRef<ShadowRoot>>();
-const scannedShadowRoots = new WeakSet<ShadowRoot>();
-let shadowRootScanHook: ((root: ShadowRoot) => void) | null = null;
+// undefined = unseen, true = active, false = detached and eligible to replay.
+const scannedShadowRootState = new WeakMap<ShadowRoot, boolean>();
+export type ShadowRootDiscoveryCause = 'scan' | 'attached' | 'replay';
+let shadowRootScanHook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null = null;
+
+// One bounded cadence costs roughly the same number of checks as the former
+// 100ms-fast/2s-idle split, while late fallback discovery is more responsive.
+const POTENTIAL_SHADOW_HOST_POLL_MS = 500;
+const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 60_000;
+export const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = 'yomu:open-shadow-root-attached';
+const PAGE_SHADOW_DISCOVERY_KEY = '__yomuOpenShadowRootDiscoveryV1';
+
+interface PotentialShadowHost {
+    ref: WeakRef<Element>;
+    expiresAt: number;
+}
+
+const potentialShadowHosts = new Set<PotentialShadowHost>();
+let seenPotentialShadowHosts = new WeakSet<Element>();
+let potentialShadowHostTimer: number | undefined;
+
+let openShadowRootDiscoveryUsers = 0;
 
 // Called by the fragment walk for every open shadow root it descends into.
 // Idempotent per root; invokes the app hook immediately for new roots.
 export function noteScannedShadowRoot(root: ShadowRoot): void {
-    if (scannedShadowRoots.has(root)) return;
-    scannedShadowRoots.add(root);
-    scannedShadowRootRefs.add(new WeakRef(root));
-    shadowRootScanHook?.(root);
+    noteShadowRoot(root, 'scan');
 }
+
+function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void {
+    const active = scannedShadowRootState.get(root);
+    if (active) return;
+    scannedShadowRootState.set(root, true);
+    if (active === undefined) scannedShadowRootRefs.add(new WeakRef(root));
+    shadowRootScanHook?.(root, cause);
+}
+
+// Content-world userscripts and page scripts have different JavaScript
+// prototypes in Chromium/WebKit. The page-realm bridge is immediate in the
+// normal case; hosts encountered by the generic DOM walk also get a bounded
+// weak-reference poll so CSP restrictions and captured original methods cannot
+// strand a later open root.
+export function watchPotentialOpenShadowRootHost(host: Element, includeNativeHost = false): ShadowRoot | null {
+    const root = host.shadowRoot;
+    if (root) {
+        noteShadowRoot(root, 'scan');
+        return root;
+    }
+    if ((!includeNativeHost && !host.localName.includes('-')) || seenPotentialShadowHosts.has(host)) return null;
+    const now = Date.now();
+    seenPotentialShadowHosts.add(host);
+    potentialShadowHosts.add({
+        ref: new WeakRef(host),
+        expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS,
+    });
+    schedulePotentialShadowHostPoll();
+    return null;
+}
+
+// Seed hosts that were already in the document when the reader started but
+// have not upgraded yet. `:not(:defined)` is a browser-native custom-element
+// index, avoiding the expensive second all-elements walk that dense pages paid
+// before the startup scan fast path was introduced.
+// A host can be inserted before its component upgrades and calls attachShadow().
+// That later attachment is not itself a DOM mutation, so neither the document
+// observer nor a walk of the earlier insertion can discover the new root. Keep
+// one page-realm bridge while the reader is alive and register newly attached
+// open roots at creation time. The install is reference-counted so repeated app
+// setup/teardown cannot stack listeners or stop discovery too early.
+export function installOpenShadowRootDiscovery(): () => void {
+    openShadowRootDiscoveryUsers += 1;
+    if (openShadowRootDiscoveryUsers === 1) {
+        installPageOpenShadowRootDiscoveryBridge();
+        document.addEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+        try {
+            document.querySelectorAll<Element>(':not(:defined)').forEach(host => watchPotentialOpenShadowRootHost(host));
+        } catch {
+            // Mutation-time discovery remains available on older engines.
+        }
+        schedulePotentialShadowHostPoll();
+    }
+    let disposed = false;
+    return () => {
+        if (disposed) return;
+        disposed = true;
+        openShadowRootDiscoveryUsers -= 1;
+        if (openShadowRootDiscoveryUsers > 0) return;
+        document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+        window.clearTimeout(potentialShadowHostTimer);
+        potentialShadowHostTimer = undefined;
+        potentialShadowHosts.clear();
+        seenPotentialShadowHosts = new WeakSet<Element>();
+    };
+}
+
+function handleOpenShadowRootAttached(event: Event): void {
+    const host = event.composedPath()[0];
+    const root = host instanceof Element ? host.shadowRoot : null;
+    if (root) noteShadowRoot(root, 'attached');
+}
+
+function schedulePotentialShadowHostPoll(): void {
+    if (!openShadowRootDiscoveryUsers
+        || potentialShadowHostTimer !== undefined
+        || !potentialShadowHosts.size) return;
+    potentialShadowHostTimer = window.setTimeout(
+        pollPotentialShadowHosts,
+        POTENTIAL_SHADOW_HOST_POLL_MS,
+    );
+}
+
+function pollPotentialShadowHosts(): void {
+    potentialShadowHostTimer = undefined;
+    const now = Date.now();
+    for (const pending of potentialShadowHosts) {
+        const host = pending.ref.deref();
+        if (!host || !host.isConnected || pending.expiresAt <= now) {
+            potentialShadowHosts.delete(pending);
+            // Disconnected hosts may be reinserted and need a fresh window.
+            // A connected no-root host that exhausted its bounded fallback is
+            // left seen; the page-realm bridge covers any later attachment.
+            if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
+            continue;
+        }
+        if (!host.shadowRoot) continue;
+        potentialShadowHosts.delete(pending);
+        seenPotentialShadowHosts.delete(host);
+        noteShadowRoot(host.shadowRoot, 'attached');
+    }
+    schedulePotentialShadowHostPoll();
+}
+
+// Install at document-start so page-realm calls are observable even when the
+// userscript runs in an isolated world. The attached host dispatches a shared
+// DOM event; the content-world listener can then read its open shadowRoot.
+export function installPageOpenShadowRootDiscoveryBridge(): void {
+    const pageWindow = (globalThis as { unsafeWindow?: PageShadowWindow }).unsafeWindow;
+    if (pageWindow) {
+        try {
+            pageOpenShadowRootDiscoveryBootstrap(
+                pageWindow,
+                OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+                PAGE_SHADOW_DISCOVERY_KEY,
+            );
+            return;
+        } catch {
+            // Fall through to a shared-DOM page-realm script.
+        }
+    }
+    const parent = document.head || document.documentElement;
+    if (!parent) return;
+    try {
+        const script = document.createElement('script');
+        const nonce = document.querySelector('script[nonce]')?.getAttribute('nonce');
+        if (nonce) script.setAttribute('nonce', nonce);
+        script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
+        parent.append(script);
+        script.remove();
+    } catch {
+        // Bounded candidate polling remains.
+    }
+}
+
+function pageOpenShadowRootDiscoveryBootstrap(
+    pageWindow: PageShadowWindow,
+    eventName: string,
+    stateKey: string,
+): void {
+    const state = pageWindow as unknown as Record<string, unknown>;
+    if (state[stateKey]) return;
+    const prototype = pageWindow.Element?.prototype;
+    const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
+    const original = descriptor?.value;
+    if (!prototype || !descriptor || typeof original !== 'function') return;
+    Object.defineProperty(prototype, 'attachShadow', {
+        ...descriptor,
+        value(this: Element, init: ShadowRootInit): ShadowRoot {
+            const root = original.call(this, init) as ShadowRoot;
+            if (root.mode === 'open') {
+                this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+            }
+            return root;
+        },
+    });
+    state[stateKey] = true;
+}
+
+type PageShadowWindow = Window & {
+    Element: typeof Element;
+    Event: typeof Event;
+};
 
 // The app installs one hook (observe the root with the auto-scan observer).
 // Roots discovered before the hook was installed are replayed so boot-order
 // does not matter. Passing null detaches (destroy path).
-export function setShadowRootScanHook(hook: ((root: ShadowRoot) => void) | null): void {
+export function setShadowRootScanHook(hook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null): void {
     shadowRootScanHook = hook;
-    if (hook) forEachScannedShadowRoot(hook);
+    if (hook) forEachScannedShadowRoot(root => hook(root, 'replay'));
 }
 
 // Enumerate live registered roots (used to re-attach after the observer is
 // paused/disconnected). Detached hosts are swept out here — same bounded
 // cleanup discipline as the live text-mirror observer set.
-export function forEachScannedShadowRoot(callback: (root: ShadowRoot) => void): void {
+export function forEachScannedShadowRoot(callback: (root: ShadowRoot) => void, includeDetached = false): void {
     for (const ref of scannedShadowRootRefs) {
         const root = ref.deref();
-        if (!root || !root.host?.isConnected) {
+        if (!root) {
             scannedShadowRootRefs.delete(ref);
             continue;
+        }
+        if (!root.host?.isConnected) {
+            // Re-register cached roots after reinsertion, but retain their weak
+            // references so explicit teardown can still reach them off-DOM.
+            scannedShadowRootState.set(root, false);
+            if (!includeDetached) continue;
         }
         callback(root);
     }

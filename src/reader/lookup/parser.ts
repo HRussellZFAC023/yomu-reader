@@ -10,7 +10,7 @@ import {
 } from './japanese-segments';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
-import { inferredInflectedSurfaceRubies } from '../dom';
+import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
@@ -42,7 +42,7 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // instead — only when local term dictionaries exist, so Jiten-only users are
 // unaffected.
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
 function japaneseBatchCharCount(paragraphs: string[]): number {
     return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
@@ -483,11 +483,28 @@ export class ReaderParser {
     }
 
     private withSegmentedFallbackGaps(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): JPDBToken[][] {
-        if (options.allowSegmentedFallback !== true) return parsed;
-        return parsed.map((tokens, index) => this.fillSegmentedFallbackGaps(paragraphs[index] ?? '', tokens));
+        // Parsing is a one-result-per-input contract. Provider adapters are
+        // allowed to fail partially, but their response cardinality must never
+        // leak into callers: a short response used to leave the tail DOM
+        // targets permanently bare, while extra rows shifted later work.
+        const hasExactCardinality = parsed.length === paragraphs.length
+            && paragraphs.every((_, index) => Array.isArray(parsed[index]));
+        if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
+        return paragraphs.map((text, index) => {
+            const tokens = parsed[index] ?? [];
+            return options.allowSegmentedFallback === true
+                ? this.fillSegmentedFallbackGaps(text, tokens)
+                : tokens;
+        });
     }
 
     private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
+        // Gap coverage must use the same spans the DOM renderer can actually
+        // consume. A malformed or overlapping provider token used to mark its
+        // Japanese range as covered here, then get discarded at render time,
+        // leaving the rejected range as an unannotated raw-text hole.
+        tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
+            || (second.end - second.start) - (first.end - first.start)), text);
         const fallbackTokens = this.parseSegmentedText(text);
         const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
         const broad = tokens.filter(token => isBroadPublic(token)
@@ -952,21 +969,13 @@ function fallbackRepairGroupForToken(
     fallbackTokens: JPDBToken[],
     tokens: JPDBToken[],
 ): JPDBToken[] | null {
-    if (!isCompleteFallbackRepairCandidate(fallback)) return null;
     if (!rangeHasUncoveredJapaneseText(text, fallback.start, fallback.end, tokens)) return null;
     const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     if (!overlapping.length) return null;
     const start = Math.min(fallback.start, ...overlapping.map(token => token.start));
     const end = Math.max(fallback.end, ...overlapping.map(token => token.end));
     if (!tokens.every(token => !rangesOverlap(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-    return fallbackTokensCoveringRange(fallbackTokens, start, end);
-}
-
-function isCompleteFallbackRepairCandidate(fallback: JPDBToken): boolean {
-    const surface = fallback.card.spelling;
-    return Boolean(fallback.card.fallbackLookupTerms?.length)
-        || (/^[\u3040-\u309fー]{3,}$/u.test(surface))
-        || (/[\u3400-\u9fff々〆ヵヶ]/u.test(surface) && surface.length >= 2);
+    return fallbackTokensCoveringRange(text, fallbackTokens, start, end);
 }
 
 function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
@@ -977,15 +986,14 @@ function rangeHasUncoveredJapaneseText(text: string, start: number, end: number,
     return false;
 }
 
-function fallbackTokensCoveringRange(fallbackTokens: JPDBToken[], start: number, end: number): JPDBToken[] | null {
+function fallbackTokensCoveringRange(text: string, fallbackTokens: JPDBToken[], start: number, end: number): JPDBToken[] | null {
     const group = fallbackTokens.filter(token => token.start >= start && token.end <= end);
     if (!group.length) return null;
     group.sort(compareTokensByOffset);
-    if (group[0]?.start !== start || group[group.length - 1]?.end !== end) return null;
-    for (let index = 1; index < group.length; index += 1) {
-        if (group[index - 1]?.end !== group[index]?.start) return null;
-    }
-    return group;
+    // Provider spans can drift across a Latin prefix or punctuation
+    // (r/日本 -> r/日). Replacement only needs to cover every JAPANESE
+    // character in the expanded range; non-Japanese gaps stay plain text.
+    return rangeHasUncoveredJapaneseText(text, start, end, group) ? null : group;
 }
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {

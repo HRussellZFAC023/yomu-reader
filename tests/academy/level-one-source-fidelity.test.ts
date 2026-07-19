@@ -23,6 +23,14 @@ const PRIVATE_LEDGER_PATH = path.join(
     REPOSITORY_ROOT,
     'artifacts/yomu-academy/source-pipeline/private-ledger.v1.json',
 );
+const PRIVATE_PDF_CENSUS_ROOT = path.join(
+    REPOSITORY_ROOT,
+    'artifacts/yomu-academy/source-pipeline/pdf-census',
+);
+const PRIVATE_LEDGER_AVAILABLE = fs.existsSync(PRIVATE_LEDGER_PATH);
+const PRIVATE_PDF_CENSUS_AVAILABLE = fs.existsSync(PRIVATE_PDF_CENSUS_ROOT);
+const GENKI_SOURCE_ROOT_AVAILABLE = fs.existsSync(GENKI_ROOT);
+const REQUESTED_SOURCE_ROOTS_AVAILABLE = REQUESTED_SOURCE_ROOTS.every(root => fs.existsSync(root));
 const LEVEL_ONE_FILES = Array.from({ length: 26 }, (_, index) =>
     `${String(index + 2).padStart(3, '0')}-l1-l${String(index + 1).padStart(2, '0')}.json`);
 const EXPECTED_VOCABULARY_GAPS = new Set([
@@ -50,6 +58,16 @@ interface ExerciseEntry {
     readonly lesson: RecordValue;
     readonly component: RecordValue;
     readonly exercise: RecordValue;
+}
+
+interface CoverageRow {
+    readonly filename: string;
+    readonly row: RecordValue;
+}
+
+interface GenkiActivityEntry {
+    readonly filename: string;
+    readonly activity: RecordValue;
 }
 
 function record(value: unknown, label = 'value'): RecordValue {
@@ -143,7 +161,10 @@ const sourceQuestions = allExercises.filter(({ exercise }) =>
 const moodleSourceQuestions = sourceQuestions.filter(({ exercise }) =>
     text(exercise.sourceQuestionId).startsWith('moodle:'));
 const publicCatalog = loadJson(PUBLIC_CATALOG_PATH);
-const privateLedger = loadJson(PRIVATE_LEDGER_PATH);
+// The private ledger and source corpus are intentionally ignored. Public CI
+// still validates every checked-in projection; byte-for-byte provenance tests
+// below opt in only when their corresponding private evidence is available.
+const privateLedger = PRIVATE_LEDGER_AVAILABLE ? loadJson(PRIVATE_LEDGER_PATH) : null;
 const catalogMembers = new Map(
     array(publicCatalog.memberOccurrences).map(value => {
         const member = record(value);
@@ -157,17 +178,187 @@ const catalogArchives = new Map(
     }),
 );
 const privateMembers = new Map(
-    array(privateLedger.memberOccurrences).map(value => {
+    (privateLedger ? array(privateLedger.memberOccurrences) : []).map(value => {
         const member = record(value);
         return [text(member.id), member] as const;
     }),
 );
 const privateArchives = new Map(
-    array(privateLedger.archiveOccurrences).map(value => {
+    (privateLedger ? array(privateLedger.archiveOccurrences) : []).map(value => {
         const archive = record(value);
         return [text(archive.id), archive] as const;
     }),
 );
+
+function publicCoverageRows(): readonly CoverageRow[] {
+    const coverageRows: CoverageRow[] = [];
+    for (const { filename, value: lesson } of lessons) {
+        const coverage = record(lesson.sourceCoverage);
+        expect(coverage.harvested, filename).toBe(true);
+        const members = array(coverage.members, `${filename}.members`);
+        expect(members.length, filename).toBeGreaterThan(0);
+        if (typeof coverage.memberFileCount === 'number') {
+            expect(coverage.memberFileCount, filename).toBeGreaterThanOrEqual(members.length);
+        }
+        for (const memberValue of members) {
+            expect(text(record(memberValue).payloadSha256), filename).toMatch(/^[a-f0-9]{64}$/u);
+        }
+
+        const packageRows = (coverage.coverageMap as readonly unknown[] | undefined) ?? [];
+        if (packageRows.length) {
+            // Archive member occurrences may carry the same byte payload in
+            // multiple folders. Generated ownership is payload-canonical,
+            // while coverage rows retain each pedagogical mapping.
+            expect(packageRows.length, filename).toBeGreaterThanOrEqual(members.length);
+            expect(new Set(packageRows.map(row => text(record(row).payloadSha256))), filename)
+                .toEqual(new Set(members.map(member => text(record(member).payloadSha256))));
+        }
+        packageRows.forEach(row => coverageRows.push({ filename, row: record(row) }));
+    }
+    return coverageRows;
+}
+
+function expectPublicCoverageTrace({ filename, row }: CoverageRow): void {
+    const payloadSha256 = text(row.payloadSha256);
+    const trace = record(row.sourceTrace, `${filename}:${payloadSha256}.sourceTrace`);
+    expect(trace.payloadSha256, filename).toBe(payloadSha256);
+    expect(trace.answerVisibility, filename).toBe('after-attempt');
+    expect(trace.directReadStatus, filename).toBe('raw-ledger-and-census-verified');
+    expect(row.status, filename).not.toBe('covered');
+
+    const memberId = text(trace.memberOccurrenceId);
+    const archiveId = text(trace.archiveOccurrenceId);
+    const catalogMember = catalogMembers.get(memberId);
+    const catalogArchive = catalogArchives.get(archiveId);
+    expect(catalogMember, `${filename}:${memberId}`).toBeDefined();
+    expect(catalogArchive, `${filename}:${archiveId}`).toBeDefined();
+    expect(catalogMember?.archiveOccurrenceId).toBe(archiveId);
+    expect(catalogMember?.payloadSha256).toBe(payloadSha256);
+    expect(catalogMember?.centralDirectoryIndex).toBe(trace.centralDirectoryIndex);
+    expect(catalogMember?.classification).toEqual(trace.classification);
+    expect(catalogArchive?.sha256).toBe(trace.archiveSha256);
+
+    if (String(row.status).includes('gap')) {
+        // The status, not a particular sentence, is the contract for an
+        // unresolved source field. Copy may change as the projection improves.
+        expect(text(row.howCovered), filename).toBeTruthy();
+    }
+    if (row.status === 'exact-source-vocabulary-preserved') {
+        expect(declaredVocabularyHashes(
+            lessons.find(entry => entry.filename === filename)!.value,
+        ).has(payloadSha256), filename).toBe(true);
+    }
+}
+
+function expectPrivateCoverageTrace({ filename, row }: CoverageRow): void {
+    const payloadSha256 = text(row.payloadSha256);
+    const trace = record(row.sourceTrace, `${filename}:${payloadSha256}.sourceTrace`);
+    const memberId = text(trace.memberOccurrenceId);
+    const archiveId = text(trace.archiveOccurrenceId);
+    const privateMember = privateMembers.get(memberId);
+    const privateArchive = privateArchives.get(archiveId);
+    expect(privateMember, `${filename}:${memberId}`).toBeDefined();
+    expect(privateArchive, `${filename}:${archiveId}`).toBeDefined();
+    expect(privateMember?.name).toBe(trace.member);
+    expect(privateMember?.payloadSha256).toBe(payloadSha256);
+    const relativePath = text(privateArchive?.relativePath)
+        .replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    expect(text(trace.archivePath)).toMatch(new RegExp(`${relativePath}$`, 'u'));
+    expect(record(privateArchive?.mapping).moduleId).toBe(trace.moduleId);
+}
+
+function genkiActivities(): readonly GenkiActivityEntry[] {
+    return lessons.flatMap(({ filename, value: lesson }) =>
+        array(lesson.genkiInteractiveActivities, `${filename}.genkiInteractiveActivities`)
+            .map(value => ({ filename, activity: record(value) })));
+}
+
+function expectPublicGenkiActivity({ filename, activity }: GenkiActivityEntry): void {
+    const source = record(activity.source);
+    const exactTask = record(activity.exactTask);
+    const delivery = record(activity.delivery);
+    const runtime = record(activity.runtime);
+    expect(source.rootId, filename).toBe('japanese-genki-study-resources-2e');
+    expect(source.reuse, filename).toBe('verbatim-generated-quiz-configuration');
+    const sourcePath = path.resolve(GENKI_ROOT, text(source.relativePath));
+    expect(sourcePath.startsWith(`${GENKI_ROOT}${path.sep}`), filename).toBe(true);
+    expect(text(source.payloadSha256), filename).toMatch(/^[a-f0-9]{64}$/u);
+    expect(text(source.scriptSha256), filename).toMatch(/^[a-f0-9]{64}$/u);
+    expect(record(source.lineLocus).start, filename).toEqual(expect.any(Number));
+    expect(record(source.lineLocus).end, filename).toEqual(expect.any(Number));
+    expect(exactTask.engine, filename).toBe('Genki.generateQuiz');
+    expect(exactTask.taskIntentPreserved, filename).toBe(true);
+    expect(exactTask.exerciseOrderPreserved, filename).toBe(true);
+    expect(text(delivery.place), filename).toMatch(/^academy\/world\//u);
+    expect(array(delivery.cast).length, filename).toBeGreaterThan(0);
+    expect(text(delivery.grouping), filename).toBeTruthy();
+    expect(text(delivery.beat), filename).toBeTruthy();
+    expect(delivery.answerVisibility, filename).toBe('after-attempt');
+    expect(delivery.prerequisitePolicy, filename)
+        .toBe('deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example');
+    expect(runtime.preservesSourceTask, filename).toBe(true);
+    expect(runtime.answerGate, filename).toBe('after-attempt');
+    expect(text(runtime.pluginKind), filename).toBeTruthy();
+    expect(runtime.bindingStatus, filename).toBe(filename === '002-l1-l01.json'
+        ? 'first-two-source-items-delivered-by-lesson-activity-catalog'
+        : 'package-declared-catalog-registration-outside-owned-scope');
+}
+
+function expectPrivateGenkiSource({ filename, activity }: GenkiActivityEntry): void {
+    const source = record(activity.source);
+    const exactTask = record(activity.exactTask);
+    const sourcePath = path.resolve(GENKI_ROOT, text(source.relativePath));
+    const html = fs.readFileSync(sourcePath, 'utf8');
+    expect(sha256(html), filename).toBe(source.payloadSha256);
+    const match = html.match(/<script>(Genki\.generateQuiz\([\s\S]*?\);)<\/script>/u);
+    expect(match, sourcePath).not.toBeNull();
+    const script = match![1].trim();
+    expect(sha256(script), sourcePath).toBe(source.scriptSha256);
+
+    let captured: unknown;
+    vm.runInNewContext(script, {
+        Genki: {
+            generateQuiz(config: unknown) {
+                captured = config;
+            },
+            getAlts: getGenkiAlternatives,
+        },
+    }, { timeout: 1_000 });
+    expect(JSON.parse(JSON.stringify(captured)), sourcePath).toEqual(exactTask.config);
+
+    const lineLocus = record(source.lineLocus);
+    const sourceLines = html.split(/\r?\n/u);
+    const sourceWindow = sourceLines.slice(
+        Number(lineLocus.start) - 1,
+        Number(lineLocus.end),
+    ).join('\n');
+    expect(sourceWindow, sourcePath).toContain('Genki.generateQuiz');
+}
+
+function expectPublicSourceRootAudit({ filename, value: lesson }: LessonEntry): void {
+    const audit = record(lesson.sourceRootAudit);
+    expect(audit.permittedCorpusAuthority, filename)
+        .toBe('public/academy/content/source-pipeline/permitted-corpus.v1.json');
+    expect(audit.precedence, filename).toEqual([
+        'moodle-chronology',
+        'minna-no-nihongo-i',
+        'genki-i',
+        'supplemental-enrichment',
+    ]);
+    const roots = array(audit.roots).map(value => record(value));
+    const requestedRootPaths = new Set<string>(PUBLIC_SOURCE_REFERENCES);
+    const requestedRoots = roots.filter(root => requestedRootPaths.has(text(root.path)));
+    expect(requestedRoots.map(root => root.path), filename).toEqual(PUBLIC_SOURCE_REFERENCES);
+    expect(roots, filename).toHaveLength(filename === '002-l1-l01.json' ? 4 : 3);
+    expect(requestedRoots[0].treeSha256AtAudit, filename)
+        .toBe('a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de');
+    expect(requestedRoots[1].treeSha256AtAudit, filename)
+        .toBe('8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c');
+    expect(requestedRoots[2].treeSha256AtAudit, filename)
+        .toBe('b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4');
+    expect(requestedRoots[1].status, filename).toBe('audited-no-selected-level-one-material');
+    expect(requestedRoots[2].status, filename).toBe('excluded-from-level-one-prestudy');
+}
 
 describe('Level 1 source fidelity and production readiness', () => {
     it('owns exactly 26 parseable packages with unique titles, components, and exercise IDs', () => {
@@ -233,75 +424,18 @@ describe('Level 1 source fidelity and production readiness', () => {
         }
     });
 
-    it('traces every public Moodle coverage row back to the harvested archive ledger', () => {
-        const coverageRows: { filename: string; row: RecordValue }[] = [];
-        for (const { filename, value: lesson } of lessons) {
-            const coverage = record(lesson.sourceCoverage);
-            expect(coverage.harvested, filename).toBe(true);
-            const members = array(coverage.members, `${filename}.members`);
-            expect(members.length, filename).toBeGreaterThan(0);
-            if (typeof coverage.memberFileCount === 'number') {
-                expect(coverage.memberFileCount, filename).toBeGreaterThanOrEqual(members.length);
-            }
-            for (const memberValue of members) {
-                expect(text(record(memberValue).payloadSha256), filename).toMatch(/^[a-f0-9]{64}$/u);
-            }
-
-            const packageRows = (coverage.coverageMap as readonly unknown[] | undefined) ?? [];
-            if (packageRows.length) {
-                // Archive member occurrences may carry the same byte payload in
-                // multiple folders. Generated ownership is payload-canonical,
-                // while coverage rows retain each pedagogical mapping.
-                expect(packageRows.length, filename).toBeGreaterThanOrEqual(members.length);
-                expect(new Set(packageRows.map(row => text(record(row).payloadSha256))), filename)
-                    .toEqual(new Set(members.map(member => text(record(member).payloadSha256))));
-            }
-            packageRows.forEach(row => coverageRows.push({ filename, row: record(row) }));
-        }
-
+    it('keeps every public Moodle coverage row internally consistent and catalog-traceable', () => {
+        const coverageRows = publicCoverageRows();
         expect(coverageRows.length).toBeGreaterThan(40);
-        for (const { filename, row } of coverageRows) {
-            const payloadSha256 = text(row.payloadSha256);
-            const trace = record(row.sourceTrace, `${filename}:${payloadSha256}.sourceTrace`);
-            expect(trace.payloadSha256, filename).toBe(payloadSha256);
-            expect(trace.answerVisibility, filename).toBe('after-attempt');
-            expect(trace.directReadStatus, filename).toBe('raw-ledger-and-census-verified');
-            expect(row.status, filename).not.toBe('covered');
-
-            const memberId = text(trace.memberOccurrenceId);
-            const archiveId = text(trace.archiveOccurrenceId);
-            const catalogMember = catalogMembers.get(memberId);
-            const catalogArchive = catalogArchives.get(archiveId);
-            const privateMember = privateMembers.get(memberId);
-            const privateArchive = privateArchives.get(archiveId);
-            expect(catalogMember, `${filename}:${memberId}`).toBeDefined();
-            expect(catalogArchive, `${filename}:${archiveId}`).toBeDefined();
-            expect(privateMember, `${filename}:${memberId}`).toBeDefined();
-            expect(privateArchive, `${filename}:${archiveId}`).toBeDefined();
-            expect(catalogMember?.archiveOccurrenceId).toBe(archiveId);
-            expect(catalogMember?.payloadSha256).toBe(payloadSha256);
-            expect(catalogMember?.centralDirectoryIndex).toBe(trace.centralDirectoryIndex);
-            expect(catalogMember?.classification).toEqual(trace.classification);
-            expect(catalogArchive?.sha256).toBe(trace.archiveSha256);
-            expect(privateMember?.name).toBe(trace.member);
-            expect(privateMember?.payloadSha256).toBe(payloadSha256);
-            const relativePath = text(privateArchive?.relativePath)
-                .replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-            expect(text(trace.archivePath)).toMatch(new RegExp(`${relativePath}$`, 'u'));
-            expect(record(privateArchive?.mapping).moduleId).toBe(trace.moduleId);
-
-            if (String(row.status).includes('gap')) {
-                // The status, not a particular sentence, is the contract for an
-                // unresolved source field. Copy may change as the projection improves.
-                expect(text(row.howCovered), filename).toBeTruthy();
-            }
-            if (row.status === 'exact-source-vocabulary-preserved') {
-                expect(declaredVocabularyHashes(
-                    lessons.find(entry => entry.filename === filename)!.value,
-                ).has(payloadSha256), filename).toBe(true);
-            }
-        }
+        coverageRows.forEach(expectPublicCoverageTrace);
     });
+
+    it.runIf(PRIVATE_LEDGER_AVAILABLE)(
+        'traces every public Moodle coverage row back to the ignored private archive ledger when available',
+        () => {
+            publicCoverageRows().forEach(expectPrivateCoverageTrace);
+        },
+    );
 
     it('keeps every digitized Moodle question exact, page-traceable, unique, and answer-gated', () => {
         expect(moodleSourceQuestions.length).toBeGreaterThan(40);
@@ -337,14 +471,27 @@ describe('Level 1 source fidelity and production readiness', () => {
                 const page = Number(source.page);
                 expect(page, sourceQuestionId).toBeGreaterThan(0);
                 expect(source.pageRenderStatus).toBe('review-artifact-present-not-runtime-asset');
-                expect(fs.existsSync(path.join(REPOSITORY_ROOT, text(source.pageRenderArtifact))),
-                    sourceQuestionId).toBe(true);
+                expect(text(source.pageRenderArtifact), sourceQuestionId)
+                    .toMatch(/^artifacts\/yomu-academy\/source-pipeline\/pdf-census\//u);
                 expect(source.answerVisibility, sourceQuestionId).toBe('after-attempt');
             } else {
                 expect(text(exercise.sourcePromptExact), sourceQuestionId).toBeTruthy();
             }
         }
     });
+
+    it.runIf(PRIVATE_PDF_CENSUS_AVAILABLE)(
+        'keeps every declared page-render proof present when the ignored private PDF census is available',
+        () => {
+            for (const { exercise } of moodleSourceQuestions) {
+                if (typeof exercise.sourcePromptStatus !== 'string') continue;
+                const sourceQuestionId = text(exercise.sourceQuestionId);
+                const source = record(exercise.source, `${sourceQuestionId}.source`);
+                expect(fs.existsSync(path.join(REPOSITORY_ROOT, text(source.pageRenderArtifact))),
+                    sourceQuestionId).toBe(true);
+            }
+        },
+    );
 
     it('binds every source class task once to a natural cast group and world place', () => {
         for (const { filename, value: lesson } of lessons) {
@@ -371,64 +518,11 @@ describe('Level 1 source fidelity and production readiness', () => {
         }
     });
 
-    it('executes every mapped Genki quiz from the requested week-sorted source root verbatim', () => {
-        const activities = lessons.flatMap(({ filename, value: lesson }) =>
-            array(lesson.genkiInteractiveActivities, `${filename}.genkiInteractiveActivities`)
-                .map(value => ({ filename, lesson, activity: record(value) })));
+    it('keeps every mapped Genki activity and exact source slice declared', () => {
+        const activities = genkiActivities();
         expect(activities).toHaveLength(27);
         expect(array(lessons.at(-1)!.value.genkiInteractiveActivities)).toHaveLength(2);
-
-        for (const { filename, activity } of activities) {
-            const source = record(activity.source);
-            const exactTask = record(activity.exactTask);
-            const delivery = record(activity.delivery);
-            const runtime = record(activity.runtime);
-            expect(source.rootId, filename).toBe('japanese-genki-study-resources-2e');
-            expect(source.reuse, filename).toBe('verbatim-generated-quiz-configuration');
-            const sourcePath = path.resolve(GENKI_ROOT, text(source.relativePath));
-            expect(sourcePath.startsWith(`${GENKI_ROOT}${path.sep}`), filename).toBe(true);
-            const html = fs.readFileSync(sourcePath, 'utf8');
-            expect(sha256(html), filename).toBe(source.payloadSha256);
-            const match = html.match(/<script>(Genki\.generateQuiz\([\s\S]*?\);)<\/script>/u);
-            expect(match, sourcePath).not.toBeNull();
-            const script = match![1].trim();
-            expect(sha256(script), sourcePath).toBe(source.scriptSha256);
-
-            let captured: unknown;
-            vm.runInNewContext(script, {
-                Genki: {
-                    generateQuiz(config: unknown) {
-                        captured = config;
-                    },
-                    getAlts: getGenkiAlternatives,
-                },
-            }, { timeout: 1_000 });
-            expect(JSON.parse(JSON.stringify(captured)), sourcePath).toEqual(exactTask.config);
-
-            const lineLocus = record(source.lineLocus);
-            const sourceLines = html.split(/\r?\n/u);
-            const sourceWindow = sourceLines.slice(
-                Number(lineLocus.start) - 1,
-                Number(lineLocus.end),
-            ).join('\n');
-            expect(sourceWindow, sourcePath).toContain('Genki.generateQuiz');
-            expect(exactTask.engine, filename).toBe('Genki.generateQuiz');
-            expect(exactTask.taskIntentPreserved, filename).toBe(true);
-            expect(exactTask.exerciseOrderPreserved, filename).toBe(true);
-            expect(text(delivery.place), filename).toMatch(/^academy\/world\//u);
-            expect(array(delivery.cast).length, filename).toBeGreaterThan(0);
-            expect(text(delivery.grouping), filename).toBeTruthy();
-            expect(text(delivery.beat), filename).toBeTruthy();
-            expect(delivery.answerVisibility, filename).toBe('after-attempt');
-            expect(delivery.prerequisitePolicy, filename)
-                .toBe('deliver-only-after-the-mapped-Moodle-Minna-instruction-and-worked-example');
-            expect(runtime.preservesSourceTask, filename).toBe(true);
-            expect(runtime.answerGate, filename).toBe('after-attempt');
-            expect(text(runtime.pluginKind), filename).toBeTruthy();
-            expect(runtime.bindingStatus, filename).toBe(filename === '002-l1-l01.json'
-                ? 'first-two-source-items-delivered-by-lesson-activity-catalog'
-                : 'package-declared-catalog-registration-outside-owned-scope');
-        }
+        activities.forEach(expectPublicGenkiActivity);
 
         const slices = activities.filter(({ activity }) =>
             record(activity.exactTask).sourceSlice !== null);
@@ -441,38 +535,27 @@ describe('Level 1 source fidelity and production readiness', () => {
             .toEqual(['ア', 'イ', 'ウ', 'エ', 'オ']);
     });
 
-    it('audits all three requested source roots with the same exact hashes in every package', () => {
-        expect(REQUESTED_SOURCE_ROOTS.every(root => fs.existsSync(root))).toBe(true);
-        expect(sha256(fs.readFileSync(path.join(GENKI_ROOT, 'LICENSE'))))
-            .toBe('78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839');
-        expect(sha256(fs.readFileSync(path.join(GENKI_ROOT, 'README.md'))))
-            .toBe('82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab');
+    it.runIf(GENKI_SOURCE_ROOT_AVAILABLE)(
+        'executes every mapped Genki quiz from the ignored local source root when available',
+        () => {
+            genkiActivities().forEach(expectPrivateGenkiSource);
+        },
+    );
 
-        for (const { filename, value: lesson } of lessons) {
-            const audit = record(lesson.sourceRootAudit);
-            expect(audit.permittedCorpusAuthority, filename)
-                .toBe('public/academy/content/source-pipeline/permitted-corpus.v1.json');
-            expect(audit.precedence, filename).toEqual([
-                'moodle-chronology',
-                'minna-no-nihongo-i',
-                'genki-i',
-                'supplemental-enrichment',
-            ]);
-            const roots = array(audit.roots).map(value => record(value));
-            const requestedRootPaths = new Set<string>(PUBLIC_SOURCE_REFERENCES);
-            const requestedRoots = roots.filter(root => requestedRootPaths.has(text(root.path)));
-            expect(requestedRoots.map(root => root.path), filename).toEqual(PUBLIC_SOURCE_REFERENCES);
-            expect(roots, filename).toHaveLength(filename === '002-l1-l01.json' ? 4 : 3);
-            expect(requestedRoots[0].treeSha256AtAudit, filename)
-                .toBe('a1f88b0c1554c2d25aa4a0fc7a502537d298a2534b72a73bd84210f09c74a1de');
-            expect(requestedRoots[1].treeSha256AtAudit, filename)
-                .toBe('8927e980e5efc8181cd1316b97548ce6a06de0b40157500cb0bfcd674ff8e42c');
-            expect(requestedRoots[2].treeSha256AtAudit, filename)
-                .toBe('b564cf823e41f89d92be4cd2fb3d2224e889d9ee4a2d082505272b4c4190edc4');
-            expect(requestedRoots[1].status, filename).toBe('audited-no-selected-level-one-material');
-            expect(requestedRoots[2].status, filename).toBe('excluded-from-level-one-prestudy');
-        }
+    it('keeps the requested source-root audit exact in every checked-in package', () => {
+        lessons.forEach(expectPublicSourceRootAudit);
     });
+
+    it.runIf(REQUESTED_SOURCE_ROOTS_AVAILABLE)(
+        'audits all three ignored local source roots with exact hashes when available',
+        () => {
+            expect(REQUESTED_SOURCE_ROOTS.every(root => fs.existsSync(root))).toBe(true);
+            expect(sha256(fs.readFileSync(path.join(GENKI_ROOT, 'LICENSE'))))
+                .toBe('78ce1f38ce4e700e0f2e50f80d549db0798cbdac9dfd5873dfb87c66a711f839');
+            expect(sha256(fs.readFileSync(path.join(GENKI_ROOT, 'README.md'))))
+                .toBe('82a4dc2c809de43b9bd36580b03e521686b6c92023a3dadd65f1ade968c409ab');
+        },
+    );
 
     it('keeps exact Sensei pre-study rows in source order and marks missing sheets honestly', () => {
         const sourceItemIds = new Set<string>();

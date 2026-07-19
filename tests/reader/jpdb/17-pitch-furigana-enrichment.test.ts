@@ -37,6 +37,7 @@ import type {
     YomitanTermEntry,
 } from './fixtures';
 import { ReaderParser } from '../../../src/reader/lookup/parser';
+import { noteScannedShadowRoot } from '../../../src/reader/dom/shadow-scan-registry';
 
 registerReaderHelpersCleanup();
 
@@ -426,6 +427,11 @@ describe('reader helpers', () => {
         });
         const token = testTokenForCard(compound, '彼女は「王子様」と呼んだ。');
         const word = appendRenderedReaderWord(compound);
+        const host = document.createElement('pitch-shadow-host');
+        document.body.append(host);
+        const root = host.attachShadow({ mode: 'open' });
+        noteScannedShadowRoot(root);
+        root.append(word);
         const hydrateCards = vi.fn(async () => new Map([['2858295:0', compound]]));
         const publicPitch = vi.fn(async (spelling: string) => {
             if (spelling === '王子') return ['HLLL'];
@@ -462,7 +468,7 @@ describe('reader helpers', () => {
             expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-atamadaka');
             expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-heiban');
         } finally {
-            word.remove();
+            host.remove();
             app.destroy();
         }
     });

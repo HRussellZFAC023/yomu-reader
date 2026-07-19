@@ -52,6 +52,26 @@ describe('YouTube live-chat frame collection (class Z)', () => {
         expect(effectiveSiteScanCollectionLimit(200, 'https://example.com/')).toBe(200);
     });
 
+    it('keeps continuation headroom behind the profile output cap', () => {
+        stubChatFrame('/live_chat');
+        const restore = mockVisibleRects();
+        try {
+            document.body.innerHTML = `<yt-live-chat-app><yt-live-chat-renderer><div id="items">${Array.from(
+                { length: 120 },
+                (_, index) => `<yt-live-chat-text-message-renderer><span id="message">日本語の配信コメント${index}</span></yt-live-chat-text-message-renderer>`,
+            ).join('')}</div></yt-live-chat-renderer></yt-live-chat-app>`;
+
+            const targets = collectScanTargets(200, 'https://www.youtube.com/live_chat?continuation=test', {
+                skipMirroredHosts: true,
+                mirroredHeadTargetCount: 200,
+            });
+
+            expect(targets).toHaveLength(80);
+        } finally {
+            restore();
+        }
+    });
+
     for (const pathname of ['/live_chat', '/live_chat_replay'] as const) {
         it(`collects chat message and author text inside the ${pathname} frame as non-destructive targets`, () => {
             stubChatFrame(pathname);

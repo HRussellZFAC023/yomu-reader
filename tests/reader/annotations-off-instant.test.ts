@@ -29,7 +29,7 @@ interface AppInternals {
     getSettingsDialog(): { } | undefined;
     settingsDialog?: { };
     scheduleAutoScan: (delay: number, options?: { force?: boolean }) => void;
-    pageScanner: { interruptVisiblePageScan?: () => void };
+    pageScanner: { cancelVisiblePageScan: () => void };
     autoScanTimer?: number;
     toast: (message: string) => void;
 }
@@ -108,8 +108,8 @@ describe('annotations-off via the settings dialog is instant (class G)', () => {
         app.ocr = { refreshForModeChange: vi.fn() } as AppInternals['ocr'];
         app.toast = vi.fn();
         app.scheduleAutoScan = vi.fn();
-        const interrupt = vi.fn();
-        app.pageScanner = { interruptVisiblePageScan: interrupt };
+        const cancel = vi.fn();
+        app.pageScanner = { cancelVisiblePageScan: cancel };
         app.autoScanTimer = window.setTimeout(() => undefined, 60_000);
         const dialog = app.getSettingsDialog() as unknown as DialogInternals;
 
@@ -118,7 +118,7 @@ describe('annotations-off via the settings dialog is instant (class G)', () => {
         // A previously armed auto-scan timer and any in-flight scan must be
         // dropped, or they would re-annotate right after the clear.
         expect(app.autoScanTimer).toBeUndefined();
-        expect(interrupt).toHaveBeenCalled();
+        expect(cancel).toHaveBeenCalled();
     });
 
     it('never treats a TRANSIENT probe swap as a pause transition (unsaved OFF + Anki test)', () => {

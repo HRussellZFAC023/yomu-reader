@@ -668,6 +668,21 @@ describe('reader helpers', () => {
         expect(html).not.toContain('data-reading="もと"');
     });
 
+    it('keeps JPDB conversion cardinality aligned with every requested paragraph', () => {
+        const paragraphs = ['日本語', 'フィード', '参加'];
+        const cards = jpdbVocabularyToCards([
+            [1, 1, 1, '日本語', 'にほんご', 100, ['n'], [['Japanese']], [['n']], ['known'], ['LHHH']],
+        ]);
+        const rawTokens: JPDBRawToken[][] = [[[0, 0, 3, [['日本語', 'にほんご']]]]];
+
+        const parsed = jpdbParseResultToTokens(paragraphs, rawTokens, cards);
+
+        expect(parsed).toHaveLength(paragraphs.length);
+        expect(parsed[0]).toHaveLength(1);
+        expect(parsed[1]).toEqual([]);
+        expect(parsed[2]).toEqual([]);
+    });
+
     it('resolves contextual JPDB reading overrides to an exact public card', async () => {
         const app = new ReaderApp();
         const contextualCard: JPDBCard = {

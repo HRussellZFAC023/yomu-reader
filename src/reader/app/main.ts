@@ -353,7 +353,7 @@ import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
 import { setShadowReaderCss } from '../dom/shadow-styles';
-import { forEachScannedShadowRoot, setShadowRootScanHook } from '../dom/shadow-scan-registry';
+import { forEachScannedShadowRoot, installOpenShadowRootDiscovery, setShadowRootScanHook } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -873,6 +873,7 @@ export class ReaderApp {
     // (5-10 childList mutations/sec) into a bounded scan cadence.
     private lastAutoScanStartedAt = 0;
     private autoScanObserver?: MutationObserver;
+    private disposeShadowRootDiscovery?: () => void;
     private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
         if (!this.canParseJapanese()) return;
@@ -1993,7 +1994,7 @@ export class ReaderApp {
             this.autoScanDeadline = 0;
             this.autoScanForced = false;
             this.autoScanDebounced = false;
-            this.pageScanner.interruptVisiblePageScan?.();
+            this.pageScanner.cancelVisiblePageScan();
             this.clearAllAnnotations();
         } else if (!this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
@@ -2135,6 +2136,8 @@ export class ReaderApp {
         window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
         window.clearTimeout(this.themeContrastRefreshTimer);
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+        this.disposeShadowRootDiscovery?.();
+        this.disposeShadowRootDiscovery = undefined;
         setShadowRootScanHook(null);
         this.autoScanObserver?.disconnect();
         this.clearMiningPauseReassert();
@@ -2199,6 +2202,8 @@ export class ReaderApp {
         const abortSignal = this.abortController.signal;
         addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
         this.autoScanObserver?.disconnect();
+        this.disposeShadowRootDiscovery?.();
+        this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
         this.autoScanObserver = new MutationObserver(mutations => {
             const canScanText = this.canParseJapanese();
             const scanMutations: MutationRecord[] = [];
@@ -2231,10 +2236,26 @@ export class ReaderApp {
         // New shadow roots discovered by the fragment walk join the same
         // observer; a Lit/web-component re-render then schedules a rescan
         // exactly like a light-DOM mutation would.
-        setShadowRootScanHook(root => {
-            if (!this.isDestroyed) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+        setShadowRootScanHook((root, cause) => {
+            if (this.isDestroyed) return;
+            this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+            // A content-world watcher can discover a page-realm root only
+            // after its component has already filled it. Observing now cannot
+            // replay those earlier child mutations, so queue one ordinary
+            // coalesced pass for that already-populated late root.
+            if (cause === 'attached' && root.childNodes.length) {
+                this.scheduleAutoScan(0, { force: true, debounce: true });
+            }
         });
         this.observeAutoScanMutations();
+        // Settings and dictionary setup is asynchronous. A defined component
+        // can attach and populate an open root after the early startup verdict
+        // but before this observer/hook exists, leaving no mutation to replay.
+        // Refresh only a negative verdict now that discovery is live; the
+        // normal initial-scan decision below then covers that pre-hook content.
+        if (!this.pageHasJapaneseText) {
+            this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+        }
         // capture: true — scroll does not bubble, so a bubble-phase window
         // listener only sees page scrolls. Bottom sheets and side panels
         // (m.youtube comment sheet) scroll their own containers; without the
@@ -3915,7 +3936,6 @@ export class ReaderApp {
         this.cancelMissingPointerTextCandidate(candidate);
         this.scheduleInactiveHoverClose();
         if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
-        this.pageScanner.interruptVisiblePageScan();
         this.rememberHoverPopoverPointer(event);
         this.schedulePointerTextLookup(candidate, event);
     }
@@ -3953,7 +3973,6 @@ export class ReaderApp {
         }
         if (!this.shouldLookupOnHover(event)) return;
         this.keepSubtitleMiningPauseForPendingHover(word);
-        this.pageScanner.interruptVisiblePageScan();
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
     }
@@ -4921,7 +4940,6 @@ export class ReaderApp {
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
-        if (trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
         if (!sentence) return;
         const done = log.time('lookupTextAtPointer', { length: sentence.length, offset: candidate.offset, trigger });
@@ -5252,7 +5270,6 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: RenderedWordLookupOptions = {}): Promise<void> {
-        if (options.trigger === 'hover') this.pageScanner.interruptVisiblePageScan();
         if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
@@ -8531,7 +8548,7 @@ export class ReaderApp {
     ): void {
         if (!lookupByWordKey.size) return;
         this.pauseAutoScanObserver(() => {
-            const targetRoots = uniqueParentNodes(roots);
+            const targetRoots = this.renderedAnnotationRoots(roots);
             if (!this.shouldRunAnkiBackgroundWork()) {
                 this.clearRenderedAnkiLookupStateForKeys(lookupByWordKey, targetRoots);
                 return;
@@ -8564,13 +8581,21 @@ export class ReaderApp {
 
     private clearRenderedAnkiWordStates(root: ParentNode = document): void {
         this.pauseAutoScanObserver(() => {
-            renderedWordsInRoot(root).forEach(word => clearRenderedWordAnkiState(word));
-            refreshReaderWordContrast(root);
+            this.renderedAnnotationRoots([root]).forEach(targetRoot => {
+                renderedWordsInRoot(targetRoot).forEach(word => clearRenderedWordAnkiState(word));
+                refreshReaderWordContrast(targetRoot);
+            });
         });
     }
 
     private prepareRenderedWordIndexForLookups(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
         const targetRoots = roots.length ? roots : [document];
+        // A document selector never crosses into shadow DOM. Always seed the
+        // index from explicitly expanded roots before applying the document
+        // fast-path heuristics, or a key already found in light DOM can mask
+        // the same card rendered inside a component.
+        targetRoots.filter(root => root instanceof ShadowRoot)
+            .forEach(root => this.registerRenderedWordsInRoot(root));
         const includesDocument = targetRoots.includes(document);
         if (this.shouldSkipRenderedWordIndexPreparation(lookupByWordKey, includesDocument)) return;
         targetRoots.forEach(root => this.registerRenderedWordsInRoot(root));
@@ -8639,6 +8664,14 @@ export class ReaderApp {
         this.renderedWordIndex.set(key, words);
     }
 
+    private renderedAnnotationRoots(roots: ParentNode[] = [document]): ParentNode[] {
+        const expanded = [...roots];
+        if (roots.includes(document)) {
+            forEachScannedShadowRoot(root => expanded.push(root));
+        }
+        return uniqueParentNodes(expanded);
+    }
+
     private clearRenderedWordIndex(): void {
         this.renderedWordIndex.clear();
         this.renderedWordIndexFullyScanned = false;
@@ -8650,39 +8683,24 @@ export class ReaderApp {
         roots: ParentNode[] = [document],
     ): void {
         if (!pitchClass) return;
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-        this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
-            roots.forEach(root => {
-                if (root instanceof HTMLElement && root.matches(selector)) {
-                    this.applyPitchClassToRenderedSurface(root, pitchClass);
-                    setRenderedWordPitchComponents(root, card);
-                    changedRoots.add(root);
-                }
-                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    this.applyPitchClassToRenderedSurface(word, pitchClass);
-                    setRenderedWordPitchComponents(word, card);
-                    changedRoots.add(word.parentElement ?? word);
-                });
-            });
-            changedRoots.forEach(root => refreshReaderWordContrast(root));
-        });
+        this.applyPitchComponentsToRenderedWords(card, roots, pitchClass);
     }
 
-    private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document]): void {
-        if (!hasResolvedPitchComponents(card)) return;
+    private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document], pitchClass = ''): void {
+        if (!pitchClass && !hasResolvedPitchComponents(card)) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            roots.forEach(root => {
-                if (root instanceof HTMLElement && root.matches(selector)) {
-                    setRenderedWordPitchComponents(root, card);
-                    changedRoots.add(root);
+            const apply = (word: HTMLElement): void => {
+                if (pitchClass) {
+                    this.applyPitchClassToRenderedSurface(word, pitchClass);
                 }
-                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    setRenderedWordPitchComponents(word, card);
-                    changedRoots.add(word.parentElement ?? word);
-                });
+                setRenderedWordPitchComponents(word, card);
+                changedRoots.add(word.parentElement ?? word);
+            };
+            this.renderedAnnotationRoots(roots).forEach(root => {
+                if (root instanceof HTMLElement && root.matches(selector)) apply(root);
+                root.querySelectorAll<HTMLElement>(selector).forEach(apply);
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
@@ -8692,9 +8710,11 @@ export class ReaderApp {
         const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            document.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
+            this.renderedAnnotationRoots().forEach(root => {
+                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
+                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                    changedRoots.add(word.parentElement ?? word);
+                });
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
@@ -8704,13 +8724,15 @@ export class ReaderApp {
         if (!this.resolvedFallbackVocabularyCache.size) return;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
-                const key = renderedFallbackVocabularyCacheKey(word);
-                const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
-                if (!card) return;
-                const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
+            this.renderedAnnotationRoots([root]).forEach(targetRoot => {
+                targetRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
+                    const key = renderedFallbackVocabularyCacheKey(word);
+                    const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
+                    if (!card) return;
+                    const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+                    changedRoots.add(word.parentElement ?? word);
+                });
             });
             changedRoots.forEach(r => refreshReaderWordContrast(r));
         });

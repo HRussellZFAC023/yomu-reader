@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.221
+// @version 1.6.222
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -10,11 +10,11 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.ac0e7d1be044.user.js#sha256=rA59G+BEokf756i4Ti4NfY0MUs1ga1RI9/3ys1/tTjQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.3e8b5bd61563.user.js#sha256=Potb1hVjybQZIgVl7JD34X4QK5X2FCSdhS1fPNaV98I=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a8fb41146c42.user.js#sha256=qPtBFGxCeLcC2QvNBBO3JtWTTSQWLZSIfdtUyouONGM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.38b2480ba66a.user.js#sha256=OLJIC6ZqtUhgw3suFbjz7hqraRM2e5rY4FuOMvNOxnc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.6ddef4d063d3.user.js#sha256=bd700GPT6n2/+sR6Wz5aVeGCpz1IoRi7MN6B899qKoE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.ee6d0755d40d.user.js#sha256=7m0HVdQNA15cXjWV3dhOJ+QhFbpJ111Jj2ze1ARodCU=
-// @require https://yomureader.com/greasyfork/yomu-video.f7eb4cdbfe62.user.js#sha256=9+tM2/5i0ntAFQU/yb31V9VsV9ChrhLfvKy2CtLnwFQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.31dfe7e5ff02.user.js#sha256=Md/n5f8CySUNDLLexWY7IY07FoFsZclbKFt/WmKRKxE=
+// @require https://yomureader.com/greasyfork/yomu-video.b64ea15cff66.user.js#sha256=tk6hXP9mqQZkzAIHL5+sVsaAzA/+48YmGq8Wu1GAjwA=
 // @resource yomuCss  https://yomureader.com/yomu.61f72cee06a9.css#sha256=Yfcs7gapn0H5xP6evy4xTKeYeT/Nly1Pqy2w7YCeuSQ=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -192,7 +192,7 @@ function addDeckSourceClasses(classes2, source, names) {
   classes2.add(`${source}-deck-${slug}`);
   });
 }
-const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
+const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff々〆\uff66-\uff9f]/;
 const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
 const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 const CORE_COLOR_TOKENS = {
@@ -617,7 +617,7 @@ function compactPassiveInteractionRubyElement(parent) {
 }
 function isCompactInteractiveChromeText(text2) {
   const length = compactLength(text2);
-  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
+  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text2);
 }
 function isCompactInteractiveChromeLink(link, parent, text2) {
   if (isLikelyProseLink(link, parent)) return false;
@@ -857,7 +857,7 @@ function isCompactMetadataElement(element2) {
   const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element2.getBoundingClientRect().height;
   return [
-  HAS_JAPANESE$1.test(text2),
+  HAS_JAPANESE.test(text2),
   compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
   height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
   ].every(Boolean);
@@ -1305,24 +1305,150 @@ function ensureReaderStylesInShadowRoot(root) {
   clonedShadowStyleNodes.add(new WeakRef(style));
 }
 const scannedShadowRootRefs = new Set();
-const scannedShadowRoots = new WeakSet();
+const scannedShadowRootState = new WeakMap();
 let shadowRootScanHook = null;
-function noteScannedShadowRoot(root) {
-  if (scannedShadowRoots.has(root)) return;
-  scannedShadowRoots.add(root);
-  scannedShadowRootRefs.add(new WeakRef(root));
-  shadowRootScanHook?.(root);
+const POTENTIAL_SHADOW_HOST_POLL_MS = 500;
+const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 6e4;
+const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = "yomu:open-shadow-root-attached";
+const PAGE_SHADOW_DISCOVERY_KEY = "__yomuOpenShadowRootDiscoveryV1";
+const potentialShadowHosts = new Set();
+let seenPotentialShadowHosts = new WeakSet();
+let potentialShadowHostTimer;
+let openShadowRootDiscoveryUsers = 0;
+function noteShadowRoot(root, cause) {
+  const active = scannedShadowRootState.get(root);
+  if (active) return;
+  scannedShadowRootState.set(root, true);
+  if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+  shadowRootScanHook?.(root, cause);
+}
+function watchPotentialOpenShadowRootHost(host, includeNativeHost = false) {
+  const root = host.shadowRoot;
+  if (root) {
+  noteShadowRoot(root, "scan");
+  return root;
+  }
+  if (!includeNativeHost && !host.localName.includes("-") || seenPotentialShadowHosts.has(host)) return null;
+  const now = Date.now();
+  seenPotentialShadowHosts.add(host);
+  potentialShadowHosts.add({
+  ref: new WeakRef(host),
+  expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS
+  });
+  schedulePotentialShadowHostPoll();
+  return null;
+}
+function installOpenShadowRootDiscovery() {
+  openShadowRootDiscoveryUsers += 1;
+  if (openShadowRootDiscoveryUsers === 1) {
+  installPageOpenShadowRootDiscoveryBridge();
+  document.addEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+  try {
+    document.querySelectorAll(":not(:defined)").forEach((host) => watchPotentialOpenShadowRootHost(host));
+  } catch {
+  }
+  schedulePotentialShadowHostPoll();
+  }
+  let disposed = false;
+  return () => {
+  if (disposed) return;
+  disposed = true;
+  openShadowRootDiscoveryUsers -= 1;
+  if (openShadowRootDiscoveryUsers > 0) return;
+  document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
+  window.clearTimeout(potentialShadowHostTimer);
+  potentialShadowHostTimer = void 0;
+  potentialShadowHosts.clear();
+  seenPotentialShadowHosts = new WeakSet();
+  };
+}
+function handleOpenShadowRootAttached(event) {
+  const host = event.composedPath()[0];
+  const root = host instanceof Element ? host.shadowRoot : null;
+  if (root) noteShadowRoot(root, "attached");
+}
+function schedulePotentialShadowHostPoll() {
+  if (!openShadowRootDiscoveryUsers || potentialShadowHostTimer !== void 0 || !potentialShadowHosts.size) return;
+  potentialShadowHostTimer = window.setTimeout(
+  pollPotentialShadowHosts,
+  POTENTIAL_SHADOW_HOST_POLL_MS
+  );
+}
+function pollPotentialShadowHosts() {
+  potentialShadowHostTimer = void 0;
+  const now = Date.now();
+  for (const pending of potentialShadowHosts) {
+  const host = pending.ref.deref();
+  if (!host || !host.isConnected || pending.expiresAt <= now) {
+    potentialShadowHosts.delete(pending);
+    if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
+    continue;
+  }
+  if (!host.shadowRoot) continue;
+  potentialShadowHosts.delete(pending);
+  seenPotentialShadowHosts.delete(host);
+  noteShadowRoot(host.shadowRoot, "attached");
+  }
+  schedulePotentialShadowHostPoll();
+}
+function installPageOpenShadowRootDiscoveryBridge() {
+  const pageWindow = globalThis.unsafeWindow;
+  if (pageWindow) {
+  try {
+    pageOpenShadowRootDiscoveryBootstrap(
+      pageWindow,
+      OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+      PAGE_SHADOW_DISCOVERY_KEY
+    );
+    return;
+  } catch {
+  }
+  }
+  const parent = document.head || document.documentElement;
+  if (!parent) return;
+  try {
+  const script = document.createElement("script");
+  const nonce = document.querySelector("script[nonce]")?.getAttribute("nonce");
+  if (nonce) script.setAttribute("nonce", nonce);
+  script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
+  parent.append(script);
+  script.remove();
+  } catch {
+  }
+}
+function pageOpenShadowRootDiscoveryBootstrap(pageWindow, eventName, stateKey) {
+  const state = pageWindow;
+  if (state[stateKey]) return;
+  const prototype = pageWindow.Element?.prototype;
+  const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, "attachShadow");
+  const original = descriptor?.value;
+  if (!prototype || !descriptor || typeof original !== "function") return;
+  Object.defineProperty(prototype, "attachShadow", {
+  ...descriptor,
+  value(init) {
+    const root = original.call(this, init);
+    if (root.mode === "open") {
+      this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+    }
+    return root;
+  }
+  });
+  state[stateKey] = true;
 }
 function setShadowRootScanHook(hook) {
   shadowRootScanHook = hook;
-  if (hook) forEachScannedShadowRoot(hook);
+  if (hook) forEachScannedShadowRoot((root) => hook(root, "replay"));
 }
-function forEachScannedShadowRoot(callback) {
+function forEachScannedShadowRoot(callback, includeDetached = false) {
   for (const ref of scannedShadowRootRefs) {
   const root = ref.deref();
-  if (!root || !root.host?.isConnected) {
+  if (!root) {
     scannedShadowRootRefs.delete(ref);
     continue;
+  }
+  if (!root.host?.isConnected) {
+    scannedShadowRootState.set(root, false);
+    if (!includeDetached) continue;
   }
   callback(root);
   }
@@ -1498,7 +1624,7 @@ function sentenceSearchIndex(text2, search) {
   return text2.indexOf(search);
 }
 function isJapaneseSentenceContext(text2) {
-  return Boolean(text2 && HAS_JAPANESE$1.test(text2));
+  return Boolean(text2 && HAS_JAPANESE.test(text2));
 }
 function sentenceSearchText(text2, surface, fallback) {
   const cleanSurface = cleanReadableSentence(surface);
@@ -1520,7 +1646,7 @@ function isUsefulContextSentence(sentence, fallback, surface) {
   return fallback ? isRicherThanFallback(sentence, fallback) : true;
 }
 function isJapaneseContextSentence(sentence) {
-  return Boolean(sentence && HAS_JAPANESE$1.test(sentence));
+  return Boolean(sentence && HAS_JAPANESE.test(sentence));
 }
 function containsSurfaceContext(sentence, surface) {
   return !surface || sentence.includes(surface);
@@ -1644,7 +1770,7 @@ function isStrongWhitespaceBoundary(text2, index) {
   if (!/\s/u.test(char)) return false;
   const before = text2.slice(Math.max(0, index - 24), index);
   const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
-  return HAS_JAPANESE$1.test(before) && HAS_JAPANESE$1.test(after);
+  return HAS_JAPANESE.test(before) && HAS_JAPANESE.test(after);
 }
 function clampLongSentence(sentence, surface) {
   if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
@@ -5177,7 +5303,7 @@ function punctuationSentenceBoundary(text2, index) {
 const KANJI_RE$3 = /[\u3400-\u9fff]/u;
 const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
 function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-  const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
+  const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
   assignSentenceInfo(paragraphs, tokens);
   return tokens;
 }
@@ -5463,7 +5589,22 @@ function collectVisibleTextTargets(limit = 40) {
 }
 function documentHasJapaneseText(limit = 2e5) {
   if (!document.body) return false;
-  return textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+  const hasLightDomJapanese = textWalkerHasJapanese(visibleTextWalker(document.body), limit);
+  if (hasLightDomJapanese) return true;
+  const roots = [document.body];
+  let inspected = 0;
+  while (roots.length && inspected < limit) {
+  const root = roots.shift();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
+    const element2 = node;
+    const shadowRoot = watchPotentialOpenShadowRootHost(element2);
+    if (!shadowRoot) continue;
+    roots.push(shadowRoot);
+    if (shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH)) return true;
+  }
+  }
+  return false;
 }
 function visibleTextWalker(root) {
   return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: visibleTextNodeFilter });
@@ -5485,7 +5626,7 @@ function isAnnotatableChipControl(blocked) {
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
   if (isComposerActionControl(control)) return false;
   const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
-  return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE$1.test(text2);
+  return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text2);
 }
 function isComposerActionControl(control) {
   return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
@@ -5495,7 +5636,7 @@ function textWalkerHasJapanese(walker, limit) {
   let node;
   while (node = walker.nextNode()) {
   const text2 = nodeTextContent(node);
-  if (HAS_JAPANESE$1.test(text2)) return true;
+  if (HAS_JAPANESE.test(text2)) return true;
   inspected = inspectedTextLength(inspected, text2);
   if (inspected >= limit) return false;
   }
@@ -5533,7 +5674,7 @@ function textTargetFilterResult(node, visibleOnly, options) {
 }
 function isCandidateScanText(text2) {
   if (text2.length < 2) return false;
-  return HAS_JAPANESE$1.test(text2);
+  return HAS_JAPANESE.test(text2);
 }
 function textTargetParentFilterResult(parent, text2, visibleOnly, options) {
   if (shouldRejectTextTargetParent(parent, text2, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
@@ -5680,7 +5821,7 @@ function formControlLookupText(control, options = {}) {
 function selectLookupText(select, mode) {
   const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
   if (mode === "selected") return selectedText.join(" / ");
-  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text2) => HAS_JAPANESE$1.test(text2));
+  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text2) => HAS_JAPANESE.test(text2));
   const compactOptionList = compactSelectOptionListText(optionTextList);
   return compactOptionList || selectedText.join(" / ");
 }
@@ -5694,7 +5835,7 @@ function optionText(option) {
 }
 function pushUniqueControlText(parts, text2) {
   const normalized = normalizedControlText(text2);
-  if (!normalized || !HAS_JAPANESE$1.test(normalized) || parts.includes(normalized)) return;
+  if (!normalized || !HAS_JAPANESE.test(normalized) || parts.includes(normalized)) return;
   parts.push(normalized);
 }
 function uniqueControlTexts(texts) {
@@ -5707,7 +5848,7 @@ function normalizedControlText(text2) {
 }
 function isCollectableControlText(text2) {
   const compact2 = compactLength(text2);
-  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE$1.test(text2);
+  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text2);
 }
 function fragmentText(items) {
   return items.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
@@ -5769,7 +5910,7 @@ function fragmentTargetDecoration(parent, fragments) {
   return parentDecoration;
 }
 function isCollectableFragmentText(text2, fragments, options) {
-  if (!HAS_JAPANESE$1.test(text2)) return false;
+  if (!HAS_JAPANESE.test(text2)) return false;
   if (compactFragmentTextLength(text2) >= (options.minLength ?? 2)) return true;
   return fragments.some((fragment) => fragment.hasNativeRuby);
 }
@@ -5816,7 +5957,7 @@ function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
 const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 function visitFragmentShadowRoot(element2, state) {
-  const shadowRoot = element2.shadowRoot;
+  const shadowRoot = watchPotentialOpenShadowRootHost(element2);
   if (!shadowRoot) return;
   if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
   deferDepthCappedShadowHost(element2);
@@ -5825,7 +5966,6 @@ function visitFragmentShadowRoot(element2, state) {
   if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
   flushFragmentTextTarget(state);
   if (fragmentCollectionComplete(state)) return;
-  noteScannedShadowRoot(shadowRoot);
   state.shadowDepth += 1;
   for (const child of Array.from(shadowRoot.childNodes)) {
   visitFragmentNode(child, state, false);
@@ -5835,7 +5975,7 @@ function visitFragmentShadowRoot(element2, state) {
   state.shadowDepth -= 1;
 }
 function shadowBranchHasJapanese(root, remainingDepth) {
-  if (HAS_JAPANESE$1.test(root.textContent ?? "")) return true;
+  if (HAS_JAPANESE.test(root.textContent ?? "")) return true;
   if (remainingDepth <= 1) {
   return shadowRootHasNestedShadowRoot(root);
   }
@@ -5916,11 +6056,11 @@ function isBoxlessFragmentWrapper(rect) {
   return rect.width <= 0 || rect.height <= 0;
 }
 function hasVisibleJapaneseFragmentDescendant(element2) {
-  if (!HAS_JAPANESE$1.test(element2.textContent ?? "")) return false;
+  if (!HAS_JAPANESE.test(element2.textContent ?? "")) return false;
   const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
   const descendant = node;
-  if (HAS_JAPANESE$1.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+  if (HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
   }
   return false;
 }
@@ -6008,7 +6148,7 @@ function isVisibleAriaHiddenVisualLabel(parent, blocked) {
   return Boolean(label && blocked.contains(label) && visibleVisualLabel(label));
 }
 function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
-  if (!HAS_JAPANESE$1.test(root.textContent ?? "")) return false;
+  if (!HAS_JAPANESE.test(root.textContent ?? "")) return false;
   const candidates = [];
   if (safeElementMatches$1(root, ARIA_HIDDEN_VISUAL_LABEL_SELECTOR)) candidates.push(root);
   for (const candidate of Array.from(root.querySelectorAll(ARIA_HIDDEN_VISUAL_LABEL_SELECTOR))) {
@@ -6019,7 +6159,7 @@ function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
 }
 function visibleVisualLabel(element2) {
   const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE$1.test(text2)) return false;
+  if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text2)) return false;
   const rect = element2.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element2));
 }
@@ -6027,7 +6167,7 @@ function isFragmentParagraphBoundary(element2, options) {
   return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isCustomElementTextBoundary(element2) || isParagraphBoundary(element2);
 }
 function isCustomElementTextBoundary(element2) {
-  if (!element2.localName.includes("-") || !HAS_JAPANESE$1.test(element2.textContent ?? "")) return false;
+  if (!element2.localName.includes("-") || !HAS_JAPANESE.test(element2.textContent ?? "")) return false;
   const parent = element2.parentElement;
   return !parent || !isLikelyProseElement(parent);
 }
@@ -6063,7 +6203,7 @@ function hasRawJapaneseOutsideReaderWords(element2) {
     if (!parent || parent.closest(".jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp")) {
       return NodeFilter.FILTER_REJECT;
     }
-    return HAS_JAPANESE$1.test(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    return HAS_JAPANESE.test(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
   }
   });
   return Boolean(walker.nextNode());
@@ -6149,7 +6289,7 @@ function scanTargetDecorationIsStale(target) {
 function isCurrentFragmentScanTarget(target) {
   if (!target.parent.isConnected) return false;
   if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
-  if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE$1.test(target.text));
+  if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
   const text2 = target.fragments.map((fragment) => {
   if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
   return fragment.node.data.slice(fragment.start, fragment.end);
@@ -6170,6 +6310,12 @@ function scanHostIsRepaintLooping(host, text2) {
   if (times.length < REPAINT_LOOP_THRESHOLD) return false;
   loopingScanHosts.add(host);
   return true;
+}
+function scanTargetRequiresWholeSourceMirror(target) {
+  if (target.nonDestructive || target.insideShadowDOM) return true;
+  const host = nonDestructiveScanHost(target);
+  if (scanHostRequiresSourcePreservingMirror(host)) return true;
+  return !target.suppressRepaintLoopMirror && scanHostIsRepaintLooping(host, target.text);
 }
 const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
 const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
@@ -6225,10 +6371,9 @@ function applyTokensToScanTarget(target, tokens, settings) {
   const nonDestructiveHost = nonDestructiveScanHost(target);
   stampTargetDecoration(target, nonDestructiveHost);
   const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-  const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
-  const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
+  const repaintLooping = !target.nonDestructive && !target.suppressRepaintLoopMirror && !sourcePreservingFrameworkHost ? scanHostIsRepaintLooping(nonDestructiveHost, target.text) : false;
   const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-  if ((!target.forceInlineRender || repaintLooping && canUseRepaintLoopMirror) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
+  if ((!target.forceInlineRender || repaintLooping) && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
   applyTokensToNonDestructiveScanTarget(target, tokens, settings);
   return;
   }
@@ -6253,7 +6398,7 @@ function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
   for (const run of reactiveLeafRuns(indexed)) {
   const text2 = target.text.slice(run.globalStart, run.globalEnd);
   const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
-  if (!runTokens.length || !HAS_JAPANESE$1.test(text2)) continue;
+  if (!runTokens.length || !HAS_JAPANESE.test(text2)) continue;
   const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
   const leafTarget = {
     ...target,
@@ -6970,11 +7115,11 @@ function detachedReadingRestHidden(reading) {
 function reconcilePendingDetachedReadingLanes() {
   const surfaces = [...pendingDetachedReadingSurfaces];
   pendingDetachedReadingSurfaces.clear();
-  const readings = uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-furi")));
+  const readings = uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-furi")));
   if (!readings.length) return;
   settleDetachedReadingLanes(
   readings,
-  uniqueElements(surfaces.flatMap((surface) => queryAllPiercingShadow(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
+  uniqueElements(surfaces.flatMap((surface) => queryAllInAnnotationRoots(surface, ".jpdb-reader-detached-ruby .jpdb-reader-ruby-base")))
   );
 }
 function uniqueElements(elements) {
@@ -6999,7 +7144,7 @@ function openSafeDetachedReadingClips(element2) {
   restoreOwnedDetachedReadingClips(element2);
   let current = element2;
   for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
-  if (!queryAllPiercingShadow(current, ".jpdb-reader-detached-furi").length) continue;
+  if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
   if (ownsExpandableContentClip(current)) {
     restoreDetachedReadingClip(current);
     continue;
@@ -7578,7 +7723,7 @@ function observeTextMirrorHost(host) {
   if (mutations.every(mutationInsideTextMirror)) return;
   if (!currentTextMirror(liveHost)) {
     const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-    if (liveHost.isConnected && HAS_JAPANESE$1.test(wipedHostText)) {
+    if (liveHost.isConnected && HAS_JAPANESE.test(wipedHostText)) {
       if (wipedHostText === liveState.sourceText && mutationsRewroteHostContent(mutations) && replayNonDestructiveRenderFromCache(liveHost)) return;
       dispatchTextMirrorStale(liveHost);
     }
@@ -7590,7 +7735,7 @@ function observeTextMirrorHost(host) {
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-  if (!liveHost.isConnected || !HAS_JAPANESE$1.test(currentText)) {
+  if (!liveHost.isConnected || !HAS_JAPANESE.test(currentText)) {
     removeTextMirror(liveHost);
     return;
   }
@@ -7766,9 +7911,9 @@ function nativeTextMirrorHostText(host) {
   }
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
-  if (HAS_JAPANESE$1.test(text2)) return text2;
+  if (HAS_JAPANESE.test(text2)) return text2;
   const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element2) => !element2.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element2) => element2.getAttribute("aria-label") ?? "").join(" • ");
-  return HAS_JAPANESE$1.test(labelledText) ? labelledText : text2;
+  return HAS_JAPANESE.test(labelledText) ? labelledText : text2;
 }
 function normalizedMirrorHostText(text2) {
   return text2.replace(/\s+/g, " ").trim();
@@ -7843,23 +7988,22 @@ function registeredTextMirrorHostFor(mirror) {
 function removeNonDestructiveScanMirrors(root = document) {
   nonDestructiveRenderCacheEpoch += 1;
   const hosts = new Set();
-  queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-  const host = registeredTextMirrorHostFor(mirror);
-  if (host) hosts.add(host);
-  else if (mirror.parentElement) hosts.add(mirror.parentElement);
-  else mirror.remove();
-  });
   const controlHosts = new Set();
-  root.querySelectorAll(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach((mirror) => {
-  const host = mirror.previousElementSibling;
-  if (host instanceof HTMLElement) controlHosts.add(host);
-  else mirror.remove();
-  });
   const canvasHosts = new Set();
-  root.querySelectorAll(READER_CANVAS_TEXT_LAYER_SELECTOR).forEach((layer) => {
-  const canvas = canvasForFallbackTextLayer(layer);
-  if (canvas) canvasHosts.add(canvas);
-  else layer.remove();
+  queryAllInAnnotationRoots(root, `${READER_TEXT_MIRROR_SELECTOR},${READER_CONTROL_TEXT_MIRROR_SELECTOR},${READER_CANVAS_TEXT_LAYER_SELECTOR}`).forEach((surface) => {
+  if (surface.matches(READER_TEXT_MIRROR_SELECTOR)) {
+    const host = registeredTextMirrorHostFor(surface) ?? surface.parentElement;
+    if (host) hosts.add(host);
+    else surface.remove();
+  } else if (surface.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR)) {
+    const host = surface.previousElementSibling;
+    if (host instanceof HTMLElement) controlHosts.add(host);
+    else surface.remove();
+  } else {
+    const canvas = canvasForFallbackTextLayer(surface);
+    if (canvas) canvasHosts.add(canvas);
+    else surface.remove();
+  }
   });
   hosts.forEach(removeTextMirror);
   controlHosts.forEach(removeControlTextMirror);
@@ -7867,14 +8011,27 @@ function removeNonDestructiveScanMirrors(root = document) {
   releaseRubyRoomGrowth(root);
   return hosts.size + controlHosts.size + canvasHosts.size;
 }
-function queryAllPiercingShadow(root, selector, depth = 0) {
-  const matches = Array.from(root.querySelectorAll(selector));
-  if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
-  for (const host of root.querySelectorAll("*")) {
-  const shadowRoot = host.shadowRoot;
-  if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+function queryAllInAnnotationRoots(root, selector) {
+  const matches = new Set();
+  const collect = (annotationRoot) => {
+  if (annotationRoot instanceof HTMLElement && annotationRoot.matches(selector)) matches.add(annotationRoot);
+  annotationRoot.querySelectorAll(selector).forEach((match) => matches.add(match));
+  };
+  collect(root);
+  forEachScannedShadowRoot((shadowRoot) => {
+  if (root === document || composedTreeContains(root, shadowRoot.host)) collect(shadowRoot);
+  }, true);
+  return [...matches];
+}
+function composedTreeContains(root, node) {
+  const rootNode = root;
+  let current = node;
+  while (current) {
+  if (current === rootNode || rootNode.contains(current)) return true;
+  const tree = current.getRootNode();
+  current = tree instanceof ShadowRoot ? tree.host : null;
   }
-  return matches;
+  return false;
 }
 function removeStaleControlTextMirrors(root = document) {
   let removed = 0;
@@ -7913,7 +8070,7 @@ function appendPlainTextBeforeToken(fragment, text2, start, end, followedByToken
 }
 function markRenderedScanTarget(target) {
   const text2 = normalizedRenderedHostText(target.text);
-  if (!text2 || !HAS_JAPANESE$1.test(text2) || !target.parent.isConnected) return;
+  if (!text2 || !HAS_JAPANESE.test(text2) || !target.parent.isConnected) return;
   const previous = renderedScanHosts.get(target.parent);
   const now = Date.now();
   const keepBackoff = previous && previous.text === text2 && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
@@ -8535,7 +8692,7 @@ function nonOverlappingTokens(tokens, text2) {
   return safe;
 }
 function isSafeTokenSpan(token, offset, text2) {
-  if (token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
   return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
 }
 function miningInsightTokenKeys(tokens) {
@@ -9308,9 +9465,7 @@ function recordRubyRoomGrowthWrite(box) {
   if (record) record.written = rubyRoomStyleSnapshot(box);
 }
 function releaseRubyRoomGrowth(root = document) {
-  const boxes = [];
-  if (root instanceof HTMLElement && root.matches("[data-yomu-ruby-room]")) boxes.push(root);
-  boxes.push(...Array.from(root.querySelectorAll("[data-yomu-ruby-room]")));
+  const boxes = queryAllInAnnotationRoots(root, "[data-yomu-ruby-room]");
   for (const box of boxes) {
   const record = rubyRoomGrowthRecords.get(box);
   restoreRubyRoomProperty(box, "min-height", record, (r) => [r.minHeight, r.minHeightPriority]);
@@ -9322,10 +9477,7 @@ function releaseRubyRoomGrowth(root = document) {
   delete box.dataset.yomuRubyRoomPadTop;
   rubyRoomGrowthRecords.delete(box);
   }
-  if (root instanceof HTMLElement && root.dataset.yomuDetachedReadingOverflow === "true") {
-  restoreDetachedReadingClip(root);
-  }
-  root.querySelectorAll('[data-yomu-detached-reading-overflow="true"]').forEach(restoreDetachedReadingClip);
+  queryAllInAnnotationRoots(root, '[data-yomu-detached-reading-overflow="true"]').forEach(restoreDetachedReadingClip);
   return boxes.length;
 }
 function restoreRubyRoomProperty(box, property, record, pick) {
@@ -15461,11 +15613,11 @@ function summarizeLearnerGlossaryTexts(texts, limit = 3) {
 function cleanLearnerGlossaryText(text2) {
   let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
   clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
-  if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag(clean)) return "";
+  if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return "";
   return clean;
 }
 function cutBeforeExampleText(text2) {
-  const japaneseIndex = text2.search(HAS_JAPANESE$1);
+  const japaneseIndex = text2.search(HAS_JAPANESE);
   const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
   const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
   const cutoff = indexes.length ? Math.min(...indexes) : -1;
@@ -16713,7 +16865,7 @@ function renderLocalGlossaryEntries(dictionary, entries2, options = {}) {
 function localGlossaryItemsForRender(glossary) {
   const items = new Set();
   glossary.slice(0, 4).forEach((item) => items.add(item));
-  glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE$1.test(glossaryToText(item))).forEach((item) => items.add(item));
+  glossary.filter((item) => hasRichStructuredGlossary(item) || HAS_JAPANESE.test(glossaryToText(item))).forEach((item) => items.add(item));
   return Array.from(items);
 }
 function hasAdditionalLocalDictionaryText(entry) {
@@ -16722,7 +16874,7 @@ function hasAdditionalLocalDictionaryText(entry) {
   if (hasRichStructuredGlossary(item)) return true;
   const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
   if (!text2 || text2 === summary) return false;
-  return HAS_JAPANESE$1.test(text2);
+  return HAS_JAPANESE.test(text2);
   });
 }
 function renderFrequencyPill(entry, dictionaryLabel) {
@@ -18611,9 +18763,9 @@ function errorStatus(error) {
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
-const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
+const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
+const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
@@ -18638,7 +18790,7 @@ const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
+const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
 function normalizeFallbackTerm(text2) {
   return text2.replace(/\s+/g, " ").trim().slice(0, 80);
 }
@@ -19092,7 +19244,7 @@ const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
 function japaneseBatchCharCount(paragraphs) {
   return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
@@ -19439,10 +19591,15 @@ ${spelling}`);
   });
   }
   withSegmentedFallbackGaps(paragraphs, parsed, options) {
-  if (options.allowSegmentedFallback !== true) return parsed;
-  return parsed.map((tokens, index) => this.fillSegmentedFallbackGaps(paragraphs[index] ?? "", tokens));
+  const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
+  if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
+  return paragraphs.map((text2, index) => {
+    const tokens = parsed[index] ?? [];
+    return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
+  });
   }
   fillSegmentedFallbackGaps(text2, tokens) {
+  tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text2);
   const fallbackTokens = this.parseSegmentedText(text2);
   const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
   const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
@@ -19811,18 +19968,13 @@ function fallbackRepairTokens(text2, fallbackTokens, tokens) {
   return [...repaired].sort(compareTokensByOffset);
 }
 function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-  if (!isCompleteFallbackRepairCandidate(fallback)) return null;
   if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
   const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
   if (!overlapping.length) return null;
   const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
   const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
   if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-  return fallbackTokensCoveringRange(fallbackTokens, start, end);
-}
-function isCompleteFallbackRepairCandidate(fallback) {
-  const surface = fallback.card.spelling;
-  return Boolean(fallback.card.fallbackLookupTerms?.length) || /^[\u3040-\u309fー]{3,}$/u.test(surface) || /[\u3400-\u9fff々〆ヵヶ]/u.test(surface) && surface.length >= 2;
+  return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
 }
 function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
   for (let index = start; index < end; index += 1) {
@@ -19831,15 +19983,11 @@ function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
   }
   return false;
 }
-function fallbackTokensCoveringRange(fallbackTokens, start, end) {
+function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
   const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
   if (!group.length) return null;
   group.sort(compareTokensByOffset);
-  if (group[0]?.start !== start || group[group.length - 1]?.end !== end) return null;
-  for (let index = 1; index < group.length; index += 1) {
-  if (group[index - 1]?.end !== group[index]?.start) return null;
-  }
-  return group;
+  return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
 }
 function compareTokensByOffset(a, b) {
   return a.start - b.start || b.length - a.length;
@@ -21398,7 +21546,7 @@ function renderJitenDefinitionHeadword(card, info) {
 function jitenDefinitionHeadwordReference(card, info) {
   const rawText = (info?.mainReading?.text || card.spelling || card.reading).trim();
   const text2 = cleanJitenAnnotatedText$1(rawText);
-  if (!text2 || !hasJapaneseText$1(text2)) return null;
+  if (!text2 || !hasJapaneseText(text2)) return null;
   return {
   text: text2,
   reading: jitenAnnotatedKana$1(rawText) || card.reading || text2,
@@ -21580,7 +21728,7 @@ function jitenDefinitionTextReferences(card, info) {
   info.alternativeReadings.forEach((reading) => add(jitenVocabularyReadingReference(reading, info.wordId, card.reading)));
   [...info.composedOf, ...info.usedIn].forEach((word) => add(jitenWordSummaryTextReference(word)));
   }
-  return Array.from(references.values()).filter((reference) => hasJapaneseText$1(reference.text)).sort((left, right) => right.text.length - left.text.length);
+  return Array.from(references.values()).filter((reference) => hasJapaneseText(reference.text)).sort((left, right) => right.text.length - left.text.length);
 }
 function jitenCardTextReference(card) {
   const text2 = card.spelling.trim();
@@ -21692,7 +21840,7 @@ function renderPassiveJitenReference(reference, options = {}) {
   }
   });
 }
-function hasJapaneseText$1(value) {
+function hasJapaneseText(value) {
   return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
 }
 function definitionSourceStateKey(sourceId) {
@@ -22580,7 +22728,7 @@ function isSameImmersionQuery(query, exactQuery) {
   return queryKey(query) === queryKey(exactQuery);
 }
 function isUsefulStandaloneQuery(query) {
-  if (!query || !HAS_JAPANESE$1.test(query)) return false;
+  if (!query || !HAS_JAPANESE.test(query)) return false;
   if (COMMON_PARTICLES.has(queryKey(query))) return false;
   return queryLength(query) >= 2;
 }
@@ -28748,7 +28896,7 @@ function normalizedLookupText$1(text2) {
   return text2.replace(/\s+/g, " ").trim();
 }
 function isLookupableJapaneseText(text2) {
-  return Boolean(text2 && HAS_JAPANESE$1.test(text2));
+  return Boolean(text2 && HAS_JAPANESE.test(text2));
 }
 function lookupCandidateSentence(text2, start = 0, end = text2.length) {
   const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText$1(text2);
@@ -30648,10 +30796,11 @@ function drainCollectionSteps(steps) {
 }
 function createSiteScanContext(profiles, limit, options = {}) {
   return {
-  effectiveLimit: effectiveScanTargetLimit(profiles, limit),
+  effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipTargetCount ?? 0),
   targets: [],
   seen: new Set(),
   skipMirroredHosts: Boolean(options.skipMirroredHosts),
+  mirroredHeadTargetCount: Math.max(0, options.mirroredHeadTargetCount ?? 0),
   rootQueryCache: new Map()
   };
 }
@@ -30672,7 +30821,7 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
   if (!siteScanHasRoom(context)) break;
   if (context.targets.some((target) => target.parent === root)) continue;
   const text2 = syntheticYouTubeElementText(root);
-  if (!text2 || !hasJapaneseText(text2)) continue;
+  if (!text2 || !HAS_JAPANESE.test(text2)) continue;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
     text: text2,
     parent: root,
@@ -30690,17 +30839,17 @@ function syntheticYouTubeElementText(root) {
   root.textContent
   ]) {
   const normalized = text2?.replace(/\s+/g, " ").trim();
-  if (normalized && hasJapaneseText(normalized)) return normalized;
+  if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
   }
   return "";
 }
 function syntheticYouTubeWatchInfoText(root) {
   const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element2) => normalizedAttributeText(element2, "aria-label")).filter((text22) => Boolean(text22));
   const text2 = parts.join(" • ");
-  if (hasJapaneseText(text2)) return text2;
+  if (HAS_JAPANESE.test(text2)) return text2;
   for (const attribute of ["aria-label", "title"]) {
   const fallback = normalizedAttributeText(root, attribute);
-  if (fallback && hasJapaneseText(fallback)) return fallback;
+  if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
   }
   return "";
 }
@@ -30709,7 +30858,7 @@ function normalizedAttributeText(element2, attribute) {
 }
 function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
   if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-  const collected = collectFragmentTextTargetsIn(root, mirrorSkipAwareCandidateLimit(context), profile.visibleOnly ?? true, excludeSelector, {
+  const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context) + (context.skipMirroredHosts ? context.mirroredHeadTargetCount + 24 : 0), profile.visibleOnly ?? true, excludeSelector, {
   allowUiText: true,
   minLength: profile.minLength,
   includeUiChrome: true,
@@ -30729,7 +30878,7 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
 }
 function collectCanvasFallbackTextTarget(profile, canvas, context) {
   const text2 = canvasFallbackText(canvas);
-  if (!text2 || !hasJapaneseText(text2)) return false;
+  if (!text2 || !HAS_JAPANESE.test(text2)) return false;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
   text: text2,
   parent: canvas,
@@ -30863,11 +31012,6 @@ function plainScanTarget(target) {
 function siteScanRemaining(context) {
   return context.effectiveLimit - context.targets.length;
 }
-function mirrorSkipAwareCandidateLimit(context) {
-  const remaining = siteScanRemaining(context);
-  if (!context.skipMirroredHosts) return remaining;
-  return remaining * 2 + 24;
-}
 function siteScanHasRoom(context) {
   return siteScanRemaining(context) > 0;
 }
@@ -30880,9 +31024,17 @@ function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
 }
 const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
 function* scanTargetCollectionSteps(limit, href, options) {
+  const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
+  const collectionLimit = limit + skipTargetCount;
   const matchingProfiles = getMatchingSiteParsers(href);
-  const targets = yield* scanTargetPhaseSteps(limit, href, options);
-  return yield* withDeferredShadowScanTargets(targets, effectiveScanTargetLimit(matchingProfiles, limit), matchingProfiles);
+  const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
+  const withDeferred = yield* withDeferredShadowScanTargets(
+  targets,
+  effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
+  matchingProfiles
+  );
+  const eligible = options.skipTarget ? withDeferred.filter((target) => !options.skipTarget(target)) : withDeferred;
+  return eligible.slice(0, limit);
 }
 function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
   let targets = baseTargets;
@@ -30914,7 +31066,7 @@ function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
 }
 function* scanTargetPhaseSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
-  const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
+  const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipTargetCount ?? 0) : limit;
   const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
   const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);
   const baseTargets = siteTargets ?? [];
@@ -30932,7 +31084,7 @@ function* scanTargetPhaseSteps(limit, href, options) {
   return residualTargets.length ? [...baseTargets, ...markTargetsPassive(residualTargets, { nonDestructive: matchingProfiles.some((profile) => profile.nonDestructive) })] : baseTargets;
   }
   yield;
-  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
+  const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles, options);
   if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
   const profileTargets = [...baseTargets, ...profileUiChromeTargets];
   if (matchingProfiles.some((profile) => profile.suppressResidualVisibleScan)) return profileTargets;
@@ -30950,17 +31102,20 @@ function* scanTargetPhaseSteps(limit, href, options) {
   const uiChromeReserve = genericUiChromeTargetLimit(genericPhaseRemaining);
   const genericTargets = collectGenericProseTargets(
   genericPhaseRemaining - uiChromeReserve,
-  [...baseTargets, ...profileUiChromeTargets]
+  [...baseTargets, ...profileUiChromeTargets],
+  options
   );
   yield;
   const uiChromeTargets = collectSafeUiChromeTargets(
   genericPhaseRemaining - genericTargets.length,
-  [...baseTargets, ...profileUiChromeTargets, ...genericTargets]
+  [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
+  options
   );
   yield;
   const supplementalGenericTargets = collectGenericProseTargets(
   genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
-  [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets]
+  [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
+  options
   );
   const collectedTargets = [
   ...baseTargets,
@@ -31018,7 +31173,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   seen: seenTextNodes(existingTargets),
   limit
   };
-  const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+  const candidateLimit = Number.isFinite(limit) ? Math.max(limit, existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0) + limit + 24) : limit;
   const nonDestructiveProfile = profiles.some((profile) => profile.nonDestructive);
   const collected = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
   allowUiText: true,
@@ -31040,10 +31195,6 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   if (genericProseCollectionFull(collection)) break;
   }
   return collection.targets;
-}
-function residualVisibleJapaneseCandidateLimit(limit, existingTargetCount) {
-  if (!Number.isFinite(limit)) return limit;
-  return Math.max(limit, existingTargetCount + limit + 24);
 }
 function residualVisibleJapaneseExcludeSelector(profiles) {
   const entries2 = [COMMON_EXCLUDE, "ruby"];
@@ -31072,8 +31223,11 @@ function hasGenericPageTextFallback(profiles) {
 function hasWholePageFallback(profiles) {
   return profiles.some((profile) => profile.fallbackToWholePage);
 }
-function effectiveScanTargetLimit(profiles, requestedLimit) {
-  const profileLimit = profiles.reduce((limit, profile) => Math.min(limit, profile.scanLimit ?? limit), requestedLimit);
+function effectiveScanTargetLimit(profiles, requestedLimit, profileLimitOffset = 0) {
+  const profileLimit = profiles.reduce(
+  (limit, profile) => Math.min(limit, profile.scanLimit === void 0 ? limit : profile.scanLimit + profileLimitOffset),
+  requestedLimit
+  );
   return Math.max(1, profileLimit);
 }
 function collectWholePageScanTargets(limit) {
@@ -31088,14 +31242,23 @@ function collectWholePageScanTargets(limit) {
   })).slice(0, limit);
   return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
 }
-function collectGenericProseTargets(limit, existingTargets = []) {
+function collectGenericProseTargets(limit, existingTargets = [], options = {}) {
   const roots = genericProseRoots();
-  const collection = { targets: [], seen: seenTextNodes(existingTargets), limit };
+  const collection = createGenericProseCollection(limit, existingTargets, options);
   for (const root of roots) {
-  collectGenericProseTargetsFromRoot(root, collection);
+  collectFragmentTargetsFromRoot(root, collection, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
   if (genericProseCollectionFull(collection)) break;
   }
   return collection.targets;
+}
+function createGenericProseCollection(limit, existingTargets, options) {
+  return {
+  targets: [],
+  seen: seenTextNodes(existingTargets),
+  limit,
+  skipMirroredHosts: options.skipMirroredHosts,
+  candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0)
+  };
 }
 function seenTextNodes(targets) {
   return new Set(targets.flatMap((target) => {
@@ -31103,30 +31266,22 @@ function seenTextNodes(targets) {
   return [target.node];
   }));
 }
-function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true, profiles = []) {
+function collectProfileSafeUiChromeTargets(limit, existingTargets = [], enabled = true, profiles = [], options = {}) {
   if (!enabled || limit <= 0) return [];
-  const collection = {
-  targets: [],
-  seen: seenTextNodes(existingTargets),
-  limit
-  };
+  const collection = createGenericProseCollection(limit, existingTargets, options);
   const extraExclude = profiles.map((p) => p.exclude).filter(Boolean).join(",");
   const parserId = profiles.length === 1 ? profiles[0].id : "safe-ui-chrome-parser";
   const nonDestructive = profiles.some((profile) => profile.nonDestructive);
-  collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
-  collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+  collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, "ui", extraExclude, parserId, nonDestructive);
+  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form", "", parserId, nonDestructive);
   collectSafeFormControlTextTargets(collection, extraExclude);
   return collection.targets;
 }
-function collectSafeUiChromeTargets(limit, existingTargets = []) {
+function collectSafeUiChromeTargets(limit, existingTargets = [], options = {}) {
   if (limit <= 0) return [];
-  const collection = {
-  targets: [],
-  seen: seenTextNodes(existingTargets),
-  limit
-  };
-  collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
-  collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+  const collection = createGenericProseCollection(limit, existingTargets, options);
+  collectSafeChromeRootTargets(safeUiChromeRoots(), collection, "ui");
+  collectSafeChromeRootTargets(safeFormChromeRoots(), collection, "form");
   collectSafeFormControlTextTargets(collection);
   return collection.targets;
 }
@@ -31139,9 +31294,28 @@ function collectSafeFormControlTextTargets(collection, extraExclude = "") {
   if (genericProseCollectionFull(collection)) break;
   }
 }
-function collectSafeUiChromeRootTargets(roots, collection, extraExclude = "", parserId = "safe-ui-chrome-parser", nonDestructive = false) {
+function collectSafeChromeRootTargets(roots, collection, kind, extraExclude = "", parserId = "safe-ui-chrome-parser", nonDestructive = false) {
   for (const root of roots) {
-  collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId, nonDestructive);
+  if (kind === "ui") {
+    const baseExclude = safeUiChromeExcludeForRoot(root);
+    collectFragmentTargetsFromRoot(root, collection, extraExclude ? `${baseExclude},${extraExclude}` : baseExclude, {
+      allowUiText: true,
+      includeUiChrome: true,
+      includeTabChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      allowShortCenteredHeadings: true,
+      minLength: 1
+    }, parserId, nonDestructive);
+  } else {
+    collectFragmentTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, {
+      allowUiText: true,
+      includeFormChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1
+    }, parserId, nonDestructive);
+  }
   if (genericProseCollectionFull(collection)) break;
   }
 }
@@ -31153,61 +31327,28 @@ function profileSafeUiChromeRoots(extraExclude = "") {
   if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
   return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
 }
-function collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude = "", parserId = "safe-ui-chrome-parser", nonDestructive = false) {
-  const baseExclude = safeUiChromeExcludeForRoot(root);
-  const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-  collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, nonDestructive, {
-  allowUiText: true,
-  includeUiChrome: true,
-  includeTabChrome: true,
-  includePassiveInteractions: true,
-  heading: true,
-  allowShortCenteredHeadings: true,
-  minLength: 1
-  });
-}
 function safeUiChromeExcludeForRoot(root) {
   return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]') ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE : SAFE_UI_CHROME_EXCLUDE;
-}
-function collectSafeFormChromeRootTargets(roots, collection, parserId = "safe-ui-chrome-parser", nonDestructive = false) {
-  for (const root of roots) {
-  collectSafeFormChromeTargetsFromRoot(root, collection, parserId, nonDestructive);
-  if (genericProseCollectionFull(collection)) break;
-  }
 }
 function safeFormChromeRoots() {
   return uniqueVisibleRoots(queryWithinAnnotationScope(SAFE_FORM_CHROME_ROOTS).filter((root) => isUsefulSafeFormChromeRoot(root)));
 }
-function collectSafeFormChromeTargetsFromRoot(root, collection, parserId = "safe-ui-chrome-parser", nonDestructive = false) {
-  collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, nonDestructive, {
-  allowUiText: true,
-  includeFormChrome: true,
-  includePassiveInteractions: true,
-  heading: true,
-  minLength: 1
-  });
-}
-function collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, nonDestructive, options) {
-  const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
+function collectFragmentTargetsFromRoot(root, collection, exclude, options, passiveParserId, nonDestructive = false) {
+  const remaining = genericProseRemaining(collection);
+  const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts ? remaining + (collection.candidateHeadroom ?? 0) + 24 : remaining, true, exclude, options);
   for (const target of collected) {
-  appendGenericProseTarget(collection.targets, collection.seen, {
+  if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
     ...target,
-    parserId,
+    parserId: passiveParserId,
     passiveInteraction: true,
     nonDestructive: nonDestructive || void 0
-  });
+  } : target);
   if (genericProseCollectionFull(collection)) break;
   }
 }
 function genericProseRoots() {
   return queryWithinAnnotationScope(GENERIC_PROSE_ROOTS).filter((root) => isUsefulGenericProseRoot(root));
-}
-function collectGenericProseTargetsFromRoot(root, collection) {
-  const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-  for (const target of collected) {
-  appendGenericProseTarget(collection.targets, collection.seen, target);
-  if (genericProseCollectionFull(collection)) break;
-  }
 }
 function genericProseRemaining(collection) {
   return Math.max(0, collection.limit - collection.targets.length);
@@ -31229,7 +31370,7 @@ function appendResidualVisibleTarget(targets, seen, target) {
   const parent = fragments[0]?.node.parentElement;
   if (!parent) continue;
   const text2 = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
-  if (!hasJapaneseText(text2)) continue;
+  if (!HAS_JAPANESE.test(text2)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
   appendAdmittedFragmentTarget(targets, seen, {
@@ -31306,7 +31447,7 @@ function isUsefulGenericProseRoot(root) {
   if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
   const text2 = compactRootText(root);
   if (text2.length < 12) return false;
-  return hasJapaneseText(text2);
+  return HAS_JAPANESE.test(text2);
 }
 function isUsefulSafeUiChromeRoot(root) {
   return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
@@ -31318,13 +31459,10 @@ function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
   if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
   if (!isVisibleSafeUiChromeRoot(root)) return false;
   const text2 = compactRootText(root);
-  return hasJapaneseText(text2) && text2.length >= minLength && text2.length <= maxLength;
+  return HAS_JAPANESE.test(text2) && text2.length >= minLength && text2.length <= maxLength;
 }
 function compactRootText(root) {
   return root.textContent?.replace(/\s+/g, "").trim() ?? "";
-}
-function hasJapaneseText(text2) {
-  return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text2);
 }
 function isVisibleSafeUiChromeRoot(root) {
   const rect = root.getBoundingClientRect();
@@ -32607,10 +32745,10 @@ const AUTO_SCAN_OBSERVER_OPTIONS = {
   attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", "style", "class"],
   attributeOldValue: true
 };
-const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
+const MUTATION_ELEMENT_SCAN_LIMIT = 240;
 const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]);
 const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
 const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
@@ -32707,17 +32845,34 @@ function nodeTextMayContainJapanese(node) {
 }
 function nodeTreeTextMayContainJapanese(root) {
   let inspectedLength = 0;
-  let inspectedNodes = 0;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let inspectedTextNodes = 0;
+  let inspectedElements = 0;
+  const pendingRoots = [root];
+  while (pendingRoots.length) {
+  const branch = pendingRoots.shift();
+  enqueueOpenShadowRoot(branch, pendingRoots);
+  const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
   let node;
   while (node = walker.nextNode()) {
-  const text2 = node.textContent ?? "";
-  inspectedNodes += 1;
-  inspectedLength += text2.length;
-  if (HAS_JAPANESE.test(text2)) return true;
-  if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT) break;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      inspectedElements += 1;
+      enqueueOpenShadowRoot(node, pendingRoots);
+    } else {
+      const text2 = node.textContent ?? "";
+      inspectedTextNodes += 1;
+      inspectedLength += text2.length;
+      if (HAS_JAPANESE.test(text2)) return true;
+    }
+    if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT || inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT) return true;
   }
-  return inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT;
+  }
+  return false;
+}
+function enqueueOpenShadowRoot(node, pendingRoots) {
+  if (!(node instanceof HTMLElement)) return;
+  const shadowRoot = watchPotentialOpenShadowRootHost(node, true);
+  if (!shadowRoot) return;
+  pendingRoots.push(shadowRoot);
 }
 function mutationMayAffectJpdbPageEnhancements(mutation) {
   if (mutation.type === "attributes") return jpdbPageEnhancementAttributeMayAffect(mutation);
@@ -33046,7 +33201,7 @@ function hasUnparsedJapaneseText(parseRoot, excludeSelector = "") {
   acceptNode: (node) => {
     const parent = node.parentElement;
     if (!parent || parent.closest(READER_WORD_SELECTOR) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
-    return HAS_JAPANESE$1.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    return HAS_JAPANESE.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
   }
   });
   return Boolean(walker.nextNode());
@@ -37318,8 +37473,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.221"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.221"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.222"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.222"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37439,7 +37594,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.221"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.222"}`;
   } catch {
   return null;
   }
@@ -37626,6 +37781,9 @@ class VisiblePageScanner {
   destroyed = false;
   scanGeneration = 0;
   continuationScans = 0;
+  continuationFailedTargetKeys = new Set();
+  continuationTargetNodeIds = new WeakMap();
+  nextContinuationTargetNodeId = 1;
   asbScanInFlight = false;
   asbDrainTimer;
   clampSweepTimer;
@@ -37641,16 +37799,16 @@ class VisiblePageScanner {
   this.clampSweepTimer = void 0;
   this.clearPageFuriganaMode();
   }
-  interruptVisiblePageScan() {
+  cancelVisiblePageScan() {
   this.scanGeneration++;
   this.scanPending = false;
   this.scanPendingSilent = true;
-  this.continuationScans = 0;
+  this.resetContinuationState();
   }
   async scanVisiblePage(options = {}) {
   const silent = Boolean(options.silent);
-  this.scanGeneration++;
   if (!this.beginScan(silent)) return;
+  this.scanGeneration++;
   const generation = this.scanGeneration;
   const done = log$1.time("scanVisiblePage", { silent });
   try {
@@ -37743,34 +37901,46 @@ class VisiblePageScanner {
   if (this.isStaleScan(generation)) return;
   removeStaleControlTextMirrors(document);
   const settings = this.dependencies.getSettings();
-  const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
+  const targetCollectionLimit = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_TARGET_COLLECTION_LIMIT : isYouTubeVisibleScanHost() || hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
   const collection = this.collectScanTargetsWithFrameBudget(targetCollectionLimit, generation, silent);
   const collected = Array.isArray(collection) ? collection : await collection;
   if (!collected || this.isStaleScan(generation)) return;
-  const targets = chunkLongScanTargets(collected, settings);
+  const chunkGroups = collected.map((source) => ({
+    source,
+    chunks: chunkLongScanTarget(source, settings).reverse()
+  }));
+  const targets = chunkGroups.flatMap((group) => group.chunks);
   if (!targets.length) {
+    this.resetContinuationState();
     this.handleEmptyVisiblePageScan(silent);
     return;
   }
-  const parsedAnyTokens = await this.parseAndApplyTargets(targets, generation, settings);
+  const unparsedTargets = await this.parseAndApplyTargets(targets, generation, settings);
   if (this.isStaleScan(generation)) return;
   const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-  if (parsedAnyTokens && targets.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+  if (collected.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+    const unparsed = new Set(unparsedTargets);
+    chunkGroups.filter((group) => group.chunks.length > 0 && group.chunks.every((chunk) => unparsed.has(chunk))).forEach((group) => this.continuationFailedTargetKeys.add(this.continuationTargetKey(group.source)));
     this.queueContinuationScan(silent);
     return;
   }
-  this.continuationScans = 0;
+  this.resetContinuationState();
   this.reportVisiblePageCoverage(silent);
   }
   canQueueContinuationScan(targets, silent) {
-  if (canContinueVisibleScan(targets)) return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
-  return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
+  return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS && (silent || targets.some((target) => !target.singlePassScan));
   }
   isStaleScan(generation) {
   return this.destroyed || generation !== this.scanGeneration;
   }
   collectScanTargetsWithFrameBudget(limit, generation, silent) {
-  const steps = collectScanTargetsInSteps(limit, window.location.href, { skipMirroredHosts: silent });
+  const skipMirroredHosts = silent || this.continuationScans > 0;
+  const steps = collectScanTargetsInSteps(limit, window.location.href, {
+    skipMirroredHosts,
+    mirroredHeadTargetCount: skipMirroredHosts ? Math.max(1, this.continuationScans) * limit : 0,
+    skipTargetCount: this.continuationFailedTargetKeys.size,
+    skipTarget: (target) => this.continuationFailedTargetKeys.has(this.continuationTargetKey(target))
+  });
   let sliceStartedAt = Date.now();
   for (; ; ) {
     const next = steps.next();
@@ -37796,35 +37966,11 @@ class VisiblePageScanner {
   }
   }
   async parseAndApplyTargets(targets, generation, scanStartSettings) {
-  if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
-    return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
-  }
-  return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
-  }
-  async parseAndApplyTargetsSequentially(targets, generation, scanStartSettings) {
   let cursor = 0;
-  let parsedAnyTokens = false;
-  const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
-  while (cursor < targets.length) {
-    if (this.isStaleScan(generation)) return parsedAnyTokens;
-    const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
-    cursor = next.cursor;
-    if (!next.batch.length) continue;
-    const batch = next.batch;
-    const parsed = await this.dependencies.parseJapanese(batch.map((target) => target.text), scanParseOptions(this.dependencies.getSettings(), batch));
-    if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
-    if (this.isStaleScan(generation)) return parsedAnyTokens;
-    await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
-    if (cursor < targets.length) await waitForVisibleScanTurn();
-  }
-  return parsedAnyTokens;
-  }
-  async parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings) {
-  let cursor = 0;
-  let parsedAnyTokens = false;
+  const unparsedTargets = [];
   const pending = [];
-  const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
-  const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
+  const parseCharBudget = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_PARSE_CHAR_BUDGET : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
+  const concurrency = hasRemoteParseApiKey(scanStartSettings) ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   const schedule = () => {
     while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
       const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
@@ -37832,35 +37978,45 @@ class VisiblePageScanner {
       if (!next.batch.length) continue;
       pending.push({
         batch: next.batch,
-        result: this.dependencies.parseJapanese(
-          next.batch.map((target) => target.text),
-          scanParseOptions(this.dependencies.getSettings(), next.batch)
-        ).then(
-          (parsed) => ({ parsed }),
-          (error) => ({ error })
-        )
+        result: this.parseVisibleScanBatch(next.batch, generation)
       });
     }
   };
   schedule();
   while (pending.length) {
-    if (this.isStaleScan(generation)) return parsedAnyTokens;
+    if (this.isStaleScan(generation)) return unparsedTargets;
     const work = pending.shift();
-    const result = await work.result;
-    if ("error" in result) throw result.error;
-    const parsed = result.parsed;
-    if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
-    if (this.isStaleScan(generation)) return parsedAnyTokens;
+    const parsed = await work.result;
+    parsed.forEach((tokens, index) => {
+      if (!tokens.length && work.batch[index]) unparsedTargets.push(work.batch[index]);
+    });
+    if (this.isStaleScan(generation)) return unparsedTargets;
     await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
     schedule();
     if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
   }
-  return parsedAnyTokens;
+  return unparsedTargets;
+  }
+  async parseVisibleScanBatch(batch, generation) {
+  const paragraphs = batch.map((target) => target.text);
+  const options = scanParseOptions(this.dependencies.getSettings());
+  try {
+    return await this.dependencies.parseJapanese(paragraphs, options);
+  } catch (error) {
+    if (this.isStaleScan(generation)) return paragraphs.map(() => []);
+    log$1.warn("Visible page parse batch failed; retrying locally", error);
+    try {
+      return await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
+    } catch (fallbackError) {
+      log$1.warn("Visible page local parse recovery failed; continuing with later batches", fallbackError);
+      return paragraphs.map(() => []);
+    }
+  }
   }
   async applyParsedBatch(batch, parsed, scanStartSettings, generation) {
-  const resolved = applyAuthoredVocabularyToBatch(batch, parsed);
+  const resolved = batch.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
   const tokens = resolved.flat();
-  const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+  const pitchStartedBeforeApply = tokens.some((token) => token.card.source === "fallback" && token.card.spelling.trim() && !token.rubies.length);
   if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
   const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
   const changedRoots = await this.applyTokens(batch, resolved, scanStartSettings, generation);
@@ -37872,7 +38028,7 @@ class VisiblePageScanner {
   }
   async applyTokens(targets, parsed, scanStartSettings, generation) {
   const allChangedRoots = new Set();
-  const applyBatchSize = visibleScanApplyBatchSize(scanStartSettings);
+  const applyBatchSize = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_APPLY_BATCH_SIZE : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
   for (let index = 0; index < targets.length; index += applyBatchSize) {
     if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
     const start = index;
@@ -37880,11 +38036,10 @@ class VisiblePageScanner {
     this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
       if (this.shouldStopApplyingTokens(generation)) return;
       const changedRoots = new Set();
-      const applyPlans = scanApplyPlans(batch, parsed, start);
-      applyPlans.forEach(({ target, tokens }) => {
+      batch.forEach((target, offset) => {
         if (this.shouldStopApplyingTokens(generation)) return;
         if (!isCurrentScanTarget(target)) return;
-        applyTokensToScanTarget(target, tokens, this.dependencies.getSettings());
+        applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
         changedRoots.add(target.parent);
       });
       changedRoots.forEach((root) => {
@@ -37948,13 +38103,38 @@ class VisiblePageScanner {
   const silent = this.scanPendingSilent;
   this.scanPending = false;
   this.scanPendingSilent = true;
-  void waitForVisibleScanTurn().then(() => this.scanVisiblePage({ silent }));
+  const scheduledFromGeneration = this.scanGeneration;
+  void waitForVisibleScanTurn().then(() => {
+    if (this.isStaleScan(scheduledFromGeneration)) return;
+    return this.scanVisiblePage({ silent });
+  });
   }
   queueContinuationScan(silent) {
   if (this.destroyed) return;
   this.continuationScans += 1;
   this.scanPending = true;
   this.scanPendingSilent = this.scanPendingSilent && silent;
+  }
+  resetContinuationState() {
+  this.continuationScans = 0;
+  this.continuationFailedTargetKeys.clear();
+  this.continuationTargetNodeIds = new WeakMap();
+  this.nextContinuationTargetNodeId = 1;
+  }
+  continuationTargetKey(target) {
+  if (!isFragmentTextTarget(target)) {
+    return `node:${this.continuationNodeId(target.node)}\0${target.text}`;
+  }
+  const source = target.fragments.length ? target.fragments.map((fragment) => `${this.continuationNodeId(fragment.node)}:${fragment.start}:${fragment.end}`).join(",") : `parent:${this.continuationNodeId(target.parent)}`;
+  return `${source}\0${target.text}\0${target.parserId ?? ""}`;
+  }
+  continuationNodeId(node) {
+  const existing = this.continuationTargetNodeIds.get(node);
+  if (existing !== void 0) return existing;
+  const id = this.nextContinuationTargetNodeId;
+  this.nextContinuationTargetNodeId += 1;
+  this.continuationTargetNodeIds.set(node, id);
+  return id;
   }
   syncPageFuriganaMode() {
   if (typeof document === "undefined") return;
@@ -37980,32 +38160,8 @@ class VisiblePageScanner {
   }
   }
 }
-function applyAuthoredVocabularyToBatch(targets, parsed) {
-  return targets.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
-}
 function waitForVisibleScanTurn() {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
-}
-function visibleScanParseCharBudget(settings) {
-  if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_PARSE_CHAR_BUDGET;
-  return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
-}
-function visibleScanTargetCollectionLimit(settings) {
-  if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_COLLECTION_LIMIT;
-  if (isYouTubeVisibleScanHost()) return VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT;
-  return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
-}
-function visibleScanTargetTextChunkSize(settings) {
-  if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE;
-  return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE;
-}
-function visibleScanApplyBatchSize(settings) {
-  if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_APPLY_BATCH_SIZE;
-  return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-}
-function visibleScanParsePrefetchConcurrency(settings) {
-  if (isYouTubeVisibleScanHost()) return hasRemoteParseApiKey(settings) ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
-  return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
 }
 function isNarrowVisibleScanViewport() {
   return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
@@ -38019,10 +38175,7 @@ function hasJpdbParseApiKey(settings) {
 function hasRemoteParseApiKey(settings) {
   return Boolean(settings.apiKey.trim() || settings.jitenApiKey.trim());
 }
-function shouldStartPitchEnrichmentBeforeApply(tokens) {
-  return tokens.some((token) => token.card.source === "fallback" && token.card.spelling.trim() && !token.rubies.length);
-}
-function scanParseOptions(settings, _targets = []) {
+function scanParseOptions(settings) {
   return {
   jpdbTimeoutMs: hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS : VISIBLE_SCAN_PARSE_TIMEOUT_MS,
   allowJpdbTimeoutFallback: true,
@@ -38030,22 +38183,22 @@ function scanParseOptions(settings, _targets = []) {
   allowSegmentedFallback: true
   };
 }
-function canContinueVisibleScan(targets) {
-  return targets.some((target) => !target.singlePassScan);
-}
-function chunkLongScanTargets(targets, settings) {
-  return targets.flatMap((target) => chunkLongScanTarget(target, settings));
-}
 function chunkLongScanTarget(target, settings) {
   if (target.nonDestructive) return [target];
-  const chunkSize = visibleScanTargetTextChunkSize(settings);
+  const chunkSize = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE : hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE;
   if (target.text.length <= chunkSize) return [target];
-  return isFragmentTextTarget(target) ? chunkLongFragmentTarget(target, chunkSize) : chunkLongTextTarget(target, chunkSize);
-}
-function chunkLongTextTarget(target, chunkSize) {
-  const range = textTargetTrimmedSourceRange(target);
-  if (!range) return [target];
-  return chunkTextRanges(target.text, chunkSize).map(([start, end]) => textTargetChunk(target, range.start + start, range.start + end)).filter((chunk) => Boolean(chunk));
+  if (scanTargetRequiresWholeSourceMirror(target)) return [target];
+  const fragmentTarget = isFragmentTextTarget(target);
+  const sourceStart = fragmentTarget ? 0 : target.node.data.indexOf(target.text);
+  if (sourceStart < 0) return [target];
+  const chunks = [];
+  for (let start = 0; start < target.text.length; ) {
+  const end = nextChunkEnd(target.text, start, chunkSize);
+  const chunk = fragmentTarget ? fragmentTargetChunk(target, start, end) : textTargetChunk(target, sourceStart + start, sourceStart + end);
+  if (chunk) chunks.push({ ...chunk, suppressRepaintLoopMirror: true });
+  start = end;
+  }
+  return chunks;
 }
 function textTargetChunk(target, start, end) {
   if (end <= start) return null;
@@ -38067,13 +38220,6 @@ function textTargetChunk(target, start, end) {
   singlePassScan: target.singlePassScan,
   forceInlineRender: target.forceInlineRender
   };
-}
-function textTargetTrimmedSourceRange(target) {
-  const start = target.node.data.indexOf(target.text);
-  return start < 0 ? null : { start, end: start + target.text.length };
-}
-function chunkLongFragmentTarget(target, chunkSize) {
-  return chunkTextRanges(target.text, chunkSize).map(([start, end]) => fragmentTargetChunk(target, start, end)).filter((chunk) => Boolean(chunk));
 }
 function fragmentTargetChunk(target, start, end) {
   const fragments = fragmentRange(target.fragments, start, end);
@@ -38105,16 +38251,6 @@ function fragmentRange(fragments, start, end) {
   }
   return result;
 }
-function chunkTextRanges(text2, chunkSize) {
-  const ranges = [];
-  let start = 0;
-  while (start < text2.length) {
-  const end = nextChunkEnd(text2, start, chunkSize);
-  ranges.push([start, end]);
-  start = end;
-  }
-  return ranges;
-}
 function nextChunkEnd(text2, start, chunkSize) {
   const hardEnd = Math.min(text2.length, start + chunkSize);
   if (hardEnd >= text2.length) return text2.length;
@@ -38130,31 +38266,6 @@ function chunkBoundaryBefore(text2, start, hardEnd, chunkSize) {
   if (/[、，,\n\r\s]/u.test(text2[index - 1] ?? "")) return index;
   }
   return null;
-}
-function scanApplyPlans(batch, parsed, start) {
-  return batch.map((target, offset) => ({ target, tokens: parsed[start + offset] ?? [] })).sort((a, b) => compareScanTargetsForApply(a.target, b.target));
-}
-function compareScanTargetsForApply(a, b) {
-  const nodeA = scanTargetApplyNode(a);
-  const nodeB = scanTargetApplyNode(b);
-  if (!nodeA || !nodeB) return 0;
-  if (nodeA === nodeB) {
-  return scanTargetEndOffset(b) - scanTargetEndOffset(a) || scanTargetStartOffset(b) - scanTargetStartOffset(a);
-  }
-  const position = nodeA.compareDocumentPosition(nodeB);
-  if (position & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
-  if (position & Node.DOCUMENT_POSITION_PRECEDING) return -1;
-  return 0;
-}
-function scanTargetApplyNode(target) {
-  if (!isFragmentTextTarget(target)) return target.node;
-  return target.fragments[target.fragments.length - 1]?.node ?? null;
-}
-function scanTargetStartOffset(target) {
-  return isFragmentTextTarget(target) ? target.fragments[0]?.start ?? 0 : 0;
-}
-function scanTargetEndOffset(target) {
-  return isFragmentTextTarget(target) ? target.fragments[target.fragments.length - 1]?.end ?? 0 : target.node.data.length;
 }
 function isFragmentTextTarget(target) {
   return "fragments" in target;
@@ -38743,6 +38854,7 @@ class ReaderApp {
   visibleAutoScanWorkVerdict;
   lastAutoScanStartedAt = 0;
   autoScanObserver;
+  disposeShadowRootDiscovery;
   lastMirrorStaleScanAt = 0;
   handleNonDestructiveMirrorStale = () => {
   if (!this.canParseJapanese()) return;
@@ -39681,7 +39793,7 @@ class ReaderApp {
     this.autoScanDeadline = 0;
     this.autoScanForced = false;
     this.autoScanDebounced = false;
-    this.pageScanner.interruptVisiblePageScan?.();
+    this.pageScanner.cancelVisiblePageScan();
     this.clearAllAnnotations();
   } else if (!this.settings.manualScanEnabled) {
     this.scheduleAutoScan(0, { force: true });
@@ -39784,6 +39896,8 @@ class ReaderApp {
   window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
   window.clearTimeout(this.themeContrastRefreshTimer);
   document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
+  this.disposeShadowRootDiscovery?.();
+  this.disposeShadowRootDiscovery = void 0;
   setShadowRootScanHook(null);
   this.autoScanObserver?.disconnect();
   this.clearMiningPauseReassert();
@@ -39843,6 +39957,8 @@ class ReaderApp {
   const abortSignal = this.abortController.signal;
   addViewportChangeListeners(() => this.scheduleActivePopoverViewportChange(), abortSignal);
   this.autoScanObserver?.disconnect();
+  this.disposeShadowRootDiscovery?.();
+  this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
   this.autoScanObserver = new MutationObserver((mutations) => {
     const canScanText = this.canParseJapanese();
     const scanMutations = [];
@@ -39872,10 +39988,17 @@ class ReaderApp {
       this.scheduleJpdbPageEnhancements(500);
     }
   });
-  setShadowRootScanHook((root) => {
-    if (!this.isDestroyed) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+  setShadowRootScanHook((root, cause) => {
+    if (this.isDestroyed) return;
+    this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+    if (cause === "attached" && root.childNodes.length) {
+      this.scheduleAutoScan(0, { force: true, debounce: true });
+    }
   });
   this.observeAutoScanMutations();
+  if (!this.pageHasJapaneseText) {
+    this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+  }
   window.addEventListener("scroll", (event) => {
     if (eventTargetsReaderRoot(event)) return;
     {
@@ -41119,7 +41242,6 @@ class ReaderApp {
   this.cancelMissingPointerTextCandidate(candidate);
   this.scheduleInactiveHoverClose();
   if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
-  this.pageScanner.interruptVisiblePageScan();
   this.rememberHoverPopoverPointer(event);
   this.schedulePointerTextLookup(candidate, event);
   }
@@ -41152,7 +41274,6 @@ class ReaderApp {
   }
   if (!this.shouldLookupOnHover(event)) return;
   this.keepSubtitleMiningPauseForPendingHover(word);
-  this.pageScanner.interruptVisiblePageScan();
   this.preloadHoverWordAudio(word);
   this.scheduleHoverLookup(word, event);
   }
@@ -41829,7 +41950,7 @@ class ReaderApp {
   return true;
   }
   async lookupDictionaryReference(query, reading, sourceDictionary, anchor, trigger, preservePosition = false) {
-  if (!HAS_JAPANESE$1.test(query)) return;
+  if (!HAS_JAPANESE.test(query)) return;
   const normalizedReading = reading.replace(/\s+/g, " ").trim();
   const navigation = trigger === "modal" ? "push-current" : "reset";
   const done = log.time("dictionaryReferenceLookup", { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
@@ -41892,7 +42013,6 @@ class ReaderApp {
   return Boolean(target.closest(".jpdb-reader-settings") && target.closest("a[href],button,input,label,select,textarea,[role=button],[role=checkbox],[role=link],[role=menuitem],[role=option],[role=radio],[role=switch],[role=tab],[data-action]"));
   }
   async showLookupCandidate(candidate, trigger, options = {}) {
-  if (trigger === "hover") this.pageScanner.interruptVisiblePageScan();
   const sentence = lookupCandidateSentence(candidate.text, candidate.start, candidate.end);
   if (!sentence) return;
   const done = log.time("lookupTextAtPointer", { length: sentence.length, offset: candidate.offset, trigger });
@@ -42123,7 +42243,6 @@ class ReaderApp {
   return end - start <= 1 && candidate.end - candidate.start > 1;
   }
   async showWord(word, options = {}) {
-  if (options.trigger === "hover") this.pageScanner.interruptVisiblePageScan();
   if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
   const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
   const stackOverSettings = options.stackOverSettings || Boolean(word.closest(".jpdb-reader-settings"));
@@ -42664,7 +42783,7 @@ class ReaderApp {
   renderedAnchorSentence(anchor) {
   const word = anchor?.closest(".jpdb-reader-word");
   const sentence = normalizedLookupText$1(word?.dataset.sentence ?? anchor?.dataset.sentence ?? "");
-  return HAS_JAPANESE$1.test(sentence) ? sentence : "";
+  return HAS_JAPANESE.test(sentence) ? sentence : "";
   }
   rememberCardMiningContext(card, sentence, anchor, options) {
   const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover.activeContextFor(card));
@@ -44645,7 +44764,7 @@ class ReaderApp {
   applyAnkiLookupMapToRenderedWords(lookupByWordKey, roots, options = {}) {
   if (!lookupByWordKey.size) return;
   this.pauseAutoScanObserver(() => {
-    const targetRoots = uniqueParentNodes(roots);
+    const targetRoots = this.renderedAnnotationRoots(roots);
     if (!this.shouldRunAnkiBackgroundWork()) {
       this.clearRenderedAnkiLookupStateForKeys(lookupByWordKey, targetRoots);
       return;
@@ -44673,12 +44792,15 @@ class ReaderApp {
   }
   clearRenderedAnkiWordStates(root = document) {
   this.pauseAutoScanObserver(() => {
-    renderedWordsInRoot(root).forEach((word) => clearRenderedWordAnkiState(word));
-    refreshReaderWordContrast(root);
+    this.renderedAnnotationRoots([root]).forEach((targetRoot) => {
+      renderedWordsInRoot(targetRoot).forEach((word) => clearRenderedWordAnkiState(word));
+      refreshReaderWordContrast(targetRoot);
+    });
   });
   }
   prepareRenderedWordIndexForLookups(lookupByWordKey, roots) {
   const targetRoots = roots.length ? roots : [document];
+  targetRoots.filter((root) => root instanceof ShadowRoot).forEach((root) => this.registerRenderedWordsInRoot(root));
   const includesDocument = targetRoots.includes(document);
   if (this.shouldSkipRenderedWordIndexPreparation(lookupByWordKey, includesDocument)) return;
   targetRoots.forEach((root) => this.registerRenderedWordsInRoot(root));
@@ -44739,44 +44861,36 @@ class ReaderApp {
   words.add(word);
   this.renderedWordIndex.set(key, words);
   }
+  renderedAnnotationRoots(roots = [document]) {
+  const expanded = [...roots];
+  if (roots.includes(document)) {
+    forEachScannedShadowRoot((root) => expanded.push(root));
+  }
+  return uniqueParentNodes(expanded);
+  }
   clearRenderedWordIndex() {
   this.renderedWordIndex.clear();
   this.renderedWordIndexFullyScanned = false;
   }
   applyPitchAccentToRenderedWords(card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling), roots = [document]) {
   if (!pitchClass) return;
-  const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-  this.pauseAutoScanObserver(() => {
-    const changedRoots = new Set();
-    roots.forEach((root) => {
-      if (root instanceof HTMLElement && root.matches(selector)) {
-        this.applyPitchClassToRenderedSurface(root, pitchClass);
-        setRenderedWordPitchComponents(root, card);
-        changedRoots.add(root);
-      }
-      root.querySelectorAll(selector).forEach((word) => {
-        this.applyPitchClassToRenderedSurface(word, pitchClass);
-        setRenderedWordPitchComponents(word, card);
-        changedRoots.add(word.parentElement ?? word);
-      });
-    });
-    changedRoots.forEach((root) => refreshReaderWordContrast(root));
-  });
+  this.applyPitchComponentsToRenderedWords(card, roots, pitchClass);
   }
-  applyPitchComponentsToRenderedWords(card, roots = [document]) {
-  if (!hasResolvedPitchComponents(card)) return;
+  applyPitchComponentsToRenderedWords(card, roots = [document], pitchClass = "") {
+  if (!pitchClass && !hasResolvedPitchComponents(card)) return;
   const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
   this.pauseAutoScanObserver(() => {
     const changedRoots = new Set();
-    roots.forEach((root) => {
-      if (root instanceof HTMLElement && root.matches(selector)) {
-        setRenderedWordPitchComponents(root, card);
-        changedRoots.add(root);
+    const apply = (word) => {
+      if (pitchClass) {
+        this.applyPitchClassToRenderedSurface(word, pitchClass);
       }
-      root.querySelectorAll(selector).forEach((word) => {
-        setRenderedWordPitchComponents(word, card);
-        changedRoots.add(word.parentElement ?? word);
-      });
+      setRenderedWordPitchComponents(word, card);
+      changedRoots.add(word.parentElement ?? word);
+    };
+    this.renderedAnnotationRoots(roots).forEach((root) => {
+      if (root instanceof HTMLElement && root.matches(selector)) apply(root);
+      root.querySelectorAll(selector).forEach(apply);
     });
     changedRoots.forEach((root) => refreshReaderWordContrast(root));
   });
@@ -44785,9 +44899,11 @@ class ReaderApp {
   const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
   this.pauseAutoScanObserver(() => {
     const changedRoots = new Set();
-    document.querySelectorAll(selector).forEach((word) => {
-      this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-      changedRoots.add(word.parentElement ?? word);
+    this.renderedAnnotationRoots().forEach((root) => {
+      root.querySelectorAll(selector).forEach((word) => {
+        this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+        changedRoots.add(word.parentElement ?? word);
+      });
     });
     changedRoots.forEach((root) => refreshReaderWordContrast(root));
   });
@@ -44796,13 +44912,15 @@ class ReaderApp {
   if (!this.resolvedFallbackVocabularyCache.size) return;
   this.pauseAutoScanObserver(() => {
     const changedRoots = new Set();
-    root.querySelectorAll(".jpdb-reader-word[data-vid][data-sid][data-expression]").forEach((word) => {
-      const key = renderedFallbackVocabularyCacheKey(word);
-      const card = key ? this.resolvedFallbackVocabularyCache.get(key) : void 0;
-      if (!card) return;
-      const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
-      this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-      changedRoots.add(word.parentElement ?? word);
+    this.renderedAnnotationRoots([root]).forEach((targetRoot) => {
+      targetRoot.querySelectorAll(".jpdb-reader-word[data-vid][data-sid][data-expression]").forEach((word) => {
+        const key = renderedFallbackVocabularyCacheKey(word);
+        const card = key ? this.resolvedFallbackVocabularyCache.get(key) : void 0;
+        if (!card) return;
+        const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
+        this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
+        changedRoots.add(word.parentElement ?? word);
+      });
     });
     changedRoots.forEach((r) => refreshReaderWordContrast(r));
   });
@@ -45745,7 +45863,10 @@ installPreferredJapaneseSiteLanguageFromStoredSettings();
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();
 installUserscriptGmStorageBridgeWhenReady();
-if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
+if (!isYomuNewTabUrl(location.href)) {
+  installPageOpenShadowRootDiscoveryBridge();
+  bootWhenDocumentIsReady();
+}
 function bootWhenDocumentIsReady() {
   if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", onDocumentReady, { once: true });
