@@ -111,6 +111,7 @@ describe('VisiblePageScanner', () => {
             return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
         });
         const scanner = createVisiblePageScanner({ parseJapanese });
+        const scanVisiblePage = vi.spyOn(scanner, 'scanVisiblePage');
 
         try {
             await scanner.scanVisiblePage({ silent: true });
@@ -120,12 +121,14 @@ describe('VisiblePageScanner', () => {
                 expect(document.querySelector('#paragraph-249 .jpdb-reader-word')).not.toBeNull();
             }, { timeout: 10_000 });
             expect(parseJapanese.mock.calls.length).toBeGreaterThan(6);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            expect(scanVisiblePage, 'one capped pass and one uncapped tail pass').toHaveBeenCalledTimes(2);
         } finally {
             scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 15_000);
 
     it('refreshes page-word contrast before yielding between apply chunks', async () => {
         const restoreRects = mockVisibleElementRects();
@@ -1662,21 +1665,35 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('chunks a very long text node without corrupting later token offsets', async () => {
+    it('paints every chunk of a long destructive target across mobile parse batches', async () => {
         const restoreRects = mockVisibleElementRects();
         const longText = Array.from({ length: 320 }, () => '日本語の説明を確認します。').join('');
         document.body.innerHTML = `<main><p>${longText}</p></main>`;
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        let tokenId = 0;
+        const parsedTokenIds: string[] = [];
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => {
+            const token = testToken(text, '日本語', 0, 3);
+            tokenId += 1;
+            token.card = { ...token.card, vid: tokenId, sid: tokenId };
+            parsedTokenIds.push(String(tokenId));
+            return [token];
+        }));
         const scanner = createVisiblePageScanner({ parseJapanese });
 
         try {
-            await scanner.scanVisiblePage({ silent: true });
+            await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
 
             const parsedParagraphs = parseJapanese.mock.calls.flatMap(call => call[0]);
             const words = [...document.querySelectorAll<HTMLElement>('p .jpdb-reader-word')];
             expect(parsedParagraphs.length).toBeGreaterThan(1);
-            expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThanOrEqual(2100);
-            expect(words).toHaveLength(parsedParagraphs.length);
+            expect(parseJapanese.mock.calls.length, 'the paragraph must cross the mobile parse budget').toBeGreaterThan(1);
+            // The chunker may merge a sub-280-character final tail into the
+            // preceding 700-character mobile chunk.
+            expect(Math.max(...parsedParagraphs.map(text => text.length))).toBeLessThan(980);
+            expect(parsedParagraphs.reduce((length, text) => length + text.length, 0)).toBe(longText.length);
+            expect(words.map(word => word.dataset.vid).sort())
+                .toEqual(parsedTokenIds.sort());
+            expect(document.querySelector('p .jpdb-reader-text-mirror'), 'chunk slices must not impersonate a repaint loop').toBeNull();
             expect(document.querySelector('p')?.textContent).toBe(longText);
         } finally {
             scanner.destroy();

@@ -55,7 +55,7 @@ import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { ensureReaderStylesForHost } from './shadow-styles';
-import { noteScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
+import { forEachKnownShadowRoot, noteScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
@@ -1673,7 +1673,9 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     const nonDestructiveHost = nonDestructiveScanHost(target);
     stampTargetDecoration(target, nonDestructiveHost);
     const sourcePreservingFrameworkHost = !target.nonDestructive && scanHostRequiresSourcePreservingMirror(nonDestructiveHost);
-    const repaintLooping = !target.nonDestructive && !sourcePreservingFrameworkHost
+    const repaintLooping = !target.nonDestructive
+        && !target.suppressRepaintLoopMirror
+        && !sourcePreservingFrameworkHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
     const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
@@ -4237,20 +4239,20 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     // would leave the shadow mirror painted AND its per-host observer connected
     // after clear/destroy — the exact leak class 1.6.109/1.6.112 closed. Bounded
     // and open-only, consistent with the scan-side descent.
-    queryAllPiercingShadow(root, READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+    queryAllInAnnotationRoots(root, READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
         const host = registeredTextMirrorHostFor(mirror);
         if (host) hosts.add(host);
         else if (mirror.parentElement) hosts.add(mirror.parentElement);
         else mirror.remove();
     });
     const controlHosts = new Set<HTMLElement>();
-    root.querySelectorAll<HTMLElement>(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+    queryAllInAnnotationRoots(root, READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
         const host = mirror.previousElementSibling;
         if (host instanceof HTMLElement) controlHosts.add(host);
         else mirror.remove();
     });
     const canvasHosts = new Set<HTMLCanvasElement>();
-    root.querySelectorAll<HTMLElement>(READER_CANVAS_TEXT_LAYER_SELECTOR).forEach(layer => {
+    queryAllInAnnotationRoots(root, READER_CANVAS_TEXT_LAYER_SELECTOR).forEach(layer => {
         const canvas = canvasForFallbackTextLayer(layer);
         if (canvas) canvasHosts.add(canvas);
         else layer.remove();
@@ -4267,18 +4269,53 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     return hosts.size + controlHosts.size + canvasHosts.size;
 }
 
-// querySelectorAll that also reaches into OPEN shadow roots one level deep
-// (SHADOW_SCAN_MAX_DEPTH), matching the scan side. Only used by teardown paths
-// that must remove shadow-hosted mirrors (and disconnect their observers), so it
-// stays a shallow, open-only descent rather than a full recursive pierce.
-function queryAllPiercingShadow(root: ParentNode, selector: string, depth = 0): HTMLElement[] {
-    const matches = Array.from(root.querySelectorAll<HTMLElement>(selector));
-    if (depth >= SHADOW_SCAN_MAX_DEPTH) return matches;
-    for (const host of root.querySelectorAll<HTMLElement>('*')) {
-        const shadowRoot = host.shadowRoot;
-        if (shadowRoot) matches.push(...queryAllPiercingShadow(shadowRoot, selector, depth + 1));
+// Annotation passes register every open root they enter, including deferred
+// depth continuations. Cleanup enumerates that exact registry instead of
+// repeating the scan's per-frame depth cap, so Annotations Off/destroy reaches
+// mirrors at any depth without walking every element on the page again.
+function annotationCleanupRoots(root: ParentNode): ParentNode[] {
+    const roots = new Set<ParentNode>([root]);
+    forEachKnownShadowRoot(shadowRoot => {
+        if (root === document || composedTreeContains(root, shadowRoot.host)) roots.add(shadowRoot);
+    });
+    return [...roots];
+}
+
+function queryAllInAnnotationRoots(root: ParentNode, selector: string): HTMLElement[] {
+    const matches = new Set<HTMLElement>();
+    annotationCleanupRoots(root).forEach(annotationRoot => {
+        if (annotationRoot instanceof HTMLElement && annotationRoot.matches(selector)) matches.add(annotationRoot);
+        annotationRoot.querySelectorAll<HTMLElement>(selector).forEach(match => matches.add(match));
+    });
+    return [...matches];
+}
+
+// Local rendering reconciliation sometimes starts from an individual surface
+// before it has been entered in the global registry. Walk only that surface's
+// reachable open roots; explicit whole-page teardown uses the registry-backed
+// helper above so it also reaches temporarily detached component roots.
+function queryAllPiercingShadow(root: ParentNode, selector: string): HTMLElement[] {
+    const matches = new Set<HTMLElement>();
+    const visit = (current: ParentNode): void => {
+        if (current instanceof HTMLElement && current.matches(selector)) matches.add(current);
+        current.querySelectorAll<HTMLElement>(selector).forEach(match => matches.add(match));
+        current.querySelectorAll<HTMLElement>('*').forEach(host => {
+            if (host.shadowRoot) visit(host.shadowRoot);
+        });
+    };
+    visit(root);
+    return [...matches];
+}
+
+function composedTreeContains(root: ParentNode, node: Node): boolean {
+    const rootNode = root as Node;
+    let current: Node | null = node;
+    while (current) {
+        if (current === rootNode || rootNode.contains(current)) return true;
+        const tree = current.getRootNode();
+        current = tree instanceof ShadowRoot ? tree.host : null;
     }
-    return matches;
+    return false;
 }
 
 export function removeStaleControlTextMirrors(root: ParentNode = document): number {
@@ -6297,9 +6334,7 @@ function recordRubyRoomGrowthWrite(box: HTMLElement): void {
 }
 
 export function releaseRubyRoomGrowth(root: ParentNode = document): number {
-    const boxes: HTMLElement[] = [];
-    if (root instanceof HTMLElement && root.matches('[data-yomu-ruby-room]')) boxes.push(root);
-    boxes.push(...Array.from(root.querySelectorAll<HTMLElement>('[data-yomu-ruby-room]')));
+    const boxes = queryAllInAnnotationRoots(root, '[data-yomu-ruby-room]');
     for (const box of boxes) {
         const record = rubyRoomGrowthRecords.get(box);
         restoreRubyRoomProperty(box, 'min-height', record, r => [r.minHeight, r.minHeightPriority]);
@@ -6311,10 +6346,7 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
         delete box.dataset.yomuRubyRoomPadTop;
         rubyRoomGrowthRecords.delete(box);
     }
-    if (root instanceof HTMLElement && root.dataset.yomuDetachedReadingOverflow === 'true') {
-        restoreDetachedReadingClip(root);
-    }
-    root.querySelectorAll<HTMLElement>('[data-yomu-detached-reading-overflow="true"]')
+    queryAllInAnnotationRoots(root, '[data-yomu-detached-reading-overflow="true"]')
         .forEach(restoreDetachedReadingClip);
     return boxes.length;
 }

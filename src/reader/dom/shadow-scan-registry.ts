@@ -7,16 +7,18 @@
 // auto-scan observer to it — the tap stops being the scan trigger.
 
 const scannedShadowRootRefs = new Set<WeakRef<ShadowRoot>>();
+const scannedShadowRootRefByRoot = new WeakMap<ShadowRoot, WeakRef<ShadowRoot>>();
 const scannedShadowRoots = new WeakSet<ShadowRoot>();
 export type ShadowRootDiscoveryCause = 'scan' | 'attached' | 'replay';
 let shadowRootScanHook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null = null;
 
 const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
-const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 10_000;
+const POTENTIAL_SHADOW_HOST_FAST_POLL_LIFETIME_MS = 10_000;
+const POTENTIAL_SHADOW_HOST_IDLE_POLL_MS = 1_000;
 
 interface PotentialShadowHost {
     ref: WeakRef<Element>;
-    expiresAt: number;
+    fastPollUntil: number;
 }
 
 const potentialShadowHosts = new Set<PotentialShadowHost>();
@@ -42,7 +44,12 @@ export function noteScannedShadowRoot(root: ShadowRoot): void {
 function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void {
     if (scannedShadowRoots.has(root)) return;
     scannedShadowRoots.add(root);
-    scannedShadowRootRefs.add(new WeakRef(root));
+    let ref = scannedShadowRootRefByRoot.get(root);
+    if (!ref) {
+        ref = new WeakRef(root);
+        scannedShadowRootRefByRoot.set(root, ref);
+        scannedShadowRootRefs.add(ref);
+    }
     shadowRootScanHook?.(root, cause);
 }
 
@@ -50,9 +57,11 @@ function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void
 // prototypes in Chromium/WebKit. Wrapping the userscript realm's attachShadow
 // is therefore only the synchronous fast path; it cannot see a page-realm
 // custom-element upgrade. Record custom-element hosts encountered by the
-// generic DOM walk and poll their shared DOM `shadowRoot` property for a short,
-// bounded hydration window. This crosses the realm boundary without injecting
-// page code or weakening CSP, and an attached root is then observed normally.
+// generic DOM walk and poll their shared DOM `shadowRoot` property. Hydration
+// gets a short fast window, then connected lazy components stay on a low-rate
+// weak-reference poll: a hard expiry would miss components that attach their
+// root only after a later interaction or viewport transition. This crosses the
+// realm boundary without injecting page code or weakening CSP.
 export function watchPotentialOpenShadowRootHost(host: Element): void {
     if (host.shadowRoot) {
         noteShadowRoot(host.shadowRoot, 'scan');
@@ -62,7 +71,7 @@ export function watchPotentialOpenShadowRootHost(host: Element): void {
     seenPotentialShadowHosts.add(host);
     potentialShadowHosts.add({
         ref: new WeakRef(host),
-        expiresAt: Date.now() + POTENTIAL_SHADOW_HOST_LIFETIME_MS,
+        fastPollUntil: Date.now() + POTENTIAL_SHADOW_HOST_FAST_POLL_LIFETIME_MS,
     });
     schedulePotentialShadowHostPoll();
 }
@@ -162,15 +171,19 @@ function schedulePotentialShadowHostPoll(): void {
     if (!attachShadowDiscoveryInstallation?.active
         || potentialShadowHostTimer !== undefined
         || !potentialShadowHosts.size) return;
-    potentialShadowHostTimer = window.setTimeout(pollPotentialShadowHosts, POTENTIAL_SHADOW_HOST_POLL_MS);
+    const now = Date.now();
+    const fast = [...potentialShadowHosts].some(pending => pending.fastPollUntil > now);
+    potentialShadowHostTimer = window.setTimeout(
+        pollPotentialShadowHosts,
+        fast ? POTENTIAL_SHADOW_HOST_POLL_MS : POTENTIAL_SHADOW_HOST_IDLE_POLL_MS,
+    );
 }
 
 function pollPotentialShadowHosts(): void {
     potentialShadowHostTimer = undefined;
-    const now = Date.now();
     for (const pending of potentialShadowHosts) {
         const host = pending.ref.deref();
-        if (!host || !host.isConnected || pending.expiresAt <= now) {
+        if (!host || !host.isConnected) {
             potentialShadowHosts.delete(pending);
             if (host) seenPotentialShadowHosts.delete(host);
             continue;
@@ -197,7 +210,29 @@ export function setShadowRootScanHook(hook: ((root: ShadowRoot, cause: ShadowRoo
 export function forEachScannedShadowRoot(callback: (root: ShadowRoot) => void): void {
     for (const ref of scannedShadowRootRefs) {
         const root = ref.deref();
-        if (!root || !root.host?.isConnected) {
+        if (!root) {
+            scannedShadowRootRefs.delete(ref);
+            continue;
+        }
+        if (!root.host?.isConnected) {
+            // A framework can cache a component off-DOM, then reinsert the
+            // SAME host/root later. Mark it inactive so the next generic walk
+            // re-registers it and reattaches the app observer. Keep its weak
+            // reference for explicit global teardown while it is cached.
+            scannedShadowRoots.delete(root);
+            continue;
+        }
+        callback(root);
+    }
+}
+
+// Explicit clear/destroy paths must also reach framework-cached roots that are
+// temporarily detached; otherwise pausing annotations while a component is
+// off-DOM lets its stale mirror reappear when the host is recycled.
+export function forEachKnownShadowRoot(callback: (root: ShadowRoot) => void): void {
+    for (const ref of scannedShadowRootRefs) {
+        const root = ref.deref();
+        if (!root) {
             scannedShadowRootRefs.delete(ref);
             continue;
         }

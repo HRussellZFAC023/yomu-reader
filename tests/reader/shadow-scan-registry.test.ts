@@ -6,6 +6,7 @@ import {
     installOpenShadowRootDiscovery,
     noteScannedShadowRoot,
     setShadowRootScanHook,
+    watchPotentialOpenShadowRootHost,
     watchUndefinedCustomElementHosts,
 } from '../../src/reader/dom/shadow-scan-registry';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../../src/reader/app/mutation-scan';
@@ -63,6 +64,24 @@ describe('shadow scan registry', () => {
         const live: ShadowRoot[] = [];
         forEachScannedShadowRoot(item => live.push(item));
         expect(live).not.toContain(root);
+    });
+
+    it('re-registers the same shadow root after its host is detached and reinserted', () => {
+        const { host, root } = shadowHostWithJapanese();
+        const seen = vi.fn();
+        setShadowRootScanHook(seen);
+        noteScannedShadowRoot(root);
+        expect(seen).toHaveBeenCalledTimes(1);
+
+        host.remove();
+        forEachScannedShadowRoot(() => undefined);
+        document.body.append(host);
+        noteScannedShadowRoot(root);
+
+        expect(seen).toHaveBeenCalledTimes(2);
+        const live: ShadowRoot[] = [];
+        forEachScannedShadowRoot(item => live.push(item));
+        expect(live).toContain(root);
     });
 
     it('registers a loading-only root before Japanese hydration and observes its re-render', async () => {
@@ -145,6 +164,30 @@ describe('shadow scan registry', () => {
         root.innerHTML = '<button>フィード</button>';
 
         await vi.waitFor(() => expect(discovered).toHaveBeenCalledWith(root, 'attached'));
+    });
+
+    it('keeps watching a connected lazy component after the fast hydration window', async () => {
+        vi.useFakeTimers();
+        const originalAttachShadow = Element.prototype.attachShadow;
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        const dispose = installOpenShadowRootDiscovery();
+        shadowRootDiscoveryDisposers.push(dispose);
+        const host = document.createElement('lazy-page-realm-component');
+        document.body.append(host);
+        watchPotentialOpenShadowRootHost(host);
+
+        try {
+            await vi.advanceTimersByTimeAsync(10_100);
+            const root = originalAttachShadow.call(host, { mode: 'open' });
+            root.innerHTML = '<button>遅延表示</button>';
+            await vi.advanceTimersByTimeAsync(1_000);
+
+            expect(discovered).toHaveBeenCalledWith(root, 'attached');
+        } finally {
+            dispose();
+            vi.useRealTimers();
+        }
     });
 
     it('reference-counts discovery installs and restores attachShadow after cleanup', () => {

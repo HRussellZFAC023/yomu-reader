@@ -265,6 +265,13 @@ describe('shadow DOM scanner (Phase 1)', () => {
             expect(texts.some(text => text.includes('第六階層')), 'depth-6 must be covered across rounds').toBe(true);
             const deep = targets.find(target => target.text.includes('第五階層'));
             expect(deep?.passiveInteraction, 'deferred deep coverage stays passive').toBe(true);
+            const deepest = targets.find(target => target.text.includes('第六階層'))!;
+            withMirrorTokenApply(() => applyTokensToScanTarget(deepest, [token(deepest.text)], SETTINGS));
+            expect(deepest.shadowRoot?.querySelector('.jpdb-reader-text-mirror'), 'deep deferred mirror painted').toBeTruthy();
+
+            removeNonDestructiveScanMirrors(document);
+
+            expect(deepest.shadowRoot?.querySelector('.jpdb-reader-text-mirror'), 'global clear reaches beyond the scan depth cap').toBeNull();
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalRect;
         }

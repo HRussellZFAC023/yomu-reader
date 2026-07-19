@@ -1,4 +1,5 @@
 import {
+    HAS_JAPANESE,
     classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
@@ -1220,7 +1221,7 @@ function collectYouTubeSyntheticTextTargets(profile: SiteParserProfile, context:
         if (!siteScanHasRoom(context)) break;
         if (context.targets.some(target => target.parent === root)) continue;
         const text = syntheticYouTubeElementText(root);
-        if (!text || !hasJapaneseText(text)) continue;
+        if (!text || !HAS_JAPANESE.test(text)) continue;
         context.targets.push(siteScanTargetWithProfileOptions(profile, {
             text,
             parent: root,
@@ -1239,7 +1240,7 @@ function syntheticYouTubeElementText(root: HTMLElement): string {
         root.textContent,
     ]) {
         const normalized = text?.replace(/\s+/g, ' ').trim();
-        if (normalized && hasJapaneseText(normalized)) return normalized;
+        if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
     }
     return '';
 }
@@ -1249,10 +1250,10 @@ function syntheticYouTubeWatchInfoText(root: HTMLElement): string {
         .map(element => normalizedAttributeText(element, 'aria-label'))
         .filter((text): text is string => Boolean(text));
     const text = parts.join(' • ');
-    if (hasJapaneseText(text)) return text;
+    if (HAS_JAPANESE.test(text)) return text;
     for (const attribute of ['aria-label', 'title']) {
         const fallback = normalizedAttributeText(root, attribute);
-        if (fallback && hasJapaneseText(fallback)) return fallback;
+        if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
     }
     return '';
 }
@@ -1294,7 +1295,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
 
 function collectCanvasFallbackTextTarget(profile: SiteParserProfile, canvas: HTMLCanvasElement, context: SiteScanContext): boolean {
     const text = canvasFallbackText(canvas);
-    if (!text || !hasJapaneseText(text)) return false;
+    if (!text || !HAS_JAPANESE.test(text)) return false;
     context.targets.push(siteScanTargetWithProfileOptions(profile, {
         text,
         parent: canvas,
@@ -2041,7 +2042,7 @@ function appendResidualVisibleTarget(
         const parent = fragments[0]?.node.parentElement;
         if (!parent) continue;
         const text = fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
-        if (!hasJapaneseText(text)) continue;
+        if (!HAS_JAPANESE.test(text)) continue;
         const decoration = classifyDecoration(parent);
         if (decoration === 'skip') continue;
         appendAdmittedFragmentTarget(targets, seen, {
@@ -2136,7 +2137,7 @@ function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
     const text = compactRootText(root);
     if (text.length < 12) return false;
-    return hasJapaneseText(text);
+    return HAS_JAPANESE.test(text);
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
@@ -2151,15 +2152,11 @@ function isUsefulCompactJapaneseRoot(root: HTMLElement, exclude: string, minLeng
     if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
     const text = compactRootText(root);
-    return hasJapaneseText(text) && text.length >= minLength && text.length <= maxLength;
+    return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
 }
 
 function compactRootText(root: HTMLElement): string {
     return root.textContent?.replace(/\s+/g, '').trim() ?? '';
-}
-
-function hasJapaneseText(text: string): boolean {
-    return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
 }
 
 function isVisibleSafeUiChromeRoot(root: HTMLElement): boolean {

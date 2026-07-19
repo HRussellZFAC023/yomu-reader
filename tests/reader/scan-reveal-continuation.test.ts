@@ -6,9 +6,15 @@ import {
     mutationMayContainJapaneseText,
 } from '../../src/reader/app/mutation-scan';
 import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../../src/reader/app/main-helpers';
+import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../../src/reader/dom/constants';
 
 describe('shared Japanese script gates', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        vi.restoreAllMocks();
+    });
+
     it('include half-width kana, the prolonged mark, and dakuten', () => {
         expect(HAS_JAPANESE.test('ｶ')).toBe(true);
         expect(HAS_JAPANESE.test('ｰ')).toBe(true);
@@ -16,6 +22,25 @@ describe('shared Japanese script gates', () => {
         expect(HAS_JAPANESE.test('ﾟ')).toBe(true);
         expect(HAS_JAPANESE_LETTER.test('ｶ')).toBe(true);
         expect(HAS_JAPANESE_LETTER.test('ﾞ')).toBe(false);
+    });
+
+    it('admits half-width katakana controls through the generic safe-UI parser', () => {
+        document.body.innerHTML = '<button id="feed">ﾌｨｰﾄﾞ</button>';
+        const feed = document.getElementById('feed')!;
+        vi.spyOn(feed, 'getBoundingClientRect').mockReturnValue({
+            x: 0,
+            y: 0,
+            left: 0,
+            top: 0,
+            right: 120,
+            bottom: 40,
+            width: 120,
+            height: 40,
+            toJSON: () => ({}),
+        } as DOMRect);
+
+        expect(collectScanTargets(40, 'https://example.com/').map(target => target.text))
+            .toContain('ﾌｨｰﾄﾞ');
     });
 });
 

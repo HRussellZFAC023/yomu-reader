@@ -30,6 +30,7 @@ import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 
 type AppInternals = {
     abortController: AbortController;
+    pageHasJapaneseText: boolean;
     bindEvents(): void;
     setupAutoScan(): void;
     handleDocumentClick: (event: Event) => void;
@@ -83,6 +84,22 @@ describe('reader global listener lifecycle (FIX 1)', () => {
             });
 
             expect(leaked.map(call => call[0])).toEqual([]);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('refreshes a negative startup verdict after a defined component populated before hook install', () => {
+        const app = new ReaderApp();
+        const host = document.createElement('div');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>フィード</button>';
+        document.body.append(host);
+        internals(app).pageHasJapaneseText = false;
+        try {
+            internals(app).setupAutoScan();
+
+            expect(internals(app).pageHasJapaneseText).toBe(true);
         } finally {
             app.destroy();
         }

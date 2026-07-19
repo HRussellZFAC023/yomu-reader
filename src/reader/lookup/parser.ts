@@ -488,6 +488,9 @@ export class ReaderParser {
         // allowed to fail partially, but their response cardinality must never
         // leak into callers: a short response used to leave the tail DOM
         // targets permanently bare, while extra rows shifted later work.
+        const hasExactCardinality = parsed.length === paragraphs.length
+            && paragraphs.every((_, index) => Array.isArray(parsed[index]));
+        if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
         return paragraphs.map((text, index) => {
             const tokens = parsed[index] ?? [];
             return options.allowSegmentedFallback === true

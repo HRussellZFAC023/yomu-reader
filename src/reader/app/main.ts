@@ -2249,6 +2249,14 @@ export class ReaderApp {
             }
         });
         this.observeAutoScanMutations();
+        // Settings and dictionary setup is asynchronous. A defined component
+        // can attach and populate an open root after the early startup verdict
+        // but before this observer/hook exists, leaving no mutation to replay.
+        // Refresh only a negative verdict now that discovery is live; the
+        // normal initial-scan decision below then covers that pre-hook content.
+        if (!this.pageHasJapaneseText) {
+            this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+        }
         // capture: true — scroll does not bubble, so a bubble-phase window
         // listener only sees page scrolls. Bottom sheets and side panels
         // (m.youtube comment sheet) scroll their own containers; without the

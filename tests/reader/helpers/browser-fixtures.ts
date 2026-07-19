@@ -45,14 +45,23 @@ export function withViewport<T>(
             value: createVisualViewportFixture({ width, height }),
         });
     }
-    try {
-        return callback();
-    } finally {
+    const restore = (): void => {
         restoreWindowDescriptor('innerWidth', widthDescriptor);
         restoreWindowDescriptor('innerHeight', heightDescriptor);
         if (options.visualViewport) {
             restoreWindowDescriptor('visualViewport', viewportDescriptor);
         }
+    };
+    try {
+        const result = callback();
+        if (result instanceof Promise) {
+            return result.finally(restore) as T;
+        }
+        restore();
+        return result;
+    } catch (error) {
+        restore();
+        throw error;
     }
 }
 

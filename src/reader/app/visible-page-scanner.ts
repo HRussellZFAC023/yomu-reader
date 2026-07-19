@@ -296,7 +296,17 @@ export class VisiblePageScanner {
         const collection = this.collectScanTargetsWithFrameBudget(targetCollectionLimit, generation, silent);
         const collected = Array.isArray(collection) ? collection : await collection;
         if (!collected || this.isStaleScan(generation)) return;
-        const chunkGroups = collected.map(source => ({ source, chunks: chunkLongScanTarget(source, settings) }));
+        // Destructive chunks from one source must paint tail-to-head. Painting
+        // a head chunk splits/replaces the source Text node, making later
+        // offsets fail the current-target guard when a long paragraph crosses
+        // parse batches (especially the smaller keyless-mobile budget). A tail
+        // replacement leaves the original node as the connected prefix, so
+        // every earlier chunk remains valid. Shadow/non-destructive targets are
+        // singletons and therefore keep their normal order.
+        const chunkGroups = collected.map(source => ({
+            source,
+            chunks: chunkLongScanTarget(source, settings).reverse(),
+        }));
         const targets = chunkGroups.flatMap(group => group.chunks);
         if (!targets.length) {
             this.resetContinuationState();
@@ -307,8 +317,11 @@ export class VisiblePageScanner {
         const parseSummary = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
         const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-        const hadFailedHead = this.continuationFailedTargetKeys.size > 0;
-        if ((collected.length >= effectiveCollectionLimit || hadFailedHead)
+        // Failed-source keys expand the next collection before exact filtering,
+        // so a pass below the original cap has exhausted the eligible tail.
+        // Persisting `hadFailedHead` here queued one redundant whole-page walk
+        // after that successful uncapped continuation.
+        if (collected.length >= effectiveCollectionLimit
             && this.canQueueContinuationScan(targets, silent)) {
             const unparsed = new Set(parseSummary.unparsedTargets);
             chunkGroups
@@ -744,9 +757,15 @@ function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): 
     if (target.nonDestructive) return [target];
     const chunkSize = visibleScanTargetTextChunkSize(settings);
     if (target.text.length <= chunkSize) return [target];
-    return isFragmentTextTarget(target)
+    const chunks = isFragmentTextTarget(target)
         ? chunkLongFragmentTarget(target, chunkSize)
         : chunkLongTextTarget(target, chunkSize);
+    // These are slices of ONE deliberate paint, not repeated attempts by a
+    // framework-hostile render loop. Counting identical slices independently
+    // trips the four-repaint fallback mid-paragraph; that fallback mirrors only
+    // the current slice and hides the rest of the host. Source-preserving
+    // framework detection still dominates in applyTokensToScanTarget.
+    return chunks.map(chunk => ({ ...chunk, suppressRepaintLoopMirror: true }));
 }
 
 function chunkLongTextTarget(target: TextTarget, chunkSize: number): ScanTextTarget[] {
