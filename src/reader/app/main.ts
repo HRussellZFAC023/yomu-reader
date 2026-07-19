@@ -301,7 +301,7 @@ import { registerReaderMenuCommands } from './menu-commands';
 import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
-import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
+import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
@@ -1466,10 +1466,13 @@ export class ReaderApp {
         this.themeContrastRefreshFrame = window.requestAnimationFrame(() => {
             this.themeContrastRefreshFrame = undefined;
             if (this.isDestroyed) return;
+            if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
             refreshReaderWordContrast(document);
             this.themeContrastRefreshTimer = window.setTimeout(() => {
                 this.themeContrastRefreshTimer = undefined;
-                if (!this.isDestroyed) refreshReaderWordContrast(document);
+                if (this.isDestroyed) return;
+                if (!isThemeSyncHost()) this.applyAmbientReaderThemeClasses(this.settings);
+                refreshReaderWordContrast(document);
             }, 80);
         });
     }
@@ -1480,7 +1483,10 @@ export class ReaderApp {
     }
 
     private syncHostTheme(settings = this.settings): void {
-        if (!isThemeSyncHost()) return;
+        if (!isThemeSyncHost()) {
+            this.applyAmbientReaderThemeClasses(settings);
+            return;
+        }
         this.initHostThemeSync();
         window.clearTimeout(this.hostThemeEnforceTimer);
         if (isYomuHostedPassivePage(location.href)) {
@@ -1506,6 +1512,16 @@ export class ReaderApp {
         applyHostTheme(theme);
         if (remaining <= 0 || this.isDestroyed) return;
         this.hostThemeEnforceTimer = window.setTimeout(() => this.enforceHostTheme(theme, remaining - 1), HOST_THEME_ENFORCE_STEP_MS);
+    }
+
+    // theme:'auto' on ordinary hosts used to fall through to the
+    // prefers-color-scheme media query, which desktop shells can report as
+    // light while painting a dark page — popover/settings chrome then rendered
+    // white-on-dark. Resolve auto from the page's real paint instead, agreeing
+    // with the per-word contrast detection.
+    private applyAmbientReaderThemeClasses(settings: ReaderSettings): void {
+        if (settings.theme === 'dark' || settings.theme === 'light') return;
+        this.applyReaderThemeClasses(documentBackgroundLooksDark() ? 'dark' : 'light');
     }
 
     private applyReaderThemeClasses(theme: HostTheme): void {
@@ -5937,7 +5953,7 @@ export class ReaderApp {
         this.maybePreloadLookupCardAudio(card, options, anchor);
         let renderData: CardRenderDataLoad | undefined;
         const loadRenderData = (): CardRenderDataLoad => {
-            renderData ??= this.cardRenderData.load(card);
+            renderData ??= this.noteInteractiveCardLoad(this.cardRenderData.load(card));
             return renderData;
         };
         if (trigger !== 'hover') loadRenderData();
@@ -8258,6 +8274,7 @@ export class ReaderApp {
                 batchOptions.set(key, this.pitchEnrichmentQueuedOptions.get(key) ?? {});
                 this.forgetQueuedPitchEnrichmentToken(key);
             });
+            await this.waitForBackgroundEnrichmentTurn();
             await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, batchOptions.get(cardKey(token.card)) ?? {}));
             if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
         }
@@ -8276,6 +8293,7 @@ export class ReaderApp {
         for (let index = 0; index < tokens.length; index += PITCH_ENRICHMENT_LIMIT) {
             if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
             const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
+            await this.waitForBackgroundEnrichmentTurn();
             await runLimited(chunk, LOCAL_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
             if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
         }
@@ -8285,6 +8303,29 @@ export class ReaderApp {
         if (cardHasContextPitch(card)) return;
         const localPitch = await this.localPitchAccentForCard(card);
         if (localPitch.length) card.pitchAccent = mergePitchPatterns(localPitch, card.pitchAccent);
+    }
+
+    // Interactive card enrichment (hover/modal popovers) shares IndexedDB and
+    // the network lanes with the background pitch scan; on dense pages the
+    // scan saturated both and every popover blew its 2.5s/4s data budgets,
+    // rendering with empty pills (same starvation class as the 1.6.185
+    // homepage fix). Background drains yield between chunks while a card is
+    // actively loading; the wait is bounded so a wedged load can never stall
+    // the scan for good.
+    private interactiveCardLoadDepth = 0;
+
+    private noteInteractiveCardLoad(load: CardRenderDataLoad): CardRenderDataLoad {
+        this.interactiveCardLoadDepth += 1;
+        const release = () => { this.interactiveCardLoadDepth = Math.max(0, this.interactiveCardLoadDepth - 1); };
+        void load.all.then(release, release);
+        return load;
+    }
+
+    private async waitForBackgroundEnrichmentTurn(): Promise<void> {
+        const deadline = Date.now() + 10_000;
+        while (this.interactiveCardLoadDepth > 0 && Date.now() < deadline && !this.isDestroyed) {
+            await wait(150);
+        }
     }
 
     private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<void> {

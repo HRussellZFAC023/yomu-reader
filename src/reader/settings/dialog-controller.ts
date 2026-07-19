@@ -1256,6 +1256,7 @@ export class SettingsDialogController {
             : { message: uiText(language, 'jpdbConnectionFailed'), tone: 'error' };
         status.dataset.statusTone = line.tone;
         status.textContent = formatSettingsStatusLine(line, language);
+        this.refreshSettingsJapaneseParse(form);
     }
 
     private async refreshAnkiConnectionStatus(form: HTMLFormElement): Promise<void> {
@@ -1392,6 +1393,7 @@ export class SettingsDialogController {
         status.dataset.statusTone = 'pending';
         status.dataset.updateChecked = 'true';
         status.textContent = formatUiText(language, 'updateStatusChecking', { current: CURRENT_YOMU_VERSION });
+        this.refreshSettingsJapaneseParse(form);
         try {
             const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
                 allowDirectCrossOrigin: true,
@@ -1412,6 +1414,7 @@ export class SettingsDialogController {
             if (comparison === null) {
                 status.dataset.statusTone = 'pending';
                 status.textContent = formatUiText(language, 'updateStatusIncomparable', { current: CURRENT_YOMU_VERSION, latest });
+                this.refreshSettingsJapaneseParse(form);
                 return;
             }
             const updateAvailable = comparison < 0;
@@ -1420,11 +1423,13 @@ export class SettingsDialogController {
                 current: CURRENT_YOMU_VERSION,
                 latest,
             });
+            this.refreshSettingsJapaneseParse(form);
         } catch (error) {
             log.warn('Yomu update status unavailable', error);
             if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
             status.dataset.statusTone = 'pending';
             status.textContent = formatUiText(language, 'updateStatusUnknown', { current: CURRENT_YOMU_VERSION });
+            this.refreshSettingsJapaneseParse(form);
         }
     }
 

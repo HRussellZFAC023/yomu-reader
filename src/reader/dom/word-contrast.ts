@@ -332,6 +332,25 @@ function inferredTransparentPageBackground(word: HTMLElement): PageBackground {
     return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
 }
 
+// Resolves whether the PAGE (not the OS) paints dark: blends the root/body
+// backgrounds and falls back to the same color-scheme + text-luminance
+// inference transparent word backdrops use. Lets theme:'auto' agree with the
+// page's real paint on hosts without a theme bridge, where a desktop shell can
+// report prefers-color-scheme:light while painting a dark page.
+export function documentBackgroundLooksDark(): boolean {
+    if (typeof document === 'undefined' || !document.body) return false;
+    let rgba: RgbaColor = { red: 255, green: 255, blue: 255, alpha: 1 };
+    let found = false;
+    for (const element of [document.documentElement, document.body]) {
+        const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
+        if (!color || color.alpha <= 0) continue;
+        rgba = blendRgba(color, rgba);
+        found = true;
+    }
+    const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
+    return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
+}
+
 function pageBackgroundFromCss(color: string): PageBackground {
     return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
 }

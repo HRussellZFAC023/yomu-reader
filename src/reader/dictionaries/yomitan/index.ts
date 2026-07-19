@@ -90,6 +90,7 @@ import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemp
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 4;
+const DB_OPEN_TIMEOUT_MS = 10_000;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DICTIONARY_DELETE_BATCH_SIZE = 5000;
 const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
@@ -1783,8 +1784,28 @@ export class YomitanDictionaryStore {
     }
 
     private db(): Promise<IDBDatabase> {
-        this.dbPromise ??= new Promise((resolve, reject) => {
+        this.dbPromise ??= this.openDb();
+        return this.dbPromise;
+    }
+
+    // A blocked or wedged upgrade (an older runtime still holding the
+    // connection) used to leave the open promise pending FOREVER — every local
+    // lookup then died at its own render timeout with no hint why. Fail fast,
+    // re-null the cached promise so a later call retries, and handle onblocked
+    // (the delete path at clearAll already does both).
+    private openDb(): Promise<IDBDatabase> {
+        const promise: Promise<IDBDatabase> = new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
+            let settled = false;
+            const failOpen = (reason: string, error?: unknown) => {
+                if (settled) return;
+                settled = true;
+                if (this.dbPromise === promise) this.dbPromise = undefined;
+                log.warn('Dictionary database open failed', { reason, error });
+                reject(error instanceof Error ? error : new Error(reason));
+            };
+            const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
+            request.onblocked = () => failOpen('Dictionary database upgrade blocked by another open connection');
             request.onupgradeneeded = event => {
                 const db = request.result;
                 const tx = request.transaction!;
@@ -1819,16 +1840,24 @@ export class YomitanDictionaryStore {
 
             };
             request.onsuccess = () => {
+                clearTimeout(openTimeout);
+                if (settled) {
+                    // The timeout already rejected this open; release the
+                    // connection so it cannot block the retry.
+                    try { request.result.close(); } catch { /* already closed */ }
+                    return;
+                }
+                settled = true;
                 const db = request.result;
                 this.installVersionChangeHandler(db);
                 resolve(db);
             };
             request.onerror = () => {
-                log.warn('Dictionary database open failed', { error: request.error });
-                reject(request.error);
+                clearTimeout(openTimeout);
+                failOpen('Dictionary database open failed', request.error);
             };
         });
-        return this.dbPromise;
+        return promise;
     }
 
     private installVersionChangeHandler(db: IDBDatabase): void {
