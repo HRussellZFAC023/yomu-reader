@@ -74,7 +74,7 @@ interface HoverLookupInternals {
     preloadHoverWordAudio(word: HTMLElement): void;
     preloadParsedTokens(tokens: JPDBToken[]): void;
     preloadTermAudioForTokens(tokens: JPDBToken[]): void;
-    audio: { primeUserGesture(): boolean };
+    audio: { primeUserGesture(): boolean; primeUserGestureIfUnprimed(): boolean };
     audioActions: { playTermAudio(card: JPDBCard, options?: Record<string, unknown>): Promise<void> | void };
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
@@ -1250,6 +1250,7 @@ describe('hover lookup', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;
         const primeUserGesture = vi.fn(() => true);
+        const primeUserGestureIfUnprimed = vi.fn(() => true);
         const word = readerWordFixture('今日は読む', '読む');
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -1258,13 +1259,37 @@ describe('hover lookup', () => {
             audioAutoPlayMode: 'hover',
             lookupOnHover: true,
         };
-        internals.audio = { primeUserGesture };
+        internals.audio = { primeUserGesture, primeUserGestureIfUnprimed };
         internals.bindEvents();
 
         try {
             word.dispatchEvent(hoverPointerEvent(word, 'mouse', 'pointerdown'));
 
             expect(primeUserGesture).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('primes gesture audio on the first pointerdown anywhere, not just on words', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const primeUserGesture = vi.fn(() => true);
+        const primeUserGestureIfUnprimed = vi.fn(() => true);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            lookupOnHover: true,
+        };
+        internals.audio = { primeUserGesture, primeUserGestureIfUnprimed };
+        internals.bindEvents();
+
+        try {
+            document.body.dispatchEvent(hoverPointerEvent(document.body, 'touch', 'pointerdown'));
+
+            expect(primeUserGestureIfUnprimed).toHaveBeenCalledTimes(1);
         } finally {
             cleanupReaderApp(app);
         }

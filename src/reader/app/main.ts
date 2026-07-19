@@ -2705,6 +2705,7 @@ export class ReaderApp {
         }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointerdown', event => {
+            this.primeLookupAudioFromFirstGesture();
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
@@ -3479,6 +3480,14 @@ export class ReaderApp {
         this.activeHoverWord = undefined;
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
+    }
+
+    // Safari (notably iPadOS) blocks audible playback until the page has had a
+    // user gesture, so hover autoplay was dead until the first press ON a word
+    // primed an authorized element. Any first tap on the page now primes it.
+    private primeLookupAudioFromFirstGesture(): void {
+        if (this.isDestroyed || !this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
+        this.audio.primeUserGestureIfUnprimed();
     }
 
     private primeLookupAudioFromGesture(): void {

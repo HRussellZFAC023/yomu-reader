@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.242] - 2026-07-19
+
+### Fixed
+
+- On Safari, hover audio no longer stays silent until a word is clicked: the first tap anywhere on the page now unlocks the gesture-authorized audio channel that hover playback reuses.
+
 ## [1.6.241] - 2026-07-19
 
 ### Changed

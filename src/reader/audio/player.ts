@@ -247,6 +247,16 @@ export class AudioPlayer {
         return audio;
     }
 
+    // First-gesture unlock: Safari refuses audible playback until the page has
+    // had a real user gesture, so hover autoplay stays silent until something
+    // reserves a gesture-authorized element. Word presses already prime one;
+    // this lets ANY first tap on the page do it without disturbing playback
+    // once an authorized element exists.
+    primeUserGestureIfUnprimed(): boolean {
+        if (this.reusableGestureAudio) return false;
+        return this.primeUserGesture();
+    }
+
     primeUserGesture(): boolean {
         const request = this.audioPlaybackRequest({ userGesture: true });
         if (!request.settings.audioEnabled || !shouldReserveGestureAudioElement(request)) return false;

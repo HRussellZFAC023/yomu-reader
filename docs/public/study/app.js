@@ -14993,6 +14993,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -21787,6 +21788,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.reusableGestureAudio = audio;
       this.current = audio;
       return audio;
+    }
+    // First-gesture unlock: Safari refuses audible playback until the page has
+    // had a real user gesture, so hover autoplay stays silent until something
+    // reserves a gesture-authorized element. Word presses already prime one;
+    // this lets ANY first tap on the page do it without disturbing playback
+    // once an authorized element exists.
+    primeUserGestureIfUnprimed() {
+      if (this.reusableGestureAudio) return false;
+      return this.primeUserGesture();
     }
     primeUserGesture() {
       const request = this.audioPlaybackRequest({ userGesture: true });
@@ -44968,7 +44978,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.241".trim() ? "1.6.241".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.242".trim() ? "1.6.242".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
