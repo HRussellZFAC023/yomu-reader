@@ -7584,7 +7584,9 @@
     background: #ef9a9d;
     box-shadow: 38px 25px 0 #f1b0aa, 91px -8px 0 #dc7e89, 138px 44px 0 #f1aaa9;
     content: '';
-    animation: academy-courtyard-petal-drift 6.5s linear infinite;
+    /* Petals cross the scene once. Repeating would teleport the cluster back
+       to the canopy and make the environment feel mechanically looped. */
+    animation: academy-courtyard-petal-drift 6.5s linear 1 both;
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-scene-mark[data-landmark='garden-path'] {
