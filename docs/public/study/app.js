@@ -41143,7 +41143,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.228".trim() ? "1.6.228".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.229".trim() ? "1.6.229".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -66338,11 +66338,9 @@ ${component.reading}`;
   function exactSearchFrequencyRank(provider, card, candidates) {
     const spelling = normalizeIdentityText(card.spelling);
     const reading = normalizeIdentityText(card.reading);
-    const matches = candidates.filter(
-      (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading
+    const match = candidates.find(
+      (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
     );
-    if (matches.length !== 1) return null;
-    const match = matches[0];
     const rank = frequencyRank(match?.frequencyRank);
     return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
   }
@@ -66604,8 +66602,9 @@ ${component.reading}`;
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
-      return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+      const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
+      return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
         log$f.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
@@ -79646,9 +79645,10 @@ ${entry.url}`),
     }
     loadSearchJpdbVocabularyInfo(card) {
       const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
-      if (!hasJpdbApiCredential(this.deps.getDependencies().getSettings()) || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+      if (!this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+      const jpdbVid = !card.source || card.source === "jpdb" ? card.vid : 0;
       return promiseWithTimeout(
-        jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
+        jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "JPDB vocabulary lookup timed out."
       ).catch(() => null);

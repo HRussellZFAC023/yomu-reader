@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.228
+// @version 1.6.229
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.fd72d9615c73.user.js#sha256=/XLZYVxzrv8ulrrWuPceZOqOPOnYOKH4HrPzfmYpfoY=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.52bbd06a32b7.user.js#sha256=UrvQajK3aNrWgWCkjZh3XB35+Duc6SqtDkOtClo5j10=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.3ccb6e7efa82.user.js#sha256=PMtufvqCLypaeixtzIBVKnebioF1QOvWbLHlhLm7VDk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ce8b488a1980.user.js#sha256=zotIihmAFseTgFyQ29rY09bHfntM16UmsRS75RiHsm8=
 // @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
@@ -20671,11 +20671,9 @@ function exactJpdbFrequencyRank(card, candidates) {
 function exactSearchFrequencyRank(provider, card, candidates) {
   const spelling = normalizeIdentityText(card.spelling);
   const reading = normalizeIdentityText(card.reading);
-  const matches = candidates.filter(
-  (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading
+  const match = candidates.find(
+  (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
   );
-  if (matches.length !== 1) return null;
-  const match = matches[0];
   const rank = frequencyRank(match?.frequencyRank);
   return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
 }
@@ -20933,8 +20931,9 @@ class CardRenderDataLoader {
   }
   loadJpdbVocabularyInfo(card) {
   const settings = this.settings();
-  if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
-  return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+  if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+  const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
+  return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
     log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
     return null;
   }), null);
@@ -37536,8 +37535,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.228"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.228"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.229"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.229"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37657,7 +37656,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.228"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.229"}`;
   } catch {
   return null;
   }
