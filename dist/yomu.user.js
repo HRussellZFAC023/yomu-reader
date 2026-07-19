@@ -19811,6 +19811,10 @@ class CardRenderDataLoader {
     bunproDataLookup,
     { info: null, status: { state: "timeout" } }
   );
+  const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
+    if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+    return result;
+  });
   const bunproDefinitionLookup = bunproDefinitionRequested ? bunproDataLookup : Promise.resolve({
     info: null,
     status: {
@@ -19820,9 +19824,11 @@ class CardRenderDataLoader {
   });
   const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
   const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
-    if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
-    return publicPitch;
+    if (!settings.showPitchAccent) return publicPitch;
+    applyBunproPitchToCard(card, result.info);
+    return [...card.pitchAccent];
   });
+  const hydratedPitchAccent = hydratedBunproPitchData.then(() => [...card.pitchAccent]);
   const bunproDefinitionResult = this.withFallback(
     card,
     CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -19847,6 +19853,7 @@ class CardRenderDataLoader {
     []
   );
   void pitchAccent.catch(() => void 0);
+  void hydratedPitchAccent.catch(() => void 0);
   void jpdbDeckMembership.catch(() => void 0);
   void jitenVocabularyInfo.catch(() => void 0);
   void frequencyRankLoad.initial.catch(() => void 0);
@@ -19858,6 +19865,7 @@ class CardRenderDataLoader {
     localEntries,
     localMetaEntries,
     pitchAccent,
+    hydratePitchAccent: () => hydratedPitchAccent,
     ankiLookup: fastAnkiLookup,
     hydrateAnkiLookup,
     jpdbVocabularyInfo,
@@ -42209,6 +42217,7 @@ class ReaderApp {
   this.renderHydratedCardAnkiLookup(hydrationContext, renderData);
   this.renderHydratedCardLocalEntries(hydrationContext, renderData);
   this.renderHydratedCardJitenVocabulary(hydrationContext, renderData);
+  this.renderHydratedCardPitchAccent(hydrationContext, renderData);
   this.renderHydratedCardFrequencyRanks(hydrationContext, renderData);
   this.renderHydratedCardBunproDefinition(hydrationContext, renderData);
   }
@@ -42582,6 +42591,17 @@ class ReaderApp {
     state.data = { ...state.data, jitenVocabularyInfo: info };
     this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
   }).catch((error) => log.debug("Popup Jiten vocabulary hydration failed", { term: card.spelling, error }));
+  }
+  renderHydratedCardPitchAccent(context, renderData) {
+  const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+  if (!renderData.hydratePitchAccent) return;
+  const renderedPitchKey = card.pitchAccent.join("|");
+  void renderData.hydratePitchAccent().then((pitchAccent) => {
+    if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+    if (renderedPitchKey === card.pitchAccent.join("|")) return;
+    if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+  }).catch((error) => log.debug("Popup pitch hydration failed", { term: card.spelling, error }));
   }
   renderHydratedCardFrequencyRanks(context, renderData) {
   const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
