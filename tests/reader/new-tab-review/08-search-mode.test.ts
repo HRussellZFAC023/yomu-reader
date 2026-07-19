@@ -145,6 +145,65 @@ describe('new tab review — search mode', () => {
         root.remove();
     });
 
+    it('loads enabled JPDB definitions in keyless search detail', async () => {
+        const card = newTabTestCard({
+            vid: 1579110,
+            sid: 0,
+            spelling: '今日',
+            reading: 'きょう',
+            meanings: [{ glosses: ['today'], partOfSpeech: ['noun'] }],
+            source: 'jpdb',
+        });
+        const lookup = vi.fn(async () => ({
+            meanings: ['today; this day'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        }));
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                immersionKitEnabled: false,
+                jpdbDefinitionsEnabled: true,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup, search: vi.fn(async () => [card]) },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = renderPerformedNewTabSearch(controller, '今日');
+
+        try {
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-action="search-result-word"]')).not.toBeNull();
+            });
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]')?.click();
+            await waitForExpect(() => {
+                expect(lookup).toHaveBeenCalledWith(1579110, '今日', 'きょう');
+                const detail = root.querySelector<HTMLElement>('[data-newtab-search-detail]:not([hidden])')?.textContent ?? '';
+                expect(detail).toContain('JPDB');
+                expect(detail).toContain('today');
+            });
+        } finally {
+            root.remove();
+        }
+    });
+
     it('renders standalone search result terms with ruby from card readings', async () => {
         const publicCards = [
             newTabTestCard({

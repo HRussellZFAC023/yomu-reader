@@ -158,14 +158,26 @@ describe('provider-specific frequency evidence', () => {
         expect(html).not.toContain('JPDB #2456');
     });
 
-    it('rejects ambiguous exact JPDB candidates instead of choosing a rank', async () => {
+    it('takes the provider-ordered first rank when the same identity is listed more than once', async () => {
+        // jpdb duplicates identities (e.g. two 今日/きょう entries, only one ranked);
+        // requiring a UNIQUE match silently dropped the rank for every such word.
         const data = await loader({}, async () => [
             jpdbSearchCard('にほん', 2456),
             { ...jpdbSearchCard('にほん', 3000), vid: 303 },
         ]).load(jitenCard()).all;
-        const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: unknown } }).frequencyRanks;
+        const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: { rank: number } } }).frequencyRanks;
 
-        expect(frequencyRanks.jpdb).toBeUndefined();
+        expect(frequencyRanks.jpdb).toMatchObject({ rank: 2456 });
+    });
+
+    it('skips rank-less duplicates of the same identity', async () => {
+        const data = await loader({}, async () => [
+            { ...jpdbSearchCard('にほん', 0), vid: 303, frequencyRank: null },
+            jpdbSearchCard('にほん', 2456),
+        ]).load(jitenCard()).all;
+        const frequencyRanks = (data as typeof data & { frequencyRanks: { jpdb?: { rank: number } } }).frequencyRanks;
+
+        expect(frequencyRanks.jpdb).toMatchObject({ rank: 2456 });
     });
 
     it('does not request an independently disabled provider', async () => {

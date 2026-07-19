@@ -78,7 +78,6 @@ const SCENARIOS = [
         label: 'Jiten key only, Jiten and JPDB enabled',
         settings: { jitenApiKey: JITEN_API_KEY },
         expect: { jpdb: true, jiten: true, bunpro: false },
-        popoverExpect: { jpdb: false, jiten: true, bunpro: false },
     },
     {
         id: 'jpdb-key-both-on',

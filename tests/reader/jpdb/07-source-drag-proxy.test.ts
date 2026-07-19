@@ -1741,9 +1741,9 @@ describe('reader helpers', () => {
         expect(pitch?.textContent).toContain('む');
     });
 
-    it('skips public JPDB vocabulary details for Jiten-backed cards without a JPDB key', async () => {
+    it('loads public JPDB vocabulary details for Jiten-backed cards without a JPDB key', async () => {
         const keylessLookup = vi.fn(async () => ({
-            meanings: ['hidden'],
+            meanings: ['review'],
             compounds: [],
             usedInVocabulary: [],
             examples: [],
@@ -1761,8 +1761,8 @@ describe('reader helpers', () => {
         });
         const jitenCard = jitenTestCard({ spelling: '復習', reading: 'ふくしゅう' });
 
-        await expect(keylessLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toBeNull();
-        expect(keylessLookup).not.toHaveBeenCalled();
+        await expect(keylessLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toMatchObject({ meanings: ['review'] });
+        expect(keylessLookup).toHaveBeenCalledWith(0, '復習', 'ふくしゅう');
     });
 
 });

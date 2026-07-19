@@ -4,7 +4,6 @@ import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import { BoundedMap } from '../core/bounded-map';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import { Logger } from '../app/logger';
-import { hasJpdbApiCredential } from '../settings/api-credential';
 import { resolveUiLanguage, type UiCopyKey } from '../app/i18n';
 import { newTabText, type NewTabCopyKey } from './i18n';
 import { isKanjiCharacter } from '../popup/pitch';
@@ -1013,9 +1012,12 @@ export class NewTabSearchController {
 
     private loadSearchJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
         const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
-        if (!hasJpdbApiCredential(this.deps.getDependencies().getSettings()) || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+        // Keyless: jpdbVocabulary scrapes the public site (cached + backoff); the
+        // JPDB definitions toggle alone decides whether the source loads.
+        if (!this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+        const jpdbVid = !card.source || card.source === 'jpdb' ? card.vid : 0;
         return promiseWithTimeout(
-            jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
+            jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
             'JPDB vocabulary lookup timed out.',
         ).catch(() => null);

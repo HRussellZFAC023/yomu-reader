@@ -391,8 +391,15 @@ export class CardRenderDataLoader {
 
     private loadJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
         const settings = this.settings();
-        if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
-        return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
+        // Keyless like the public pitch path: jpdbVocabulary scrapes the public
+        // site (cached + backoff), so gating it on a JPDB API credential left
+        // "JPDB definitions" enabled-but-dead for no-key users — the popover
+        // showed only the Jiten source even with both providers turned on.
+        if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+        // Jiten/local ids belong to different namespaces. Start those cards at
+        // public search instead of wasting a request on a false JPDB detail URL.
+        const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
+        return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch(error => {
             log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;
         }), null as JpdbVocabularyInfo | null);

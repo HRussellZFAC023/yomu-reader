@@ -39,7 +39,7 @@ import type {
 registerReaderHelpersCleanup();
 
 describe('reader helpers', () => {
-    it('loads public JPDB vocabulary details for Jiten-backed cards when a JPDB key is present', async () => {
+    it('uses public JPDB search identity for Jiten-backed cards when a JPDB key is present', async () => {
         const lookup = vi.fn(async () => ({
             meanings: ['JPDB public meaning'],
             compounds: [],
@@ -62,7 +62,7 @@ describe('reader helpers', () => {
         await expect(enabledLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toMatchObject({
             meanings: ['JPDB public meaning'],
         });
-        expect(lookup).toHaveBeenCalledWith(jitenCard.vid, '復習', 'ふくしゅう');
+        expect(lookup).toHaveBeenCalledWith(0, '復習', 'ふくしゅう');
 
         const disabledLookup = vi.fn(async () => ({
             meanings: ['hidden'],
@@ -751,7 +751,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips public JPDB vocabulary details for local cards without a JPDB key', async () => {
+    it('loads public JPDB vocabulary details for local cards without a JPDB key', async () => {
         const lookup = vi.fn(async () => ({ meanings: ['to read'], compounds: [], examples: [] }));
         const settings = cardDetailLoaderSettings({
             apiKey: '',
@@ -780,12 +780,12 @@ describe('reader helpers', () => {
         const load = loader.load(localCard);
 
         await expect(load.all).resolves.toMatchObject({
-            jpdbVocabularyInfo: null,
+            jpdbVocabularyInfo: { meanings: ['to read'] },
         });
-        expect(lookup).not.toHaveBeenCalled();
+        expect(lookup).toHaveBeenCalledWith(0, '読む', 'よむ');
     });
 
-    it('loads Jiten vocabulary details without scraping JPDB when only a Jiten key is configured', async () => {
+    it('loads both Jiten and public JPDB details when only a Jiten key is configured', async () => {
         const lookup = vi.fn(async () => ({ meanings: ['JPDB page definition'], compounds: [], examples: [] }));
         const lookupVocabularyInfoForCard = vi.fn(async () => ({
             wordId: 42,
@@ -819,10 +819,10 @@ describe('reader helpers', () => {
         const load = loader.load(lookupCard);
 
         await expect(load.all).resolves.toMatchObject({
-            jpdbVocabularyInfo: null,
+            jpdbVocabularyInfo: { meanings: ['JPDB page definition'] },
             jitenVocabularyInfo: { wordId: 42 },
         });
-        expect(lookup).not.toHaveBeenCalled();
+        expect(lookup).toHaveBeenCalledWith(0, lookupCard.spelling, lookupCard.reading);
         expect(lookupVocabularyInfoForCard).toHaveBeenCalledWith(lookupCard);
     });
 

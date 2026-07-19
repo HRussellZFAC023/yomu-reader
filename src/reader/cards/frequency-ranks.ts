@@ -131,12 +131,17 @@ export function exactJpdbFrequencyRank(card: JPDBCard, candidates: JPDBCard[]): 
 function exactSearchFrequencyRank(provider: FrequencyProvider, card: JPDBCard, candidates: JPDBCard[]): ProviderFrequencyRank | null {
     const spelling = normalizeIdentityText(card.spelling);
     const reading = normalizeIdentityText(card.reading);
-    const matches = candidates.filter(candidate =>
+    // The spelling+reading identity is the safety guarantee (never borrow a
+    // differently-read homograph's rank). Providers can list the SAME identity
+    // more than once (jpdb has two 今日/きょう entries, only one ranked), so take
+    // the first ranked match in the provider's own result order rather than
+    // demanding a unique match — that requirement silently dropped the rank for
+    // every duplicated word.
+    const match = candidates.find(candidate =>
         normalizeIdentityText(candidate.spelling) === spelling
-        && normalizeIdentityText(candidate.reading) === reading,
+        && normalizeIdentityText(candidate.reading) === reading
+        && frequencyRank(candidate.frequencyRank) !== null,
     );
-    if (matches.length !== 1) return null;
-    const match = matches[0];
     const rank = frequencyRank(match?.frequencyRank);
     return match && rank ? rankEvidence(provider, rank, match, 'live-search') : null;
 }
