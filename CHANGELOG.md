@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.211] - 2026-07-19
+
+### Fixed
+
+- Kept pitch-accent underlines attached to their words while Yomu's compact fallback stylesheet is active. Mirrored text with furigana now uses a glyph-anchored native underline immediately instead of positioning the line at the bottom of a taller host box, so YouTube descriptions and multi-line homepage titles no longer draw pitch lines through the row below; the same fix covers equivalent mirrored layouts on other sites.
+
 ## [1.6.210] - 2026-07-19
 
 ### Fixed

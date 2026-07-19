@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.210
+// @version 1.6.211
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.a119bca462bd.user.js#sha256=oRm8pGK9kgEbIXyVWVE+YaW3aeszKWeT9THvKV+ZMgU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.71daa2705c4e.user.js#sha256=cdqicFxOOrJFXyxdp7MwN3Qk06TEydrEim8ppr1M5cc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.83013ec579f3.user.js#sha256=gwE+xXnzUA25gaJJS6BYi2+yQXQQ41MP7yGgHfc0l5o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.f7f5d805005d.user.js#sha256=9/XYBQBd0uCHAvjgI4axpnWrkFikHAbTrmtYv9hSXBY=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.aa98ee9328c0.user.js#sha256=qpjukyjAc9y2rVPUX867lUOY/9r07QVRcxdJ9+seb9c=
 // @require https://yomureader.com/greasyfork/yomu-video.d7ec88f81c54.user.js#sha256=1+yI+BxU3V/z02mFd2bf02IpRHt1WtT1kzcfBMp2HWQ=
 // @resource yomuCss  https://yomureader.com/yomu.86750b919d9d.css#sha256=hnULkZ2du3tnyRGiszILyG277nRBw32XpK0YDzf8UgI=
 // @connect api.jiten.moe
@@ -36651,8 +36651,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.210"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.210"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.211"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.211"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36679,6 +36679,8 @@ const CRITICAL_READER_CSS = `
 a[href] .jpdb-reader-word{-webkit-touch-callout:none}.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
+.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word{text-decoration-color:var(--yu,#0000)!important}
+.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word::after{content:none!important}
 `.trim();
 function initialReaderCss(css = READER_CSS) {
   return readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css;
@@ -36770,7 +36772,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.210"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.211"}`;
   } catch {
   return null;
   }

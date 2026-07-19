@@ -39,6 +39,8 @@ export const CRITICAL_READER_CSS = `
 a[href] .jpdb-reader-word{-webkit-touch-callout:none}.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}.jpdb-reader-word.jpdb-reader-passive-word{--yt:currentColor}:is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror,[data-jpdb-reader-passive-chrome=true]) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}
 .jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
+.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word{text-decoration-color:var(--yu,#0000)!important}
+.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word::after{content:none!important}
 `.trim();
 
 export function initialReaderCss(css = READER_CSS): string {
