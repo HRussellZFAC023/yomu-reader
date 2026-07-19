@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.ae31c27aded7.user.js#sha256=rjHCet7XeCBtCk8zPdrwc8BsG/IyLJtiwsjso9d0r98=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.2912ecb2030c.user.js#sha256=KRLssgMMUZtxORf7u0pmG9/X9K3Tble7POZsPajKzsc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.e986c5590127.user.js#sha256=6YbFWQEnw9BLwmAnXeHW5t22aY/JCdgVQIvdOETIr/s=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ca9e1247edcc.user.js#sha256=yp4SR+3MYMkvRBif/9rgo16AMNsOlZro6z0Ty3Cd50c=
 // @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
