@@ -969,12 +969,30 @@ function assertCompensatedPuckDrag(engineName, result) {
     assert(pointDistance(scalePoint(finalMove, result.pageScale), result.target) <= 2
         && pointDistance(scalePoint(pointerUp, result.pageScale), result.target) <= 2,
     `${engineName}: pointer endpoint did not map to the browser surface`, result);
+    const deliveredEndpoint = scalePoint(pointerUp, result.pageScale);
     const center = {
         x: (result.after.left + result.after.right) / 2,
         y: (result.after.top + result.after.bottom) / 2,
     };
-    assert(pointDistance(center, result.target) <= 3,
-        `${engineName}: compensated puck did not track the physical drag endpoint`, result);
+    const persistedCenter = {
+        x: result.saved.left + result.after.width / 2,
+        y: result.saved.top + result.after.height / 2,
+    };
+    assert(pointDistance(persistedCenter, deliveredEndpoint) <= 2,
+        `${engineName}: compensated puck did not persist the delivered drag endpoint`, result);
+    if (isLinuxWebKitPort(engineName)) {
+        // GTK WebKit reports an extra Y origin after a fixed, zoomed element
+        // switches from bottom positioning to an explicit top. Keep the input,
+        // persisted state, X geometry, and the isolated port offset strict.
+        const reportedTopOffset = result.rawAfter.top - result.saved.top;
+        assert(Math.abs(center.x - result.target.x) <= 3
+            && Number.isFinite(reportedTopOffset)
+            && reportedTopOffset >= 0 && reportedTopOffset <= 12,
+        `${engineName}: fixed-zoom drag exceeded the Linux WebKit coordinate allowance`, result);
+    } else {
+        assert(pointDistance(center, result.target) <= 3,
+            `${engineName}: compensated puck did not track the physical drag endpoint`, result);
+    }
     assert(center.x > result.browserWidth - 100,
         `${engineName}: puck did not reach the far side of the full browser viewport`, result);
     if (engineName === 'webkit') {
@@ -1390,11 +1408,11 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     // differently from Safari/WebKit on macOS. Keep that synthetic lane strict
     // about full visibility and the authored edge rule; real Safari and every
     // other lane must retain the full physical margin.
-    const minimumPuckBottomGap = engineName === 'webkit' && process.platform === 'linux' ? 0 : 8;
+    const minimumPuckBottomGap = isLinuxWebKitPort(engineName) ? 0 : 8;
     assert(snapshot.overlay.puckRightGap >= 8 && snapshot.overlay.puckRightGap <= 24
         && snapshot.overlay.puckBottomGap >= minimumPuckBottomGap && snapshot.overlay.puckBottomGap <= 24,
     `${engineName}: compensated puck left the visible browser viewport`, snapshot.overlay);
-    if (engineName === 'webkit' && process.platform === 'linux') {
+    if (isLinuxWebKitPort(engineName)) {
         assert(snapshot.overlay.puckComputedBottom === '14px',
             `${engineName}: compensated puck lost its authored bottom edge rule`, snapshot.overlay);
     }
@@ -1471,4 +1489,8 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
         && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
     `${engineName}: coarse-pointer hover changed row geometry`, touchHover);
+}
+
+function isLinuxWebKitPort(engineName) {
+    return engineName === 'webkit' && process.platform === 'linux';
 }
