@@ -7,6 +7,7 @@
 - The browser extension now leaves the browser's new-tab page completely alone. Study opens deliberately from Yomu instead, and a fresh standalone Study session begins at the Word step for a more recognition-first flow before returning to the learner's configured sequence.
 - Extension settings now describe webpage scanning in plain language: leave pages unchanged, scan Japanese automatically, or scan only when asked.
 - Chrome and Firefox store copy now describes Yomu as providing "a study page," and the extension icon has been re-centred at every generated size.
+- The hosted Study page metadata now describes a deliberate study session instead of implying that Yomu belongs on every browser new tab.
 
 ### Fixed
 
