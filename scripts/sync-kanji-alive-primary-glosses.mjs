@@ -26,6 +26,7 @@ const payload = {
         source: SOURCE_URL,
         sourceCommit: SOURCE_COMMIT,
         license: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
         attribution: 'Kanji Alive',
         field: 'Primary comma-delimited gloss from kmeaning',
     },

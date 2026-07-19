@@ -6,6 +6,7 @@ interface KanjiAlivePrimaryGlosses {
         source: string;
         sourceCommit: string;
         license: string;
+        licenseUrl: string;
         attribution: string;
         field: string;
     };
@@ -17,6 +18,7 @@ describe('Kanji Alive primary gloss asset', () => {
         const payload = JSON.parse(readFileSync('docs/public/data/kanji-alive-primary-glosses.json', 'utf8')) as KanjiAlivePrimaryGlosses;
         expect(payload._meta).toMatchObject({
             license: 'CC BY 4.0',
+            licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
             attribution: 'Kanji Alive',
             field: 'Primary comma-delimited gloss from kmeaning',
         });

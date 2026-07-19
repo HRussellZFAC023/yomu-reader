@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.230] - 2026-07-19
+
+### Added
+
+- Kanji drilldown keyword pills now add Kanji Alive's official primary gloss alongside Jiten or JPDB, RTK, and imported dictionaries. Matching glosses merge under one source badge; distinct glosses stay separate across reader popups, Study reveals, and kanji search. The compact hosted extract is pinned to Kanji Alive's CC BY 4.0 data and loads only when the optional Kanji Map origin source is enabled.
+
 ## [1.6.229] - 2026-07-19
 
 ### Fixed

@@ -73,7 +73,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 
 | Workflow | よむ helps with |
 | --- | --- |
-| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples, and kanji drilldown |
+| Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples, and kanji drilldown with source-labelled keyword comparisons |
 | Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
@@ -205,8 +205,8 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 | [JMdict / JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) | JMdict data is EDRDG CC BY-SA 4.0; yomidevs packaging code is MIT |
 | [Kanjium](https://github.com/mifunetoshiro/kanjium) | Creative Commons Attribution-ShareAlike 4.0; used as source/license reference for pitch-accent recommendations, not bundled |
 | [JPDBv2 frequency dictionaries](https://github.com/Kuuuube/yomitan-dictionaries) | External Yomitan frequency packages; optional local import, not bundled |
-| [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | Creative Commons Attribution 4.0, with project-documented exceptions |
-| [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | MIT for the app; underlying data/media keep their upstream terms |
+| [Kanji Alive data/media](https://github.com/kanjialive/kanji-data-media) | [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/), with project-documented exceptions; よむ hosts a pinned compact extract of the licensed primary-gloss field, excluding mnemonic hints |
+| [The Kanji Map](https://github.com/gabor-kovacs/the-kanji-map) | No repository license is declared upstream; optional runtime data and referenced upstream media retain their own terms |
 | [Yomitan](https://github.com/yomidevs/yomitan), [fflate](https://github.com/101arrowz/fflate), [asbplayer](https://github.com/asbplayer/asbplayer), [anki-jpdb.reader](https://github.com/Kagu-chan/anki-jpdb.reader), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) | Upstream terms apply; used as compatible formats, libraries, or behavior references |
 | [AnkiConnect](https://foosoft.net/projects/anki-connect/), [NihongoTube](https://www.nihongotube.app/), [Immersion Kit](https://www.immersionkit.com/), [Nadeshiko](https://nadeshiko.co/), and optional local OCR/audio services | External/runtime services or references; よむ does not bundle their corpora |
 | [Bunpro](https://bunpro.jp/), [Jiten](https://jiten.moe/), and [JPDB](https://jpdb.io/) | Optional account-authenticated runtime services; upstream content and terms remain theirs, and よむ bundles none of their corpora or recordings. Bunpro uses a private, unsupported frontend endpoint that may change. Its opt-in pronunciation recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy. |

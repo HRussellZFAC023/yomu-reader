@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.229
+// @version 1.6.230
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -10,10 +10,10 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-anki.9379b4304b96.user.js#sha256=k3m0MEuWEK7Z7HtWmFjzJ2xNJt6VCQItToRPq6TwaQY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.fd72d9615c73.user.js#sha256=/XLZYVxzrv8ulrrWuPceZOqOPOnYOKH4HrPzfmYpfoY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.ae31c27aded7.user.js#sha256=rjHCet7XeCBtCk8zPdrwc8BsG/IyLJtiwsjso9d0r98=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.52bbd06a32b7.user.js#sha256=UrvQajK3aNrWgWCkjZh3XB35+Duc6SqtDkOtClo5j10=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.ce8b488a1980.user.js#sha256=zotIihmAFseTgFyQ29rY09bHfntM16UmsRS75RiHsm8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.c96e991c7677.user.js#sha256=yW6ZHHZ3c0tEa5ebqPSPIiKWaZ/h7QaoYGzLsvJanec=
 // @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
@@ -27779,10 +27779,11 @@ function jitenVocabularyFromWordSummaries(sources) {
 function jitenKanjiKeyword(info) {
   return info?.meanings?.[0] ?? "";
 }
-function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
+function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en", sourceInfo = null) {
   return renderKanjiKeywordChips([
   { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
   { text: rtkInfo?.keyword, label: "RTK" },
+  { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
   ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
   ], language);
 }
@@ -37535,8 +37536,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.229"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.229"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.230"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.230"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37656,7 +37657,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.229"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.230"}`;
   } catch {
   return null;
   }
@@ -43591,6 +43592,7 @@ class ReaderApp {
   let kanjiEntries = [];
   let rtkInfo = null;
   let kanjiVGInfo = null;
+  let sourceInfo = null;
   const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo) ?? noopKanjiPracticeDoodle();
   const keywordMount = popover.querySelector("[data-kanji-keyword-mount]");
   const miningMount = popover.querySelector("[data-kanji-mining-mount]");
@@ -43601,7 +43603,7 @@ class ReaderApp {
   this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
   const renderKeyword = () => {
     if (!popover.isConnected || !keywordMount?.isConnected) return;
-    setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language) : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
+    setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language, sourceInfo) : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language, sourceInfo));
     this.repositionActivePopover();
   };
   const renderKanjiPillRanks = () => {
@@ -43683,19 +43685,17 @@ class ReaderApp {
     practiceDoodle.reassess();
   });
   await Promise.all([jpdbInfoPromise, jitenInfoPromise, kanjiEntriesPromise, rtkInfoPromise, kanjiVGInfoPromise]);
+  sourceInfo = await this.kanjiOrigin?.lookup(kanji, this.settings).catch(() => null) ?? null;
+  renderKeyword();
   if (!popover.isConnected) return;
-  const resolvedJpdbInfo = jpdbInfo;
-  const resolvedJitenInfo = jitenInfo;
-  const resolvedRtkInfo = rtkInfo;
-  const resolvedKanjiVGInfo = kanjiVGInfo;
   if (this.settings.kanjiOriginsEnabled) {
-    void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedJitenInfo, resolvedRtkInfo, resolvedKanjiVGInfo, kanjiEntries);
+    this.renderKanjiOriginsInto(popover, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
   }
   void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
   this.repositionActivePopover();
   }
-  renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language) {
-  return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language) ?? `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language, sourceInfo) {
+  return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language, sourceInfo) ?? `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
   }
   renderKanjiUchisenInto(popover, mount, kanji, language) {
   if (!mount) return;
@@ -43778,20 +43778,12 @@ class ReaderApp {
   if (!help) return null;
   return { stage, ghost, help };
   }
-  async renderKanjiOriginsInto(popover, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
+  renderKanjiOriginsInto(popover, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
   const mount = popover.querySelector("[data-kanji-origin-mount]");
   if (!mount) return;
-  const sourceInfo = await this.lookupKanjiOriginSourceInfo(kanji);
   if (!this.canRenderKanjiOriginMount(popover, mount)) return;
   this.renderKanjiOriginMount(mount, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
   this.installKanjiOriginImageFallbacks(mount);
-  }
-  async lookupKanjiOriginSourceInfo(kanji) {
-  if (!this.kanjiOrigin) return null;
-  return await this.kanjiOrigin.lookup(kanji, this.settings).catch((error) => {
-    log.warn("Kanji origin lookup failed", { kanji }, error);
-    return null;
-  });
   }
   canRenderKanjiOriginMount(popover, mount) {
   return popover.isConnected && mount.isConnected;

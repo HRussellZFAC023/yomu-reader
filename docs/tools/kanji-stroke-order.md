@@ -27,6 +27,7 @@ Click a kanji inside the popup headword and the drilldown opens. Depending on yo
 - **Stroke count, grade, and JLPT level** for placing the kanji.
 - **Readings** (on'yomi and kun'yomi).
 - **RTK data** for [Remembering the Kanji](https://en.wikipedia.org/wiki/Remembering_the_Kanji) users — keyword and frame.
+- **Source-labelled keywords** from Jiten or JPDB, RTK, imported dictionaries, and Kanji Alive; matching glosses merge while distinct glosses remain separate.
 - **Component hints** so you can see what the kanji is built from.
 - **Related words** that use the kanji, so you learn it where it actually appears.
 

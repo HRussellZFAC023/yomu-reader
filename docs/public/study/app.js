@@ -23856,10 +23856,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return values.find((value) => value?.trim())?.trim();
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
+  const KANJI_ALIVE_PRIMARY_GLOSSES_URL = "https://yomureader.com/data/kanji-alive-primary-glosses.json";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$z = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
+    kanjiAliveGlosses;
     // Called through the nullable kanji-study companion slot (app/main.ts).
     // fallow-ignore-next-line unused-class-member
     lookup(kanji, settings) {
@@ -23877,13 +23879,28 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji, settings) {
       const done = log$z.time("Kanji origin lookup", { kanji });
-      const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$z.warn("Kanji Map origin lookup failed", { kanji, error });
-        return void 0;
-      }) : void 0;
-      const result = kanjiMap ? { kanjiMap } : null;
+      const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled ? await Promise.all([
+        fetchKanjiMapInfo(kanji).catch((error) => {
+          log$z.warn("Kanji Map origin lookup failed", { kanji, error });
+          return void 0;
+        }),
+        this.lookupKanjiAliveKeyword(kanji).catch((error) => {
+          log$z.warn("Kanji Alive keyword lookup failed", { kanji, error });
+          return void 0;
+        })
+      ]) : [void 0, void 0];
+      const result = kanjiMap || kanjiAliveKeyword ? { kanjiMap, kanjiAliveKeyword } : null;
       done();
       return result;
+    }
+    async lookupKanjiAliveKeyword(kanji) {
+      const request = this.kanjiAliveGlosses ??= fetchKanjiAlivePrimaryGlosses();
+      try {
+        return (await request)[kanji];
+      } catch (error) {
+        if (this.kanjiAliveGlosses === request) this.kanjiAliveGlosses = void 0;
+        throw error;
+      }
     }
   }
   function kanjiOriginCacheKey(kanji, settings) {
@@ -24303,6 +24320,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return null;
     }
   }
+  async function fetchKanjiAlivePrimaryGlosses() {
+    const payload = asRecord$1(parseJson$1(await requestText$6(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+    const meanings = asRecord$1(payload?.meanings);
+    if (!meanings) return {};
+    return Object.fromEntries(Object.entries(meanings).map(([kanji, meaning]) => [kanji, stringValue$2(meaning)]).filter((entry) => Boolean(entry[1])));
+  }
   function requestText$6(url) {
     return requestText$7(url, {
       timeoutMs: 1e4,
@@ -24624,10 +24647,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }));
     return summaries;
   }
-  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en") {
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en", sourceInfo = null) {
     return renderKanjiKeywordChips([
       { text: jpdbInfo?.keyword, label: "JPDB", canonical: true },
       { text: rtkInfo?.keyword, label: "RTK" },
+      { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
       ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
     ], language);
   }
@@ -41143,7 +41167,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.229".trim() ? "1.6.229".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.230".trim() ? "1.6.230".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -73198,10 +73222,11 @@ ${key}`] = { t: now, v: value };
   function jitenKanjiKeyword(info) {
     return info?.meanings?.[0] ?? "";
   }
-  function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
+  function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en", sourceInfo = null) {
     return renderKanjiKeywordChips([
       { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
       { text: rtkInfo?.keyword, label: "RTK" },
+      { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
       ...entries2.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
     ], language);
   }
@@ -79467,12 +79492,14 @@ ${entry.url}`),
           rtk: null,
           vg: null,
           local: [],
+          sourceInfo: null,
           sourceStates: {
             jpdb: "unavailable",
             jiten: "unavailable",
             rtk: "unavailable",
             vg: "unavailable",
-            local: "unavailable"
+            local: "unavailable",
+            origin: "unavailable"
           }
         };
       });
@@ -79481,7 +79508,7 @@ ${entry.url}`),
       const meanings = uniqueTrimmedStrings([
         ...details.jiten?.meanings ?? [],
         ...details.local.flatMap((entry) => entry.meanings)
-      ]).filter((meaning) => !parentMeanings.has(normalizedKeywordText$1(meaning))).slice(0, 6);
+      ]).filter((meaning) => !parentMeanings.has(normalizedKeywordText(meaning))).slice(0, 6);
       const readings2 = details.jiten ? jitenKanjiReadingRows(details.jiten).slice(0, 8) : newTabKanjiReadings(fullInfo, uniqueTrimmedStrings(details.local.flatMap((entry) => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
       const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
       const sourceKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
@@ -79740,11 +79767,7 @@ ${entry.url}`),
       const kanjiDetail = this.deps.renderKanjiDetails(
         kanjiCard,
         item.kanji,
-        item.details.jpdb,
-        item.details.jiten,
-        item.details.rtk,
-        item.details.vg,
-        item.details.local
+        item.details
       );
       const itemRoot = el(
         "section",
@@ -79774,7 +79797,7 @@ ${entry.url}`),
         const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji);
         const localMeanings = uniqueTrimmedStrings(details.local.flatMap((entry) => entry.meanings)).slice(0, 6);
         card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || "";
-        replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+        replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
         this.deps.renderNewTabUchisen(existing, kanji);
         this.deps.renderNewTabKanjiImmersion(existing, kanji);
         void this.deps.getDependencies().parseContent?.(existing);
@@ -79989,11 +80012,11 @@ ${entry.url}`),
   function normalizedSearchWordIdentity(value) {
     return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
   }
-  function normalizedKeywordText$1(value) {
+  function normalizedKeywordText(value) {
     return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   }
   function searchParentMeaningKeys(cards, kanji) {
-    return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters$1(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText$1).filter(Boolean));
+    return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters$1(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText).filter(Boolean));
   }
   function isSearchLocalKanjiDictionaryCard(card) {
     const characters = Array.from(card.spelling.trim());
@@ -81388,6 +81411,7 @@ ${entry.url}`),
       this.primeRtk(cache2, kanji, settings);
       this.primeKanjiVg(cache2, kanji, settings);
       this.primeLocal(cache2, kanji, settings);
+      this.primeOrigin(cache2, kanji, settings);
     }
     primeJpdb(cache2, kanji, settings) {
       const lookupJpdbKanji = this.deps.jpdbKanji.lookup;
@@ -81428,25 +81452,35 @@ ${entry.url}`),
         []
       ));
     }
+    primeOrigin(cache2, kanji, settings) {
+      if (!this.shouldLoadOrigin(settings) || !this.deps.kanjiOrigin || cache2.origin) return;
+      cache2.origin = this.remoteResult(
+        promiseWithTimeout(this.deps.kanjiOrigin.lookup(kanji, settings), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "Kanji origin lookup timed out."),
+        null
+      );
+    }
     resolveBundle(cache2, settings) {
       return Promise.all([
         settings.jpdbKanjiEnabled ? cache2.jpdb ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         settings.jpdbKanjiEnabled && hasJitenApiCredential(settings) ? cache2.jiten ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         settings.rtkEnabled ? cache2.rtk ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         this.shouldLoadKanjiVg(settings) ? cache2.vg ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        this.shouldLoadLocal(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled"))
-      ]).then(([jpdb, jiten, rtk, vg, local]) => ({
+        this.shouldLoadLocal(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled")),
+        this.shouldLoadOrigin(settings) ? cache2.origin ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled"))
+      ]).then(([jpdb, jiten, rtk, vg, local, origin]) => ({
         jpdb: jpdb.value,
         jiten: jiten.value,
         rtk: rtk.value,
         vg: vg.value,
         local: local.value,
+        sourceInfo: origin.value,
         sourceStates: {
           jpdb: jpdb.state,
           jiten: jiten.state,
           rtk: rtk.state,
           vg: vg.state,
-          local: local.state
+          local: local.state,
+          origin: origin.state
         }
       }));
     }
@@ -81478,11 +81512,15 @@ ${entry.url}`),
         hasJitenApiCredential(settings),
         settings.rtkEnabled,
         this.shouldLoadKanjiVg(settings),
-        this.shouldLoadLocal(settings)
+        this.shouldLoadLocal(settings),
+        this.shouldLoadOrigin(settings)
       ].map(Boolean).join(":");
     }
     shouldLoadLocal(settings) {
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
+    }
+    shouldLoadOrigin(settings) {
+      return settings.kanjiOriginsEnabled && settings.kanjiOriginKanjiMapEnabled;
     }
   }
   const gmGradeQueueStorage = {
@@ -82249,9 +82287,6 @@ ${entry.url}`),
     clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
     return clone.textContent ?? "";
   }
-  function normalizedKeywordText(value) {
-    return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-  }
   function shouldResolveInitialWordIndex(poolChanged, preferStoredWord) {
     return poolChanged || preferStoredWord;
   }
@@ -82369,6 +82404,7 @@ ${entry.url}`),
         jiten: this.dependencies.jiten,
         rtk: this.dependencies.rtk,
         kanjiVG: this.dependencies.kanjiVG,
+        kanjiOrigin: this.dependencies.kanjiOrigin,
         dictionaries: this.dependencies.dictionaries,
         localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
       });
@@ -82498,7 +82534,7 @@ ${entry.url}`),
       language: () => this.language(),
       hasLocalDictionaries: () => this.hasLocalDictionaries(),
       loadKanjiDetails: (character) => this.loadKanjiDetails(character),
-      renderKanjiDetails: (card, kanji, info, jitenInfo, rtk, vg, localEntries) => this.renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries),
+      renderKanjiDetails: (card, kanji, details) => this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null),
       keywordFromDetails: (card, jpdb, jiten, rtk) => this.keywordFromDetails(card, jpdb, jiten, rtk),
       renderNewTabUchisen: (root, kanji) => this.renderNewTabUchisen(root, kanji),
       renderNewTabKanjiImmersion: (root, kanji) => this.renderNewTabKanjiImmersion(root, kanji),
@@ -88391,7 +88427,7 @@ ${entry.url}`),
     }
     applyEnrichedKanjiMeaning(slots, card, kanji, details) {
       if (!this.state.revealAnswer || !slots.meaning) return;
-      replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+      replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null));
       this.renderNewTabUchisen(slots.meaning, kanji);
       this.renderNewTabKanjiImmersion(slots.meaning, kanji);
       void this.dependencies.parseContent?.(slots.meaning);
@@ -88516,7 +88552,7 @@ ${entry.url}`),
       this.uchisenDataCache.set(kanji, promise);
       return promise;
     }
-    renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries) {
+    renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries, sourceInfo) {
       const settings = this.dependencies.getSettings();
       const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
       const localMeanings = uniqueTrimmedStrings(localEntries.flatMap((entry) => entry.meanings)).slice(0, 6);
@@ -88533,6 +88569,7 @@ ${entry.url}`),
         jitenInfo,
         rtk,
         vg,
+        sourceInfo,
         localEntries,
         settings,
         excludeFactLabels: new Set(facts.map(([label]) => label))
@@ -88546,10 +88583,15 @@ ${entry.url}`),
       );
       const keywordMount = wrap.querySelector(".jpdb-reader-newtab-kanji-keywords");
       if (keywordMount) {
-        const keywordLine = jitenInfo ? this.suppressDuplicateKanjiKeywordLine(
-          renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage),
-          jitenInfo.meanings[0] ?? ""
-        ) : this.renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, settings.interfaceLanguage);
+        const displayedKeyword = jitenInfo?.meanings[0] ?? this.newTabKanjiDisplayedKeyword(facts, settings.interfaceLanguage);
+        const keywordLine = this.renderNewTabKanjiKeywordLine(
+          { text: jitenInfo?.meanings[0] ?? fullInfo?.keyword, label: jitenInfo ? "Jiten" : "JPDB", canonical: true },
+          rtk,
+          localEntries,
+          displayedKeyword,
+          settings.interfaceLanguage,
+          sourceInfo
+        );
         if (keywordLine) setInnerHtml(keywordMount, keywordLine);
         else keywordMount.remove();
       }
@@ -88586,7 +88628,7 @@ ${entry.url}`),
         return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, (key) => this.sourceAttributes(key), this.kanjiFactSourceTitle("jpdb"), context.settings.interfaceLanguage) : null;
       }
       if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
-      if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
+      if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.sourceInfo, context.settings, context.excludeFactLabels);
       return void 0;
     }
     renderSupplementalNewTabKanjiSourceSection(sourceId, context) {
@@ -88643,15 +88685,15 @@ ${entry.url}`),
         title
       ));
     }
-    renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels = /* @__PURE__ */ new Set()) {
+    renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, sourceInfo, settings, excludeFactLabels = /* @__PURE__ */ new Set()) {
       if (!settings.kanjiOriginsEnabled || !settings.kanjiOriginGraphEnabled) return null;
-      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
-      const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, null, vg);
+      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries, sourceInfo);
+      const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, sourceInfo, vg);
       if (!graph) return null;
       const section = htmlToFirstElement(renderKanjiOrigins(
         factsForOrigins,
         graph,
-        null,
+        sourceInfo,
         settings,
         settings.interfaceLanguage,
         this.isSourceOpen(kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID)),
@@ -88680,21 +88722,16 @@ ${entry.url}`),
       const keywordLabel = uiText(language, "factKeyword");
       return facts.find(([label]) => label === keywordLabel)?.[1] ?? "";
     }
-    renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, language) {
-      const line = renderKanjiKeywordLine(fullInfo, rtk, localEntries, language);
-      const displayedKeyword = this.newTabKanjiDisplayedKeyword(facts, language);
-      return this.suppressDuplicateKanjiKeywordLine(line, displayedKeyword);
-    }
-    suppressDuplicateKanjiKeywordLine(line, displayedKeyword) {
-      if (!displayedKeyword) return line;
-      const root = htmlToFirstElement(line);
-      if (!root || root.classList.contains("jpdb-reader-help")) return line;
-      const duplicateKey = normalizedKeywordText(displayedKeyword);
-      root.querySelectorAll(".jpdb-reader-kanji-keyword").forEach((chip) => {
-        const text2 = Array.from(chip.children).find((child) => child.tagName.toLowerCase() === "span")?.textContent ?? "";
-        if (normalizedKeywordText(text2) === duplicateKey) chip.remove();
-      });
-      return root.querySelector(".jpdb-reader-kanji-keyword") ? root.outerHTML : "";
+    renderNewTabKanjiKeywordLine(primary, rtk, localEntries, displayedKeyword, language, sourceInfo) {
+      const keywordKey = (text2) => text2?.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en") ?? "";
+      const displayedKey = keywordKey(displayedKeyword);
+      const sources = [
+        primary,
+        { text: rtk?.keyword, label: "RTK" },
+        { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
+        ...localEntries.flatMap((entry) => entry.meanings).filter(Boolean).slice(0, 3).map((text2) => ({ text: text2, label: uiText(language, "dict") }))
+      ].filter((source) => keywordKey(source.text) !== displayedKey);
+      return sources.some((source) => source.text?.trim()) ? renderKanjiKeywordChips(sources, language) : "";
     }
     sourceAttributes(sourceStateKey, initiallyExpanded = true) {
       return this.dependencies.dictionarySourceAttributes?.(sourceStateKey, initiallyExpanded) ?? newTabKanjiSourceAttrs(sourceStateKey, initiallyExpanded);
@@ -92798,6 +92835,7 @@ ${entry.url}`),
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     kanjiCompanion = yomuKanjiStudyCompanion();
     jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
+    kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
@@ -93135,6 +93173,7 @@ ${entry.url}`),
         jiten: this.jiten,
         jpdbKanji: this.jpdbKanji,
         kanjiVG: this.kanjiVG,
+        kanjiOrigin: this.kanjiOrigin ?? void 0,
         rtk: this.rtk,
         immersionKit: this.immersionKit,
         jpdbVocabulary: this.jpdbVocabulary,
@@ -93697,6 +93736,7 @@ ${entry.url}`),
       let jitenInfo = null;
       let rtkInfo = null;
       let kanjiVGInfo = null;
+      let sourceInfo = null;
       let kanjiEntries = [];
       const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo) ?? noopKanjiPracticeDoodle();
       const detailPromises = this.kanjiLookupDetailPromises(kanji);
@@ -93707,7 +93747,7 @@ ${entry.url}`),
       const renderKeyword = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
         const mount = popover.querySelector("[data-kanji-keyword-mount]");
-        if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+        if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo));
       };
       const renderKanjiPillRanks = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -93802,10 +93842,14 @@ ${entry.url}`),
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKanjiVG();
           practiceDoodle.reassess();
+        }),
+        detailPromises.kanjiSourceInfo.then((info) => {
+          sourceInfo = info;
+          renderKeyword();
         })
       ]);
       if (!this.isCurrentLookupRender(popover, requestId)) return;
-      this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries);
+      this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       void this.parseNewTabContent(popover);
       this.repositionLookupPopover();
     }
@@ -93822,7 +93866,8 @@ ${entry.url}`),
           NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS
         ) : Promise.resolve([]),
         rtkInfo: this.settings.rtkEnabled ? this.lookupDetailWithTimeout(this.rtk.lookup(kanji), null, "RTK lookup timed out.") : Promise.resolve(null),
-        kanjiVGInfo: this.shouldLoadKanjiVGInfo() ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, "KanjiVG lookup timed out.") : Promise.resolve(null)
+        kanjiVGInfo: this.shouldLoadKanjiVGInfo() ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, "KanjiVG lookup timed out.") : Promise.resolve(null),
+        kanjiSourceInfo: this.kanjiOrigin?.lookup(kanji, this.settings) ?? Promise.resolve(null)
       };
     }
     isJitenApiActive() {
@@ -93831,14 +93876,14 @@ ${entry.url}`),
     shouldLoadKanjiVGInfo() {
       return this.settings.kanjivgEnabled || this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled;
     }
-    renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
+    renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
       const mount = this.kanjiLookupOriginMount(popover, requestId);
       if (!mount) return;
       const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
       setInnerHtml(mount, renderKanjiOrigins(
-        buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries),
-        this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries),
-        null,
+        buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries, sourceInfo),
+        this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo),
+        sourceInfo,
         this.settings,
         this.settings.interfaceLanguage,
         this.dictionarySourceState.isOpen(sourceStateKey),
@@ -93854,8 +93899,8 @@ ${entry.url}`),
       const mount = popover.querySelector("[data-kanji-origin-mount]");
       return mount?.isConnected ? mount : null;
     }
-    kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
-      return this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, null, kanjiVGInfo) : null;
+    kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
+      return this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo) : null;
     }
     hiddenKanjiLookupOriginFactLabels(jpdbInfo, jitenInfo) {
       const labels = new Set(jitenKanjiOriginFactLabels(jitenInfo, this.settings.interfaceLanguage));

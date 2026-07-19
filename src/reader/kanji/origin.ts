@@ -130,8 +130,13 @@ export class KanjiOriginClient {
     }
 
     private async lookupKanjiAliveKeyword(kanji: string): Promise<string | undefined> {
-        this.kanjiAliveGlosses ??= fetchKanjiAlivePrimaryGlosses();
-        return (await this.kanjiAliveGlosses)[kanji];
+        const request = this.kanjiAliveGlosses ??= fetchKanjiAlivePrimaryGlosses();
+        try {
+            return (await request)[kanji];
+        } catch (error) {
+            if (this.kanjiAliveGlosses === request) this.kanjiAliveGlosses = undefined;
+            throw error;
+        }
     }
 }
 
@@ -678,7 +683,7 @@ function parseJson(value: string): unknown {
 }
 
 async function fetchKanjiAlivePrimaryGlosses(): Promise<Record<string, string>> {
-    const payload = asRecord(parseJson(await requestReaderText(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+    const payload = asRecord(parseJson(await requestText(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
     const meanings = asRecord(payload?.meanings);
     if (!meanings) return {};
     return Object.fromEntries(Object.entries(meanings)

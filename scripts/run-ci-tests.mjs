@@ -26,6 +26,7 @@ const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/jisho-audio.test.ts'),
     join(ROOT, 'tests/reader/runtime-health.test.ts'),
     join(ROOT, 'tests/reader/origin-graph-interactions.test.ts'),
+    join(ROOT, 'tests/reader/kanji-origin-client.test.ts'),
     join(ROOT, 'tests/reader/anki.test.ts'),
     join(ROOT, 'tests/reader/reader-shortcuts.test.ts'),
     join(ROOT, 'tests/reader/public-vocabulary-repaint.test.ts'),

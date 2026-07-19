@@ -8178,12 +8178,13 @@ export class NewTabController {
     ): string {
         const keywordKey = (text: string | undefined) => text?.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('en') ?? '';
         const displayedKey = keywordKey(displayedKeyword);
-        return renderKanjiKeywordChips([
+        const sources = [
             primary,
             { text: rtk?.keyword, label: 'RTK' },
             { text: sourceInfo?.kanjiAliveKeyword, label: 'Kanji Alive' },
             ...localEntries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(text => ({ text, label: uiText(language, 'dict') })),
-        ].filter(source => keywordKey(source.text) !== displayedKey), language);
+        ].filter(source => keywordKey(source.text) !== displayedKey);
+        return sources.some(source => source.text?.trim()) ? renderKanjiKeywordChips(sources, language) : '';
     }
 
     private sourceAttributes(sourceStateKey: string, initiallyExpanded = true): string {

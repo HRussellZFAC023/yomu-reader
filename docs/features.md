@@ -64,6 +64,8 @@ Examples can show Japanese, translations, thumbnails, audio, and source filters.
 
 Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten and optional JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
 
+At the top, keyword pills compare the primary Jiten or JPDB keyword with RTK, imported dictionaries, and an official Kanji Alive gloss. Matching text merges into one sourced pill; genuinely different glosses remain separate.
+
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
 <figure class="yomu-feature-shot">
