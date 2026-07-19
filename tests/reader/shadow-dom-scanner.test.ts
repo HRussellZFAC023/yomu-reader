@@ -339,6 +339,38 @@ describe('shadow DOM scanner (Phase 1)', () => {
         expect(joinTarget?.insideShadowDOM).toBe(true);
         expect(joinTarget?.nonDestructive).toBe(true);
     });
+
+    it('does not prune a boxless wrapper whose only Japanese is a descendant component\'s shadow label', () => {
+        // Reddit share-button shape: the visible label (共有) is SHADOW content
+        // of a component that sits as fallback inside a boxless <slot>
+        // (display: contents, 0x0 rect). The wrapper's light textContent has
+        // no Japanese, so a light-tree-only prune drops the branch and the
+        // component's root is never walked, registered, or observed.
+        defineShadowHost('yomu-share-button-host', 'open', '<button class="share">共有</button>');
+        defineShadowHost('yomu-share-action-bar', 'open', '<div class="bar"><slot name="share"><yomu-share-button-host></yomu-share-button-host></slot></div>');
+        document.body.innerHTML = '<yomu-share-action-bar></yomu-share-action-bar>';
+
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = function rect(this: HTMLElement) {
+            const boxless = this.tagName === 'SLOT';
+            const size = boxless ? 0 : 240;
+            const height = boxless ? 0 : 24;
+            return { x: 0, y: 0, width: size, height, top: 0, right: size, bottom: height, left: 0, toJSON: () => ({}) } as DOMRect;
+        };
+        try {
+            const targets = collectFragmentTextTargetsIn(document.body, 40, true, '', {
+                allowUiText: true,
+                includeUiChrome: true,
+                includePassiveInteractions: true,
+                minLength: 1,
+            });
+            const shareTarget = targets.find(target => target.text === '共有');
+            expect(shareTarget, 'shadow label behind a boxless wrapper must be collected').toBeTruthy();
+            expect(shareTarget?.insideShadowDOM).toBe(true);
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
+    });
 });
 
 // ISSUE 1/2 (codex round-1): a pending inline light-DOM run must be COMMITTED

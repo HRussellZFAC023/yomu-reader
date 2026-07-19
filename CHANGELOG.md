@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.251] - 2026-07-19
+
+### Fixed
+
+- Component controls whose visible Japanese label lives entirely inside their own shadow root — such as feed action-bar share buttons rendered as slot fallback behind a boxless wrapper — are now annotated with furigana and pitch like any other control. The scanner's boxless-wrapper pruning only read light-tree text, which cannot see across a shadow boundary, so the whole branch was dropped before the component was ever walked, registered, or observed; the pruning check now peeks through open shadow boundaries with the same bounded lookahead the shadow walk already uses, which also keeps the component's later re-renders observable.
+- A fragment walk that stops on a full target budget now queues the un-walked elements that can host open shadow roots onto the deferred continuation rounds, so a large component tree can no longer permanently strand its trailing controls outside annotation coverage.
+
 ## [1.6.250] - 2026-07-19
 
 ### Fixed

@@ -1231,22 +1231,6 @@
   function isSurfaceIgnoredElement(element2) {
     return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
   }
-  const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-    showFurigana: true,
-    furiganaMode: "all",
-    showPitchAccent: true,
-    wordUnderlineColorSource: "pitch",
-    subtitlePlayerEnabled: true,
-    subtitleAutoDetect: true,
-    subtitleOverlayVisible: true,
-    subtitleControlsMode: "always",
-    subtitleTranscriptVisible: false,
-    ocrEnabled: true,
-    ocrVideoPauseFrames: true,
-    ocrProvider: "google-lens",
-    ocrOverlayTheme: "auto"
-  };
-  const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
@@ -1370,9 +1354,8 @@
         if (!isMissingSentinel(value)) return value;
         const migrated = localStorageGet(key, MISSING);
         if (!isMissingSentinel(migrated)) {
-          const promoted = sanitizedStrandedLocalValue(key, migrated);
-          await gmStorageSet(key, promoted);
-          return promoted;
+          await gmStorageSet(key, migrated);
+          return migrated;
         }
         return fallback;
       } catch (error) {
@@ -1403,17 +1386,8 @@
   function migratedLocalStorageSyncValue(key) {
     const migrated = localStorageGet(key, MISSING);
     if (isMissingSentinel(migrated)) return { kind: "fallback" };
-    const promoted = sanitizedStrandedLocalValue(key, migrated);
-    void gmStorageSet(key, promoted);
-    return { kind: "found", value: promoted };
-  }
-  const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-  function sanitizedStrandedLocalValue(key, value) {
-    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-    const record = { ...value };
-    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-    return record;
+    void gmStorageSet(key, migrated);
+    return { kind: "found", value: migrated };
   }
   async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
@@ -4756,7 +4730,7 @@ ${candidate.depth}`;
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.251".trim() ? "1.6.251".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.250".trim() ? "1.6.250".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

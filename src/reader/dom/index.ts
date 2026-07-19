@@ -1102,16 +1102,25 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     // light run was silently dropped by fragmentCollectionComplete and the shadow
     // target could land ahead of an earlier-in-document light run.
     flushFragmentTextTarget(state);
-    if (fragmentCollectionComplete(state)) return;
+    if (fragmentCollectionComplete(state)) {
+        // Budget spent before the descent: the host is registered above, but
+        // its content was never walked — resume here on the deferred lane.
+        deferDepthCappedShadowHost(element);
+        return;
+    }
     // A <slot> projects light-DOM children into the shadow tree, but those text
     // nodes are ALREADY walked in the light-DOM pass above (their real parent is
     // in light DOM). Walking shadowRoot.childNodes reaches a <slot>'s fallback
     // content only, never projected light-DOM nodes, so slotted content is never
     // annotated twice.
     state.shadowDepth += 1;
-    for (const child of Array.from(shadowRoot.childNodes)) {
-        visitFragmentNode(child, state, false);
-        if (fragmentCollectionComplete(state)) break;
+    const shadowChildren = Array.from(shadowRoot.childNodes);
+    for (let index = 0; index < shadowChildren.length; index += 1) {
+        visitFragmentNode(shadowChildren[index], state, false);
+        if (fragmentCollectionComplete(state)) {
+            deferBudgetTruncatedChildren(shadowChildren, index + 1);
+            break;
+        }
     }
     flushFragmentTextTarget(state);
     state.shadowDepth -= 1;
@@ -1346,13 +1355,26 @@ function isBoxlessFragmentWrapper(rect: DOMRect): boolean {
 // offscreen virtualized trees cheap while allowing the walk to reach a real
 // visible Japanese child, where the normal visibility checks apply again.
 function hasVisibleJapaneseFragmentDescendant(element: HTMLElement): boolean {
-    if (!HAS_JAPANESE.test(element.textContent ?? '')) return false;
+    // textContent never crosses a shadow boundary, so a wrapper whose only
+    // Japanese lives inside a descendant component's open shadow root (a
+    // visible control whose label is shadow content — e.g. a feed action bar
+    // slot whose fallback is a share button component) must not be pruned on
+    // the light-tree test alone. Peek through open boundaries with the same
+    // bounded lookahead the shadow walk uses; it also registers nested roots
+    // so later hydration stays observable.
+    const shadowBudget: ShadowLookaheadBudget = { inspectedElements: 0, exhausted: false };
+    const lightJapanese = HAS_JAPANESE.test(element.textContent ?? '');
+    if (element.shadowRoot
+        && isVisible(element)
+        && shadowBranchHasJapanese(element.shadowRoot, 2, shadowBudget)) return true;
     const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node = walker.nextNode();
         node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT;
         inspected += 1, node = walker.nextNode()) {
         const descendant = node as HTMLElement;
-        if (HAS_JAPANESE.test(descendant.textContent ?? '') && isVisible(descendant)) return true;
+        if (lightJapanese && HAS_JAPANESE.test(descendant.textContent ?? '') && isVisible(descendant)) return true;
+        const shadow = descendant.shadowRoot;
+        if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
     }
     return false;
 }
@@ -1412,10 +1434,50 @@ function visitFragmentElementChildren(
     state: FragmentTextCollectionState,
     hasNativeRuby: boolean,
 ): void {
-    for (const child of Array.from(element.childNodes)) {
-        visitFragmentNode(child, state, hasNativeRuby);
-        if (fragmentCollectionComplete(state)) break;
+    const children = Array.from(element.childNodes);
+    for (let index = 0; index < children.length; index += 1) {
+        visitFragmentNode(children[index], state, hasNativeRuby);
+        if (fragmentCollectionComplete(state)) {
+            deferBudgetTruncatedChildren(children, index + 1);
+            break;
+        }
     }
+}
+
+// A walk that stops on a full target budget must not silently strand the
+// un-walked remainder: an open shadow host the walk never touches is never
+// registered for observation, so Japanese hydrating inside it can never be
+// annotated by any later pass (large component roots — e.g. feed post shells —
+// hit this before reaching their trailing action bars). Queue the un-walked
+// elements that can host open shadow roots onto the same deferred-continuation
+// lane the depth cap uses; bounded rounds resume there with a fresh budget and
+// re-queue on a repeat truncation, so coverage converges instead of truncating.
+const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
+
+function deferBudgetTruncatedChildren(children: Node[], fromIndex: number): void {
+    for (let index = fromIndex; index < children.length; index += 1) {
+        const child = children[index];
+        if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
+            deferDepthCappedShadowHost(child);
+        }
+    }
+}
+
+function subtreeMayHostOpenShadowRoot(element: HTMLElement): boolean {
+    if (isPotentialOpenShadowHostElement(element)) return true;
+    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode();
+        node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT;
+        inspected += 1, node = walker.nextNode()) {
+        if (isPotentialOpenShadowHostElement(node as Element)) return true;
+    }
+    // Lookahead exhausted without a verdict: keep the branch rather than
+    // silently dropping a host deeper than the bound.
+    return walker.nextNode() !== null;
+}
+
+function isPotentialOpenShadowHostElement(element: Element): boolean {
+    return Boolean(element.shadowRoot) || element.localName.includes('-');
 }
 
 function nextFragmentRubyState(element: HTMLElement, hasNativeRuby: boolean): boolean {

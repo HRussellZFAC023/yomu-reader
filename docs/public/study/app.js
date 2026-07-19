@@ -3977,6 +3977,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     metaLabelText: "#8f9aaa",
     tableBorder: "#353c47"
   };
+  const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+    showFurigana: true,
+    furiganaMode: "all",
+    showPitchAccent: true,
+    wordUnderlineColorSource: "pitch",
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: true,
+    subtitleControlsMode: "always",
+    subtitleTranscriptVisible: false,
+    ocrEnabled: true,
+    ocrVideoPauseFrames: true,
+    ocrProvider: "google-lens",
+    ocrOverlayTheme: "auto"
+  };
+  const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
   const entries = [];
   const registeredKeys = /* @__PURE__ */ new Set();
   let resetWritesSuppressed = false;
@@ -4116,6 +4132,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // reset owns it via the '__yomu' prefix, but backups must not replay it.
     "__yomu_cloud_settings_sync_pending_action"
   ]);
+  function hasAsyncGmStorageBackend() {
+    return asyncGmGetValue() !== null;
+  }
+  function localFallbackStoredValue(key, fallback) {
+    return localStorageGet(key, fallback);
+  }
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -4124,8 +4146,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (!isMissingSentinel(value)) return value;
         const migrated = localStorageGet(key, MISSING);
         if (!isMissingSentinel(migrated)) {
-          await gmStorageSet(key, migrated);
-          return migrated;
+          const promoted = sanitizedStrandedLocalValue(key, migrated);
+          await gmStorageSet(key, promoted);
+          return promoted;
         }
         return fallback;
       } catch (error) {
@@ -4156,8 +4179,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function migratedLocalStorageSyncValue(key) {
     const migrated = localStorageGet(key, MISSING);
     if (isMissingSentinel(migrated)) return { kind: "fallback" };
-    void gmStorageSet(key, migrated);
-    return { kind: "found", value: migrated };
+    const promoted = sanitizedStrandedLocalValue(key, migrated);
+    void gmStorageSet(key, promoted);
+    return { kind: "found", value: promoted };
+  }
+  const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+  function sanitizedStrandedLocalValue(key, value) {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const record = { ...value };
+    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
+    return record;
   }
   async function gmStorageSet(key, value) {
     const setValue = asyncGmSetValue();
@@ -8792,12 +8824,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
+      const strandedRecord = strandedHostedLocalSettingsRecord();
+      if (strandedRecord) {
+        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+        settings = recovery.settings;
+        recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+      }
       if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
       log$J.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  function strandedHostedLocalSettingsRecord() {
+    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
+    return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+  }
+  function recoverStrandedHostedSettings(current, stranded) {
+    let settings = current;
+    let changed = false;
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
+      if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+      if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
+      settings = { ...settings, [key]: stranded[key] };
+      changed = true;
+    }
+    return { settings, changed };
   }
   function recoverLegacySettings(current, legacy) {
     let settings = current;
@@ -10363,11 +10417,18 @@ ${spelling}`);
     }
     if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state2.shadowDepth)) return;
     flushFragmentTextTarget(state2);
-    if (fragmentCollectionComplete(state2)) return;
+    if (fragmentCollectionComplete(state2)) {
+      deferDepthCappedShadowHost(element2);
+      return;
+    }
     state2.shadowDepth += 1;
-    for (const child of Array.from(shadowRoot.childNodes)) {
-      visitFragmentNode(child, state2, false);
-      if (fragmentCollectionComplete(state2)) break;
+    const shadowChildren = Array.from(shadowRoot.childNodes);
+    for (let index = 0; index < shadowChildren.length; index += 1) {
+      visitFragmentNode(shadowChildren[index], state2, false);
+      if (fragmentCollectionComplete(state2)) {
+        deferBudgetTruncatedChildren(shadowChildren, index + 1);
+        break;
+      }
     }
     flushFragmentTextTarget(state2);
     state2.shadowDepth -= 1;
@@ -10463,11 +10524,15 @@ ${spelling}`);
     return rect.width <= 0 || rect.height <= 0;
   }
   function hasVisibleJapaneseFragmentDescendant(element2) {
-    if (!HAS_JAPANESE.test(element2.textContent ?? "")) return false;
+    const shadowBudget = { inspectedElements: 0, exhausted: false };
+    const lightJapanese = HAS_JAPANESE.test(element2.textContent ?? "");
+    if (element2.shadowRoot && isVisible(element2) && shadowBranchHasJapanese(element2.shadowRoot, 2, shadowBudget)) return true;
     const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
       const descendant = node;
-      if (HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+      if (lightJapanese && HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+      const shadow = descendant.shadowRoot;
+      if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
     }
     return false;
   }
@@ -10496,10 +10561,34 @@ ${spelling}`);
     if (isBlock) flushFragmentTextTarget(state2);
   }
   function visitFragmentElementChildren(element2, state2, hasNativeRuby) {
-    for (const child of Array.from(element2.childNodes)) {
-      visitFragmentNode(child, state2, hasNativeRuby);
-      if (fragmentCollectionComplete(state2)) break;
+    const children = Array.from(element2.childNodes);
+    for (let index = 0; index < children.length; index += 1) {
+      visitFragmentNode(children[index], state2, hasNativeRuby);
+      if (fragmentCollectionComplete(state2)) {
+        deferBudgetTruncatedChildren(children, index + 1);
+        break;
+      }
     }
+  }
+  const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
+  function deferBudgetTruncatedChildren(children, fromIndex) {
+    for (let index = fromIndex; index < children.length; index += 1) {
+      const child = children[index];
+      if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
+        deferDepthCappedShadowHost(child);
+      }
+    }
+  }
+  function subtreeMayHostOpenShadowRoot(element2) {
+    if (isPotentialOpenShadowHostElement(element2)) return true;
+    const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node = walker.nextNode(); node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
+      if (isPotentialOpenShadowHostElement(node)) return true;
+    }
+    return walker.nextNode() !== null;
+  }
+  function isPotentialOpenShadowHostElement(element2) {
+    return Boolean(element2.shadowRoot) || element2.localName.includes("-");
   }
   function nextFragmentRubyState(element2, hasNativeRuby) {
     return hasNativeRuby || element2.tagName === "RUBY" || element2.tagName === "RB";
@@ -15564,7 +15653,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -45166,7 +45254,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.249".trim() ? "1.6.249".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.251".trim() ? "1.6.251".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

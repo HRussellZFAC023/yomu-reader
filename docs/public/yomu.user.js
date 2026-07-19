@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.250
+// @version 1.6.251
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.e6f97a66bde0.user.js#sha256=5vl6Zr3g7R0V1BqzG0ZMrE4Ywgjsx4VGVT/Y+FZ3UC8=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.4a633c717de9.user.js#sha256=SmM8cX3pEcp4vEejssUh8YJIHcrk1myMZ6iLip4dqmo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.6a88b7896802.user.js#sha256=aoi3iWgCpYOYvjvKyaIdKzYgGA9olFoPL/ZJHab+c+I=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.482502383b4a.user.js#sha256=SCUCODtKd7wSwpmazY3f3tGflQJFDskLjqAQ/xa8fIY=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.93285661b5a1.user.js#sha256=kyhWYbWhO5mjof2mZT28pqG6jfiDF2xwQrV/51PLP18=
 // @require https://yomureader.com/greasyfork/yomu-video.dcaba0bd8888.user.js#sha256=3KugvYiIgno+TCFtyOmwqMj4zIwFaF7lHOta8dsJvjk=
 // @resource yomuCss  https://yomureader.com/yomu.5eb026abadb4.css#sha256=XrAmq620sfwFUMhy20nGiSK3exWPP4WGGt9v9tMamE0=
@@ -6925,11 +6925,18 @@ function visitFragmentShadowRoot(element, state) {
   }
   if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
   flushFragmentTextTarget(state);
-  if (fragmentCollectionComplete(state)) return;
+  if (fragmentCollectionComplete(state)) {
+  deferDepthCappedShadowHost(element);
+  return;
+  }
   state.shadowDepth += 1;
-  for (const child of Array.from(shadowRoot.childNodes)) {
-  visitFragmentNode(child, state, false);
-  if (fragmentCollectionComplete(state)) break;
+  const shadowChildren = Array.from(shadowRoot.childNodes);
+  for (let index = 0; index < shadowChildren.length; index += 1) {
+  visitFragmentNode(shadowChildren[index], state, false);
+  if (fragmentCollectionComplete(state)) {
+    deferBudgetTruncatedChildren(shadowChildren, index + 1);
+    break;
+  }
   }
   flushFragmentTextTarget(state);
   state.shadowDepth -= 1;
@@ -7076,11 +7083,15 @@ function isBoxlessFragmentWrapper(rect) {
   return rect.width <= 0 || rect.height <= 0;
 }
 function hasVisibleJapaneseFragmentDescendant(element) {
-  if (!HAS_JAPANESE.test(element.textContent ?? "")) return false;
+  const shadowBudget = { inspectedElements: 0, exhausted: false };
+  const lightJapanese = HAS_JAPANESE.test(element.textContent ?? "");
+  if (element.shadowRoot && isVisible(element) && shadowBranchHasJapanese(element.shadowRoot, 2, shadowBudget)) return true;
   const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
   const descendant = node;
-  if (HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+  if (lightJapanese && HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+  const shadow = descendant.shadowRoot;
+  if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
   }
   return false;
 }
@@ -7109,10 +7120,34 @@ function flushFragmentBlockBoundary(isBlock, state) {
   if (isBlock) flushFragmentTextTarget(state);
 }
 function visitFragmentElementChildren(element, state, hasNativeRuby) {
-  for (const child of Array.from(element.childNodes)) {
-  visitFragmentNode(child, state, hasNativeRuby);
-  if (fragmentCollectionComplete(state)) break;
+  const children = Array.from(element.childNodes);
+  for (let index = 0; index < children.length; index += 1) {
+  visitFragmentNode(children[index], state, hasNativeRuby);
+  if (fragmentCollectionComplete(state)) {
+    deferBudgetTruncatedChildren(children, index + 1);
+    break;
   }
+  }
+}
+const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
+function deferBudgetTruncatedChildren(children, fromIndex) {
+  for (let index = fromIndex; index < children.length; index += 1) {
+  const child = children[index];
+  if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
+    deferDepthCappedShadowHost(child);
+  }
+  }
+}
+function subtreeMayHostOpenShadowRoot(element) {
+  if (isPotentialOpenShadowHostElement(element)) return true;
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
+  for (let inspected = 0, node = walker.nextNode(); node && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
+  if (isPotentialOpenShadowHostElement(node)) return true;
+  }
+  return walker.nextNode() !== null;
+}
+function isPotentialOpenShadowHostElement(element) {
+  return Boolean(element.shadowRoot) || element.localName.includes("-");
 }
 function nextFragmentRubyState(element, hasNativeRuby) {
   return hasNativeRuby || element.tagName === "RUBY" || element.tagName === "RB";
@@ -33961,8 +33996,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.250"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.250"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.251"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.251"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34082,7 +34117,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.250"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.251"}`;
   } catch {
   return null;
   }
