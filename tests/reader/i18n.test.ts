@@ -168,6 +168,19 @@ describe('interface language resolution', () => {
         }
     });
 
+    it('keeps the getting-started page covered by Japanese docs copy', async () => {
+        // Split every line into the text-node segments the theme's
+        // translateTextNodes sees after rendering (inline code, bold, links,
+        // and HTML tags each become separate elements), so copy rewrites
+        // cannot drift from the hosted ja map again (the 2026-07 rewrite
+        // shipped with ~110 untranslated segments).
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const pageSource = readFileSync('docs/getting-started.md', 'utf8');
+        const copy = markdownPageTextCopy(pageSource);
+
+        expect(copy.filter(value => !hasHostedDocsJaCopy(themeSource, value))).toEqual([]);
+    });
+
     it('keeps latest changelog entries covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const changelogSource = readFileSync('CHANGELOG.md', 'utf8');
@@ -180,6 +193,53 @@ describe('interface language resolution', () => {
         expect(latestCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 });
+
+function markdownPageTextCopy(pageSource: string): string[] {
+    const copy = new Set<string>();
+    const add = (value: string | null | undefined) => {
+        const core = value?.trim();
+        if (core && /[A-Za-z]{2,}/.test(core)) copy.add(core);
+    };
+    const frontmatter = pageSource.match(/^---\n([\s\S]*?)\n---\n/);
+    for (const match of (frontmatter?.[1] ?? '').matchAll(/^(?:title|description):\s*(.+)$/gm)) add(match[1]);
+
+    let inCodeFence = false;
+    for (const line of pageSource.slice(frontmatter ? frontmatter[0].length : 0).split('\n')) {
+        if (/^\s*```/.test(line)) { inCodeFence = !inCodeFence; continue; }
+        if (inCodeFence) continue;
+        const heading = line.match(/^#{1,6}\s+(.+)$/);
+        if (heading) {
+            const title = decodeMarkdownLinks(heading[1].replace(/\*\*/g, '')).trim();
+            add(title);
+            add(`Permalink to "${title}"`);
+            continue;
+        }
+        for (const match of line.matchAll(/\b(?:aria-label|alt|title|placeholder)="([^"]+)"/g)) add(decodeMarkdownHtml(match[1]));
+        // Attribute values on HTML lines are handled above; drop the tags and
+        // inline code so only rendered text-node segments remain.
+        const text = line
+            .replace(/^\s*(?:-|\d+\.)\s+/, '')
+            .replace(/<code>.*?<\/code>/g, '`x`')
+            .replace(/:src="[^"]*"/g, '');
+        if (/^\s*<(?:div|figure|img|source|video|a\b)[^>]*>\s*$/.test(text) || /^\s*<\/\w+>\s*$/.test(text)) continue;
+        for (const segment of markdownPageSegments(text)) add(segment);
+    }
+    return [...copy];
+}
+
+function markdownPageSegments(value: string): string[] {
+    return value
+        .split(/(`[^`]*`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|<[^>]+>)/g)
+        .map(segment => {
+            if (!segment || /^`[^`]*`$/.test(segment) || /^<[^>]+>$/.test(segment)) return '';
+            const strong = segment.match(/^\*\*(.*?)\*\*$/);
+            if (strong) return decodeMarkdownLinks(strong[1] ?? '').trim();
+            const link = segment.match(/^\[([^\]]+)\]\([^)]+\)$/);
+            if (link) return decodeMarkdownHtml(link[1]?.trim() ?? '');
+            return decodeMarkdownHtml(decodeMarkdownLinks(segment));
+        })
+        .filter(Boolean);
+}
 
 function between(source: string, startMarker: string, endMarker: string): string {
     const start = source.indexOf(startMarker);

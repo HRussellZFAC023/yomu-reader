@@ -4,7 +4,7 @@ import { runningAsBrowserExtension } from './runtime-env';
 import { documentHasJapaneseText } from '../dom/index';
 import { initJpdbReviewPageBridge } from '../jpdb/jpdb-review-bridge';
 import { loggingSettingsSummary } from './logger';
-import { applyUrlBootstrapSettings, loadSettings } from '../settings/index';
+import { applyUrlBootstrapSettings, loadSettings, SETTINGS_STORAGE_KEY } from '../settings/index';
 import type { ReaderSettings } from './types';
 import { scanScopeRoots } from './annotation-scope';
 
@@ -20,13 +20,40 @@ export interface ReaderStartupSettings {
 }
 
 export async function loadReaderStartupSettings(options?: ReaderAppInitOptions): Promise<ReaderStartupSettings> {
-    const loadedSettings = await loadSettings();
+    const loadedSettings = adoptHostedInterfaceLanguage(await loadSettings());
     const settings = applyUrlBootstrapSettings(loadedSettings);
     return {
         settings,
         settingsSummary: loggingSettingsSummary(settings),
         shouldShowWelcome: options?.showWelcome ?? true,
     };
+}
+
+// The hosted docs/study pages keep their interface-language choice in
+// page-localStorage (the docs theme's あ toggle writes it there and mirrors
+// every runtime echo into it), while the userscript runtime persists to GM
+// storage. When the runtime boots AFTER the visitor toggles the page language
+// — the toggle itself boots the runtime on docs pages — the runtime's stale GM
+// copy would otherwise ride along on its next full-settings save and clobber
+// the visitor's choice back (the "tap the toggle twice" bug). On hosted app
+// URLs the page-visible choice is authoritative at boot.
+function adoptHostedInterfaceLanguage(settings: ReaderSettings, href = location.href): ReaderSettings {
+    if (!isYomuHostedAppUrl(href)) return settings;
+    const language = hostedPageInterfaceLanguage();
+    if (!language || settings.interfaceLanguage === language) return settings;
+    return { ...settings, interfaceLanguage: language };
+}
+
+function hostedPageInterfaceLanguage(): ReaderSettings['interfaceLanguage'] | null {
+    try {
+        const raw = window.localStorage?.getItem(SETTINGS_STORAGE_KEY);
+        if (!raw) return null;
+        const record = JSON.parse(raw) as { interfaceLanguage?: unknown } | null;
+        const value = record?.interfaceLanguage;
+        return value === 'auto' || value === 'en' || value === 'ja' ? value : null;
+    } catch {
+        return null;
+    }
 }
 
 export function shouldShowReaderOnboarding(shouldShowWelcome: boolean, href = location.href): boolean {

@@ -120,6 +120,14 @@ let accentSyncBound = false;
 let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
 let hostedSettingsEventPatch: Record<string, any> = {};
+// The あ toggle's most recent explicit choice. A reader runtime that boots
+// AFTER the toggle (the toggle itself boots it on docs pages) loads a stale
+// GM-storage settings copy and echoes it back on its first full-settings
+// save; without this guard that echo persisted the OLD interfaceLanguage and
+// the visitor had to tap the toggle twice. Echoes contradicting a recent
+// explicit choice are ignored and the choice is re-broadcast to the runtime.
+let hostedExplicitLanguageChoice: { language: InterfaceLanguage; at: number } | null = null;
+const HOSTED_LANGUAGE_ECHO_WINDOW_MS = 15000;
 let themeClassObserver: MutationObserver | undefined;
 let hostedDocsShellSyncPending = false;
 let hostedDocsLocalizationPending = false;
@@ -2441,6 +2449,121 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'file instead of opening an install screen.': 'ファイルをダウンロードしてしまうユーザースクリプトマネージャーについて、インストールのトラブルシューティングを追加しました。',
     'fails if a build ever drops or mismatches those hashes.': 'が失敗するようになりました。',
     'Allow User Scripts': 'Allow User Scripts（ユーザースクリプトを許可）',
+    // Getting Started (2026-07 rewrite): userscript-first install flow, update
+    // guidance, browser-extension section, welcome panel, and mobile guidance.
+    'Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, Bunpro, JPDB, Anki, OCR, and audio setup included.': '3つのステップでよむをインストール — 無料のユーザースクリプト管理ツール（PCはTampermonkey、iPhone/iPadはUserscripts）を追加し、よむをインストールして、日本語ページを開いて単語を検索します。アカウントは不要です。Jiten、Bunpro、JPDB、Anki、OCR、音声の設定は任意で追加できます。',
+    'is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: look up a word in the popup dictionary, save words for review, read manga with OCR, and check subtitles on video. It\'s free and needs no account to start.': 'はブラウザー内で動く小さなアドオンです。無料の管理ツールを一度インストールしてよむを追加すると、日本語ページによむが表示されます。ポップアップ辞書で単語を調べ、復習用に単語を保存し、OCRで漫画を読み、動画の字幕を確認できます。無料で、始めるのにアカウントは不要です。',
+    '— opening よむ\'s popup on a word.': ' — 単語の上でよむのポップアップを開く操作です。',
+    'Jiten, Bunpro, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them;': 'Jiten、Bunpro、JPDB、Anki、OCR、音声機能はオプションです。使いたいときに有効化してください。',
+    'Update an existing install': '既存インストールのアップデート',
+    'Permalink to "Update an existing install"': '「既存インストールのアップデート」への固定リンク',
+    'On Chrome or Edge with Tampermonkey, update from inside Tampermonkey instead of opening the': 'ChromeまたはEdgeのTampermonkeyでは、Webサイトインストールとして',
+    'link as a website install:': 'リンクを開くのではなく、Tampermonkeyの内部からアップデートしてください：',
+    'Tampermonkey Dashboard': 'Tampermonkeyダッシュボード',
+    'Utilities': 'Utilities（ユーティリティ）',
+    'Select': 'そこで',
+    'Check for userscript updates': 'Check for userscript updates（ユーザースクリプトの更新を確認）',
+    ', then accept the Yomu update.': 'を選択し、よむの更新を承認します。',
+    'If Chrome says “Apps, extensions, and user scripts cannot be added from this website,” changing the link to GitHub Raw will not fix it—the browser permission is disabled. Open Tampermonkey’s extension details and enable': 'Chromeに「このWebサイトからアプリ、拡張機能、ユーザースクリプトを追加することはできません」と表示される場合、リンクをGitHub Rawに変えても解決しません。ブラウザー側の権限が無効になっているためです。Tampermonkeyの拡張機能の詳細を開き、',
+    '(Chrome 138+) or enable': '（Chrome 138以降）または',
+    ', following': 'を有効にしてください。手順は',
+    'Tampermonkey’s current permission guide': 'Tampermonkeyの最新の権限ガイドを参照してください',
+    'That popup comes from Chrome or Edge, not よむ — changing to GitHub Raw will not bypass it. Open your browser\'s extensions page (': 'このポップアップはよむではなく、ChromeまたはEdge本体のものです。GitHub Rawに変えても回避できません。ブラウザーの拡張機能ページ（',
+    'Open the install link in Safari. You will see the よむ userscript source code — lines like the ones below. Leave that tab open; Userscripts reads it to install よむ.': 'インストールリンクをSafariで開きます。よむユーザースクリプトのソースコード（以下のような行）が表示されます。そのタブは開いたままにしてください。Userscriptsがそれを読み取ってよむをインストールします。',
+    'Open Safari\'s page menu from the address bar:': 'アドレスバーからSafariのページメニューを開きます：',
+    'choose': 'アドレスバーの左側にある',
+    'on the left of the address bar, then choose': 'を選択し、次に',
+    'choose the': 'アドレスバーにある',
+    '(a puzzle piece) in the address bar, then choose': '（パズルのピース型）を選択し、次に',
+    '"Userscript Detected."': '「Userscript Detected（ユーザースクリプトが検出されました）」',
+    'Choose it, review the script, and choose': 'と表示されます。それを選択してスクリプトを確認し、',
+    'Prefer a browser extension? (Chrome and Firefox)': 'ブラウザー拡張機能のほうがいい？（ChromeとFirefox）',
+    'Permalink to "Prefer a browser extension? (Chrome and Firefox)"': '「ブラウザー拡張機能のほうがいい？（ChromeとFirefox）」への固定リンク',
+    'On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It\'s the same よむ, packaged for Chrome and Firefox, with a toolbar menu and a study page. It never replaces your browser\'s new-tab page; open Study when you want it from the よむ toolbar icon. Store links will appear here as they are approved, and the versioned packages on GitHub Releases remain available for direct installation and testing.': 'PCでは、ユーザースクリプト管理ツールを使わずに、よむを通常のブラウザー拡張機能としてインストールすることもできます。ChromeとFirefox向けにパッケージした同じよむで、ツールバーメニューと学習ページが付属します。ブラウザーの新しいタブページを置き換えることはありません。使いたいときに、よむのツールバーアイコンから学習ページを開いてください。ストアのリンクは承認され次第ここに掲載されます。GitHub Releasesのバージョン付きパッケージは、直接のインストールやテスト用に引き続き利用できます。',
+    'Grab the latest packages from the': '最新のパッケージは',
+    'GitHub releases page': 'GitHubリリースページから入手できます',
+    'The よむ browser-extension menu with buttons to open Study, open the video player, open settings on the current page, and open the documentation.': '学習ページ、動画プレーヤー、現在のページの設定、ドキュメントを開くボタンが並ぶ、よむブラウザー拡張機能のメニュー。',
+    'Clicking the よむ toolbar icon opens this quick menu.': 'よむのツールバーアイコンをクリックすると、このクイックメニューが開きます。',
+    'Permalink to "Chrome or Edge"': '「ChromeまたはEdge」への固定リンク',
+    'Download': 'まず',
+    'from the latest release and unzip it.': 'を最新リリースからダウンロードして解凍します。',
+    '(or': '（または',
+    ') and turn on': '）を開き、',
+    'in the top corner.': 'を画面の隅で有効にします。',
+    'Click': '次に',
+    'Load unpacked': 'Load unpacked（パッケージ化されていない拡張機能を読み込む）',
+    'and choose the folder you unzipped (the one with': 'をクリックし、解凍したフォルダー（',
+    'inside).': 'が入っているもの）を選択します。',
+    'Open a Japanese page — the floating よむ button appears, and clicking the よむ toolbar icon opens a quick menu.': '日本語のページを開くと、フローティングのよむボタンが表示され、よむのツールバーアイコンをクリックするとクイックメニューが開きます。',
+    'Permalink to "Firefox"': '「Firefox」への固定リンク',
+    'from the latest release.': 'を最新リリースからダウンロードします。',
+    'Load Temporary Add-on': 'Load Temporary Add-on（一時的なアドオンを読み込む）',
+    'and pick the': 'をクリックし、',
+    'file.': 'ファイルを選択します。',
+    'Open a Japanese page to start reading.': '日本語のページを開いて読み始めます。',
+    'Which should I pick?': 'どちらを選べばいい？',
+    'The userscript is the easiest path and updates itself from one link, so it\'s the default recommendation. Choose the extension if you\'d rather not run a userscript manager, or if you want quick access to Study from the browser toolbar. On iPhone and iPad, the userscript is the only option — there\'s no iOS extension.': 'ユーザースクリプトは最も簡単な方法で、1つのリンクから自動的に更新されるため、既定のおすすめです。ユーザースクリプト管理ツールを使いたくない場合や、ブラウザーのツールバーから学習ページへすぐアクセスしたい場合は拡張機能を選んでください。iPhoneとiPadではユーザースクリプトが唯一の選択肢です — iOS用の拡張機能はありません。',
+    'The first time よむ runs, it shows a': 'よむの初回起動時には',
+    'welcome panel': 'ようこそパネル',
+    '. The top half is quick setup — language, theme and accent colour, Japanese text on webpages, image OCR, video subtitles, and the hover/scan shortcuts — all pre-set to sensible defaults you can scroll straight past. For webpage text, the three choices say exactly what they do:': 'が表示されます。上半分はクイック設定です — 言語、テーマとアクセントカラー、Webページ上の日本語テキスト、画像OCR、動画字幕、ホバー／スキャンのショートカット — いずれも妥当な既定値があらかじめ設定されているので、そのままスクロールして飛ばせます。Webページのテキストについては、3つの選択肢がそのまま動作を表しています：',
+    'Leave pages unchanged': 'ページを変更しない',
+    'Scan Japanese automatically': '日本語を自動でスキャン',
+    'Scan only when I ask': '指示したときだけスキャン',
+    '. Automatic scanning finds Japanese as a page loads; manual scanning waits for your shortcut or menu action. Image OCR is a separate setting. Under the setup sit the two choices:': '。自動スキャンはページの読み込みと同時に日本語を検出します。手動スキャンはショートカットまたはメニュー操作を待ちます。画像OCRは別の設定です。設定の下には2つの選択肢があります：',
+    '— the highlighted first button: start reading right now, no account needed.': ' — 強調表示された最初のボタンです。アカウント不要で、今すぐ読み始められます。',
+    'Add API source': 'APIソースを追加',
+    '— connect Jiten, Bunpro, or JPDB for word tracking and mining. Optional, and you can do it later (': ' — 単語の進捗管理とマイニングのためにJiten、Bunpro、またはJPDBを接続します。任意で、あとからでも設定できます（',
+    'A feature grid below the buttons previews what よむ can do; you don\'t need to configure any of it now.': 'ボタンの下の機能グリッドは、よむにできることのプレビューです。今すぐ設定する必要はありません。',
+    'The welcome screen also offers': 'ようこそ画面には',
+    'Offline setup': 'オフラインセットアップ',
+    '(checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.': '（既定でオン）もあります。よむがバックグラウンドでJitendex辞書とKanjiumピッチアクセントをダウンロードするため、解析、検索、ふりがな、ピッチの色分けがすべてブラウザー内でローカルに動作します — 高速でプライベート、オフラインでも利用できます。あとで設定→ソースから自分の辞書をインポートしたい場合を除き、オンのままにしてください。',
+    'Select or click': '単語を選択またはクリック',
+    'a word. On phones and tablets, touch the word; on desktop, hover also works.': 'します。スマートフォンやタブレットでは単語をタッチします。デスクトップではホバーでも動作します。',
+    'The popup opens with the reading, meaning, and a speaker button. Choose a kanji to see stroke order; use a mining button to save the word.': '読み、意味、スピーカーボタンの付いたポップアップが開きます。漢字を選ぶと書き順が表示され、マイニングボタンで単語を保存できます。',
+    'Try me — look up a word': 'お試し — 単語を調べてみよう',
+    'In よむ, open settings with the floating よむ button. The': 'よむでは、フローティングのよむボタンから設定を開きます。',
+    'shortcut is configurable in Settings → Shortcuts.': 'のショートカットは設定→ショートカットで変更できます。',
+    'For Bunpro, open Bunpro\'s API settings while signed in and use the': 'Bunproの場合は、サインインした状態でBunproのAPI設定を開き、',
+    'Import into Yomu': 'Import into Yomu（よむに取り込む）',
+    'button. Yomu needs only the imported': 'ボタンを使います。よむに必要なのは取り込まれた',
+    'frontend token': 'フロントエンドトークン',
+    'for definitions, queue, mining, and Study grading; it does not use the older Bunpro API key. The token grants review read/write access, so treat it like a password. Yomu uses Bunpro\'s private frontend endpoint, which is not a documented public API and may change.': 'だけで、定義、キュー、マイニング、Studyの採点に使われます。旧来のBunpro APIキーは使いません。トークンにはレビューの読み書き権限があるため、パスワードと同じように扱ってください。よむはBunproの非公開フロントエンドエンドポイントを使用しており、これは文書化された公開APIではなく、変更される可能性があります。',
+    'The same authenticated Bunpro detail can add separately labelled General, Anime, Novels, Netflix, and Dictionary frequency ranks plus supplemental pitch evidence. These are different corpus ranks, not one universal score.': '同じ認証済みBunpro連携から、General、Anime、Novels、Netflix、Dictionaryとして個別にラベル付けされた頻度ランクと、補助的なピッチ情報を追加できます。これらは異なるコーパスのランクであり、1つの普遍的なスコアではありません。',
+    'Bunpro pronunciation': 'Bunpro発音',
+    'appears in Settings → Audio but is disabled by default. Its recordings are fetched at runtime from Bunpro\'s public CDN; hosted/browser playback may use よむ\'s narrow public proxy.': 'は設定→音声にありますが、既定では無効です。録音は実行時にBunproの公開CDNから取得されます。ホスト版／ブラウザーでの再生には、よむの限定的な公開プロキシが使われることがあります。',
+    'Bunpro grading is deliberately tied to a live Study queue session: regular reveal cards use': 'Bunproの採点は、意図的にライブのStudyキューセッションに結び付けられています。通常のめくりカードは',
+    ', and FSRS cards use': 'を、FSRSカードは',
+    '. There is no Bunpro five-point scale, and Bunpro grades are not stored for later while offline because session and ghost-review ids can change.': 'を使います。Bunproに5段階評価はなく、セッションIDやゴーストレビューIDが変わる可能性があるため、オフライン中のBunpro採点があとから送信するために保存されることもありません。',
+    'Open よむ settings with the floating よむ button to switch these on when you want them. The': 'フローティングのよむボタンからよむの設定を開き、使いたいときにこれらを有効化してください。',
+    'shortcut is configurable in Settings → Shortcuts. Each is covered in': 'のショートカットは設定→ショートカットで変更できます。各機能の詳細は',
+    '— look up Japanese text inside manga panels and screenshots. Settings → Images. Reading manga on BookWalker or in mokuro volumes? Follow the': ' — 漫画のコマやスクリーンショット内の日本語を検索します。設定→画像。BookWalkerやmokuroで漫画を読むなら、',
+    'manga guide': '漫画ガイドを参照してください',
+    'PC games': 'PCゲーム',
+    '— download the first-party': ' — 公式の',
+    'Yomu Gaming release file': 'Yomu Gamingリリースファイル',
+    ', finish the first-run setup, and set your capture shortcut. Yomu Gaming uses Yomu\'s default Google Lens-style OCR first; advanced local OCR is optional for offline capture.': 'をダウンロードし、初回セットアップを完了して、キャプチャ用ショートカットを設定します。Yomu Gamingはまずよむ既定のGoogle Lens方式OCRを使います。オフラインキャプチャ向けの高度なローカルOCRは任意です。',
+    '— parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the': ' — 日本語の字幕行を解析して検索でき、トランスクリプトパネルも付きます。ローカルファイルには',
+    'PDFs': 'PDF',
+    'PDF reader': 'PDFリーダー',
+    'when the Japanese is in a textbook, scan, or article file.': 'を開いてください。教科書、スキャン、記事ファイルの日本語に使えます。',
+    '— turn lookups into flashcards with one tap: cards carry the word, reading, meaning, the sentence you found it in, and pitch and audio when available (see': ' — 検索した単語をワンタップでフラッシュカードにします。カードには単語、読み、意味、見つけた文が入り、利用可能ならピッチと音声も付きます（',
+    'mining guide': 'マイニングガイド',
+    '). Desktop': 'を参照）。デスクトップの',
+    '— Yomu hosted audio is on by default. Add': ' — よむのホスト版音声は既定でオンです。別のソースが必要な場合のみ',
+    'or a local server only if you want another source.': 'またはローカルサーバーを追加してください。',
+    '— open': ' — 毎日の復習には',
+    'for daily review, or use': 'を開くか、',
+    'from the browser-extension toolbar menu. A freshly opened standalone session starts at': 'をブラウザー拡張機能のツールバーメニューから使います。新しく開いた単独セッションは',
+    ', a recognition-first prompt that asks you to identify the word before moving through the rest of the card.': 'から始まります。これは認識優先のプロンプトで、カードの残りに進む前にその単語が分かるかを確認します。',
+    'For more, use': 'さらに探すには、',
+    'to find books near your level, or browse the': 'で自分のレベルに近い本を見つけるか、',
+    'guides': 'ガイド',
+    'for manga, video, game text, and study workflows.': 'で漫画、動画、ゲームテキスト、学習ワークフローを確認してください。',
+    'On mobile, よむ can still do lookup, local dictionaries, Jiten/JPDB, OCR, subtitles, the': 'モバイルでも、よむは検索、ローカル辞書、Jiten/JPDB、OCR、字幕に加えて、',
+    '. The floating よむ button stays reachable so you can always open settings.': 'も利用できます。フローティングのよむボタンには常に届くので、いつでも設定を開けます。',
+    'The only tricky part is any helper app running on your computer: AnkiConnect, a self-hosted audio server, or a local OCR app. A phone cannot reach your computer through': '唯一の注意点は、PC上で動く補助アプリ（AnkiConnect、自己ホストの音声サーバー、ローカルOCRアプリ）です。スマートフォンは',
+    '; use the computer\'s LAN or Tailscale address in よむ settings instead. The easy mobile paths — public lookup, imported dictionaries, hosted audio, the study page — don\'t need any of that.': '経由ではPCに到達できません。代わりに、よむの設定でPCのLANアドレスまたはTailscaleアドレスを使ってください。簡単なモバイル経路 — 公開検索、インポート辞書、ホスト版音声、学習ページ — にはどれも不要です。',
+    'If the hosted Study page or a Home Screen shortcut still looks like an old version after an update, open': 'アップデート後もホスト版の学習ページやホーム画面のショートカットが古いバージョンのままに見える場合は、',
     '(on older browsers, turn on': '（古いブラウザーでは代わりに拡張機能ページ上部の',
     'Developer mode': 'Developer mode（デベロッパーモード）',
     'at the top of the extensions page instead). Then open the install link again.': 'をオンにしてください）。そのあと、もう一度インストールリンクを開いてください。',
@@ -3164,6 +3287,7 @@ function readInterfaceLanguage(): string {
 }
 
 function saveInterfaceLanguage(language: InterfaceLanguage): void {
+    hostedExplicitLanguageChoice = { language, at: Date.now() };
     writeStoredSettingsPatch({ interfaceLanguage: language });
     window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { language } }));
 }
@@ -3560,8 +3684,13 @@ function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, 
     const interfaceLanguage = hostedInterfaceLanguagePreferenceFromValue(settings.interfaceLanguage);
     if (theme) patch.theme = theme;
     if (accentColor) patch.accentColor = accentColor;
-    if (interfaceLanguage) patch.interfaceLanguage = interfaceLanguage;
+    if (interfaceLanguage && !isStaleHostedLanguageEcho(interfaceLanguage)) patch.interfaceLanguage = interfaceLanguage;
     return patch;
+}
+
+function isStaleHostedLanguageEcho(language: HostedInterfaceLanguagePreference): boolean {
+    const choice = hostedExplicitLanguageChoice;
+    return Boolean(choice && language !== choice.language && Date.now() - choice.at < HOSTED_LANGUAGE_ECHO_WINDOW_MS);
 }
 
 function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?: boolean } = {}): Record<string, any> {
@@ -4084,6 +4213,13 @@ function syncHostedLanguageFromSettingsEvent(event: Event): void {
         && hostedAppliedAnnotationSettings !== annotationFingerprint;
     hostedAppliedAnnotationSettings = annotationFingerprint;
     const language = hostedInterfaceLanguagePreferenceFromValue(change.settings.interfaceLanguage);
+    if (language && isStaleHostedLanguageEcho(language)) {
+        // A runtime that booted after the あ toggle just echoed its stale
+        // stored language; hostedSettingsPatch drops that value, and
+        // re-broadcasting the choice lets the (now booted) runtime adopt it.
+        const choice = hostedExplicitLanguageChoice;
+        if (choice) window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { language: choice.language } }));
+    }
     if (language) {
         rememberHostedSettingsChange(change.settings, !change.preview);
         syncHostedLanguageToggle();
