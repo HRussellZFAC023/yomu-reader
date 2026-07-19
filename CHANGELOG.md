@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- The published privacy policy now uses a real `/privacy/` directory route, so browser-store reviewers and users reach the policy instead of a trailing-slash 404.
 - Firefox now asks for its built-in website-content and optional account-data consent in the correct extension-owned context before reading or storing account credentials, and fails closed when that consent cannot be requested.
 - Store packages now carry their reader CSS and third-party notices locally, while the Firefox source bundle and browser archives build reproducibly for review. Major-version publishing is prepared automatically but remains behind a protected human release checkpoint.
 
