@@ -1299,6 +1299,7 @@ function snapshotRedditPageSummary() {
     const radialItems = [...document.querySelectorAll('.jpdb-reader-fab-radial-item')];
     const radialRects = radialItems.map(item => scalePlainRect(item.getBoundingClientRect(), compensatedRectScale));
     const radialCenters = radialRects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
+    const visualViewportBottom = ((visualViewport?.offsetTop ?? 0) + (visualViewport?.height ?? innerHeight)) * pageScale;
     return {
         layout: {
             fixture: document.documentElement.dataset.yomuFixture,
@@ -1328,7 +1329,18 @@ function snapshotRedditPageSummary() {
             puckWidth: puckRect.width,
             puckHeight: puckRect.height,
             puckRightGap: outerWidth - puckRect.right,
-            puckBottomGap: innerHeight * (outerWidth / innerWidth) - puckRect.bottom,
+            puckBottomGap: visualViewportBottom - puckRect.bottom,
+            puckLayoutBottomGap: innerHeight * pageScale - puckRect.bottom,
+            puckComputedBottom: getComputedStyle(puck).bottom,
+            rawPuckRect: scalePlainRect(rawPuckRect, 1),
+            outerHeight,
+            documentClientHeight: document.documentElement.clientHeight,
+            visualViewport: visualViewport ? {
+                width: visualViewport.width,
+                height: visualViewport.height,
+                scale: visualViewport.scale,
+                offsetTop: visualViewport.offsetTop,
+            } : null,
             radialWidths: radialRects.map(rect => rect.width),
             adjacentDistances: radialCenters.slice(1).map((center, index) => Math.hypot(
                 center.x - radialCenters[index].x,
