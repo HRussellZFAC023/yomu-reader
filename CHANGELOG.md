@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.227] - 2026-07-19
+
+### Fixed
+
+- The Academy courtyard notebook now grows with its task instead of trapping the word-order exercise behind an internal scroll panel, on desktop and phones alike, so the chips and the start control are always on the paper.
+- Word-order chips on the courtyard notebook are readable paper slips with ink borders instead of grey app chrome, the answer line reads as a ruled handwriting line, and the reset control is a quiet inline link.
+- Rie-sensei stands beside the courtyard notice board instead of behind it, so her clickable name tag is no longer buried under the pinned journal card at narrower windows.
+
 ## [1.6.226] - 2026-07-19
 
 ### Added

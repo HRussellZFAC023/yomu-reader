@@ -7659,7 +7659,11 @@
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-character[data-world-character='rie'] {
-    right: 8%;
+    /* Rie stands beside the notice board, not behind it: at 8% she and her
+       clickable name tag sank under the board and the pinned journal card
+       below ~1300px. 34% keeps her left of the board rail at every width
+       with only a slight, intentional overlap. */
+    right: 34%;
     left: auto;
     width: min(310px, 23vw);
     animation: academy-courtyard-rie-in 560ms 170ms cubic-bezier(0.18, 0.72, 0.24, 1) both;
@@ -7699,7 +7703,10 @@
     z-index: 6;
     width: min(330px, 27vw);
     min-width: 280px;
-    max-height: min(44dvh, 360px);
+    /* The notebook is a paper prop: it must grow with its task, never become
+       an internal scroll panel that clips the token chips mid-exercise. The
+       generous cap only engages on extremely short viewports. */
+    max-height: calc(100svh - 150px);
     margin: 0;
     padding: 34px 22px 34px;
     overflow: auto;
@@ -7728,6 +7735,69 @@
     content: '';
     transform-origin: left;
     animation: academy-courtyard-thread-draw 520ms 520ms ease-out both;
+}
+
+/* The token-order exercise reads as handwriting practice on the notebook:
+   an answer rule line, paper-slip word chips (the grey app-chrome chips were
+   illegible cream-on-grey and clipped by the card's scroll cap), and a quiet
+   inline reset. */
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order {
+    display: grid;
+    gap: 9px;
+    justify-items: start;
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-response {
+    min-height: 1.6em;
+    align-self: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 2px 4px;
+    border-bottom: 2px solid color-mix(in srgb, var(--courtyard-ink) 34%, transparent);
+    font: 700 1.02rem/1.5 var(--academy-japanese-font);
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-option {
+    padding: 6px 13px;
+    border: 1.5px solid color-mix(in srgb, var(--courtyard-ink) 52%, transparent);
+    border-radius: 0;
+    color: var(--courtyard-ink);
+    background: #fffdf2;
+    box-shadow: 2px 3px 0 rgba(20, 15, 12, 0.16);
+    clip-path: polygon(2% 8%, 98% 0, 100% 90%, 1% 100%);
+    cursor: pointer;
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-option:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+    cursor: default;
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-option .academy-world-practice-choice-support {
+    color: color-mix(in srgb, var(--courtyard-ink) 64%, transparent);
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-reset {
+    padding: 2px 4px;
+    border: 0;
+    color: color-mix(in srgb, var(--courtyard-ink) 66%, transparent);
+    background: transparent;
+    font: 700 0.76rem/1.3 var(--academy-font);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.academy-world-screen[data-current-place='courtyard'] .academy-world-token-order-reset:disabled {
+    opacity: 0.45;
+    text-decoration: none;
+    cursor: default;
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-action-speaker {
@@ -7991,7 +8061,9 @@
         inset: auto 7px calc(78px + env(safe-area-inset-bottom));
         width: auto;
         min-width: 0;
-        max-height: 29svh;
+        /* Same no-internal-scroll contract as desktop: the notebook grows
+           over the empty stage rather than clipping the exercise chips. */
+        max-height: calc(100svh - 210px - env(safe-area-inset-bottom));
         margin: 0;
         padding: 25px 16px 13px;
         overflow: auto;
@@ -8043,7 +8115,7 @@
 @media (max-width: 760px) and (max-height: 700px) {
     .academy-world-screen[data-current-place='courtyard'] .academy-world-action-dock,
     .academy-world-screen[data-current-place='courtyard'] .academy-world-action-dock[data-purpose-surface='noticeboard'] {
-        max-height: 31svh;
+        max-height: calc(100svh - 170px - env(safe-area-inset-bottom));
         padding-top: 22px;
         padding-bottom: 10px;
     }
