@@ -4,6 +4,7 @@ import { ReaderApp } from '../../src/reader/app/main';
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { initJpdbReviewPageBridge } from '../../src/reader/jpdb/jpdb-review-bridge';
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT } from '../../src/reader/dom/index';
+import { OPEN_SHADOW_ROOT_DISCOVERY_EVENT } from '../../src/reader/dom/shadow-scan-registry';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
 
@@ -74,10 +75,13 @@ describe('reader global listener lifecycle (FIX 1)', () => {
             // are the ones destroy() removes by other means:
             //   • DOMContentLoaded {once:true} bootstrap listeners (self-clearing)
             //   • the NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT listener, which is
-            //     explicitly removeEventListener'd in destroy().
+            //     explicitly removeEventListener'd in destroy()
+            //   • the reference-counted page-realm shadow bridge listener,
+            //     removed by disposeShadowRootDiscovery() during destroy().
             const leaked = globalCalls.filter(([type, , options]) => {
                 if (type === 'DOMContentLoaded') return false;
                 if (type === NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT) return false;
+                if (type === OPEN_SHADOW_ROOT_DISCOVERY_EVENT) return false;
                 const opts = options as AddEventListenerOptions | boolean | undefined;
                 if (!opts || typeof opts === 'boolean') return true;
                 return opts.signal !== abortSignal;

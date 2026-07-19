@@ -184,6 +184,28 @@ describe('shadow scan registry', () => {
         expect(discovered).toHaveBeenCalledWith(root, 'attached');
     });
 
+    it('uses the original composed-path host for a nested page-realm attachment', () => {
+        const originalAttachShadow = Element.prototype.attachShadow;
+        const outerHost = document.createElement('div');
+        document.body.append(outerHost);
+        const outerRoot = originalAttachShadow.call(outerHost, { mode: 'open' });
+        const nestedHost = document.createElement('nested-component');
+        outerRoot.append(nestedHost);
+
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const nestedRoot = originalAttachShadow.call(nestedHost, { mode: 'open' });
+
+        nestedHost.dispatchEvent(new CustomEvent(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, {
+            bubbles: true,
+            composed: true,
+        }));
+
+        expect(discovered).toHaveBeenCalledWith(nestedRoot, 'attached');
+        expect(discovered).not.toHaveBeenCalledWith(outerRoot, 'attached');
+    });
+
     it('keeps watching a connected lazy component after the fast hydration window', async () => {
         vi.useFakeTimers();
         const originalAttachShadow = Element.prototype.attachShadow;

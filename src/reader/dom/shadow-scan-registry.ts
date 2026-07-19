@@ -103,7 +103,8 @@ export function installOpenShadowRootDiscovery(): () => void {
 }
 
 function handleOpenShadowRootAttached(event: Event): void {
-    const root = event.target instanceof Element ? event.target.shadowRoot : null;
+    const host = event.composedPath()[0];
+    const root = host instanceof Element ? host.shadowRoot : null;
     if (root) noteShadowRoot(root, 'attached');
 }
 
