@@ -10,9 +10,11 @@ import {
     resetDecorationPolicyCachesForTest,
     setRubyDistortsConstrainedRowsForTest,
     removeNonDestructiveScanMirrors,
+    withMirrorTokenApply,
     type FragmentTextTarget,
 } from '../../src/reader/dom';
 import { closestRubyFragileConstrainedRow, isClipConstrainedRow } from '../../src/reader/dom/decoration-policy';
+import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -56,6 +58,53 @@ function mockRect(element: HTMLElement, rect: Pick<DOMRect, 'width' | 'height'>)
             toJSON: () => ({}),
         }) as DOMRect,
     });
+}
+
+function positionedRect(left: number, top: number, right: number, bottom: number): DOMRect {
+    return {
+        x: left,
+        y: top,
+        left,
+        top,
+        right,
+        bottom,
+        width: right - left,
+        height: bottom - top,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
+function mockRangeRects(rectForNode: (node: Node | null) => DOMRect[]): void {
+    const createRange = document.createRange.bind(document);
+    vi.spyOn(document, 'createRange').mockImplementation(() => {
+        const range = createRange();
+        let selected: Node | null = null;
+        const selectNodeContents = range.selectNodeContents.bind(range);
+        Object.defineProperty(range, 'selectNodeContents', {
+            configurable: true,
+            value: (node: Node) => {
+                selected = node;
+                selectNodeContents(node);
+            },
+        });
+        Object.defineProperty(range, 'getClientRects', {
+            configurable: true,
+            value: () => rectForNode(selected) as unknown as DOMRectList,
+        });
+        return range;
+    });
+}
+
+function mockElementsFromPoint(elements: HTMLElement[]): () => void {
+    const original = Object.getOwnPropertyDescriptor(document, 'elementsFromPoint');
+    Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: () => elements,
+    });
+    return () => {
+        if (original) Object.defineProperty(document, 'elementsFromPoint', original);
+        else Reflect.deleteProperty(document, 'elementsFromPoint');
+    };
 }
 
 function baseText(element: HTMLElement): string {
@@ -477,6 +526,415 @@ describe('interactive-passive geometry invariance', () => {
         expect(card.style.height).toBe('120px');
         expect(card.dataset.yomuRubyRoom).toBeUndefined();
     });
+
+    it('keeps a detached reading visible over same-line adjacent words and punctuation', () => {
+        document.body.innerHTML = '<span id="metadata"><span id="source">賛成票・</span><span id="plain" class="jpdb-reader-word">コメント</span></span>';
+        const source = document.querySelector<HTMLElement>('#source')!;
+        const plainWord = document.querySelector<HTMLElement>('#plain')!;
+        const sourceText = source.firstChild as Text;
+        const readingRect = positionedRect(76, 0, 122, 7);
+        const ownBaseRect = positionedRect(78, 8, 120, 25);
+        const sameLinePlainWordRect = positionedRect(120, 8, 180, 25);
+        const punctuationRect = positionedRect(120, 8, 134, 25);
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return readingRect;
+            if (this.classList.contains('jpdb-reader-ruby-base')) return ownBaseRect;
+            if (this === plainWord) return sameLinePlainWordRect;
+            if (this.classList.contains('jpdb-reader-word')) return ownBaseRect;
+            return positionedRect(0, 8, 180, 25);
+        });
+        mockRangeRects(node => node?.nodeType === Node.TEXT_NODE && node.textContent === '・' ? [punctuationRect] : []);
+        const restoreElementsFromPoint = mockElementsFromPoint([plainWord, source]);
+
+        try {
+            applyTokensToTextNode({
+                text: '賛成票・',
+                node: sourceText,
+                parent: source,
+                decoration: 'interactive-passive',
+                suppressRuby: true,
+            }, [token('賛成票', 0, '賛成票・', 'さんせいひょう')], FURIGANA_SETTINGS);
+
+            const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(reading.textContent).toBe('さんせいひょう');
+            expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading.style.getPropertyValue('display')).toBe('block');
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it.each<[string, string, string | undefined, string?]>([
+        ['opaque', 'rgb(17, 26, 29)', undefined],
+        ['transparent', 'transparent', 'unsafe-lane'],
+        ['missing-alpha', 'transparent', 'unsafe-lane', 'oklch(0.5 0.1 200 / none)'],
+        ['scientific-alpha', 'transparent', 'unsafe-lane', 'color(srgb 0.1 0.1 0.1 / 5e-1)'],
+    ])('treats text behind an %s shadow overlay according to its actual paint visibility', (_kind, background, hiddenReason, computedBackground) => {
+        document.body.innerHTML = '<div id="behind">underlying text</div><reddit-overlay-host></reddit-overlay-host>';
+        const behind = document.querySelector<HTMLElement>('#behind')!;
+        const host = document.querySelector<HTMLElement>('reddit-overlay-host')!;
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = `<div id="menu" style="background:${background}"><span id="source">賛成票</span></div>`;
+        const menu = root.querySelector<HTMLElement>('#menu')!;
+        const source = root.querySelector<HTMLElement>('#source')!;
+        const sourceText = source.firstChild as Text;
+        if (computedBackground) {
+            const realGetComputedStyle = window.getComputedStyle.bind(window);
+            vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+                const style = realGetComputedStyle(element, pseudoElement);
+                if (element !== menu) return style;
+                return new Proxy(style, {
+                    get(target, property) {
+                        if (property === 'backgroundColor') return computedBackground;
+                        const value = Reflect.get(target, property, target);
+                        return typeof value === 'function' ? value.bind(target) : value;
+                    },
+                });
+            });
+        }
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return positionedRect(76, 20, 122, 27);
+            if (this.classList.contains('jpdb-reader-ruby-base')) return positionedRect(78, 28, 120, 45);
+            if (this.classList.contains('jpdb-reader-word')) return positionedRect(78, 28, 120, 45);
+            if (this === source) return positionedRect(76, 28, 122, 45);
+            if (this === menu || this === host || this === behind) return positionedRect(0, 0, 180, 80);
+            return positionedRect(0, 0, 180, 80);
+        });
+        Object.defineProperty(root, 'elementsFromPoint', {
+            configurable: true,
+            // WebKit includes document layers behind the shadow surface in
+            // ShadowRoot.elementsFromPoint(), not only in the document stack.
+            value: () => [source, menu, behind],
+        });
+        mockRangeRects(node => node === behind.firstChild ? [positionedRect(76, 18, 150, 35)] : []);
+        const restoreElementsFromPoint = mockElementsFromPoint([host, behind]);
+
+        try {
+            applyTokensToTextNode({
+                text: '賛成票',
+                node: sourceText,
+                parent: source,
+                decoration: 'interactive-passive',
+                suppressRuby: true,
+            }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
+
+            const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(reading.dataset.yomuDetachedReadingHidden).toBe(hiddenReason);
+            expect(reading.style.getPropertyValue('display')).toBe(hiddenReason ? 'none' : 'block');
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it('keeps nested-shadow menu readings above text in an outer composed paint plane', () => {
+        document.body.innerHTML = '<div id="behind">underlying text</div><reddit-outer-overlay></reddit-outer-overlay>';
+        const behind = document.querySelector<HTMLElement>('#behind')!;
+        const outerHost = document.querySelector<HTMLElement>('reddit-outer-overlay')!;
+        const outerRoot = outerHost.attachShadow({ mode: 'open' });
+        outerRoot.innerHTML = '<div id="menu" style="background:rgb(17, 26, 29)"><reddit-inner-label></reddit-inner-label></div>';
+        const menu = outerRoot.querySelector<HTMLElement>('#menu')!;
+        const innerHost = outerRoot.querySelector<HTMLElement>('reddit-inner-label')!;
+        const innerRoot = innerHost.attachShadow({ mode: 'open' });
+        innerRoot.innerHTML = '<span id="source">賛成票</span>';
+        const source = innerRoot.querySelector<HTMLElement>('#source')!;
+        const sourceText = source.firstChild as Text;
+
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return positionedRect(76, 20, 122, 27);
+            if (this.classList.contains('jpdb-reader-ruby-base') || this.classList.contains('jpdb-reader-word')) {
+                return positionedRect(78, 28, 120, 45);
+            }
+            if (this === source) return positionedRect(76, 28, 122, 45);
+            return positionedRect(0, 0, 180, 80);
+        });
+        let innerRootHitQueries = 0;
+        let outerRootHitQueries = 0;
+        Object.defineProperty(innerRoot, 'elementsFromPoint', {
+            configurable: true,
+            // Reproduce WebKit leaking layers from ancestor/document roots
+            // into the innermost ShadowRoot stack.
+            value: () => {
+                innerRootHitQueries += 1;
+                return [source, menu, behind];
+            },
+        });
+        Object.defineProperty(outerRoot, 'elementsFromPoint', {
+            configurable: true,
+            value: () => {
+                outerRootHitQueries += 1;
+                return [innerHost, menu, behind];
+            },
+        });
+        mockRangeRects(node => node === behind.firstChild ? [positionedRect(76, 18, 150, 35)] : []);
+        const restoreElementsFromPoint = mockElementsFromPoint([outerHost, behind]);
+
+        try {
+            applyTokensToTextNode({
+                text: '賛成票',
+                node: sourceText,
+                parent: source,
+                decoration: 'interactive-passive',
+                suppressRuby: true,
+            }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
+
+            const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
+            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(innerRootHitQueries).toBeGreaterThan(0);
+            expect(outerRootHitQueries).toBeGreaterThan(0);
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it('detects visible foreign text in an intermediate transparent shadow root', () => {
+        document.body.innerHTML = '<reddit-outer-overlay></reddit-outer-overlay>';
+        const outerHost = document.querySelector<HTMLElement>('reddit-outer-overlay')!;
+        const outerRoot = outerHost.attachShadow({ mode: 'open' });
+        outerRoot.innerHTML = '<div id="surface"><span id="foreign">outer text</span><reddit-inner-label></reddit-inner-label></div>';
+        const surface = outerRoot.querySelector<HTMLElement>('#surface')!;
+        const foreign = outerRoot.querySelector<HTMLElement>('#foreign')!;
+        const innerHost = outerRoot.querySelector<HTMLElement>('reddit-inner-label')!;
+        const innerRoot = innerHost.attachShadow({ mode: 'open' });
+        innerRoot.innerHTML = '<span id="source">賛成票</span>';
+        const source = innerRoot.querySelector<HTMLElement>('#source')!;
+        const sourceText = source.firstChild as Text;
+
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return positionedRect(76, 20, 122, 27);
+            if (this.classList.contains('jpdb-reader-ruby-base') || this.classList.contains('jpdb-reader-word')) {
+                return positionedRect(78, 28, 120, 45);
+            }
+            if (this === foreign) return positionedRect(76, 18, 150, 35);
+            return positionedRect(0, 0, 180, 80);
+        });
+        Object.defineProperty(innerRoot, 'elementsFromPoint', {
+            configurable: true,
+            // The leaked outer hit is discarded here; the intermediate-root
+            // query below remains responsible for its visible text.
+            value: () => [source, foreign],
+        });
+        let outerRootHitQueries = 0;
+        Object.defineProperty(outerRoot, 'elementsFromPoint', {
+            configurable: true,
+            value: () => {
+                outerRootHitQueries += 1;
+                return [innerHost, foreign, surface];
+            },
+        });
+        mockRangeRects(node => node === foreign.firstChild ? [positionedRect(76, 18, 150, 35)] : []);
+        const restoreElementsFromPoint = mockElementsFromPoint([outerHost]);
+
+        try {
+            applyTokensToTextNode({
+                text: '賛成票',
+                node: sourceText,
+                parent: source,
+                decoration: 'interactive-passive',
+                suppressRuby: true,
+            }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
+
+            const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
+            expect(outerRootHitQueries).toBeGreaterThan(0);
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it.each<[
+        kind: string,
+        background: string,
+        stack: string[],
+        hiddenReason: string | undefined,
+        computedOverrides?: Record<string, string>,
+        geometry?: 'corner' | 'partial',
+    ]>([
+        ['opaque foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], undefined],
+        ['transparent foreground', 'transparent', ['menu', 'behind'], 'unsafe-lane'],
+        ['opaque background', 'rgb(17, 26, 29)', ['behind', 'menu'], 'unsafe-lane'],
+        ['filtered foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { filter: 'opacity(0.5)' }],
+        ['masked foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { maskImage: 'linear-gradient(transparent, black)' }],
+        ['clipped foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { clipPath: 'circle(20%)' }],
+        ['blended foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { mixBlendMode: 'multiply' }],
+        ['scaled foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', { transform: 'matrix(0.5, 0, 0, 0.5, 0, 0)' }],
+        ['translated foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], undefined, { transform: 'matrix(1, 0, 0, 1, 12, 8)' }],
+        ['rounded transparent corner', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', {
+            borderTopLeftRadius: '40px',
+            borderTopRightRadius: '40px',
+            borderBottomRightRadius: '40px',
+            borderBottomLeftRadius: '40px',
+        }, 'corner'],
+        ['partial-width foreground', 'rgb(17, 26, 29)', ['menu', 'behind'], 'unsafe-lane', undefined, 'partial'],
+    ])('orders annotated reading/base collisions across an %s paint surface', (_kind, background, stack, hiddenReason, computedOverrides, geometry) => {
+        document.body.innerHTML = `
+            <div id="surface">
+                <div id="behind"><span id="behind-source">国際</span></div>
+                <div id="menu" style="background:${background}"><span id="menu-source">並べ</span></div>
+            </div>
+        `;
+        const behind = document.querySelector<HTMLElement>('#behind')!;
+        const menu = document.querySelector<HTMLElement>('#menu')!;
+        const behindSource = document.querySelector<HTMLElement>('#behind-source')!;
+        const menuSource = document.querySelector<HTMLElement>('#menu-source')!;
+        const behindText = behindSource.firstChild as Text;
+        const menuText = menuSource.firstChild as Text;
+        if (computedOverrides) {
+            const realGetComputedStyle = window.getComputedStyle.bind(window);
+            vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+                const style = realGetComputedStyle(element, pseudoElement);
+                if (element !== menu) return style;
+                return new Proxy(style, {
+                    get(target, property) {
+                        if (typeof property === 'string' && property in computedOverrides) {
+                            return computedOverrides[property];
+                        }
+                        const value = Reflect.get(target, property, target);
+                        return typeof value === 'function' ? value.bind(target) : value;
+                    },
+                });
+            });
+        }
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (geometry === 'corner') {
+                const foreground = Boolean(this.closest('#menu'));
+                if (this.classList.contains('jpdb-reader-detached-furi')) return positionedRect(0, 0, 20, 7);
+                if (this.classList.contains('jpdb-reader-ruby-base') || this.classList.contains('jpdb-reader-word')) {
+                    return foreground
+                        ? positionedRect(2, 8, 18, 25)
+                        : positionedRect(0, 0, 20, 17);
+                }
+                return positionedRect(0, 0, 180, 80);
+            }
+            const foreground = Boolean(this.closest('#menu'));
+            if (this.classList.contains('jpdb-reader-detached-furi')) {
+                return positionedRect(76, 20, 122, 27);
+            }
+            if (this.classList.contains('jpdb-reader-ruby-base')) {
+                return foreground
+                    ? positionedRect(78, 28, 120, 45)
+                    : positionedRect(76, 20, 122, 37);
+            }
+            if (this.classList.contains('jpdb-reader-word')) {
+                return foreground
+                    ? positionedRect(78, 28, 120, 45)
+                    : positionedRect(76, 20, 122, 37);
+            }
+            if (this === menu && geometry === 'partial') return positionedRect(0, 0, 100, 80);
+            return positionedRect(0, 0, 180, 80);
+        });
+        mockRangeRects(() => []);
+        const hitElements = stack.map(id => document.querySelector<HTMLElement>(`#${id}`)!);
+        const restoreElementsFromPoint = mockElementsFromPoint(hitElements);
+
+        try {
+            withMirrorTokenApply(() => {
+                applyTokensToTextNode({
+                    text: '国際',
+                    node: behindText,
+                    parent: behindSource,
+                    decoration: 'interactive-passive',
+                    suppressRuby: true,
+                }, [token('国際', 0, '国際', 'こくさい')], FURIGANA_SETTINGS);
+                applyTokensToTextNode({
+                    text: '並べ',
+                    node: menuText,
+                    parent: menuSource,
+                    decoration: 'interactive-passive',
+                    suppressRuby: true,
+                }, [token('並べ', 0, '並べ', 'ならべ')], FURIGANA_SETTINGS);
+            });
+
+            const foregroundReading = menu.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            const backgroundReading = behind.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(foregroundReading.dataset.yomuDetachedReadingHidden).toBe(hiddenReason);
+            expect(foregroundReading.style.getPropertyValue('display')).toBe(hiddenReason ? 'none' : 'block');
+            // When the menu is genuinely above the title only the background
+            // candidate fails closed; transparent or reversed paint cannot
+            // use the menu as occlusion evidence.
+            expect(backgroundReading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it('does not use a shared opaque menu surface to excuse a genuine reading collision', () => {
+        document.body.innerHTML = `
+            <div id="menu" style="background:rgb(17, 26, 29)">
+                <span id="first">国際</span><span id="second">並べ</span>
+            </div>
+        `;
+        const menu = document.querySelector<HTMLElement>('#menu')!;
+        const first = document.querySelector<HTMLElement>('#first')!;
+        const second = document.querySelector<HTMLElement>('#second')!;
+        const firstText = first.firstChild as Text;
+        const secondText = second.firstChild as Text;
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return positionedRect(76, 20, 122, 27);
+            if (this.classList.contains('jpdb-reader-ruby-base') || this.classList.contains('jpdb-reader-word')) {
+                return this.closest('#first')
+                    ? positionedRect(76, 20, 122, 37)
+                    : positionedRect(78, 28, 120, 45);
+            }
+            return positionedRect(0, 0, 180, 80);
+        });
+        mockRangeRects(() => []);
+        const restoreElementsFromPoint = mockElementsFromPoint([menu]);
+
+        try {
+            withMirrorTokenApply(() => {
+                applyTokensToTextNode({
+                    text: '国際', node: firstText, parent: first,
+                    decoration: 'interactive-passive', suppressRuby: true,
+                }, [token('国際', 0, '国際', 'こくさい')], FURIGANA_SETTINGS);
+                applyTokensToTextNode({
+                    text: '並べ', node: secondText, parent: second,
+                    decoration: 'interactive-passive', suppressRuby: true,
+                }, [token('並べ', 0, '並べ', 'ならべ')], FURIGANA_SETTINGS);
+            });
+
+            expect([...menu.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')]
+                .every(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane')).toBe(true);
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
+
+    it('still hides a detached reading that reaches a genuinely different authored row', () => {
+        document.body.innerHTML = '<div id="foreign">ordinary text</div><span id="source">賛成票</span>';
+        const source = document.querySelector<HTMLElement>('#source')!;
+        const foreign = document.querySelector<HTMLElement>('#foreign')!;
+        const sourceText = source.firstChild as Text;
+        const readingRect = positionedRect(76, 20, 122, 27);
+        const ownBaseRect = positionedRect(78, 28, 120, 45);
+        const foreignRowRect = positionedRect(76, 12, 150, 29);
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+            if (this.classList.contains('jpdb-reader-detached-furi')) return readingRect;
+            if (this.classList.contains('jpdb-reader-ruby-base')) return ownBaseRect;
+            if (this.classList.contains('jpdb-reader-word')) return ownBaseRect;
+            if (this === foreign) return foreignRowRect;
+            return positionedRect(0, 12, 180, 45);
+        });
+        mockRangeRects(node => node?.nodeType === Node.TEXT_NODE && node.textContent?.includes('ordinary') ? [foreignRowRect] : []);
+        const restoreElementsFromPoint = mockElementsFromPoint([foreign]);
+
+        try {
+            applyTokensToTextNode({
+                text: '賛成票',
+                node: sourceText,
+                parent: source,
+                decoration: 'interactive-passive',
+                suppressRuby: true,
+            }, [token('賛成票', 0, '賛成票', 'さんせいひょう')], FURIGANA_SETTINGS);
+
+            const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+            expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
+        } finally {
+            restoreElementsFromPoint();
+        }
+    });
 });
 
 // Class Q guard: clip-constrained rows are protected on EVERY engine — the
@@ -780,6 +1238,35 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
+    it('lets a mounted kana-only additive mirror gain late pitch paint without a reading or remount', () => {
+        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
+        document.body.innerHTML = `
+            <shreddit-app data-yomu-furigana-mode="all">
+                <button id="feed" style="height:40px;overflow:hidden;white-space:nowrap">フィード</button>
+            </shreddit-app>
+        `;
+        const button = document.querySelector<HTMLElement>('#feed')!;
+        mockRect(button, { width: 92, height: 40 });
+        const collected = collectTargets(button).find(candidate => candidate.text === 'フィード')!;
+
+        const unresolved = token('フィード', 0, 'フィード', 'フィード');
+        unresolved.pitchClass = 'unknown';
+        applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [unresolved], FURIGANA_SETTINGS);
+
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror')!;
+        const word = mirror.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(mirror.style.getPropertyValue('-webkit-text-fill-color')).toBe('transparent');
+        expect(word.style.getPropertyValue('text-decoration-color')).toContain('--jpdb-reader-source-pitch-decoration');
+
+        setRenderedWordPitchClass(word, 'heiban');
+
+        expect(button.querySelector('.jpdb-reader-additive-text-mirror')).toBe(mirror);
+        expect(word.dataset.pitchClass).toBe('heiban');
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+    });
+
     it('does not coerce a clipped inline metadata host to inline-block', () => {
         document.body.innerHTML = `
             <shreddit-app data-yomu-furigana-mode="all">
@@ -824,9 +1311,10 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         expect(label.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しゅうへん');
     });
 
-    it('does not open overflow on an expandable description panel', () => {
+    it('does not open overflow on an aria-expanded content panel', () => {
         document.body.innerHTML = `
-            <section id="description-inline-expander" style="height:40px;overflow:hidden">
+            <section id="description-inline-expander" role="region" tabindex="0" aria-expanded="false"
+                style="height:40px;overflow:hidden">
                 <span id="copy">日本語の説明です</span>
             </section>
         `;
@@ -847,6 +1335,92 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         expect(panel.style.getPropertyValue('overflow')).toBe('hidden');
         expect(panel.dataset.yomuDetachedReadingOverflow).toBeUndefined();
         expect(panel.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
+    });
+
+    it('opens a furigana lane on an aria-expanded disclosure button while unmeasurable jsdom paint fails closed', () => {
+        document.body.innerHTML = `
+            <button id="sort" type="button" aria-expanded="false" aria-haspopup="menu"
+                style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">賛成票率順</button>
+        `;
+        const button = document.querySelector<HTMLElement>('#sort')!;
+        mockRect(button, { width: 150, height: 40 });
+        Object.defineProperties(button, {
+            clientWidth: { value: 150, configurable: true },
+            clientHeight: { value: 40, configurable: true },
+            scrollWidth: { value: 150, configurable: true },
+            scrollHeight: { value: 40, configurable: true },
+        });
+        const clicked = vi.fn();
+        button.addEventListener('click', clicked);
+        const target = collectTargets(button).find(candidate => candidate.text === '賛成票率順')!;
+        const nativeCreateRange = document.createRange.bind(document);
+        vi.spyOn(document, 'createRange').mockImplementation(() => {
+            const range = nativeCreateRange();
+            Object.defineProperty(range, 'getClientRects', {
+                configurable: true,
+                value: () => [{
+                    x: 0, y: 10, left: 0, top: 10, right: 120, bottom: 30,
+                    width: 120, height: 20, toJSON: () => ({}),
+                }] as unknown as DOMRectList,
+            });
+            return range;
+        });
+
+        applyTokensToScanTarget(target, [
+            token('賛成票率順', 0, target.text, 'さんせいひょうりつじゅん'),
+        ], FURIGANA_SETTINGS);
+        makeRoomForRubyInCroppedRows(document);
+
+        const reading = button.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+        expect(button.dataset.yomuDetachedReadingOverflow).toBe('true');
+        expect(button.style.getPropertyValue('overflow')).toBe('visible');
+        expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+        expect(getComputedStyle(reading).display).toBe('none');
+        expect(button.getBoundingClientRect().height).toBe(40);
+        button.click();
+        expect(clicked).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        ['treeitem', 'role="treeitem"'],
+        ['link-like custom toggle', 'role="link" tabindex="0"'],
+    ])('opens a furigana lane on an aria-expanded %s while unmeasurable jsdom paint fails closed', (_label, semantics) => {
+        document.body.innerHTML = `<div id="toggle" ${semantics} aria-expanded="false"
+            style="height:40px;max-height:40px;overflow:hidden;white-space:nowrap">表示順</div>`;
+        const toggle = document.querySelector<HTMLElement>('#toggle')!;
+        mockRect(toggle, { width: 100, height: 40 });
+        Object.defineProperties(toggle, {
+            clientWidth: { value: 100, configurable: true },
+            clientHeight: { value: 40, configurable: true },
+            scrollWidth: { value: 100, configurable: true },
+            scrollHeight: { value: 40, configurable: true },
+        });
+        const clicked = vi.fn();
+        toggle.addEventListener('click', clicked);
+        const target = collectTargets(toggle).find(candidate => candidate.text === '表示順')!;
+        const nativeCreateRange = document.createRange.bind(document);
+        vi.spyOn(document, 'createRange').mockImplementation(() => {
+            const range = nativeCreateRange();
+            Object.defineProperty(range, 'getClientRects', {
+                configurable: true,
+                value: () => [{
+                    x: 0, y: 10, left: 0, top: 10, right: 70, bottom: 30,
+                    width: 70, height: 20, toJSON: () => ({}),
+                }] as unknown as DOMRectList,
+            });
+            return range;
+        });
+
+        applyTokensToScanTarget(target, [token('表示順', 0, target.text, 'ひょうじじゅん')], FURIGANA_SETTINGS);
+        makeRoomForRubyInCroppedRows(document);
+
+        const reading = toggle.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+        expect(toggle.dataset.yomuDetachedReadingOverflow).toBe('true');
+        expect(toggle.style.getPropertyValue('overflow')).toBe('visible');
+        expect(reading.dataset.yomuDetachedReadingHidden).toBe('unsafe-lane');
+        expect(getComputedStyle(reading).display).toBe('none');
+        toggle.click();
+        expect(clicked).toHaveBeenCalledTimes(1);
     });
 
     it('renders a bare clipped category tile with a detached reading (kakaku shape)', () => {

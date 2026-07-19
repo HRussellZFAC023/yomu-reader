@@ -1,5 +1,6 @@
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
+export type OnboardingControllerClass = typeof import('../app/onboarding').OnboardingController;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
 export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
@@ -83,6 +84,7 @@ interface YomuCompanionRegistry {
     };
     settings?: {
         SettingsDialogController: SettingsDialogControllerClass;
+        OnboardingController: OnboardingControllerClass;
     };
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
@@ -172,6 +174,10 @@ export function registerYomuCompanion<K extends keyof YomuCompanionRegistry>(
 
 export function yomuSettingsDialogController(): SettingsDialogControllerClass | undefined {
     return yomuCompanions().settings?.SettingsDialogController;
+}
+
+export function yomuOnboardingController(): OnboardingControllerClass | undefined {
+    return yomuCompanions().settings?.OnboardingController;
 }
 
 export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> | undefined {

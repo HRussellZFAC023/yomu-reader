@@ -391,10 +391,13 @@ describe('generic reader layout overflow guards', () => {
         });
 
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        const reading = mirror.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
         expect(mirror).toBeTruthy();
+        expect(reading).toBeTruthy();
         expect(mirror.style.color).not.toBe('rgb(128, 128, 128)');
         host.style.color = 'rgb(20, 20, 20)';
         expect(getComputedStyle(mirror).color).toBe('rgb(20, 20, 20)');
+        expect(getComputedStyle(reading).color).toBe('rgb(20, 20, 20)');
     });
 
     it('does not duplicate block-child text in a generic non-destructive parent mirror', () => {

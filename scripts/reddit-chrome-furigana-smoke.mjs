@@ -46,7 +46,7 @@ const VOCABULARY = [
     ['参加', '参加', 'さんか', 'join', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['フィード', 'フィード', 'フィード', 'feed', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['賛成票率順', '賛成票率順', 'さんせいひょうりつじゅん', 'top', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
-    ['並べ替え', '並べ替え', 'ならべかえ', 'sort', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
+    ['並べ替え基準', '並べ替え基準', 'ならべかえきじゅん', 'sort criterion', ['noun'], 100, ['not-in-deck'], ['LHHHHHHH']],
     ['注目順', '注目順', 'ちゅうもくじゅん', 'hot', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['新しい順', '新しい順', 'あたらしいじゅん', 'new', ['noun'], 100, ['not-in-deck'], ['LHHHH']],
     ['賛成票数順', '賛成票数順', 'さんせいひょうすうじゅん', 'most votes', ['noun'], 100, ['not-in-deck'], ['LHHHHHH']],
@@ -64,6 +64,9 @@ const VOCABULARY = [
     ['r/singularity', '日本語', 'にほんご', 'invalid Latin token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['…', '日本語', 'にほんご', 'invalid punctuation token', ['noun'], 100, ['not-in-deck'], ['LHHH']],
 ];
+const MOCK_PITCH_EXPRESSIONS = new Set(VOCABULARY
+    .filter(entry => Array.isArray(entry[7]) && entry[7].length > 0)
+    .map(entry => entry[0]));
 
 const settings = createReaderSmokeSettings({
     preferJapaneseSiteLanguage: false,
@@ -121,7 +124,7 @@ body { display: grid; place-items: start center; }
       <reddit-header-shell id="join-shell"></reddit-header-shell>
     </div>
     <div id="foreign-stack" class="foreign-stack" role="menu"><div class="foreign-row">Sort mode</div><div id="foreign-jp" class="foreign-row" role="menuitem">共有</div></div>
-    <div class="feed-tools"><span id="feed">フィード</span><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
+    <div class="feed-tools"><reddit-feed-control id="feed-shell"></reddit-feed-control><reddit-sort-control id="sort-shell"></reddit-sort-control></div>
     <reddit-clipped-title></reddit-clipped-title>
     <a id="highlight-card" class="highlight-card" href="#highlight">
       <h2>Discord Server Link</h2>
@@ -144,7 +147,7 @@ class RedditJoinControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>button{box-sizing:border-box;display:inline-block;height:40px;max-height:40px;overflow:hidden;padding:13px 18px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 16px/14px system-ui;white-space:nowrap}</style><button id="join" type="button">参加</button>';
+    root.innerHTML = '<style>button{box-sizing:border-box;display:inline-block;height:40px;max-height:40px;overflow:hidden;padding:13px 18px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 16px/14px system-ui;white-space:nowrap}</style><button id="join" type="button">Join</button>';
     root.getElementById('join').addEventListener('click', () => { window.__redditSmokeClicks.join += 1; });
   }
 }
@@ -158,11 +161,18 @@ class RedditHeaderShell extends HTMLElement {
   }
 }
 customElements.define('reddit-header-shell', RedditHeaderShell);
+class RedditFeedControl extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' }).innerHTML = '<span id="feed">Feed</span>';
+  }
+}
+customElements.define('reddit-feed-control', RedditFeedControl);
 class RedditSortControl extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>:host{position:relative}.menu{position:absolute;inset-inline-end:0;z-index:3;width:320px;padding:8px 14px;background:#111a1d;border:1px solid #343d42;border-radius:14px}button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}.menu[hidden]{display:none}.menu-heading,.menu-option{box-sizing:border-box;height:28px;font:600 28px/28px system-ui;white-space:nowrap}</style><button id="sort" type="button" aria-haspopup="menu" aria-expanded="false">賛成票率順⌄</button><div id="sort-menu" class="menu" role="menu" hidden><div id="menu-heading" class="menu-heading">並べ替え</div><div id="menu-hot" class="menu-option" role="menuitem">注目順</div><div id="menu-new" class="menu-option" role="menuitem">新しい順</div><div id="menu-votes" class="menu-option" role="menuitem">賛成票数順</div></div>';
+    root.innerHTML = '<style>:host{position:relative}.menu{position:absolute;inset-inline-end:0;z-index:3;width:320px;padding:8px 14px;background:#111a1d;border:1px solid #343d42;border-radius:14px}button{box-sizing:border-box;height:40px;max-height:40px;overflow:hidden;padding:0 12px;border:0;background:#0b1416;color:#b7c2c8;font:600 14px/20px system-ui;white-space:nowrap}.menu[hidden]{display:none}.menu-heading,.menu-option{box-sizing:border-box;height:56px;padding-top:20px;font:600 28px/28px system-ui;white-space:nowrap}</style><button id="sort" type="button" aria-haspopup="menu" aria-expanded="false">Sort⌄</button><div id="sort-menu" class="menu" role="menu" hidden><div id="menu-heading" class="menu-heading">Sort criterion</div><div id="menu-hot" class="menu-option" role="menuitem">Hot</div><div id="menu-new" class="menu-option" role="menuitem">New</div><div id="menu-votes" class="menu-option" role="menuitem">Most votes</div></div>';
     root.getElementById('sort').addEventListener('click', () => {
       window.__redditSmokeClicks.sort += 1;
       root.getElementById('sort-menu').hidden = false;
@@ -178,6 +188,32 @@ class RedditClippedTitle extends HTMLElement {
   }
 }
 customElements.define('reddit-clipped-title', RedditClippedTitle);
+// Generic composed-DOM discovery regression fixture (not a live Reddit
+// capture): these two hosts are appended to the page AFTER Yomu has already
+// booted, reproducing the two shapes a document MutationObserver cannot see
+// on its own — an added host whose OPEN shadow root is ALREADY populated with
+// Japanese, and an added host with an initially empty OPEN shadow root that
+// hydrates Japanese later with no light-DOM mutation at all.
+class RedditLateJoinHost extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: 'open' });
+    root.innerHTML = '<button id="late-join" type="button">参加</button>';
+  }
+}
+customElements.define('reddit-late-join-host', RedditLateJoinHost);
+class RedditLateHydrateHost extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+  connectedCallback() {
+    setTimeout(() => {
+      this.shadowRoot.innerHTML = '<button id="late-hydrate" type="button">フィード</button>';
+    }, 100);
+  }
+}
+customElements.define('reddit-late-hydrate-host', RedditLateHydrateHost);
 </script>
 </body>
 </html>`;
@@ -257,17 +293,87 @@ async function runEngine(engineName, browser) {
         }
         await page.addScriptTag({ path: SCRIPT_PATH });
 
+        // Wait for Yomu's initial light-DOM pass, then hydrate the existing
+        // open-shadow controls. Before the fix their Latin/empty roots were
+        // rejected without observer registration, so these mutations stayed
+        // bare until an unrelated page event happened to trigger a scan.
         await Promise.all([
             page.locator('#create-post .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
             page.locator('#card-metadata .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
             page.locator('#share .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
-            page.locator('#popup-anchor .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
+        ]);
+        await page.evaluate(() => {
+            document.querySelector('reddit-header-shell').shadowRoot
+                .querySelector('reddit-join-control').shadowRoot.querySelector('#join').textContent = '参加';
+            document.querySelector('reddit-feed-control').shadowRoot.querySelector('#feed').textContent = 'フィード';
+            const sortRoot = document.querySelector('reddit-sort-control').shadowRoot;
+            sortRoot.querySelector('#sort').textContent = '賛成票率順⌄';
+            sortRoot.querySelector('#menu-heading').textContent = '並べ替え基準';
+            sortRoot.querySelector('#menu-hot').textContent = '注目順';
+            sortRoot.querySelector('#menu-new').textContent = '新しい順';
+            sortRoot.querySelector('#menu-votes').textContent = '賛成票数順';
+        });
+
+        await Promise.all([
+            page.locator('#join .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#feed .jpdb-reader-word').waitFor({ timeout: 20_000 }),
+            page.locator('#sort .jpdb-reader-word').waitFor({ timeout: 20_000 }),
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
         ]);
         await page.waitForTimeout(400);
+
+        // Generic composed-DOM discovery: append the late-join/late-hydrate
+        // hosts only AFTER Yomu has booted, then assert both get annotated
+        // without any further page interaction (see fixture comment above).
+        await page.evaluate(() => {
+            const hosts = [
+                document.createElement('reddit-late-hydrate-host'),
+                document.createElement('reddit-late-upgrade-host'),
+                // Put the already-Japanese host last: discovery must not
+                // short-circuit and strand the earlier empty/undefined hosts.
+                document.createElement('reddit-late-join-host'),
+            ];
+            // Keep every lifecycle fixture inside both scaled and unscaled
+            // viewports without changing Reddit's authored flow geometry or
+            // stacking their furigana lanes on top of one another.
+            hosts.forEach((host, index) => {
+                host.style.cssText = `position:absolute;inset:${24 + index * 64}px 8px auto auto`;
+            });
+            document.body.append(...hosts);
+        });
+        // Let the document observer encounter the still-undefined element
+        // before definition; upgrading/attachShadow itself emits no light-DOM
+        // mutation, so only the whenDefined wakeup can discover this root.
+        await page.waitForTimeout(50);
+        await page.evaluate(() => {
+            customElements.define('reddit-late-upgrade-host', class extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' }).innerHTML = '<button id="late-upgrade">並べ替え基準</button>';
+                }
+            });
+        });
+        try {
+            await page.locator('#late-join .jpdb-reader-word').waitFor({ timeout: 20_000 });
+            await page.locator('#late-hydrate .jpdb-reader-word').waitFor({ timeout: 20_000 });
+            await page.locator('#late-upgrade .jpdb-reader-word').waitFor({ timeout: 20_000 });
+        } catch (error) {
+            const lateState = await page.evaluate(() => Object.fromEntries(
+                ['reddit-late-join-host', 'reddit-late-hydrate-host', 'reddit-late-upgrade-host'].map(selector => {
+                    const host = document.querySelector(selector);
+                    const root = host?.shadowRoot;
+                    const rect = host?.getBoundingClientRect();
+                    return [selector, {
+                        connected: Boolean(host?.isConnected),
+                        text: root?.textContent?.trim() ?? '',
+                        words: root?.querySelectorAll('.jpdb-reader-word').length ?? 0,
+                        rect: rect ? { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height } : null,
+                    }];
+                }),
+            ));
+            throw new Error(`${String(error)}\nlate state: ${JSON.stringify({ lateState, innerHeight: await page.evaluate(() => innerHeight) }, null, 2)}`);
+        }
 
         await page.locator('#create-post').click();
         await page.locator('#share').click();
@@ -288,6 +394,12 @@ async function runEngine(engineName, browser) {
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors);
+        // The expanded 56px safety rows deliberately keep the opaque menu
+        // open for the regression snapshot. Close that fixture surface before
+        // exercising unrelated fixed popovers near the same mobile corner.
+        await page.evaluate(() => {
+            document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort-menu').hidden = true;
+        });
         const fixedChrome = await exerciseCompensatedFixedChrome(page);
         assertCompensatedFixedChrome(engineName, fixedChrome);
         const videoAvoidance = await exerciseCompensatedVideoAvoidance(page);
@@ -1081,10 +1193,13 @@ async function snapshotRedditRegression(page) {
         time: ['#post-meta', '時間前'],
         share: ['#share', '共有'],
         foreign: ['#foreign-jp', '共有'],
-        menuHeading: ['#menu-heading', '並べ替え'],
+        menuHeading: ['#menu-heading', '並べ替え基準'],
         menuHot: ['#menu-hot', '注目順'],
         menuNew: ['#menu-new', '新しい順'],
         menuVotes: ['#menu-votes', '賛成票数順'],
+        lateJoin: ['#late-join', '参加'],
+        lateHydrate: ['#late-hydrate', 'フィード'],
+        lateUpgrade: ['#late-upgrade', '並べ替え基準'],
     };
     const labelEntries = await Promise.all(Object.entries(specs).map(async ([name, [selector, expected]]) => [
         name,
@@ -1112,6 +1227,11 @@ async function snapshotRedditRegression(page) {
 function snapshotRedditElement(element, expected) {
     const rect = element.getBoundingClientRect();
     const words = [...element.querySelectorAll('.jpdb-reader-word')];
+    const nativeStyle = getComputedStyle(element);
+    const paintIsVisible = value => Boolean(value) && value !== 'transparent'
+        && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
+        && !/\/\s*0(?:\.0+)?%?\s*\)$/.test(value);
+    const effectiveNativePaint = nativeStyle.webkitTextFillColor || nativeStyle.color;
     const mirrors = [...element.querySelectorAll(':scope > .jpdb-reader-text-mirror')]
         .filter(mirror => getComputedStyle(mirror).visibility !== 'hidden');
     const clone = (mirrors[0] ?? element).cloneNode(true);
@@ -1130,17 +1250,44 @@ function snapshotRedditElement(element, expected) {
         const box = reading.getBoundingClientRect();
         return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
     });
+    const decoratedWords = words.filter(word => {
+        const style = getComputedStyle(word);
+        const nativeUnderline = style.textDecorationLine.includes('underline')
+            && paintIsVisible(style.textDecorationColor);
+        const underline = getComputedStyle(word, '::after');
+        const borderStyle = underline.getPropertyValue('border-block-end-style') || underline.borderBottomStyle;
+        const borderWidth = Number.parseFloat(
+            underline.getPropertyValue('border-block-end-width') || underline.borderBottomWidth,
+        );
+        const borderColor = underline.getPropertyValue('border-block-end-color') || underline.borderBottomColor;
+        return nativeUnderline || (borderStyle !== 'none' && borderWidth > 0 && paintIsVisible(borderColor));
+    });
     return {
         expected,
         visibleText,
         height: rect.height,
         wordCount: words.length,
         pitchWordCount: words.filter(word => Boolean(word.dataset.pitchClass && word.dataset.pitchClass !== 'unknown')).length,
+        pitchExpressions: words
+            .filter(word => Boolean(word.dataset.pitchClass && word.dataset.pitchClass !== 'unknown'))
+            .map(word => word.getAttribute('data-expression')),
+        statusWordCount: words.filter(word => word.matches([
+            '.jpdb-not-in-deck', '.jpdb-learning', '.jpdb-young', '.jpdb-known',
+            '.jpdb-mature', '.jpdb-mastered', '.jpdb-never-forget', '.jpdb-redundant', '.jpdb-due',
+        ].join(','))).length,
+        decoratedExpressions: decoratedWords.map(word => word.getAttribute('data-expression')),
+        nativePaintVisible: nativeStyle.display !== 'none'
+            && nativeStyle.visibility !== 'hidden'
+            && nativeStyle.opacity !== '0'
+            && paintIsVisible(effectiveNativePaint),
         expressions: words.map(word => word.getAttribute('data-expression')),
         readingCount: readings.length,
         visibleReadingCount: visibleReadings.length,
         hiddenReadingCount: readings.length - visibleReadings.length,
         safetyHiddenReadingCount: readings.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
+        hiddenReadingReasons: readings
+            .filter(reading => !visibleReadings.includes(reading))
+            .map(reading => reading.dataset.yomuDetachedReadingHidden ?? ''),
         readingTexts: readings.map(reading => reading.textContent ?? ''),
         nativeRubyCount: element.querySelectorAll('rt').length,
         readingClipped: readings.some(readingIsClipped),
@@ -1461,10 +1608,26 @@ function assertOverlayScaleIsolation(engineName, overlay) {
 function assertAnnotatedLabels(engineName, labels) {
     for (const [name, label] of Object.entries(labels)) {
         assert(label.wordCount > 0, `${engineName}: ${name} was not annotated`, label);
-        // Kana-only labels do not need redundant ruby, but they still need a
-        // resolved pitch/status-capable word wrapper.
-        if (name !== 'feed') assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
-        assert(label.pitchWordCount > 0, `${engineName}: ${name} is missing pitch annotation`, label);
+        if (/[\u3400-\u9fff]/.test(label.expected)) {
+            assert(label.readingCount > 0, `${engineName}: ${name} is missing furigana`, label);
+        }
+        if (name === 'feed' || name === 'lateHydrate') {
+            assert(label.readingCount === 0, `${engineName}: ${name} duplicated an identical kana reading`, label);
+        }
+        if (name !== 'foreign') {
+            assert(label.visibleReadingCount === label.readingCount,
+                `${engineName}: ${name} retained hidden furigana`, label);
+        }
+        const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
+        assert(expectedPitchExpressions.length > 0,
+            `${engineName}: ${name} fixture has no pitch-bearing lexical expression`, label);
+        assert(expectedPitchExpressions.every(expression => label.pitchExpressions.includes(expression)),
+            `${engineName}: ${name} is missing concrete lexical pitch state`, label);
+        assert(label.statusWordCount === label.wordCount,
+            `${engineName}: ${name} is missing vocabulary status state`, label);
+        assert(expectedPitchExpressions.every(expression => label.decoratedExpressions.includes(expression)),
+            `${engineName}: ${name} pitch/status decoration is not visibly painted`, label);
+        assert(label.nativePaintVisible, `${engineName}: ${name} lost its native source paint`, label);
         assert(label.nativeRubyCount === 0, `${engineName}: ${name} gained layout-changing native ruby`, label);
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap === 0, `${engineName}: ${name} furigana overlaps base text`, label);
@@ -1500,9 +1663,8 @@ function assertStableFixtureLayout(engineName, baseline, layout) {
 
 function assertSortMenuSafety(engineName, menuSafety) {
     assert(menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, menuSafety);
-    assert(menuSafety.hiddenReadingCount > 0, `${engineName}: tight menu did not exercise the no-safe-lane fallback`, menuSafety);
-    assert(menuSafety.hiddenReadingsKeepWord && menuSafety.hiddenReadingsKeepPitch,
-        `${engineName}: hiding unsafe furigana removed the word or pitch annotation`, menuSafety);
+    assert(menuSafety.hiddenReadingCount === 0 && menuSafety.visibleReadingCount === menuSafety.readingCount,
+        `${engineName}: a realistically spaced opaque menu retained hidden furigana`, menuSafety);
     assert(menuSafety.readingBaseOverlap === 0 && menuSafety.readingReadingOverlap === 0,
         `${engineName}: visible menu furigana overlaps another reading or base line`, menuSafety);
     assert(menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
@@ -1514,6 +1676,8 @@ function assertForeignTextCollisionSafety(engineName, foreignLabel) {
         `${engineName}: furigana covered an ordinary unannotated line above it`, foreignLabel);
     assert(foreignLabel.safetyHiddenReadingCount === foreignLabel.hiddenReadingCount,
         `${engineName}: foreign-text collision hid furigana without a measured safety verdict`, foreignLabel);
+    assert(foreignLabel.hiddenReadingReasons.every(reason => reason === 'unsafe-lane'),
+        `${engineName}: foreign-text furigana disappeared without an explicit collision verdict`, foreignLabel);
     assert(foreignLabel.pitchWordCount > 0,
         `${engineName}: hiding furigana from the foreign-text collision removed pitch annotation`, foreignLabel);
 }

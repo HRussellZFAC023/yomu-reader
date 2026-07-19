@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.222
+// @version 1.6.223
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,9 +13,9 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.38b2480ba66a.user.js#sha256=OLJIC6ZqtUhgw3suFbjz7hqraRM2e5rY4FuOMvNOxnc=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.6ddef4d063d3.user.js#sha256=bd700GPT6n2/+sR6Wz5aVeGCpz1IoRi7MN6B899qKoE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.31dfe7e5ff02.user.js#sha256=Md/n5f8CySUNDLLexWY7IY07FoFsZclbKFt/WmKRKxE=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.125dc8d18e0e.user.js#sha256=El3I0Y4OnVbi1k9LfIMaq2ONKMzJZRk6S2aNVUi9XJk=
 // @require https://yomureader.com/greasyfork/yomu-video.b64ea15cff66.user.js#sha256=tk6hXP9mqQZkzAIHL5+sVsaAzA/+48YmGq8Wu1GAjwA=
-// @resource yomuCss  https://yomureader.com/yomu.61f72cee06a9.css#sha256=Yfcs7gapn0H5xP6evy4xTKeYeT/Nly1Pqy2w7YCeuSQ=
+// @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect lens.google.com
@@ -269,9 +269,9 @@ const LOGGER_COLOR_TOKENS = {
 const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
 const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
 const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-function safeElementMatches$1(element2, selector) {
+function safeElementMatches$1(element, selector) {
   try {
-  return element2.matches(selector);
+  return element.matches(selector);
   } catch {
   return false;
   }
@@ -283,11 +283,11 @@ function safeQuerySelector(root, selector) {
   return null;
   }
 }
-function safeComputedStyle(element2) {
+function safeComputedStyle(element) {
   try {
-  return getComputedStyle(element2);
+  return getComputedStyle(element);
   } catch {
-  return element2.style;
+  return element.style;
   }
 }
 function compactLength(value) {
@@ -297,8 +297,8 @@ function cssPixels(value) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
-function elementClassName(element2) {
-  return String(element2.className || "");
+function elementClassName(element) {
+  return String(element.className || "");
 }
 function hasLineClamp(style) {
   const clamp = style.getPropertyValue("-webkit-line-clamp").trim();
@@ -330,11 +330,11 @@ const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
 const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
 const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
 let constrainedRowStyleFactMemo = new WeakMap();
-function constrainedRowStyleFacts(element2) {
+function constrainedRowStyleFacts(element) {
   const now = Date.now();
-  const memo = constrainedRowStyleFactMemo.get(element2);
+  const memo = constrainedRowStyleFactMemo.get(element);
   if (memo && now - memo.at < CONSTRAINED_ROW_VERDICT_TTL_MS) return memo.facts;
-  const style = safeComputedStyle(element2);
+  const style = safeComputedStyle(element);
   const clamped = hasLineClamp(style);
   const ellipsisRow = isEllipsisTextRow(style);
   const clips = clipsOverflow(style);
@@ -342,10 +342,10 @@ function constrainedRowStyleFacts(element2) {
   let clippedShortRow = false;
   let activelyTruncatedPreview = false;
   if (clips && !clamped && !ellipsisRow) {
-  const height = element2.getBoundingClientRect().height;
+  const height = element.getBoundingClientRect().height;
   clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
-  const clientHeight = element2.clientHeight;
-  activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
+  const clientHeight = element.clientHeight;
+  activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
   }
   const facts = {
   clamped,
@@ -354,14 +354,14 @@ function constrainedRowStyleFacts(element2) {
   clippedShortRow,
   activelyTruncatedPreview
   };
-  constrainedRowStyleFactMemo.set(element2, { at: now, facts });
+  constrainedRowStyleFactMemo.set(element, { at: now, facts });
   return facts;
 }
-function isInsideRubyFragileConstrainedRow(element2) {
-  return closestRubyFragileConstrainedRow(element2) !== null;
+function isInsideRubyFragileConstrainedRow(element) {
+  return closestRubyFragileConstrainedRow(element) !== null;
 }
-function closestRubyFragileConstrainedRow(element2) {
-  let current = element2;
+function closestRubyFragileConstrainedRow(element) {
+  let current = element;
   for (let depth = 0; current && depth < 12; depth += 1) {
   const facts = constrainedRowStyleFacts(current);
   if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
@@ -369,18 +369,18 @@ function closestRubyFragileConstrainedRow(element2) {
   }
   return null;
 }
-function composedAncestorElement(element2) {
-  if (element2.assignedSlot) return element2.assignedSlot;
-  if (element2.parentElement) return element2.parentElement;
-  const root = element2.getRootNode();
+function composedAncestorElement(element) {
+  if (element.assignedSlot) return element.assignedSlot;
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
   return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
 }
 function boxStyleIsClipCapable(box) {
   const facts = constrainedRowStyleFacts(box);
   return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
 }
-function isClipConstrainedRow(element2) {
-  const facts = constrainedRowStyleFacts(element2);
+function isClipConstrainedRow(element) {
+  const facts = constrainedRowStyleFacts(element);
   return facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview;
 }
 function contentClipRowShowsRestReadings(decoration, clipRow) {
@@ -403,12 +403,12 @@ const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|
 const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
 const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
-function isLikelyProseElement(element2) {
-  if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
-  return isLikelyProseClass(element2) || isConversationTextClass(element2);
+function isLikelyProseElement(element) {
+  if (PROSE_TAGS$1.includes(`,${element.tagName},`)) return true;
+  return isLikelyProseClass(element) || isConversationTextClass(element);
 }
-function isReadableProseContext(element2) {
-  let current = element2;
+function isReadableProseContext(element) {
+  let current = element;
   while (current && current !== document.body && current !== document.documentElement) {
   if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
   if (isConversationTextClass(current)) return true;
@@ -416,17 +416,17 @@ function isReadableProseContext(element2) {
   }
   return false;
 }
-function isLikelyProseClass(element2) {
-  return PROSE_CLASS_RE.test(elementClassName(element2));
+function isLikelyProseClass(element) {
+  return PROSE_CLASS_RE.test(elementClassName(element));
 }
-function isConversationTextClass(element2) {
-  return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
+function isConversationTextClass(element) {
+  return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element));
 }
-function isLikelyProseLink(link, element2) {
-  return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
+function isLikelyProseLink(link, element) {
+  return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element));
 }
-function isProseFullContext(element2) {
-  let current = element2;
+function isProseFullContext(element) {
+  let current = element;
   while (current && current !== document.body && current !== document.documentElement) {
   if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
   current = current.parentElement;
@@ -473,34 +473,34 @@ const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex
 const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-function isPassiveInteractionElement(element2) {
-  if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
-  if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
-  if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
-  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+function isPassiveInteractionElement(element) {
+  if (element.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (element instanceof HTMLElement && isReadableProseContext(element) && !readableContextPassiveChromeElement(element)) return false;
+  if (element.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+  const compactInteraction = element.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
   if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
-  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  const compactChrome = element.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
   return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
-function isCompactPassiveInteractionElement(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+function isCompactPassiveInteractionElement(element) {
+  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
   if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-  return element2.childElementCount <= 4;
+  return element.childElementCount <= 4;
 }
-function isCompactPassiveChromeElement(element2) {
-  if (isLikelyProseElement(element2)) return false;
-  return isCompactPassiveInteractionElement(element2);
+function isCompactPassiveChromeElement(element) {
+  if (isLikelyProseElement(element)) return false;
+  return isCompactPassiveInteractionElement(element);
 }
-function readableContextPassiveChromeElement(element2) {
-  const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
+function readableContextPassiveChromeElement(element) {
+  const interaction = element.closest(PASSIVE_INTERACTION_SELECTOR);
   if (interaction) {
   if (isConversationTextClass(interaction)) return null;
   if (safeElementMatches$1(interaction, 'a[href],[role="link"]')) return interaction;
   if (isCompactPassiveInteractionElement(interaction)) return interaction;
   }
-  const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  const compactInteraction = element.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
   if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
-  const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+  const compactChrome = element.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
   return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
 }
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
@@ -567,20 +567,20 @@ function compactMediaPassiveChromeMark(parent) {
 function applyPassiveChromeMarks(marks) {
   for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
 }
-function markPassiveChromeElement(element2, atomic = false) {
-  element2.dataset.jpdbReaderPassiveChrome = "true";
-  if (atomic) element2.dataset.jpdbReaderPassiveAtomic = "true";
-  if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
-  element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
+function markPassiveChromeElement(element, atomic = false) {
+  element.dataset.jpdbReaderPassiveChrome = "true";
+  if (atomic) element.dataset.jpdbReaderPassiveAtomic = "true";
+  if (element.getAttribute("role") === "button" && !hasExplicitAccessibleName(element)) {
+  element.setAttribute("aria-label", passiveChromeAccessibleLabel(element));
   }
 }
-function hasExplicitAccessibleName(element2) {
+function hasExplicitAccessibleName(element) {
   return Boolean(
-  element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
+  element.getAttribute("aria-label")?.trim() || element.getAttribute("aria-labelledby")?.trim() || element.getAttribute("title")?.trim()
   );
 }
-function passiveChromeAccessibleLabel(element2) {
-  return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
+function passiveChromeAccessibleLabel(element) {
+  return element.textContent?.replace(/\s+/g, " ").trim() || "Open item";
 }
 function compactInteractiveChromeElement(parent) {
   const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
@@ -592,8 +592,8 @@ function compactInteractiveChromeElement(parent) {
   }
   return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
-function compactInteractiveChromeText(element2) {
-  return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+function compactInteractiveChromeText(element) {
+  return element.textContent?.replace(/\s+/g, "").trim() ?? "";
 }
 function compactPassiveChromeElement(parent) {
   if (isReadableProseContext(parent)) return null;
@@ -631,23 +631,23 @@ function isCompactInteractiveChromeControl(control, parent) {
   const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches$1(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"]');
   return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
 }
-function isCompactInteractiveChromeContext(element2) {
-  return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+function isCompactInteractiveChromeContext(element) {
+  return Boolean(element.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
 }
-function hasCompactInteractiveChromeGeometry(element2) {
-  const style = safeComputedStyle(element2);
-  const rect = element2.getBoundingClientRect();
+function hasCompactInteractiveChromeGeometry(element) {
+  const style = safeComputedStyle(element);
+  const rect = element.getBoundingClientRect();
   if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
   if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
   return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
 }
-function hasCompactInteractiveChromeRubyRisk(element2) {
-  const style = safeComputedStyle(element2);
+function hasCompactInteractiveChromeRubyRisk(element) {
+  const style = safeComputedStyle(element);
   if (isVerticalWritingMode(style.writingMode)) return true;
   if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-  if (isCompactInteractiveChromeContext(element2)) return true;
-  if (safeElementMatches$1(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
-  if (!hasCompactInteractiveChromeGeometry(element2)) return false;
+  if (isCompactInteractiveChromeContext(element)) return true;
+  if (safeElementMatches$1(element, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element)) return true;
+  if (!hasCompactInteractiveChromeGeometry(element)) return false;
   if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
   return clipsOverflow(style) && style.whiteSpace === "nowrap";
 }
@@ -706,19 +706,19 @@ function closestMediaCarousel(parent) {
   }
   return null;
 }
-function mediaCarouselMatch(element2) {
-  const className = elementClassName(element2);
-  if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className) || element2.hasAttribute("data-carousel") || element2.hasAttribute("data-slider")) return "explicit";
+function mediaCarouselMatch(element) {
+  const className = elementClassName(element);
+  if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className) || element.hasAttribute("data-carousel") || element.hasAttribute("data-slider")) return "explicit";
   return MEDIA_CAROUSEL_CLASS_RE.test(className) ? "implicit" : null;
 }
-function mediaCarouselClipsHorizontally(element2) {
-  const style = safeComputedStyle(element2);
+function mediaCarouselClipsHorizontally(element) {
+  const style = safeComputedStyle(element);
   if (style.overflowX === "hidden" || style.overflowX === "clip") return true;
-  if ((style.overflowX === "auto" || style.overflowX === "scroll") && element2.clientWidth > 0) return true;
-  return element2.clientWidth > 0 && element2.scrollWidth > element2.clientWidth + 1;
+  if ((style.overflowX === "auto" || style.overflowX === "scroll") && element.clientWidth > 0) return true;
+  return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
 }
-function isNavigationChromeContext(element2) {
-  return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
+function isNavigationChromeContext(element) {
+  return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
 }
 function closestCompactMediaContext(parent) {
   let current = parent;
@@ -736,11 +736,11 @@ function hasMediaPeer(container, textElement) {
   return media !== textElement && !textElement.contains(media);
   });
 }
-function isCompactMediaContext(element2) {
-  const style = safeComputedStyle(element2);
-  const rect = element2.getBoundingClientRect();
-  if (element2.matches('a[href], button, [role="link"], [role="button"]')) return true;
-  if (safeQuerySelector(element2, 'a[href], button, [role="link"], [role="button"]')) return true;
+function isCompactMediaContext(element) {
+  const style = safeComputedStyle(element);
+  const rect = element.getBoundingClientRect();
+  if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
+  if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
   const display = style.display;
   const structured = display.includes("grid") || display.includes("flex") || display === "block";
   const compact2 = rect.width === 0 || rect.width <= 560;
@@ -750,11 +750,11 @@ const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[c
 const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
 const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
 const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
-function isEditableComposingContext(element2) {
-  if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
-  if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
-  if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
-  return isComboboxOwnedPopup(element2);
+function isEditableComposingContext(element) {
+  if (element.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+  if (element.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+  if (element.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
+  return isComboboxOwnedPopup(element);
 }
 const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
 let comboboxOwnedIdMemo = new WeakMap();
@@ -776,10 +776,10 @@ function comboboxOwnedIds(root) {
   comboboxOwnedIdMemo.set(root, { at: now, ids });
   return ids;
 }
-function isComboboxOwnedPopup(element2) {
-  const ids = comboboxOwnedIds(element2.getRootNode());
+function isComboboxOwnedPopup(element) {
+  const ids = comboboxOwnedIds(element.getRootNode());
   if (!ids.size) return false;
-  let current = element2;
+  let current = element;
   for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
   if (current.id && ids.has(current.id)) return true;
   }
@@ -801,31 +801,31 @@ const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = [
 ].join(",");
 const CONTENT_CHIP_ROOT_SELECTOR = `${YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR},.yomu-hosted-overflow-group`;
 const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-function interactivePassiveControl(element2) {
-  const temporalMetadata = element2.closest("time,[datetime]");
+function interactivePassiveControl(element) {
+  const temporalMetadata = element.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
-  const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
+  const control = element.closest(INTERACTIVE_CONTROL_SELECTOR);
   if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
-  const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
+  const siblingOwnedControl = siblingOwnedInteractiveControl(element);
   if (siblingOwnedControl) return siblingOwnedControl;
-  const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
+  const link = element.closest(INTERACTIVE_LINK_SELECTOR);
   if (!link) return null;
-  if (isCompactLinkedCardMetadata(link, element2)) return link;
-  if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
+  if (isCompactLinkedCardMetadata(link, element)) return link;
+  if (element instanceof HTMLElement && isLikelyProseLink(link, element)) return null;
   return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
 }
 const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
-function siblingOwnedInteractiveControl(element2) {
-  if (!(element2 instanceof HTMLElement)) return null;
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  const chromeContext = isCompactInteractiveChromeContext(element2);
-  if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
-  let current = element2.parentElement;
+function siblingOwnedInteractiveControl(element) {
+  if (!(element instanceof HTMLElement)) return null;
+  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const chromeContext = isCompactInteractiveChromeContext(element);
+  if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element) && !chromeContext) return null;
+  let current = element.parentElement;
   for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
   if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
-  const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate) => !candidate.contains(element2) && !element2.contains(candidate));
+  const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate) => !candidate.contains(element) && !element.contains(candidate));
   if (controls.length !== 1) continue;
-  const classFacts = `${element2.className} ${current.className}`;
+  const classFacts = `${element.className} ${current.className}`;
   const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
   if (!uiContext) continue;
   const rect = current.getBoundingClientRect();
@@ -834,13 +834,13 @@ function siblingOwnedInteractiveControl(element2) {
   }
   return null;
 }
-function isCompactTemporalMetadata(element2) {
-  return isCompactMetadataElement(element2);
+function isCompactTemporalMetadata(element) {
+  return isCompactMetadataElement(element);
 }
 const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
 const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
-function isCompactLinkedCardMetadata(link, element2) {
-  const textElement = element2 instanceof HTMLElement ? element2 : element2.parentElement;
+function isCompactLinkedCardMetadata(link, element) {
+  const textElement = element instanceof HTMLElement ? element : element.parentElement;
   return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
 }
 function isLinkedCardMetadataElement(link, textElement) {
@@ -853,9 +853,9 @@ function isLinkedCardMetadataElement(link, textElement) {
   isCompactMetadataElement(textElement)
   ].every(Boolean);
 }
-function isCompactMetadataElement(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  const height = element2.getBoundingClientRect().height;
+function isCompactMetadataElement(element) {
+  const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  const height = element.getBoundingClientRect().height;
   return [
   HAS_JAPANESE.test(text2),
   compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
@@ -875,20 +875,20 @@ function mediaElementIsThumbnailSized(media) {
   if (rect.width <= 0 && rect.height <= 0) return true;
   return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
 }
-function classifyDecoration(element2) {
-  if (element2.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
-  if (isEditableComposingContext(element2)) return "skip";
-  const control = interactivePassiveControl(element2);
+function classifyDecoration(element) {
+  if (element.closest(READER_ROOT_SELECTOR$3)) return "content-ruby";
+  if (isEditableComposingContext(element)) return "skip";
+  const control = interactivePassiveControl(element);
   if (control) {
   if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return "interactive-passive";
   if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return "interactive-passive";
   if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
   return "interactive-passive";
   }
-  if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
-  if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
-  if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
-  return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+  if (element instanceof HTMLElement && compactMetadataChromeElement(element)) return "interactive-passive";
+  if (element.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
+  if (element instanceof HTMLElement && compactScanRubySuppression(element).suppress) return "interactive-passive";
+  return element instanceof HTMLElement && isProseFullContext(element) ? "prose-full" : "content-ruby";
 }
 function decorationSuppressesRuby(state) {
   return state === "interactive-passive";
@@ -1164,8 +1164,8 @@ function normalizedPropertyDescriptor(descriptor) {
   }
 }
 let trustedHtmlPolicy;
-function setInnerHtml(element2, html) {
-  if (!assignInnerHtml(element2, html)) element2.textContent = html;
+function setInnerHtml(element, html) {
+  if (!assignInnerHtml(element, html)) element.textContent = html;
 }
 function parseHtmlDocument(html) {
   const parsed = parseHtmlWithDomParser(html);
@@ -1176,9 +1176,9 @@ function parseHtmlDocument(html) {
   fallback.body.textContent = html;
   return fallback;
 }
-function assignInnerHtml(element2, html) {
+function assignInnerHtml(element, html) {
   try {
-  element2.innerHTML = trustedHtml(html);
+  element.innerHTML = trustedHtml(html);
   return true;
   } catch {
   return false;
@@ -1199,14 +1199,14 @@ function htmlToFirstElement(html) {
   const first = template.content.firstElementChild;
   return first instanceof HTMLElement ? document.importNode(first, true) : null;
 }
-function appendToDocumentHead(element2) {
+function appendToDocumentHead(element) {
   const target = document.head || document.documentElement || document.body;
   if (target) {
-  target.appendChild(element2);
+  target.appendChild(element);
   return;
   }
   document.addEventListener("DOMContentLoaded", () => {
-  if (!element2.isConnected) appendToDocumentHead(element2);
+  if (!element.isConnected) appendToDocumentHead(element);
   }, { once: true });
 }
 function escapeHtml$1(value) {
@@ -1307,14 +1307,24 @@ function ensureReaderStylesInShadowRoot(root) {
 const scannedShadowRootRefs = new Set();
 const scannedShadowRootState = new WeakMap();
 let shadowRootScanHook = null;
-const POTENTIAL_SHADOW_HOST_POLL_MS = 500;
-const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 6e4;
+const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
+const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+const MAX_PENDING_UPGRADE_NAMES = 64;
 const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = "yomu:open-shadow-root-attached";
 const PAGE_SHADOW_DISCOVERY_KEY = "__yomuOpenShadowRootDiscoveryV1";
 const potentialShadowHosts = new Set();
 let seenPotentialShadowHosts = new WeakSet();
 let potentialShadowHostTimer;
+const subscribedUpgradeNames = new Set();
+let customElementLifecycleGeneration = 0;
+let customElementUpgradeHook = null;
+let pendingUpgradeWakeup = false;
+let acceptPendingUpgradeWakeups = true;
 let openShadowRootDiscoveryUsers = 0;
+function noteScannedShadowRoot(root) {
+  noteShadowRoot(root, "scan");
+}
 function noteShadowRoot(root, cause) {
   const active = scannedShadowRootState.get(root);
   if (active) return;
@@ -1328,12 +1338,18 @@ function watchPotentialOpenShadowRootHost(host, includeNativeHost = false) {
   noteShadowRoot(root, "scan");
   return root;
   }
-  if (!includeNativeHost && !host.localName.includes("-") || seenPotentialShadowHosts.has(host)) return null;
-  const now = Date.now();
+  const tagName = host.localName.toLowerCase();
+  const isCustomElement = tagName.includes("-");
+  if (!includeNativeHost && !isCustomElement) return null;
+  if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
+  subscribeToCustomElementUpgrade(tagName);
+  return null;
+  }
+  if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
   seenPotentialShadowHosts.add(host);
   potentialShadowHosts.add({
   ref: new WeakRef(host),
-  expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS
+  remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
   });
   schedulePotentialShadowHostPoll();
   return null;
@@ -1356,10 +1372,7 @@ function installOpenShadowRootDiscovery() {
   openShadowRootDiscoveryUsers -= 1;
   if (openShadowRootDiscoveryUsers > 0) return;
   document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
-  window.clearTimeout(potentialShadowHostTimer);
-  potentialShadowHostTimer = void 0;
-  potentialShadowHosts.clear();
-  seenPotentialShadowHosts = new WeakSet();
+  if (!customElementUpgradeHook) resetPotentialShadowHostTracking();
   };
 }
 function handleOpenShadowRootAttached(event) {
@@ -1368,7 +1381,7 @@ function handleOpenShadowRootAttached(event) {
   if (root) noteShadowRoot(root, "attached");
 }
 function schedulePotentialShadowHostPoll() {
-  if (!openShadowRootDiscoveryUsers || potentialShadowHostTimer !== void 0 || !potentialShadowHosts.size) return;
+  if (!openShadowRootDiscoveryUsers && !customElementUpgradeHook || potentialShadowHostTimer !== void 0 || !potentialShadowHosts.size) return;
   potentialShadowHostTimer = window.setTimeout(
   pollPotentialShadowHosts,
   POTENTIAL_SHADOW_HOST_POLL_MS
@@ -1376,18 +1389,23 @@ function schedulePotentialShadowHostPoll() {
 }
 function pollPotentialShadowHosts() {
   potentialShadowHostTimer = void 0;
-  const now = Date.now();
   for (const pending of potentialShadowHosts) {
   const host = pending.ref.deref();
-  if (!host || !host.isConnected || pending.expiresAt <= now) {
+  if (!host || !host.isConnected) {
     potentialShadowHosts.delete(pending);
     if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
     continue;
   }
-  if (!host.shadowRoot) continue;
-  potentialShadowHosts.delete(pending);
-  seenPotentialShadowHosts.delete(host);
-  noteShadowRoot(host.shadowRoot, "attached");
+  if (host.shadowRoot) {
+    potentialShadowHosts.delete(pending);
+    noteShadowRoot(host.shadowRoot, "attached");
+    continue;
+  }
+  if (pending.remainingPolls <= 1) {
+    potentialShadowHosts.delete(pending);
+  } else {
+    pending.remainingPolls -= 1;
+  }
   }
   schedulePotentialShadowHostPoll();
 }
@@ -1453,6 +1471,62 @@ function forEachScannedShadowRoot(callback, includeDetached = false) {
   callback(root);
   }
 }
+function sweepDisconnectedShadowRoots() {
+  let swept = false;
+  for (const ref of scannedShadowRootRefs) {
+  const root = ref.deref();
+  if (!root) {
+    scannedShadowRootRefs.delete(ref);
+    continue;
+  }
+  if (root.host?.isConnected || scannedShadowRootState.get(root) === false) continue;
+  scannedShadowRootState.set(root, false);
+  swept = true;
+  }
+  return swept;
+}
+function setCustomElementUpgradeHook(hook) {
+  customElementUpgradeHook = hook;
+  if (!hook) {
+  customElementLifecycleGeneration += 1;
+  subscribedUpgradeNames.clear();
+  acceptPendingUpgradeWakeups = false;
+  pendingUpgradeWakeup = false;
+  if (!openShadowRootDiscoveryUsers) resetPotentialShadowHostTracking();
+  return;
+  }
+  acceptPendingUpgradeWakeups = true;
+  schedulePotentialShadowHostPoll();
+  if (pendingUpgradeWakeup) {
+  pendingUpgradeWakeup = false;
+  hook();
+  }
+}
+function subscribeToCustomElementUpgrade(tagName) {
+  if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+  subscribedUpgradeNames.add(tagName);
+  const generation = customElementLifecycleGeneration;
+  void customElements.whenDefined(tagName).then(() => {
+  if (generation !== customElementLifecycleGeneration) return;
+  subscribedUpgradeNames.delete(tagName);
+  notifyCustomElementLifecycle();
+  }, () => {
+  if (generation !== customElementLifecycleGeneration) return;
+  subscribedUpgradeNames.delete(tagName);
+  });
+}
+function notifyCustomElementLifecycle() {
+  if (customElementUpgradeHook) customElementUpgradeHook();
+  else if (acceptPendingUpgradeWakeups) pendingUpgradeWakeup = true;
+}
+function resetPotentialShadowHostTracking() {
+  if (potentialShadowHostTimer !== void 0) {
+  window.clearTimeout(potentialShadowHostTimer);
+  potentialShadowHostTimer = void 0;
+  }
+  potentialShadowHosts.clear();
+  seenPotentialShadowHosts = new WeakSet();
+}
 function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
   return right > rect.left && bottom > rect.top;
 }
@@ -1473,13 +1547,13 @@ function unwrapReaderWords(root = document, options = {}) {
   parents.forEach((parent) => parent.normalize());
   return words.length;
 }
-function readerWordSurfaceText(element2) {
-  const surface = readerWordChildSurfaceText(element2);
-  return surface || element2.getAttribute("data-surface") || "";
+function readerWordSurfaceText(element) {
+  const surface = readerWordChildSurfaceText(element);
+  return surface || element.getAttribute("data-surface") || "";
 }
-function readerWordChildSurfaceText(element2) {
+function readerWordChildSurfaceText(element) {
   let text2 = "";
-  element2.childNodes.forEach((node) => {
+  element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
     text2 += node.textContent ?? "";
     return;
@@ -1491,8 +1565,8 @@ function readerWordChildSurfaceText(element2) {
   });
   return text2;
 }
-function isReaderWordElement(element2) {
-  return element2 instanceof HTMLElement && element2.classList.contains("jpdb-reader-word");
+function isReaderWordElement(element) {
+  return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
 }
 function readerWordAtPointInScope(scope, x, y, accepts = () => true) {
   let best = null;
@@ -1527,12 +1601,12 @@ function rectPointScore(rect, x, y) {
   const centerY = rect.top + (bottom - rect.top) / 2;
   return Math.hypot(x - centerX, y - centerY);
 }
-function nearestReadableSentenceForElement(element2, fallback = "") {
-  const surface = readerWordSurfaceText(element2).trim() || element2.textContent?.trim() || "";
+function nearestReadableSentenceForElement(element, fallback = "") {
+  const surface = readerWordSurfaceText(element).trim() || element.textContent?.trim() || "";
   const cleanFallback = cleanReadableSentence(fallback);
-  const ocrLine = element2.closest(".jpdb-ocr-line");
+  const ocrLine = element.closest(".jpdb-ocr-line");
   if (ocrLine) return ocrLineSentenceForElement(ocrLine, surface, cleanFallback);
-  const nearest = nearestReadableAncestorSentence(element2, surface, cleanFallback);
+  const nearest = nearestReadableAncestorSentence(element, surface, cleanFallback);
   return nearest || fallbackReadableSentence(cleanFallback, surface);
 }
 function ocrLineSentenceForElement(ocrLine, surface, cleanFallback) {
@@ -1560,31 +1634,31 @@ function ocrSurfaceSentence(multi, surface, cleanFallback) {
 function firstReadableText(...values) {
   return values.find((value) => Boolean(value)) ?? "";
 }
-function nearestReadableAncestorSentence(element2, surface, cleanFallback) {
-  let current = element2.parentElement;
+function nearestReadableAncestorSentence(element, surface, cleanFallback) {
+  let current = element.parentElement;
   while (isReadableAncestorCandidate(current)) {
-  const sentence = readableAncestorSentence(current, element2, surface, cleanFallback);
+  const sentence = readableAncestorSentence(current, element, surface, cleanFallback);
   if (sentence) return sentence;
   current = current.parentElement;
   }
   return "";
 }
-function isReadableAncestorCandidate(element2) {
-  if (!element2) return false;
-  return element2 !== document.body && element2 !== document.documentElement;
+function isReadableAncestorCandidate(element) {
+  if (!element) return false;
+  return element !== document.body && element !== document.documentElement;
 }
-function readableAncestorSentence(element2, target, surface, cleanFallback) {
-  if (!canReadSentenceContextFrom(element2)) return "";
-  const text2 = readableSurfaceText(element2);
-  const range = readableSurfaceRange(element2, target);
+function readableAncestorSentence(element, target, surface, cleanFallback) {
+  if (!canReadSentenceContextFrom(element)) return "";
+  const text2 = readableSurfaceText(element);
+  const range = readableSurfaceRange(element, target);
   const sentence = range ? sentenceAroundRange(text2, range.start, range.end, cleanFallback) : sentenceAroundSurface(text2, surface, cleanFallback);
   return isUsefulContextSentence(sentence, cleanFallback, surface) ? sentence : "";
 }
 function fallbackReadableSentence(cleanFallback, surface) {
   return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
 }
-function canReadSentenceContextFrom(element2) {
-  return !element2.closest(READER_ROOT_SELECTOR$3) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
+function canReadSentenceContextFrom(element) {
+  return !element.closest(READER_ROOT_SELECTOR$3) || Boolean(element.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
 }
 function sentenceAroundSurface(value, surface = "", fallback = "") {
   const text2 = cleanReadableSentence(value);
@@ -1661,10 +1735,10 @@ function readableSurfaceText(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   return readableElementSurfaceText(node);
 }
-function readableElementSurfaceText(element2) {
-  if (isIgnoredReadableElement(element2)) return "";
+function readableElementSurfaceText(element) {
+  if (isIgnoredReadableElement(element)) return "";
   let text2 = "";
-  element2.childNodes.forEach((child) => {
+  element.childNodes.forEach((child) => {
   text2 += readableSurfaceText(child);
   });
   return text2;
@@ -1685,18 +1759,18 @@ function readableSurfaceRange(root, target) {
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
-  const element2 = node;
-  if (isIgnoredReadableElement(element2)) return;
-  element2.childNodes.forEach(visit);
+  const element = node;
+  if (isIgnoredReadableElement(element)) return;
+  element.childNodes.forEach(visit);
   };
   visit(root);
   return range;
 }
-function isIgnoredReadableElement(element2) {
-  return isSurfaceIgnoredElement$1(element2) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
+function isIgnoredReadableElement(element) {
+  return isSurfaceIgnoredElement$1(element) || element.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
 }
-function isSurfaceIgnoredElement$1(element2) {
-  return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+function isSurfaceIgnoredElement$1(element) {
+  return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
 }
 function cleanReadableSentence(value) {
   return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
@@ -3588,21 +3662,6 @@ function matchesShortcut(event, shortcut = "") {
 function shortcutModifiersMatch(event, modifiers) {
   return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
 }
-function formatShortcutEvent(event) {
-  const parts = [];
-  addShortcutModifierParts(parts, event);
-  addShortcutKeyPart(parts, normalizeEventKey(event.key));
-  return dedupeShortcutParts(parts).join("+");
-}
-function addShortcutModifierParts(parts, event) {
-  if (event.ctrlKey) parts.push("Ctrl");
-  if (event.altKey) parts.push("Alt");
-  if (event.shiftKey) parts.push("Shift");
-  if (event.metaKey) parts.push("Meta");
-}
-function addShortcutKeyPart(parts, key) {
-  if (!isModifierKey(key)) parts.push(key);
-}
 function shortcutIsPressed(shortcut = "", event, pressedKeys = new Set()) {
   if (!shortcut.trim()) return true;
   const parts = parseShortcut(shortcut);
@@ -3653,9 +3712,6 @@ function normalizeEventKey(key) {
 function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
-function dedupeShortcutParts(parts) {
-  return parts.filter((part, index) => parts.indexOf(part) === index);
-}
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
@@ -3666,7 +3722,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const log$i = Logger.scope("Settings");
+const log$h = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -4897,7 +4953,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
   const params = new URLSearchParams(search);
   const bootstrap = urlBootstrapSettings(params);
   if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-  log$i.info("Applying URL bootstrap settings", {
+  log$h.info("Applying URL bootstrap settings", {
   hasApiKey: Boolean(bootstrap.apiKey),
   hasAudio: Boolean(bootstrap.audio),
   hasOcr: Boolean(bootstrap.ocr)
@@ -4969,7 +5025,7 @@ async function loadSettings() {
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
-  log$i.warn("Settings load failed", { error });
+  log$h.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
 }
@@ -4995,13 +5051,13 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings) {
   if (settingsResetInProgress) {
-  log$i.warn("Skipped save during reset");
+  log$h.warn("Skipped save during reset");
   return;
   }
   try {
   await persistSettings(settings);
   } catch (error) {
-  log$i.warn("Settings save failed", { error });
+  log$h.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -5560,11 +5616,11 @@ function activeControlSelectionText(control) {
   return range ? control.value.slice(range.start, range.end) : "";
 }
 function activeSelectableControl() {
-  const element2 = deepActiveElement();
-  if (element2 instanceof HTMLTextAreaElement) return element2;
-  if (!(element2 instanceof HTMLInputElement)) return null;
-  if (element2.type.toLowerCase() === "password") return null;
-  return controlSelectionRange(element2) ? element2 : null;
+  const element = deepActiveElement();
+  if (element instanceof HTMLTextAreaElement) return element;
+  if (!(element instanceof HTMLInputElement)) return null;
+  if (element.type.toLowerCase() === "password") return null;
+  return controlSelectionRange(element) ? element : null;
 }
 function deepActiveElement(root = document) {
   const active = root.activeElement;
@@ -5587,37 +5643,81 @@ function normalizedSelectedText(text2) {
 function collectVisibleTextTargets(limit = 40) {
   return collectTextTargetsIn(document.body, limit, true);
 }
-function documentHasJapaneseText(limit = 2e5) {
-  if (!document.body) return false;
-  const hasLightDomJapanese = textWalkerHasJapanese(visibleTextWalker(document.body), limit);
-  if (hasLightDomJapanese) return true;
-  const roots = [document.body];
-  let inspected = 0;
-  while (roots.length && inspected < limit) {
-  const root = roots.shift();
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-  for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
-    const element2 = node;
-    const shadowRoot = watchPotentialOpenShadowRootHost(element2);
-    if (!shadowRoot) continue;
-    roots.push(shadowRoot);
-    if (shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH)) return true;
+function documentHasJapaneseText(limit = 2e5, roots = document.body ? [document.body] : []) {
+  return documentJapaneseTextProbe(limit, roots).hasJapanese;
+}
+function documentJapaneseTextProbe(limit = 2e5, roots = document.body ? [document.body] : []) {
+  if (!roots.length) return { hasJapanese: false, shadowDiscoveryExhausted: false };
+  const lightTextBudget = { inspectedCharacters: 0, limit };
+  for (const root of roots) {
+  if (textWalkerHasJapaneseWithinBudget(visibleTextWalker(root), lightTextBudget)) {
+    return { hasJapanese: true, shadowDiscoveryExhausted: false };
   }
   }
-  return false;
+  const shadowBudget = {
+  inspectedElements: 0,
+  exhausted: false
+  };
+  const shadowTextBudget = { inspectedCharacters: 0, limit };
+  let foundShadowJapanese = false;
+  let inspectedLightElements = 0;
+  for (const root of roots) {
+  const rootNode = root;
+  const elements = document.createTreeWalker(rootNode, NodeFilter.SHOW_ELEMENT);
+  let node = rootNode instanceof HTMLElement ? rootNode : elements.nextNode();
+  while (node) {
+    if (inspectedLightElements >= STARTUP_LIGHT_DOM_DISCOVERY_ELEMENT_LIMIT) {
+      shadowBudget.exhausted = true;
+      break;
+    }
+    inspectedLightElements += 1;
+    const element = node;
+    if (element.shadowRoot || isCustomElementHost(element)) {
+      if (!consumeShadowLookaheadElement(shadowBudget)) break;
+      const shadowRoot = watchPotentialOpenShadowRootHost(element);
+      if (shadowRoot) {
+        if (startupShadowBranchHasVisibleJapanese(
+          shadowRoot,
+          SHADOW_SCAN_MAX_DEPTH,
+          shadowBudget,
+          shadowTextBudget
+        )) foundShadowJapanese = true;
+      }
+    }
+    if (shadowBudget.exhausted) break;
+    node = elements.nextNode();
+  }
+  if (shadowBudget.exhausted) break;
+  }
+  return {
+  hasJapanese: foundShadowJapanese,
+  shadowDiscoveryExhausted: shadowBudget.exhausted
+  };
 }
 function visibleTextWalker(root) {
-  return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: visibleTextNodeFilter });
+  const visibilityCache = new WeakMap();
+  return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+  acceptNode: (node) => visibleTextNodeFilter(node, visibilityCache)
+  });
 }
-function visibleTextNodeFilter(node) {
-  return canInspectTextNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+function visibleTextNodeFilter(node, visibilityCache) {
+  return canInspectTextNode(node, visibilityCache) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
 }
-function canInspectTextNode(node) {
+function canInspectTextNode(node, visibilityCache) {
   const parent = node.parentElement;
   if (!parent || parent.closest(READER_ROOT_SELECTOR$3)) return false;
+  if (!hasVisibleComposedTextAncestors(parent, visibilityCache)) return false;
   const blocked = parent.closest(SKIP_SELECTOR);
   if (!blocked) return true;
   return isAnnotatableChipControl(blocked);
+}
+function hasVisibleComposedTextAncestors(element, cache2) {
+  const cached = cache2.get(element);
+  if (cached !== void 0) return cached;
+  const parent = composedAncestorElement(element);
+  const visible = !element.hidden && isVisibleStyle(safeComputedStyle(element)) && (!parent || hasVisibleComposedTextAncestors(parent, cache2));
+  cache2.set(element, visible);
+  return visible;
 }
 const CONTROL_LABEL_TEXT_LIMIT = 60;
 const ANNOTATABLE_CONTROL_SELECTOR = COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR;
@@ -5631,22 +5731,8 @@ function isAnnotatableChipControl(blocked) {
 function isComposerActionControl(control) {
   return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
 }
-function textWalkerHasJapanese(walker, limit) {
-  let inspected = 0;
-  let node;
-  while (node = walker.nextNode()) {
-  const text2 = nodeTextContent(node);
-  if (HAS_JAPANESE.test(text2)) return true;
-  inspected = inspectedTextLength(inspected, text2);
-  if (inspected >= limit) return false;
-  }
-  return false;
-}
 function nodeTextContent(node) {
   return node.textContent ?? "";
-}
-function inspectedTextLength(inspected, text2) {
-  return inspected + text2.length;
 }
 function collectTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
   const walker = textTargetWalker(root, visibleOnly, options);
@@ -5902,10 +5988,10 @@ function fragmentTargetDecoration(parent, fragments) {
   if (parentDecoration === "skip" || parentDecoration === "interactive-passive") return parentDecoration;
   const seen = new Set([parent]);
   for (const fragment of fragments) {
-  const element2 = fragment.node.parentElement;
-  if (!element2 || seen.has(element2)) continue;
-  seen.add(element2);
-  if (classifyDecoration(element2) === "interactive-passive") return "interactive-passive";
+  const element = fragment.node.parentElement;
+  if (!element || seen.has(element)) continue;
+  seen.add(element);
+  if (classifyDecoration(element) === "interactive-passive") return "interactive-passive";
   }
   return parentDecoration;
 }
@@ -5942,25 +6028,26 @@ function collectFragmentTextNode(node, state, hasNativeRuby) {
 function shouldIgnoreFragmentTextNode(text2, options) {
   return Boolean(options.mergeBlockFragments && !text2.trim());
 }
-function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
-  if (shouldIgnoreFragmentElement(element2, state.options)) return;
-  if (shouldFlushAndSkipFragmentElement(element2, state, isRoot)) {
+function visitFragmentElement(element, state, hasNativeRuby, isRoot) {
+  if (shouldIgnoreFragmentElement(element, state.options)) return;
+  if (shouldFlushAndSkipFragmentElement(element, state, isRoot)) {
   flushFragmentTextTarget(state);
   return;
   }
-  const isBlock = isBlockFragmentElement(element2, state.options);
+  const isBlock = isBlockFragmentElement(element, state.options);
   flushFragmentBlockBoundary(isBlock, state);
-  visitFragmentElementChildren(element2, state, nextFragmentRubyState(element2, hasNativeRuby));
+  visitFragmentElementChildren(element, state, nextFragmentRubyState(element, hasNativeRuby));
   flushFragmentBlockBoundary(isBlock, state);
-  visitFragmentShadowRoot(element2, state);
+  visitFragmentShadowRoot(element, state);
 }
 const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
-function visitFragmentShadowRoot(element2, state) {
-  const shadowRoot = watchPotentialOpenShadowRootHost(element2);
+const STARTUP_LIGHT_DOM_DISCOVERY_ELEMENT_LIMIT = 4096;
+function visitFragmentShadowRoot(element, state) {
+  const shadowRoot = watchPotentialOpenShadowRootHost(element);
   if (!shadowRoot) return;
   if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
-  deferDepthCappedShadowHost(element2);
+  deferDepthCappedShadowHost(element);
   return;
   }
   if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
@@ -5974,35 +6061,95 @@ function visitFragmentShadowRoot(element2, state) {
   flushFragmentTextTarget(state);
   state.shadowDepth -= 1;
 }
-function shadowBranchHasJapanese(root, remainingDepth) {
-  if (HAS_JAPANESE.test(root.textContent ?? "")) return true;
+function shadowBranchHasJapanese(root, remainingDepth, budget = { inspectedElements: 0, exhausted: false }) {
+  let foundJapanese = HAS_JAPANESE.test(root.textContent ?? "");
   if (remainingDepth <= 1) {
-  return shadowRootHasNestedShadowRoot(root);
+  const foundNested = shadowRootHasNestedShadowRoot(root, budget);
+  return foundJapanese || foundNested;
   }
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-  for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
-  const element2 = node;
-  const nested = element2.shadowRoot;
-  if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
-  if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
-    return true;
+  let node = walker.nextNode();
+  while (node) {
+  if (!consumeShadowLookaheadElement(budget)) return true;
+  const element = node;
+  const nested = watchPotentialOpenShadowRootHost(element);
+  if (nested) {
+    if (shadowBranchHasJapanese(nested, remainingDepth - 1, budget)) foundJapanese = true;
   }
+  node = walker.nextNode();
+  }
+  return foundJapanese;
+}
+function startupShadowBranchHasVisibleJapanese(root, remainingDepth, elementBudget, textBudget) {
+  let foundJapanese = textWalkerHasJapaneseWithinBudget(visibleTextWalker(root), textBudget);
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  let node = walker.nextNode();
+  while (node) {
+  if (!consumeShadowLookaheadElement(elementBudget)) return foundJapanese;
+  const element = node;
+  const nested = watchPotentialOpenShadowRootHost(element);
+  if (nested) {
+    if (remainingDepth <= 1) {
+      elementBudget.exhausted = true;
+    } else if (startupShadowBranchHasVisibleJapanese(
+      nested,
+      remainingDepth - 1,
+      elementBudget,
+      textBudget
+    )) {
+      foundJapanese = true;
+    }
+  }
+  if (elementBudget.exhausted) return foundJapanese;
+  node = walker.nextNode();
+  }
+  return foundJapanese;
+}
+function textWalkerHasJapaneseWithinBudget(walker, budget) {
+  if (budget.inspectedCharacters >= budget.limit) return false;
+  let node;
+  while (node = walker.nextNode()) {
+  const text2 = nodeTextContent(node);
+  const remaining = budget.limit - budget.inspectedCharacters;
+  const sampled = text2.slice(0, remaining);
+  budget.inspectedCharacters += sampled.length;
+  if (HAS_JAPANESE.test(sampled)) return true;
+  if (budget.inspectedCharacters >= budget.limit) return false;
   }
   return false;
 }
-function shadowRootHasNestedShadowRoot(root) {
+function shadowRootHasNestedShadowRoot(root, budget) {
+  let foundNested = false;
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-  for (let inspected = 0, node = walker.nextNode(); node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node = walker.nextNode()) {
-  if (node.shadowRoot) return true;
+  let node = walker.nextNode();
+  while (node) {
+  if (!consumeShadowLookaheadElement(budget)) return true;
+  const element = node;
+  const nested = watchPotentialOpenShadowRootHost(element);
+  if (nested) {
+    foundNested = true;
   }
+  node = walker.nextNode();
+  }
+  return foundNested;
+}
+function consumeShadowLookaheadElement(budget) {
+  if (budget.inspectedElements >= SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT) {
+  budget.exhausted = true;
   return false;
+  }
+  budget.inspectedElements += 1;
+  return true;
+}
+function isCustomElementHost(element) {
+  return element.tagName.includes("-");
 }
 const depthCappedShadowHosts = new Set();
 const depthCappedShadowHostSeen = new WeakSet();
-function deferDepthCappedShadowHost(element2) {
-  if (depthCappedShadowHostSeen.has(element2)) return;
-  depthCappedShadowHostSeen.add(element2);
-  depthCappedShadowHosts.add(new WeakRef(element2));
+function deferDepthCappedShadowHost(element) {
+  if (depthCappedShadowHostSeen.has(element)) return;
+  depthCappedShadowHostSeen.add(element);
+  depthCappedShadowHosts.add(new WeakRef(element));
 }
 function drainDepthCappedShadowHosts() {
   const hosts = [];
@@ -6014,110 +6161,110 @@ function drainDepthCappedShadowHosts() {
   depthCappedShadowHosts.clear();
   return hosts;
 }
-function shouldIgnoreFragmentElement(element2, options) {
-  return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
+function shouldIgnoreFragmentElement(element, options) {
+  return isRubyAnnotationElement(element) || isSurfaceIgnoredElement(element) || isExcludedReaderRootElement(element, options);
 }
-function isRubyAnnotationElement(element2) {
-  return element2.tagName === "RT" || element2.tagName === "RP";
+function isRubyAnnotationElement(element) {
+  return element.tagName === "RT" || element.tagName === "RP";
 }
-function isSurfaceIgnoredElement(element2) {
-  return element2.matches("[data-jpdb-reader-surface-ignore]");
+function isSurfaceIgnoredElement(element) {
+  return element.matches("[data-jpdb-reader-surface-ignore]");
 }
-function isExcludedReaderRootElement(element2, options) {
-  return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR$3));
+function isExcludedReaderRootElement(element, options) {
+  return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR$3));
 }
-function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
-  if (matchesSkippedFragmentElement(element2, state, isRoot)) return true;
-  if (shouldSkipInvisibleFragmentElement(element2, state.visibleOnly)) return true;
-  return shouldSkipFragmentTextPresentation(element2, state.options);
+function shouldFlushAndSkipFragmentElement(element, state, isRoot) {
+  if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
+  if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
+  return shouldSkipFragmentTextPresentation(element, state.options);
 }
-function matchesSkippedFragmentElement(element2, state, isRoot) {
+function matchesSkippedFragmentElement(element, state, isRoot) {
   if (state.excludeSelector && fragmentSelectorSkipsElement(
-  element2,
+  element,
   state.excludeSelector,
   selectorWithoutAriaHiddenToken(state.excludeSelector)
   )) return true;
-  if (isComposerActionControl(element2)) return true;
-  if (isRoot && element2.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element2, state.options)) return true;
-  return !isRoot && shouldSkipFragmentElement(element2, state.options);
+  if (isComposerActionControl(element)) return true;
+  if (isRoot && element.closest(EDITABLE_FRAGMENT_ROOT_SELECTOR) && !isSafeEditableSurfaceFragmentRoot(element, state.options)) return true;
+  return !isRoot && shouldSkipFragmentElement(element, state.options);
 }
-function isSafeEditableSurfaceFragmentRoot(element2, options) {
-  return Boolean(options.includePassiveInteractions && safeElementMatches$1(element2, PASSIVE_INTERACTION_SELECTOR) && isNavigationChromeContext(element2));
+function isSafeEditableSurfaceFragmentRoot(element, options) {
+  return Boolean(options.includePassiveInteractions && safeElementMatches$1(element, PASSIVE_INTERACTION_SELECTOR) && isNavigationChromeContext(element));
 }
-function shouldSkipInvisibleFragmentElement(element2, visibleOnly) {
-  if (!hasVisibleTextStyle(element2) && !hasVisibleTextMirror(element2)) return true;
-  if (!visibleOnly || hasVisibleTextMirror(element2)) return false;
-  const rect = element2.getBoundingClientRect();
+function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
+  if (!hasVisibleTextStyle(element) && !hasVisibleTextMirror(element)) return true;
+  if (!visibleOnly || hasVisibleTextMirror(element)) return false;
+  const rect = element.getBoundingClientRect();
   if (isVisibleRect(rect)) return false;
-  return !isBoxlessFragmentWrapper(rect) || !hasVisibleJapaneseFragmentDescendant(element2);
+  return !isBoxlessFragmentWrapper(rect) || !hasVisibleJapaneseFragmentDescendant(element);
 }
 const VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT = 96;
 function isBoxlessFragmentWrapper(rect) {
   return rect.width <= 0 || rect.height <= 0;
 }
-function hasVisibleJapaneseFragmentDescendant(element2) {
-  if (!HAS_JAPANESE.test(element2.textContent ?? "")) return false;
-  const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
+function hasVisibleJapaneseFragmentDescendant(element) {
+  if (!HAS_JAPANESE.test(element.textContent ?? "")) return false;
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
   const descendant = node;
   if (HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
   }
   return false;
 }
-function hasVisibleTextStyle(element2) {
-  return isVisibleStyle(safeComputedStyle(element2));
+function hasVisibleTextStyle(element) {
+  return isVisibleStyle(safeComputedStyle(element));
 }
-function hasVisibleTextMirror(element2) {
-  return Array.from(element2.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
+function hasVisibleTextMirror(element) {
+  return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
 }
-function shouldSkipFragmentTextPresentation(element2, options) {
-  const text2 = element2.textContent?.trim() ?? "";
-  if (shouldSkipFragmentHeading(element2, text2, options)) return true;
-  if (shouldSkipFragmentUiText(element2, text2, options)) return true;
-  return isReaderRenderedTextBlock(element2);
+function shouldSkipFragmentTextPresentation(element, options) {
+  const text2 = element.textContent?.trim() ?? "";
+  if (shouldSkipFragmentHeading(element, text2, options)) return true;
+  if (shouldSkipFragmentUiText(element, text2, options)) return true;
+  return isReaderRenderedTextBlock(element);
 }
-function shouldSkipFragmentHeading(element2, text2, options) {
-  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element2, text2));
+function shouldSkipFragmentHeading(element, text2, options) {
+  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element, text2));
 }
-function shouldSkipFragmentUiText(element2, text2, options) {
-  return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
+function shouldSkipFragmentUiText(element, text2, options) {
+  return Boolean(!options.allowUiText && text2 && isFragileUiText(element, text2));
 }
-function isBlockFragmentElement(element2, options) {
-  return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
+function isBlockFragmentElement(element, options) {
+  return !options.mergeBlockFragments && isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
 }
 function flushFragmentBlockBoundary(isBlock, state) {
   if (isBlock) flushFragmentTextTarget(state);
 }
-function visitFragmentElementChildren(element2, state, hasNativeRuby) {
-  for (const child of Array.from(element2.childNodes)) {
+function visitFragmentElementChildren(element, state, hasNativeRuby) {
+  for (const child of Array.from(element.childNodes)) {
   visitFragmentNode(child, state, hasNativeRuby);
   if (fragmentCollectionComplete(state)) break;
   }
 }
-function nextFragmentRubyState(element2, hasNativeRuby) {
-  return hasNativeRuby || element2.tagName === "RUBY" || element2.tagName === "RB";
+function nextFragmentRubyState(element, hasNativeRuby) {
+  return hasNativeRuby || element.tagName === "RUBY" || element.tagName === "RB";
 }
 function fragmentCollectionComplete(state) {
   return state.targets.length >= state.limit;
 }
-function shouldSkipFragmentElement(element2, options) {
+function shouldSkipFragmentElement(element, options) {
   if (options.includePassiveInteractions) return fragmentSelectorSkipsElement(
-  element2,
+  element,
   PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR,
   PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN
   );
   if (options.includeFormChrome) return fragmentSelectorSkipsElement(
-  element2,
+  element,
   FORM_CHROME_FRAGMENT_SKIP_SELECTOR,
   FORM_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN
   );
   if (options.includeTabChrome) {
-  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element2, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element2, TAB_CHROME_FRAGMENT_SKIP_SELECTOR, TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
+  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR, TAB_CHROME_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
   }
   if (options.includeUiChrome) {
-  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element2, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element2, HARD_FRAGMENT_SKIP_SELECTOR, HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
+  return options.includePlayerChrome ? fragmentSelectorSkipsElement(element, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR, PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN) : fragmentSelectorSkipsElement(element, HARD_FRAGMENT_SKIP_SELECTOR, HARD_FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
   }
-  return fragmentSelectorSkipsElement(element2, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
+  return fragmentSelectorSkipsElement(element, FRAGMENT_SKIP_SELECTOR, FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN);
 }
 const ARIA_HIDDEN_VISUAL_LABEL_SELECTOR = [
   '[class*="badge" i]',
@@ -6132,11 +6279,11 @@ const ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT = 60;
 const ARIA_HIDDEN_VISUAL_LABEL_MAX_CANDIDATES = 32;
 const ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH = 360;
 const ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT = 96;
-function fragmentSelectorSkipsElement(element2, selector, selectorWithoutAriaHidden) {
-  if (!safeElementMatches$1(element2, selector)) return false;
-  if (!safeElementMatches$1(element2, '[aria-hidden="true"]')) return true;
-  if (safeElementMatches$1(element2, selectorWithoutAriaHidden)) return true;
-  return !ariaHiddenSubtreeHasVisibleVisualLabel(element2);
+function fragmentSelectorSkipsElement(element, selector, selectorWithoutAriaHidden) {
+  if (!safeElementMatches$1(element, selector)) return false;
+  if (!safeElementMatches$1(element, '[aria-hidden="true"]')) return true;
+  if (safeElementMatches$1(element, selectorWithoutAriaHidden)) return true;
+  return !ariaHiddenSubtreeHasVisibleVisualLabel(element);
 }
 function selectorWithoutAriaHiddenToken(selector) {
   return selector.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "[aria-hidden=true]" && entry !== '[aria-hidden="true"]').join(",");
@@ -6157,47 +6304,47 @@ function ariaHiddenSubtreeHasVisibleVisualLabel(root) {
   }
   return candidates.some(visibleVisualLabel);
 }
-function visibleVisualLabel(element2) {
-  const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+function visibleVisualLabel(element) {
+  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
   if (!text2 || compactLength(text2) > ARIA_HIDDEN_VISUAL_LABEL_TEXT_LIMIT || !HAS_JAPANESE.test(text2)) return false;
-  const rect = element2.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element2));
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 && rect.width <= ARIA_HIDDEN_VISUAL_LABEL_MAX_WIDTH && rect.height <= ARIA_HIDDEN_VISUAL_LABEL_MAX_HEIGHT && isVisibleStyle(safeComputedStyle(element));
 }
-function isFragmentParagraphBoundary(element2, options) {
-  return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isCustomElementTextBoundary(element2) || isParagraphBoundary(element2);
+function isFragmentParagraphBoundary(element, options) {
+  return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element.tagName},`) || isCustomElementTextBoundary(element) || isParagraphBoundary(element);
 }
-function isCustomElementTextBoundary(element2) {
-  if (!element2.localName.includes("-") || !HAS_JAPANESE.test(element2.textContent ?? "")) return false;
-  const parent = element2.parentElement;
+function isCustomElementTextBoundary(element) {
+  if (!element.localName.includes("-") || !HAS_JAPANESE.test(element.textContent ?? "")) return false;
+  const parent = element.parentElement;
   return !parent || !isLikelyProseElement(parent);
 }
-function isPassiveInteractionBoundaryElement(element2, options) {
+function isPassiveInteractionBoundaryElement(element, options) {
   if (!options.includePassiveInteractions) return false;
-  const explicitInteraction = safeElementMatches$1(element2, PASSIVE_INTERACTION_SELECTOR);
-  const compactInteraction = safeElementMatches$1(element2, COMPACT_PASSIVE_INTERACTION_SELECTOR);
-  const compactChrome = safeElementMatches$1(element2, COMPACT_PASSIVE_CHROME_SELECTOR);
-  if (!explicitInteraction && compactInteraction && !isCompactPassiveInteractionElement(element2)) {
+  const explicitInteraction = safeElementMatches$1(element, PASSIVE_INTERACTION_SELECTOR);
+  const compactInteraction = safeElementMatches$1(element, COMPACT_PASSIVE_INTERACTION_SELECTOR);
+  const compactChrome = safeElementMatches$1(element, COMPACT_PASSIVE_CHROME_SELECTOR);
+  if (!explicitInteraction && compactInteraction && !isCompactPassiveInteractionElement(element)) {
   return false;
   }
-  if (!explicitInteraction && !compactInteraction && compactChrome && !isCompactPassiveChromeElement(element2)) {
+  if (!explicitInteraction && !compactInteraction && compactChrome && !isCompactPassiveChromeElement(element)) {
   return false;
   }
-  if (!safeElementMatches$1(element2, PASSIVE_INTERACTION_BOUNDARY_SELECTOR)) return false;
-  return !isInlineProsePassiveLink(element2);
+  if (!safeElementMatches$1(element, PASSIVE_INTERACTION_BOUNDARY_SELECTOR)) return false;
+  return !isInlineProsePassiveLink(element);
 }
-function isInlineProsePassiveLink(element2) {
-  if (!element2.matches('a[href],[role="link"]')) return false;
-  const parent = element2.parentElement;
-  return Boolean(parent && isLikelyProseElement(parent) && element2.closest('article, main, [role="main"]'));
+function isInlineProsePassiveLink(element) {
+  if (!element.matches('a[href],[role="link"]')) return false;
+  const parent = element.parentElement;
+  return Boolean(parent && isLikelyProseElement(parent) && element.closest('article, main, [role="main"]'));
 }
-function isInlineSentenceListItem(element2) {
-  return element2.tagName === "LI" && Boolean(element2.closest(".japanese_sentence"));
+function isInlineSentenceListItem(element) {
+  return element.tagName === "LI" && Boolean(element.closest(".japanese_sentence"));
 }
-function isReaderRenderedTextBlock(element2) {
-  return READER_RENDERED_TEXT_BLOCK_TAGS.includes(`,${element2.tagName},`) && Boolean(element2.querySelector(".jpdb-reader-word")) && !hasRawJapaneseOutsideReaderWords(element2);
+function isReaderRenderedTextBlock(element) {
+  return READER_RENDERED_TEXT_BLOCK_TAGS.includes(`,${element.tagName},`) && Boolean(element.querySelector(".jpdb-reader-word")) && !hasRawJapaneseOutsideReaderWords(element);
 }
-function hasRawJapaneseOutsideReaderWords(element2) {
-  const walker = document.createTreeWalker(element2, NodeFilter.SHOW_TEXT, {
+function hasRawJapaneseOutsideReaderWords(element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
   acceptNode(node) {
     const parent = node.parentElement;
     if (!parent || parent.closest(".jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp")) {
@@ -6208,13 +6355,13 @@ function hasRawJapaneseOutsideReaderWords(element2) {
   });
   return Boolean(walker.nextNode());
 }
-function isFragmentPassiveInteractionElement(element2, options) {
-  if (isPassiveInteractionElement(element2)) return true;
-  return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$3) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
+function isFragmentPassiveInteractionElement(element, options) {
+  if (isPassiveInteractionElement(element)) return true;
+  return Boolean(options.readerRootPassiveInteractions && element.closest(READER_ROOT_SELECTOR$3) && element.closest(PASSIVE_INTERACTION_SELECTOR));
 }
-function isLayoutSensitiveScanElement(element2) {
-  if (element2 && isInsideOwnedReaderRoot(element2)) return false;
-  let current = element2;
+function isLayoutSensitiveScanElement(element) {
+  if (element && isInsideOwnedReaderRoot(element)) return false;
+  let current = element;
   while (current && current !== document.body && current !== document.documentElement) {
   if (isLayoutSensitiveTextBox(current)) return true;
   current = current.parentElement;
@@ -6222,13 +6369,13 @@ function isLayoutSensitiveScanElement(element2) {
   return false;
 }
 const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
-function isLayoutSensitiveTextBox(element2) {
-  const style = safeComputedStyle(element2);
-  if (isReadablePrimaryDisplayHeadingElement(element2)) return false;
+function isLayoutSensitiveTextBox(element) {
+  const style = safeComputedStyle(element);
+  if (isReadablePrimaryDisplayHeadingElement(element)) return false;
   if (hasLineClamp(style)) return true;
   if (isEllipsisTextRow(style)) return true;
   if (!hasClippedTextConstraint(style) && !isPositionedTextOverlay(style)) return false;
-  return element2.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
+  return element.getBoundingClientRect().height <= LAYOUT_SENSITIVE_MAX_BOX_HEIGHT;
 }
 function trimTextFragments(fragments) {
   const trimmed = fragments.map((fragment) => ({ ...fragment }));
@@ -6320,14 +6467,14 @@ function scanTargetRequiresWholeSourceMirror(target) {
 const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
 const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
 const frameworkManagedElements = new WeakSet();
-function elementHasFrameworkOwnershipMarker(element2) {
-  for (const key of Object.getOwnPropertyNames(element2)) {
+function elementHasFrameworkOwnershipMarker(element) {
+  for (const key of Object.getOwnPropertyNames(element)) {
   if (FRAMEWORK_OWNERSHIP_KEY_RE.test(key)) return true;
   }
   return false;
 }
-function elementIsFrameworkManaged(element2) {
-  let current = element2;
+function elementIsFrameworkManaged(element) {
+  let current = element;
   for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
   if (frameworkManagedElements.has(current)) return true;
   if (elementHasFrameworkOwnershipMarker(current)) {
@@ -6589,43 +6736,43 @@ class MirrorPlanStyleProbe {
   styleCache = new Map();
   hiddenCache = new Map();
   flattenedCache = new Map();
-  styleOf(element2) {
-  let style = this.styleCache.get(element2);
+  styleOf(element) {
+  let style = this.styleCache.get(element);
   if (!style) {
-    style = safeComputedStyle(element2);
-    this.styleCache.set(element2, style);
+    style = safeComputedStyle(element);
+    this.styleCache.set(element, style);
   }
   return style;
   }
-  displayOf(element2) {
-  const display = this.styleOf(element2).display;
+  displayOf(element) {
+  const display = this.styleOf(element).display;
   if (display) return display;
-  return BLOCK_TAGS.has(element2.tagName) ? "block" : "inline";
+  return BLOCK_TAGS.has(element.tagName) ? "block" : "inline";
   }
-  isComputedHidden(element2) {
-  if (element2 === this.host) return false;
-  if (this.isDisplayNoneHidden(element2)) return true;
+  isComputedHidden(element) {
+  if (element === this.host) return false;
+  if (this.isDisplayNoneHidden(element)) return true;
   if (this.hostVisibilityInjected) return false;
-  const visibility = this.styleOf(element2).visibility;
+  const visibility = this.styleOf(element).visibility;
   return visibility === "hidden" || visibility === "collapse";
   }
   get hostVisibilityInjected() {
   return this.host.style.getPropertyValue("visibility") === "hidden";
   }
-  isDisplayNoneHidden(element2) {
-  if (element2 === this.host) return false;
-  const cached = this.hiddenCache.get(element2);
+  isDisplayNoneHidden(element) {
+  if (element === this.host) return false;
+  const cached = this.hiddenCache.get(element);
   if (cached !== void 0) return cached;
-  const hidden = this.styleOf(element2).display === "none" || (element2.parentElement ? this.isDisplayNoneHidden(element2.parentElement) : false);
-  this.hiddenCache.set(element2, hidden);
+  const hidden = this.styleOf(element).display === "none" || (element.parentElement ? this.isDisplayNoneHidden(element.parentElement) : false);
+  this.hiddenCache.set(element, hidden);
   return hidden;
   }
   dropsWhitespaceOnlyChild(parent) {
   const container = this.throughContents(parent);
   return container !== null && isItemizedContainerDisplay(this.displayOf(container));
   }
-  throughContents(element2) {
-  let current = element2;
+  throughContents(element) {
+  let current = element;
   while (current && this.displayOf(current) === "contents") current = current.parentElement;
   return current;
   }
@@ -6650,8 +6797,8 @@ class MirrorPlanStyleProbe {
   }
   flattenedItemChild(container, node) {
   let item = node;
-  for (let element2 = node.parentElement; element2 && element2 !== container; element2 = element2.parentElement) {
-    if (this.displayOf(element2) !== "contents") item = element2;
+  for (let element = node.parentElement; element && element !== container; element = element.parentElement) {
+    if (this.displayOf(element) !== "contents") item = element;
   }
   return item;
   }
@@ -6666,8 +6813,8 @@ class MirrorPlanStyleProbe {
   const cached = this.flattenedCache.get(container);
   if (cached) return cached;
   const flattened = [];
-  const visit = (element2) => {
-    for (const child of Array.from(element2.childNodes)) {
+  const visit = (element) => {
+    for (const child of Array.from(element.childNodes)) {
       if (child instanceof HTMLElement && this.displayOf(child) === "contents") visit(child);
       else flattened.push(child);
     }
@@ -6678,9 +6825,9 @@ class MirrorPlanStyleProbe {
   }
   commonAncestorElement(a, b) {
   const ancestors = new Set();
-  for (let element2 = a.parentElement; element2; element2 = element2.parentElement) ancestors.add(element2);
-  for (let element2 = b.parentElement; element2; element2 = element2.parentElement) {
-    if (ancestors.has(element2)) return element2;
+  for (let element = a.parentElement; element; element = element.parentElement) ancestors.add(element);
+  for (let element = b.parentElement; element; element = element.parentElement) {
+    if (ancestors.has(element)) return element;
   }
   return null;
   }
@@ -6825,6 +6972,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   host.append(mirror);
   registerTextMirrorOwner(mirror, host);
   state.mirror = new WeakRef(mirror);
+  styleAdditiveMirrorPaint(mirror);
   if (context.detachedReadings) {
     styleDetachedReadingElements(mirror, host);
     openSafeDetachedReadingClips(host);
@@ -6908,15 +7056,8 @@ function styleDetachedReadingElements(root, host) {
   const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
   if (!detachedRubies.length) return;
   const hostStyle = safeComputedStyle(host);
-  const nativeColor = hostStyle.color || "currentColor";
   const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
   const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-  const additive = root.classList.contains("jpdb-reader-additive-text-mirror");
-  const pitchDecoration = [
-  "jpdb-reader-word-highlight-pitch",
-  "jpdb-reader-word-underline-pitch",
-  "jpdb-reader-word-text-pitch"
-  ].some((className) => document.documentElement.classList.contains(className));
   for (const wrapper of detachedRubies) {
   wrapper.style.setProperty("position", "relative", "important");
   wrapper.style.setProperty("display", "inline-block", "important");
@@ -6943,26 +7084,27 @@ function styleDetachedReadingElements(root, host) {
   reading.style.setProperty("text-decoration", "none", "important");
   reading.style.setProperty("user-select", "none");
   reading.style.setProperty("-webkit-user-select", "none");
-  reading.style.setProperty("color", nativeColor, "important");
-  reading.style.setProperty("-webkit-text-fill-color", nativeColor, "important");
+  reading.style.removeProperty("color");
+  reading.style.setProperty("-webkit-text-fill-color", "currentColor", "important");
   }
-  if (!additive) return;
-  for (const element2 of root.querySelectorAll(".jpdb-reader-word, .jpdb-reader-ruby-base")) {
-  element2.style.setProperty("color", "transparent", "important");
-  element2.style.setProperty("-webkit-text-fill-color", "transparent", "important");
-  element2.style.setProperty("text-shadow", "none", "important");
+}
+const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
+function styleAdditiveMirrorPaint(root) {
+  if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
+  root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+  const source = activeAdditiveDecorationSource();
+  if (!source) return;
+  const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
+  for (const word of root.querySelectorAll(".jpdb-reader-word")) {
+  word.style.setProperty("text-decoration-color", paint, "important");
   }
-  if (!pitchDecoration) return;
-  for (const word of root.querySelectorAll(".jpdb-reader-word[data-pitch-class]")) {
-  const pitchClass = safePitchClass(word.dataset.pitchClass ?? "unknown");
-  if (pitchClass === "unknown") continue;
-  word.style.setProperty("text-decoration-line", "underline", "important");
-  word.style.setProperty("text-decoration-style", "solid", "important");
-  word.style.setProperty("text-decoration-color", `var(--jpdb-reader-pitch-${pitchClass}, ${nativeColor})`, "important");
-  word.style.setProperty("text-decoration-thickness", "max(2px, 0.08em)", "important");
-  word.style.setProperty("text-underline-offset", "0.04em", "important");
-  word.style.setProperty("text-decoration-skip-ink", "none", "important");
+}
+function activeAdditiveDecorationSource() {
+  let active = null;
+  for (const source of ADDITIVE_DECORATION_SOURCES) {
+  if (["highlight", "underline", "text"].some((channel) => document.documentElement.classList.contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
   }
+  return active;
 }
 function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
   if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
@@ -7019,7 +7161,7 @@ function settleDetachedReadingLanes(readings, bases) {
   if (shift) reading.style.setProperty("margin-left", `${Math.round(shift)}px`);
   }
   const readingRects = readings.map((reading) => ({ element: reading, rect: reading.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0).sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-  const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element: element2, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element2).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+  const baseRects = bases.map((base) => ({ element: base, rect: base.getBoundingClientRect() })).filter(({ element, rect }) => rect.width > 0 && rect.height > 0 && safeComputedStyle(element).visibility !== "hidden").sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
   const unsafe = new Set();
   for (const reading of readingRects) {
   const ownRuby = reading.element.closest(".jpdb-reader-detached-ruby");
@@ -7029,8 +7171,13 @@ function settleDetachedReadingLanes(readings, bases) {
     if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
     if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
     if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
-    if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
-    if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
+    if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
+    if (rectanglesWithinClearance(reading.rect, base.rect) && !opaqueReadingSurfacePaintsAbove(
+      reading.element,
+      reading.rect,
+      base.element,
+      base.rect
+    )) unsafe.add(reading.element);
   }
   }
   for (let index = 0; index < readingRects.length; index += 1) {
@@ -7039,11 +7186,27 @@ function settleDetachedReadingLanes(readings, bases) {
     const other = readingRects[otherIndex];
     if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
     if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-    unsafe.add(current.element);
-    unsafe.add(other.element);
+    if (opaqueReadingSurfacePaintsAbove(
+      current.element,
+      current.rect,
+      other.element,
+      other.rect
+    )) {
+      unsafe.add(other.element);
+    } else if (opaqueReadingSurfacePaintsAbove(
+      other.element,
+      other.rect,
+      current.element,
+      current.rect
+    )) {
+      unsafe.add(current.element);
+    } else {
+      unsafe.add(current.element);
+      unsafe.add(other.element);
+    }
   }
   }
-  const measured = new Set(readingRects.map(({ element: element2 }) => element2));
+  const measured = new Set(readingRects.map(({ element }) => element));
   for (const reading of readings) {
   if (!measured.has(reading) || unsafe.has(reading)) hideUnsafeDetachedReading(reading);
   }
@@ -7053,9 +7216,7 @@ function detachedReadingCoversForeignText(reading, rect) {
   const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
   const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
   const sourceHost = ownMirror?.parentElement ?? null;
-  const root = reading.getRootNode();
-  const hitRoots = [document];
-  if (root instanceof ShadowRoot) hitRoots.push(root);
+  const hitRoots = composedHitRootChain(reading);
   const inset = Math.min(2, rect.width / 4);
   const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
   const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
@@ -7067,29 +7228,289 @@ function detachedReadingCoversForeignText(reading, rect) {
   const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
   const elementsFromPoint = hitRoot.elementsFromPoint;
   if (typeof elementsFromPoint !== "function") return [];
-  return rows.flatMap((y) => points.flatMap((x) => elementsFromPoint.call(hitRoot, x, y).filter((element2) => element2 instanceof HTMLElement)));
+  return rows.flatMap((y) => points.flatMap((x) => {
+    let pointHits = elementsFromPoint.call(hitRoot, x, y).filter((element) => element instanceof HTMLElement);
+    if (hitRoot instanceof ShadowRoot) {
+      pointHits = pointHits.filter((element) => element.getRootNode() === hitRoot);
+    }
+    const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x, y);
+    const occlusionBoundary = opaqueBackdrop ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot) : null;
+    if (occlusionBoundary) {
+      const boundaryIndex = pointHits.indexOf(occlusionBoundary);
+      if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
+    }
+    return pointHits;
+  }));
   }));
   for (const hit of hits) {
   if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
   const hitWord = hit.closest(".jpdb-reader-word");
   if (ownWord && hitWord === ownWord) continue;
   const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-  if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
+  const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
+  if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
   if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
   for (const node of hit.childNodes) {
     if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
     const range = document.createRange();
     range.selectNodeContents(node);
-    if (Array.from(range.getClientRects()).some((textRect) => rectanglesWithinClearance(rect, textRect))) return true;
+    if (Array.from(range.getClientRects()).some((textRect) => {
+      if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
+      return rectanglesWithinClearance(rect, textRect);
+    })) return true;
   }
   }
   return false;
 }
+function opaqueReadingSurfacePaintsAbove(reading, readingRect, obstacle, obstacleRect) {
+  const points = collisionProbePoints(readingRect, obstacleRect);
+  if (!points.length) return false;
+  const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
+  if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
+  return points.every((point) => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
+}
+function composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point) {
+  for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
+  const elementsFromPoint = hitRoot.elementsFromPoint;
+  if (typeof elementsFromPoint !== "function") continue;
+  const hits = elementsFromPoint.call(hitRoot, point.x, point.y).filter((element) => element instanceof HTMLElement);
+  const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
+  const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
+  if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
+  const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
+  const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
+  if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
+  if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
+  const backdropIndex = hits.indexOf(backdropHit);
+  const obstacleIndex = hits.indexOf(obstacleHit);
+  if (backdropIndex < 0 || obstacleIndex < 0) continue;
+  return backdropIndex < obstacleIndex;
+  }
+  return false;
+}
+function collisionProbePoints(readingRect, obstacleRect) {
+  const left = Math.max(readingRect.left, obstacleRect.left);
+  const right = Math.min(readingRect.right, obstacleRect.right);
+  if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
+  const xInset = Math.min(0.5, (right - left) / 4);
+  const xs = [...new Set([left + xInset, right - xInset])];
+  const overlapTop = Math.max(readingRect.top, obstacleRect.top);
+  const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
+  let ys;
+  if (overlapBottom > overlapTop) {
+  const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
+  ys = [...new Set([overlapTop + yInset, overlapBottom - yInset])];
+  } else {
+  const inset = Math.min(0.5, obstacleRect.height / 2);
+  ys = [readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset];
+  }
+  return xs.flatMap((x) => ys.map((y) => ({ x, y })));
+}
+function commonComposedHitRoots(left, right) {
+  const rightRoots = new Set(composedHitRootChain(right));
+  const roots = composedHitRootChain(left).filter((root) => rightRoots.has(root));
+  if (!roots.includes(document)) roots.push(document);
+  return roots;
+}
+function composedHitRootChain(element) {
+  const roots = [];
+  let current = element;
+  while (true) {
+  const root = current.getRootNode();
+  if (root instanceof ShadowRoot) {
+    roots.push(root);
+    current = root.host;
+    continue;
+  }
+  roots.push(document);
+  return roots;
+  }
+}
+function nearestHitStackRepresentative(boundary, hitRoot, hits) {
+  let current = boundary;
+  while (current && current.getRootNode() === hitRoot) {
+  if (hits.includes(current)) return current;
+  if (current === document.body || current === document.documentElement) return null;
+  current = current.parentElement;
+  }
+  return null;
+}
+function opaqueComposedBackdropAtPoint(reading, x, y) {
+  for (let current = reading; current; current = composedAncestorElement(current)) {
+  const rect = current.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedBackdropIsOpaqueAtPoint(current, x, y)) return current;
+  }
+  return null;
+}
+function opaqueComposedBackdropCoveringPoints(reading, points) {
+  for (let current = reading; current; current = composedAncestorElement(current)) {
+  const rect = current.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0 && points.every((point) => point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && points.every((point) => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
+  }
+  return null;
+}
+function occlusionBoundaryInHitRoot(backdrop, hitRoot) {
+  let boundary = backdrop;
+  while (boundary.getRootNode() !== hitRoot) {
+  const boundaryRoot = boundary.getRootNode();
+  if (!(boundaryRoot instanceof ShadowRoot)) return null;
+  boundary = boundaryRoot.host;
+  }
+  return boundary;
+}
+function composedBackdropIsOpaqueAtPoint(element, x, y) {
+  for (let current = element; current; current = composedAncestorElement(current)) {
+  const style = safeComputedStyle(current);
+  const opacity = Number.parseFloat(style.opacity || "1");
+  if (Number.isFinite(opacity) && opacity < 0.999) return false;
+  if (!cssEffectIsNone(style.filter) || !cssEffectIsNone(style.maskImage) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-image")) || !cssEffectIsNone(style.getPropertyValue("mask-border-source")) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-box-image-source")) || !cssEffectIsNone(style.clipPath) || style.mixBlendMode && style.mixBlendMode !== "normal" || !cssTransformPreservesBackdropGeometry(style.transform) || !cssScaleIsOne(style.getPropertyValue("scale")) || !cssRotationIsZero(style.getPropertyValue("rotate")) || !cssZoomIsOne(style.getPropertyValue("zoom"))) return false;
+  }
+  return opaqueBackgroundPaintsAtPoint(element, safeComputedStyle(element), x, y);
+}
+function cssEffectIsNone(value) {
+  const effect = value?.trim().toLowerCase() ?? "";
+  return !effect || effect === "none";
+}
+function cssTransformPreservesBackdropGeometry(value) {
+  const transform = value?.trim().toLowerCase() ?? "";
+  if (!transform || transform === "none") return true;
+  const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
+  if (!match) return false;
+  const values = match[2].split(",").map((part) => Number.parseFloat(part.trim()));
+  if (values.some((part) => !Number.isFinite(part))) return false;
+  const close = (left, right) => Math.abs(left - right) < 1e-4;
+  if (!match[1]) {
+  return values.length === 6 && close(values[0], 1) && close(values[1], 0) && close(values[2], 0) && close(values[3], 1);
+  }
+  const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  return values.length === 16 && values.every((part, index) => [12, 13, 14].includes(index) || close(part, identity[index]));
+}
+function cssScaleIsOne(value) {
+  const scale = value.trim().toLowerCase();
+  if (!scale || scale === "none") return true;
+  const parts = scale.split(/\s+/).map((part) => Number.parseFloat(part));
+  return parts.length > 0 && parts.length <= 3 && parts.every((part) => Number.isFinite(part) && Math.abs(part - 1) < 1e-4);
+}
+function cssRotationIsZero(value) {
+  const rotation = value.trim().toLowerCase();
+  return !rotation || rotation === "none" || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
+}
+function cssZoomIsOne(value) {
+  const zoom = value.trim().toLowerCase();
+  return !zoom || zoom === "normal" || Math.abs(Number.parseFloat(zoom) - 1) < 1e-4;
+}
+function opaqueBackgroundPaintsAtPoint(element, style, x, y) {
+  const rect = element.getBoundingClientRect();
+  const clip = (style.backgroundClip || "border-box").split(",").at(-1)?.trim() || "border-box";
+  if (!["border-box", "padding-box", "content-box"].includes(clip)) return false;
+  const border = cssBoxInsets(style, "border");
+  const padding = cssBoxInsets(style, "padding");
+  if (!border || !padding) return false;
+  const inset = clip === "border-box" ? { top: 0, right: 0, bottom: 0, left: 0 } : clip === "padding-box" ? border : {
+  top: border.top + padding.top,
+  right: border.right + padding.right,
+  bottom: border.bottom + padding.bottom,
+  left: border.left + padding.left
+  };
+  const box = {
+  left: rect.left + inset.left,
+  top: rect.top + inset.top,
+  right: rect.right - inset.right,
+  bottom: rect.bottom - inset.bottom
+  };
+  const width = box.right - box.left;
+  const height = box.bottom - box.top;
+  if (width <= 0 || height <= 0 || x < box.left || x > box.right || y < box.top || y > box.bottom) return false;
+  const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
+  return corners ? pointInsideRoundedBox(box, corners, x, y) : false;
+}
+function cssBoxInsets(style, kind) {
+  const values = (kind === "border" ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth] : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]).map((value) => Number.parseFloat(value || "0"));
+  if (values.some((value) => !Number.isFinite(value))) return null;
+  return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
+}
+function roundedBackgroundCorners(style, outerWidth, outerHeight, inset, width, height) {
+  const raw = [
+  parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
+  parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
+  parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
+  parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight)
+  ];
+  if (raw.some((corner) => !corner)) return null;
+  const corners = raw;
+  corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
+  corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
+  corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
+  corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
+  const ratios = [
+  width / (corners[0].x + corners[1].x || width),
+  width / (corners[3].x + corners[2].x || width),
+  height / (corners[0].y + corners[3].y || height),
+  height / (corners[1].y + corners[2].y || height)
+  ];
+  const scale = Math.min(1, ...ratios);
+  if (scale < 1) {
+  for (const corner of corners) {
+    corner.x *= scale;
+    corner.y *= scale;
+  }
+  }
+  return corners;
+}
+function parseCornerRadius(value, width, height) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { x: 0, y: 0 };
+  if (parts.length > 2) return null;
+  const x = parseLengthPercentage(parts[0], width);
+  const y = parseLengthPercentage(parts[1] ?? parts[0], height);
+  return x === null || y === null ? null : { x, y };
+}
+function parseLengthPercentage(value, extent) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (value.endsWith("%")) return parsed * extent / 100;
+  return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
+}
+function pointInsideRoundedBox(box, corners, x, y) {
+  const centers = [
+  { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x < box.left + corners[0].x && y < box.top + corners[0].y },
+  { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x > box.right - corners[1].x && y < box.top + corners[1].y },
+  { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x > box.right - corners[2].x && y > box.bottom - corners[2].y },
+  { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x < box.left + corners[3].x && y > box.bottom - corners[3].y }
+  ];
+  for (const center of centers) {
+  if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
+  const dx = (x - center.x) / center.corner.x;
+  const dy = (y - center.y) / center.corner.y;
+  if (dx * dx + dy * dy > 1) return false;
+  }
+  return true;
+}
+function cssBackgroundIsOpaque(value) {
+  const color = value.trim().toLowerCase();
+  if (!color || color === "transparent") return false;
+  const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
+  const commaMatch = color.startsWith("rgba(") ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
+  const slashAlpha = slashMatch?.[1].trim();
+  const commaAlpha = commaMatch?.[1].trim();
+  const alphaText = slashAlpha ?? commaAlpha;
+  if (!alphaText) return !slashMatch && !commaMatch;
+  if (alphaText === "none") return false;
+  const alpha = Number(alphaText.endsWith("%") ? alphaText.slice(0, -1) : alphaText) / (alphaText.endsWith("%") ? 100 : 1);
+  return Number.isFinite(alpha) && alpha >= 0.999;
+}
 function rectanglesWithinClearance(left, right) {
   return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
 }
-function verticalRunsOverlap(left, right) {
-  return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+function rectsShareAuthoredLine(left, right) {
+  const leftHeight = Math.max(0, left.bottom - left.top);
+  const rightHeight = Math.max(0, right.bottom - right.top);
+  const shorterHeight = Math.min(leftHeight, rightHeight);
+  if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
+  const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
+  if (overlap < shorterHeight * 0.5) return false;
+  const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
+  return centreDistance <= Math.max(2, shorterHeight * 0.4);
 }
 function detachedReadingIsClipped(reading, rect) {
   let ancestor = composedAncestorElement(reading);
@@ -7129,23 +7550,26 @@ const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
 const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
   "details",
+  "[aria-expanded]",
   '[id*="expand" i]',
   '[id*="collaps" i]',
   '[class*="expand" i]',
   '[class*="collaps" i]'
 ].join(",");
-const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
+const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
+const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
 const detachedReadingClipStyles = new WeakMap();
-function ownsExpandableContentClip(element2) {
-  if (element2.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
-  return element2.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element2.localName);
+function isExpandableContentClip(element) {
+  if (element.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
+  if (element.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
+  return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element.localName);
 }
-function openSafeDetachedReadingClips(element2) {
-  restoreOwnedDetachedReadingClips(element2);
-  let current = element2;
+function openSafeDetachedReadingClips(element) {
+  restoreOwnedDetachedReadingClips(element);
+  let current = element;
   for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
   if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
-  if (ownsExpandableContentClip(current)) {
+  if (isExpandableContentClip(current)) {
     restoreDetachedReadingClip(current);
     continue;
   }
@@ -7160,8 +7584,8 @@ function openSafeDetachedReadingClips(element2) {
   else restoreDetachedReadingClip(current);
   }
 }
-function restoreOwnedDetachedReadingClips(element2) {
-  let current = element2;
+function restoreOwnedDetachedReadingClips(element) {
+  let current = element;
   for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
   if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
   }
@@ -7218,12 +7642,12 @@ function detachedBaseContentFits(box) {
   const overlays = Array.from(box.querySelectorAll(".jpdb-reader-additive-text-mirror"));
   const detached = Array.from(box.querySelectorAll(".jpdb-reader-detached-furi")).filter((reading) => !reading.closest(".jpdb-reader-additive-text-mirror"));
   const hidden = [...overlays, ...detached];
-  const restores = hidden.map((element2) => ({
-  element: element2,
-  display: element2.style.getPropertyValue("display"),
-  priority: element2.style.getPropertyPriority("display")
+  const restores = hidden.map((element) => ({
+  element,
+  display: element.style.getPropertyValue("display"),
+  priority: element.style.getPropertyPriority("display")
   }));
-  hidden.forEach((element2) => element2.style.setProperty("display", "none", "important"));
+  hidden.forEach((element) => element.style.setProperty("display", "none", "important"));
   try {
   if (baseTextLineCount(box) > 1) return false;
   const rect = box.getBoundingClientRect();
@@ -7235,16 +7659,16 @@ function detachedBaseContentFits(box) {
   const compactGlyphTolerance = Math.max(2, Math.min(8, fontSize * 0.8));
   return inlineOverrun <= compactGlyphTolerance && blockOverrun <= 1;
   } finally {
-  for (const { element: element2, display, priority: priority2 } of restores) {
-    if (display) element2.style.setProperty("display", display, priority2);
-    else element2.style.removeProperty("display");
+  for (const { element, display, priority: priority2 } of restores) {
+    if (display) element.style.setProperty("display", display, priority2);
+    else element.style.removeProperty("display");
   }
   }
 }
-function closeOrphanedDetachedReadingClips(element2) {
-  let current = element2;
-  for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-  if (current.dataset.yomuDetachedReadingOverflow === "true" && !current.querySelector(".jpdb-reader-detached-furi")) {
+function closeOrphanedDetachedReadingClips(element) {
+  let current = element;
+  for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+  if (current.dataset.yomuDetachedReadingOverflow === "true" && !queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) {
     restoreDetachedReadingClip(current);
   }
   }
@@ -7633,7 +8057,7 @@ function nonDestructiveScanHost(target) {
 function preferredNonDestructiveTextHost(elements) {
   if (!elements.length) return null;
   const preferred = elements[0]?.closest(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
-  if (!preferred || !elements.every((element2) => preferred.contains(element2))) return null;
+  if (!preferred || !elements.every((element) => preferred.contains(element))) return null;
   return preferred;
 }
 function commonFragmentTextHost(elements) {
@@ -7641,7 +8065,7 @@ function commonFragmentTextHost(elements) {
   let candidate = elements[0];
   while (candidate) {
   const host = candidate;
-  if (elements.every((element2) => host.contains(element2))) return host;
+  if (elements.every((element) => host.contains(element))) return host;
   candidate = candidate.parentElement;
   }
   return null;
@@ -7664,9 +8088,6 @@ function styleTextMirrorHost(host) {
 }
 function styleTextMirror(mirror, host, hasRuby = false) {
   const style = safeComputedStyle(host);
-  if (mirror.classList.contains("jpdb-reader-additive-text-mirror") && style.color) {
-  mirror.style.setProperty("--jpdb-reader-native-text-color", style.color);
-  }
   mirror.style.setProperty("position", "absolute");
   mirror.style.setProperty("inset", "0 0 auto 0");
   mirror.style.setProperty("box-sizing", "border-box");
@@ -7912,7 +8333,7 @@ function nativeTextMirrorHostText(host) {
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
   if (HAS_JAPANESE.test(text2)) return text2;
-  const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element2) => !element2.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element2) => element2.getAttribute("aria-label") ?? "").join(" • ");
+  const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
   return HAS_JAPANESE.test(labelledText) ? labelledText : text2;
 }
 function normalizedMirrorHostText(text2) {
@@ -7937,8 +8358,8 @@ function syncTextMirrorVisibilityToPage(host, mirror) {
   else mirror.style.removeProperty("visibility");
 }
 function pageConcealsTextMirrorHost(host) {
-  for (let element2 = host.parentElement; element2; element2 = element2.parentElement) {
-  const style = safeComputedStyle(element2);
+  for (let element = host.parentElement; element; element = element.parentElement) {
+  const style = safeComputedStyle(element);
   if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
   if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
   if (style.contentVisibility === "hidden") return true;
@@ -8094,9 +8515,9 @@ function readerRenderRejectionRescanDelay(mutation) {
 }
 function classifyReaderRenderRejection(mutation) {
   if (mutation.type !== "childList") return null;
-  const element2 = mutationTargetElement(mutation.target);
-  if (!element2) return null;
-  const match = closestRenderedScanHost(element2);
+  const element = mutationTargetElement(mutation.target);
+  if (!element) return null;
+  const match = closestRenderedScanHost(element);
   if (!match || Date.now() - match.host.markedAt > RENDERED_SCAN_HOST_REJECTION_WINDOW_MS) return null;
   if (nodesContainReaderWord(mutation.removedNodes) && restoredHostTextMatches(match.element, match.host.text, mutation.addedNodes)) {
   return { match, repair: false };
@@ -8131,10 +8552,10 @@ function nextRenderedScanHostRescanDelay(host) {
   host.rejectionCount = previousCount + 1;
   return RENDERED_SCAN_HOST_RESCAN_DELAYS_MS[Math.min(previousCount, RENDERED_SCAN_HOST_RESCAN_DELAYS_MS.length - 1)];
 }
-function closestRenderedScanHost(element2) {
+function closestRenderedScanHost(element) {
   let current = null;
-  if (element2 instanceof HTMLElement) current = element2;
-  else if (element2.parentElement instanceof HTMLElement) current = element2.parentElement;
+  if (element instanceof HTMLElement) current = element;
+  else if (element.parentElement instanceof HTMLElement) current = element.parentElement;
   while (current && current !== document.body && current !== document.documentElement) {
   const host = renderedScanHosts.get(current);
   if (host) return { element: current, host };
@@ -8142,8 +8563,8 @@ function closestRenderedScanHost(element2) {
   }
   return null;
 }
-function restoredHostTextMatches(element2, previousText, addedNodes) {
-  const currentText = normalizedRenderedHostSurfaceText(element2);
+function restoredHostTextMatches(element, previousText, addedNodes) {
+  const currentText = normalizedRenderedHostSurfaceText(element);
   if (textMatchesRenderedHost(currentText, previousText)) return true;
   const addedText = normalizedRenderedHostText(Array.from(addedNodes, (node) => node.textContent ?? "").join(""));
   return textMatchesRenderedHost(addedText, previousText);
@@ -8154,8 +8575,8 @@ function textMatchesRenderedHost(candidate, previousText) {
 function normalizedRenderedHostText(text2) {
   return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
 }
-function normalizedRenderedHostSurfaceText(element2) {
-  return normalizedRenderedHostText(readerWordSurfaceText(element2) || element2.textContent || "");
+function normalizedRenderedHostSurfaceText(element) {
+  return normalizedRenderedHostText(readerWordSurfaceText(element) || element.textContent || "");
 }
 function nodesContainReaderWord(nodes) {
   return Array.from(nodes).some(nodeContainsReaderWord);
@@ -8192,9 +8613,9 @@ function renderedWordLooksDamaged(word) {
   const hasBase = Boolean(word.querySelector(".jpdb-reader-ruby-base,rb"));
   return hasFuri && (!hasBase || !surface);
 }
-function readerWordDomSurfaceText(element2) {
+function readerWordDomSurfaceText(element) {
   let text2 = "";
-  element2.childNodes.forEach((node) => {
+  element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
     text2 += node.textContent ?? "";
     return;
@@ -8552,8 +8973,8 @@ function targetUsesDetachedReadings(target) {
   if (isInsideOwnedReaderRoot(target.parent) && target.parent.closest("[data-provider-example-sentence]")) return Boolean(target.suppressRuby);
   return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
-function isInsideOwnedReaderRoot(element2) {
-  const readerRoot = element2.closest(READER_ROOT_SELECTOR$3);
+function isInsideOwnedReaderRoot(element) {
+  const readerRoot = element.closest(READER_ROOT_SELECTOR$3);
   return Boolean(readerRoot && readerRoot !== document.body && readerRoot !== document.documentElement);
 }
 function replaceTextNodeRange(node, start, end, replacement) {
@@ -8743,13 +9164,13 @@ function readerReadingIndex(card) {
 function renderToken(surface, token, settings, options = {}) {
   const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
   span.dataset.surface = surface;
+  if (options.detachedReadings) span.classList.add("jpdb-reader-detached-reading-word");
   if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
   const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
   const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
   if (hasRuby) {
   span.classList.add("jpdb-reader-has-furi");
   if (options.detachedReadings) {
-    span.classList.add("jpdb-reader-detached-reading-word");
     setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
   } else {
     setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
@@ -8929,6 +9350,46 @@ function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRu
   }
   html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
   return html;
+}
+function replaceRenderedWordFurigana(word, surface, token) {
+  const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
+  const detached = Boolean(mirror) || word.classList.contains("jpdb-reader-detached-reading-word");
+  const html = detached ? renderDetachedReadings(surface, token) : renderRuby(surface, token);
+  if (detached ? !html.includes("jpdb-reader-detached-furi") : !html.includes("<rt")) return false;
+  setInnerHtml(word, html);
+  word.classList.add("jpdb-reader-has-furi");
+  if (!detached) return true;
+  word.classList.add("jpdb-reader-detached-reading-word");
+  const renderSurface = mirror ?? word.parentElement ?? word;
+  const host = mirror ? registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word : word.parentElement ?? word;
+  const clipRow = closestRubyFragileConstrainedRow(host);
+  if (mirror) {
+  mirror.dataset.yomuDetachedReadings = "true";
+  styleConstrainedTextMirror(mirror, clipRow, true);
+  }
+  styleDetachedReadingElements(renderSurface, host);
+  if (mirror) healLateClipConstrainedStamp(host);
+  openSafeDetachedReadingClips(renderSurface);
+  stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
+  return true;
+}
+function clearRenderedWordFurigana(word, surface) {
+  word.textContent = surface;
+  word.classList.remove("jpdb-reader-has-furi");
+  const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
+  if (!mirror) {
+  closeOrphanedDetachedReadingClips(word.parentElement ?? word);
+  return;
+  }
+  const host = registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word;
+  const clipRow = closestRubyFragileConstrainedRow(host);
+  if (mirror.querySelector(".jpdb-reader-detached-furi")) {
+  stabilizeDetachedReadings(mirror, clipRow, true);
+  return;
+  }
+  delete mirror.dataset.yomuDetachedReadings;
+  closeOrphanedDetachedReadingClips(host);
+  styleConstrainedTextMirror(mirror, clipRow, false);
 }
 function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const visibleSurface = surface.trim();
@@ -9149,8 +9610,8 @@ function rubyBaseKanaRuns(base) {
   }
   return runs;
 }
-function kanjiNavigationForElement(element2) {
-  const host = element2.closest("[data-jpdb-reader-kanji-nav]");
+function kanjiNavigationForElement(element) {
+  const host = element.closest("[data-jpdb-reader-kanji-nav]");
   if (!host) return void 0;
   return {
   enabled: true,
@@ -9171,10 +9632,10 @@ function isKanjiForInlineNavigation(value) {
   const code = value.codePointAt(0) ?? 0;
   return code >= 13312 && code <= 40959;
 }
-function isVisible(element2) {
-  const rect = element2.getBoundingClientRect();
+function isVisible(element) {
+  const rect = element.getBoundingClientRect();
   if (!isVisibleRect(rect)) return false;
-  const style = safeComputedStyle(element2);
+  const style = safeComputedStyle(element);
   return isVisibleStyle(style);
 }
 function isVisibleRect(rect) {
@@ -9183,11 +9644,11 @@ function isVisibleRect(rect) {
 function isVisibleStyle(style) {
   return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
 }
-function isParagraphBoundary(element2) {
-  const display = safeComputedStyle(element2).display;
-  if (element2.tagName === "BR") return true;
+function isParagraphBoundary(element) {
+  const display = safeComputedStyle(element).display;
+  if (element.tagName === "BR") return true;
   if (isInlineDisplay(display)) return false;
-  if (BLOCK_TAGS.has(element2.tagName)) return true;
+  if (BLOCK_TAGS.has(element.tagName)) return true;
   return isBlockLikeDisplay(display);
 }
 function isInlineDisplay(display) {
@@ -9198,57 +9659,57 @@ function isBlockLikeDisplay(display) {
 }
 const INLINE_DISPLAY_VALUES = new Set(["inline", "contents", "inline-block", "inline-flex", "inline-grid"]);
 const BLOCK_LIKE_DISPLAY_VALUES = new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
-function isFragileUiText(element2, text2) {
-  if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
-  return isFragileUiContext(element2, text2);
+function isFragileUiText(element, text2) {
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
+  return isFragileUiContext(element, text2);
 }
-function isGeometryFragileText(element2, text2) {
-  if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
-  const metrics = fragileTextMetrics(element2, text2);
-  if (fragileByTypography(element2, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
+function isGeometryFragileText(element, text2) {
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
+  const metrics = fragileTextMetrics(element, text2);
+  if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
   if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
-  if (isInsideMediaTextLink(element2, text2)) return true;
+  if (isInsideMediaTextLink(element, text2)) return true;
   return fragileByInlineControl(text2, metrics.style, metrics.rect);
 }
-function isShortCenteredDisplayHeading(element2, text2) {
-  const heading = closestDisplayHeading(element2);
+function isShortCenteredDisplayHeading(element, text2) {
+  const heading = closestDisplayHeading(element);
   if (!heading) return false;
   const style = safeComputedStyle(heading);
   const headingText = heading.textContent?.trim() || text2;
-  if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
   return style.textAlign === "center" && compactLength(headingText) <= 40;
 }
-function closestDisplayHeading(element2) {
-  return DISPLAY_HEADING_RE.test(element2.tagName) ? element2 : element2.closest(DISPLAY_HEADING_SELECTOR);
+function closestDisplayHeading(element) {
+  return DISPLAY_HEADING_RE.test(element.tagName) ? element : element.closest(DISPLAY_HEADING_SELECTOR);
 }
-function isReadablePrimaryDisplayHeadingText(element2, text2) {
-  const heading = closestDisplayHeading(element2);
+function isReadablePrimaryDisplayHeadingText(element, text2) {
+  const heading = closestDisplayHeading(element);
   if (!heading || heading.tagName !== "H1") return false;
   if (compactLength(text2) < 4) return false;
   return isReadablePrimaryDisplayHeadingElement(heading);
 }
-function isReadablePrimaryDisplayHeadingElement(element2) {
-  const heading = closestDisplayHeading(element2);
+function isReadablePrimaryDisplayHeadingElement(element) {
+  const heading = closestDisplayHeading(element);
   if (!heading || heading.tagName !== "H1") return false;
   if (heading.closest('header, nav, footer, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]')) return false;
   return Boolean(heading.closest('main, [role="main"]'));
 }
-function isFragileUiContext(element2, text2) {
-  if (UI_CLASS_RE.test(String(element2.className)) && !isReadableProseUiClassText(element2, text2)) return true;
-  if (text2.length <= 4 && ancestorClassLooksLikeUi(element2)) return true;
-  return isInsideControlLikeLink(element2, text2);
+function isFragileUiContext(element, text2) {
+  if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text2)) return true;
+  if (text2.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+  return isInsideControlLikeLink(element, text2);
 }
-function isReadableProseUiClassText(element2, text2) {
+function isReadableProseUiClassText(element, text2) {
   if (compactLength(text2) < 8) return false;
-  return isLikelyProseElement(element2) && Boolean(element2.closest('article, main, [role="main"]'));
+  return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
 }
-function fragileTextMetrics(element2, text2) {
-  const style = safeComputedStyle(element2);
-  const rect = element2.getBoundingClientRect();
+function fragileTextMetrics(element, text2) {
+  const style = safeComputedStyle(element);
+  const rect = element.getBoundingClientRect();
   const compactLength2 = Array.from(text2.replace(/\s+/g, "")).length;
   const fontSize = cssPixels(style.fontSize);
   const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
-  return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element2) };
+  return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element) };
 }
 function fragileByCompactLayout(text2, style, rect) {
   if (!hasCompactLayoutShape(text2, rect)) return false;
@@ -9263,11 +9724,11 @@ function hasCompactLayoutAlignment(style) {
 function fragileByInlineControl(text2, style, rect) {
   return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
 }
-function fragileByTypography(element2, style, compactLength2, fontSize, lineHeight, prose) {
+function fragileByTypography(element, style, compactLength2, fontSize, lineHeight, prose) {
   const centered = style.textAlign === "center";
-  const heading = DISPLAY_HEADING_RE.test(element2.tagName);
+  const heading = DISPLAY_HEADING_RE.test(element.tagName);
   if (!heading) return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
-  if (isReadableArticleHeading(element2, compactLength2)) return false;
+  if (isReadableArticleHeading(element, compactLength2)) return false;
   if (fragileHeadingTypography(centered, compactLength2, fontSize, lineHeight)) return true;
   return fragileCenteredNonProseTypography(style, centered, compactLength2, fontSize, prose);
 }
@@ -9284,11 +9745,11 @@ function isCompactCenteredNonProse(prose, centered, compactLength2) {
 function hasProminentCenteredTypography(style, fontSize) {
   return fontSize >= 17 || Number(style.fontWeight) >= 600;
 }
-function isReadableArticleHeading(element2, compactLength2) {
-  return compactLength2 >= 4 && Boolean(element2.closest('article, main, [role="main"]'));
+function isReadableArticleHeading(element, compactLength2) {
+  return compactLength2 >= 4 && Boolean(element.closest('article, main, [role="main"]'));
 }
-function ancestorClassLooksLikeUi(element2) {
-  let current = element2;
+function ancestorClassLooksLikeUi(element) {
+  let current = element;
   while (current) {
   if (current === document.body) break;
   if (UI_CLASS_RE.test(String(current.className))) return true;
@@ -9296,16 +9757,16 @@ function ancestorClassLooksLikeUi(element2) {
   }
   return false;
 }
-function isInsideControlLikeLink(element2, text2) {
-  const link = element2.closest("a[href]");
+function isInsideControlLikeLink(element, text2) {
+  const link = element.closest("a[href]");
   if (!link) return false;
-  if (isLikelyProseLink(link, element2)) return false;
+  if (isLikelyProseLink(link, element)) return false;
   const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
   return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
 }
-function isInsideMediaTextLink(element2, text2) {
-  const link = element2.closest("a[href]");
-  if (!link || isLikelyProseLink(link, element2)) return false;
+function isInsideMediaTextLink(element, text2) {
+  const link = element.closest("a[href]");
+  if (!link || isLikelyProseLink(link, element)) return false;
   return linkHasControlMedia(link) && compactLength(text2) > 2;
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
@@ -9602,10 +10063,10 @@ function makeRoomForRubyInBox(box, style, roomHeight, topDeficit = 0) {
   box.style.setProperty("max-height", contentHeight, "important");
   }
 }
-function cropCapableBoxes(element2, mirror) {
+function cropCapableBoxes(element, mirror) {
   const boxes = [];
   let fallback;
-  let current = element2;
+  let current = element;
   while (current && current !== document.body && current !== document.documentElement) {
   if (current.dataset.jpdbReaderRoot) break;
   if (boxStyleIsClipCapable(current) || rubyLayoutOverflowsShortRow(current, mirror)) {
@@ -9701,6 +10162,9 @@ function baseVisibleInBox(baseRect, boxRect) {
 let sandboxCompanions = {};
 function yomuSettingsDialogController() {
   return yomuCompanions().settings?.SettingsDialogController;
+}
+function yomuOnboardingController() {
+  return yomuCompanions().settings?.OnboardingController;
 }
 function yomuAnkiCompanion() {
   return yomuCompanions().anki;
@@ -11666,7 +12130,7 @@ function canUseKanaJishoAudioFallback(card) {
   return Boolean(spelling && reading && KANA_ONLY_RE$2.test(spelling));
 }
 function findUniqueJishoReadingAudioElement(html, reading) {
-  const matches = findHtmlElements(html, "audio").filter((element2) => jishoAudioReading(element2).trim() === reading);
+  const matches = findHtmlElements(html, "audio").filter((element) => jishoAudioReading(element).trim() === reading);
   return matches.length === 1 ? matches[0] : null;
 }
 function jishoAudioReading(audioHtml) {
@@ -11750,7 +12214,7 @@ function findHtmlElementByClass(html, tag, className) {
   return findHtmlElementsByClass(html, tag, className)[0] ?? null;
 }
 function findHtmlElementsByClass(html, tag, className) {
-  return findHtmlElements(html, tag).filter((element2) => htmlElementHasClass(element2, tag, className));
+  return findHtmlElements(html, tag).filter((element) => htmlElementHasClass(element, tag, className));
 }
 function findHtmlBlocksByClass(html, className) {
   const starts = [];
@@ -11777,8 +12241,8 @@ function htmlElementMatchesAttributes(match, attributePattern) {
   const attributes = match[1] ?? "";
   return attributePattern ? attributePattern.test(attributes) : true;
 }
-function htmlElementHasClass(element2, tag, className) {
-  const opening = new RegExp(`^<${tag}\\b([^>]*)>`, "i").exec(element2)?.[1] ?? "";
+function htmlElementHasClass(element, tag, className) {
+  const opening = new RegExp(`^<${tag}\\b([^>]*)>`, "i").exec(element)?.[1] ?? "";
   return attributesHaveClass(opening, className);
 }
 function tagAttributesHaveClass(openingTag, className) {
@@ -12104,7 +12568,7 @@ const SOFT_CHIME_NOTES = [
   { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
 ];
 const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-const log$h = Logger.scope("Audio");
+const log$g = Logger.scope("Audio");
 class AudioPlaybackAttemptError extends Error {
   constructor(error) {
   super(error instanceof Error ? error.message : String(error));
@@ -12144,7 +12608,7 @@ class AudioPlayer {
   const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
   this.stopCurrent(reservedAudio);
   if (!request.sources.length) return await this.playNoAudioSources(card, request);
-  const done = log$h.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+  const done = log$g.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
   const result = await this.playFromSources(
     request.sources,
     card,
@@ -12224,7 +12688,7 @@ class AudioPlayer {
   if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   }
   async playNoAudioSources(card, request) {
-  log$h.warn("No audio sources configured", { term: card.spelling });
+  log$g.warn("No audio sources configured", { term: card.spelling });
   return await this.playMissingAudioFallback(
     request.settings,
     request.requestId,
@@ -12237,7 +12701,7 @@ class AudioPlayer {
   if (result.state === "played") return true;
   if (result.state === "playback-error") return false;
   if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-  log$h.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+  log$g.warn("No playable audio found", { term: card.spelling, errors: result.errors });
   return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
   }
   async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
@@ -12463,7 +12927,7 @@ class AudioPlayer {
     void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
       const audioId = audioIds[index];
       if (audioId) this.markJpdbAudioUnavailable(audioId);
-      log$h.warn("JPDB grouped audio segment failed", { audioId }, error);
+      log$g.warn("JPDB grouped audio segment failed", { audioId }, error);
     });
   }, { once: true });
   }
@@ -12559,7 +13023,7 @@ class AudioPlayer {
     const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
     if (fallbackAudio) {
       audio = fallbackAudio;
-      log$h.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+      log$g.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
     } else {
       errors.push(audioErrorMessage(error));
       if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -12762,7 +13226,7 @@ class AudioPlayer {
   try {
     playbackLifecycle?.onStart?.();
   } catch (error) {
-    log$h.warn("Audio playback start callback failed", void 0, error);
+    log$g.warn("Audio playback start callback failed", void 0, error);
   }
   }
   finishPlayback(requestId) {
@@ -12773,7 +13237,7 @@ class AudioPlayer {
   try {
     active.onEnd?.();
   } catch (error) {
-    log$h.warn("Audio playback end callback failed", void 0, error);
+    log$g.warn("Audio playback end callback failed", void 0, error);
   }
   }
   async webAudioBytes(audioUrl) {
@@ -13224,24 +13688,24 @@ function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewpo
   return overlayRect;
 }
 function compensatedRedditOverlayRoot(source) {
-  const element2 = source instanceof Element ? source : source?.parentElement;
-  const root = element2?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
+  const element = source instanceof Element ? source : source?.parentElement;
+  const root = element?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
   return root instanceof HTMLElement ? root : null;
 }
-function applyRedditOverlayScale(element2, environment = currentEnvironment()) {
+function applyRedditOverlayScale(element, environment = currentEnvironment()) {
   const pageScale = redditPageScale(environment);
   if (pageScale === 1) {
-  clearOwnedScale(element2);
+  clearOwnedScale(element);
   return;
   }
   const inverseScale = 1 / pageScale;
-  element2.style.setProperty("zoom", formatScale(inverseScale), "important");
-  element2.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
-  element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
-  element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  element.style.setProperty("zoom", formatScale(inverseScale), "important");
+  element.dataset.jpdbReaderScaleAdapter = REDDIT_APPLE_TOUCH_ADAPTER;
+  element.dataset.jpdbReaderPageScale = formatScale(pageScale);
+  element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
 }
-function hasRedditOverlayScale(element2) {
-  return element2?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
+function hasRedditOverlayScale(element) {
+  return element?.dataset.jpdbReaderScaleAdapter === REDDIT_APPLE_TOUCH_ADAPTER;
 }
 function currentEnvironment() {
   return {
@@ -13261,12 +13725,12 @@ function currentVisualViewport() {
   offsetTop: viewport.offsetTop
   } : void 0;
 }
-function clearOwnedScale(element2) {
-  if (!hasRedditOverlayScale(element2)) return;
-  element2.style.removeProperty("zoom");
-  delete element2.dataset.jpdbReaderScaleAdapter;
-  delete element2.dataset.jpdbReaderPageScale;
-  delete element2.dataset.jpdbReaderScaleCompensation;
+function clearOwnedScale(element) {
+  if (!hasRedditOverlayScale(element)) return;
+  element.style.removeProperty("zoom");
+  delete element.dataset.jpdbReaderScaleAdapter;
+  delete element.dataset.jpdbReaderPageScale;
+  delete element.dataset.jpdbReaderScaleCompensation;
 }
 function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
   if (pageScale === 1) return 1;
@@ -13337,15 +13801,15 @@ function isAudiblyPlayingVideo(video) {
   return !video.paused && !video.ended && !video.muted && video.volume > 0;
 }
 function isEditableTarget(target) {
-  const element2 = target instanceof Element ? target : null;
-  if (!element2) return false;
-  if (element2.closest("input, textarea, select")) return true;
-  const editable = element2.closest("[contenteditable]");
+  const element = target instanceof Element ? target : null;
+  if (!element) return false;
+  if (element.closest("input, textarea, select")) return true;
+  const editable = element.closest("[contenteditable]");
   return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
 }
-function isEditableElement(element2) {
-  if (element2.matches?.("input, textarea, select")) return true;
-  const editable = element2.closest?.("[contenteditable]");
+function isEditableElement(element) {
+  if (element.matches?.("input, textarea, select")) return true;
+  const editable = element.closest?.("[contenteditable]");
   return Boolean(editable && editable.getAttribute("contenteditable")?.toLowerCase() !== "false");
 }
 function isEditableEventContext(event) {
@@ -13752,8 +14216,8 @@ function isDirectControlPointer(event) {
   return (event.pointerType === "pen" || event.pointerType === "touch") && event.isPrimary !== false;
 }
 function controlPointerTarget(target, root) {
-  const element2 = target instanceof Element ? target : null;
-  const control = element2?.closest(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
+  const element = target instanceof Element ? target : null;
+  const control = element?.closest(CONTROL_POINTER_ACTIVATION_SELECTOR) ?? null;
   if (!control || !root.contains(control) || isDisabledControl(control)) return null;
   return control;
 }
@@ -13762,7 +14226,7 @@ function isDisabledControl(control) {
   if (control.closest('[aria-disabled="true"]')) return true;
   return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$g = Logger.scope("CardStateSignal");
+const log$f = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -13800,7 +14264,7 @@ function publishCardStateSignal(card) {
   try {
   gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
   } catch (error) {
-  log$g.debug("GM card-state publish failed", error);
+  log$f.debug("GM card-state publish failed", error);
   }
   publishBroadcastCardStateSignal(signal);
 }
@@ -13811,7 +14275,7 @@ function publishBroadcastCardStateSignal(signal) {
   channel.postMessage(signal);
   channel.close();
   } catch (error) {
-  log$g.debug("Broadcast card-state publish failed", error);
+  log$f.debug("Broadcast card-state publish failed", error);
   }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -13835,7 +14299,7 @@ function subscribeToCardStateSignals(onCard) {
       if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
     });
   } catch (error) {
-    log$g.debug("GM card-state listener failed", error);
+    log$f.debug("GM card-state listener failed", error);
   }
   }
   if (typeof BroadcastChannel === "function") {
@@ -13844,7 +14308,7 @@ function subscribeToCardStateSignals(onCard) {
     channel.onmessage = (event) => handle(event.data);
     cleanups.push(() => channel.close());
   } catch (error) {
-    log$g.debug("Broadcast card-state listener failed", error);
+    log$f.debug("Broadcast card-state listener failed", error);
   }
   }
   return () => cleanups.forEach((cleanup) => cleanup());
@@ -13874,11 +14338,11 @@ function parseCardStateSignal(value) {
   }
   };
 }
-async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
-  await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button2, action, sentence, grammarHints, language, options);
+async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
+  await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language, options);
 }
-function handleStudyGrammarAction(button2, sentence, language = "en", options = {}) {
-  return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button2, sentence, language, options) ?? false;
+function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
+  return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language, options) ?? false;
 }
 function renderDeckChoiceOptions(settings, jpdbDecks, ankiDecks, optionsOrIncludeJpdb = {}) {
   const renderOptions = normalizeDeckChoiceRenderOptions(optionsOrIncludeJpdb);
@@ -14301,12 +14765,12 @@ class CardActionController {
   }
   return reviewed;
   }
-  async perform(action, button2, card, sentence, context = {}) {
-  const studyAction = this.performStudyAction(action, button2, sentence);
+  async perform(action, button, card, sentence, context = {}) {
+  const studyAction = this.performStudyAction(action, button, sentence);
   if (studyAction !== void 0) return await studyAction;
   const readerAction = this.performReaderAction(action, card);
   if (readerAction !== void 0) return await readerAction;
-  const miningAction = await this.performMiningAction(action, button2, card, sentence, context);
+  const miningAction = await this.performMiningAction(action, button, card, sentence, context);
   if (miningAction !== void 0) return miningAction;
   return Boolean(action);
   }
@@ -14325,61 +14789,61 @@ class CardActionController {
   if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
   throw new Error(uiText(settings.interfaceLanguage, "batchMiningNoDestination"));
   }
-  performStudyAction(action, button2, sentence) {
+  performStudyAction(action, button, sentence) {
   if (!action) return void 0;
-  return this.studyActionHandler(action, button2, sentence)?.();
+  return this.studyActionHandler(action, button, sentence)?.();
   }
-  studyActionHandler(action, button2, sentence) {
+  studyActionHandler(action, button, sentence) {
   const handlers = {
-    "study-grammar-toggle-known": () => this.performStudyGrammarToggle(button2, sentence),
-    "study-grammar-toggle-known-visibility": () => this.performStudyGrammarToggle(button2, sentence),
-    "study-translate": () => this.performStudyTool(button2, action, sentence),
-    "study-grammar": () => this.performStudyGrammarTool(button2, sentence),
-    "study-read-sentence": () => this.performStudyReadSentence(button2, sentence),
-    "jpdb-example-audio": () => this.performJpdbExampleAudio(button2),
-    "jiten-audio": () => this.performJitenAudio(button2, sentence),
-    "bunpro-audio": () => this.performBunproAudio(button2, sentence),
-    "anki-media-audio": () => this.performAnkiMediaAudio(button2)
+    "study-grammar-toggle-known": () => this.performStudyGrammarToggle(button, sentence),
+    "study-grammar-toggle-known-visibility": () => this.performStudyGrammarToggle(button, sentence),
+    "study-translate": () => this.performStudyTool(button, action, sentence),
+    "study-grammar": () => this.performStudyGrammarTool(button, sentence),
+    "study-read-sentence": () => this.performStudyReadSentence(button, sentence),
+    "jpdb-example-audio": () => this.performJpdbExampleAudio(button),
+    "jiten-audio": () => this.performJitenAudio(button, sentence),
+    "bunpro-audio": () => this.performBunproAudio(button, sentence),
+    "anki-media-audio": () => this.performAnkiMediaAudio(button)
   };
   return handlers[action];
   }
-  performStudyGrammarToggle(button2, sentence) {
+  performStudyGrammarToggle(button, sentence) {
   const settings = this.options.getSettings();
-  handleStudyGrammarAction(button2, sentence, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
-  void this.reparsePopoverJapanese(button2);
+  handleStudyGrammarAction(button, sentence, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
+  void this.reparsePopoverJapanese(button);
   return false;
   }
-  async performStudyTool(button2, action, sentence) {
+  async performStudyTool(button, action, sentence) {
   const settings = this.options.getSettings();
-  await renderStudyToolResult(button2, action, sentence, void 0, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
-  void this.reparsePopoverJapanese(button2);
+  await renderStudyToolResult(button, action, sentence, void 0, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
+  void this.reparsePopoverJapanese(button);
   return false;
   }
-  async performStudyGrammarTool(button2, sentence) {
+  async performStudyGrammarTool(button, sentence) {
   const settings = this.options.getSettings();
-  await renderStudyToolResult(button2, "study-grammar", sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
-  void this.reparsePopoverJapanese(button2);
+  await renderStudyToolResult(button, "study-grammar", sentence, sentence ? await this.options.detectGrammarHints(sentence) : void 0, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
+  void this.reparsePopoverJapanese(button);
   return false;
   }
-  async performStudyReadSentence(button2, sentence) {
-  await this.options.playSentenceAudio(this.studySentenceFromButton(button2) || sentence);
+  async performStudyReadSentence(button, sentence) {
+  await this.options.playSentenceAudio(this.studySentenceFromButton(button) || sentence);
   return false;
   }
-  studySentenceFromButton(button2) {
-  if (button2.dataset.studySentence) return button2.dataset.studySentence.trim();
-  const original = button2.closest(".jpdb-reader-study-sentence-block")?.querySelector("[data-study-original-render]");
+  studySentenceFromButton(button) {
+  if (button.dataset.studySentence) return button.dataset.studySentence.trim();
+  const original = button.closest(".jpdb-reader-study-sentence-block")?.querySelector("[data-study-original-render]");
   return original ? readerWordSurfaceText(original).replace(/\s+/g, " ").trim() : "";
   }
-  async performJpdbExampleAudio(button2) {
-  const audioIds = button2.dataset.jpdbAudio ?? "";
-  const fallbackSentence = button2.dataset.jpdbExampleSentence ?? "";
+  async performJpdbExampleAudio(button) {
+  const audioIds = button.dataset.jpdbAudio ?? "";
+  const fallbackSentence = button.dataset.jpdbExampleSentence ?? "";
   if (!this.options.playJpdbExampleAudio) await this.options.playSentenceAudio(fallbackSentence);
   else await this.options.playJpdbExampleAudio(audioIds, fallbackSentence);
   return false;
   }
-  async performJitenAudio(button2, sentence) {
-  const fallbackSentence = button2.dataset.studySentence?.trim() || sentence;
-  const audioUrls = jitenAudioUrlsForButton(button2, this.options.getSettings());
+  async performJitenAudio(button, sentence) {
+  const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
+  const audioUrls = jitenAudioUrlsForButton(button, this.options.getSettings());
   if (this.options.playMediaUrl) {
     for (const audioUrl of audioUrls) {
       try {
@@ -14392,9 +14856,9 @@ class CardActionController {
   await this.options.playSentenceAudio(fallbackSentence);
   return false;
   }
-  async performBunproAudio(button2, sentence) {
-  const fallbackSentence = button2.dataset.studySentence?.trim() || sentence;
-  const audioUrl = button2.dataset.audioUrl?.trim() ?? "";
+  async performBunproAudio(button, sentence) {
+  const fallbackSentence = button.dataset.studySentence?.trim() || sentence;
+  const audioUrl = button.dataset.audioUrl?.trim() ?? "";
   if (audioUrl && this.options.playMediaUrl) {
     try {
       const played = await this.options.playMediaUrl(audioUrl);
@@ -14405,8 +14869,8 @@ class CardActionController {
   await this.options.playSentenceAudio(fallbackSentence);
   return false;
   }
-  async performAnkiMediaAudio(button2) {
-  await this.playAnkiMediaAudio(button2);
+  async performAnkiMediaAudio(button) {
+  await this.playAnkiMediaAudio(button);
   return false;
   }
   performReaderAction(action, card) {
@@ -14432,23 +14896,23 @@ class CardActionController {
   this.options.showSettings(panel);
   return false;
   }
-  async performMiningAction(action, button2, card, sentence, context) {
+  async performMiningAction(action, button, card, sentence, context) {
   if (!action) return void 0;
   if (action === "grade-provider-toggle") {
     await this.toggleGradingProvider(card, sentence);
     return false;
   }
-  const handler = this.miningActionHandler(action, button2, card, sentence, context);
+  const handler = this.miningActionHandler(action, button, card, sentence, context);
   if (handler) return this.finishMiningAction(handler());
   return this.performApiDeckStateAction(action, card);
   }
-  miningActionHandler(action, button2, card, sentence, context) {
+  miningActionHandler(action, button, card, sentence, context) {
   const handlers = {
-    add: () => this.addToSelectedDeck(button2, card, sentence, context),
+    add: () => this.addToSelectedDeck(button, card, sentence, context),
     anki: () => this.addToAnki(card, sentence, void 0, context),
-    "anki-edit": () => this.openAnkiNote(button2),
-    "anki-merge": () => this.mergeExistingAnkiCard(button2, card, sentence, context),
-    grade: () => this.gradeCard(button2, card, sentence)
+    "anki-edit": () => this.openAnkiNote(button),
+    "anki-merge": () => this.mergeExistingAnkiCard(button, card, sentence, context),
+    grade: () => this.gradeCard(button, card, sentence)
   };
   return handlers[action];
   }
@@ -14508,8 +14972,8 @@ class CardActionController {
   await action;
   return true;
   }
-  async reparsePopoverJapanese(button2) {
-  const popover = button2.closest(".jpdb-reader-popover");
+  async reparsePopoverJapanese(button) {
+  const popover = button.closest(".jpdb-reader-popover");
   if (!popover) return;
   delete popover.dataset.jpdbReaderParseKey;
   delete popover.dataset.jpdbReaderParseLoadingKey;
@@ -14553,9 +15017,9 @@ class CardActionController {
   if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
   this.assertApiProviderActionAllowed(provider, message);
   }
-  async addToSelectedDeck(button2, card, sentence, context) {
+  async addToSelectedDeck(button, card, sentence, context) {
   const settings = this.options.getSettings();
-  const deck = selectedDeckChoice(button2, settings);
+  const deck = selectedDeckChoice(button, settings);
   if (deck.source === "anki") {
     await this.addToAnki(card, sentence, deck.id, context);
     return;
@@ -14574,23 +15038,23 @@ class CardActionController {
   this.options.toast(droppedMedia ? `${addedToast} ${uiText(settings.interfaceLanguage, "apiDeckMediaNotSupported")}` : addedToast);
   this.notifyApiCardStateChanged(card);
   }
-  async openAnkiNote(button2) {
+  async openAnkiNote(button) {
   const settings = this.options.getSettings();
-  const noteId = Number(button2.dataset.noteId);
+  const noteId = Number(button.dataset.noteId);
   if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
   await this.options.anki.browseNote(noteId);
   this.options.toast(uiText(settings.interfaceLanguage, "openedInAnki"));
   }
-  async playAnkiMediaAudio(button2) {
+  async playAnkiMediaAudio(button) {
   const settings = this.options.getSettings();
-  const filename = button2.dataset.ankiMediaName?.trim();
+  const filename = button.dataset.ankiMediaName?.trim();
   if (!filename) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioFileNotFound"));
   if (!this.options.playMediaUrl) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioPlaybackUnavailable"));
   await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
   }
-  async mergeExistingAnkiCard(button2, card, sentence, actionContext) {
+  async mergeExistingAnkiCard(button, card, sentence, actionContext) {
   const settings = this.options.getSettings();
-  const noteId = Number(button2.dataset.noteId);
+  const noteId = Number(button.dataset.noteId);
   if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
   const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
   const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
@@ -14598,7 +15062,7 @@ class CardActionController {
     audioDataUrl: context.audioDataUrl,
     wordAudioDataUrl: wordAudio?.dataUrl,
     wordAudioUrl: wordAudio?.url,
-    audioMergeMode: selectedAnkiAudioMergeMode(button2),
+    audioMergeMode: selectedAnkiAudioMergeMode(button),
     ...dictionaryContext,
     dictionaryPreferences: settings.dictionaryPreferences,
     sentenceTarget: actionContext.sentenceTarget,
@@ -14643,9 +15107,9 @@ class CardActionController {
   this.options.toast(uiText(settings.interfaceLanguage, tagged ? "ankiNeverForgetTagRemoved" : "ankiNeverForgetTagAdded"));
   return true;
   }
-  async gradeCard(button2, card, sentence) {
-  const grade = button2.dataset.grade;
-  const selection = selectedPopoverReviewTarget(button2);
+  async gradeCard(button, card, sentence) {
+  const grade = button.dataset.grade;
+  const selection = selectedPopoverReviewTarget(button);
   await this.reviewGrade(grade, card, sentence, {
     target: selection.kind,
     ankiCardId: selection.ankiCardId,
@@ -14815,8 +15279,8 @@ class CardActionController {
   return settings.localDictionariesEnabled ? this.options.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
   }
 }
-function jitenAudioUrlsFromButton(button2) {
-  const raw = button2.dataset.jitenAudioUrls?.trim();
+function jitenAudioUrlsFromButton(button) {
+  const raw = button.dataset.jitenAudioUrls?.trim();
   if (!raw) return [];
   try {
   const parsed = JSON.parse(raw);
@@ -14825,18 +15289,18 @@ function jitenAudioUrlsFromButton(button2) {
   }
   return [];
 }
-function jitenAudioUrlsForButton(button2, settings) {
+function jitenAudioUrlsForButton(button, settings) {
   return uniqueTrimmed([
-  ...jitenAudioUrlsFromButton(button2),
-  ...generatedJitenAudioUrlsForButton(button2, settings)
+  ...jitenAudioUrlsFromButton(button),
+  ...generatedJitenAudioUrlsForButton(button, settings)
   ]);
 }
-function generatedJitenAudioUrlsForButton(button2, settings) {
-  const sentenceId = finitePositiveDatasetInteger(button2.dataset.jitenSentenceId);
+function generatedJitenAudioUrlsForButton(button, settings) {
+  const sentenceId = finitePositiveDatasetInteger(button.dataset.jitenSentenceId);
   const voices = jitenTtsVoicesForSettings(settings);
   if (sentenceId !== void 0) return voices.map((voice) => jitenSentenceTtsUrl(sentenceId, voice));
-  const wordId = finitePositiveDatasetInteger(button2.dataset.jitenWordId);
-  const readingIndex = finiteNonNegativeDatasetInteger(button2.dataset.jitenReadingIndex);
+  const wordId = finitePositiveDatasetInteger(button.dataset.jitenWordId);
+  const readingIndex = finiteNonNegativeDatasetInteger(button.dataset.jitenReadingIndex);
   if (wordId === void 0 || readingIndex === void 0) return [];
   return voices.map((voice) => jitenWordTtsUrl(wordId, readingIndex, voice));
 }
@@ -14895,15 +15359,15 @@ function ankiMergeToast(result, settings) {
   ].filter(Boolean);
   return formatUiText(language, "ankiMergeComplete", { parts: uiList(language, parts) });
 }
-function selectedAnkiAudioMergeMode(button2) {
-  const value = button2.closest(".jpdb-reader-anki-card-preview")?.querySelector("[data-anki-audio-merge]")?.value;
+function selectedAnkiAudioMergeMode(button) {
+  const value = button.closest(".jpdb-reader-anki-card-preview")?.querySelector("[data-anki-audio-merge]")?.value;
   return value === "theirs" || value === "ours" ? value : "both";
 }
-function selectedPopoverReviewTarget(button2) {
-  const select = button2.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
+function selectedPopoverReviewTarget(button) {
+  const select = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
   const option = select?.options[select.selectedIndex] ?? null;
-  const target = reviewTargetKind(option?.dataset.reviewTarget ?? button2.dataset.reviewTarget);
-  const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button2.dataset.ankiCardId);
+  const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
+  const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
   return { kind: target, ankiCardId };
 }
 function exactCard(source, tokens) {
@@ -14938,22 +15402,22 @@ function ankiSourceTitle(sourceTitle) {
 function ankiSourceUrl(sourceUrl) {
   return sourceUrl || location.href;
 }
-function selectedDeckChoice(button2, settings) {
-  const source = selectedDeckSource(button2);
+function selectedDeckChoice(button, settings) {
+  const source = selectedDeckSource(button);
   return {
   source,
-  id: selectedDeckId(button2, settings, source)
+  id: selectedDeckId(button, settings, source)
   };
 }
-function selectedDeckSource(button2) {
-  if (button2.dataset.deckSource === "anki") return "anki";
-  if (button2.dataset.deckSource === "jiten") return "jiten";
-  if (button2.dataset.deckSource === "bunpro") return "bunpro";
-  if (button2.dataset.deckSource === "yomu-local") return "yomu-local";
+function selectedDeckSource(button) {
+  if (button.dataset.deckSource === "anki") return "anki";
+  if (button.dataset.deckSource === "jiten") return "jiten";
+  if (button.dataset.deckSource === "bunpro") return "bunpro";
+  if (button.dataset.deckSource === "yomu-local") return "yomu-local";
   return "jpdb";
 }
-function selectedDeckId(button2, settings, source) {
-  const id = button2.dataset.deckId?.trim();
+function selectedDeckId(button, settings, source) {
+  const id = button.dataset.deckId?.trim();
   if (id) return id;
   return defaultDeckIdForSource(source, settings);
 }
@@ -16910,16 +17374,16 @@ function fallbackImmersionContextFromExample(term, example, index, total, imageU
   immersionTotal: total
   };
 }
-function fallbackImmersionContextFromElement(sentence, element2, sourceUrl = location.href) {
+function fallbackImmersionContextFromElement(sentence, element, sourceUrl = location.href) {
   return {
   sentence,
   sourceKind: "immersion-kit",
-  sourceTitle: element2.dataset.immersionSourceTitle || "Immersion Kit",
+  sourceTitle: element.dataset.immersionSourceTitle || "Immersion Kit",
   sourceUrl,
-  imageUrl: optionalText(element2.dataset.immersionImageUrl),
-  audioUrls: optionalTextArray(parseTextArray(element2.dataset.immersionAudioUrls) ?? [element2.dataset.immersionAudioUrl]),
-  immersionIndex: optionalNumber(Number(element2.dataset.immersionIndex ?? 0)),
-  immersionTotal: optionalNumber(Number(element2.dataset.immersionTotal ?? 0))
+  imageUrl: optionalText(element.dataset.immersionImageUrl),
+  audioUrls: optionalTextArray(parseTextArray(element.dataset.immersionAudioUrls) ?? [element.dataset.immersionAudioUrl]),
+  immersionIndex: optionalNumber(Number(element.dataset.immersionIndex ?? 0)),
+  immersionTotal: optionalNumber(Number(element.dataset.immersionTotal ?? 0))
   };
 }
 function fallbackStoredMiningContext(term, context, updatedAt) {
@@ -17770,18 +18234,18 @@ function updatePopoverReviewTargetSelection(select) {
   actions.querySelectorAll("[data-review-grade-profile]").forEach((row) => {
   row.hidden = row.dataset.reviewGradeProfile !== gradeProfile;
   });
-  actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button2) => {
-  button2.dataset.reviewTarget = target;
-  button2.dataset.newtabReviewTarget = target;
-  if (ankiCardId) button2.dataset.ankiCardId = ankiCardId;
-  else delete button2.dataset.ankiCardId;
-  const buttonLabel = button2.textContent?.trim() ?? "";
+  actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button) => {
+  button.dataset.reviewTarget = target;
+  button.dataset.newtabReviewTarget = target;
+  if (ankiCardId) button.dataset.ankiCardId = ankiCardId;
+  else delete button.dataset.ankiCardId;
+  const buttonLabel = button.textContent?.trim() ?? "";
   if (label) {
-    button2.title = label;
-    button2.setAttribute("aria-label", `${buttonLabel}: ${label}`);
+    button.title = label;
+    button.setAttribute("aria-label", `${buttonLabel}: ${label}`);
   } else {
-    button2.removeAttribute("title");
-    button2.removeAttribute("aria-label");
+    button.removeAttribute("title");
+    button.removeAttribute("aria-label");
   }
   });
 }
@@ -17801,8 +18265,8 @@ function renderTargetedGradeRow(grades, selected, profile, hidden) {
   }).join("")}
     </div>`;
 }
-function togglePopoverReviewTargetSelection(button2) {
-  const select = button2.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
+function togglePopoverReviewTargetSelection(button) {
+  const select = button.closest(".jpdb-reader-actions")?.querySelector("[data-review-target-select]");
   if (!select || select.options.length < 2) return;
   select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
   updatePopoverReviewTargetSelection(select);
@@ -19252,7 +19716,7 @@ const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
 const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
 const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-const log$f = Logger.scope("ReaderParser");
+const log$e = Logger.scope("ReaderParser");
 const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
   const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -19277,7 +19741,7 @@ class ReaderParser {
   async parse(paragraphs, options = {}) {
   const { getSettings } = this.dependencies;
   const settings = getSettings();
-  const done = log$f.time("parse", {
+  const done = log$e.time("parse", {
     paragraphs: paragraphs.length,
     hasApiKey: hasJpdbApiCredential(settings),
     hasJitenApiKey: hasJitenApiCredential(settings),
@@ -19358,7 +19822,7 @@ class ReaderParser {
   }
   handleRemoteParseError(source, error, options) {
   const canFallback = this.canUseParseFallback(options);
-  log$f.warn(remoteParseErrorMessage(source, options, canFallback), error);
+  log$e.warn(remoteParseErrorMessage(source, options, canFallback), error);
   if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
   }
   async parseWithFallbackSource(paragraphs, options) {
@@ -19378,7 +19842,7 @@ class ReaderParser {
     if (!parsed.some((tokens) => tokens.length)) return null;
     return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
   } catch (error) {
-    log$f.warn("Jiten public parse failed; using local or segmented fallback", error);
+    log$e.warn("Jiten public parse failed; using local or segmented fallback", error);
     return null;
   }
   }
@@ -19496,7 +19960,7 @@ ${spelling}`);
   if (!await this.hasLocalTermDictionaries()) return [];
   const settings = getSettings();
   const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-    log$f.warn("Local dictionary parse failed", { length: text2.length }, error);
+    log$e.warn("Local dictionary parse failed", { length: text2.length }, error);
     return [];
   });
   return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
@@ -19551,7 +20015,7 @@ ${spelling}`);
     settings.dictionaryPreferences
   )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
     if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-    log$f.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+    log$e.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
     return null;
   });
   this.localBoundaryEvidenceCache.set(key, promise);
@@ -19571,7 +20035,7 @@ ${spelling}`);
   if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
   this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
     this.localTermDictionaryAvailability = void 0;
-    log$f.warn("Local term dictionary availability check failed", { error });
+    log$e.warn("Local term dictionary availability check failed", { error });
     return void 0;
   });
   return this.localTermDictionaryAvailability;
@@ -19715,7 +20179,7 @@ ${spelling}`);
     card.reading,
     (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
   ).catch((error) => {
-    log$f.warn("Local pitch parse failed", { term: card.spelling }, error);
+    log$e.warn("Local pitch parse failed", { term: card.spelling }, error);
     return { patterns: [] };
   });
   this.rememberLocalPitchCacheEntry(key, promise);
@@ -20107,7 +20571,7 @@ function frequencyRank(value) {
 function normalizeIdentityText(value) {
   return value.normalize("NFKC").trim();
 }
-const log$e = Logger.scope("CardRenderData");
+const log$d = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -20283,7 +20747,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.localDictionariesEnabled) return Promise.resolve([]);
   return this.lookupLocalTermEntries(card, settings).catch((error) => {
-    log$e.warn("Local term lookup failed", { term: card.spelling }, error);
+    log$d.warn("Local term lookup failed", { term: card.spelling }, error);
     return [];
   });
   }
@@ -20307,7 +20771,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-    log$e.warn("Local kanji lookup failed", { term: card.spelling }, error);
+    log$d.warn("Local kanji lookup failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20318,13 +20782,13 @@ class CardRenderDataLoader {
     entries: entries2,
     completed: true
   })).catch((error) => {
-    log$e.warn("Local metadata lookup failed", { term: card.spelling }, error);
+    log$d.warn("Local metadata lookup failed", { term: card.spelling }, error);
     return { entries: [], completed: false };
   });
   return Promise.race([
     lookup,
     delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-      log$e.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
+      log$d.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
       return { entries: [], completed: false };
     })
   ]);
@@ -20333,7 +20797,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-    log$e.warn("Public pitch lookup failed", { term: card.spelling }, error);
+    log$d.warn("Public pitch lookup failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20345,7 +20809,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
   return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
-    log$e.warn("JPDB page lookup failed", { term: card.spelling }, error);
+    log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
     return null;
   }), null);
   }
@@ -20355,7 +20819,7 @@ class CardRenderDataLoader {
     this.applyJitenVocabularyInfoPitchAccent(card, info);
     return info;
   }).catch((error) => {
-    log$e.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+    log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
     return null;
   });
   }
@@ -20363,12 +20827,12 @@ class CardRenderDataLoader {
   const settings = this.settings();
   const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
   const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-    log$e.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+    log$d.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
     return null;
   }) : Promise.resolve(null) : Promise.resolve(null);
   const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
   const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? searchJpdb(card.spelling, 10).then((candidates) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
-    log$e.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+    log$d.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
     return null;
   }) : Promise.resolve(null);
   const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
@@ -20389,13 +20853,13 @@ class CardRenderDataLoader {
   if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
   if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
   const startedAt = performance.now();
-  log$e.debug("Bunpro definition lookup started", { term: card.spelling });
+  log$d.debug("Bunpro definition lookup started", { term: card.spelling });
   return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
     const resolved = {
       info: result.info,
       status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
     };
-    log$e.debug("Bunpro definition lookup completed", {
+    log$d.debug("Bunpro definition lookup completed", {
       term: card.spelling,
       state: resolved.status.state,
       reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -20403,7 +20867,7 @@ class CardRenderDataLoader {
     });
     return resolved;
   }).catch((error) => {
-    log$e.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+    log$d.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
     return { info: null, status: { state: "error" } };
   });
   }
@@ -20412,14 +20876,14 @@ class CardRenderDataLoader {
   const fallback = sourceCardAnkiLookupOrEmpty(card);
   if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
   return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-    log$e.warn("Cached Anki status failed", { term: card.spelling }, error);
+    log$d.warn("Cached Anki status failed", { term: card.spelling }, error);
     return fallback;
   });
   }
   loadDetailedAnkiLookup(card, fastLookup) {
   if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
   return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-    log$e.warn("Anki lookup failed", { term: card.spelling }, error);
+    log$d.warn("Anki lookup failed", { term: card.spelling }, error);
     return ankiLookupWithUnavailableDetails(fallback);
   }), ankiLookupWithUnavailableDetails(fallback)));
   }
@@ -20432,14 +20896,14 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-    log$e.warn("JPDB deck list failed", { term: card.spelling }, error);
+    log$d.warn("JPDB deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
   loadAnkiDecks(card) {
   if (!this.settings().ankiEnabled) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-    log$e.warn("Anki deck list failed", { term: card.spelling }, error);
+    log$d.warn("Anki deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20447,7 +20911,7 @@ class CardRenderDataLoader {
   const settings = this.settings();
   if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-    log$e.warn("Jiten deck list failed", { term: card.spelling }, error);
+    log$d.warn("Jiten deck list failed", { term: card.spelling }, error);
     return [];
   }), []);
   }
@@ -20456,7 +20920,7 @@ class CardRenderDataLoader {
   if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
   if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
   return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-    log$e.warn("Anki field target plan failed", { term: card.spelling }, error);
+    log$d.warn("Anki field target plan failed", { term: card.spelling }, error);
     return null;
   }), null);
   }
@@ -20467,7 +20931,7 @@ class CardRenderDataLoader {
   const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
   if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
   return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-    log$e.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+    log$d.warn("JPDB pool lookup failed", { term: card.spelling }, error);
     return false;
   }), false);
   }
@@ -20581,7 +21045,7 @@ class CardRenderDataLoader {
     (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
     { initialEntries: metaEntries }
   ).catch((error) => {
-    log$e.warn("Local pitch lookup failed", { term: card.spelling }, error);
+    log$d.warn("Local pitch lookup failed", { term: card.spelling }, error);
     return { patterns: [] };
   });
   const patterns = resolution.patterns;
@@ -20689,7 +21153,7 @@ function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs
   return Promise.race([
   promise,
   delay(timeoutMs).then(() => {
-    log$e.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+    log$d.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
     return fallback;
   })
   ]);
@@ -20845,7 +21309,7 @@ class DictionaryStyleController {
   this.options.onRefreshed?.(css.length);
   }
 }
-const log$d = Logger.scope("FactoryReset");
+const log$c = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
 const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
@@ -20897,12 +21361,12 @@ class FactoryResetCoordinator {
     const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
     await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
     await clearFactoryResetSignal();
-    log$d.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
+    log$c.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
     this.dependencies.reload();
   } catch (error) {
     this.activeResetId = "";
     endSettingsResetGuard();
-    log$d.warn("All-data reset failed", error);
+    log$c.warn("All-data reset failed", error);
     this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
   }
   }
@@ -20910,7 +21374,7 @@ class FactoryResetCoordinator {
   try {
     return await this.dependencies.resetDictionaryDatabase();
   } catch (error) {
-    log$d.warn("Dictionary reset failed post-settings", error);
+    log$c.warn("Dictionary reset failed post-settings", error);
     this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
     return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -20921,7 +21385,7 @@ class FactoryResetCoordinator {
   if (this.handledSignals.has(handledKey)) return;
   this.handledSignals.add(handledKey);
   beginSettingsResetGuard();
-  log$d.info("Factory reset signal received", {
+  log$c.info("Factory reset signal received", {
     phase: signal.phase,
     href: signal.href,
     remote: source.remote,
@@ -20939,7 +21403,7 @@ class FactoryResetCoordinator {
   async assertSettingsStorageDeleted() {
   const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
   if (!settingsKeysStillPresent.length) return;
-  log$d.warn("Settings keys remained after reset", { settingsKeysStillPresent });
+  log$c.warn("Settings keys remained after reset", { settingsKeysStillPresent });
   throw new Error(this.text("factoryResetDeleteSettingsFailed"));
   }
   text(key, values = {}) {
@@ -20958,13 +21422,68 @@ class FactoryResetCoordinator {
   this.remoteGuardReleaseTimer = void 0;
   }
 }
-function isRubyAnnotation(element2) {
-  return element2.tagName === "RT" || element2.tagName === "RP";
+const ANNOTATION_SCOPE_ATTRIBUTE = "data-yomu-annotation-scope";
+const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = "data-yomu-runtime-surface";
+const ANNOTATION_SCOPE_SURFACE_VALUE = "surface";
+const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
+function annotationScopeActive() {
+  return document.documentElement?.getAttribute(ANNOTATION_SCOPE_ATTRIBUTE) === ANNOTATION_SCOPE_SURFACE_VALUE;
 }
-function rubyReadingText(element2, fallback, rtText = defaultRubyText) {
+function annotationScopeRoots() {
+  if (!annotationScopeActive()) return null;
+  const matches = Array.from(document.querySelectorAll(ANNOTATION_SCOPE_SURFACE_SELECTOR));
+  const matchSet = new Set(matches);
+  return matches.filter((element) => {
+  const ancestor = element.parentElement?.closest(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+  return !ancestor || !matchSet.has(ancestor);
+  });
+}
+function scanScopeRoots(fallback = document.body) {
+  const roots = annotationScopeRoots();
+  if (roots) return roots;
+  return fallback ? [fallback] : [];
+}
+function nodeWithinAnnotationScope(node, roots = annotationScopeRoots()) {
+  if (!roots) return true;
+  return roots.some((root) => composedSurfaceContains(root, node));
+}
+function mutationMayExpandAnnotationScope(mutation, roots = annotationScopeRoots()) {
+  if (!roots) return false;
+  if (mutation.type === "childList") {
+  return Array.from(mutation.addedNodes).some(
+    (node) => nodeWithinAnnotationScope(node, roots) || node instanceof Element && (node.matches(ANNOTATION_SCOPE_SURFACE_SELECTOR) || Boolean(node.querySelector(ANNOTATION_SCOPE_SURFACE_SELECTOR)))
+  );
+  }
+  if (mutation.type !== "attributes" || mutation.attributeName !== ANNOTATION_SCOPE_SURFACE_ATTRIBUTE && mutation.attributeName !== "class") return false;
+  return mutation.target instanceof Element && mutation.target.matches(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+}
+function composedSurfaceContains(surface, node) {
+  let current = node;
+  while (current) {
+  if (current === surface || surface.contains(current)) return true;
+  const root = current.getRootNode();
+  if (!(root instanceof ShadowRoot)) return false;
+  current = root.host;
+  }
+  return false;
+}
+function queryWithinAnnotationScope(selector) {
+  const roots = annotationScopeRoots();
+  if (!roots) return Array.from(document.querySelectorAll(selector));
+  const seen = new Set();
+  for (const root of roots) {
+  if (root.matches(selector)) seen.add(root);
+  for (const element of root.querySelectorAll(selector)) seen.add(element);
+  }
+  return [...seen];
+}
+function isRubyAnnotation(element) {
+  return element.tagName === "RT" || element.tagName === "RP";
+}
+function rubyReadingText(element, fallback, rtText = defaultRubyText) {
   let text2 = "";
   let base = "";
-  element2.childNodes.forEach((child) => {
+  element.childNodes.forEach((child) => {
   if (child.nodeType === Node.TEXT_NODE) {
     base += child.textContent ?? "";
     return;
@@ -20979,10 +21498,10 @@ function rubyReadingText(element2, fallback, rtText = defaultRubyText) {
   if (childElement.tagName === "RP") return;
   base += fallback(childElement);
   });
-  return text2 + base || fallback(element2);
+  return text2 + base || fallback(element);
 }
-function defaultRubyText(element2, base) {
-  return element2.textContent || base;
+function defaultRubyText(element, base) {
+  return element.textContent || base;
 }
 function isJpdbHost() {
   return location.hostname === "jpdb.io";
@@ -21076,8 +21595,8 @@ const VOCABULARY_ADDON_ANCHOR_SELECTORS = [
 ];
 function firstElementForSelectors(selectors) {
   for (const selector of selectors) {
-  const element2 = document.querySelector(selector);
-  if (element2) return element2;
+  const element = document.querySelector(selector);
+  if (element) return element;
   }
   return null;
 }
@@ -21129,7 +21648,7 @@ function mnemonicSiblingAnchor() {
   return mnemonic?.nextElementSibling instanceof HTMLElement ? mnemonic.nextElementSibling : null;
 }
 function kanjiComponentTerms(root) {
-  return sourceElements(root, '.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]').map((element2) => cleanText(extractBaseText(element2)) || cleanText(element2.textContent ?? "")).filter((value) => value && JAPANESE_RE.test(value));
+  return sourceElements(root, '.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]').map((element) => cleanText(extractBaseText(element)) || cleanText(element.textContent ?? "")).filter((value) => value && JAPANESE_RE.test(value));
 }
 function extractPageCompounds(root) {
   const entries2 = [];
@@ -21301,9 +21820,9 @@ function decodePathPart(value) {
 }
 function extractTermFromElement(root) {
   for (const selector of TERM_TARGET_SELECTORS) {
-  const element2 = sourceElements(root, selector)[0];
-  if (!element2) continue;
-  const target = termTargetFromElement(element2);
+  const element = sourceElements(root, selector)[0];
+  if (!element) continue;
+  const target = termTargetFromElement(element);
   if (target) return target;
   }
   return null;
@@ -21316,10 +21835,10 @@ const TERM_TARGET_SELECTORS = [
   ".answer-box .plain",
   ".plain"
 ];
-function termTargetFromElement(element2) {
-  const term = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
+function termTargetFromElement(element) {
+  const term = cleanText(extractBaseText(element)) || cleanText(sourceTextContent(element));
   if (!isJapaneseTerm$1(term)) return null;
-  const reading = cleanText(extractReadingText(element2)) || term;
+  const reading = cleanText(extractReadingText(element)) || term;
   return { term, reading };
 }
 function extractBaseText(root) {
@@ -21327,36 +21846,36 @@ function extractBaseText(root) {
   if (root.nodeType !== Node.ELEMENT_NODE) return "";
   return extractBaseElementText(root);
 }
-function extractBaseElementText(element2) {
-  if (isIgnoredSourceTextElement(element2)) return "";
-  return Array.from(element2.childNodes).map(extractBaseText).join("");
+function extractBaseElementText(element) {
+  if (isIgnoredSourceTextElement(element)) return "";
+  return Array.from(element.childNodes).map(extractBaseText).join("");
 }
 function extractReadingText(root) {
   if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
   if (root.nodeType !== Node.ELEMENT_NODE) return "";
   return extractReadingElementText(root);
 }
-function extractReadingElementText(element2) {
-  if (isIgnoredSourceTextElement(element2)) return "";
-  if (element2.tagName === "RUBY") return rubyReadingText(element2, extractBaseText, generatedAwareRubyText);
-  return Array.from(element2.childNodes).map(extractReadingText).join("");
+function extractReadingElementText(element) {
+  if (isIgnoredSourceTextElement(element)) return "";
+  if (element.tagName === "RUBY") return rubyReadingText(element, extractBaseText, generatedAwareRubyText);
+  return Array.from(element.childNodes).map(extractReadingText).join("");
 }
 function isJapaneseTerm$1(value) {
   return Boolean(value && JAPANESE_RE.test(value));
 }
-function isIgnoredSourceTextElement(element2) {
-  return isRubyAnnotation(element2) || isGeneratedReaderAnnotation(element2) || element2.matches("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
+function isIgnoredSourceTextElement(element) {
+  return isRubyAnnotation(element) || isGeneratedReaderAnnotation(element) || element.matches("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
 }
-function isGeneratedReaderAnnotation(element2) {
-  return element2.matches("[data-jpdb-reader-surface-ignore], .jpdb-reader-furi, .jpdb-ocr-furi");
+function isGeneratedReaderAnnotation(element) {
+  return element.matches("[data-jpdb-reader-surface-ignore], .jpdb-reader-furi, .jpdb-ocr-furi");
 }
-function generatedAwareRubyText(element2, base) {
-  return isGeneratedReaderAnnotation(element2) ? base : element2.textContent || base;
+function generatedAwareRubyText(element, base) {
+  return isGeneratedReaderAnnotation(element) ? base : element.textContent || base;
 }
 function extractAlternateTerms(root) {
-  return sourceElements(root, '.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]').flatMap((element2) => {
-  const fromText = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
-  const href = element2 instanceof HTMLAnchorElement ? element2 : element2.querySelector('a[href^="/vocabulary/"]');
+  return sourceElements(root, '.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]').flatMap((element) => {
+  const fromText = cleanText(extractBaseText(element)) || cleanText(sourceTextContent(element));
+  const href = element instanceof HTMLAnchorElement ? element : element.querySelector('a[href^="/vocabulary/"]');
   const fromHref = href ? vocabularyPathTerm(href.pathname) : "";
   return [fromText, fromHref];
   }).filter((value) => value && JAPANESE_RE.test(value));
@@ -21385,11 +21904,11 @@ function jpdbPathParts(pathname) {
 function sourceElements(root, selector) {
   return Array.from(root.querySelectorAll(selector)).filter(isSourceElement);
 }
-function isSourceElement(element2) {
-  return !element2.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
+function isSourceElement(element) {
+  return !element.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
 }
-function sourceTextContent(element2) {
-  return element2 && isSourceElement(element2) ? element2.textContent ?? "" : "";
+function sourceTextContent(element) {
+  return element && isSourceElement(element) ? element.textContent ?? "" : "";
 }
 function uniqueLookupValues(values) {
   const seen = new Set();
@@ -21468,7 +21987,7 @@ function jitenStudyCardAnchor() {
   return card ?? null;
 }
 function jitenStudyAnswerHidden() {
-  return Array.from(document.querySelectorAll("button")).some((button2) => /show answer/i.test(button2.textContent ?? ""));
+  return Array.from(document.querySelectorAll("button")).some((button) => /show answer/i.test(button.textContent ?? ""));
 }
 function currentJitenLocalDictionaryTargets() {
   if (isJitenKanjiPage()) {
@@ -21490,10 +22009,10 @@ function currentJitenLocalDictionaryTargets() {
   }];
 }
 function jitenHeadword() {
-  const element2 = ownedElement(document.querySelector(HEADWORD_SELECTOR));
-  const domTerm = element2 ? cleanText(extractBaseText(element2)) : "";
-  if (element2 && domTerm && JAPANESE_RE.test(domTerm)) {
-  return { term: domTerm, reading: cleanText(extractReadingText(element2)) || domTerm };
+  const element = ownedElement(document.querySelector(HEADWORD_SELECTOR));
+  const domTerm = element ? cleanText(extractBaseText(element)) : "";
+  if (element && domTerm && JAPANESE_RE.test(domTerm)) {
+  return { term: domTerm, reading: cleanText(extractReadingText(element)) || domTerm };
   }
   const titleTerm = termFromTitle();
   return titleTerm ? { term: titleTerm, reading: titleTerm } : null;
@@ -21518,8 +22037,8 @@ function jitenKanjiAnchor() {
   if (header) return header;
   return document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2") ?? null;
 }
-function ownedElement(element2) {
-  return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
+function ownedElement(element) {
+  return element && !element.closest(READER_OWNED_SELECTOR) ? element : null;
 }
 function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "Jiten") {
   const meanings = jitenDefinitionMeanings(card, info);
@@ -22011,7 +22530,7 @@ const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
 const NADESHIKO_SEARCH_LIMIT = 25;
 const MIN_LEARNING_SENTENCE_LENGTH = 8;
 const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-const log$c = Logger.scope("ImmersionKit");
+const log$b = Logger.scope("ImmersionKit");
 const IMMERSION_KIT_TITLES = {
   your_lie_in_april: "Your Lie in April",
   princess_mononoke: "Princess Mononoke",
@@ -22124,7 +22643,7 @@ class ImmersionKitClient {
   const cacheInflight = !options.signal;
   const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
   if (inflight) return inflight;
-  const done = log$c.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+  const done = log$b.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
   const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
     const result = applySearchExampleLimit(examples, settings, options);
     if (!options.signal?.aborted) {
@@ -22169,11 +22688,11 @@ class ImmersionKitClient {
   searchSource(source, query, settings, options) {
   return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
     if (isAbortError(error)) throw error;
-    log$c.warn("Nadeshiko examples failed", { query }, error);
+    log$b.warn("Nadeshiko examples failed", { query }, error);
     return [];
   }) : this.searchImmersionKit(query, settings, options).catch((error) => {
     if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-    log$c.warn("Immersion Kit examples failed", { query }, error);
+    log$b.warn("Immersion Kit examples failed", { query }, error);
     return [];
   });
   }
@@ -22983,10 +23502,10 @@ function initialDragState() {
 }
 function getContainedClosest(target, root, selector, onFound) {
   if (!(target instanceof Element)) return null;
-  const element2 = target.closest(selector);
-  if (!element2 || !root.contains(element2)) return null;
-  onFound?.(element2);
-  return element2;
+  const element = target.closest(selector);
+  if (!element || !root.contains(element)) return null;
+  onFound?.(element);
+  return element;
 }
 function consumeDragEvent(event) {
   event.preventDefault();
@@ -23090,7 +23609,7 @@ function refreshForcedReaderPopoverSurface(popover, settings) {
   popover.style.width = `${settings.popoverWidth}px`;
   popover.style.height = "";
   popover.style.minHeight = "";
-  popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element2) => element2.remove());
+  popover.querySelectorAll(".jpdb-reader-sheet-handle, .jpdb-reader-sheet-close").forEach((element) => element.remove());
 }
 function createReaderBackdrop(onDismiss) {
   const backdrop = document.createElement("div");
@@ -23303,15 +23822,15 @@ function installSheetCloseButton(popover, onDismiss, label = "Close drawer") {
   onDismiss();
   };
   const createButton = () => {
-  const button2 = document.createElement("button");
-  button2.type = "button";
-  button2.className = "jpdb-reader-sheet-close";
-  button2.dataset.jpdbReaderSheetClose = "true";
-  button2.setAttribute("aria-label", label);
-  button2.title = label;
-  setInnerHtml(button2, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
-  button2.addEventListener("click", close);
-  return button2;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "jpdb-reader-sheet-close";
+  button.dataset.jpdbReaderSheetClose = "true";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  setInnerHtml(button, '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"></path></svg>');
+  button.addEventListener("click", close);
+  return button;
   };
   const ensureButton = () => {
   if (!popover.isConnected) return;
@@ -23354,8 +23873,8 @@ function installMiningDrawerHandle(root, setExpanded) {
   };
   const getHandleFromPoint = (x, y) => {
   if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element2 of document.elementsFromPoint(x, y)) {
-    const handle = getHandleFromElement(element2);
+  for (const element of document.elementsFromPoint(x, y)) {
+    const handle = getHandleFromElement(element);
     if (handle) return handle;
   }
   return null;
@@ -23547,7 +24066,7 @@ const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
 const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
 const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
 const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-const log$b = Logger.scope("ImmersionPopover");
+const log$a = Logger.scope("ImmersionPopover");
 class ImmersionPopoverController {
   constructor(options) {
   this.options = options;
@@ -23622,7 +24141,7 @@ class ImmersionPopoverController {
     this.renderLoadedExamples(container, card, result);
   } catch (error) {
     if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-    log$b.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+    log$a.warn("Immersion Kit examples failed", { term: card.spelling }, error);
     this.renderEmptyIfConnected(popover, container);
   } finally {
     if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -23729,7 +24248,7 @@ class ImmersionPopoverController {
     bindHoverMedia();
   };
   container.addEventListener("click", (event) => {
-    const button2 = event.target.closest("[data-immersion-action]");
+    const button = event.target.closest("[data-immersion-action]");
     const media = event.target.closest(".jpdb-reader-example-media");
     const translation = event.target.closest(".jpdb-reader-example-translation");
     if (translation) {
@@ -23738,14 +24257,14 @@ class ImmersionPopoverController {
       this.toggleTranslationBlur(container);
       return;
     }
-    if (!button2 && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
+    if (!button && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!button2) {
+    if (!button) {
       void this.playExampleAudio(examples[index]);
       return;
     }
-    const action = button2.dataset.immersionAction;
+    const action = button.dataset.immersionAction;
     if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
     if (action === "audio") void this.playExampleAudio(examples[index]);
   });
@@ -24128,8 +24647,8 @@ class ImmersionPopoverController {
   const sentence = media?.querySelector(".jpdb-reader-example-sentence");
   if (sentence) {
     sentence.classList.remove("jpdb-subtitle-primary");
-    sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element2) => {
-      element2.classList.remove("jpdb-subtitle-primary");
+    sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element) => {
+      element.classList.remove("jpdb-subtitle-primary");
     });
     media?.after(sentence);
   }
@@ -24208,7 +24727,7 @@ class ImmersionPopoverController {
   }
   }
   handleExampleAudioError(example, quiet, error) {
-  log$b.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+  log$a.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
   if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
   }
   exampleAudioSource(example, quiet) {
@@ -24408,18 +24927,18 @@ function renderExampleTranslation(translation, settings) {
   }
   return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
 }
-function setTranslationBlurAttributes(element2, blurred, key, language) {
+function setTranslationBlurAttributes(element, blurred, key, language) {
   if (blurred) {
-  element2.dataset[key] = "true";
-  element2.setAttribute("role", "button");
-  element2.setAttribute("tabindex", "0");
-  element2.setAttribute("aria-label", uiText(language, "revealTranslation"));
+  element.dataset[key] = "true";
+  element.setAttribute("role", "button");
+  element.setAttribute("tabindex", "0");
+  element.setAttribute("aria-label", uiText(language, "revealTranslation"));
   return;
   }
-  delete element2.dataset[key];
-  element2.removeAttribute("tabindex");
-  element2.removeAttribute("role");
-  element2.removeAttribute("aria-label");
+  delete element.dataset[key];
+  element.removeAttribute("tabindex");
+  element.removeAttribute("role");
+  element.removeAttribute("aria-label");
 }
 function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
   if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -24456,8 +24975,8 @@ class RadialMenuController {
   else this.show();
   }
   show() {
-  const button2 = this.host.getButton();
-  if (!button2 || this.state === "open") return;
+  const button = this.host.getButton();
+  if (!button || this.state === "open") return;
   window.clearTimeout(this.closeTimer);
   this.teardownDom();
   const actions = this.host.buildActions();
@@ -24470,8 +24989,8 @@ class RadialMenuController {
   document.body.appendChild(backdrop);
   applyRedditOverlayScale(backdrop);
   this.backdrop = backdrop;
-  this.layout(button2, backdrop, actions);
-  button2.classList.add("jpdb-reader-fab--menu-open");
+  this.layout(button, backdrop, actions);
+  button.classList.add("jpdb-reader-fab--menu-open");
   this.listeners = new AbortController();
   const { signal } = this.listeners;
   backdrop.addEventListener("pointerdown", (event) => {
@@ -24513,8 +25032,8 @@ class RadialMenuController {
   this.items.clear();
   this.state = "closed";
   }
-  layout(button2, backdrop, actions) {
-  const rect = redditSourceRectToOverlay(button2.getBoundingClientRect(), button2);
+  layout(button, backdrop, actions) {
+  const rect = redditSourceRectToOverlay(button.getBoundingClientRect(), button);
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const { width: vw, height: vh } = redditOverlayViewport();
@@ -24680,8 +25199,8 @@ class FloatingButtonController {
     this.destroy();
     return;
   }
-  document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => {
-    if (element2 !== this.button) element2.remove();
+  document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element) => {
+    if (element !== this.button) element.remove();
   });
   if (this.button?.isConnected) {
     this.syncButtonState();
@@ -24698,49 +25217,49 @@ class FloatingButtonController {
   this.button = void 0;
   }
   build(settings) {
-  const button2 = document.createElement("button");
-  button2.className = "jpdb-reader-fab";
-  button2.type = "button";
-  button2.textContent = APP_PUCK;
-  button2.title = APP_NAME;
-  button2.setAttribute("aria-haspopup", "menu");
-  button2.dataset.jpdbReaderRoot = "true";
-  restoreButtonPosition(button2, settings);
-  this.button = button2;
+  const button = document.createElement("button");
+  button.className = "jpdb-reader-fab";
+  button.type = "button";
+  button.textContent = APP_PUCK;
+  button.title = APP_NAME;
+  button.setAttribute("aria-haspopup", "menu");
+  button.dataset.jpdbReaderRoot = "true";
+  restoreButtonPosition(button, settings);
+  this.button = button;
   this.syncButtonState();
   this.radial = new RadialMenuController({
     getButton: () => this.button,
     buildActions: () => this.buildRadialActions(),
     menuLabel: () => uiText(this.settings?.interfaceLanguage ?? "en", "puckMenuLabel")
   });
-  this.installDragHandlers(button2);
-  button2.addEventListener("click", (event) => {
-    if (button2.dataset.jpdbReaderMoved === "true") {
+  this.installDragHandlers(button);
+  button.addEventListener("click", (event) => {
+    if (button.dataset.jpdbReaderMoved === "true") {
       event.preventDefault();
       event.stopPropagation();
-      button2.dataset.jpdbReaderMoved = "false";
+      button.dataset.jpdbReaderMoved = "false";
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     this.radial?.toggle();
   });
-  document.body.appendChild(button2);
-  applyRedditOverlayScale(button2);
-  clampRestoredButtonPosition(button2, settings);
-  this.installVideoAvoidance(button2);
+  document.body.appendChild(button);
+  applyRedditOverlayScale(button);
+  clampRestoredButtonPosition(button, settings);
+  this.installVideoAvoidance(button);
   }
   syncButtonState() {
-  const button2 = this.button;
-  if (!button2) return;
+  const button = this.button;
+  if (!button) return;
   const powerState = this.actions?.powerState() ?? "on";
   const language = this.settings?.interfaceLanguage ?? "en";
-  button2.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
-  button2.classList.toggle("jpdb-reader-fab--on", powerState === "on");
-  button2.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
-  button2.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
-  button2.title = puckStateLabel(language, powerState);
-  button2.setAttribute("aria-label", button2.title);
+  button.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
+  button.classList.toggle("jpdb-reader-fab--on", powerState === "on");
+  button.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
+  button.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
+  button.title = puckStateLabel(language, powerState);
+  button.setAttribute("aria-label", button.title);
   }
   buildRadialActions() {
   const settings = this.settings;
@@ -24829,20 +25348,20 @@ class FloatingButtonController {
   }
   return items;
   }
-  installVideoAvoidance(button2) {
+  installVideoAvoidance(button) {
   this.abortController?.abort();
   const controller = new AbortController();
   this.abortController = controller;
   const schedule = () => requestAnimationFrame(() => {
-    applyRedditOverlayScale(button2);
-    if (this.settings) avoidVideoOverlap(button2, this.settings, this.save);
+    applyRedditOverlayScale(button);
+    if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
   });
   window.addEventListener("resize", schedule, { passive: true, signal: controller.signal });
   window.addEventListener("scroll", schedule, { passive: true, signal: controller.signal });
   document.addEventListener("fullscreenchange", schedule, { signal: controller.signal });
   schedule();
   }
-  installDragHandlers(button2) {
+  installDragHandlers(button) {
   let dragging = false;
   let moved = false;
   let startX = 0;
@@ -24871,20 +25390,20 @@ class FloatingButtonController {
       if (!dragging || !pendingPosition) return;
       currentPosition = pendingPosition;
       pendingPosition = null;
-      applyPuckDragTransform(button2, currentPosition.x - originX, currentPosition.y - originY);
+      applyPuckDragTransform(button, currentPosition.x - originX, currentPosition.y - originY);
     });
     dragFrame = dragFramePending ? frame : void 0;
   };
-  button2.addEventListener("pointerdown", (event) => {
+  button.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     dragging = true;
     moved = false;
-    button2.dataset.jpdbReaderMoved = "false";
+    button.dataset.jpdbReaderMoved = "false";
     dragPageScale = redditOverlayViewport().pageScale;
     const start = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     startX = start.x;
     startY = start.y;
-    const rect = overlayPuckRect(button2, dragPageScale);
+    const rect = overlayPuckRect(button, dragPageScale);
     originX = rect.left;
     originY = rect.top;
     puckBox = { width: rect.width, height: rect.height };
@@ -24892,9 +25411,9 @@ class FloatingButtonController {
     currentPosition = { x: originX, y: originY };
     cancelDragFrame();
     dragPositionAnchored = false;
-    button2.setPointerCapture?.(event.pointerId);
+    button.setPointerCapture?.(event.pointerId);
   });
-  button2.addEventListener("pointermove", (event) => {
+  button.addEventListener("pointermove", (event) => {
     if (!dragging || !puckBox) return;
     const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     const dx = pointer.x - startX;
@@ -24902,12 +25421,12 @@ class FloatingButtonController {
     if (Math.hypot(dx, dy) > 4) moved = true;
     if (!moved) return;
     event.preventDefault();
-    if (button2.dataset.jpdbReaderMoved !== "true") button2.dataset.jpdbReaderMoved = "true";
+    if (button.dataset.jpdbReaderMoved !== "true") button.dataset.jpdbReaderMoved = "true";
     if (!dragPositionAnchored) {
       dragPositionAnchored = true;
-      applyPuckPosition(button2, originX, originY);
-      resetPuckDragTransform(button2);
-      button2.classList.add("jpdb-reader-fab-dragging");
+      applyPuckPosition(button, originX, originY);
+      resetPuckDragTransform(button);
+      button.classList.add("jpdb-reader-fab-dragging");
     }
     const position = clampPuckToViewport(puckBox, originX + dx, originY + dy);
     if (!position) return;
@@ -24916,14 +25435,14 @@ class FloatingButtonController {
   const finishDrag = (event) => {
     if (!dragging) return;
     dragging = false;
-    button2.classList.remove("jpdb-reader-fab-dragging");
-    button2.releasePointerCapture?.(event.pointerId);
+    button.classList.remove("jpdb-reader-fab-dragging");
+    button.releasePointerCapture?.(event.pointerId);
     cancelDragFrame();
     if (pendingPosition) {
       currentPosition = pendingPosition;
       pendingPosition = null;
     }
-    resetPuckDragTransform(button2);
+    resetPuckDragTransform(button);
     if (!moved || !puckBox || !currentPosition) {
       puckBox = null;
       currentPosition = null;
@@ -24935,15 +25454,15 @@ class FloatingButtonController {
     currentPosition = null;
     dragPositionAnchored = false;
     if (!position) return;
-    applyPuckPosition(button2, position.x, position.y);
+    applyPuckPosition(button, position.x, position.y);
     if (this.settings) {
       this.settings.puckPositionX = Math.round(position.x);
       this.settings.puckPositionY = Math.round(position.y);
     }
     this.save();
   };
-  button2.addEventListener("pointerup", finishDrag);
-  button2.addEventListener("pointercancel", finishDrag);
+  button.addEventListener("pointerup", finishDrag);
+  button.addEventListener("pointercancel", finishDrag);
   }
 }
 function ocrModeLabel(language, mode) {
@@ -24962,26 +25481,26 @@ function isCoarsePointerDevice() {
   }
   return false;
 }
-function avoidVideoOverlap(button2, settings, saveSettings2) {
-  if (!canAvoidVideoOverlap(button2)) return;
-  const rect = overlayPuckRect(button2);
+function avoidVideoOverlap(button, settings, saveSettings2) {
+  if (!canAvoidVideoOverlap(button)) return;
+  const rect = overlayPuckRect(button);
   const overlap = overlappingVideo(rect);
-  button2.classList.toggle("jpdb-reader-fab-over-video", Boolean(overlap));
-  if (!overlap || !shouldMoveAwayFromVideo(button2, overlap.video)) return;
+  button.classList.toggle("jpdb-reader-fab-over-video", Boolean(overlap));
+  if (!overlap || !shouldMoveAwayFromVideo(button, overlap.video)) return;
   for (const position of nonOverlappingPuckPositions(rect, overlap.rect)) {
-  movePuck(button2, position, settings, saveSettings2);
-  button2.classList.remove("jpdb-reader-fab-over-video");
+  movePuck(button, position, settings, saveSettings2);
+  button.classList.remove("jpdb-reader-fab-over-video");
   return;
   }
 }
-function canAvoidVideoOverlap(button2) {
-  return button2.isConnected && !document.fullscreenElement;
+function canAvoidVideoOverlap(button) {
+  return button.isConnected && !document.fullscreenElement;
 }
-function shouldMoveAwayFromVideo(button2, video) {
-  return Boolean(video && !button2.matches(":hover, :focus, :focus-visible"));
+function shouldMoveAwayFromVideo(button, video) {
+  return Boolean(video && !button.matches(":hover, :focus, :focus-visible"));
 }
-function overlayPuckRect(button2, pageScale = redditOverlayViewport().pageScale) {
-  return redditSourceRectToOverlay(button2.getBoundingClientRect(), button2, pageScale);
+function overlayPuckRect(button, pageScale = redditOverlayViewport().pageScale) {
+  return redditSourceRectToOverlay(button.getBoundingClientRect(), button, pageScale);
 }
 function overlappingVideo(rect) {
   const { pageScale } = redditOverlayViewport();
@@ -25000,41 +25519,41 @@ function nonOverlappingPuckPositions(rect, videoRect) {
   ];
   return candidates.map((candidate) => clampPuckToViewport(rect, candidate.x, candidate.y)).filter((position) => Boolean(position)).filter((position) => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
 }
-function movePuck(button2, position, settings, saveSettings2) {
-  applyPuckPosition(button2, position.x, position.y);
+function movePuck(button, position, settings, saveSettings2) {
+  applyPuckPosition(button, position.x, position.y);
   settings.puckPositionX = Math.round(position.x);
   settings.puckPositionY = Math.round(position.y);
   saveSettings2();
 }
-function restoreButtonPosition(button2, settings) {
+function restoreButtonPosition(button, settings) {
   if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
-  applyPuckPosition(button2, settings.puckPositionX, settings.puckPositionY);
+  applyPuckPosition(button, settings.puckPositionX, settings.puckPositionY);
 }
-function clampRestoredButtonPosition(button2, settings) {
+function clampRestoredButtonPosition(button, settings) {
   if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
   requestAnimationFrame(() => {
-  if (!button2.isConnected) return;
-  const rect = overlayPuckRect(button2);
-  const position = clampPuck(button2, rect.left, rect.top);
+  if (!button.isConnected) return;
+  const rect = overlayPuckRect(button);
+  const position = clampPuck(button, rect.left, rect.top);
   if (!position) return;
   if (Math.round(rect.left) === Math.round(position.x) && Math.round(rect.top) === Math.round(position.y)) return;
-  applyPuckPosition(button2, position.x, position.y);
+  applyPuckPosition(button, position.x, position.y);
   });
 }
-function applyPuckPosition(button2, x, y) {
-  button2.style.setProperty("left", `${x}px`);
-  button2.style.setProperty("top", `${y}px`);
-  button2.style.setProperty("right", "auto", "important");
-  button2.style.setProperty("bottom", "auto", "important");
+function applyPuckPosition(button, x, y) {
+  button.style.setProperty("left", `${x}px`);
+  button.style.setProperty("top", `${y}px`);
+  button.style.setProperty("right", "auto", "important");
+  button.style.setProperty("bottom", "auto", "important");
 }
-function applyPuckDragTransform(button2, dx, dy) {
-  button2.style.setProperty("transform", `translate3d(${Math.round(dx)}px, ${Math.round(dy)}px, 0)`, "important");
+function applyPuckDragTransform(button, dx, dy) {
+  button.style.setProperty("transform", `translate3d(${Math.round(dx)}px, ${Math.round(dy)}px, 0)`, "important");
 }
-function resetPuckDragTransform(button2) {
-  button2.style.removeProperty("transform");
+function resetPuckDragTransform(button) {
+  button.style.removeProperty("transform");
 }
-function clampPuck(button2, x, y) {
-  const rect = overlayPuckRect(button2);
+function clampPuck(button, x, y) {
+  const rect = overlayPuckRect(button);
   return clampPuckToViewport(rect, x, y);
 }
 function clampPuckToViewport(box, x, y) {
@@ -26436,7 +26955,7 @@ const RECOMMENDED_JAPANESE_DICTIONARIES = [
 function findRecommendedDictionary(id) {
   return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
 }
-const log$a = Logger.scope("OfflineDictionarySetup");
+const log$9 = Logger.scope("OfflineDictionarySetup");
 const OFFLINE_PARSING_DICTIONARY_IDS = ["jitendex", "kanjium-pitch"];
 async function installOfflineParsingDictionaries(options) {
   const result = { installed: [], skipped: [], failed: [] };
@@ -26452,7 +26971,7 @@ async function installOfflineParsingDictionaries(options) {
     result.installed.push(target.name);
   } catch (error) {
     result.failed.push(target.name);
-    log$a.warn("Offline dictionary install failed", { dictionary: target.name }, error);
+    log$9.warn("Offline dictionary install failed", { dictionary: target.name }, error);
   }
   }
   return result;
@@ -26538,7 +27057,7 @@ const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
 const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
 const PARSE_TEXT_LIMIT = 1900;
 const PARSE_TERM_SEPARATOR = "。";
-const log$9 = Logger.scope("JitenPublicVocabulary");
+const log$8 = Logger.scope("JitenPublicVocabulary");
 const sharedParseGate = new ConcurrencyGate(1);
 let sharedRequestBackoffUntil = 0;
 let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
@@ -27045,7 +27564,7 @@ function isPublicJitenBackoffError(error) {
   return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
 }
 function logPublicJitenFailure(message, context, error) {
-  log$9.warn(message, context, error);
+  log$8.warn(message, context, error);
 }
 function errorName(error) {
   return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
@@ -27321,17 +27840,17 @@ function jitenWordPitchAccents(word) {
   const rawPitch = Array.isArray(source.pitchAccents) ? source.pitchAccents : Array.isArray(source.pitchAccent) ? source.pitchAccent : [];
   return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
 }
-async function filterJitenKanjiWords(button2, context) {
-  if (button2.disabled) return;
-  const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
-  const reading = button2.dataset.jitenKanjiReading?.trim() ?? "";
-  const source = button2.closest(".jpdb-reader-jiten-kanji");
+async function filterJitenKanjiWords(button, context) {
+  if (button.disabled) return;
+  const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
+  const reading = button.dataset.jitenKanjiReading?.trim() ?? "";
+  const source = button.closest(".jpdb-reader-jiten-kanji");
   const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
   if (!character || !reading || !source || !grid) return;
   source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
-  candidate.setAttribute("aria-pressed", candidate === button2 ? "true" : "false");
+  candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
   });
-  button2.disabled = true;
+  button.disabled = true;
   try {
   const wordsPage = await context.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
   if (!source.isConnected || !grid.isConnected) return;
@@ -27344,48 +27863,48 @@ async function filterJitenKanjiWords(button2, context) {
   } catch (error) {
   context.onError?.({ character, reading }, error);
   } finally {
-  if (button2.isConnected) button2.disabled = false;
+  if (button.isConnected) button.disabled = false;
   }
 }
-async function loadMoreJitenKanjiWords(button2, context) {
-  if (button2.disabled) return;
-  const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
+async function loadMoreJitenKanjiWords(button, context) {
+  if (button.disabled) return;
+  const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
   if (!character) return;
-  const page = Math.max(2, Number(button2.dataset.jitenKanjiPage) || 2);
-  const pageSize = Math.max(1, Number(button2.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
-  button2.disabled = true;
+  const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
+  const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
+  button.disabled = true;
   try {
   const wordsPage = await context.lookupKanjiWords(character, {
-    reading: button2.dataset.jitenKanjiReading || void 0,
+    reading: button.dataset.jitenKanjiReading || void 0,
     page,
     pageSize
   });
-  if (!button2.isConnected) return;
-  appendJitenKanjiWords(button2, wordsPage, page, context);
+  if (!button.isConnected) return;
+  appendJitenKanjiWords(button, wordsPage, page, context);
   } catch (error) {
   context.onError?.({ character, page }, error);
-  if (button2.isConnected) button2.disabled = false;
+  if (button.isConnected) button.disabled = false;
   }
 }
-function appendJitenKanjiWords(button2, page, requestedPage, context) {
-  const html = renderJitenKanjiWordsPage(page, button2.dataset.jitenKanjiReading || "");
-  const grid = button2.closest(".jpdb-reader-jiten-kanji-vocabulary");
+function appendJitenKanjiWords(button, page, requestedPage, context) {
+  const html = renderJitenKanjiWordsPage(page, button.dataset.jitenKanjiReading || "");
+  const grid = button.closest(".jpdb-reader-jiten-kanji-vocabulary");
   if (!html || !grid) {
-  button2.remove();
+  button.remove();
   return;
   }
-  button2.insertAdjacentHTML("beforebegin", html);
+  button.insertAdjacentHTML("beforebegin", html);
   removeDuplicateJitenKanjiWords(grid);
-  const total = page?.total || Number(button2.dataset.jitenKanjiTotal) || 0;
+  const total = page?.total || Number(button.dataset.jitenKanjiTotal) || 0;
   const rendered = grid.querySelectorAll("[data-jiten-kanji-word-key]").length;
   if (!page?.items.length || total > 0 && rendered >= total) {
-  button2.remove();
+  button.remove();
   } else {
-  button2.dataset.jitenKanjiPage = String(requestedPage + 1);
-  button2.dataset.jitenKanjiTotal = String(total);
-  const status = button2.querySelector(".jpdb-reader-source-status");
+  button.dataset.jitenKanjiPage = String(requestedPage + 1);
+  button.dataset.jitenKanjiTotal = String(total);
+  const status = button.querySelector(".jpdb-reader-source-status");
   if (status) status.textContent = String(Math.max(0, total - rendered));
-  button2.disabled = false;
+  button.disabled = false;
   }
   context.afterRender?.();
 }
@@ -27414,7 +27933,7 @@ const RETRYABLE_API_READ_ENDPOINTS = new Set([
   "parse",
   "ping"
 ]);
-const log$8 = Logger.scope("JpdbApi");
+const log$7 = Logger.scope("JpdbApi");
 class JpdbApiClient {
   constructor(getApiKey, getProxyUrl = () => "") {
   this.getApiKey = getApiKey;
@@ -27430,7 +27949,7 @@ class JpdbApiClient {
   const token = this.getApiKey();
   const endpoint = endpointLabel(url);
   this.assertCanRequest(token, endpoint);
-  const done = log$8.time("request", { endpoint, hasBody: Boolean(body) });
+  const done = log$7.time("request", { endpoint, hasBody: Boolean(body) });
   const response = await this.postJsonWithReadRetry(url, token, body, endpoint);
   done();
   this.assertSuccessfulResponse(response, endpoint, token);
@@ -27439,35 +27958,35 @@ class JpdbApiClient {
   }
   assertCanRequest(token, endpoint) {
   if (!token) {
-    log$8.warn("JPDB API key missing", { endpoint });
+    log$7.warn("JPDB API key missing", { endpoint });
     throw new Error("JPDB API key is not set.");
   }
   if (this.rejectedToken === token) {
-    log$8.warn("JPDB API key was already rejected", { endpoint });
+    log$7.warn("JPDB API key was already rejected", { endpoint });
     throw new Error("JPDB rejected the API key.");
   }
   if (Date.now() < this.retryAfter) {
-    log$8.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+    log$7.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
     throw new Error("JPDB is rate limited. Try again in a moment.");
   }
   if (Date.now() < this.connectionRetryAfter) {
-    log$8.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
+    log$7.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
     throw new Error("JPDB connection is cooling down. Try again in a moment.");
   }
   }
   assertSuccessfulResponse(response, endpoint, token) {
   if (response.status === 429) {
     this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-    log$8.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+    log$7.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
     throw new Error("JPDB rate limit reached.");
   }
   if (response.status === 403) {
     this.rejectedToken = token;
-    log$8.warn("JPDB rejected API key", { endpoint });
+    log$7.warn("JPDB rejected API key", { endpoint });
     throw new Error("JPDB rejected the API key.");
   }
   if (!response.ok) {
-    log$8.warn("JPDB request failed", { endpoint, status: response.status });
+    log$7.warn("JPDB request failed", { endpoint, status: response.status });
     throw new Error(`JPDB request failed (${response.status}).`);
   }
   }
@@ -27483,7 +28002,7 @@ class JpdbApiClient {
         if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
         throw normalizeJpdbTransportError(error);
       }
-      log$8.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
+      log$7.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
       await delay(retryableReadDelayMs());
     }
   }
@@ -27492,7 +28011,7 @@ class JpdbApiClient {
   }
   backOffAfterConnectionFailure(endpoint, error) {
   this.connectionRetryAfter = Date.now() + CONNECTION_FAILURE_BACKOFF_MS;
-  log$8.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
+  log$7.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
   }
 }
 function parseJpdbApiResponse(response, endpoint, responseMode) {
@@ -27500,7 +28019,7 @@ function parseJpdbApiResponse(response, endpoint, responseMode) {
   const json = JSON.parse(response.text);
   const errorMessage2 = jpdbApplicationErrorMessage(json);
   if (errorMessage2) {
-  log$8.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+  log$7.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
   throw new Error(errorMessage2);
   }
   return json;
@@ -27668,7 +28187,7 @@ const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1e3;
 const USER_DECK_POOL_CONCURRENCY = 4;
 const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
 const JPDB_ALL_DECKS_ID = "all";
-const log$7 = Logger.scope("JpdbClient");
+const log$6 = Logger.scope("JpdbClient");
 const utf8Encoder = new TextEncoder();
 class JpdbClient {
   constructor(getApiKey, getProxyUrl = () => "") {
@@ -27705,12 +28224,12 @@ class JpdbClient {
   return promise;
   }
   async reviewCard(card, grade) {
-  log$7.info("Reviewing card", { term: card.spelling, grade });
+  log$6.info("Reviewing card", { term: card.spelling, grade });
   await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
   await this.refreshCard(card);
   }
   async addToDeck(deckId, card, sentence) {
-  log$7.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+  log$6.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
   await this.addVocabularyToDeck(deckId, card);
   this.clearUserDeckPoolCache();
   if (sentence) await this.setCardSentence(card, sentence);
@@ -27732,7 +28251,7 @@ class JpdbClient {
   async listDeckCards(deckId, limit = 80, options = {}) {
   const id = normalizeDeckRequestId(deckId);
   const maxCards = Math.max(1, Math.floor(limit));
-  const done = log$7.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
+  const done = log$6.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
   try {
     if (id === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
     const pairs = await this.listDeckVocabularyPairsByRequestId(id);
@@ -27747,7 +28266,7 @@ class JpdbClient {
   return pool.has(vocabularyPairKey(card.vid, card.sid));
   }
   async removeFromDeck(deckId, card) {
-  log$7.info("Removing card from deck", { term: card.spelling, deckId });
+  log$6.info("Removing card from deck", { term: card.spelling, deckId });
   await this.api.request("deck/remove-vocabulary", {
     id: normalizeDeckRequestId(deckId),
     vocabulary: [[card.vid, card.sid]]
@@ -27786,7 +28305,7 @@ class JpdbClient {
     sid: card.sid,
     sentence
   }).catch((error) => {
-    log$7.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+    log$6.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
   });
   }
   async refreshCardState(card) {
@@ -27800,7 +28319,7 @@ class JpdbClient {
   });
   const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
   if (!fresh) {
-    log$7.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
+    log$6.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
     return;
   }
   this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
@@ -27858,7 +28377,7 @@ class JpdbClient {
   const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
   await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
     pairGroups[index] = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch((error) => {
-      log$7.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
+      log$6.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
       return [];
     });
   });
@@ -27894,7 +28413,7 @@ class JpdbClient {
   this.userDeckPoolCache = void 0;
   }
   async fetchParse(text2, cacheKey) {
-  const done = log$7.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+  const done = log$6.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
   try {
     const raw = await this.api.request("parse", {
       text: text2,
@@ -28182,7 +28701,7 @@ function pitchSegmentReading(segment) {
 const REQUEST_TIMEOUT_MS = 6e3;
 const CACHE_TTL_MS = 10 * 60 * 1e3;
 const CACHE_LIMIT = 600;
-const log$6 = Logger.scope("JpdbPublicPitch");
+const log$5 = Logger.scope("JpdbPublicPitch");
 class JpdbPublicPitchClient {
   constructor(getCorsProxyUrl = () => "") {
   this.getCorsProxyUrl = getCorsProxyUrl;
@@ -28239,7 +28758,7 @@ ${normalizedReading}`;
   }
   noteRequestFailure(message, context, error) {
   this.requestBackoff.noteFailure(error);
-  log$6.warn(message, context, error);
+  log$5.warn(message, context, error);
   }
 }
 function requestText$1(url, proxyUrl = "") {
@@ -28288,13 +28807,13 @@ function canUseFallbackVocabularyRoot(doc, roots, spelling, reading) {
   return canUseGenericVocabularyRoot(roots, spelling, reading) || jpdbDocumentMatchesVocabulary(doc, spelling, reading, cleanText);
 }
 function jpdbAudioIds(root) {
-  return unique(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+  return unique(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element) => parseJpdbAudioData(element.dataset.audio ?? "")));
 }
 function jpdbVocabularyAudioIds(html, spelling, reading) {
   const doc = parseHtmlDocument(html);
   const root = vocabularyRoot(doc, spelling, reading);
   if (!root) return [];
-  return unique(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element2) => !element2.closest(".subsection-used-in, .subsection-examples")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+  return unique(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element) => !element.closest(".subsection-used-in, .subsection-examples")).flatMap((element) => parseJpdbAudioData(element.dataset.audio ?? "")));
 }
 function shouldRefreshVocabularyEntryAudio(entry) {
   return Boolean(entry.url && parseJpdbVocabularyUrl(entry.url) && jpdbAudioVoiceCount(entry.audioIds ?? []) < 2);
@@ -28331,19 +28850,19 @@ function baseText(root) {
   if (root.nodeType !== Node.ELEMENT_NODE) return "";
   return baseElementText(root);
 }
-function baseElementText(element2) {
-  if (isRubyAnnotation(element2)) return "";
-  return Array.from(element2.childNodes).map(baseText).join("");
+function baseElementText(element) {
+  if (isRubyAnnotation(element)) return "";
+  return Array.from(element.childNodes).map(baseText).join("");
 }
 function readingText(root) {
   if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
   if (root.nodeType !== Node.ELEMENT_NODE) return "";
   return readingElementText(root);
 }
-function readingElementText(element2) {
-  if (isRubyAnnotation(element2)) return "";
-  if (element2.tagName === "RUBY") return rubyReadingText(element2, baseText);
-  return Array.from(element2.childNodes).map(readingText).join("");
+function readingElementText(element) {
+  if (isRubyAnnotation(element)) return "";
+  if (element.tagName === "RUBY") return rubyReadingText(element, baseText);
+  return Array.from(element.childNodes).map(readingText).join("");
 }
 function optionalRichHtml(key, root, options = {}) {
   const html = jpdbRichTextHtml(root, options);
@@ -28358,19 +28877,19 @@ function jpdbRichTextNodeHtml(node, options) {
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   return jpdbRichTextElementHtml(node, options);
 }
-function jpdbRichTextElementHtml(element2, options) {
-  const html = jpdbRichTextElementContentHtml(element2, options);
-  return options.preserveHighlight && element2.classList.contains("highlight") ? `<mark class="jpdb-reader-example-target">${html}</mark>` : html;
+function jpdbRichTextElementHtml(element, options) {
+  const html = jpdbRichTextElementContentHtml(element, options);
+  return options.preserveHighlight && element.classList.contains("highlight") ? `<mark class="jpdb-reader-example-target">${html}</mark>` : html;
 }
-function jpdbRichTextElementContentHtml(element2, options) {
-  if (isRubyAnnotation(element2)) return "";
-  if (element2.tagName === "BR") return " ";
-  return element2.tagName === "RUBY" ? jpdbRubyHtml(element2, options) : jpdbRichTextChildrenHtml(element2, options);
+function jpdbRichTextElementContentHtml(element, options) {
+  if (isRubyAnnotation(element)) return "";
+  if (element.tagName === "BR") return " ";
+  return element.tagName === "RUBY" ? jpdbRubyHtml(element, options) : jpdbRichTextChildrenHtml(element, options);
 }
-function jpdbRichTextChildrenHtml(element2, options) {
-  return Array.from(element2.childNodes).map((child) => jpdbRichTextNodeHtml(child, options)).join("");
+function jpdbRichTextChildrenHtml(element, options) {
+  return Array.from(element.childNodes).map((child) => jpdbRichTextNodeHtml(child, options)).join("");
 }
-function jpdbRubyHtml(element2, options) {
+function jpdbRubyHtml(element, options) {
   let html = "";
   let baseHtml = "";
   const flushBase = (reading = "") => {
@@ -28378,7 +28897,7 @@ function jpdbRubyHtml(element2, options) {
   html += reading ? `<ruby><span class="jpdb-reader-ruby-base">${baseHtml}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : baseHtml;
   baseHtml = "";
   };
-  element2.childNodes.forEach((child) => {
+  element.childNodes.forEach((child) => {
   if (child.nodeType !== Node.ELEMENT_NODE) {
     baseHtml += jpdbRichTextNodeHtml(child, options);
     return;
@@ -28493,7 +29012,7 @@ function requestSearchText(url, proxyUrl = "", timeoutMs = 8e3) {
   preferFetch: true
   });
 }
-const log$5 = Logger.scope("JpdbVocabulary");
+const log$4 = Logger.scope("JpdbVocabulary");
 class JpdbVocabularyClient {
   constructor(getCorsProxyUrl = () => "") {
   this.getCorsProxyUrl = getCorsProxyUrl;
@@ -28604,7 +29123,7 @@ class JpdbVocabularyClient {
   }
   noteRequestFailure(message, context, error) {
   this.requestBackoff.noteFailure(error);
-  log$5.warn(message, context, error);
+  log$4.warn(message, context, error);
   }
 }
 function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
@@ -28713,7 +29232,7 @@ function metaDescriptionReading(doc, spelling) {
   return JAPANESE_RE.test(reading) ? reading : "";
 }
 function extractPartOfSpeech(root) {
-  return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText(element2.textContent ?? "")).filter(Boolean));
+  return unique(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element) => cleanText(element.textContent ?? "")).filter(Boolean));
 }
 function extractFrequencyRank(root) {
   for (const tag of Array.from(root.querySelectorAll(".tags .tag, .tag"))) {
@@ -28725,7 +29244,7 @@ function extractFrequencyRank(root) {
   return null;
 }
 function extractMeanings(root, doc, spelling, reading) {
-  const meanings = Array.from(root.querySelectorAll(".subsection-meanings .description")).map((element2) => cleanMeaning(element2.textContent ?? "")).filter(Boolean);
+  const meanings = Array.from(root.querySelectorAll(".subsection-meanings .description")).map((element) => cleanMeaning(element.textContent ?? "")).filter(Boolean);
   if (meanings.length) return unique(meanings).slice(0, 8);
   return shouldReadMetaMeanings(spelling, reading) ? metaDescriptionMeanings(doc) : [];
 }
@@ -29237,9 +29756,9 @@ function pointerTextInlineContextRoot(anchor) {
   }
   return null;
 }
-function isPointerTextInlineContextCandidate(element2, localTextLength) {
-  const text2 = element2.textContent ?? "";
-  return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && JAPANESE_RUN_RE.test(text2) && isPointerTextParentEligible(element2);
+function isPointerTextInlineContextCandidate(element, localTextLength) {
+  const text2 = element.textContent ?? "";
+  return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && JAPANESE_RUN_RE.test(text2) && isPointerTextParentEligible(element);
 }
 function readablePointerTextContext(root, target) {
   let text2 = "";
@@ -29256,9 +29775,9 @@ function readablePointerTextContext(root, target) {
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
-  const element2 = node;
-  if (element2.matches(POINTER_TEXT_CONTEXT_SKIP_SELECTOR)) return;
-  element2.childNodes.forEach(visit);
+  const element = node;
+  if (element.matches(POINTER_TEXT_CONTEXT_SKIP_SELECTOR)) return;
+  element.childNodes.forEach(visit);
   };
   visit(root);
   if (rangeStart < 0 || rangeEnd <= rangeStart || !text2 || !JAPANESE_RUN_RE.test(text2)) return null;
@@ -29282,33 +29801,33 @@ function isPointerTextParentEligible(parent, options = {}) {
   }
   return true;
 }
-function isPointerTextElementEligible(element2, allowReaderRoot = false, insideSubtitle = false, options = {}) {
-  const style = getComputedStyle(element2);
-  return elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle, options) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element2, style);
+function isPointerTextElementEligible(element, allowReaderRoot = false, insideSubtitle = false, options = {}) {
+  const style = getComputedStyle(element);
+  return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle, options) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element, style);
 }
-function elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSubtitle = false, options = {}) {
-  if (element2.hasAttribute("hidden") || element2.hasAttribute("inert") || element2.getAttribute("aria-hidden")?.toLowerCase() === "true") {
+function elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle = false, options = {}) {
+  if (element.hasAttribute("hidden") || element.hasAttribute("inert") || element.getAttribute("aria-hidden")?.toLowerCase() === "true") {
   return false;
   }
   if (insideSubtitle) {
-  if (element2.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable],[role="textbox"],[role="searchbox"],[role="combobox"],[aria-placeholder],[data-placeholder],[class*="placeholder" i],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
+  if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable],[role="textbox"],[role="searchbox"],[role="combobox"],[aria-placeholder],[data-placeholder],[class*="placeholder" i],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
     return false;
   }
   return true;
   }
   const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
-  return !element2.matches(skipSelector) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$2);
+  return !element.matches(skipSelector) || allowReaderRoot && element.matches(READER_ROOT_SELECTOR$2);
 }
 function stylePassesPointerTextLookup(style) {
   return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
 }
-function isScreenReaderOnlyElement(element2, style) {
-  if (hasScreenReaderOnlyClass(element2)) return true;
-  const rect = element2.getBoundingClientRect();
+function isScreenReaderOnlyElement(element, style) {
+  if (hasScreenReaderOnlyClass(element)) return true;
+  const rect = element.getBoundingClientRect();
   return isTinyClippedElement(rect, style) || isTinyHiddenAbsoluteElement(rect, style);
 }
-function hasScreenReaderOnlyClass(element2) {
-  return SCREEN_READER_ONLY_CLASS_RE.test(element2.className || "");
+function hasScreenReaderOnlyClass(element) {
+  return SCREEN_READER_ONLY_CLASS_RE.test(element.className || "");
 }
 function isTinyClippedElement(rect, style) {
   const clipped = Boolean(style.clip && style.clip !== "auto" || style.clipPath && style.clipPath !== "none");
@@ -29771,17 +30290,13 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   sentence: word.dataset.sentence
   };
   if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-  const html = renderRuby(surface, token);
-  if (!html.includes("<rt")) return;
-  setInnerHtml(word, html);
+  if (!replaceRenderedWordFurigana(word, surface, token)) return;
   if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
-  word.classList.add("jpdb-reader-has-furi");
   if (ocrLine) ocrLine.dataset.hasFuri = "true";
 }
 function clearPublicVocabularyFurigana(word, surface, ocrLine) {
   if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
-  word.textContent = surface;
-  word.classList.remove("jpdb-reader-has-furi");
+  clearRenderedWordFurigana(word, surface);
   if (!ocrLine) return;
   yomuNormalizeOcrRenderedText()?.(word);
   if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
@@ -29828,36 +30343,6 @@ function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rub
 }
 function pointInsideExpandedRect(rect, x, y, pad) {
   return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
-}
-const ANNOTATION_SCOPE_ATTRIBUTE = "data-yomu-annotation-scope";
-const ANNOTATION_SCOPE_SURFACE_VALUE = "surface";
-const ANNOTATION_SCOPE_SURFACE_SELECTOR = "[data-yomu-runtime-surface], .yomu-try-me-text";
-function annotationScopeActive() {
-  return document.documentElement?.getAttribute(ANNOTATION_SCOPE_ATTRIBUTE) === ANNOTATION_SCOPE_SURFACE_VALUE;
-}
-function annotationScopeRoots() {
-  if (!annotationScopeActive()) return null;
-  const matches = Array.from(document.querySelectorAll(ANNOTATION_SCOPE_SURFACE_SELECTOR));
-  const matchSet = new Set(matches);
-  return matches.filter((element2) => {
-  const ancestor = element2.parentElement?.closest(ANNOTATION_SCOPE_SURFACE_SELECTOR);
-  return !ancestor || !matchSet.has(ancestor);
-  });
-}
-function scanScopeRoots(fallback = document.body) {
-  const roots = annotationScopeRoots();
-  if (roots) return roots;
-  return fallback ? [fallback] : [];
-}
-function queryWithinAnnotationScope(selector) {
-  const roots = annotationScopeRoots();
-  if (!roots) return Array.from(document.querySelectorAll(selector));
-  const seen = new Set();
-  for (const root of roots) {
-  if (root.matches(selector)) seen.add(root);
-  for (const element2 of root.querySelectorAll(selector)) seen.add(element2);
-  }
-  return [...seen];
 }
 const STRUCTURAL_EXCLUDE_ENTRIES = [
   "[data-jpdb-reader-root]",
@@ -30738,9 +31223,6 @@ function getMatchingSiteParsers(href = window.location.href) {
   const url = new URL(href, window.location.href);
   return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
 }
-function isBookWalkerStorefrontPage(href = location.href) {
-  return isBookWalkerStorefrontUrl(new URL(href, window.location.href));
-}
 function isBookWalkerReaderPage(href = location.href) {
   return isBookWalkerReaderUrl(new URL(href, window.location.href));
 }
@@ -30844,7 +31326,7 @@ function syntheticYouTubeElementText(root) {
   return "";
 }
 function syntheticYouTubeWatchInfoText(root) {
-  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element2) => normalizedAttributeText(element2, "aria-label")).filter((text22) => Boolean(text22));
+  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text22) => Boolean(text22));
   const text2 = parts.join(" • ");
   if (HAS_JAPANESE.test(text2)) return text2;
   for (const attribute of ["aria-label", "title"]) {
@@ -30853,8 +31335,8 @@ function syntheticYouTubeWatchInfoText(root) {
   }
   return "";
 }
-function normalizedAttributeText(element2, attribute) {
-  return element2.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
+function normalizedAttributeText(element, attribute) {
+  return element.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
 }
 function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
   if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
@@ -30991,8 +31473,8 @@ function isJitenStudyPromptTarget(parent, text2) {
 function isJitenStudyPath() {
   return (location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe")) && location.pathname.startsWith("/srs/study");
 }
-function hasPromptTextSizeClass(element2) {
-  return Array.from(element2.classList).some(
+function hasPromptTextSizeClass(element) {
+  return Array.from(element.classList).some(
   (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
   );
 }
@@ -31494,13 +31976,13 @@ function mokuroScanViewportMargin() {
   const height = window.innerHeight || document.documentElement.clientHeight || 0;
   return Math.max(width, height) * MOKURO_SCAN_MARGIN_VIEWPORTS;
 }
-function isElementNearViewport(element2, margin) {
-  const rect = element2.getBoundingClientRect();
+function isElementNearViewport(element, margin) {
+  const rect = element.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return false;
   return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
 }
-function elementViewportDistance(element2) {
-  const rect = element2.getBoundingClientRect();
+function elementViewportDistance(element) {
+  const rect = element.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return Number.POSITIVE_INFINITY;
   const dx = rect.right < 0 ? -rect.right : rect.left > window.innerWidth ? rect.left - window.innerWidth : 0;
   const dy = rect.bottom < 0 ? -rect.bottom : rect.top > window.innerHeight ? rect.top - window.innerHeight : 0;
@@ -31522,18 +32004,18 @@ function uniqueSpecificVisibleRoots(roots) {
   }
   return unique2.sort((a, b) => documentPositionOrder(a, b));
 }
-function elementDepth(element2) {
+function elementDepth(element) {
   let depth = 0;
-  for (let current = element2.parentElement; current; current = current.parentElement) depth += 1;
+  for (let current = element.parentElement; current; current = current.parentElement) depth += 1;
   return depth;
 }
 function documentPositionOrder(a, b) {
   if (a === b) return 0;
   return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
 }
-function safeElementMatches(element2, selector) {
+function safeElementMatches(element, selector) {
   try {
-  return element2.matches(selector);
+  return element.matches(selector);
   } catch {
   return false;
   }
@@ -31645,8 +32127,8 @@ function dictionaryLookupNestedWord(target, link) {
 function dictionaryLookupWordMatchesLink(word, query) {
   return Boolean(query && normalizedLookupText$1(word.dataset.expression || readerWordSurfaceText(word)) === query);
 }
-function connectedElement(element2) {
-  return element2?.isConnected ? element2 : void 0;
+function connectedElement(element) {
+  return element?.isConnected ? element : void 0;
 }
 function hasVisibleAutoScanTargets() {
   return hasVisibleSiteScanTargets() || allowsGenericVisibleAutoScan() && collectVisibleTextTargets(1).length > 0;
@@ -31735,10 +32217,10 @@ function renderedWordNavigationMode(insideReaderPopup, trigger) {
 function renderedWordAnchor(word, insideReaderPopup, activePopoverAnchor) {
   return insideReaderPopup ? activePopoverAnchor ?? void 0 : word;
 }
-function selectionIntersectsElement(selection, element2) {
+function selectionIntersectsElement(selection, element) {
   for (let index = 0; index < selection.rangeCount; index += 1) {
   try {
-    if (selection.getRangeAt(index).intersectsNode(element2)) return true;
+    if (selection.getRangeAt(index).intersectsNode(element)) return true;
   } catch {
   }
   }
@@ -32356,9 +32838,9 @@ function installTokenListHandlers(popover, tokens, anchor, context, callbacks) {
     callbacks.showPrevious(anchor, context);
     return;
   }
-  const button2 = event.target.closest("button[data-token-choice][data-vid]");
-  if (!button2) return;
-  callbacks.showCard(button2, tokens, anchor, context);
+  const button = event.target.closest("button[data-token-choice][data-vid]");
+  if (!button) return;
+  callbacks.showCard(button, tokens, anchor, context);
   });
 }
 function tokenListSelectedText(popover) {
@@ -32714,14 +33196,14 @@ function installMokuroOcrToggleNote() {
   }
   }).observe(document.body ?? document.documentElement, { childList: true, subtree: true });
 }
-function toggleMiningControls(button2, label) {
-  yomuKanjiStudyCompanion()?.toggleMiningControls?.(button2, label);
+function toggleMiningControls(button, label) {
+  yomuKanjiStudyCompanion()?.toggleMiningControls?.(button, label);
 }
-function setMiningControlsExpanded(button2, expanded, label) {
-  yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button2, expanded, label);
+function setMiningControlsExpanded(button, expanded, label) {
+  yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button, expanded, label);
 }
-function openDeckPickerForCardAdd(button2, card, sentence, performAction) {
-  return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button2, card, sentence, performAction) ?? false;
+function openDeckPickerForCardAdd(button, card, sentence, performAction) {
+  return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button, card, sentence, performAction) ?? false;
 }
 function mutationNodes(mutation, options = {}) {
   const nodes = [
@@ -32733,8 +33215,8 @@ function mutationNodes(mutation, options = {}) {
 }
 function mutationInsideClosest(mutation, selector) {
   return mutationNodes(mutation, { removed: true }).every((node) => {
-  const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-  return Boolean(element2?.closest?.(selector));
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return Boolean(element?.closest?.(selector));
   });
 }
 const AUTO_SCAN_OBSERVER_OPTIONS = {
@@ -32742,14 +33224,24 @@ const AUTO_SCAN_OBSERVER_OPTIONS = {
   subtree: true,
   characterData: true,
   attributes: true,
-  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", "style", "class"],
+  attributeFilter: ["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", ANNOTATION_SCOPE_SURFACE_ATTRIBUTE, "style", "class"],
   attributeOldValue: true
 };
 const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
-const MUTATION_ELEMENT_SCAN_LIMIT = 240;
-const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled"]);
+const MUTATION_SHADOW_MAX_DEPTH = 4;
+const MUTATION_SHADOW_ELEMENT_INSPECT_LIMIT = 160;
+function createMutationJapaneseScanBudget() {
+  return {
+  inspectedElements: 0,
+  inspectedTextNodes: 0,
+  inspectedTextLength: 0,
+  elementBudgetExhausted: false,
+  textBudgetExhausted: false
+  };
+}
+const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", ANNOTATION_SCOPE_SURFACE_ATTRIBUTE]);
 const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
 const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
   "summary",
@@ -32787,8 +33279,8 @@ function mutationTouchesAsbPlayer(mutation) {
   ...Array.from(mutation.addedNodes)
   ];
   return nodes.some((node) => {
-  const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-  return Boolean(element2?.closest?.(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return Boolean(element?.closest?.(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
   });
 }
 function mutationInsideReaderRoot(mutation) {
@@ -32796,83 +33288,147 @@ function mutationInsideReaderRoot(mutation) {
 }
 function clickMayRevealDynamicUiText(eventOrTarget) {
   const elements = dynamicUiClickElements(eventOrTarget);
-  if (elements.some((element2) => element2.closest(READER_ROOT_SELECTOR$1))) return false;
-  return elements.some((element2) => Boolean(element2.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+  if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
+  return elements.some((element) => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
 }
 function dynamicUiClickElements(eventOrTarget) {
   const path = eventOrTarget instanceof Event ? eventOrTarget.composedPath() : [eventOrTarget];
   return path.filter((target) => target instanceof Element);
 }
-function mutationMayContainJapaneseText(mutation) {
-  if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
+function mutationMayContainJapaneseText(mutation, budget = createMutationJapaneseScanBudget(), scopeRoots = annotationScopeRoots()) {
+  const targetNodes = mutationNodesWithinAnnotationScope(mutation.target, scopeRoots);
+  if (mutation.type === "characterData") {
+  return nodesMayContainJapanese(targetNodes, budget);
+  }
   if (mutation.type === "attributes") {
   const attribute = mutation.attributeName ?? "";
-  if (attribute === "style" || attribute === "class") return styleOrClassMutationRevealsJapaneseText(mutation, attribute);
-  if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
-  return nodeTextMayContainJapanese(mutation.target);
+  if (attribute === "style" || attribute === "class") {
+    return styleOrClassMutationRevealsJapaneseText(mutation, attribute, budget, targetNodes);
   }
-  return Array.from(mutation.addedNodes).some((node) => !nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node));
+  if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
+  return nodesMayContainJapanese(targetNodes, budget);
+  }
+  let mayContainJapanese = false;
+  const candidates = new Set(Array.from(mutation.addedNodes).flatMap((node) => mutationNodesWithinAnnotationScope(node, scopeRoots)));
+  for (const node of candidates) {
+  if (!nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node, budget)) mayContainJapanese = true;
+  }
+  return mayContainJapanese;
+}
+function nodesMayContainJapanese(nodes, budget) {
+  let found = false;
+  for (const node of nodes) {
+  if (nodeTextMayContainJapanese(node, budget)) found = true;
+  }
+  return found;
+}
+function mutationNodesWithinAnnotationScope(node, scopeRoots) {
+  if (!scopeRoots) return [node];
+  if (nodeWithinAnnotationScope(node, scopeRoots)) return [node];
+  if (!(node instanceof Element || node instanceof DocumentFragment)) return [];
+  return scopeRoots.filter((root) => node === root || node.contains(root));
 }
 function nodeIsReaderOwned(node) {
-  const element2 = mutationNodeElement(node);
-  return Boolean(element2?.closest(`${READER_ROOT_SELECTOR$1},.jpdb-reader-text-mirror`));
+  const element = mutationNodeElement(node);
+  return Boolean(element?.closest(`${READER_ROOT_SELECTOR$1},.jpdb-reader-text-mirror`));
 }
-function styleOrClassMutationRevealsJapaneseText(mutation, attribute) {
-  const element2 = mutation.target instanceof HTMLElement ? mutation.target : null;
-  if (!element2) return false;
-  const current = element2.getAttribute(attribute) ?? "";
+function styleOrClassMutationRevealsJapaneseText(mutation, attribute, budget, candidates) {
+  const element = mutation.target instanceof HTMLElement ? mutation.target : null;
+  if (!element || !candidates.length) return false;
+  const current = element.getAttribute(attribute) ?? "";
   if ((mutation.oldValue ?? "") === current) return false;
   if (attribute === "style") {
   const wasHidden = HIDDEN_INLINE_STYLE_RE.test(mutation.oldValue ?? "");
   if (!wasHidden || HIDDEN_INLINE_STYLE_RE.test(current)) return false;
   }
-  if (!elementRendersNow(element2)) return false;
-  return nodeTextMayContainJapanese(element2);
+  if (!elementRendersNow(element)) return false;
+  return nodesMayContainJapanese(candidates, budget);
 }
-function elementRendersNow(element2) {
-  if (!element2.isConnected) return false;
-  if (element2.closest("[hidden]")) return false;
-  if (typeof element2.checkVisibility === "function") return element2.checkVisibility();
-  const view = element2.ownerDocument.defaultView;
+function elementRendersNow(element) {
+  if (!element.isConnected) return false;
+  if (element.closest("[hidden]")) return false;
+  if (typeof element.checkVisibility === "function") return element.checkVisibility();
+  const view = element.ownerDocument.defaultView;
   if (!view) return false;
-  const style = view.getComputedStyle(element2);
+  const style = view.getComputedStyle(element);
   return style.display !== "none" && style.visibility !== "hidden";
 }
-function nodeTextMayContainJapanese(node) {
-  if (node.nodeType === Node.TEXT_NODE) return HAS_JAPANESE.test(node.textContent ?? "");
+function nodeTextMayContainJapanese(node, budget) {
+  if (node.nodeType === Node.TEXT_NODE) return textNodeMayContainJapanese(node, budget);
   const root = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node : mutationNodeElement(node);
-  return root ? nodeTreeTextMayContainJapanese(root) : false;
+  return root ? nodeTreeTextMayContainJapanese(root, budget) : false;
 }
-function nodeTreeTextMayContainJapanese(root) {
-  let inspectedLength = 0;
-  let inspectedTextNodes = 0;
-  let inspectedElements = 0;
-  const pendingRoots = [root];
-  while (pendingRoots.length) {
-  const branch = pendingRoots.shift();
-  enqueueOpenShadowRoot(branch, pendingRoots);
-  const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+function nodeTreeTextMayContainJapanese(root, budget) {
+  let found = root.nodeType === Node.ELEMENT_NODE && probeComposedElement(root, MUTATION_SHADOW_MAX_DEPTH, budget);
+  if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+  const walker = (root.ownerDocument ?? document).createTreeWalker(
+  root,
+  NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT
+  );
   let node;
   while (node = walker.nextNode()) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      inspectedElements += 1;
-      enqueueOpenShadowRoot(node, pendingRoots);
-    } else {
-      const text2 = node.textContent ?? "";
-      inspectedTextNodes += 1;
-      inspectedLength += text2.length;
-      if (HAS_JAPANESE.test(text2)) return true;
-    }
-    if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT || inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT || inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT) return true;
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (textNodeMayContainJapanese(node, budget)) found = true;
+  } else if (probeComposedElement(node, MUTATION_SHADOW_MAX_DEPTH, budget)) {
+    found = true;
   }
+  if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+  }
+  return found;
+}
+function probeComposedShadowRoot(shadowRoot, remainingDepth, budget) {
+  if (!shadowRoot) return false;
+  noteScannedShadowRoot(shadowRoot);
+  if (remainingDepth <= 0) {
+  budget.elementBudgetExhausted = true;
+  return true;
+  }
+  if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+  let found = false;
+  const walker = shadowRoot.ownerDocument.createTreeWalker(
+  shadowRoot,
+  NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT
+  );
+  let node;
+  while (node = walker.nextNode()) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (textNodeMayContainJapanese(node, budget)) found = true;
+  } else if (probeComposedElement(node, remainingDepth - 1, budget)) {
+    found = true;
+  }
+  if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+  }
+  return found;
+}
+function probeComposedElement(element, remainingDepth, budget) {
+  if (!consumeProbeElement(budget)) return true;
+  const shadowRoot = element instanceof HTMLElement ? watchPotentialOpenShadowRootHost(element, true) : element.shadowRoot;
+  return probeComposedShadowRoot(shadowRoot, remainingDepth, budget);
+}
+function consumeProbeElement(budget) {
+  if (budget.inspectedElements >= MUTATION_SHADOW_ELEMENT_INSPECT_LIMIT) {
+  budget.elementBudgetExhausted = true;
+  return false;
+  }
+  budget.inspectedElements += 1;
+  return true;
+}
+function textNodeMayContainJapanese(node, budget) {
+  if (budget.inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT || budget.inspectedTextLength >= MUTATION_TEXT_SCAN_LIMIT) {
+  budget.textBudgetExhausted = true;
+  return true;
+  }
+  budget.inspectedTextNodes += 1;
+  const text2 = node.textContent ?? "";
+  const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
+  const sampledText = text2.slice(0, remainingLength);
+  budget.inspectedTextLength += sampledText.length;
+  if (HAS_JAPANESE.test(sampledText)) return true;
+  if (sampledText.length < text2.length) {
+  budget.textBudgetExhausted = true;
+  return true;
   }
   return false;
-}
-function enqueueOpenShadowRoot(node, pendingRoots) {
-  if (!(node instanceof HTMLElement)) return;
-  const shadowRoot = watchPotentialOpenShadowRootHost(node, true);
-  if (!shadowRoot) return;
-  pendingRoots.push(shadowRoot);
 }
 function mutationMayAffectJpdbPageEnhancements(mutation) {
   if (mutation.type === "attributes") return jpdbPageEnhancementAttributeMayAffect(mutation);
@@ -32888,33 +33444,33 @@ function childListMutationMayAffectJpdbPageEnhancements(mutation) {
   return nodes.some(nodeMayAffectJpdbPageEnhancements) || childListTargetMayAffectJpdbPageEnhancements(mutation.target);
 }
 function childListTargetMayAffectJpdbPageEnhancements(node) {
-  const element2 = mutationNodeElement(node);
-  if (!element2 || element2.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
-  return elementMatchesJpdbPageEnhancementTarget(element2) || Boolean(element2.closest(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
+  const element = mutationNodeElement(node);
+  if (!element || element.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
+  return elementMatchesJpdbPageEnhancementTarget(element) || Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
 }
 function jpdbPageEnhancementAttributeMayAffect(mutation) {
   return JPDB_PAGE_ENHANCEMENT_VISIBILITY_ATTRIBUTES.has(mutation.attributeName ?? "") && nodeMayAffectJpdbPageEnhancements(mutation.target);
 }
 function nodeMayAffectJpdbPageEnhancements(node) {
-  const element2 = mutationNodeElement(node);
-  if (!element2 || element2.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
-  if (node.nodeType === Node.TEXT_NODE) return textNodeMayAffectJpdbPageEnhancements(node, element2);
-  return elementMayAffectJpdbPageEnhancements(element2);
+  const element = mutationNodeElement(node);
+  if (!element || element.closest(JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR)) return false;
+  if (node.nodeType === Node.TEXT_NODE) return textNodeMayAffectJpdbPageEnhancements(node, element);
+  return elementMayAffectJpdbPageEnhancements(element);
 }
 function textNodeMayAffectJpdbPageEnhancements(node, parent) {
   return HAS_JAPANESE.test(node.textContent ?? "") && Boolean(parent.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
-function elementMayAffectJpdbPageEnhancements(element2) {
-  return elementMatchesJpdbPageEnhancementTarget(element2) || elementContainsJpdbPageEnhancementTarget(element2) || elementTextMayAffectJpdbPageEnhancements(element2);
+function elementMayAffectJpdbPageEnhancements(element) {
+  return elementMatchesJpdbPageEnhancementTarget(element) || elementContainsJpdbPageEnhancementTarget(element) || elementTextMayAffectJpdbPageEnhancements(element);
 }
-function elementMatchesJpdbPageEnhancementTarget(element2) {
-  return element2.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR) || element2.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR);
+function elementMatchesJpdbPageEnhancementTarget(element) {
+  return element.matches(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR) || element.matches(JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR);
 }
-function elementContainsJpdbPageEnhancementTarget(element2) {
-  return Boolean(element2.querySelector(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
+function elementContainsJpdbPageEnhancementTarget(element) {
+  return Boolean(element.querySelector(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
 }
-function elementTextMayAffectJpdbPageEnhancements(element2) {
-  return HAS_JAPANESE.test(element2.textContent ?? "") && Boolean(element2.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+function elementTextMayAffectJpdbPageEnhancements(element) {
+  return HAS_JAPANESE.test(element.textContent ?? "") && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 function mutationNodeElement(node) {
   if (node.nodeType === Node.ELEMENT_NODE) return node;
@@ -32935,10 +33491,10 @@ class NativeTitleGuard {
   restore() {
   this.observer?.disconnect();
   this.observer = void 0;
-  for (const [element2, title] of this.suppressed) {
-    if (element2.isConnected || element2.hasAttribute(STORED_TITLE_ATTRIBUTE)) {
-      element2.setAttribute("title", title);
-      element2.removeAttribute(STORED_TITLE_ATTRIBUTE);
+  for (const [element, title] of this.suppressed) {
+    if (element.isConnected || element.hasAttribute(STORED_TITLE_ATTRIBUTE)) {
+      element.setAttribute("title", title);
+      element.removeAttribute(STORED_TITLE_ATTRIBUTE);
     }
   }
   this.suppressed.clear();
@@ -32969,18 +33525,18 @@ class NativeTitleGuard {
   suppressNodeTitles(node) {
   if (node instanceof HTMLElement) this.suppressElementAndDescendants(node);
   }
-  suppressElementAndDescendants(element2) {
-  this.suppressElement(element2);
-  element2.querySelectorAll("[title]").forEach((item) => this.suppressElement(item));
+  suppressElementAndDescendants(element) {
+  this.suppressElement(element);
+  element.querySelectorAll("[title]").forEach((item) => this.suppressElement(item));
   }
   suppressAnchorTitlePath(anchor) {
   if (!anchor) return;
-  for (const element2 of this.anchorTitlePath(anchor)) this.suppressElement(element2);
+  for (const element of this.anchorTitlePath(anchor)) this.suppressElement(element);
   }
   observeAnchorTitlePath(anchor) {
   if (!this.observer || !anchor) return;
-  for (const element2 of this.anchorTitlePath(anchor)) {
-    this.observer.observe(element2, {
+  for (const element of this.anchorTitlePath(anchor)) {
+    this.observer.observe(element, {
       attributes: true,
       attributeFilter: ["title"]
     });
@@ -32996,18 +33552,18 @@ class NativeTitleGuard {
   }
   return path;
   }
-  nextTitleAncestor(element2) {
-  if (element2.parentElement) return element2.parentElement;
-  const root = element2.getRootNode();
+  nextTitleAncestor(element) {
+  if (element.parentElement) return element.parentElement;
+  const root = element.getRootNode();
   return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
   }
-  suppressElement(element2) {
-  if (element2.closest(".jpdb-reader-modal-nav")) return;
-  if (!element2.hasAttribute("title")) return;
-  const title = element2.getAttribute("title") ?? "";
-  this.suppressed.set(element2, title);
-  element2.setAttribute(STORED_TITLE_ATTRIBUTE, title);
-  element2.removeAttribute("title");
+  suppressElement(element) {
+  if (element.closest(".jpdb-reader-modal-nav")) return;
+  if (!element.hasAttribute("title")) return;
+  const title = element.getAttribute("title") ?? "";
+  this.suppressed.set(element, title);
+  element.setAttribute(STORED_TITLE_ATTRIBUTE, title);
+  element.removeAttribute("title");
   }
 }
 const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
@@ -33213,7 +33769,7 @@ function renderedNestedParseKey(parseRoots) {
 function nestedParseKey(targets) {
   return targets.map((target) => target.text).join("\n\n");
 }
-const log$4 = Logger.scope("PublicLookupFallback");
+const log$3 = Logger.scope("PublicLookupFallback");
 function normalizedJitenLookupKey(term) {
   return term.replace(/\s+/g, "");
 }
@@ -33244,7 +33800,7 @@ async function batchJitenFallbackCards(terms, parse) {
   const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
   if (!uniqueTerms.length) return cards;
   const parsed = await parse(uniqueTerms).catch((error) => {
-  log$4.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+  log$3.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
   if (isMissingProxyTransportError(error)) throw error;
   return [];
   });
@@ -33264,7 +33820,7 @@ async function jitenFallbackCards(terms, entryCount, deps, options) {
   if (batched) return batched;
   }
   const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
-  log$4.warn("Jiten fallback failed", { terms: terms.length }, error);
+  log$3.warn("Jiten fallback failed", { terms: terms.length }, error);
   return new Map();
   });
   const cards = new Map();
@@ -33471,611 +34027,6 @@ function addSettingsRubyFromRenderedReadings(form, settings) {
   word.replaceChildren(ruby);
   word.classList.add("jpdb-reader-has-furi");
   }
-}
-function ocrInteractionModeFromSettings(settings) {
-  if (!settings.ocrEnabled) return "off";
-  return settings.ocrAutoScanImages ? "auto" : "manual";
-}
-function nextOcrInteractionMode(mode) {
-  if (mode === "auto") return "manual";
-  if (mode === "manual") return "off";
-  return "auto";
-}
-function applyOcrInteractionMode(settings, mode) {
-  settings.ocrEnabled = mode !== "off";
-  settings.ocrAutoScanImages = mode === "auto";
-}
-function runningAsBrowserExtension() {
-  const global = globalThis;
-  try {
-  return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
-  } catch {
-  return false;
-  }
-}
-const log$3 = Logger.scope("Onboarding");
-const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
-const ONBOARDING_FEATURE_KEYS = [
-  ["featureText", "featureTextBody"],
-  ["featureImages", "featureImagesBody"],
-  ["featureVideo", "featureVideoBody"],
-  ["featureControl", "featureControlBody"],
-  ["featureStudy", "featureStudyBody"],
-  ["featureGame", "featureGameBody"]
-];
-function selectedOnboardingLanguage(value, fallback) {
-  return value === "en" || value === "ja" || value === "auto" ? value : fallback;
-}
-class OnboardingController {
-  constructor(options) {
-  this.options = options;
-  }
-  panel;
-  backdrop;
-  languageSelect;
-  themeSwitch;
-  accentColorInput;
-  pendingAccentPreviewColor;
-  accentPreviewFrame;
-  youtubeImmersionInput;
-  preferJapaneseSiteLanguageInput;
-  offlineDictionariesInput;
-  newTabEnabledInput;
-  pageScanModeInputs = [];
-  ocrModeInputs = [];
-  manualPageScanShortcutInput;
-  manualPageScanShortcutLabel;
-  hoverLookupShortcutInput;
-  async showIfNeeded() {
-  if (this.options.getSettings().onboardingSeen) {
-    return false;
-  }
-  this.show();
-  return true;
-  }
-  show() {
-  log$3.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
-  this.close();
-  this.backdrop = document.createElement("div");
-  this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
-  this.backdrop.dataset.jpdbReaderRoot = "true";
-  this.panel = document.createElement("section");
-  this.panel.className = "jpdb-reader-onboarding jpdb-reader-parseable";
-  this.panel.dataset.jpdbReaderRoot = "true";
-  this.panel.setAttribute("role", "dialog");
-  this.panel.setAttribute("aria-modal", "true");
-  this.panel.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "welcomeLabel"));
-  this.panel.tabIndex = -1;
-  const closeButton = button("");
-  closeButton.className = "jpdb-reader-icon-mini jpdb-reader-onboarding-close";
-  closeButton.dataset.onboardingAction = "close";
-  closeButton.title = uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding");
-  closeButton.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding"));
-  setInnerHtml(closeButton, closeIcon());
-  closeButton.addEventListener("click", () => void this.complete(false));
-  const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", uiText(this.options.getSettings().interfaceLanguage, "onboardingEyebrow"));
-  const title = element("h2", "", APP_NAME);
-  const copy2 = element(
-    "p",
-    "",
-    uiText(this.options.getSettings().interfaceLanguage, "onboardingCopy")
-  );
-  const featureList = document.createElement("ul");
-  featureList.className = "jpdb-reader-onboarding-features";
-  ONBOARDING_FEATURE_KEYS.forEach(([headingKey, textKey]) => {
-    const item = document.createElement("li");
-    item.append(
-      element("strong", "", uiText(this.options.getSettings().interfaceLanguage, headingKey)),
-      element("span", "", uiText(this.options.getSettings().interfaceLanguage, textKey))
-    );
-    featureList.append(item);
-  });
-  const language = document.createElement("label");
-  language.className = "jpdb-reader-onboarding-language";
-  const languageText = element("span", "", uiText(this.options.getSettings().interfaceLanguage, "onboardingLanguage"));
-  this.languageSelect = document.createElement("select");
-  this.languageSelect.name = "interfaceLanguage";
-  [
-    ["auto", uiText(this.options.getSettings().interfaceLanguage, "automatic")],
-    ["en", uiText(this.options.getSettings().interfaceLanguage, "english")],
-    ["ja", uiText(this.options.getSettings().interfaceLanguage, "japanese")]
-  ].forEach(([value, text2]) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = text2;
-    option.selected = value === this.options.getSettings().interfaceLanguage;
-    this.languageSelect?.append(option);
-  });
-  language.append(languageText, this.languageSelect);
-  const preferences = document.createElement("div");
-  preferences.className = "jpdb-reader-onboarding-preferences";
-  preferences.append(language, this.createThemeToggle());
-  const accentPicker = document.createElement("fieldset");
-  accentPicker.className = "jpdb-reader-onboarding-accent";
-  const accentLegend = document.createElement("legend");
-  accentLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor");
-  const swatches = document.createElement("div");
-  swatches.className = "jpdb-reader-onboarding-swatches";
-  ONBOARDING_ACCENT_SWATCHES.forEach((color) => {
-    const swatch = button("");
-    swatch.className = "jpdb-reader-onboarding-swatch";
-    swatch.dataset.onboardingAccent = color;
-    swatch.style.setProperty("--jpdb-reader-onboarding-swatch", color);
-    swatch.setAttribute("aria-label", onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color));
-    swatch.title = onboardingAccentLabel(this.options.getSettings().interfaceLanguage, color);
-    swatch.addEventListener("click", () => this.applyAccentChoice(color));
-    swatches.append(swatch);
-  });
-  const customAccent = document.createElement("label");
-  customAccent.className = "jpdb-reader-onboarding-custom-accent";
-  const customAccentText = document.createElement("span");
-  customAccentText.dataset.onboardingCopy = "customAccentColor";
-  customAccentText.textContent = uiText(this.options.getSettings().interfaceLanguage, "customAccentColor");
-  this.accentColorInput = document.createElement("input");
-  this.accentColorInput.type = "color";
-  this.accentColorInput.name = "accentColor";
-  this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
-  this.accentColorInput.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor"));
-  this.accentColorInput.addEventListener("input", () => this.previewAccentChoice(this.accentColorInput?.value));
-  this.accentColorInput.addEventListener("change", () => this.applyAccentChoice(this.accentColorInput?.value));
-  customAccent.append(customAccentText, this.accentColorInput);
-  accentPicker.append(accentLegend, swatches, customAccent);
-  const basics = document.createElement("div");
-  basics.className = "jpdb-reader-onboarding-basics";
-  basics.append(preferences, accentPicker);
-  const immersionOptions = document.createElement("fieldset");
-  immersionOptions.className = "jpdb-reader-onboarding-options";
-  const immersionLegend = document.createElement("legend");
-  immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingImmersionOptions");
-  this.hoverLookupShortcutInput = shortcutTextInput(
-    "shortcuts.hoverLookup",
-    this.options.getSettings().shortcuts.hoverLookup,
-    this.options.getSettings().interfaceLanguage,
-    "blankPlainHover"
-  );
-  this.manualPageScanShortcutInput = shortcutTextInput(
-    "shortcuts.scanPage",
-    this.options.getSettings().shortcuts.scanPage,
-    this.options.getSettings().interfaceLanguage,
-    "pressKeys"
-  );
-  this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
-  this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
-  this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
-  this.newTabEnabledInput = runningAsBrowserExtension() ? checkboxInput("newTabEnabled", this.options.getSettings().newTabEnabled) : void 0;
-  const pageScanMode = createModeGroup(
-    "pageScanMode",
-    uiText(this.options.getSettings().interfaceLanguage, "pageScanMode"),
-    pageScanModeFromSettings(this.options.getSettings()),
-    [
-      ["off", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeOff")],
-      ["auto", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeAuto")],
-      ["manual", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeManual")]
-    ]
-  );
-  this.pageScanModeInputs = pageScanMode.inputs;
-  this.pageScanModeInputs.forEach((input) => {
-    input.addEventListener("change", () => this.syncManualPageScanShortcut());
-  });
-  const ocrMode = createModeGroup(
-    "ocrInteractionMode",
-    uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionMode"),
-    ocrInteractionModeFromSettings(this.options.getSettings()),
-    [
-      ["auto", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeAuto")],
-      ["manual", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeManual")],
-      ["off", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeOff")]
-    ]
-  );
-  this.ocrModeInputs = ocrMode.inputs;
-  const immersionGrid = document.createElement("div");
-  immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
-  const defaultColumn = document.createElement("div");
-  defaultColumn.className = "jpdb-reader-onboarding-option-column";
-  defaultColumn.append(
-    checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
-    checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
-    checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingInstallOfflineDictionaries"))
-  );
-  if (this.newTabEnabledInput) {
-    defaultColumn.append(
-      checkboxLabel(this.newTabEnabledInput, uiText(this.options.getSettings().interfaceLanguage, "newTabEnabled"))
-    );
-  }
-  const scanColumn = document.createElement("div");
-  scanColumn.className = "jpdb-reader-onboarding-option-column";
-  scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
-  const shortcutColumn = document.createElement("div");
-  shortcutColumn.className = "jpdb-reader-onboarding-option-column";
-  this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "manualPageScanShortcut"));
-  this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
-  shortcutColumn.append(
-    shortcutLabel(this.hoverLookupShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingHoverShortcut")),
-    this.manualPageScanShortcutLabel
-  );
-  immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
-  immersionOptions.append(
-    immersionLegend,
-    immersionGrid
-  );
-  const actions = document.createElement("div");
-  actions.className = "jpdb-reader-onboarding-actions";
-  const setup = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingAddApiKey"));
-  setup.className = "jpdb-reader-btn";
-  setup.dataset.onboardingAction = "api-key";
-  setup.addEventListener("click", () => void this.complete(true));
-  const dictionaries = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingUseWithoutApiKey"));
-  dictionaries.className = "jpdb-reader-btn add";
-  dictionaries.dataset.onboardingAction = "without-api";
-  dictionaries.addEventListener("click", () => void this.complete("dictionaries"));
-  actions.append(dictionaries, setup);
-  this.languageSelect.addEventListener("change", () => {
-    const language2 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
-    log$3.info("Onboarding language changed", { language: language2 });
-    this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
-    this.localize(language2);
-  });
-  this.panel.addEventListener("click", (event) => {
-    this.handleWordLookup(event);
-  });
-  this.panel.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    if (this.handleWordLookup(event)) event.preventDefault();
-  });
-  this.panel.append(closeButton, eyebrow, title, copy2, basics, actions, immersionOptions, featureList);
-  this.syncThemeSwitch();
-  this.syncAccentPicker(this.accentColorInput.value);
-  this.syncManualPageScanShortcut();
-  applyRedditOverlayScale(this.panel);
-  document.body.append(this.backdrop, this.panel);
-  this.panel.focus();
-  this.annotateJapanese();
-  }
-  annotateJapanese() {
-  if (this.panel) this.options.parseJapanese(this.panel);
-  }
-  handleWordLookup(event) {
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  const word = target?.closest(".jpdb-reader-onboarding .jpdb-reader-word");
-  if (!word || !this.panel?.contains(word) || !this.options.lookupText) return false;
-  if (isOnboardingCommandWord(word)) return false;
-  const expression = word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
-  if (!expression) return false;
-  event.preventDefault();
-  event.stopPropagation();
-  this.options.lookupText(expression, word.dataset.sentence || expression, word);
-  return true;
-  }
-  localize(language) {
-  const panel = this.panel;
-  if (!panel) return;
-  panel.setAttribute("aria-label", uiText(language, "welcomeLabel"));
-  panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(uiText(language, "onboardingEyebrow"));
-  const copy2 = panel.querySelector("p");
-  copy2?.replaceChildren(uiText(language, "onboardingCopy"));
-  panel.querySelector(".jpdb-reader-onboarding-language span")?.replaceChildren(uiText(language, "onboardingLanguage"));
-  panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, "theme"));
-  panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
-  panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language, "onboardingHoverShortcut"));
-  this.hoverLookupShortcutInput?.setAttribute("placeholder", uiText(language, "blankPlainHover"));
-  panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(uiText(language, "manualPageScanShortcut"));
-  this.manualPageScanShortcutInput?.setAttribute("placeholder", uiText(language, "pressKeys"));
-  panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
-  panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
-  panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language, "onboardingInstallOfflineDictionaries"));
-  panel.querySelector('[data-onboarding-copy="newTabEnabled"]')?.replaceChildren(uiText(language, "newTabEnabled"));
-  panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language, "pageScanMode"));
-  setOnboardingModeLabel(panel, "pageScanMode", "off", uiText(language, "pageScanModeOff"));
-  setOnboardingModeLabel(panel, "pageScanMode", "auto", uiText(language, "pageScanModeAuto"));
-  setOnboardingModeLabel(panel, "pageScanMode", "manual", uiText(language, "pageScanModeManual"));
-  panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(uiText(language, "ocrInteractionMode"));
-  setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", uiText(language, "ocrInteractionModeAuto"));
-  setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", uiText(language, "ocrInteractionModeManual"));
-  setOnboardingModeLabel(panel, "ocrInteractionMode", "off", uiText(language, "ocrInteractionModeOff"));
-  panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
-  panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
-  this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
-  panel.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
-    const color = button2.dataset.onboardingAccent;
-    if (!color) return;
-    const label = onboardingAccentLabel(language, color);
-    button2.setAttribute("aria-label", label);
-    button2.title = label;
-  });
-  const options = [
-    ["auto", uiText(language, "automatic")],
-    ["en", uiText(language, "english")],
-    ["ja", uiText(language, "japanese")]
-  ];
-  options.forEach(([value, text2]) => {
-    const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
-    if (option) option.textContent = text2;
-  });
-  const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
-  features.forEach((feature, index) => {
-    const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
-    feature.querySelector("strong")?.replaceChildren(uiText(language, headingKey));
-    feature.querySelector("span")?.replaceChildren(uiText(language, bodyKey));
-  });
-  panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language, "onboardingAddApiKey"));
-  panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language, "onboardingUseWithoutApiKey"));
-  const closeButton = panel.querySelector('[data-onboarding-action="close"]');
-  closeButton?.setAttribute("aria-label", uiText(language, "closeOnboarding"));
-  closeButton?.setAttribute("title", uiText(language, "closeOnboarding"));
-  this.syncThemeSwitch();
-  this.annotateJapanese();
-  }
-  async complete(openSettings) {
-  const done = log$3.time("Onboarding complete", { openSettings });
-  const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
-  const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
-  try {
-    this.options.setSettings(settings);
-    await saveSettings(settings);
-    this.close();
-    if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
-    this.openPostOnboardingSettings(openSettings);
-    log$3.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
-  } catch (error) {
-    log$3.warn("Onboarding completion failed", { openSettings, error });
-    throw error;
-  } finally {
-    done();
-  }
-  }
-  completedOnboardingSettings(openSettings, installOfflineDictionaries) {
-  const current = this.options.getSettings();
-  const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
-  const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
-  return {
-    ...current,
-    onboardingSeen: true,
-    jpdbDefinitionsEnabled: true,
-    localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-    youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
-    preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
-    newTabEnabled: this.newTabEnabledInput?.checked ?? current.newTabEnabled,
-    annotationsPaused: pageScanMode === "off",
-    manualScanEnabled: pageScanMode === "manual",
-    ocrEnabled: ocrMode !== "off",
-    ocrAutoScanImages: ocrMode === "auto",
-    shortcuts: {
-      ...current.shortcuts,
-      hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
-      scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage
-    },
-    dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
-    interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
-    accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
-  };
-  }
-  openPostOnboardingSettings(openSettings) {
-  if (openSettings === "dictionaries") this.options.showSettings("dictionaries");
-  else if (openSettings) this.options.showSettings("api");
-  }
-  close() {
-  this.cancelAccentPreviewFrame();
-  this.panel?.remove();
-  this.backdrop?.remove();
-  this.panel = void 0;
-  this.backdrop = void 0;
-  this.languageSelect = void 0;
-  this.themeSwitch = void 0;
-  this.accentColorInput = void 0;
-  this.youtubeImmersionInput = void 0;
-  this.preferJapaneseSiteLanguageInput = void 0;
-  this.offlineDictionariesInput = void 0;
-  this.newTabEnabledInput = void 0;
-  this.pageScanModeInputs = [];
-  this.ocrModeInputs = [];
-  this.manualPageScanShortcutInput = void 0;
-  this.manualPageScanShortcutLabel = void 0;
-  this.hoverLookupShortcutInput = void 0;
-  }
-  createThemeToggle() {
-  const wrapper = document.createElement("div");
-  wrapper.className = "jpdb-reader-onboarding-theme";
-  const title = document.createElement("span");
-  title.className = "jpdb-reader-theme-title";
-  title.id = "jpdb-reader-onboarding-theme-label";
-  title.dataset.onboardingCopy = "theme";
-  title.textContent = uiText(this.options.getSettings().interfaceLanguage, "theme");
-  const chrome = document.createElement("div");
-  chrome.className = "VPNavBarAppearance appearance jpdb-reader-theme-appearance";
-  this.themeSwitch = button("");
-  this.themeSwitch.className = "VPSwitch VPSwitchAppearance jpdb-reader-theme-switch";
-  this.themeSwitch.dataset.onboardingThemeSwitch = "true";
-  this.themeSwitch.setAttribute("role", "switch");
-  this.themeSwitch.setAttribute("aria-labelledby", title.id);
-  this.themeSwitch.setAttribute("aria-describedby", title.id);
-  setInnerHtml(this.themeSwitch, themeSwitchChrome());
-  this.themeSwitch.addEventListener("click", () => this.toggleTheme());
-  chrome.append(this.themeSwitch);
-  wrapper.append(title, chrome);
-  return wrapper;
-  }
-  toggleTheme() {
-  const current = this.options.getSettings();
-  const theme = this.effectiveTheme(current.theme) === "dark" ? "light" : "dark";
-  this.options.setSettings({ ...current, theme });
-  this.syncThemeSwitch();
-  }
-  syncThemeSwitch() {
-  if (!this.themeSwitch) return;
-  const language = this.options.getSettings().interfaceLanguage;
-  const theme = this.effectiveTheme(this.options.getSettings().theme);
-  const label = uiText(language, theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
-  this.themeSwitch.setAttribute("aria-label", label);
-  this.themeSwitch.setAttribute("aria-checked", String(theme === "dark"));
-  this.themeSwitch.title = label;
-  }
-  effectiveTheme(value) {
-  if (value === "dark" || value === "light") return value;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  applyAccentChoice(value) {
-  this.cancelAccentPreviewFrame();
-  const current = this.options.getSettings();
-  const accentColor = sanitizeAccentColor(value, current.accentColor);
-  this.options.setSettings({ ...current, accentColor });
-  if (this.accentColorInput && this.accentColorInput.value !== accentColor) {
-    this.accentColorInput.value = accentColor;
-  }
-  this.syncAccentPicker(accentColor);
-  }
-  previewAccentChoice(value) {
-  const current = this.options.getSettings();
-  const accentColor = sanitizeAccentColor(value, current.accentColor);
-  this.pendingAccentPreviewColor = accentColor;
-  this.syncAccentPicker(accentColor);
-  if (this.accentPreviewFrame !== void 0) return;
-  this.accentPreviewFrame = requestOnboardingFrame(() => {
-    this.accentPreviewFrame = void 0;
-    const pendingColor = this.pendingAccentPreviewColor;
-    this.pendingAccentPreviewColor = void 0;
-    if (!pendingColor || !this.panel?.isConnected) return;
-    this.options.setSettings({ ...this.options.getSettings(), accentColor: pendingColor });
-  });
-  }
-  cancelAccentPreviewFrame() {
-  if (this.accentPreviewFrame === void 0) return;
-  cancelOnboardingFrame(this.accentPreviewFrame);
-  this.accentPreviewFrame = void 0;
-  this.pendingAccentPreviewColor = void 0;
-  }
-  syncAccentPicker(color) {
-  const selectedColor = sanitizeAccentColor(color);
-  this.panel?.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
-    const selected = sanitizeAccentColor(button2.dataset.onboardingAccent) === selectedColor;
-    button2.classList.toggle("selected", selected);
-    button2.setAttribute("aria-pressed", String(selected));
-  });
-  }
-  syncManualPageScanShortcut() {
-  if (!this.manualPageScanShortcutLabel) return;
-  this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
-  }
-}
-function pageScanModeFromSettings(settings) {
-  if (settings.annotationsPaused) return "off";
-  return settings.manualScanEnabled ? "manual" : "auto";
-}
-function selectedMode(inputs, fallback) {
-  return inputs.find((input) => input.checked)?.value ?? fallback;
-}
-function normalizeLanguage(value, fallback) {
-  return value === "en" || value === "ja" || value === "auto" ? value : fallback;
-}
-function element(tag, className, text2) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  node.textContent = text2;
-  return node;
-}
-function button(text2) {
-  const node = document.createElement("button");
-  node.type = "button";
-  node.textContent = text2;
-  return node;
-}
-function checkboxInput(name, checked) {
-  const input = document.createElement("input");
-  input.type = "checkbox";
-  input.name = name;
-  input.checked = checked;
-  input.setAttribute("aria-labelledby", onboardingCopyId(name));
-  return input;
-}
-function isOnboardingCommandWord(word) {
-  return Boolean(word.closest("button, a[href], input, select, textarea, label, [data-onboarding-action], [data-onboarding-theme-switch], [data-onboarding-accent]"));
-}
-function checkboxLabel(input, text2) {
-  const label = document.createElement("label");
-  label.className = "inline";
-  const copy2 = document.createElement("span");
-  copy2.id = onboardingCopyId(input.name);
-  copy2.dataset.onboardingCopy = input.name;
-  copy2.textContent = text2;
-  label.append(input, copy2);
-  return label;
-}
-function shortcutTextInput(name, value, language, placeholderKey) {
-  const input = document.createElement("input");
-  input.type = "text";
-  input.name = name;
-  input.value = value;
-  input.placeholder = uiText(language, placeholderKey);
-  input.autocomplete = "off";
-  input.inputMode = "none";
-  input.dataset.shortcutInput = "true";
-  input.setAttribute("aria-labelledby", onboardingCopyId(name));
-  input.addEventListener("keydown", (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  input.value = event.key === "Backspace" || event.key === "Delete" ? "" : formatShortcutEvent(event);
-  });
-  input.addEventListener("paste", (event) => event.preventDefault());
-  return input;
-}
-function createModeGroup(name, legendText, selectedValue, options) {
-  const fieldset = document.createElement("fieldset");
-  fieldset.className = "jpdb-reader-onboarding-mode-group";
-  const legend = document.createElement("legend");
-  legend.dataset.onboardingModeLegend = name;
-  legend.textContent = legendText;
-  const inputs = options.map(([value, text2]) => {
-  const input = document.createElement("input");
-  input.type = "radio";
-  input.name = name;
-  input.value = value;
-  input.checked = value === selectedValue;
-  const label = document.createElement("label");
-  label.className = "inline";
-  label.dataset.onboardingModeLabel = `${name}.${value}`;
-  label.append(input, document.createTextNode(text2));
-  fieldset.append(label);
-  return input;
-  });
-  fieldset.prepend(legend);
-  return { fieldset, inputs };
-}
-function setOnboardingModeLabel(panel, name, value, text2) {
-  const label = panel.querySelector(`[data-onboarding-mode-label="${name}.${value}"]`);
-  const input = label?.querySelector("input");
-  if (!label || !input) return;
-  label.replaceChildren(input, document.createTextNode(text2));
-}
-function shortcutLabel(input, text2) {
-  const label = document.createElement("label");
-  label.className = "jpdb-reader-onboarding-shortcut";
-  const copy2 = document.createElement("span");
-  copy2.id = onboardingCopyId(input.name);
-  copy2.dataset.onboardingCopy = input.name;
-  copy2.textContent = text2;
-  label.append(copy2, input);
-  return label;
-}
-function onboardingCopyId(name) {
-  return `jpdb-reader-onboarding-${name}`;
-}
-function onboardingAccentLabel(language, color) {
-  return `${uiText(language, "onboardingAccentColor")} ${color.toUpperCase()}`;
-}
-function requestOnboardingFrame(callback) {
-  if (typeof window.requestAnimationFrame === "function") {
-  return window.requestAnimationFrame(() => callback());
-  }
-  return window.setTimeout(callback, 16);
-}
-function cancelOnboardingFrame(id) {
-  if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
-  else window.clearTimeout(id);
-}
-function closeIcon() {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
-}
-function themeSwitchChrome() {
-  return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
 }
 const JA_LANG = "ja";
 const JA_COUNTRY = "JP";
@@ -34410,9 +34361,9 @@ function parseHttpUrl(sourceHref) {
 function japaneseAlternateLinkUrl(current, root) {
   if (!root) return null;
   try {
-  for (const element2 of alts(root)) {
-    if (!/^ja(?:[-_]|$)/i.test(element2.getAttribute("hreflang") ?? "")) continue;
-    const href = element2.getAttribute("href");
+  for (const element of alts(root)) {
+    if (!/^ja(?:[-_]|$)/i.test(element.getAttribute("hreflang") ?? "")) continue;
+    const href = element.getAttribute("href");
     const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
     if (candidate && candidate.href !== current.href) return candidate;
   }
@@ -34733,6 +34684,19 @@ function defineUntrackedValue(target, key, value) {
   }
   }
 }
+function ocrInteractionModeFromSettings(settings) {
+  if (!settings.ocrEnabled) return "off";
+  return settings.ocrAutoScanImages ? "auto" : "manual";
+}
+function nextOcrInteractionMode(mode) {
+  if (mode === "auto") return "manual";
+  if (mode === "manual") return "off";
+  return "auto";
+}
+function applyOcrInteractionMode(settings, mode) {
+  settings.ocrEnabled = mode !== "off";
+  settings.ocrAutoScanImages = mode === "auto";
+}
 const log$2 = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
   constructor(dependencies) {
@@ -34986,6 +34950,14 @@ function settingsThemeChangeDetail(detail) {
   const value = detail?.settings?.theme;
   return value === "auto" || value === "dark" || value === "light" ? value : null;
 }
+function runningAsBrowserExtension() {
+  const global = globalThis;
+  try {
+  return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+  } catch {
+  return false;
+  }
+}
 const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
 const JPDB_REVIEW_BRIDGE_HEARTBEAT_MS = 12e3;
 let disposeActiveJpdbReviewBridge;
@@ -35237,20 +35209,20 @@ const JPDB_GRADE_CONTROL_TERMS = {
   fail: ["fail", "nothing", "again"],
   pass: ["pass", "okay", "good", "easy"]
 };
-function formText(element2) {
-  const input = element2;
+function formText(element) {
+  const input = element;
   return cleanText([
-  element2.textContent,
+  element.textContent,
   input.value,
   input.name,
-  element2.getAttribute("aria-label"),
-  element2.getAttribute("title"),
-  element2.className,
-  element2.getAttribute("data-grade")
+  element.getAttribute("aria-label"),
+  element.getAttribute("title"),
+  element.className,
+  element.getAttribute("data-grade")
   ].filter(Boolean).join(" ")).toLocaleLowerCase();
 }
 function sectionText(doc, label) {
-  const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element2) => cleanText(element2.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
+  const heading = Array.from(doc.querySelectorAll(".subsection-label")).find((element) => cleanText(element.textContent ?? "").toLocaleLowerCase() === label.toLocaleLowerCase());
   return cleanText(heading?.parentElement?.querySelector(".subsection")?.textContent ?? "");
 }
 function readingFromDocument(doc) {
@@ -35298,7 +35270,7 @@ function installReaderStartupBridge() {
   return initJpdbReviewPageBridge();
 }
 function detectReaderStartupJapaneseText() {
-  return documentHasJapaneseText();
+  return documentHasJapaneseText(2e5, scanScopeRoots());
 }
 const ANKI_STATUS_WARMUP_DELAY_MS = 1e3;
 const ANKI_STATUS_WARMUP_IDLE_TIMEOUT_MS = 5e3;
@@ -35765,13 +35737,13 @@ function readerWords(root) {
 }
 function pageBackgroundFor(word) {
   const ancestors = [];
-  for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
+  for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
   let found = false;
   let hasImageBackdrop = false;
   let unknownBase = false;
   let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-  for (const element2 of ancestors.reverse()) {
-  const style = getComputedStyle(element2);
+  for (const element of ancestors.reverse()) {
+  const style = getComputedStyle(element);
   hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
   const color = cssColorToRgba(style.backgroundColor);
   if (!color) {
@@ -36037,8 +36009,8 @@ async function renderImporterForCurrentRoute(options) {
   root.setAttribute("aria-label", copy(language).title);
   root.append(renderBunproImporterContent(token, language));
   document.body.append(root);
-  const button2 = root.querySelector('[data-action="import-bunpro-token"]');
-  button2?.addEventListener("click", () => {
+  const button = root.querySelector('[data-action="import-bunpro-token"]');
+  button?.addEventListener("click", () => {
   void importBunproToken(options, root, language);
   });
 }
@@ -36082,16 +36054,16 @@ function renderBunproImporterContent(token, language) {
   meta.textContent = token?.expiresAt ? ui.expires(token.expiresAt) : ui.expiryUnknown;
   const actions = document.createElement("div");
   actions.className = "jpdb-reader-bunpro-token-importer-actions";
-  const button2 = document.createElement("button");
-  button2.type = "button";
-  button2.className = "jpdb-reader-bunpro-token-importer-button";
-  button2.dataset.action = "import-bunpro-token";
-  button2.textContent = ui.action;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "jpdb-reader-bunpro-token-importer-button";
+  button.dataset.action = "import-bunpro-token";
+  button.textContent = ui.action;
   const status = document.createElement("span");
   status.dataset.bunproImportStatus = "true";
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
-  actions.append(button2, status);
+  actions.append(button, status);
   content.append(title, body, meta, actions);
   return content;
 }
@@ -37473,8 +37445,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.222"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.222"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.223"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.223"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37594,7 +37566,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.222"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.223"}`;
   } catch {
   return null;
   }
@@ -37653,10 +37625,10 @@ function readAuthoredVocabularyAnnotations(parent) {
   }
 }
 function authoredVocabularyOwner(parent) {
-  const element2 = parent instanceof HTMLElement ? parent : parent.parentElement;
-  if (!element2) return null;
-  if (element2.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) return element2;
-  return element2.closest(`[${AUTHORED_VOCABULARY_ATTRIBUTE}]`);
+  const element = parent instanceof HTMLElement ? parent : parent.parentElement;
+  if (!element) return null;
+  if (element.hasAttribute(AUTHORED_VOCABULARY_ATTRIBUTE)) return element;
+  return element.closest(`[${AUTHORED_VOCABULARY_ATTRIBUTE}]`);
 }
 function normalizeAnnotation(value) {
   if (!value || typeof value !== "object") return null;
@@ -38796,18 +38768,7 @@ class ReaderApp {
   jitenPublicVocabulary: this.jitenPublicVocabulary,
   dictionaries: this.dictionaries
   });
-  onboarding = new OnboardingController({
-  getSettings: () => this.settings,
-  setSettings: (settings) => {
-    this.settings = settings;
-    this.applyTheme();
-    this.applyPreferredJapaneseSiteLanguage();
-  },
-  showSettings: (panel) => this.showSettings(panel),
-  parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
-  lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
-  installOfflineDictionaries: () => void this.installOfflineParsingDictionaries()
-  });
+  onboarding = this.createOnboardingController();
   subtitles = this.createSubtitlePlayer();
   ocr = this.createImageOcrController();
   youtube = this.createYoutubeFilter();
@@ -38953,6 +38914,22 @@ class ReaderApp {
   constructor() {
   configureLogger({ settingsProvider: () => this.settings });
   }
+  createOnboardingController() {
+  const Controller = yomuOnboardingController();
+  if (!Controller) return { showIfNeeded: async () => false };
+  return new Controller({
+    getSettings: () => this.settings,
+    setSettings: (settings) => {
+      this.settings = settings;
+      this.applyTheme();
+      this.applyPreferredJapaneseSiteLanguage();
+    },
+    showSettings: (panel) => this.showSettings(panel),
+    parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
+    lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
+    installOfflineDictionaries: () => void this.installOfflineParsingDictionaries()
+  });
+  }
   createSubtitlePlayer() {
   const Controller = yomuSubtitlePlayerController();
   if (!Controller) return this.missingCompanionSurface("Video companion", "subtitles");
@@ -39071,6 +39048,8 @@ class ReaderApp {
   async initReaderPage(shouldShowWelcome) {
   await this.waitForDocumentBody();
   if (this.isDestroyed || !document.body) return;
+  const startupJapaneseProbe = documentJapaneseTextProbe(2e5, scanScopeRoots());
+  if (!this.pageHasJapaneseText) this.pageHasJapaneseText = startupJapaneseProbe.hasJapanese;
   if (this.embeddedFrame) {
     this.subtitles.init();
     this.ocr.init();
@@ -39092,7 +39071,7 @@ class ReaderApp {
   this.installCardStateSignalSubscription();
   this.resumePendingCloudSettingsSync();
   if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
-  if (this.shouldScanInitialPage()) {
+  if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
     void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleStatusWarmups());
   } else {
     this.scheduleStatusWarmups();
@@ -39210,9 +39189,9 @@ class ReaderApp {
     });
   }
   }
-  shouldScanInitialPage() {
+  shouldScanInitialPage(shadowDiscoveryUncertain = false) {
   if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
-  return this.canParseJapanese() && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
+  return this.canParseJapanese() && (this.pageHasJapaneseText || hasVisibleSiteScanTargets() || shadowDiscoveryUncertain);
   }
   registerMenuCommands() {
   registerReaderMenuCommands({
@@ -39284,7 +39263,7 @@ class ReaderApp {
   scheduleLanguageChangeScan() {
   window.setTimeout(() => {
     if (this.isDestroyed) return;
-    this.pageHasJapaneseText = documentHasJapaneseText();
+    this.pageHasJapaneseText = documentHasJapaneseText(2e5, scanScopeRoots());
     if (this.shouldScanInitialPage()) this.scheduleVisiblePageReparse(0);
   }, 160);
   }
@@ -39524,13 +39503,13 @@ class ReaderApp {
   this.removeStaleJpdbPageEnhancements(generation);
   }
   removeJpdbPageEnhancements() {
-  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element2) => element2.remove());
+  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => element.remove());
   }
   removeStaleJpdbPageEnhancements(generation) {
   const generationKey = String(generation);
   this.pauseAutoScanObserver(() => {
-    document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element2) => {
-      if (element2.dataset.yomuGeneration !== generationKey) element2.remove();
+    document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => {
+      if (element.dataset.yomuGeneration !== generationKey) element.remove();
     });
   });
   }
@@ -39672,7 +39651,7 @@ class ReaderApp {
   }
   createJpdbPageAddonRoot(kind, key, anchor, generation) {
   if (!anchor.isConnected || anchor === document.body) return null;
-  const existing = Array.from(document.querySelectorAll(`[data-yomu-jpdb-addon="${kind}"]`)).find((element2) => element2.dataset.yomuAddonKey === key);
+  const existing = Array.from(document.querySelectorAll(`[data-yomu-jpdb-addon="${kind}"]`)).find((element) => element.dataset.yomuAddonKey === key);
   if (existing) {
     existing.dataset.yomuGeneration = String(generation);
     existing.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
@@ -39899,6 +39878,7 @@ class ReaderApp {
   this.disposeShadowRootDiscovery?.();
   this.disposeShadowRootDiscovery = void 0;
   setShadowRootScanHook(null);
+  setCustomElementUpgradeHook(null);
   this.autoScanObserver?.disconnect();
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
@@ -39971,14 +39951,37 @@ class ReaderApp {
       }
       scanMutations.push(mutation);
     }
+    const removedScannedShadowRoot = scanMutations.some(
+      (mutation) => mutation.type === "childList" && mutation.removedNodes.length > 0
+    ) && sweepDisconnectedShadowRoots();
+    if (removedScannedShadowRoot) {
+      this.autoScanObserver?.disconnect();
+      this.observeAutoScanMutations();
+    }
+    const mutationsOnlyInsideReaderRoot = scanMutations.length > 0 && scanMutations.every(mutationInsideReaderRoot);
+    const japaneseScanBudget = createMutationJapaneseScanBudget();
+    const mutationScopeRoots = annotationScopeRoots();
+    const mutationHasJapaneseText = canScanText && allowsFrequentVisibleAutoScan() && !mutationsOnlyInsideReaderRoot ? scanMutations.reduce(
+      (found, mutation) => mutationMayContainJapaneseText(
+        mutation,
+        japaneseScanBudget,
+        mutationScopeRoots
+      ) || found,
+      false
+    ) : false;
+    if (scanMutations.some(
+      (mutation) => mutationMayExpandAnnotationScope(mutation, mutationScopeRoots)
+    )) {
+      this.observeScopedScannedShadowRoots();
+    }
     if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true, debounce: true });
     if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-    else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
-    else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
+    else if (mutationsOnlyInsideReaderRoot) return;
+    else if (mutationHasJapaneseText) {
       this.pageHasJapaneseText = true;
       this.noteVisibleAutoScanWorkObserved();
       this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
-        force: isBookWalkerStorefrontPage(),
+        force: true,
         debounce: isYouTubeHostname()
       });
     }
@@ -39989,11 +39992,15 @@ class ReaderApp {
     }
   });
   setShadowRootScanHook((root, cause) => {
-    if (this.isDestroyed) return;
+    if (this.isDestroyed || !nodeWithinAnnotationScope(root)) return;
     this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
     if (cause === "attached" && root.childNodes.length) {
       this.scheduleAutoScan(0, { force: true, debounce: true });
     }
+  });
+  setCustomElementUpgradeHook(() => {
+    if (this.isDestroyed || !this.canParseJapanese() || false) return;
+    this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
   });
   this.observeAutoScanMutations();
   if (!this.pageHasJapaneseText) {
@@ -40027,7 +40034,12 @@ class ReaderApp {
     return;
   }
   this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
-  forEachScannedShadowRoot((root) => this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS));
+  this.observeScopedScannedShadowRoots();
+  }
+  observeScopedScannedShadowRoots() {
+  forEachScannedShadowRoot((root) => {
+    if (nodeWithinAnnotationScope(root)) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+  });
   }
   shouldScanEmbeddedFrame() {
   return /(^|\.)youtube\.com$/i.test(location.hostname) && (location.pathname === "/live_chat" || location.pathname === "/live_chat_replay");
@@ -40918,22 +40930,22 @@ class ReaderApp {
   ].join(",")));
   }
   wordFromEventTarget(target) {
-  const element2 = target instanceof Element ? target : null;
-  const word = element2?.closest?.(".jpdb-reader-word");
+  const element = target instanceof Element ? target : null;
+  const word = element?.closest?.(".jpdb-reader-word");
   return word && this.canLookupReaderWord(word) ? word : null;
   }
   wordFromPoint(x, y, surface = null, canUseWord = (word) => this.canLookupReaderWord(word)) {
   if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element2 of document.elementsFromPoint(x, y)) {
-    const word = element2.closest?.(".jpdb-reader-word");
+  for (const element of document.elementsFromPoint(x, y)) {
+    const word = element.closest?.(".jpdb-reader-word");
     if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
   }
   return null;
   }
   hoverReaderWordFromPointStack(x, y, surface = null) {
   if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element2 of document.elementsFromPoint(x, y)) {
-    const word = element2.closest?.(".jpdb-reader-word");
+  for (const element of document.elementsFromPoint(x, y)) {
+    const word = element.closest?.(".jpdb-reader-word");
     if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canHoverLookupReaderWord(word) && this.readerWordMatchesPointerGeometry(word, x, y)) return word;
   }
   return null;
@@ -41203,14 +41215,14 @@ class ReaderApp {
   }
   miningDrawerHandleFromPoint(x, y) {
   if (typeof document.elementsFromPoint !== "function") return null;
-  for (const element2 of document.elementsFromPoint(x, y)) {
-    const handle = this.miningDrawerHandleFromElement(element2);
+  for (const element of document.elementsFromPoint(x, y)) {
+    const handle = this.miningDrawerHandleFromElement(element);
     if (handle) return handle;
   }
   return null;
   }
-  miningDrawerHandleFromElement(element2) {
-  const target = element2.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
+  miningDrawerHandleFromElement(element) {
+  const target = element.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR);
   const handle = target?.matches(MINING_DRAWER_HANDLE_SELECTOR) ? target : target?.querySelector(MINING_DRAWER_HANDLE_SELECTOR) ?? null;
   if (!handle?.isConnected) return null;
   return handle.closest("[data-jpdb-reader-root], .jpdb-reader-popover") ? handle : null;
@@ -41374,8 +41386,8 @@ class ReaderApp {
   const candidate = this.lookupCandidateFromPoint(pointer.x, pointer.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
   if (candidate) this.schedulePointerTextLookup(candidate, event);
   }
-  hoverReaderWordFromElement(element2) {
-  const word = element2?.closest?.(".jpdb-reader-word");
+  hoverReaderWordFromElement(element) {
+  const word = element?.closest?.(".jpdb-reader-word");
   return word && this.canHoverLookupReaderWord(word) ? word : null;
   }
   dismissModalPopoverForOutsidePointer(event) {
@@ -41386,14 +41398,14 @@ class ReaderApp {
   this.dismiss({ suppressHoverTarget: true });
   }
   shouldKeepModalPopoverForOutsidePointer(target) {
-  const element2 = target instanceof Element ? target : target?.parentElement;
-  if (this.isPointerOnStackedSettingsDialog(element2)) return false;
-  return Boolean(element2?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element2?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+  const element = target instanceof Element ? target : target?.parentElement;
+  if (this.isPointerOnStackedSettingsDialog(element)) return false;
+  return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
   }
-  isPointerOnStackedSettingsDialog(element2) {
+  isPointerOnStackedSettingsDialog(element) {
   if (!this.shouldDismissStackedLookupOnly()) return false;
   const form = this.stackedSettingsDialog?.form;
-  return Boolean(form && element2 && form.contains(element2));
+  return Boolean(form && element && form.contains(element));
   }
   dismissHoverPopoverForOutsidePointer(event) {
   if (this.isDestroyed || this.activePopoverMode !== "hover") return;
@@ -41981,27 +41993,27 @@ class ReaderApp {
   });
   }
   lookupCandidateFromPoint(x, y, eventTarget, options = {}) {
-  const element2 = this.pointerLookupElement(x, y, eventTarget, options);
-  if (!element2) return null;
-  const position = this.usablePointerTextPosition(element2, x, y);
+  const element = this.pointerLookupElement(x, y, eventTarget, options);
+  if (!element) return null;
+  const position = this.usablePointerTextPosition(element, x, y);
   if (!position) return null;
   const characterOffset = pointerTextCharacterOffset(position.node, position.offset, x, y);
   if (characterOffset === null) return null;
   return this.lookupCandidateFromTextPosition(position.node, characterOffset, options);
   }
   pointerLookupElement(x, y, eventTarget, options = {}) {
-  const element2 = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
-  return element2 && !this.isNativeTextLookupTarget(element2, options) && !isNativePageLookupBlocked(element2) ? element2 : null;
+  const element = eventTarget instanceof Element ? eventTarget : document.elementFromPoint(x, y);
+  return element && !this.isNativeTextLookupTarget(element, options) && !isNativePageLookupBlocked(element) ? element : null;
   }
-  usablePointerTextPosition(element2, x, y) {
+  usablePointerTextPosition(element, x, y) {
   const position = caretTextPositionFromPoint(x, y);
-  return this.isUsablePointerTextPosition(element2, position) ? position : null;
+  return this.isUsablePointerTextPosition(element, position) ? position : null;
   }
   lookupCandidateFromTextPosition(node, characterOffset, options = {}) {
   return pointerTextLookupFromTextNode(node, characterOffset, { allowInteractiveText: options.allowPassiveInteractionText });
   }
-  isUsablePointerTextPosition(element2, position) {
-  return Boolean(position && position.node.parentElement && (element2.contains(position.node) || position.node.parentElement.contains(element2)) && !position.node.parentElement.closest(".jpdb-reader-word"));
+  isUsablePointerTextPosition(element, position) {
+  return Boolean(position && position.node.parentElement && (element.contains(position.node) || position.node.parentElement.contains(element)) && !position.node.parentElement.closest(".jpdb-reader-word"));
   }
   isNativeTextLookupTarget(target, options = {}) {
   return !options.allowPassiveInteractionText && isPassiveInteractionElement(target) || this.isReaderImmersionExampleSentenceText(target) || !!target.closest("input,textarea,select,[contenteditable],.jpdb-reader-word") || this.isSettingsNativeControlText(target);
@@ -42555,8 +42567,8 @@ class ReaderApp {
   if (!word.closest(".jpdb-reader-example-target")) return false;
   return cardMatchesRenderedLookupValue(this.lastCard, renderedWordLookupText(word));
   }
-  isInsideImmersionKitContainer(element2) {
-  for (let current = element2.parentElement; current; current = current.parentElement) {
+  isInsideImmersionKitContainer(element) {
+  for (let current = element.parentElement; current; current = current.parentElement) {
     if (current.hasAttribute("data-immersion-kit")) return true;
   }
   return false;
@@ -42607,7 +42619,7 @@ class ReaderApp {
   installTokenListHandlers(popover, tokens, anchor, context) {
   installTokenListHandlers(popover, tokens, anchor, context, {
     showPrevious: (previousAnchor, previousContext) => void this.showTokenListPrevious(previousAnchor, previousContext),
-    showCard: (button2, nextTokens, cardAnchor, cardContext) => this.showTokenListCard(button2, nextTokens, cardAnchor, cardContext),
+    showCard: (button, nextTokens, cardAnchor, cardContext) => this.showTokenListCard(button, nextTokens, cardAnchor, cardContext),
     copySelected: (selected) => void this.copyTokenListSelection(selected)
   });
   }
@@ -42620,8 +42632,8 @@ class ReaderApp {
   if (!previous) return;
   await this.showPreviousNavigationEntry(previous, anchor, context.trigger);
   }
-  showTokenListCard(button2, tokens, anchor, context) {
-  const card = this.getCachedCard(Number(button2.dataset.vid), Number(button2.dataset.sid));
+  showTokenListCard(button, tokens, anchor, context) {
+  const card = this.getCachedCard(Number(button.dataset.vid), Number(button.dataset.sid));
   if (!card) return;
   void this.showCard(card, tokens.find((token) => token.card === card)?.sentence, anchor, {
     trigger: context.trigger,
@@ -43161,7 +43173,7 @@ class ReaderApp {
   return info.compounds.flatMap((compound) => [compound.term, compound.reading]).filter(Boolean);
   }
   installCardPopoverHandlers(popover, card, sentence, anchor, trigger) {
-  installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
+  installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
   this.installReaderControlPointerActivation(popover);
   popover.addEventListener("click", (event) => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
   popover.addEventListener("keydown", (event) => this.handleCardPopoverLookupKeydown(event));
@@ -43188,52 +43200,52 @@ class ReaderApp {
     this.handleCardPopoverKanjiAction(event, kanjiButton, card, sentence, anchor);
     return;
   }
-  const button2 = target.closest("[data-action]");
-  if (!button2) return;
+  const button = target.closest("[data-action]");
+  if (!button) return;
   event.preventDefault();
   event.stopPropagation();
-  this.dispatchCardPopoverAction(button2, card, sentence, anchor, trigger);
+  this.dispatchCardPopoverAction(button, card, sentence, anchor, trigger);
   }
-  handleCardPopoverKanjiAction(event, button2, card, sentence, anchor) {
+  handleCardPopoverKanjiAction(event, button, card, sentence, anchor) {
   event.preventDefault();
   event.stopPropagation();
-  void this.showKanjiCard(card, button2.dataset.kanji ?? "", sentence, anchor, { preservePosition: true });
+  void this.showKanjiCard(card, button.dataset.kanji ?? "", sentence, anchor, { preservePosition: true });
   }
-  dispatchCardPopoverAction(button2, card, sentence, anchor, trigger) {
-  if (this.handleCardPopoverNavigationAction(button2, anchor, trigger)) return;
-  if (this.handleCardPopoverMiningAction(button2)) return;
-  if (this.handleCardPopoverDeckPickerAction(button2, card, sentence)) return;
-  void this.handleCardAction(button2, card, sentence);
+  dispatchCardPopoverAction(button, card, sentence, anchor, trigger) {
+  if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
+  if (this.handleCardPopoverMiningAction(button)) return;
+  if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
+  void this.handleCardAction(button, card, sentence);
   }
-  handleCardPopoverNavigationAction(button2, anchor, trigger) {
-  if (button2.dataset.action !== "word-history-back") return false;
+  handleCardPopoverNavigationAction(button, anchor, trigger) {
+  if (button.dataset.action !== "word-history-back") return false;
   void this.showPreviousWord(anchor, trigger);
   return true;
   }
-  handleCardPopoverMiningAction(button2) {
-  if (button2.dataset.action === "review-target-toggle") {
-    togglePopoverReviewTargetSelection(button2);
+  handleCardPopoverMiningAction(button) {
+  if (button.dataset.action === "review-target-toggle") {
+    togglePopoverReviewTargetSelection(button);
     return true;
   }
-  if (button2.dataset.action !== "mining-collapse") return false;
-  this.toggleMiningControls(button2);
+  if (button.dataset.action !== "mining-collapse") return false;
+  this.toggleMiningControls(button);
   return true;
   }
-  handleCardPopoverDeckPickerAction(button2, card, sentence) {
-  if (button2.dataset.action === "deck-picker") return this.openDeckPickerForAdd(button2, card, sentence);
-  return button2.dataset.action === "add" && this.openDeckPickerForAdd(button2, card, sentence);
+  handleCardPopoverDeckPickerAction(button, card, sentence) {
+  if (button.dataset.action === "deck-picker") return this.openDeckPickerForAdd(button, card, sentence);
+  return button.dataset.action === "add" && this.openDeckPickerForAdd(button, card, sentence);
   }
-  toggleMiningControls(button2) {
-  toggleMiningControls(button2, (expanded) => this.miningControlsToggleLabel(expanded));
+  toggleMiningControls(button) {
+  toggleMiningControls(button, (expanded) => this.miningControlsToggleLabel(expanded));
   }
-  setMiningControlsExpanded(button2, expanded) {
-  setMiningControlsExpanded(button2, expanded, (value) => this.miningControlsToggleLabel(value));
+  setMiningControlsExpanded(button, expanded) {
+  setMiningControlsExpanded(button, expanded, (value) => this.miningControlsToggleLabel(value));
   }
   miningControlsToggleLabel(expanded) {
   return uiText(this.settings.interfaceLanguage, expanded ? "hideMiningActions" : "showMiningActions");
   }
-  openDeckPickerForAdd(button2, card, sentence) {
-  return openDeckPickerForCardAdd(button2, card, sentence, (actionButton, actionCard, actionSentence) => this.handleCardAction(actionButton, actionCard, actionSentence));
+  openDeckPickerForAdd(button, card, sentence) {
+  return openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence) => this.handleCardAction(actionButton, actionCard, actionSentence));
   }
   async showPreviousWord(anchor, trigger = "modal") {
   const previous = this.navigation.popPreviousWord();
@@ -43363,7 +43375,7 @@ class ReaderApp {
         `;
   }
   installKanjiCardActions(popover, card, kanji, sentence, anchor) {
-  installMiningDrawerHandle(popover, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
+  installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
   this.installReaderControlPointerActivation(popover);
   popover.addEventListener("click", (event) => this.handleKanjiCardActionClick(event, card, kanji, sentence, anchor));
   popover.addEventListener("change", (event) => this.handlePopoverReviewTargetChange(event, popover));
@@ -43410,13 +43422,13 @@ class ReaderApp {
     onError: (details, error) => log.warn("Jiten kanji words lookup failed", details, error)
   };
   }
-  async loadMoreJitenKanjiWords(button2) {
+  async loadMoreJitenKanjiWords(button) {
   const context = this.jitenKanjiWordsActionContext();
-  if (context) await loadMoreJitenKanjiWords(button2, context);
+  if (context) await loadMoreJitenKanjiWords(button, context);
   }
-  async filterJitenKanjiWords(button2) {
+  async filterJitenKanjiWords(button) {
   const context = this.jitenKanjiWordsActionContext();
-  if (context) await filterJitenKanjiWords(button2, context);
+  if (context) await filterJitenKanjiWords(button, context);
   }
   startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language, pageTarget) {
   this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);
@@ -43480,7 +43492,7 @@ class ReaderApp {
   return !hasBlockedJpdbReviewState(states) && this.isJpdbBackedCard(card) && Boolean(hasJpdbApiCredential(this.settings)) && isApiMiningEnabled(this.settings);
   }
   updateKanjiMiningControls(popover, controls) {
-  updateKanjiMiningControlsMount(popover, controls, (button2, expanded) => this.setMiningControlsExpanded(button2, expanded));
+  updateKanjiMiningControlsMount(popover, controls, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
   }
   async renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language) {
   let jpdbInfo = null;
@@ -44977,15 +44989,15 @@ class ReaderApp {
   applyPitchClassToRenderedSurface(word, pitchClass) {
   setRenderedWordPitchClass(word, pitchClass);
   }
-  async handleCardAction(button2, card, sentence) {
-  if (button2.disabled) return;
-  button2.disabled = true;
-  const action = button2.dataset.action;
+  async handleCardAction(button, card, sentence) {
+  if (button.disabled) return;
+  button.disabled = true;
+  const action = button.dataset.action;
   const anchor = this.connectedActivePopoverAnchor();
   const trigger = this.activeTextLookupTrigger();
   const done = log.time("cardAction", { action, term: card.spelling, trigger });
   try {
-    const shouldRefresh = await this.cardActions.perform(action, button2, card, sentence, this.cardActionContext(anchor));
+    const shouldRefresh = await this.cardActions.perform(action, button, card, sentence, this.cardActionContext(anchor));
     if (shouldRefresh && action === "grade") {
       this.dismissAfterReview();
       log.info("Card action completed", { action, term: card.spelling });
@@ -44998,7 +45010,7 @@ class ReaderApp {
     this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "actionFailed"));
   } finally {
     done();
-    button2.disabled = false;
+    button.disabled = false;
   }
   }
   dismissAfterReview() {
@@ -45470,7 +45482,7 @@ class ReaderApp {
   this.activePopover?.remove();
   this.activeBackdrop?.remove();
   this.activePopoverResizeObserver?.disconnect();
-  document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element2) => element2.remove());
+  document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-popover, [data-jpdb-reader-root].jpdb-reader-settings, [data-jpdb-reader-root].jpdb-reader-backdrop").forEach((element) => element.remove());
   }
   clearActivePopoverState(options = {}) {
   if (!options.preserveOcrLookupState) this.releaseOcrLookupLine();

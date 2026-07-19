@@ -1,6 +1,14 @@
 import { mutationInsideClosest } from '../dom/mutation';
 import { HAS_JAPANESE } from '../dom/constants';
-import { watchPotentialOpenShadowRootHost } from '../dom/shadow-scan-registry';
+import {
+    noteScannedShadowRoot,
+    watchPotentialOpenShadowRootHost,
+} from '../dom/shadow-scan-registry';
+import {
+    ANNOTATION_SCOPE_SURFACE_ATTRIBUTE,
+    annotationScopeRoots,
+    nodeWithinAnnotationScope,
+} from './annotation-scope';
 
 export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     childList: true,
@@ -12,14 +20,45 @@ export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     // m.youtube bottom sheets) deliver no childList mutation on open. oldValue
     // is required so a style flip can be shape-tested as hidden\u2192shown instead
     // of scheduling on every animation frame's style churn.
-    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled', 'style', 'class'],
+    attributeFilter: ['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled', ANNOTATION_SCOPE_SURFACE_ATTRIBUTE, 'style', 'class'],
     attributeOldValue: true,
 };
 const HIDDEN_INLINE_STYLE_RE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 const MUTATION_TEXT_SCAN_LIMIT = 4000;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
-const MUTATION_ELEMENT_SCAN_LIMIT = 240;
-const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled']);
+// The document MutationObserver cannot see mutations inside a shadow tree, so
+// a host added with an already-populated OPEN shadow root (custom-element
+// upgrade, framework hydration racing the observer callback) looks empty to a
+// light-DOM-only walk. These bound how deep/wide the predicate looks into
+// composed shadow descendants of an added subtree — matching the collection
+// walk's own bounds (src/reader/dom/index.ts SHADOW_SCAN_MAX_DEPTH /
+// SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT) so this stays a bounded probe, not
+// a second unbounded traversal.
+const MUTATION_SHADOW_MAX_DEPTH = 4;
+const MUTATION_SHADOW_ELEMENT_INSPECT_LIMIT = 160;
+
+export interface MutationJapaneseScanBudget {
+    inspectedElements: number;
+    inspectedTextNodes: number;
+    inspectedTextLength: number;
+    elementBudgetExhausted: boolean;
+    textBudgetExhausted: boolean;
+}
+
+// One budget is created per MutationObserver delivery and shared by every
+// record and added sibling in that delivery. Without that shared ownership, a
+// framework can defeat each nominal bound simply by batching many small
+// subtrees into one callback.
+export function createMutationJapaneseScanBudget(): MutationJapaneseScanBudget {
+    return {
+        inspectedElements: 0,
+        inspectedTextNodes: 0,
+        inspectedTextLength: 0,
+        elementBudgetExhausted: false,
+        textBudgetExhausted: false,
+    };
+}
+const TEXT_REVEAL_ATTRIBUTES = new Set(['hidden', 'open', 'aria-hidden', 'aria-expanded', 'contenteditable', 'role', 'aria-controls', 'aria-disabled', ANNOTATION_SCOPE_SURFACE_ATTRIBUTE]);
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
     'summary',
@@ -92,17 +131,63 @@ function dynamicUiClickElements(eventOrTarget: Event | EventTarget | null): Elem
     return path.filter((target): target is Element => target instanceof Element);
 }
 
-export function mutationMayContainJapaneseText(mutation: MutationRecord): boolean {
-    if (mutation.type === 'characterData') return nodeTextMayContainJapanese(mutation.target);
+export function mutationMayContainJapaneseText(
+    mutation: MutationRecord,
+    budget: MutationJapaneseScanBudget = createMutationJapaneseScanBudget(),
+    scopeRoots: readonly HTMLElement[] | null = annotationScopeRoots(),
+): boolean {
+    const targetNodes = mutationNodesWithinAnnotationScope(mutation.target, scopeRoots);
+    if (mutation.type === 'characterData') {
+        return nodesMayContainJapanese(targetNodes, budget);
+    }
     if (mutation.type === 'attributes') {
         const attribute = mutation.attributeName ?? '';
-        if (attribute === 'style' || attribute === 'class') return styleOrClassMutationRevealsJapaneseText(mutation, attribute);
+        if (attribute === 'style' || attribute === 'class') {
+            return styleOrClassMutationRevealsJapaneseText(mutation, attribute, budget, targetNodes);
+        }
         if (!TEXT_REVEAL_ATTRIBUTES.has(attribute)) return false;
-        return nodeTextMayContainJapanese(mutation.target);
+        return nodesMayContainJapanese(targetNodes, budget);
     }
     // Reader-owned additions (the replay path re-appends a mirror outside the
     // scanner's paused-observer window) are our own paint, never new page text.
-    return Array.from(mutation.addedNodes).some(node => !nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node));
+    let mayContainJapanese = false;
+    // Do not short-circuit after the first Japanese node: discovery has the
+    // additional job of registering empty/Latin shadow roots later in the
+    // same mutation so their future hydration is observable.
+    const candidates = new Set(Array.from(mutation.addedNodes)
+        .flatMap(node => mutationNodesWithinAnnotationScope(node, scopeRoots)));
+    for (const node of candidates) {
+        if (!nodeIsReaderOwned(node) && nodeTextMayContainJapanese(node, budget)) mayContainJapanese = true;
+    }
+    return mayContainJapanese;
+}
+
+function nodesMayContainJapanese(
+    nodes: readonly Node[],
+    budget: MutationJapaneseScanBudget,
+): boolean {
+    let found = false;
+    // Discovery must visit every scoped candidate even after Japanese is
+    // proven: a later empty open root still needs observer registration.
+    for (const node of nodes) {
+        if (nodeTextMayContainJapanese(node, budget)) found = true;
+    }
+    return found;
+}
+
+// A scoped page still observes document.body so a Reader Surface added later
+// can be discovered. Restrict each record to nodes already inside a declared
+// surface, or to newly-added surface roots contained by that record. This
+// prevents translated docs chrome from registering shadow observers or
+// waking whole-page scans while preserving ordinary unscoped pages exactly.
+function mutationNodesWithinAnnotationScope(
+    node: Node,
+    scopeRoots: readonly HTMLElement[] | null,
+): Node[] {
+    if (!scopeRoots) return [node];
+    if (nodeWithinAnnotationScope(node, scopeRoots)) return [node];
+    if (!(node instanceof Element || node instanceof DocumentFragment)) return [];
+    return scopeRoots.filter(root => node === root || node.contains(root));
 }
 
 function nodeIsReaderOwned(node: Node): boolean {
@@ -116,9 +201,14 @@ function nodeIsReaderOwned(node: Node): boolean {
 // a candidate only when the value actually changed and the element renders
 // now. Everything else (position/size/color churn, hover classes on hidden
 // trees, hide transitions) schedules nothing.
-function styleOrClassMutationRevealsJapaneseText(mutation: MutationRecord, attribute: 'style' | 'class'): boolean {
+function styleOrClassMutationRevealsJapaneseText(
+    mutation: MutationRecord,
+    attribute: 'style' | 'class',
+    budget: MutationJapaneseScanBudget,
+    candidates: readonly Node[],
+): boolean {
     const element = mutation.target instanceof HTMLElement ? mutation.target : null;
-    if (!element) return false;
+    if (!element || !candidates.length) return false;
     const current = element.getAttribute(attribute) ?? '';
     if ((mutation.oldValue ?? '') === current) return false;
     if (attribute === 'style') {
@@ -126,7 +216,7 @@ function styleOrClassMutationRevealsJapaneseText(mutation: MutationRecord, attri
         if (!wasHidden || HIDDEN_INLINE_STYLE_RE.test(current)) return false;
     }
     if (!elementRendersNow(element)) return false;
-    return nodeTextMayContainJapanese(element);
+    return nodesMayContainJapanese(candidates, budget);
 }
 
 function elementRendersNow(element: HTMLElement): boolean {
@@ -141,52 +231,110 @@ function elementRendersNow(element: HTMLElement): boolean {
     return style.display !== 'none' && style.visibility !== 'hidden';
 }
 
-function nodeTextMayContainJapanese(node: Node): boolean {
-    if (node.nodeType === Node.TEXT_NODE) return HAS_JAPANESE.test(node.textContent ?? '');
+function nodeTextMayContainJapanese(node: Node, budget: MutationJapaneseScanBudget): boolean {
+    if (node.nodeType === Node.TEXT_NODE) return textNodeMayContainJapanese(node, budget);
     const root = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node : mutationNodeElement(node);
-    return root ? nodeTreeTextMayContainJapanese(root) : false;
+    return root ? nodeTreeTextMayContainJapanese(root, budget) : false;
 }
 
-function nodeTreeTextMayContainJapanese(root: Node): boolean {
-    let inspectedLength = 0;
-    let inspectedTextNodes = 0;
-    let inspectedElements = 0;
-    const pendingRoots: Node[] = [root];
-    while (pendingRoots.length) {
-        const branch = pendingRoots.shift()!;
-        enqueueOpenShadowRoot(branch, pendingRoots);
-        const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-        let node: Node | null;
-        while ((node = walker.nextNode())) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                inspectedElements += 1;
-                enqueueOpenShadowRoot(node, pendingRoots);
-            } else {
-                const text = node.textContent ?? '';
-                inspectedTextNodes += 1;
-                inspectedLength += text.length;
-                if (HAS_JAPANESE.test(text)) return true;
-            }
-            if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT
-                || inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT
-                || inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT) return true;
+function nodeTreeTextMayContainJapanese(root: Node, budget: MutationJapaneseScanBudget): boolean {
+    let found = root.nodeType === Node.ELEMENT_NODE
+        && probeComposedElement(root as Element, MUTATION_SHADOW_MAX_DEPTH, budget);
+    if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+    const walker = (root.ownerDocument ?? document).createTreeWalker(
+        root,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    );
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (textNodeMayContainJapanese(node, budget)) found = true;
+        } else if (probeComposedElement(node as Element, MUTATION_SHADOW_MAX_DEPTH, budget)) {
+            found = true;
         }
+        if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
     }
-    // Reaching the sampling budget is not evidence that the remaining subtree
-    // is English-only. Treat an exhausted sample as a potential match so the
-    // caller schedules its normal bounded scan/continuation; otherwise a large
-    // framework insertion can permanently strand Japanese text after the
-    // sampled head.
-    return false;
+    return found;
 }
 
-function enqueueOpenShadowRoot(node: Node, pendingRoots: Node[]): void {
-    if (!(node instanceof HTMLElement)) return;
-    // Newly inserted native hosts can attach a page-realm shadow root later,
-    // just like custom elements. Poll them during the bounded bridge fallback.
-    const shadowRoot = watchPotentialOpenShadowRootHost(node, true);
-    if (!shadowRoot) return;
-    pendingRoots.push(shadowRoot);
+// Registers every open shadow root it looks at (even Latin-only/empty ones)
+// so a later hydration inside it is observable, then reports whether Japanese
+// text was found (or the lookahead budget ran out — reported as "maybe" so
+// the caller schedules its normal deferred scan rather than silently
+// dropping the branch). A closed root (element.shadowRoot === null) is
+// unreachable and not an error.
+function probeComposedShadowRoot(
+    shadowRoot: ShadowRoot | null,
+    remainingDepth: number,
+    budget: MutationJapaneseScanBudget,
+): boolean {
+    if (!shadowRoot) return false;
+    noteScannedShadowRoot(shadowRoot);
+    if (remainingDepth <= 0) {
+        budget.elementBudgetExhausted = true;
+        return true;
+    }
+    if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+    let found = false;
+    const walker = shadowRoot.ownerDocument.createTreeWalker(
+        shadowRoot,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    );
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (textNodeMayContainJapanese(node, budget)) found = true;
+        } else if (probeComposedElement(node as Element, remainingDepth - 1, budget)) {
+            found = true;
+        }
+        if (budget.elementBudgetExhausted || budget.textBudgetExhausted) return true;
+    }
+    return found;
+}
+
+function probeComposedElement(
+    element: Element,
+    remainingDepth: number,
+    budget: MutationJapaneseScanBudget,
+): boolean {
+    if (!consumeProbeElement(budget)) return true;
+    // Keep upstream's generic attachment bridge/poll fallback in the same
+    // bounded element walk as the shared Japanese-text probe. It covers both
+    // native hosts and custom elements, including page-realm attachShadow()
+    // calls and delayed hydration. An already-open root is registered
+    // idempotently here and by probeComposedShadowRoot below.
+    const shadowRoot = element instanceof HTMLElement
+        ? watchPotentialOpenShadowRootHost(element, true)
+        : element.shadowRoot;
+    return probeComposedShadowRoot(shadowRoot, remainingDepth, budget);
+}
+
+function consumeProbeElement(budget: MutationJapaneseScanBudget): boolean {
+    if (budget.inspectedElements >= MUTATION_SHADOW_ELEMENT_INSPECT_LIMIT) {
+        budget.elementBudgetExhausted = true;
+        return false;
+    }
+    budget.inspectedElements += 1;
+    return true;
+}
+
+function textNodeMayContainJapanese(node: Node, budget: MutationJapaneseScanBudget): boolean {
+    if (budget.inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT
+        || budget.inspectedTextLength >= MUTATION_TEXT_SCAN_LIMIT) {
+        budget.textBudgetExhausted = true;
+        return true;
+    }
+    budget.inspectedTextNodes += 1;
+    const text = node.textContent ?? '';
+    const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
+    const sampledText = text.slice(0, remainingLength);
+    budget.inspectedTextLength += sampledText.length;
+    if (HAS_JAPANESE.test(sampledText)) return true;
+    if (sampledText.length < text.length) {
+        budget.textBudgetExhausted = true;
+        return true;
+    }
+    return false;
 }
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {

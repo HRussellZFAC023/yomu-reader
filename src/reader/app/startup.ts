@@ -6,6 +6,7 @@ import { initJpdbReviewPageBridge } from '../jpdb/jpdb-review-bridge';
 import { loggingSettingsSummary } from './logger';
 import { applyUrlBootstrapSettings, loadSettings } from '../settings/index';
 import type { ReaderSettings } from './types';
+import { scanScopeRoots } from './annotation-scope';
 
 export interface ReaderAppInitOptions {
     embeddedFrame?: boolean;
@@ -47,5 +48,5 @@ export function installReaderStartupBridge(): (() => void) | undefined {
 }
 
 export function detectReaderStartupJapaneseText(): boolean {
-    return documentHasJapaneseText();
+    return documentHasJapaneseText(200000, scanScopeRoots());
 }

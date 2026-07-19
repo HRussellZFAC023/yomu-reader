@@ -15495,9 +15495,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const scannedShadowRootRefs = /* @__PURE__ */ new Set();
   const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
-  const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 6e4;
+  const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+  const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+  const MAX_PENDING_UPGRADE_NAMES = 64;
   const potentialShadowHosts = /* @__PURE__ */ new Set();
   let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+  const subscribedUpgradeNames = /* @__PURE__ */ new Set();
   function noteShadowRoot(root, cause) {
     const active = scannedShadowRootState.get(root);
     if (active) return;
@@ -15510,12 +15513,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       noteShadowRoot(root);
       return root;
     }
-    if (!includeNativeHost && !host2.localName.includes("-") || seenPotentialShadowHosts.has(host2)) return null;
-    const now = Date.now();
+    const tagName = host2.localName.toLowerCase();
+    const isCustomElement = tagName.includes("-");
+    if (!includeNativeHost && !isCustomElement) return null;
+    if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
+      subscribeToCustomElementUpgrade(tagName);
+      return null;
+    }
+    if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
     seenPotentialShadowHosts.add(host2);
     potentialShadowHosts.add({
       ref: new WeakRef(host2),
-      expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS
+      remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
     });
     return null;
   }
@@ -15532,6 +15541,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       callback2(root);
     }
+  }
+  function subscribeToCustomElementUpgrade(tagName) {
+    if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+    subscribedUpgradeNames.add(tagName);
+    void customElements.whenDefined(tagName).then(() => {
+      subscribedUpgradeNames.delete(tagName);
+    }, () => {
+      subscribedUpgradeNames.delete(tagName);
+    });
   }
   function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
     return right > rect.left && bottom > rect.top;
@@ -18603,28 +18621,47 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     flushFragmentTextTarget(state);
     state.shadowDepth -= 1;
   }
-  function shadowBranchHasJapanese(root, remainingDepth) {
-    if (HAS_JAPANESE$2.test(root.textContent ?? "")) return true;
+  function shadowBranchHasJapanese(root, remainingDepth, budget = { inspectedElements: 0, exhausted: false }) {
+    let foundJapanese = HAS_JAPANESE$2.test(root.textContent ?? "");
     if (remainingDepth <= 1) {
-      return shadowRootHasNestedShadowRoot(root);
+      const foundNested = shadowRootHasNestedShadowRoot(root, budget);
+      return foundJapanese || foundNested;
     }
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node2 = walker.nextNode()) {
+    let node2 = walker.nextNode();
+    while (node2) {
+      if (!consumeShadowLookaheadElement(budget)) return true;
       const element2 = node2;
-      const nested = element2.shadowRoot;
-      if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
-      if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
-        return true;
+      const nested = watchPotentialOpenShadowRootHost(element2);
+      if (nested) {
+        if (shadowBranchHasJapanese(nested, remainingDepth - 1, budget)) foundJapanese = true;
       }
+      node2 = walker.nextNode();
     }
-    return false;
+    return foundJapanese;
   }
-  function shadowRootHasNestedShadowRoot(root) {
+  function shadowRootHasNestedShadowRoot(root, budget) {
+    let foundNested = false;
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT; inspected += 1, node2 = walker.nextNode()) {
-      if (node2.shadowRoot) return true;
+    let node2 = walker.nextNode();
+    while (node2) {
+      if (!consumeShadowLookaheadElement(budget)) return true;
+      const element2 = node2;
+      const nested = watchPotentialOpenShadowRootHost(element2);
+      if (nested) {
+        foundNested = true;
+      }
+      node2 = walker.nextNode();
     }
-    return false;
+    return foundNested;
+  }
+  function consumeShadowLookaheadElement(budget) {
+    if (budget.inspectedElements >= SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT) {
+      budget.exhausted = true;
+      return false;
+    }
+    budget.inspectedElements += 1;
+    return true;
   }
   const depthCappedShadowHosts = /* @__PURE__ */ new Set();
   const depthCappedShadowHostSeen = /* @__PURE__ */ new WeakSet();
@@ -19477,6 +19514,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       host2.append(mirror);
       registerTextMirrorOwner(mirror, host2);
       state.mirror = new WeakRef(mirror);
+      styleAdditiveMirrorPaint(mirror);
       if (context2.detachedReadings) {
         styleDetachedReadingElements(mirror, host2);
         openSafeDetachedReadingClips(host2);
@@ -19507,15 +19545,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
     if (!detachedRubies.length) return;
     const hostStyle = safeComputedStyle(host2);
-    const nativeColor = hostStyle.color || "currentColor";
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-    const additive = root.classList.contains("jpdb-reader-additive-text-mirror");
-    const pitchDecoration = [
-      "jpdb-reader-word-highlight-pitch",
-      "jpdb-reader-word-underline-pitch",
-      "jpdb-reader-word-text-pitch"
-    ].some((className) => document.documentElement.classList.contains(className));
     for (const wrapper of detachedRubies) {
       wrapper.style.setProperty("position", "relative", "important");
       wrapper.style.setProperty("display", "inline-block", "important");
@@ -19542,26 +19573,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       reading.style.setProperty("text-decoration", "none", "important");
       reading.style.setProperty("user-select", "none");
       reading.style.setProperty("-webkit-user-select", "none");
-      reading.style.setProperty("color", nativeColor, "important");
-      reading.style.setProperty("-webkit-text-fill-color", nativeColor, "important");
+      reading.style.removeProperty("color");
+      reading.style.setProperty("-webkit-text-fill-color", "currentColor", "important");
     }
-    if (!additive) return;
-    for (const element2 of root.querySelectorAll(".jpdb-reader-word, .jpdb-reader-ruby-base")) {
-      element2.style.setProperty("color", "transparent", "important");
-      element2.style.setProperty("-webkit-text-fill-color", "transparent", "important");
-      element2.style.setProperty("text-shadow", "none", "important");
+  }
+  const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
+  function styleAdditiveMirrorPaint(root) {
+    if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
+    root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+    const source2 = activeAdditiveDecorationSource();
+    if (!source2) return;
+    const paint = `var(--jpdb-reader-source-${source2}-decoration, transparent)`;
+    for (const word of root.querySelectorAll(".jpdb-reader-word")) {
+      word.style.setProperty("text-decoration-color", paint, "important");
     }
-    if (!pitchDecoration) return;
-    for (const word of root.querySelectorAll(".jpdb-reader-word[data-pitch-class]")) {
-      const pitchClass = safePitchClass(word.dataset.pitchClass ?? "unknown");
-      if (pitchClass === "unknown") continue;
-      word.style.setProperty("text-decoration-line", "underline", "important");
-      word.style.setProperty("text-decoration-style", "solid", "important");
-      word.style.setProperty("text-decoration-color", `var(--jpdb-reader-pitch-${pitchClass}, ${nativeColor})`, "important");
-      word.style.setProperty("text-decoration-thickness", "max(2px, 0.08em)", "important");
-      word.style.setProperty("text-underline-offset", "0.04em", "important");
-      word.style.setProperty("text-decoration-skip-ink", "none", "important");
+  }
+  function activeAdditiveDecorationSource() {
+    let active = null;
+    for (const source2 of ADDITIVE_DECORATION_SOURCES) {
+      if (["highlight", "underline", "text"].some((channel) => document.documentElement.classList.contains(`jpdb-reader-word-${channel}-${source2}`))) active = source2;
     }
+    return active;
   }
   function stabilizeDetachedReadings(root, clipRow, filterWordsToClip = false) {
     if (filterWordsToClip) filterDetachedWordsToClip(root, clipRow);
@@ -19628,8 +19660,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         if (base.rect.top >= reading.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
         if (base.rect.bottom <= reading.rect.top - DETACHED_READING_CLEARANCE_PX) continue;
         if (ownRuby && base.element.closest(".jpdb-reader-detached-ruby") === ownRuby) continue;
-        if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
-        if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
+        if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
+        if (rectanglesWithinClearance(reading.rect, base.rect) && !opaqueReadingSurfacePaintsAbove(
+          reading.element,
+          reading.rect,
+          base.element,
+          base.rect
+        )) unsafe.add(reading.element);
       }
     }
     for (let index = 0; index < readingRects.length; index += 1) {
@@ -19638,8 +19675,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const other = readingRects[otherIndex];
         if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
         if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-        unsafe.add(current.element);
-        unsafe.add(other.element);
+        if (opaqueReadingSurfacePaintsAbove(
+          current.element,
+          current.rect,
+          other.element,
+          other.rect
+        )) {
+          unsafe.add(other.element);
+        } else if (opaqueReadingSurfacePaintsAbove(
+          other.element,
+          other.rect,
+          current.element,
+          current.rect
+        )) {
+          unsafe.add(current.element);
+        } else {
+          unsafe.add(current.element);
+          unsafe.add(other.element);
+        }
       }
     }
     const measured = new Set(readingRects.map(({ element: element2 }) => element2));
@@ -19666,29 +19719,150 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const hits = uniqueElements(hitRoots.flatMap((hitRoot) => {
       const elementsFromPoint = hitRoot.elementsFromPoint;
       if (typeof elementsFromPoint !== "function") return [];
-      return rows.flatMap((y) => points.flatMap((x2) => elementsFromPoint.call(hitRoot, x2, y).filter((element2) => element2 instanceof HTMLElement)));
+      return rows.flatMap((y) => points.flatMap((x2) => {
+        let pointHits = elementsFromPoint.call(hitRoot, x2, y).filter((element2) => element2 instanceof HTMLElement);
+        const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x2, y);
+        const occlusionBoundary = opaqueBackdrop ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot) : null;
+        if (occlusionBoundary) {
+          const boundaryIndex = pointHits.indexOf(occlusionBoundary);
+          if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
+        }
+        return pointHits;
+      }));
     }));
     for (const hit of hits) {
       if (sourceHost && sourceHost.contains(hit) && !ownMirror?.contains(hit)) continue;
       const hitWord = hit.closest(".jpdb-reader-word");
       if (ownWord && hitWord === ownWord) continue;
       const hitBase = hitWord?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
-      if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
+      const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
+      if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
       if (hitWord && hitWord !== ownWord && !hitWord.contains(reading) && rectanglesWithinClearance(rect, hitWord.getBoundingClientRect())) return true;
       for (const node2 of hit.childNodes) {
         if (node2.nodeType !== Node.TEXT_NODE || !node2.textContent?.trim()) continue;
         const range2 = document.createRange();
         range2.selectNodeContents(node2);
-        if (Array.from(range2.getClientRects()).some((textRect) => rectanglesWithinClearance(rect, textRect))) return true;
+        if (Array.from(range2.getClientRects()).some((textRect) => {
+          if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
+          return rectanglesWithinClearance(rect, textRect);
+        })) return true;
       }
     }
     return false;
   }
+  function opaqueReadingSurfacePaintsAbove(reading, readingRect, obstacle, obstacleRect) {
+    const point = collisionProbePoint(readingRect, obstacleRect);
+    if (!point) return false;
+    const backdrop = opaqueComposedBackdropAtPoint(reading, point.x, point.y);
+    if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
+    for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
+      const elementsFromPoint = hitRoot.elementsFromPoint;
+      if (typeof elementsFromPoint !== "function") continue;
+      const hits = elementsFromPoint.call(hitRoot, point.x, point.y).filter((element2) => element2 instanceof HTMLElement);
+      const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
+      const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
+      if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
+      const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
+      const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
+      if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
+      if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
+      const backdropIndex = hits.indexOf(backdropHit);
+      const obstacleIndex = hits.indexOf(obstacleHit);
+      if (backdropIndex < 0 || obstacleIndex < 0) continue;
+      return backdropIndex < obstacleIndex;
+    }
+    return false;
+  }
+  function collisionProbePoint(readingRect, obstacleRect) {
+    const left = Math.max(readingRect.left, obstacleRect.left);
+    const right = Math.min(readingRect.right, obstacleRect.right);
+    if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return null;
+    const overlapTop = Math.max(readingRect.top, obstacleRect.top);
+    const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
+    let y;
+    if (overlapBottom > overlapTop) {
+      y = (overlapTop + overlapBottom) / 2;
+    } else {
+      const inset = Math.min(0.5, obstacleRect.height / 2);
+      y = readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset;
+    }
+    return { x: (left + right) / 2, y };
+  }
+  function commonComposedHitRoots(left, right) {
+    const rightRoots = new Set(composedHitRootChain(right));
+    const roots = composedHitRootChain(left).filter((root) => rightRoots.has(root));
+    if (!roots.includes(document)) roots.push(document);
+    return roots;
+  }
+  function composedHitRootChain(element2) {
+    const roots = [];
+    let current = element2;
+    while (true) {
+      const root = current.getRootNode();
+      if (root instanceof ShadowRoot) {
+        roots.push(root);
+        current = root.host;
+        continue;
+      }
+      roots.push(document);
+      return roots;
+    }
+  }
+  function nearestHitStackRepresentative(boundary, hitRoot, hits) {
+    let current = boundary;
+    while (current && current.getRootNode() === hitRoot) {
+      if (hits.includes(current)) return current;
+      if (current === document.body || current === document.documentElement) return null;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function opaqueComposedBackdropAtPoint(reading, x2, y) {
+    for (let current = reading; current; current = composedAncestorElement(current)) {
+      const rect = current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedOpacityToDocumentIsOpaque(current)) return current;
+    }
+    return null;
+  }
+  function occlusionBoundaryInHitRoot(backdrop, hitRoot) {
+    let boundary = backdrop;
+    while (boundary.getRootNode() !== hitRoot) {
+      const boundaryRoot = boundary.getRootNode();
+      if (!(boundaryRoot instanceof ShadowRoot)) return null;
+      boundary = boundaryRoot.host;
+    }
+    return boundary;
+  }
+  function composedOpacityToDocumentIsOpaque(element2) {
+    for (let current = element2; current; current = composedAncestorElement(current)) {
+      const opacity = Number.parseFloat(safeComputedStyle(current).opacity || "1");
+      if (Number.isFinite(opacity) && opacity < 0.999) return false;
+    }
+    return true;
+  }
+  function cssBackgroundIsOpaque(value) {
+    const color = value.trim().toLowerCase();
+    if (!color || color === "transparent") return false;
+    const slashAlpha = color.match(/\/\s*(none|[\d.]+%?)\s*\)$/)?.[1];
+    const commaAlpha = color.startsWith("rgba(") ? color.match(/,\s*([\d.]+%?)\s*\)$/)?.[1] : void 0;
+    const alphaText = slashAlpha ?? commaAlpha;
+    if (!alphaText) return true;
+    if (alphaText === "none") return false;
+    const alpha = Number.parseFloat(alphaText) / (alphaText.endsWith("%") ? 100 : 1);
+    return Number.isFinite(alpha) && alpha >= 0.999;
+  }
   function rectanglesWithinClearance(left, right) {
     return Math.min(left.right, right.right) - Math.max(left.left, right.left) > DETACHED_READING_COLLISION_SLOP && right.top < left.bottom + DETACHED_READING_CLEARANCE_PX && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
   }
-  function verticalRunsOverlap(left, right) {
-    return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+  function rectsShareAuthoredLine(left, right) {
+    const leftHeight = Math.max(0, left.bottom - left.top);
+    const rightHeight = Math.max(0, right.bottom - right.top);
+    const shorterHeight = Math.min(leftHeight, rightHeight);
+    if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
+    const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
+    if (overlap < shorterHeight * 0.5) return false;
+    const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
+    return centreDistance <= Math.max(2, shorterHeight * 0.4);
   }
   function detachedReadingIsClipped(reading, rect) {
     let ancestor = composedAncestorElement(reading);
@@ -19728,15 +19902,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
   const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
     "details",
+    "[aria-expanded]",
     '[id*="expand" i]',
     '[id*="collaps" i]',
     '[class*="expand" i]',
     '[class*="collaps" i]'
   ].join(",");
-  const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
+  const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
+  const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
   const detachedReadingClipStyles = /* @__PURE__ */ new WeakMap();
-  function ownsExpandableContentClip(element2) {
-    if (element2.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
+  function isExpandableContentClip(element2) {
+    if (element2.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
+    if (element2.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
     return element2.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR) || /(?:expand|collaps)/i.test(element2.localName);
   }
   function openSafeDetachedReadingClips(element2) {
@@ -19744,7 +19921,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let current = element2;
     for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
       if (!queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) continue;
-      if (ownsExpandableContentClip(current)) {
+      if (isExpandableContentClip(current)) {
         restoreDetachedReadingClip(current);
         continue;
       }
@@ -20253,9 +20430,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function styleTextMirror(mirror, host2, hasRuby = false) {
     const style = safeComputedStyle(host2);
-    if (mirror.classList.contains("jpdb-reader-additive-text-mirror") && style.color) {
-      mirror.style.setProperty("--jpdb-reader-native-text-color", style.color);
-    }
     mirror.style.setProperty("position", "absolute");
     mirror.style.setProperty("inset", "0 0 auto 0");
     mirror.style.setProperty("box-sizing", "border-box");
@@ -20381,6 +20555,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!mirror || mirror.style.getPropertyValue("visibility") !== "hidden") return;
     if (pageConcealsTextMirrorHostMemoized(host2)) return;
     syncTextMirrorVisibilityToPage(host2, mirror);
+  }
+  function healLateClipConstrainedStamp(host2) {
+    const mirror = currentTextMirror(host2);
+    if (!mirror || mirror.dataset.yomuDetachedReadings !== "true") return;
+    restoreOwnedDetachedReadingClips(host2);
+    const clipRow = closestRubyFragileConstrainedRow(host2);
+    if (clipRow && !clipRow.dataset.yomuClipConstrained) {
+      const decoration = host2.closest("[data-yomu-decoration]")?.getAttribute("data-yomu-decoration");
+      clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? void 0, clipRow) ? "content" : "true";
+    }
+    openSafeDetachedReadingClips(host2);
+    filterDetachedWordsToClip(mirror, clipRow);
+    pendingDetachedReadingSurfaces.add(detachedReadingCollisionSurface(mirror));
   }
   function dispatchTextMirrorStale(host2) {
     host2.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -20536,6 +20723,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (current && current !== injectedValue) return;
     if (value) host2.style.setProperty(property, value, priority);
     else host2.style.removeProperty(property);
+  }
+  function registeredTextMirrorHostFor(mirror) {
+    const owner = textMirrorOwners.get(mirror);
+    if (owner && textMirrorHosts.has(owner)) return owner;
+    let ancestor = mirror.parentElement;
+    while (ancestor) {
+      if (textMirrorHosts.has(ancestor)) return ancestor;
+      ancestor = ancestor.parentElement;
+    }
+    return null;
   }
   function queryAllInAnnotationRoots(root, selector) {
     const matches = /* @__PURE__ */ new Set();
@@ -21125,13 +21322,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderToken(surface, token, settings, options = {}) {
     const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
     span.dataset.surface = surface;
+    if (options.detachedReadings) span.classList.add("jpdb-reader-detached-reading-word");
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
     const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
     const hasRuby = shouldRenderRuby(surface, token, settings, allowRuby, options.preserveTokenRubies);
     if (hasRuby) {
       span.classList.add("jpdb-reader-has-furi");
       if (options.detachedReadings) {
-        span.classList.add("jpdb-reader-detached-reading-word");
         setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
       } else {
         setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
@@ -21311,6 +21508,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
+  }
+  function replaceRenderedWordFurigana(word, surface, token) {
+    const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
+    const detached = Boolean(mirror) || word.classList.contains("jpdb-reader-detached-reading-word");
+    const html = detached ? renderDetachedReadings(surface, token) : renderRuby(surface, token);
+    if (detached ? !html.includes("jpdb-reader-detached-furi") : !html.includes("<rt")) return false;
+    setInnerHtml(word, html);
+    word.classList.add("jpdb-reader-has-furi");
+    if (!detached) return true;
+    word.classList.add("jpdb-reader-detached-reading-word");
+    const renderSurface = mirror ?? word.parentElement ?? word;
+    const host2 = mirror ? registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word : word.parentElement ?? word;
+    const clipRow = closestRubyFragileConstrainedRow(host2);
+    if (mirror) {
+      mirror.dataset.yomuDetachedReadings = "true";
+      styleConstrainedTextMirror(mirror, clipRow, true);
+    }
+    styleDetachedReadingElements(renderSurface, host2);
+    if (mirror) healLateClipConstrainedStamp(host2);
+    openSafeDetachedReadingClips(renderSurface);
+    stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
+    return true;
+  }
+  function clearRenderedWordFurigana(word, surface) {
+    word.textContent = surface;
+    word.classList.remove("jpdb-reader-has-furi");
+    const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
+    if (!mirror) {
+      closeOrphanedDetachedReadingClips(word.parentElement ?? word);
+      return;
+    }
+    const host2 = registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word;
+    const clipRow = closestRubyFragileConstrainedRow(host2);
+    if (mirror.querySelector(".jpdb-reader-detached-furi")) {
+      stabilizeDetachedReadings(mirror, clipRow, true);
+      return;
+    }
+    delete mirror.dataset.yomuDetachedReadings;
+    closeOrphanedDetachedReadingClips(host2);
+    styleConstrainedTextMirror(mirror, clipRow, false);
   }
   function inferredInflectedSurfaceRubies(surface, spelling, reading) {
     const visibleSurface = surface.trim();
@@ -271424,17 +271661,13 @@ ${component.reading}`;
       sentence: word.dataset.sentence
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-    const html = renderRuby(surface, token);
-    if (!html.includes("<rt")) return;
-    setInnerHtml(word, html);
+    if (!replaceRenderedWordFurigana(word, surface, token)) return;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
-    word.classList.add("jpdb-reader-has-furi");
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
   }
   function clearPublicVocabularyFurigana(word, surface, ocrLine) {
     if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
-    word.textContent = surface;
-    word.classList.remove("jpdb-reader-has-furi");
+    clearRenderedWordFurigana(word, surface);
     if (!ocrLine) return;
     yomuNormalizeOcrRenderedText()?.(word);
     if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;

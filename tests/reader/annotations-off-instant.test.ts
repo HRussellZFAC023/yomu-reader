@@ -24,6 +24,7 @@ function token(): JPDBToken {
 
 interface AppInternals {
     settings: ReaderSettings;
+    parser: { canParse: () => boolean };
     ocr: { refreshForModeChange: () => void };
     subtitles: { refresh: () => void };
     getSettingsDialog(): { } | undefined;
@@ -32,6 +33,7 @@ interface AppInternals {
     pageScanner: { cancelVisiblePageScan: () => void };
     autoScanTimer?: number;
     toast: (message: string) => void;
+    shouldScanInitialPage: (shadowDiscoveryUncertain?: boolean) => boolean;
 }
 
 interface DialogInternals {
@@ -67,6 +69,24 @@ afterEach(() => {
 // instant path: clearAllAnnotations (words, mirrors, ruby-room growth) on
 // pause, rescan on resume — without any page refresh.
 describe('annotations-off via the settings dialog is instant (class G)', () => {
+    it('keeps an exhausted startup shadow probe behind pause, manual, and parser gates', () => {
+        const app = new ReaderApp() as unknown as AppInternals;
+        app.parser = { canParse: () => true };
+
+        app.settings = { ...DEFAULT_SETTINGS, annotationsPaused: true, manualScanEnabled: false };
+        expect(app.shouldScanInitialPage(true)).toBe(false);
+
+        app.settings = { ...DEFAULT_SETTINGS, annotationsPaused: false, manualScanEnabled: true };
+        expect(app.shouldScanInitialPage(true)).toBe(false);
+
+        app.settings = { ...DEFAULT_SETTINGS, annotationsPaused: false, manualScanEnabled: false };
+        app.parser = { canParse: () => false };
+        expect(app.shouldScanInitialPage(true)).toBe(false);
+
+        app.parser = { canParse: () => true };
+        expect(app.shouldScanInitialPage(true)).toBe(true);
+    });
+
     it('strips every yomu artifact when the dialog writes annotationsPaused=true, and rescans on resume', () => {
         const app = new ReaderApp() as unknown as AppInternals;
         app.settings = { ...DEFAULT_SETTINGS };

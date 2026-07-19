@@ -462,49 +462,126 @@ export function collectVisibleTextTargets(limit = 40): TextTarget[] {
     return collectTextTargetsIn(document.body, limit, true);
 }
 
-export function documentHasJapaneseText(limit = 200000): boolean {
-    if (!document.body) return false;
-    const hasLightDomJapanese = textWalkerHasJapanese(visibleTextWalker(document.body), limit);
-    // The normal page scan will discover/register component roots. Returning
-    // immediately avoids a second synchronous whole-document element walk on
-    // the overwhelmingly common light-DOM-positive path (especially costly on
-    // component-heavy iPad pages).
-    if (hasLightDomJapanese) return true;
+export interface DocumentJapaneseTextProbe {
+    hasJapanese: boolean;
+    shadowDiscoveryExhausted: boolean;
+}
 
-    // document TreeWalkers do not enter shadow DOM. Without this bounded host
-    // pass, a page whose Japanese exists only inside web components never
-    // starts the first scan that would discover those components. Stop at the
-    // first positive branch; mutation discovery registers dynamic/loading roots.
-    const roots: Node[] = [document.body];
-    let inspected = 0;
-    while (roots.length && inspected < limit) {
-        const root = roots.shift()!;
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-        for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
-            const element = node as HTMLElement;
-            const shadowRoot = watchPotentialOpenShadowRootHost(element);
-            if (!shadowRoot) continue;
-            roots.push(shadowRoot);
-            if (shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH)) return true;
+export function documentHasJapaneseText(
+    limit = 200000,
+    roots: readonly ParentNode[] = document.body ? [document.body] : [],
+): boolean {
+    return documentJapaneseTextProbe(limit, roots).hasJapanese;
+}
+
+export function documentJapaneseTextProbe(
+    limit = 200000,
+    roots: readonly ParentNode[] = document.body ? [document.body] : [],
+): DocumentJapaneseTextProbe {
+    if (!roots.length) return { hasJapanese: false, shadowDiscoveryExhausted: false };
+    // Preserve the common light-DOM fast path. A positive result starts the
+    // normal page scan, which performs the full composed-root registration;
+    // avoiding a second synchronous element walk matters on component-heavy
+    // iPad pages.
+    const lightTextBudget: ShadowTextLookaheadBudget = { inspectedCharacters: 0, limit };
+    for (const root of roots) {
+        if (textWalkerHasJapaneseWithinBudget(visibleTextWalker(root as Node), lightTextBudget)) {
+            return { hasJapanese: true, shadowDiscoveryExhausted: false };
         }
     }
-    return false;
+    // document-start pages can contain all visible Japanese behind open
+    // component boundaries. After the cheap light-DOM-negative verdict,
+    // discover those roots so startup does not depend on a later scroll/click
+    // mutation. One shared
+    // lookahead budget keeps component-heavy mobile pages bounded; exhaustion
+    // conservatively means "maybe", which merely enables the normal scan.
+    const shadowBudget: ShadowLookaheadBudget = {
+        inspectedElements: 0,
+        exhausted: false,
+    };
+    const shadowTextBudget: ShadowTextLookaheadBudget = { inspectedCharacters: 0, limit };
+    let foundShadowJapanese = false;
+    let inspectedLightElements = 0;
+    for (const root of roots) {
+        const rootNode = root as Node;
+        const elements = document.createTreeWalker(rootNode, NodeFilter.SHOW_ELEMENT);
+        // A declared Reader Surface may itself be the custom-element host.
+        // TreeWalker.nextNode() visits descendants only, so include that root
+        // explicitly before walking its light subtree.
+        let node: Node | null = rootNode instanceof HTMLElement ? rootNode : elements.nextNode();
+        while (node) {
+            // Walking the light tree is bounded independently from the
+            // expensive composed-tree lookahead. Ordinary div/span markup
+            // must not spend the nested-shadow budget before a real host.
+            if (inspectedLightElements >= STARTUP_LIGHT_DOM_DISCOVERY_ELEMENT_LIMIT) {
+                shadowBudget.exhausted = true;
+                break;
+            }
+            inspectedLightElements += 1;
+            const element = node as HTMLElement;
+            if (element.shadowRoot || isCustomElementHost(element)) {
+                if (!consumeShadowLookaheadElement(shadowBudget)) break;
+                // One lifecycle API covers already-open roots, undefined
+                // custom-element upgrades, and defined hosts that attach an
+                // open root later. It also registers the root before any
+                // Japanese-content gate below.
+                const shadowRoot = watchPotentialOpenShadowRootHost(element);
+                if (shadowRoot) {
+                    if (startupShadowBranchHasVisibleJapanese(
+                        shadowRoot,
+                        SHADOW_SCAN_MAX_DEPTH,
+                        shadowBudget,
+                        shadowTextBudget,
+                    )) foundShadowJapanese = true;
+                }
+            }
+            if (shadowBudget.exhausted) break;
+            node = elements.nextNode();
+        }
+        if (shadowBudget.exhausted) break;
+    }
+    return {
+        hasJapanese: foundShadowJapanese,
+        shadowDiscoveryExhausted: shadowBudget.exhausted,
+    };
 }
 
-function visibleTextWalker(root: HTMLElement): TreeWalker {
-    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: visibleTextNodeFilter });
+function visibleTextWalker(root: Node): TreeWalker {
+    const visibilityCache = new WeakMap<HTMLElement, boolean>();
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => visibleTextNodeFilter(node, visibilityCache),
+    });
 }
 
-function visibleTextNodeFilter(node: Node): number {
-    return canInspectTextNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+function visibleTextNodeFilter(node: Node, visibilityCache: WeakMap<HTMLElement, boolean>): number {
+    return canInspectTextNode(node, visibilityCache) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
 }
 
-function canInspectTextNode(node: Node): boolean {
+function canInspectTextNode(node: Node, visibilityCache: WeakMap<HTMLElement, boolean>): boolean {
     const parent = node.parentElement;
     if (!parent || parent.closest(READER_ROOT_SELECTOR)) return false;
+    if (!hasVisibleComposedTextAncestors(parent, visibilityCache)) return false;
     const blocked = parent.closest(SKIP_SELECTOR);
     if (!blocked) return true;
     return isAnnotatableChipControl(blocked);
+}
+
+// Startup visibility is a paint fact, not a textContent fact. In particular,
+// Japanese inside a collapsed/hidden panel must not turn a Latin loading shell
+// into a positive startup verdict. Walk through the composed ancestry so a
+// hidden custom-element host also hides text in its open shadow root.
+function hasVisibleComposedTextAncestors(
+    element: HTMLElement,
+    cache: WeakMap<HTMLElement, boolean>,
+): boolean {
+    const cached = cache.get(element);
+    if (cached !== undefined) return cached;
+    const parent = composedParentElement(element);
+    const visible = !element.hidden
+        && isVisibleStyle(safeComputedStyle(element))
+        && (!parent || hasVisibleComposedTextAncestors(parent, cache));
+    cache.set(element, visible);
+    return visible;
 }
 
 // UT-76/79: interactive controls are excluded from collection by default
@@ -527,24 +604,8 @@ function isComposerActionControl(control: Element): boolean {
     return !!control.parentElement?.closest('[class*=composer i],[id*=composer i]')?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
 }
 
-function textWalkerHasJapanese(walker: TreeWalker, limit: number): boolean {
-    let inspected = 0;
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-        const text = nodeTextContent(node);
-        if (HAS_JAPANESE.test(text)) return true;
-        inspected = inspectedTextLength(inspected, text);
-        if (inspected >= limit) return false;
-    }
-    return false;
-}
-
 function nodeTextContent(node: Node): string {
     return node.textContent ?? '';
-}
-
-function inspectedTextLength(inspected: number, text: string): number {
-    return inspected + text.length;
 }
 
 export function collectTextTargetsIn(root: Node, limit = 40, visibleOnly = true, options: TextTargetCollectionOptions = {}): TextTarget[] {
@@ -978,16 +1039,29 @@ function visitFragmentElement(
 // traversal finite on arbitrary component trees.
 const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
+// The light tree can be much larger than the number of actual component
+// boundaries. Keep discovery finite without letting ordinary div/span markup
+// consume the much tighter nested-shadow lookahead budget.
+const STARTUP_LIGHT_DOM_DISCOVERY_ELEMENT_LIMIT = 4096;
+interface ShadowLookaheadBudget {
+    inspectedElements: number;
+    exhausted: boolean;
+}
+interface ShadowTextLookaheadBudget {
+    inspectedCharacters: number;
+    limit: number;
+}
 
 function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
     const shadowRoot = watchPotentialOpenShadowRootHost(element);
     // element.shadowRoot is null for a closed root (mode:'closed') — silently
     // skip, it is unreachable and not an error.
     if (!shadowRoot) return;
-    // Observe every open root we encounter, even while it is empty or still
-    // showing Latin loading chrome. MutationObservers on document.body cannot
-    // cross this boundary; delaying registration until Japanese was already
-    // present made later Lit/Reddit hydration permanently invisible.
+    // Register BEFORE the Japanese gate below: an empty or Latin-only open
+    // root today may hydrate Japanese later (framework lazy-render/hydration),
+    // and a subtree MutationObserver can only see that hydration if this root
+    // already has an observer attached. Registering only roots we commit to
+    // walking left every empty/Latin host permanently unobservable.
     if (state.shadowDepth >= SHADOW_SCAN_MAX_DEPTH) {
         // Depth-capped: never silently drop the branch. The host is queued for
         // a deferred continuation walk that re-roots HERE (its own walk starts
@@ -1027,43 +1101,126 @@ function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollec
     state.shadowDepth -= 1;
 }
 
-function shadowBranchHasJapanese(root: ShadowRoot, remainingDepth: number): boolean {
-    if (HAS_JAPANESE.test(root.textContent ?? '')) return true;
+function shadowBranchHasJapanese(
+    root: ShadowRoot,
+    remainingDepth: number,
+    budget: ShadowLookaheadBudget = { inspectedElements: 0, exhausted: false },
+): boolean {
+    let foundJapanese = HAS_JAPANESE.test(root.textContent ?? '');
     if (remainingDepth <= 1) {
         // No shallow Japanese and no depth budget left to look inside nested
         // roots. If a nested root EXISTS, descend anyway ("maybe"): the walk
         // will hit the depth cap at that nested host and queue it for the
         // deferred continuation instead of dropping the branch.
-        return shadowRootHasNestedShadowRoot(root);
+        const foundNested = shadowRootHasNestedShadowRoot(root, budget);
+        return foundJapanese || foundNested;
     }
     // TreeWalker enforces the element budget while traversing. querySelectorAll
     // would first allocate every descendant in a large component root and only
     // then let us stop at 160, defeating the mobile performance bound.
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node = walker.nextNode();
-        node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT;
-        inspected += 1, node = walker.nextNode()) {
+    let node = walker.nextNode();
+    while (node) {
+        if (!consumeShadowLookaheadElement(budget)) return true;
         const element = node as HTMLElement;
-        const nested = element.shadowRoot;
-        if (nested && shadowBranchHasJapanese(nested, remainingDepth - 1)) return true;
-        if (inspected === SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT - 1 && walker.nextNode()) {
-            // Budget exhausted before a verdict: "unknown, budget spent" must
-            // read as "maybe has Japanese" (descend; the walk has its own
-            // global caps), never as "no Japanese, drop the branch".
-            return true;
+        const nested = watchPotentialOpenShadowRootHost(element);
+        if (nested) {
+            // Register even when this lookahead ultimately finds no Japanese:
+            // the nested root may hydrate Japanese later, and it would
+            // otherwise never surface to the registry (only Latin-only
+            // top-level roots get the top-of-function registration).
+            if (shadowBranchHasJapanese(nested, remainingDepth - 1, budget)) foundJapanese = true;
         }
+        node = walker.nextNode();
+    }
+    return foundJapanese;
+}
+
+// Startup needs a stricter verdict than the collection fast path above. The
+// latter may use raw textContent as a cheap reason to enter a branch because
+// the full collector subsequently applies visibility policy. Startup has no
+// such second stage, so only visibly painted text can set hasJapanese=true.
+// Discovery and text inspection have separate bounds: we continue registering
+// empty/Latin roots even after the text budget is spent, while any unvisited
+// component branch is reported as conservative discovery uncertainty.
+function startupShadowBranchHasVisibleJapanese(
+    root: ShadowRoot,
+    remainingDepth: number,
+    elementBudget: ShadowLookaheadBudget,
+    textBudget: ShadowTextLookaheadBudget,
+): boolean {
+    let foundJapanese = textWalkerHasJapaneseWithinBudget(visibleTextWalker(root), textBudget);
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    let node = walker.nextNode();
+    while (node) {
+        if (!consumeShadowLookaheadElement(elementBudget)) return foundJapanese;
+        const element = node as HTMLElement;
+        const nested = watchPotentialOpenShadowRootHost(element);
+        if (nested) {
+            if (remainingDepth <= 1) {
+                // A deeper root exists but this bounded startup slice cannot
+                // inspect it. Preserve hasJapanese=false while exposing the
+                // uncertainty separately to the caller.
+                elementBudget.exhausted = true;
+            } else if (startupShadowBranchHasVisibleJapanese(
+                nested,
+                remainingDepth - 1,
+                elementBudget,
+                textBudget,
+            )) {
+                foundJapanese = true;
+            }
+        }
+        if (elementBudget.exhausted) return foundJapanese;
+        node = walker.nextNode();
+    }
+    return foundJapanese;
+}
+
+function textWalkerHasJapaneseWithinBudget(walker: TreeWalker, budget: ShadowTextLookaheadBudget): boolean {
+    if (budget.inspectedCharacters >= budget.limit) return false;
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        const text = nodeTextContent(node);
+        const remaining = budget.limit - budget.inspectedCharacters;
+        const sampled = text.slice(0, remaining);
+        budget.inspectedCharacters += sampled.length;
+        if (HAS_JAPANESE.test(sampled)) return true;
+        if (budget.inspectedCharacters >= budget.limit) return false;
     }
     return false;
 }
 
-function shadowRootHasNestedShadowRoot(root: ShadowRoot): boolean {
+function shadowRootHasNestedShadowRoot(
+    root: ShadowRoot,
+    budget: ShadowLookaheadBudget,
+): boolean {
+    let foundNested = false;
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    for (let inspected = 0, node = walker.nextNode();
-        node && inspected < SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT;
-        inspected += 1, node = walker.nextNode()) {
-        if ((node as HTMLElement).shadowRoot) return true;
+    let node = walker.nextNode();
+    while (node) {
+        if (!consumeShadowLookaheadElement(budget)) return true;
+        const element = node as HTMLElement;
+        const nested = watchPotentialOpenShadowRootHost(element);
+        if (nested) {
+            foundNested = true;
+        }
+        node = walker.nextNode();
     }
-    return false;
+    return foundNested;
+}
+
+function consumeShadowLookaheadElement(budget: ShadowLookaheadBudget): boolean {
+    if (budget.inspectedElements >= SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT) {
+        budget.exhausted = true;
+        return false;
+    }
+    budget.inspectedElements += 1;
+    return true;
+}
+
+function isCustomElementHost(element: HTMLElement): boolean {
+    return element.tagName.includes('-');
 }
 
 // Hosts whose open shadow root the walk could not enter because the depth cap
@@ -2400,6 +2557,10 @@ function mountNonDestructiveTextMirror(
         host.append(mirror);
         registerTextMirrorOwner(mirror, host);
         state.mirror = new WeakRef(mirror);
+        // Additive source/annotation paint is required even when the token has
+        // no reading overlay (kana whose reading equals its surface is the
+        // common case). Keep it independent from detached-reading geometry.
+        styleAdditiveMirrorPaint(mirror);
         if (context.detachedReadings) {
             styleDetachedReadingElements(mirror, host);
             openSafeDetachedReadingClips(host);
@@ -2516,15 +2677,8 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
     if (!detachedRubies.length) return;
 
     const hostStyle = safeComputedStyle(host);
-    const nativeColor = hostStyle.color || 'currentColor';
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
-    const additive = root.classList.contains('jpdb-reader-additive-text-mirror');
-    const pitchDecoration = [
-        'jpdb-reader-word-highlight-pitch',
-        'jpdb-reader-word-underline-pitch',
-        'jpdb-reader-word-text-pitch',
-    ].some(className => document.documentElement.classList.contains(className));
 
     for (const wrapper of detachedRubies) {
         wrapper.style.setProperty('position', 'relative', 'important');
@@ -2560,27 +2714,43 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         reading.style.setProperty('text-decoration', 'none', 'important');
         reading.style.setProperty('user-select', 'none');
         reading.style.setProperty('-webkit-user-select', 'none');
-        reading.style.setProperty('color', nativeColor, 'important');
-        reading.style.setProperty('-webkit-text-fill-color', nativeColor, 'important');
+        // Keep the semantic colour channel inherited from the live page. The
+        // additive base glyphs are hidden with text-fill (not color), so a
+        // late theme/class change flows through without a JS repaint or a
+        // stale mount-time colour snapshot.
+        reading.style.removeProperty('color');
+        reading.style.setProperty('-webkit-text-fill-color', 'currentColor', 'important');
     }
+}
 
-    if (!additive) return;
-    for (const element of root.querySelectorAll<HTMLElement>('.jpdb-reader-word, .jpdb-reader-ruby-base')) {
-        element.style.setProperty('color', 'transparent', 'important');
-        element.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
-        element.style.setProperty('text-shadow', 'none', 'important');
+type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
+const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'anki', 'pitch'];
+
+// A document-root mode selector cannot cross into an open shadow root. The
+// shadow stylesheet supplies the word/state variables, while this small inline
+// contract supplies the active channel and native underline paint. Source
+// order deliberately matches the stylesheet cascade (pitch is last).
+function styleAdditiveMirrorPaint(root: HTMLElement): void {
+    if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
+    root.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
+    const source = activeAdditiveDecorationSource();
+    if (!source) return;
+    // The injected shadow stylesheet owns glyph suppression and word
+    // decoration geometry. Only the document-level active channel cannot
+    // cross the shadow boundary, so bridge that one inherited variable.
+    const paint = `var(--jpdb-reader-source-${source}-decoration, transparent)`;
+    for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+        word.style.setProperty('text-decoration-color', paint, 'important');
     }
-    if (!pitchDecoration) return;
-    for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-pitch-class]')) {
-        const pitchClass = safePitchClass(word.dataset.pitchClass ?? 'unknown');
-        if (pitchClass === 'unknown') continue;
-        word.style.setProperty('text-decoration-line', 'underline', 'important');
-        word.style.setProperty('text-decoration-style', 'solid', 'important');
-        word.style.setProperty('text-decoration-color', `var(--jpdb-reader-pitch-${pitchClass}, ${nativeColor})`, 'important');
-        word.style.setProperty('text-decoration-thickness', 'max(2px, 0.08em)', 'important');
-        word.style.setProperty('text-underline-offset', '0.04em', 'important');
-        word.style.setProperty('text-decoration-skip-ink', 'none', 'important');
+}
+
+function activeAdditiveDecorationSource(): AdditiveDecorationSource | null {
+    let active: AdditiveDecorationSource | null = null;
+    for (const source of ADDITIVE_DECORATION_SOURCES) {
+        if (['highlight', 'underline', 'text'].some(channel => document.documentElement.classList
+            .contains(`jpdb-reader-word-${channel}-${source}`))) active = source;
     }
+    return active;
 }
 
 // Detached readings are geometry overlays, not ruby layout boxes. Keep only
@@ -2686,8 +2856,14 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
             // Adjacent bases on the same authored line are expected reading
             // overhang, not a foreign row; spacing them would erase compact
             // compounds such as 新しい順.
-            if (ownBase && verticalRunsOverlap(ownBase, base.rect)) continue;
-            if (rectanglesWithinClearance(reading.rect, base.rect)) unsafe.add(reading.element);
+            if (ownBase && rectsShareAuthoredLine(ownBase, base.rect)) continue;
+            if (rectanglesWithinClearance(reading.rect, base.rect)
+                && !opaqueReadingSurfacePaintsAbove(
+                    reading.element,
+                    reading.rect,
+                    base.element,
+                    base.rect,
+                )) unsafe.add(reading.element);
         }
     }
     for (let index = 0; index < readingRects.length; index += 1) {
@@ -2696,8 +2872,29 @@ function settleDetachedReadingLanes(readings: HTMLElement[], bases: HTMLElement[
             const other = readingRects[otherIndex];
             if (other.rect.top >= current.rect.bottom + DETACHED_READING_CLEARANCE_PX) break;
             if (!rectanglesWithinClearance(current.rect, other.rect)) continue;
-            unsafe.add(current.element);
-            unsafe.add(other.element);
+            // A foreground menu/dialog reading and an annotated page reading
+            // behind its fully opaque surface do not share a visible lane.
+            // Preserve only the candidate whose own surface is proven above;
+            // the background candidate still fails closed and is reconsidered
+            // when the composed layout settles after the surface closes.
+            if (opaqueReadingSurfacePaintsAbove(
+                current.element,
+                current.rect,
+                other.element,
+                other.rect,
+            )) {
+                unsafe.add(other.element);
+            } else if (opaqueReadingSurfacePaintsAbove(
+                other.element,
+                other.rect,
+                current.element,
+                current.rect,
+            )) {
+                unsafe.add(current.element);
+            } else {
+                unsafe.add(current.element);
+                unsafe.add(other.element);
+            }
         }
     }
     // Commit: the measured checks above are the sole authority on final
@@ -2716,9 +2913,11 @@ function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): 
         ?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
     const ownMirror = reading.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
     const sourceHost = ownMirror?.parentElement ?? null;
-    const root = reading.getRootNode();
-    const hitRoots: Array<Document | ShadowRoot> = [document];
-    if (root instanceof ShadowRoot) hitRoots.push(root);
+    // Query every composed paint plane from the reading's own root outward.
+    // A nested component can place its text in an inner root while an opaque
+    // menu surface belongs to an ancestor root; checking only the innermost
+    // root and document flattens those planes again on WebKit.
+    const hitRoots = composedHitRootChain(reading);
     const inset = Math.min(2, rect.width / 4);
     const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
     const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
@@ -2730,8 +2929,32 @@ function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): 
     const hits = uniqueElements(hitRoots.flatMap(hitRoot => {
         const elementsFromPoint = hitRoot.elementsFromPoint;
         if (typeof elementsFromPoint !== 'function') return [];
-        return rows.flatMap(y => points.flatMap(x => elementsFromPoint.call(hitRoot, x, y)
-            .filter((element): element is HTMLElement => element instanceof HTMLElement)));
+        return rows.flatMap(y => points.flatMap(x => {
+            let pointHits = elementsFromPoint.call(hitRoot, x, y)
+                .filter((element): element is HTMLElement => element instanceof HTMLElement);
+            // WebKit may leak document/ancestor-root layers through a
+            // ShadowRoot query. Each composed root is queried separately, so
+            // retain only that root's own representatives in this stack.
+            if (hitRoot instanceof ShadowRoot) {
+                pointHits = pointHits.filter(element => element.getRootNode() === hitRoot);
+            }
+            // elementsFromPoint() includes every painted layer behind an
+            // opaque menu/dialog; WebKit does so even for a ShadowRoot query.
+            // That exposed card text UNDER the foreground panel to the
+            // collision detector and made otherwise-clear menu readings
+            // disappear. Trim each stack only through a fully opaque composed
+            // ancestor covering this exact probe point. Transparent overlays
+            // remain conservative and keep the complete hit stack.
+            const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x, y);
+            const occlusionBoundary = opaqueBackdrop
+                ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot)
+                : null;
+            if (occlusionBoundary) {
+                const boundaryIndex = pointHits.indexOf(occlusionBoundary);
+                if (boundaryIndex >= 0) pointHits = pointHits.slice(0, boundaryIndex + 1);
+            }
+            return pointHits;
+        }));
     }));
     for (const hit of hits) {
         // Additive mirrors deliberately sit over their framework host's native
@@ -2741,7 +2964,8 @@ function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): 
         const hitWord = hit.closest<HTMLElement>('.jpdb-reader-word');
         if (ownWord && hitWord === ownWord) continue;
         const hitBase = hitWord?.querySelector<HTMLElement>('.jpdb-reader-ruby-base')?.getBoundingClientRect();
-        if (ownBase && hitBase && verticalRunsOverlap(ownBase, hitBase)) continue;
+        const hitWordRun = hitBase ?? hitWord?.getBoundingClientRect();
+        if (ownBase && hitWordRun && rectsShareAuthoredLine(ownBase, hitWordRun)) continue;
         // Another word's annotated surface counts as covered text even when
         // the sampled point lands on a wrapper with no direct text node (the
         // point-sampling blind spot that let inter-line readings survive).
@@ -2751,10 +2975,369 @@ function detachedReadingCoversForeignText(reading: HTMLElement, rect: DOMRect): 
             if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
             const range = document.createRange();
             range.selectNodeContents(node);
-            if (Array.from(range.getClientRects()).some(textRect => rectanglesWithinClearance(rect, textRect))) return true;
+            if (Array.from(range.getClientRects()).some(textRect => {
+                if (ownBase && rectsShareAuthoredLine(ownBase, textRect)) return false;
+                return rectanglesWithinClearance(rect, textRect);
+            })) return true;
         }
     }
     return false;
+}
+
+// Collision candidates can live in different composed paint planes even when
+// their viewport rectangles overlap (for example a shadow-DOM sort menu over
+// an annotated title). Treat the obstacle as occluded only when every relevant
+// fact is proved at one collision point: the candidate owns an exclusive,
+// fully opaque ancestor there, both surfaces have distinct representatives in
+// one common hit-test root, and the candidate's representative paints first.
+// Any missing/retargeted/transparent evidence fails closed.
+function opaqueReadingSurfacePaintsAbove(
+    reading: HTMLElement,
+    readingRect: DOMRect,
+    obstacle: HTMLElement,
+    obstacleRect: DOMRect,
+): boolean {
+    const points = collisionProbePoints(readingRect, obstacleRect);
+    if (!points.length) return false;
+    const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
+    if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
+    return points.every(point => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
+}
+
+function composedSurfacePaintsAboveAtPoint(
+    backdrop: HTMLElement,
+    obstacle: HTMLElement,
+    point: { x: number; y: number },
+): boolean {
+    for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
+        const elementsFromPoint = hitRoot.elementsFromPoint;
+        if (typeof elementsFromPoint !== 'function') continue;
+        const hits = elementsFromPoint.call(hitRoot, point.x, point.y)
+            .filter((element): element is HTMLElement => element instanceof HTMLElement);
+        const backdropBoundary = occlusionBoundaryInHitRoot(backdrop, hitRoot);
+        const obstacleBoundary = occlusionBoundaryInHitRoot(obstacle, hitRoot);
+        if (!backdropBoundary || !obstacleBoundary || backdropBoundary === obstacleBoundary) continue;
+        const backdropHit = nearestHitStackRepresentative(backdropBoundary, hitRoot, hits);
+        const obstacleHit = nearestHitStackRepresentative(obstacleBoundary, hitRoot, hits);
+        if (!backdropHit || !obstacleHit || backdropHit === obstacleHit) continue;
+        // A shared ancestor/descendant representative cannot order the two
+        // surfaces; trying an outer root may still expose distinct hosts.
+        if (backdropHit.contains(obstacleHit) || obstacleHit.contains(backdropHit)) continue;
+        const backdropIndex = hits.indexOf(backdropHit);
+        const obstacleIndex = hits.indexOf(obstacleHit);
+        if (backdropIndex < 0 || obstacleIndex < 0) continue;
+        return backdropIndex < obstacleIndex;
+    }
+    return false;
+}
+
+function collisionProbePoints(
+    readingRect: DOMRect,
+    obstacleRect: DOMRect,
+): Array<{ x: number; y: number }> {
+    const left = Math.max(readingRect.left, obstacleRect.left);
+    const right = Math.min(readingRect.right, obstacleRect.right);
+    if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
+    const xInset = Math.min(0.5, (right - left) / 4);
+    const xs = [...new Set([left + xInset, right - xInset])];
+    const overlapTop = Math.max(readingRect.top, obstacleRect.top);
+    const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
+    let ys: number[];
+    if (overlapBottom > overlapTop) {
+        const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
+        ys = [...new Set([overlapTop + yInset, overlapBottom - yInset])];
+    } else {
+        const inset = Math.min(0.5, obstacleRect.height / 2);
+        ys = [readingRect.bottom <= obstacleRect.top
+            ? obstacleRect.top + inset
+            : obstacleRect.bottom - inset];
+    }
+    return xs.flatMap(x => ys.map(y => ({ x, y })));
+}
+
+function commonComposedHitRoots(
+    left: HTMLElement,
+    right: HTMLElement,
+): Array<Document | ShadowRoot> {
+    const rightRoots = new Set(composedHitRootChain(right));
+    const roots = composedHitRootChain(left).filter(root => rightRoots.has(root));
+    if (!roots.includes(document)) roots.push(document);
+    return roots;
+}
+
+function composedHitRootChain(element: HTMLElement): Array<Document | ShadowRoot> {
+    const roots: Array<Document | ShadowRoot> = [];
+    let current: HTMLElement = element;
+    while (true) {
+        const root = current.getRootNode();
+        if (root instanceof ShadowRoot) {
+            roots.push(root);
+            current = root.host as HTMLElement;
+            continue;
+        }
+        roots.push(document);
+        return roots;
+    }
+}
+
+function nearestHitStackRepresentative(
+    boundary: HTMLElement,
+    hitRoot: Document | ShadowRoot,
+    hits: HTMLElement[],
+): HTMLElement | null {
+    let current: HTMLElement | null = boundary;
+    while (current && current.getRootNode() === hitRoot) {
+        if (hits.includes(current)) return current;
+        if (current === document.body || current === document.documentElement) return null;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function opaqueComposedBackdropAtPoint(
+    reading: HTMLElement,
+    x: number,
+    y: number,
+): HTMLElement | null {
+    for (let current: HTMLElement | null = reading; current; current = composedParentElement(current)) {
+        const rect = current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0
+            && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+            && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor)
+            && composedBackdropIsOpaqueAtPoint(current, x, y)) return current;
+    }
+    return null;
+}
+
+function opaqueComposedBackdropCoveringPoints(
+    reading: HTMLElement,
+    points: Array<{ x: number; y: number }>,
+): HTMLElement | null {
+    for (let current: HTMLElement | null = reading; current; current = composedParentElement(current)) {
+        const rect = current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0
+            && points.every(point => point.x >= rect.left && point.x <= rect.right
+                && point.y >= rect.top && point.y <= rect.bottom)
+            && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor)
+            && points.every(point => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
+    }
+    return null;
+}
+
+function occlusionBoundaryInHitRoot(
+    backdrop: HTMLElement,
+    hitRoot: Document | ShadowRoot,
+): HTMLElement | null {
+    let boundary = backdrop;
+    while (boundary.getRootNode() !== hitRoot) {
+        const boundaryRoot = boundary.getRootNode();
+        if (!(boundaryRoot instanceof ShadowRoot)) return null;
+        boundary = boundaryRoot.host as HTMLElement;
+    }
+    return boundary;
+}
+
+function composedBackdropIsOpaqueAtPoint(element: HTMLElement, x: number, y: number): boolean {
+    for (let current: HTMLElement | null = element; current; current = composedParentElement(current)) {
+        const style = safeComputedStyle(current);
+        const opacity = Number.parseFloat(style.opacity || '1');
+        if (Number.isFinite(opacity) && opacity < 0.999) return false;
+        // Computed background alpha and `opacity` alone do not prove visual
+        // occlusion: filters, masks, clips, and blending can expose or sample
+        // the page below while still reporting an alpha-1 background. This is
+        // the exception to a fail-closed collision rule, so ambiguous effects
+        // deliberately forfeit the proof.
+        if (!cssEffectIsNone(style.filter)
+            || !cssEffectIsNone(style.maskImage)
+            || !cssEffectIsNone(style.getPropertyValue('-webkit-mask-image'))
+            || !cssEffectIsNone(style.getPropertyValue('mask-border-source'))
+            || !cssEffectIsNone(style.getPropertyValue('-webkit-mask-box-image-source'))
+            || !cssEffectIsNone(style.clipPath)
+            || (style.mixBlendMode && style.mixBlendMode !== 'normal')
+            || !cssTransformPreservesBackdropGeometry(style.transform)
+            || !cssScaleIsOne(style.getPropertyValue('scale'))
+            || !cssRotationIsZero(style.getPropertyValue('rotate'))
+            || !cssZoomIsOne(style.getPropertyValue('zoom'))) return false;
+    }
+    return opaqueBackgroundPaintsAtPoint(element, safeComputedStyle(element), x, y);
+}
+
+function cssEffectIsNone(value: string | undefined): boolean {
+    const effect = value?.trim().toLowerCase() ?? '';
+    return !effect || effect === 'none';
+}
+
+function cssTransformPreservesBackdropGeometry(value: string | undefined): boolean {
+    const transform = value?.trim().toLowerCase() ?? '';
+    if (!transform || transform === 'none') return true;
+    const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
+    if (!match) return false;
+    const values = match[2].split(',').map(part => Number.parseFloat(part.trim()));
+    if (values.some(part => !Number.isFinite(part))) return false;
+    const close = (left: number, right: number) => Math.abs(left - right) < 0.0001;
+    if (!match[1]) {
+        return values.length === 6
+            && close(values[0], 1) && close(values[1], 0)
+            && close(values[2], 0) && close(values[3], 1);
+    }
+    const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+    return values.length === 16 && values.every((part, index) =>
+        [12, 13, 14].includes(index) || close(part, identity[index]));
+}
+
+function cssScaleIsOne(value: string): boolean {
+    const scale = value.trim().toLowerCase();
+    if (!scale || scale === 'none') return true;
+    const parts = scale.split(/\s+/).map(part => Number.parseFloat(part));
+    return parts.length > 0 && parts.length <= 3
+        && parts.every(part => Number.isFinite(part) && Math.abs(part - 1) < 0.0001);
+}
+
+function cssRotationIsZero(value: string): boolean {
+    const rotation = value.trim().toLowerCase();
+    return !rotation || rotation === 'none' || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
+}
+
+function cssZoomIsOne(value: string): boolean {
+    const zoom = value.trim().toLowerCase();
+    return !zoom || zoom === 'normal' || Math.abs(Number.parseFloat(zoom) - 1) < 0.0001;
+}
+
+type RoundedCorner = { x: number; y: number };
+
+function opaqueBackgroundPaintsAtPoint(
+    element: HTMLElement,
+    style: CSSStyleDeclaration,
+    x: number,
+    y: number,
+): boolean {
+    const rect = element.getBoundingClientRect();
+    const clip = (style.backgroundClip || 'border-box').split(',').at(-1)?.trim() || 'border-box';
+    if (!['border-box', 'padding-box', 'content-box'].includes(clip)) return false;
+    const border = cssBoxInsets(style, 'border');
+    const padding = cssBoxInsets(style, 'padding');
+    if (!border || !padding) return false;
+    const inset = clip === 'border-box'
+        ? { top: 0, right: 0, bottom: 0, left: 0 }
+        : clip === 'padding-box'
+            ? border
+            : {
+                top: border.top + padding.top,
+                right: border.right + padding.right,
+                bottom: border.bottom + padding.bottom,
+                left: border.left + padding.left,
+            };
+    const box = {
+        left: rect.left + inset.left,
+        top: rect.top + inset.top,
+        right: rect.right - inset.right,
+        bottom: rect.bottom - inset.bottom,
+    };
+    const width = box.right - box.left;
+    const height = box.bottom - box.top;
+    if (width <= 0 || height <= 0 || x < box.left || x > box.right || y < box.top || y > box.bottom) return false;
+    const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
+    return corners ? pointInsideRoundedBox(box, corners, x, y) : false;
+}
+
+function cssBoxInsets(
+    style: CSSStyleDeclaration,
+    kind: 'border' | 'padding',
+): { top: number; right: number; bottom: number; left: number } | null {
+    const values = (kind === 'border'
+        ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth]
+        : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft])
+        .map(value => Number.parseFloat(value || '0'));
+    if (values.some(value => !Number.isFinite(value))) return null;
+    return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
+}
+
+function roundedBackgroundCorners(
+    style: CSSStyleDeclaration,
+    outerWidth: number,
+    outerHeight: number,
+    inset: { top: number; right: number; bottom: number; left: number },
+    width: number,
+    height: number,
+): [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner] | null {
+    const raw = [
+        parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
+        parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
+        parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
+        parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight),
+    ];
+    if (raw.some(corner => !corner)) return null;
+    const corners = raw as [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner];
+    corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
+    corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
+    corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
+    corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
+    const ratios = [
+        width / (corners[0].x + corners[1].x || width),
+        width / (corners[3].x + corners[2].x || width),
+        height / (corners[0].y + corners[3].y || height),
+        height / (corners[1].y + corners[2].y || height),
+    ];
+    const scale = Math.min(1, ...ratios);
+    if (scale < 1) {
+        for (const corner of corners) {
+            corner.x *= scale;
+            corner.y *= scale;
+        }
+    }
+    return corners;
+}
+
+function parseCornerRadius(value: string, width: number, height: number): RoundedCorner | null {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return { x: 0, y: 0 };
+    if (parts.length > 2) return null;
+    const x = parseLengthPercentage(parts[0], width);
+    const y = parseLengthPercentage(parts[1] ?? parts[0], height);
+    return x === null || y === null ? null : { x, y };
+}
+
+function parseLengthPercentage(value: string, extent: number): number | null {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    if (value.endsWith('%')) return parsed * extent / 100;
+    return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
+}
+
+function pointInsideRoundedBox(
+    box: { left: number; top: number; right: number; bottom: number },
+    corners: [RoundedCorner, RoundedCorner, RoundedCorner, RoundedCorner],
+    x: number,
+    y: number,
+): boolean {
+    const centers = [
+        { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x < box.left + corners[0].x && y < box.top + corners[0].y },
+        { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x > box.right - corners[1].x && y < box.top + corners[1].y },
+        { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x > box.right - corners[2].x && y > box.bottom - corners[2].y },
+        { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x < box.left + corners[3].x && y > box.bottom - corners[3].y },
+    ];
+    for (const center of centers) {
+        if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
+        const dx = (x - center.x) / center.corner.x;
+        const dy = (y - center.y) / center.corner.y;
+        if (dx * dx + dy * dy > 1) return false;
+    }
+    return true;
+}
+
+function cssBackgroundIsOpaque(value: string): boolean {
+    const color = value.trim().toLowerCase();
+    if (!color || color === 'transparent') return false;
+    const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
+    const commaMatch = color.startsWith('rgba(') ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
+    const slashAlpha = slashMatch?.[1].trim();
+    const commaAlpha = commaMatch?.[1].trim();
+    const alphaText = slashAlpha ?? commaAlpha;
+    if (!alphaText) return !slashMatch && !commaMatch;
+    if (alphaText === 'none') return false;
+    const alpha = Number(alphaText.endsWith('%') ? alphaText.slice(0, -1) : alphaText)
+        / (alphaText.endsWith('%') ? 100 : 1);
+    return Number.isFinite(alpha) && alpha >= 0.999;
 }
 
 function rectanglesWithinClearance(left: DOMRect, right: DOMRect): boolean {
@@ -2763,8 +3346,15 @@ function rectanglesWithinClearance(left: DOMRect, right: DOMRect): boolean {
         && right.bottom > left.top - DETACHED_READING_CLEARANCE_PX;
 }
 
-function verticalRunsOverlap(left: DOMRect, right: DOMRect): boolean {
-    return Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > DETACHED_READING_COLLISION_SLOP;
+function rectsShareAuthoredLine(left: DOMRect, right: DOMRect): boolean {
+    const leftHeight = Math.max(0, left.bottom - left.top);
+    const rightHeight = Math.max(0, right.bottom - right.top);
+    const shorterHeight = Math.min(leftHeight, rightHeight);
+    if (shorterHeight <= DETACHED_READING_COLLISION_SLOP) return false;
+    const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
+    if (overlap < shorterHeight * 0.5) return false;
+    const centreDistance = Math.abs((left.top + left.bottom - right.top - right.bottom) / 2);
+    return centreDistance <= Math.max(2, shorterHeight * 0.4);
 }
 
 function detachedReadingIsClipped(reading: HTMLElement, rect: DOMRect): boolean {
@@ -2826,12 +3416,18 @@ const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
 const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
 const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
     'details',
+    '[aria-expanded]',
     '[id*="expand" i]',
     '[id*="collaps" i]',
     '[class*="expand" i]',
     '[class*="collaps" i]',
 ].join(',');
-const EXPANDABLE_TRIGGER_SELECTOR = 'button,summary,[role="button"],[role="tab"],[role="menuitem"],[aria-haspopup],[aria-expanded]';
+const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
+// aria-expanded belongs on the disclosure control as well as appearing on
+// some framework-owned content regions. Recognise semantic and keyboard-
+// focusable trigger shapes, including tree and custom-link controls, while a
+// bare expanded region/panel remains protected from overflow opening.
+const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
 const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
 
 // `aria-expanded` identifies the disclosure CONTROL, not the content panel it
@@ -2839,8 +3435,9 @@ const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; prio
 // button readings as soon as the menu opened. Real expandable content carries
 // structural evidence (details or an expandable/collapsible host/id/class),
 // while trigger-shaped elements are excluded even if their name contains it.
-function ownsExpandableContentClip(element: HTMLElement): boolean {
-    if (element.matches(EXPANDABLE_TRIGGER_SELECTOR)) return false;
+function isExpandableContentClip(element: HTMLElement): boolean {
+    if (element.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
+    if (element.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
     return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)
         || /(?:expand|collaps)/i.test(element.localName);
 }
@@ -2864,7 +3461,7 @@ function openSafeDetachedReadingClips(element: HTMLElement): void {
         // Collapsible descriptions and accordions own their overflow. Opening
         // it for an out-of-flow reading lets annotated paint escape the panel
         // and overlap neighbouring media after expansion.
-        if (ownsExpandableContentClip(current)) {
+        if (isExpandableContentClip(current)) {
             restoreDetachedReadingClip(current);
             continue;
         }
@@ -3007,9 +3604,9 @@ function detachedBaseContentFits(box: HTMLElement): boolean {
 
 function closeOrphanedDetachedReadingClips(element: HTMLElement): void {
     let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
         if (current.dataset.yomuDetachedReadingOverflow === 'true'
-            && !current.querySelector('.jpdb-reader-detached-furi')) {
+            && !queryAllInAnnotationRoots(current, '.jpdb-reader-detached-furi').length) {
             restoreDetachedReadingClip(current);
         }
     }
@@ -3622,9 +4219,6 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false): void {
     const style = safeComputedStyle(host);
-    if (mirror.classList.contains('jpdb-reader-additive-text-mirror') && style.color) {
-        mirror.style.setProperty('--jpdb-reader-native-text-color', style.color);
-    }
     mirror.style.setProperty('position', 'absolute');
     mirror.style.setProperty('inset', '0 0 auto 0');
     // Absolute children start at the host padding box, while the page's native
@@ -5327,6 +5921,11 @@ function renderToken(
 ): HTMLElement {
     const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
     span.dataset.surface = surface;
+    // Detached is a render-channel decision, not proof that a reading was
+    // available synchronously. Preserve it on fallback words so a later
+    // public-vocabulary reading cannot silently switch the word to native
+    // ruby and perturb a compact authored line box.
+    if (options.detachedReadings) span.classList.add('jpdb-reader-detached-reading-word');
     if (!options.kanjiNavigation?.enabled && options.passiveInteraction !== true) span.tabIndex = -1;
 
     const allowRuby = options.allowRuby !== false && !shouldSuppressLongProseRuby(surface, token, options);
@@ -5334,7 +5933,6 @@ function renderToken(
     if (hasRuby) {
         span.classList.add('jpdb-reader-has-furi');
         if (options.detachedReadings) {
-            span.classList.add('jpdb-reader-detached-reading-word');
             setInnerHtml(span, renderDetachedReadings(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
         } else {
             setInnerHtml(span, renderRuby(surface, token, options.kanjiNavigation, options.preserveTokenRubies));
@@ -5558,6 +6156,62 @@ function renderDetachedReadings(
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
+}
+
+/**
+ * Replace a rendered word's reading without changing the layout channel that
+ * owns it. Async public-vocabulary enrichment is deliberately routed through
+ * this DOM operation so native/detached policy, open-shadow inline geometry,
+ * clip handling, and collision safety stay encapsulated in the renderer.
+ */
+export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, token: JPDBToken): boolean {
+    const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
+    const detached = Boolean(mirror) || word.classList.contains('jpdb-reader-detached-reading-word');
+    const html = detached ? renderDetachedReadings(surface, token) : renderRuby(surface, token);
+    if (detached ? !html.includes('jpdb-reader-detached-furi') : !html.includes('<rt')) return false;
+
+    setInnerHtml(word, html);
+    word.classList.add('jpdb-reader-has-furi');
+    if (!detached) return true;
+
+    word.classList.add('jpdb-reader-detached-reading-word');
+    const renderSurface = mirror ?? word.parentElement ?? word;
+    const host = mirror
+        ? registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word
+        : word.parentElement ?? word;
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (mirror) {
+        // Reading-free additive mirrors remain contained until this exact
+        // point. Once a real late reading exists, transition to the same
+        // detached state used by an initially-known reading.
+        mirror.dataset.yomuDetachedReadings = 'true';
+        styleConstrainedTextMirror(mirror, clipRow, true);
+    }
+    styleDetachedReadingElements(renderSurface, host);
+    if (mirror) healLateClipConstrainedStamp(host);
+    openSafeDetachedReadingClips(renderSurface);
+    stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
+    return true;
+}
+
+/** Remove a reading while restoring any mirror/clip state it alone required. */
+export function clearRenderedWordFurigana(word: HTMLElement, surface: string): void {
+    word.textContent = surface;
+    word.classList.remove('jpdb-reader-has-furi');
+    const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
+    if (!mirror) {
+        closeOrphanedDetachedReadingClips(word.parentElement ?? word);
+        return;
+    }
+    const host = registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word;
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    if (mirror.querySelector('.jpdb-reader-detached-furi')) {
+        stabilizeDetachedReadings(mirror, clipRow, true);
+        return;
+    }
+    delete mirror.dataset.yomuDetachedReadings;
+    closeOrphanedDetachedReadingClips(host);
+    styleConstrainedTextMirror(mirror, clipRow, false);
 }
 
 export function inferredInflectedSurfaceRubies(surface: string, spelling: string, reading: string): JPDBToken['rubies'] {

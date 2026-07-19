@@ -1,9 +1,9 @@
 import {
+    clearRenderedWordFurigana,
     htmlToFirstElement,
     inferredInflectedSurfaceRubies,
     readerWordSurfaceText,
-    renderRuby,
-    setInnerHtml,
+    replaceRenderedWordFurigana,
     shouldHideFuriganaForCardState,
     shouldRenderRuby,
 } from '../dom/index';
@@ -162,18 +162,14 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
         sentence: word.dataset.sentence,
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-    const html = renderRuby(surface, token);
-    if (!html.includes('<rt')) return;
-    setInnerHtml(word, html);
+    if (!replaceRenderedWordFurigana(word, surface, token)) return;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
-    word.classList.add('jpdb-reader-has-furi');
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
 }
 
 function clearPublicVocabularyFurigana(word: HTMLElement, surface: string, ocrLine: HTMLElement | null): void {
     if (!word.classList.contains('jpdb-reader-has-furi') && !word.querySelector('.jpdb-reader-furi, rt')) return;
-    word.textContent = surface;
-    word.classList.remove('jpdb-reader-has-furi');
+    clearRenderedWordFurigana(word, surface);
     if (!ocrLine) return;
     yomuNormalizeOcrRenderedText()?.(word);
     if (!ocrLine.querySelector('.jpdb-reader-word.jpdb-reader-has-furi')) delete ocrLine.dataset.hasFuri;

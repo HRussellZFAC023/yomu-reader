@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.223] - 2026-07-19
+
+### Fixed
+
+- Dynamic Japanese inside open web components no longer develops random annotation gaps when a component starts empty, hydrates after the first scan, nests behind another component, upgrades after page load, or attaches its shadow root in a later task. Furigana, pitch decoration, and vocabulary status now wake through one globally bounded composed-DOM lifecycle instead of waiting for an unrelated click, scroll, or text mutation.
+- Detached furigana no longer disappears when an opaque menu covers unrelated page text or when a long reading harmlessly overhangs adjacent words or punctuation on the same authored line. Collision checks now respect visible paint order; genuine clipping and cross-row collisions remain protected, while readings resolved after the first render stay in the compact detached channel and restore its containment correctly when removed.
+- Kana-only component labels such as フィード now keep their pitch and vocabulary-status decoration even though their reading correctly produces no redundant furigana overlay. Additive mirror paint also follows pitch or vocabulary state resolved after the mirror mounts and inherits late page-theme colour changes.
+- Semantic disclosure and sort controls are distinguished from the expandable content they control, so a safe detached-reading lane can open without changing height or click behaviour while actual panels remain clipped.
+
+### Testing
+
+- Added deterministic Reddit-shaped Chromium and WebKit coverage for nested, initially empty, late-hydrating, and late-upgrading open shadow roots, along with kana-only decoration, opaque-overlay paint order, safe same-line overhang, semantic disclosure controls, asynchronous reading/state repaint, and bounded mutation deliveries.
+
 ## [1.6.222] - 2026-07-19
 
 ### Fixed

@@ -4,6 +4,7 @@ import {
     applyTokensToScanTarget,
     collectFragmentTextTargetsIn,
     documentHasJapaneseText,
+    documentJapaneseTextProbe,
     readerWordSurfaceText,
     removeNonDestructiveScanMirrors,
     withMirrorTokenApply,
@@ -57,9 +58,9 @@ afterEach(() => {
 });
 
 describe('shadow DOM scanner (Phase 1)', () => {
-    it('detects an initial page whose Japanese exists only inside an open shadow root', () => {
-        defineShadowHost('yomu-shadow-only-host', 'open', '<button>参加</button>');
-        document.body.innerHTML = '<yomu-shadow-only-host></yomu-shadow-only-host>';
+    it('detects startup Japanese when the document contains only open-shadow text', () => {
+        defineShadowHost('yomu-shadow-only-startup-host', 'open', '<p>起動時の日本語</p>');
+        document.body.innerHTML = '<yomu-shadow-only-startup-host></yomu-shadow-only-startup-host>';
 
         expect(document.body.textContent).toBe('');
         expect(documentHasJapaneseText()).toBe(true);
@@ -73,6 +74,48 @@ describe('shadow DOM scanner (Phase 1)', () => {
         expect(createWalker).toHaveBeenCalledTimes(1);
 
         createWalker.mockRestore();
+    });
+
+    it('does not spend the shadow budget on ordinary light-DOM elements', () => {
+        document.body.innerHTML = '<div>Loading</div>'.repeat(170);
+
+        expect(documentJapaneseTextProbe()).toEqual({
+            hasJapanese: false,
+            shadowDiscoveryExhausted: false,
+        });
+        expect(documentHasJapaneseText()).toBe(false);
+    });
+
+    it('discovers an open root after more than 160 ordinary light-DOM elements', () => {
+        document.body.innerHTML = `${'<div>Loading</div>'.repeat(170)}<div id="late-shadow"></div>`;
+        document.querySelector<HTMLElement>('#late-shadow')!
+            .attachShadow({ mode: 'open' }).innerHTML = '<p>後ろの日本語</p>';
+
+        expect(documentJapaneseTextProbe()).toEqual({
+            hasJapanese: true,
+            shadowDiscoveryExhausted: false,
+        });
+    });
+
+    it('does not treat hidden Japanese in an open root as visible startup text', () => {
+        document.body.innerHTML = '<div id="hidden-shadow"></div>';
+        document.querySelector<HTMLElement>('#hidden-shadow')!
+            .attachShadow({ mode: 'open' }).innerHTML = '<p hidden>隠れた日本語</p><p>Loading</p>';
+
+        expect(documentJapaneseTextProbe()).toEqual({
+            hasJapanese: false,
+            shadowDiscoveryExhausted: false,
+        });
+    });
+
+    it('keeps startup shadow-host discovery globally bounded', () => {
+        document.body.innerHTML = Array.from({ length: 161 }, (_, index) => `<div id="shadow-${index}"></div>`).join('');
+        for (const host of document.body.children) (host as HTMLElement).attachShadow({ mode: 'open' });
+
+        expect(documentJapaneseTextProbe()).toEqual({
+            hasJapanese: false,
+            shadowDiscoveryExhausted: true,
+        });
     });
 
     it('annotates Japanese inside an open shadow root via the mirror (never destructive)', () => {

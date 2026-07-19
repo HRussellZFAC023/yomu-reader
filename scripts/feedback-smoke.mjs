@@ -560,13 +560,23 @@ async function popupFontVariable(page) {
 }
 
 async function popupSpellingFontStyle(page) {
-    return page.locator('.jpdb-reader-spelling').first().evaluate(element => {
-        const style = getComputedStyle(element);
-        return {
-            fontFamily: style.fontFamily,
-            fontWeight: style.fontWeight,
-        };
-    });
+    // Detail hydration can replace the spelling node between the earlier
+    // readiness wait and a locator evaluation. Capture the style in the SAME
+    // browser predicate that proves the currently connected popup node has
+    // inherited its font stack, so a transient detached replacement cannot
+    // yield empty computed-style fields.
+    const styleHandle = await page.waitForFunction(() => {
+        const spelling = document.querySelector('.jpdb-reader-popover .jpdb-reader-spelling');
+        if (!spelling?.isConnected) return false;
+        const style = getComputedStyle(spelling);
+        if (!style.fontFamily.includes('Nunito Sans') && !style.fontFamily.includes('Noto Sans JP')) return false;
+        return { fontFamily: style.fontFamily, fontWeight: style.fontWeight };
+    }, undefined, { timeout: 6000 });
+    try {
+        return await styleHandle.jsonValue();
+    } finally {
+        await styleHandle.dispose();
+    }
 }
 
 function assertKeyboardPopupStyle(popupStyle) {

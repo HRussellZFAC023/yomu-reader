@@ -81,6 +81,7 @@ writeFileSync(entryPath, `
                 hostBackground: style.backgroundColor,
                 hostBorderWidth: style.borderTopWidth,
                 wordColor: word ? getComputedStyle(word).color : '',
+                wordTextFill: word ? getComputedStyle(word).webkitTextFillColor : '',
                 svgColor: svg ? getComputedStyle(svg).color : '',
             };
         },
@@ -155,7 +156,8 @@ async function runEngine(name, browserType) {
         }
 
         // Styled framework host: the additive mirror preserves host-owned text,
-        // box paint, and icons. Its duplicate base glyphs stay transparent;
+        // box paint, and icons. Its live semantic color stays inherited for
+        // late themes, while transparent text-fill hides duplicate base glyphs;
         // only detached readings and pitch decoration are painted by Yomu.
         const conceal = await page.evaluate(() => window.runConcealProbe());
         if (!conceal.mirror || conceal.mirrorReading !== 'にほんご') fail(`${name}: styled framework host was not mirrored with a reading`, conceal);
@@ -163,7 +165,7 @@ async function runEngine(name, browserType) {
         if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.hostColor) || !conceal.hostColor) fail(`${name}: styled framework host text was concealed`, conceal);
         if (conceal.hostBackground !== 'rgb(31, 41, 55)') fail(`${name}: styled framework host lost its background`, conceal);
         if (conceal.hostBorderWidth === '0px') fail(`${name}: styled framework host lost its border`, conceal);
-        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.wordColor)) fail(`${name}: additive mirror repainted duplicate base text`, conceal);
+        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.wordTextFill)) fail(`${name}: additive mirror repainted duplicate base text`, conceal);
         if (/rgba\(0, 0, 0, 0\)|transparent/.test(conceal.svgColor) || !conceal.svgColor) fail(`${name}: host icon inherited the transparent text colour`, conceal);
 
         console.log(`${name}: natural verdict = ${JSON.stringify({ bareMirrored: natural['bare-title'].mirror, pillMirrored: natural.pill.mirror })}, forced + healthy rounds ${process.exitCode ? 'FAILED' : 'passed'}`);

@@ -7647,7 +7647,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror,
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word,
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-ruby-base {
-  color: transparent !important;
+  /* Keep the live inherited colour available to detached readings. Hiding
+     duplicate base glyphs through text-fill lets late theme changes flow
+     through without repainting a mount-time colour snapshot. */
+  color: inherit !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   pointer-events: none !important;
@@ -7706,10 +7709,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-detached-furi {
-  color: var(
-    --jpdb-reader-furi-accessible-color,
-    var(--jpdb-reader-native-text-color, currentColor)
-  ) !important;
+  color: var(--jpdb-reader-furi-accessible-color, inherit) !important;
   -webkit-text-fill-color: currentColor !important;
   opacity: 1 !important;
 }

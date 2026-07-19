@@ -12,21 +12,30 @@ const scannedShadowRootState = new WeakMap<ShadowRoot, boolean>();
 export type ShadowRootDiscoveryCause = 'scan' | 'attached' | 'replay';
 let shadowRootScanHook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null = null;
 
-// One bounded cadence costs roughly the same number of checks as the former
-// 100ms-fast/2s-idle split, while late fallback discovery is more responsive.
-const POTENTIAL_SHADOW_HOST_POLL_MS = 500;
-const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 60_000;
+// The page-realm bridge is immediate in the normal case. Its fallback is a
+// finite per-host window: enough for ordinary framework hydration, but never a
+// permanent idle-page poll. Work is bounded to 160 live hosts per tick and 40
+// checks per tracked host.
+const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
+const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+const MAX_PENDING_UPGRADE_NAMES = 64;
 export const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = 'yomu:open-shadow-root-attached';
 const PAGE_SHADOW_DISCOVERY_KEY = '__yomuOpenShadowRootDiscoveryV1';
 
 interface PotentialShadowHost {
     ref: WeakRef<Element>;
-    expiresAt: number;
+    remainingPolls: number;
 }
 
 const potentialShadowHosts = new Set<PotentialShadowHost>();
 let seenPotentialShadowHosts = new WeakSet<Element>();
 let potentialShadowHostTimer: number | undefined;
+const subscribedUpgradeNames = new Set<string>();
+let customElementLifecycleGeneration = 0;
+let customElementUpgradeHook: (() => void) | null = null;
+let pendingUpgradeWakeup = false;
+let acceptPendingUpgradeWakeups = true;
 
 let openShadowRootDiscoveryUsers = 0;
 
@@ -55,12 +64,22 @@ export function watchPotentialOpenShadowRootHost(host: Element, includeNativeHos
         noteShadowRoot(root, 'scan');
         return root;
     }
-    if ((!includeNativeHost && !host.localName.includes('-')) || seenPotentialShadowHosts.has(host)) return null;
-    const now = Date.now();
+    const tagName = host.localName.toLowerCase();
+    const isCustomElement = tagName.includes('-');
+    if (!includeNativeHost && !isCustomElement) return null;
+    if (isCustomElement
+        && typeof customElements !== 'undefined'
+        && typeof customElements.whenDefined === 'function'
+        && !customElements.get(tagName)) {
+        subscribeToCustomElementUpgrade(tagName);
+        return null;
+    }
+    if (seenPotentialShadowHosts.has(host)
+        || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
     seenPotentialShadowHosts.add(host);
     potentialShadowHosts.add({
         ref: new WeakRef(host),
-        expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS,
+        remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT,
     });
     schedulePotentialShadowHostPoll();
     return null;
@@ -95,10 +114,7 @@ export function installOpenShadowRootDiscovery(): () => void {
         openShadowRootDiscoveryUsers -= 1;
         if (openShadowRootDiscoveryUsers > 0) return;
         document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, handleOpenShadowRootAttached, true);
-        window.clearTimeout(potentialShadowHostTimer);
-        potentialShadowHostTimer = undefined;
-        potentialShadowHosts.clear();
-        seenPotentialShadowHosts = new WeakSet<Element>();
+        if (!customElementUpgradeHook) resetPotentialShadowHostTracking();
     };
 }
 
@@ -109,7 +125,7 @@ function handleOpenShadowRootAttached(event: Event): void {
 }
 
 function schedulePotentialShadowHostPoll(): void {
-    if (!openShadowRootDiscoveryUsers
+    if ((!openShadowRootDiscoveryUsers && !customElementUpgradeHook)
         || potentialShadowHostTimer !== undefined
         || !potentialShadowHosts.size) return;
     potentialShadowHostTimer = window.setTimeout(
@@ -120,21 +136,26 @@ function schedulePotentialShadowHostPoll(): void {
 
 function pollPotentialShadowHosts(): void {
     potentialShadowHostTimer = undefined;
-    const now = Date.now();
     for (const pending of potentialShadowHosts) {
         const host = pending.ref.deref();
-        if (!host || !host.isConnected || pending.expiresAt <= now) {
+        if (!host || !host.isConnected) {
             potentialShadowHosts.delete(pending);
-            // Disconnected hosts may be reinserted and need a fresh window.
-            // A connected no-root host that exhausted its bounded fallback is
-            // left seen; the page-realm bridge covers any later attachment.
+            // A disconnected host can receive a fresh window if reinserted.
             if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
             continue;
         }
-        if (!host.shadowRoot) continue;
-        potentialShadowHosts.delete(pending);
-        seenPotentialShadowHosts.delete(host);
-        noteShadowRoot(host.shadowRoot, 'attached');
+        if (host.shadowRoot) {
+            potentialShadowHosts.delete(pending);
+            noteShadowRoot(host.shadowRoot, 'attached');
+            continue;
+        }
+        if (pending.remainingPolls <= 1) {
+            // Leave connected expired hosts in the seen set. Repeated mutation
+            // scans must not silently reopen an exhausted polling window.
+            potentialShadowHosts.delete(pending);
+        } else {
+            pending.remainingPolls -= 1;
+        }
     }
     schedulePotentialShadowHostPoll();
 }
@@ -225,4 +246,86 @@ export function forEachScannedShadowRoot(callback: (root: ShadowRoot) => void, i
         }
         callback(root);
     }
+}
+
+// A single MutationObserver can observe many roots but cannot unobserve one.
+// Return whether any target disappeared so the app callback can disconnect the
+// shared observer once and re-observe document.body plus the surviving roots.
+export function sweepDisconnectedShadowRoots(): boolean {
+    let swept = false;
+    for (const ref of scannedShadowRootRefs) {
+        const root = ref.deref();
+        if (!root) {
+            scannedShadowRootRefs.delete(ref);
+            continue;
+        }
+        if (root.host?.isConnected || scannedShadowRootState.get(root) === false) continue;
+        // Retain the weak reference so teardown can still reach detached roots
+        // and a later reinsertion can replay the same root. Only the active ->
+        // detached transition requires rebuilding the shared observer targets.
+        scannedShadowRootState.set(root, false);
+        swept = true;
+    }
+    return swept;
+}
+
+// Document-start upgrade race: an undefined custom element (tag not yet in
+// the registry) can be inserted with no shadow root at all, then
+// customElements.define() upgrades it — attaching and populating a shadow
+// root synchronously in its constructor — without emitting any light-DOM
+// mutation the document observer can see. Track distinct tag names once
+// (whenDefined per name, not per element) and replay a wakeup so the app can
+// schedule a scan and pick up the newly attached root.
+// The app installs one hook (schedule an auto-scan). Passing null detaches.
+export function setCustomElementUpgradeHook(hook: (() => void) | null): void {
+    customElementUpgradeHook = hook;
+    if (!hook) {
+        customElementLifecycleGeneration += 1;
+        subscribedUpgradeNames.clear();
+        acceptPendingUpgradeWakeups = false;
+        pendingUpgradeWakeup = false;
+        if (!openShadowRootDiscoveryUsers) resetPotentialShadowHostTracking();
+        return;
+    }
+    acceptPendingUpgradeWakeups = true;
+    schedulePotentialShadowHostPoll();
+    if (pendingUpgradeWakeup) {
+        pendingUpgradeWakeup = false;
+        hook();
+    }
+}
+
+function subscribeToCustomElementUpgrade(tagName: string): void {
+    if (subscribedUpgradeNames.has(tagName)
+        || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+    subscribedUpgradeNames.add(tagName);
+    const generation = customElementLifecycleGeneration;
+    // A single whole-page rescan on definition is enough: the normal composed
+    // collector registers every upgraded root, including nested instances.
+    void customElements.whenDefined(tagName).then(() => {
+        if (generation !== customElementLifecycleGeneration) return;
+        // The cap protects concurrently unresolved definitions, not every tag
+        // name ever seen by a long-lived SPA. Release the slot after upgrade
+        // so a page that incrementally loads more than 64 component types does
+        // not silently strand all later definitions forever.
+        subscribedUpgradeNames.delete(tagName);
+        notifyCustomElementLifecycle();
+    }, () => {
+        if (generation !== customElementLifecycleGeneration) return;
+        subscribedUpgradeNames.delete(tagName);
+    });
+}
+
+function notifyCustomElementLifecycle(): void {
+    if (customElementUpgradeHook) customElementUpgradeHook();
+    else if (acceptPendingUpgradeWakeups) pendingUpgradeWakeup = true;
+}
+
+function resetPotentialShadowHostTracking(): void {
+    if (potentialShadowHostTimer !== undefined) {
+        window.clearTimeout(potentialShadowHostTimer);
+        potentialShadowHostTimer = undefined;
+    }
+    potentialShadowHosts.clear();
+    seenPotentialShadowHosts = new WeakSet<Element>();
 }

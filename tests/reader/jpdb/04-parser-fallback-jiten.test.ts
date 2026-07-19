@@ -724,6 +724,93 @@ describe('reader helpers', () => {
         }
     });
 
+    it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
+        vi.stubGlobal('location', {
+            href: 'https://example.com/reader',
+            origin: 'https://example.com',
+            pathname: '/reader',
+            hostname: 'example.com',
+        });
+        const root = document.querySelector<HTMLElement>('#late-shadow')!.attachShadow({ mode: 'open' });
+
+        try {
+            await app.init({ showWelcome: false });
+            await new Promise(resolve => window.setTimeout(resolve, 30));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            root.innerHTML = '<button>並べ替え基準</button>';
+            await expectSilentPageScan(scanVisiblePage);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not wake a scoped page for Japanese hydrating in docs chrome outside a Reader Surface', async () => {
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
+            <main>Loading docs</main>
+            <section data-yomu-runtime-surface>Demo loading</section>
+            <div id="outside-shadow"></div>
+        `);
+        vi.stubGlobal('location', {
+            href: 'https://example.com/docs',
+            origin: 'https://example.com',
+            pathname: '/docs',
+            hostname: 'example.com',
+        });
+        const root = document.querySelector<HTMLElement>('#outside-shadow')!.attachShadow({ mode: 'open' });
+
+        try {
+            await app.init({ showWelcome: false });
+            await new Promise(resolve => window.setTimeout(resolve, 30));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            root.innerHTML = '<nav>はじめる</nav>';
+            // Exceed both the generic 450ms mutation delay and the 900ms
+            // steady-state throttle so a wrongly scheduled scan cannot pass
+            // merely because its timer has not fired yet.
+            await new Promise(resolve => window.setTimeout(resolve, 1_100));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.documentElement.removeAttribute('data-yomu-annotation-scope');
+            document.body.replaceChildren();
+        }
+    });
+
+    it('scans Japanese hydrating in an open root inside a scoped Reader Surface', async () => {
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+        const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
+            <main>Loading docs</main>
+            <section data-yomu-runtime-surface><div id="surface-shadow"></div></section>
+        `);
+        vi.stubGlobal('location', {
+            href: 'https://example.com/docs',
+            origin: 'https://example.com',
+            pathname: '/docs',
+            hostname: 'example.com',
+        });
+        const root = document.querySelector<HTMLElement>('#surface-shadow')!.attachShadow({ mode: 'open' });
+
+        try {
+            await app.init({ showWelcome: false });
+            await new Promise(resolve => window.setTimeout(resolve, 30));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
+
+            root.innerHTML = '<button>フィード</button>';
+            await expectSilentPageScan(scanVisiblePage);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.documentElement.removeAttribute('data-yomu-annotation-scope');
+            document.body.replaceChildren();
+        }
+    });
+
     it('ignores obsolete disabled scan settings in English HUD mode', async () => {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
             ...DEFAULT_SETTINGS,

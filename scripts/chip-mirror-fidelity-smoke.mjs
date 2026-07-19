@@ -618,7 +618,10 @@ async function runEngine(name, browserType) {
         console.log(`${name} youtube description:`, JSON.stringify(description));
         if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);
         if (!description.nativeHostVisible) fail(`${name}: truncated description lost its native fallback text`, description);
-        if (!transparentPaint(description.mirrorColor) || !transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
+        // The semantic color intentionally inherits so detached readings
+        // follow late page-theme changes. Transparent text-fill is the base
+        // glyph suppression channel.
+        if (!transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
         if (description.lateWordVisibility !== 'hidden') fail(`${name}: off-clip description word remained paintable`, description);
         if (description.visibleWordSummaryOverlaps !== 0) fail(`${name}: description annotation overlapped its summary sibling`, description);
         if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);

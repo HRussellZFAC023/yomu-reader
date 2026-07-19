@@ -22,6 +22,7 @@ import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
 import {
     yomuImageOcrController,
+    yomuOnboardingController,
     yomuSettingsDialogController,
     yomuSubtitlePlayerController,
     yomuYoutubeImmersionFilter,
@@ -35,10 +36,17 @@ import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
 import {
+    annotationScopeRoots,
+    mutationMayExpandAnnotationScope,
+    nodeWithinAnnotationScope,
+    scanScopeRoots,
+} from './annotation-scope';
+import {
     HAS_JAPANESE,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
     documentHasJapaneseText,
+    documentJapaneseTextProbe,
     escapeHtml,
     getSelectionText,
     isPassiveInteractionElement,
@@ -245,7 +253,6 @@ import {
     type TextLookupOptions,
     type TokenListOptions,
 } from './main-helpers';
-import { isBookWalkerStorefrontPage } from './site-parsers';
 import { watchMokuroOcrToggle } from './mokuro-integration';
 import {
     inferMiningSourceKind,
@@ -257,7 +264,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
@@ -267,7 +274,6 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
-import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
@@ -353,7 +359,13 @@ import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
 import { setShadowReaderCss } from '../dom/shadow-styles';
-import { forEachScannedShadowRoot, installOpenShadowRootDiscovery, setShadowRootScanHook } from '../dom/shadow-scan-registry';
+import {
+    forEachScannedShadowRoot,
+    installOpenShadowRootDiscovery,
+    setCustomElementUpgradeHook,
+    setShadowRootScanHook,
+    sweepDisconnectedShadowRoots,
+} from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -802,18 +814,7 @@ export class ReaderApp {
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
     });
-    private onboarding = new OnboardingController({
-        getSettings: () => this.settings,
-        setSettings: settings => {
-            this.settings = settings;
-            this.applyTheme();
-            this.applyPreferredJapaneseSiteLanguage();
-        },
-        showSettings: panel => this.showSettings(panel),
-        parseJapanese: panel => void this.parseOnboardingJapanese(panel),
-        lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
-        installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
-    });
+    private onboarding = this.createOnboardingController();
     private subtitles = this.createSubtitlePlayer();
     private ocr: ImageOcrController = this.createImageOcrController();
     private youtube = this.createYoutubeFilter();
@@ -991,6 +992,23 @@ export class ReaderApp {
         configureLogger({ settingsProvider: () => this.settings });
     }
 
+    private createOnboardingController() {
+        const Controller = yomuOnboardingController();
+        if (!Controller) return { showIfNeeded: async () => false };
+        return new Controller({
+            getSettings: () => this.settings,
+            setSettings: settings => {
+                this.settings = settings;
+                this.applyTheme();
+                this.applyPreferredJapaneseSiteLanguage();
+            },
+            showSettings: panel => this.showSettings(panel),
+            parseJapanese: panel => void this.parseOnboardingJapanese(panel),
+            lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
+            installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
+        });
+    }
+
     private createSubtitlePlayer(): SubtitlePlayerControllerInstance | ReaderLifecycleSurface {
         const Controller = yomuSubtitlePlayerController();
         if (!Controller) return this.missingCompanionSurface('Video companion', 'subtitles');
@@ -1118,6 +1136,11 @@ export class ReaderApp {
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         await this.waitForDocumentBody();
         if (this.isDestroyed || !document.body) return;
+        // Settings may finish loading before document-start has produced a
+        // body. Re-evaluate here, including bounded open-shadow discovery, so
+        // a shadow-only Japanese page receives its initial scan.
+        const startupJapaneseProbe = documentJapaneseTextProbe(200000, scanScopeRoots());
+        if (!this.pageHasJapaneseText) this.pageHasJapaneseText = startupJapaneseProbe.hasJapanese;
         if (this.embeddedFrame) {
             this.subtitles.init();
             // Player iframes need OCR too: the subtitle rail's OCR button and
@@ -1144,7 +1167,7 @@ export class ReaderApp {
         this.installCardStateSignalSubscription();
         this.resumePendingCloudSettingsSync();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
-        if (this.shouldScanInitialPage()) {
+        if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
             void this.pageScanner.scanVisiblePage({ silent: true })
                 .finally(() => this.scheduleStatusWarmups());
         } else {
@@ -1284,10 +1307,10 @@ export class ReaderApp {
         }
     }
 
-    private shouldScanInitialPage(): boolean {
+    private shouldScanInitialPage(shadowDiscoveryUncertain = false): boolean {
         if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
         return this.canParseJapanese()
-            && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
+            && (this.pageHasJapaneseText || hasVisibleSiteScanTargets() || shadowDiscoveryUncertain);
     }
 
     private registerMenuCommands(): void {
@@ -1372,7 +1395,7 @@ export class ReaderApp {
     private scheduleLanguageChangeScan(): void {
         window.setTimeout(() => {
             if (this.isDestroyed) return;
-            this.pageHasJapaneseText = documentHasJapaneseText();
+            this.pageHasJapaneseText = documentHasJapaneseText(200000, scanScopeRoots());
             if (this.shouldScanInitialPage()) this.scheduleVisiblePageReparse(0);
         }, 160);
     }
@@ -2139,6 +2162,7 @@ export class ReaderApp {
         this.disposeShadowRootDiscovery?.();
         this.disposeShadowRootDiscovery = undefined;
         setShadowRootScanHook(null);
+        setCustomElementUpgradeHook(null);
         this.autoScanObserver?.disconnect();
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
@@ -2216,14 +2240,55 @@ export class ReaderApp {
                 }
                 scanMutations.push(mutation);
             }
+            // MutationObserver cannot unobserve one target. If a registered
+            // shadow host left the composed document, disconnect once and
+            // reattach only body + live roots so a detached component cannot
+            // keep delivering work forever.
+            const removedScannedShadowRoot = scanMutations.some(mutation =>
+                mutation.type === 'childList' && mutation.removedNodes.length > 0,
+            ) && sweepDisconnectedShadowRoots();
+            if (removedScannedShadowRoot) {
+                this.autoScanObserver?.disconnect();
+                this.observeAutoScanMutations();
+            }
+            const mutationsOnlyInsideReaderRoot = scanMutations.length > 0
+                && scanMutations.every(mutationInsideReaderRoot);
+            const japaneseScanBudget = createMutationJapaneseScanBudget();
+            const mutationScopeRoots = annotationScopeRoots();
+            const mutationHasJapaneseText = canScanText
+                && allowsFrequentVisibleAutoScan()
+                && !mutationsOnlyInsideReaderRoot
+                ? scanMutations.reduce(
+                    (found, mutation) => mutationMayContainJapaneseText(
+                        mutation,
+                        japaneseScanBudget,
+                        mutationScopeRoots,
+                    ) || found,
+                    false,
+                )
+                : false;
+            // A root first discovered outside a declared Reader Surface is
+            // intentionally not observed. If its connected host later moves
+            // into a surface (or becomes one), registry idempotence will not
+            // replay the hook, so refresh the now-in-scope observer targets
+            // after the mutation probe has registered every candidate root.
+            if (scanMutations.some(mutation =>
+                mutationMayExpandAnnotationScope(mutation, mutationScopeRoots),
+            )) {
+                this.observeScopedScannedShadowRoots();
+            }
             if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRejectionDelay, { force: true, debounce: true });
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
-            else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
-            else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
+            else if (mutationsOnlyInsideReaderRoot) return;
+            else if (mutationHasJapaneseText) {
                 this.pageHasJapaneseText = true;
                 this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
-                    force: isBookWalkerStorefrontPage(),
+                    // The observer has just proved fresh Japanese exists,
+                    // potentially only behind an open shadow boundary. Trust
+                    // that bounded verdict at fire time instead of re-gating
+                    // through the light-DOM-only work detector.
+                    force: true,
                     debounce: isYouTubeHostname(),
                 });
             }
@@ -2237,7 +2302,7 @@ export class ReaderApp {
         // observer; a Lit/web-component re-render then schedules a rescan
         // exactly like a light-DOM mutation would.
         setShadowRootScanHook((root, cause) => {
-            if (this.isDestroyed) return;
+            if (this.isDestroyed || !nodeWithinAnnotationScope(root)) return;
             this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
             // A content-world watcher can discover a page-realm root only
             // after its component has already filled it. Observing now cannot
@@ -2246,6 +2311,15 @@ export class ReaderApp {
             if (cause === 'attached' && root.childNodes.length) {
                 this.scheduleAutoScan(0, { force: true, debounce: true });
             }
+        });
+        // The page bridge and its bounded candidate timer are the primary
+        // attachment path. Keep a separate name-level whenDefined wakeup for
+        // an undefined custom element that upgrades only after that finite
+        // fallback window has expired; it still enters the ordinary scoped
+        // scan rather than bypassing the generic collector.
+        setCustomElementUpgradeHook(() => {
+            if (this.isDestroyed || !this.canParseJapanese() || !allowsFrequentVisibleAutoScan()) return;
+            this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
         });
         this.observeAutoScanMutations();
         // Settings and dictionary setup is asynchronous. A defined component
@@ -2302,7 +2376,13 @@ export class ReaderApp {
         this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
         // disconnect() (pause path) dropped every target — re-attach the
         // registered shadow roots alongside document.body.
-        forEachScannedShadowRoot(root => this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS));
+        this.observeScopedScannedShadowRoots();
+    }
+
+    private observeScopedScannedShadowRoots(): void {
+        forEachScannedShadowRoot(root => {
+            if (nodeWithinAnnotationScope(root)) this.autoScanObserver?.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+        });
     }
 
     private shouldScanEmbeddedFrame(): boolean {

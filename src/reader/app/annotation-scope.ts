@@ -8,8 +8,9 @@
  */
 
 export const ANNOTATION_SCOPE_ATTRIBUTE = 'data-yomu-annotation-scope';
+export const ANNOTATION_SCOPE_SURFACE_ATTRIBUTE = 'data-yomu-runtime-surface';
 const ANNOTATION_SCOPE_SURFACE_VALUE = 'surface';
-const ANNOTATION_SCOPE_SURFACE_SELECTOR = '[data-yomu-runtime-surface], .yomu-try-me-text';
+const ANNOTATION_SCOPE_SURFACE_SELECTOR = `[${ANNOTATION_SCOPE_SURFACE_ATTRIBUTE}], .yomu-try-me-text`;
 
 export function annotationScopeActive(): boolean {
     return document.documentElement?.getAttribute(ANNOTATION_SCOPE_ATTRIBUTE) === ANNOTATION_SCOPE_SURFACE_VALUE;
@@ -35,6 +36,54 @@ export function scanScopeRoots(fallback: ParentNode | null = document.body): Par
     const roots = annotationScopeRoots();
     if (roots) return roots;
     return fallback ? [fallback] : [];
+}
+
+/** Whether a node belongs to a declared surface (or scoping is inactive). */
+export function nodeWithinAnnotationScope(
+    node: Node,
+    roots: readonly HTMLElement[] | null = annotationScopeRoots(),
+): boolean {
+    if (!roots) return true;
+    return roots.some(root => composedSurfaceContains(root, node));
+}
+
+/**
+ * Whether a delivered mutation can make an already-known shadow root enter a
+ * declared Reader Surface. The root registry is deliberately idempotent, so
+ * the app must replay its scoped observer targets after this membership grows.
+ */
+export function mutationMayExpandAnnotationScope(
+    mutation: MutationRecord,
+    roots: readonly HTMLElement[] | null = annotationScopeRoots(),
+): boolean {
+    if (!roots) return false;
+    if (mutation.type === 'childList') {
+        return Array.from(mutation.addedNodes).some(node =>
+            nodeWithinAnnotationScope(node, roots)
+            || (node instanceof Element && (
+                node.matches(ANNOTATION_SCOPE_SURFACE_SELECTOR)
+                || Boolean(node.querySelector(ANNOTATION_SCOPE_SURFACE_SELECTOR))
+            )),
+        );
+    }
+    if (mutation.type !== 'attributes'
+        || (mutation.attributeName !== ANNOTATION_SCOPE_SURFACE_ATTRIBUTE
+            && mutation.attributeName !== 'class')) return false;
+    return mutation.target instanceof Element
+        && mutation.target.matches(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+}
+
+// Node.contains() stops at a shadow boundary. Follow each open root back to
+// its host so declared light-DOM surfaces also own nested component content.
+function composedSurfaceContains(surface: HTMLElement, node: Node): boolean {
+    let current: Node | null = node;
+    while (current) {
+        if (current === surface || surface.contains(current)) return true;
+        const root = current.getRootNode();
+        if (!(root instanceof ShadowRoot)) return false;
+        current = root.host;
+    }
+    return false;
 }
 
 /**

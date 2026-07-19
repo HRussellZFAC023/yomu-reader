@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
-import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import { readerWordSurfaceText } from '../../src/reader/dom/index';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { applyTokensToScanTarget, applyTokensToTextNode, readerWordSurfaceText, removeNonDestructiveScanMirrors } from '../../src/reader/dom/index';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
+import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+
+if (typeof Range.prototype.getClientRects !== 'function') {
+    Object.defineProperty(Range.prototype, 'getClientRects', {
+        configurable: true,
+        value: () => [],
+    });
+}
 
 function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -24,7 +32,177 @@ function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
+function unresolvedToken(surface: string): JPDBToken {
+    return {
+        card: card({
+            spelling: surface,
+            reading: '',
+            cardState: ['not-in-deck'],
+        }),
+        start: 0,
+        end: surface.length,
+        length: surface.length,
+        rubies: [],
+        pitchClass: 'unknown',
+        sentence: surface,
+    };
+}
+
+function mockBox(element: HTMLElement, width: number, height: number): void {
+    Object.defineProperties(element, {
+        clientWidth: { value: width, configurable: true },
+        clientHeight: { value: height, configurable: true },
+        scrollWidth: { value: width, configurable: true },
+        scrollHeight: { value: height, configurable: true },
+        getBoundingClientRect: {
+            configurable: true,
+            value: () => ({
+                x: 0, y: 0, left: 0, top: 0, right: width, bottom: height,
+                width, height, toJSON: () => ({}),
+            }) as DOMRect,
+        },
+    });
+}
+
 describe('public vocabulary repaint', () => {
+    it('adds a late compact reading through the preserved detached channel', () => {
+        document.body.innerHTML = '<button id="word" style="height:24px;overflow:hidden;white-space:nowrap">賛成票</button>';
+        const host = document.querySelector<HTMLElement>('#word')!;
+        mockBox(host, 72, 24);
+        const node = host.firstChild as Text;
+
+        applyTokensToTextNode({
+            text: '賛成票',
+            node,
+            parent: host,
+            decoration: 'interactive-passive',
+            suppressRuby: true,
+        }, [unresolvedToken('賛成票')], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        const word = host.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-reader-detached-reading-word')).toBe(true);
+        expect(word.querySelector('.jpdb-reader-furi,rt')).toBeNull();
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '賛成票',
+            reading: 'さんせいひょう',
+            cardState: ['not-in-deck'],
+        }), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        const wrapper = word.querySelector<HTMLElement>('.jpdb-reader-detached-ruby')!;
+        const reading = word.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
+        expect(word.querySelector('ruby,rt')).toBeNull();
+        expect(wrapper).toBeTruthy();
+        expect(reading.textContent).toBe('さんせいひょう');
+        expect(readerWordSurfaceText(word)).toBe('賛成票');
+        expect(wrapper.style.getPropertyValue('position')).toBe('relative');
+        expect(wrapper.style.getPropertyPriority('position')).toBe('important');
+        expect(reading.style.getPropertyValue('position')).toBe('absolute');
+        expect(reading.style.getPropertyValue('transform')).toBe('translateX(-50%)');
+        expect(reading.style.getPropertyPriority('transform')).toBe('important');
+    });
+
+    it('transitions a reading-free additive mirror only when a late reading materializes', () => {
+        document.body.innerHTML = '<button id="host" style="display:block;height:24px;max-height:24px;overflow:hidden;white-space:nowrap">賛成票</button>';
+        const host = document.querySelector<HTMLElement>('#host')!;
+        mockBox(host, 72, 24);
+        const node = host.firstChild as Text;
+
+        applyTokensToScanTarget({
+            text: '賛成票',
+            node,
+            parent: host,
+            insideShadowDOM: true,
+            decoration: 'interactive-passive',
+            suppressRuby: true,
+            passiveInteraction: true,
+        }, [unresolvedToken('賛成票')], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-additive-text-mirror')!;
+        const word = mirror.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(mirror.dataset.yomuDetachedReadings).toBeUndefined();
+        expect(mirror.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(word.querySelector('.jpdb-reader-furi,rt')).toBeNull();
+        expect(host.firstChild?.textContent).toBe('賛成票');
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '賛成票',
+            reading: 'さんせいひょう',
+            cardState: ['not-in-deck'],
+        }), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        expect(host.querySelector('rt')).toBeNull();
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
+        expect(mirror.style.getPropertyValue('overflow')).toBe('visible');
+        expect(word.querySelector('.jpdb-reader-detached-ruby')?.getAttribute('style')).toContain('position: relative');
+        expect(word.querySelector<HTMLElement>('.jpdb-reader-detached-furi')?.style.getPropertyValue('position')).toBe('absolute');
+        expect(host.firstChild?.textContent).toBe('賛成票');
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '賛成票',
+            reading: 'さんせいひょう',
+            cardState: ['known'],
+        }), {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'known-status',
+            furiganaHiddenStateGroups: ['known'],
+        });
+
+        expect(word.querySelector('.jpdb-reader-furi,rt')).toBeNull();
+        expect(mirror.dataset.yomuDetachedReadings).toBeUndefined();
+        expect(mirror.style.getPropertyValue('overflow')).toBe('hidden');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
+
+        removeNonDestructiveScanMirrors(document);
+    });
+
+    it('restores an outer composed clip after the last late shadow reading is cleared', () => {
+        document.body.innerHTML = '<div id="clip" style="height:24px;max-height:24px;overflow:hidden"><reader-shadow-label></reader-shadow-label></div>';
+        const clip = document.querySelector<HTMLElement>('#clip')!;
+        const host = document.querySelector<HTMLElement>('reader-shadow-label')!;
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<span id="source">賛成票</span>';
+        noteScannedShadowRoot(root);
+        mockBox(clip, 96, 24);
+        mockBox(host, 72, 24);
+        const source = root.querySelector<HTMLElement>('#source')!;
+        const node = source.firstChild as Text;
+
+        applyTokensToTextNode({
+            text: '賛成票',
+            node,
+            parent: source,
+            decoration: 'interactive-passive',
+            suppressRuby: true,
+        }, [unresolvedToken('賛成票')], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        const word = source.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '賛成票',
+            reading: 'さんせいひょう',
+            cardState: ['not-in-deck'],
+        }), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+
+        expect(clip.dataset.yomuDetachedReadingOverflow).toBe('true');
+        expect(clip.style.getPropertyValue('overflow')).toBe('visible');
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '賛成票',
+            reading: 'さんせいひょう',
+            cardState: ['known'],
+        }), {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'known-status',
+            furiganaHiddenStateGroups: ['known'],
+        });
+
+        expect(root.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(clip.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(clip.style.getPropertyValue('overflow')).toBe('hidden');
+    });
+
     it('updates state classes and removes stale furigana when a reviewed word enters a hidden group', () => {
         document.body.innerHTML = `
             <span class="jpdb-reader-word jpdb-learning jiten-learning jpdb-reader-has-furi jpdb-reader-i-plus-one" data-vid="11" data-sid="22" data-card-state="learning" data-expression="読む" data-mining-insight="i-plus-one">

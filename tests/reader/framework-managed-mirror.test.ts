@@ -119,7 +119,11 @@ describe('framework-managed chat mirror', () => {
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(host.style.getPropertyValue('color')).not.toBe('transparent');
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        // The additive layer carries only decoration/hit paint. Its semantic
+        // colour keeps following the host for late theme changes, while the
+        // duplicate glyph fill stays transparent.
         expect(mirror.style.getPropertyValue('color')).toBe('');
+        expect(mirror.style.getPropertyValue('-webkit-text-fill-color')).toBe('transparent');
     });
 
     it('mirrors a React-owned chat message instead of replacing its text node', () => {
