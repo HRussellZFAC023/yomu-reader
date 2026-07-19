@@ -111,7 +111,7 @@ function fixturePath(file) {
 }
 
 function findingSeverity(file, rule) {
-    const publicLensKey = /^(?:src\/(?:gaming\/ocr\.ts|reader\/ocr\/(?:controller|ocr-providers)\.ts)|docs\/public\/(?:study\/app\.js|greasyfork\/yomu-ocr-manga\.user\.js))$/.test(file);
+    const publicLensKey = /^(?:src\/(?:gaming\/ocr\.ts|reader\/ocr\/(?:controller|ocr-providers)\.ts)|docs\/public\/(?:study\/app\.js|greasyfork\/yomu-ocr-manga(?:\.[0-9a-f]{12})?\.user\.js))$/.test(file);
     if (publicLensKey && (rule === 'google-api-key' || rule === 'credential-assignment')) return 'debt';
     return 'blocker';
 }

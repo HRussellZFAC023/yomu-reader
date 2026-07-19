@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-48ed62730032';
+const VERSION = 'yomu-academy-shell-s1-e473163bf3ac';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -70,8 +70,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-48ed62730032',
-    '/academy/style.css?v=s1-48ed62730032',
+    '/academy/app.js?v=s1-e473163bf3ac',
+    '/academy/style.css?v=s1-e473163bf3ac',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -145,6 +145,9 @@ const CORE = [
     '/academy/art/locations/wide/museum__evening-gallery--wide.webp',
     '/academy/art/locations/mobile/museum__evening-gallery--mobile.webp',
     '/academy/art/events/rainy-directions__rie-aakash__v001.png',
+    '/academy/art/events/event__empty-microphone-rehearsal__v001.png',
+    '/academy/art/events/event__withheld-panel-handoff__v001.png',
+    '/academy/art/events/event__atlas-finale-next-page__v001.png',
     '/academy/art/items/station-ticket-memory__v001.jpg',
     '/academy/art/items/konbini-shopping-list__v001.jpg',
     '/academy/art/items/ramen-quantity-board__v001.jpg',

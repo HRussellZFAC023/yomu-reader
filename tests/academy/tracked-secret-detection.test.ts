@@ -111,4 +111,22 @@ describe('tracked secret detection', () => {
         ]));
         expect(report.findings.every((finding: { severity: string }) => finding.severity === 'debt')).toBe(true);
     });
+
+    it('keeps versioned generated Lens userscripts on the same explicit public-key allowlist', () => {
+        const publicKey = ['AIza', 'abcdefghijklmnopqrstuvwxyz123456789'].join('');
+        const root = repository({
+            'docs/public/greasyfork/yomu-ocr-manga.0123456789ab.user.js': `const GOOGLE_LENS_API_KEY = '${publicKey}';\n`,
+        });
+
+        const result = scan(root);
+        const report = JSON.parse(result.stdout);
+        expect(result.status).toBe(0);
+        expect(report.findings).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                file: 'docs/public/greasyfork/yomu-ocr-manga.0123456789ab.user.js',
+                severity: 'debt',
+                rule: 'google-api-key',
+            }),
+        ]));
+    });
 });
