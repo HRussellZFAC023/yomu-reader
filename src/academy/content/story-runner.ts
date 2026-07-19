@@ -260,28 +260,39 @@ export function storySceneAttendeeIds(
             : []))]);
 }
 
+const STORY_BAND_ORDER: readonly StoryLanguageBand[] = ['foundation', 'n5', 'n4', 'n3', 'n2', 'n1', 'ngPlus'];
+
+/**
+ * Chapters author any subset of band variants (S1 foundation..n1, S2 n5..n1, ...).
+ * Display picks the exact band, else the nearest lower, else the nearest higher.
+ */
+export function nearestStoryBand(
+    available: readonly string[],
+    band: StoryLanguageBand,
+): StoryLanguageBand | undefined {
+    const present = new Set(available);
+    const requested = STORY_BAND_ORDER.indexOf(band);
+    for (let index = requested; index >= 0; index -= 1) {
+        if (present.has(STORY_BAND_ORDER[index]!)) return STORY_BAND_ORDER[index];
+    }
+    for (let index = requested + 1; index < STORY_BAND_ORDER.length; index += 1) {
+        if (present.has(STORY_BAND_ORDER[index]!)) return STORY_BAND_ORDER[index];
+    }
+    return undefined;
+}
+
 function resolveStoryLine(node: StoryArcNode, band: StoryLanguageBand): StoryResolvedLine {
     const entries = node.variants ?? {};
-    const order: readonly StoryLanguageBand[] = ['foundation', 'n5', 'n4', 'n3', 'n2', 'n1', 'ngPlus'];
-    const requested = order.indexOf(band);
-    for (let index = requested; index >= 0; index -= 1) {
-        const candidateBand = order[index]!;
-        const candidate = entries[candidateBand];
-        if (candidate) return Object.freeze({ ...candidate, band: candidateBand });
-    }
-    const first = Object.entries(entries)[0] as [StoryLanguageBand, StoryLineVariant] | undefined;
-    if (!first) throw new Error(`Story line ${node.id} has no authored language variant.`);
-    return Object.freeze({ ...first[1], band: first[0] });
+    const chosen = nearestStoryBand(Object.keys(entries), band);
+    const variant = chosen ? entries[chosen] : undefined;
+    if (!chosen || !variant) throw new Error(`Story line ${node.id} has no authored language variant.`);
+    return Object.freeze({ ...variant, band: chosen });
 }
 
 function resolveChoice(option: StoryChoiceOption, band: StoryLanguageBand): StoryResolvedChoice {
-    const order: readonly StoryLanguageBand[] = ['foundation', 'n5', 'n4', 'n3', 'n2', 'n1', 'ngPlus'];
-    const requested = order.indexOf(band);
-    let japanese = '';
-    for (let index = requested; index >= 0 && !japanese; index -= 1) {
-        japanese = option.japaneseByBand[order[index]!] ?? '';
-    }
-    japanese ||= Object.values(option.japaneseByBand)[0] ?? '';
+    const chosen = nearestStoryBand(Object.keys(option.japaneseByBand), band);
+    const japanese = (chosen ? option.japaneseByBand[chosen] : undefined)
+        ?? Object.values(option.japaneseByBand)[0] ?? '';
     return Object.freeze({ id: option.id, action: option.action, japanese });
 }
 

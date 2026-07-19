@@ -18,14 +18,14 @@ function clonePlan(): ClassWeekCastPlan {
     return structuredClone(planJson());
 }
 
-describe('73-week classmate appearance plan', () => {
+describe('74-week classmate appearance plan', () => {
     it('covers the reviewed chronology without claiming the weeks are authored or playable', () => {
         const plan = validateClassWeekCastPlan(planJson());
         const syncScript = fs.readFileSync(path.resolve('scripts/sync-academy.cjs'), 'utf8');
 
-        expect(plan.weeks).toHaveLength(73);
+        expect(plan.weeks).toHaveLength(74);
         expect(plan.weeks.map(week => week.weekId)).toEqual(CANONICAL_CLASS_WEEK_IDS);
-        expect(plan.weeks.map(week => week.order)).toEqual([...Array(73).keys()]);
+        expect(plan.weeks.map(week => week.order)).toEqual([...Array(74).keys()]);
         expect(plan).toMatchObject({
             scope: 'appearance-planning',
             runtimeStatus: 'not-bound',
@@ -45,7 +45,7 @@ describe('73-week classmate appearance plan', () => {
         const sourceBacked = plan.weeks.filter(week => week.status === 'source-backed');
         const reviewRequired = plan.weeks.filter(week => week.status === 'review-required');
 
-        expect(sourceBacked).toHaveLength(67);
+        expect(sourceBacked).toHaveLength(68);
         expect(sourceBacked.every(week => week.source.topicEvidence.length > 0)).toBe(true);
         expect(reviewRequired.map(week => week.weekId)).toEqual([
             'orientation', 'l1-kickoff', 'l1plus-kickoff',
@@ -103,7 +103,7 @@ describe('73-week classmate appearance plan', () => {
     it('rejects missing weeks, invented names, and cast outside a documented specialty', () => {
         const missingWeek = clonePlan() as unknown as { weeks: unknown[] };
         missingWeek.weeks.pop();
-        expect(() => validateClassWeekCastPlan(missingWeek)).toThrow(/all 73 canonical weeks/i);
+        expect(() => validateClassWeekCastPlan(missingWeek)).toThrow(/all 74 canonical weeks/i);
 
         const misspelled = clonePlan() as unknown as {
             weeks: Array<{ primary: { firstName: string } | null }>;

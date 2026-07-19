@@ -88,6 +88,7 @@ const TEXT_REVEAL_LEAD_IN_MS = 90;
 const TEXT_REVEAL_BASE_DELAY_MS = 38;
 const TEXT_REVEAL_CLUSTER_DELAY_MS = 16;
 const TEXT_REVEAL_SENTENCE_BREATH_MS = 460;
+const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
 /** Presentation host. Narrative data never manipulates stage DOM. */
 export function createAcademyVnStage(options: AcademyVnStageOptions = {}): AcademyVnStage {
@@ -314,6 +315,9 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         // Restoring text removes Reader ruby/pitch DOM; switching on wakes it.
         const lineReadingVisible = visible && currentLine.reading.available !== false;
         setAcademyReadingSurface(japanese, lineReadingVisible, currentLine.japanese, 'academy-dialogue');
+        const speakerName = currentLine.speakerName ?? '';
+        const speakerReadingVisible = visible && HAS_JAPANESE.test(speakerName);
+        setAcademyReadingSurface(speakerTab, speakerReadingVisible, speakerName, 'academy-dialogue');
         root.dataset.readingSupport = visible ? 'shown' : 'hidden';
         for (const [surface, source] of readingSurfaces) {
             applyReadingSurface(surface, source, visible);
@@ -520,6 +524,8 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         syncToolAvailability();
         speakerTab.textContent = line.speakerName ?? '';
         speakerTab.hidden = !line.speakerName;
+        if (line.speakerName && HAS_JAPANESE.test(line.speakerName)) speakerTab.lang = 'ja';
+        else speakerTab.removeAttribute('lang');
         japanese.lang = line.language ?? 'ja';
         japanese.textContent = line.japanese;
         const nextReadingState = readingStateInitialized ? readingVisible : (line.reading.visible ?? false);
@@ -845,7 +851,8 @@ function historyEntry(
     const item = node('li', 'academy-vn-log-entry');
     if (line.speakerName) {
         const speaker = node('strong', 'academy-vn-log-speaker');
-        speaker.textContent = line.speakerName;
+        if (HAS_JAPANESE.test(line.speakerName)) speaker.lang = 'ja';
+        applyReadingSurface(speaker, line.speakerName, readingVisible && HAS_JAPANESE.test(line.speakerName));
         item.append(speaker);
     }
     const japanese = node('span', 'academy-vn-log-japanese');

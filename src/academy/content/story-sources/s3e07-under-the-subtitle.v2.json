@@ -1,0 +1,504 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e07-under-the-subtitle",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 31,
+  "title": {
+    "en": "Under the Subtitle",
+    "ja": "字幕の下で"
+  },
+  "synopsis": "Ruparna brings an interview clip whose official subtitle reads far cleaner than the voice under it: the speaker hedged that she could not clearly remember, and the caption turned it into a flat 'yes, that's right.' Sophie separates what the speaker actually said from what the subtitle now claims on her behalf, and the learner re-subtitles the line to carry the hedge instead of erasing it. When the smoother version would read better for the exhibition, Sophie declines to let the class publish it; Ruparna redesigns the plan around the honest caption. Her seventy-percent door reverses into a limit — the unknown is not theirs to fill.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "ruparna",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#ruparna",
+        "docs/academy/story/CAST-AND-CONSENT.md#ruparna"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cinematic framing presented as certain fact rather than a preserved alternate reading",
+        "a subtitle's manufactured certainty treated as the speaker's real claim",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "sophie",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "precision framed as coldness or a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e06-two-schedules",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "restore-warranted-uncertainty-in-a-quoted-translation-choice"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirtyone-limit-ruparna"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:under-the-subtitle:the-cleaner-cut",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-clear",
+      "goal": "Examine how a 'clearer' subtitle erased a hedge the interviewee actually made, and separate the quote from the claim.",
+      "dramaticQuestion": "When a subtitle reads better than the source, whose words are we hearing?",
+      "learnerNeed": "A way to keep what a speaker actually said, hedge and all, apart from what a translation claims on their behalf.",
+      "curriculum": {
+        "sectionId": "quote-versus-claim",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:paused-interview",
+          "beatId": "beat:under-the-subtitle:arrival-image",
+          "cueId": "cue:library-screen-two-subtitle-tracks",
+          "description": "The library's back corner is dark except for a paused interview frame: a woman mid-answer, looking slightly off-camera. Two subtitle tracks are stacked under it — one labelled OFFICIAL, reading cleanly; one blank, waiting. Ruparna stands by the screen with the transcript in her hand, not the remote."
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:ruparna-brings-the-interview",
+          "beatId": "beat:under-the-subtitle:human-want",
+          "speakerId": "ruparna",
+          "intent": "Bring an interview clip instead of a drama and point out that the official subtitle reads more decisively than the voice underneath it actually commits to.",
+          "attentionTarget": "the gap between a clean caption and a hesitant voice",
+          "variants": {
+            "n3": {
+              "japanese": "今日はドラマじゃなくて、インタビューのクリップなんです。この人の答え、字幕で読むとすごくきれいに決まってるでしょ。でも、耳で音を追うと、本人は実はそこまで言い切ってないんですよ。",
+              "reading": "きょうはドラマじゃなくて、インタビューのクリップなんです。このひとのこたえ、じまくでよむとすごくきれいにきまってるでしょ。でも、みみでおとをおうと、ほんにんはじつはそこまでいいきってないんですよ。",
+              "english": "Today it's not a drama, it's an interview clip. This person's answer — when you read it in the subtitle, it lands so cleanly, right? But when you follow the audio with your ears, she actually doesn't commit to it that far."
+            },
+            "n2": {
+              "japanese": "今日はドラマではなくて、インタビューの一場面を持ってきました。この方の受け答え、字幕で読むと妙にすっきり決まってるんですけど…声のほうを追うと、本人はそこまで言い切ってはいないんです。",
+              "reading": "きょうはドラマではなくて、インタビューのいちばめんをもってきました。このかたのうけこたえ、じまくでよむとみょうにすっきりきまってるんですけど…こえのほうをおうと、ほんにんはそこまでいいきってはいないんです。",
+              "english": "Today, not a drama — I brought one scene from an interview. This person's reply, read off the subtitle, comes out oddly tidy and decisive… but if you follow the voice itself, she doesn't commit to it that far at all."
+            },
+            "n1": {
+              "japanese": "今日はドラマではなくて、インタビューの一場面を。この方の受け答え、字幕だけ追っていると実に歯切れよく決まって見えるんですけど…いざ声のほうを聞いてみると、本人はそこまで言い切ってはいないんですよ。",
+              "reading": "きょうはドラマではなくて、インタビューのいちばめんを。このかたのうけこたえ、じまくだけおっているとじつにはぎれよくきまってみえるんですけど…いざこえのほうをきいてみると、ほんにんはそこまでいいきってはいないんですよ。",
+              "english": "Today, not a drama — a single scene from an interview. This person's reply, if you follow only the subtitle, looks crisp and decisively settled… yet the moment you actually listen to the voice, she doesn't commit to it that far."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:play-the-hedge",
+          "beatId": "beat:under-the-subtitle:obstruction",
+          "cueId": "cue:audio-hedge-against-flat-caption",
+          "description": "Ruparna plays the line. In the audio the woman says, haltingly, 「たぶん、そうだったと思うんですけど…正直、はっきりとは覚えていなくて」. Under it the OFFICIAL track reads, in confident type: 「はい、その通りです」. The hesitation in the voice and the certainty in the caption sit on screen at the same time."
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:ruparna-names-the-erasure",
+          "beatId": "beat:under-the-subtitle:japanese-attempt",
+          "speakerId": "ruparna",
+          "intent": "Name that the subtitle asserted a certainty the speaker never made, using her signature challenge to the over-definitive cut.",
+          "attentionTarget": "the hedge the caption deleted",
+          "variants": {
+            "n3": {
+              "japanese": "聞こえました？本人は「たぶん」「はっきりとは覚えてない」って言ってるのに、字幕は「はい、その通りです」。…字幕にすると、ちょっと言い切りすぎじゃない？迷ってた部分が、まるごと消えてるんです。",
+              "reading": "きこえました？ほんにんは「たぶん」「はっきりとはおぼえてない」っていってるのに、じまくは「はい、そのとおりです」。…じまくにすると、ちょっといいきりすぎじゃない？まよってたぶぶんが、まるごときえてるんです。",
+              "english": "Did you catch it? She says 'probably,' 'I don't clearly remember,' and yet the subtitle says 'Yes, that's exactly right.' …Once you subtitle it, isn't that a bit too definitive? The part where she was unsure — it's erased whole."
+            },
+            "n2": {
+              "japanese": "今の、聞こえましたか。本人は「たぶん」「はっきりとは覚えていない」と言っているのに、字幕は「はい、その通りです」。…字幕にすると、ちょっと言い切りすぎじゃないですか。迷いのところが、まるごと消えてしまってるんです。",
+              "reading": "いまの、きこえましたか。ほんにんは「たぶん」「はっきりとはおぼえていない」といっているのに、じまくは「はい、そのとおりです」。…じまくにすると、ちょっといいきりすぎじゃないですか。まよいのところが、まるごときえてしまってるんです。",
+              "english": "That just now — did you hear it? She says 'probably,' 'I don't clearly remember,' yet the subtitle reads 'Yes, that's exactly right.' …Once you put it in a subtitle, isn't it a touch too definitive? The place where she hesitated has vanished whole."
+            },
+            "n1": {
+              "japanese": "今の、聞き取れましたか。本人は「たぶん」「はっきりとは覚えていない」と言っているのに、字幕のほうは「はい、その通りです」と。…字幕にした途端、少し言い切りすぎじゃありませんか。ためらっていた部分が、まるごと無かったことにされてるんですよ。",
+              "reading": "いまの、ききとれましたか。ほんにんは「たぶん」「はっきりとはおぼえていない」といっているのに、じまくのほうは「はい、そのとおりです」と。…じまくにしたとたん、すこしいいきりすぎじゃありませんか。ためらっていたぶぶんが、まるごとなかったことにされてるんですよ。",
+              "english": "That just now — could you make it out? She says 'probably,' 'I don't clearly remember,' and yet the subtitle goes 'Yes, that's exactly right.' …The instant it becomes a subtitle, isn't it a little too definitive? The part where she was hesitating has been made as though it never existed."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:sophie-quote-versus-claim",
+          "beatId": "beat:under-the-subtitle:calibration",
+          "speakerId": "sophie",
+          "intent": "Draw the line between what the speaker literally said (a quotable hedge) and what the subtitle now claims for her, and require that quoting stop where the evidence stops.",
+          "attentionTarget": "the boundary between quoting and speaking for",
+          "variants": {
+            "n3": {
+              "japanese": "大事なのは、二つを混ぜないことだと思う。本人が「言ったこと」と、字幕が「言わせてること」。この人は「はっきりとは覚えていない」と言った——引用できるのは、そこまで。字幕はそれを「確かです」に変えてる。それはもう翻訳じゃなくて、代わりに言い切ってるだけだよね。",
+              "reading": "だいじなのは、ふたつをまぜないことだとおもう。ほんにんが「いったこと」と、じまくが「いわせてること」。このひとは「はっきりとはおぼえていない」といった——いんようできるのは、そこまで。じまくはそれを「たしかです」にかえてる。それはもうほんやくじゃなくて、かわりにいいきってるだけだよね。",
+              "english": "The important thing is not to mix the two. What she 'said,' and what the subtitle is 'making her say.' She said 'I don't clearly remember' — quoting her only reaches that far. The subtitle changes it into 'It's certain.' That's not translating anymore, it's just committing on her behalf."
+            },
+            "n2": {
+              "japanese": "分けて考えたいの。本人が実際に「言ったこと」と、字幕がその人に「言わせていること」。この方は「はっきりとは覚えていない」と述べた——引用として許されるのは、そこまで。字幕はそれを「確かです」に書き換えてる。それは訳したんじゃなくて、代わりに言い切ってるだけなんだよね。",
+              "reading": "わけてかんがえたいの。ほんにんがじっさいに「いったこと」と、じまくがそのひとに「いわせていること」。このかたは「はっきりとはおぼえていない」とのべた——いんようとしてゆるされるのは、そこまで。じまくはそれを「たしかです」にかきかえてる。それはやくしたんじゃなくて、かわりにいいきってるだけなんだよね。",
+              "english": "I want to keep them apart. What she actually 'said,' and what the subtitle is 'making her say.' She stated 'I don't clearly remember' — what's permissible as a quote reaches only that far. The subtitle rewrites it into 'It's certain.' That isn't translating, it's just committing on her behalf."
+            },
+            "n1": {
+              "japanese": "二つを、きちんと分けておきたくて。本人が実際に「口にしたこと」と、字幕がその人に「言わせてしまっていること」。この方は「はっきりとは覚えていない」とおっしゃった——引用として許されるのは、そこまでのはず。なのに字幕は「確かです」に書き換えている。それはもう翻訳ではなくて、本人に代わって言い切っているだけなの。",
+              "reading": "ふたつを、きちんとわけておきたくて。ほんにんがじっさいに「くちにしたこと」と、じまくがそのひとに「いわせてしまっていること」。このかたは「はっきりとはおぼえていない」とおっしゃった——いんようとしてゆるされるのは、そこまでのはず。なのにじまくは「たしかです」にかきかえている。それはもうほんやくではなくて、ほんにんにかわっていいきっているだけなの。",
+              "english": "I want the two kept cleanly apart. What she actually 'put into words,' and what the subtitle has ended up 'making her say.' She said 'I don't clearly remember' — what a quote may permissibly reach should end there. And yet the subtitle rewrites it into 'It's certain.' That is no longer translation; it's simply committing in her place."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:ruparna-invites-resubtitle",
+          "beatId": "beat:under-the-subtitle:invitation",
+          "speakerId": "ruparna",
+          "intent": "Invite the learner to re-subtitle the blank track to carry the speaker's hedge, and state plainly that it is someone else's words with an easy decline.",
+          "attentionTarget": "the blank subtitle track waiting to be written",
+          "variants": {
+            "n3": {
+              "japanese": "下の空いてる字幕、書き直してみませんか。無理にとは言わないです。ただ、これはこの人の言葉で、私たちの言葉じゃないから——「覚えていない」を消さないように、そのまま残す方向で。やりたくなければ、私が音を止めますね。",
+              "reading": "したのあいてるじまく、かきなおしてみませんか。むりにとはいわないです。ただ、これはこのひとのことばで、わたしたちのことばじゃないから——「おぼえていない」をけさないように、そのままのこすほうこうで。やりたくなければ、わたしがおとをとめますね。",
+              "english": "Want to try rewriting the empty subtitle underneath? I won't push it. Only — these are her words, not ours, so let's go in the direction of keeping 'I don't remember' rather than deleting it. If you'd rather not, I'll just stop the audio."
+            },
+            "n2": {
+              "japanese": "下の空いてる字幕、書き直してみませんか。無理にとは言いません。ただ、これはこの方の言葉であって、私たちの言葉ではないので——「覚えていない」を消さずに、迷いをそのまま残す方向で書いてほしいんです。気が進まなければ、ここで止めても構いません。",
+              "reading": "したのあいてるじまく、かきなおしてみませんか。むりにとはいいません。ただ、これはこのかたのことばであって、わたしたちのことばではないので——「おぼえていない」をけさずに、まよいをそのまものこすほうこうでかいてほしいんです。きがすすまなければ、ここでとめてもかまいません。",
+              "english": "Would you try rewriting the blank subtitle below? I won't insist. Only — these are this person's words, not ours, so I'd like you to write in the direction of keeping 'I don't remember,' leaving the hesitation as it is. If you're not up for it, we can stop right here."
+            },
+            "n1": {
+              "japanese": "下の空いている字幕、一度書き直してみませんか。無理にとは申しません。ただ、これはあくまでこの方の言葉で、私たちが差し出す言葉ではないので——「覚えていない」を消さず、迷いを迷いのまま残す方向で書いていただきたくて。気が進まないようなら、このまま止めてしまっても構わないので。",
+              "reading": "したのあいているじまく、いちどかきなおしてみませんか。むりにとはもうしません。ただ、これはあくまでこのかたのことばで、わたしたちがさしだすことばではないので——「おぼえていない」をけさず、まよいをまよいのまものこすほうこうでかいていただきたくて。きがすすまないようなら、このままとめてしまってもかまわないので。",
+              "english": "Would you try rewriting the blank subtitle below, just once? I won't press you. Only — these remain this person's words, not words for us to supply, so I'd like you to write toward keeping 'I don't remember,' leaving the hesitation as hesitation. If you'd rather not, we can simply stop here."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:under-the-subtitle:before-resubtitle",
+          "beatId": "beat:under-the-subtitle:resubtitle-attempt",
+          "resume": "The official caption has been shown to assert a certainty the speaker never made; Sophie has drawn the line between quoting the hedge and speaking for her. The learner steps in to re-subtitle the line so the speaker's uncertainty survives the translation."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:under-the-subtitle:restore-the-hedge",
+          "beatId": "beat:under-the-subtitle:resubtitle-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e07-under-the-subtitle-restore-the-hedge"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e07-under-the-subtitle-restore-the-hedge"
+          },
+          "resumeContext": "From the audio 「たぶん、そうだったと思うんですけど、正直、はっきりとは覚えていなくて」 against the OFFICIAL caption 「はい、その通りです」, the learner rewrites the blank subtitle to carry the speaker's modality — quoting the hedge (「〜と思う」「たぶん」「〜ようだ / 〜らしい」 where warranted) rather than upgrading it to 断定 — and adds a one-line justification of the translation choice: what the speaker claimed, and how strongly.",
+          "onReady": "checkpoint:under-the-subtitle:after-resubtitle",
+          "onRepair": "node:under-the-subtitle:resubtitle-repair",
+          "onDefer": "checkpoint:under-the-subtitle:before-resubtitle"
+        },
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:resubtitle-repair",
+          "beatId": "beat:under-the-subtitle:resubtitle-repair",
+          "cueId": "cue:one-clause-upgraded-flagged",
+          "description": "Only the one clause where the new caption crept back toward certainty is highlighted — a 「〜んです」 that reads a shade firmer than the voice earned. The rest of the rewrite stays on screen; just that clause waits, with the audio queued to replay once more so the hedge can be matched exactly."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:under-the-subtitle:after-resubtitle",
+          "beatId": "beat:under-the-subtitle:resubtitle-response",
+          "resume": "The line is re-subtitled with the speaker's hedge intact and the translation choice justified in a sentence. Sophie moves to the whiteboard to tally what the class can honestly say the interview established."
+        },
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:two-captions",
+          "beatId": "beat:under-the-subtitle:changed-image",
+          "cueId": "cue:whiteboard-official-versus-honest",
+          "description": "Two captions now stand side by side under the paused frame: OFFICIAL, reading 「はい、その通りです」, and the class's rewrite, which keeps the 「たぶん」 and the 「はっきりとは覚えていない」. Neither is pretending to be the other. The clean version reads better. The honest version reads truer."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:under-the-subtitle:not-ours-to-fill"
+      }
+    },
+    {
+      "id": "scene:under-the-subtitle:not-ours-to-fill",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-clear",
+      "goal": "Decide what the honest caption may claim, and refuse to publish the smoother version even though it would read better for the exhibition.",
+      "dramaticQuestion": "Is the seventy-percent door still a door when the missing part is not ours to open?",
+      "learnerNeed": "A stance that preserves the speaker's uncertainty rather than filling it, and a plan that survives one person's refusal.",
+      "curriculum": {
+        "sectionId": "preserve-warranted-uncertainty",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:lights-up",
+          "beatId": "beat:under-the-subtitle:regroup-image",
+          "cueId": "cue:frame-frozen-two-captions-counted",
+          "description": "The clip holds on the woman's off-camera glance. Sophie caps the marker and steps back so both captions are readable at once. Under the honest rewrite she has written a single short line: 確実に言えること — and the space after it is deliberately small."
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:sophie-tally-what-holds",
+          "beatId": "beat:under-the-subtitle:human-want",
+          "speakerId": "sophie",
+          "intent": "Tally what the interview actually established — only that the speaker said she does not remember — and reverse the seventy-percent rule: the unknown thirty is hers, not a gap for the subtitle to fill.",
+          "attentionTarget": "the small space after 'what we can say for certain'",
+          "variants": {
+            "n3": {
+              "japanese": "直してみて、はっきりした。確実に言えるのは「本人が『覚えていない』と言った」——ここまで。「本当に覚えてるかどうか」は、私たちには分からない。前は、七割分かれば先に進むドアだったよね。今回はその逆。分からない三割を、字幕で埋めちゃいけないんだと思う。",
+              "reading": "なおしてみて、はっきりした。かくじつにいえるのは「ほんにんが『おぼえていない』といった」——ここまで。「ほんとうにおぼえてるかどうか」は、わたしたちにはわからない。まえは、しちわりわかればさきにすすむドアだったよね。こんかいはそのぎゃく。わからないさんわりを、じまくでうめちゃいけないんだとおもう。",
+              "english": "Rewriting it made it clear. What we can say for certain is 'she said she doesn't remember' — that far. Whether she actually remembers, we don't know. Before, seventy percent was a door we walked through. This time it's the reverse. The thirty we don't know — we mustn't fill it in with a subtitle."
+            },
+            "n2": {
+              "japanese": "直してみて、はっきりしたね。確実に言えるのは「本人が『覚えていない』と述べた」——そこまで。「実際に覚えているのかどうか」は、こちらには分からないまま。前は、七割つかめたら先に進むドアだった。今回はその裏返しで、分からない三割のほうを、字幕で勝手に埋めちゃいけないの。",
+              "reading": "なおしてみて、はっきりしたね。かくじつにいえるのは「ほんにんが『おぼえていない』とのべた」——そこまで。「じっさいにおぼえているのかどうか」は、こちらにはわからないまま。まえは、しちわりつかめたらさきにすすむドアだった。こんかいはそのうらがえしで、わからないさんわりのほうを、じまくでかってにうめちゃいけないの。",
+              "english": "Rewriting it made it clear. What we can say for certain is 'she stated she doesn't remember' — that far. Whether she actually remembers stays unknown to us. Before, once we grasped seventy percent it was a door we went through. This time it's the flip side: the thirty we don't know is exactly what we mustn't fill in with a subtitle."
+            },
+            "n1": {
+              "japanese": "直してみて、かえってはっきりしたと思う。確実に言えるのは「本人が『覚えていない』と述べた」という、その一点だけ。「実際に覚えているのかどうか」までは、こちらには分からないまま残る。あのとき私たちは、七割つかめたら先へ進んだ——でも今度はその裏返しで、分からない三割のほうを、字幕で勝手に埋めてしまってはいけないの。",
+              "reading": "なおしてみて、かえってはっきりしたとおもう。かくじつにいえるのは「ほんにんが『おぼえていない』とのべた」という、そのいってんだけ。「じっさいにおぼえているのかどうか」までは、こちらにはわからないままのこる。あのときわたしたちは、しちわりつかめたらさきへすすんだ——でもこんどはそのうらがえしで、わからないさんわりのほうを、じまくでかってにうめてしまってはいけないの。",
+              "english": "Rewriting it made it clearer, if anything. What we can say for certain is the single point that 'she stated she doesn't remember.' Whether she actually remembers stays unknown to us. Back then, once we grasped seventy percent we went forward — but this time it's the inverse: the unknown thirty is precisely what we must not go and fill in with a subtitle."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:under-the-subtitle:how-to-caption",
+          "beatId": "beat:under-the-subtitle:stance",
+          "question": "How do you caption the part the speaker left uncertain?",
+          "options": [
+            {
+              "id": "option:under-the-subtitle:keep-the-hedge-marked",
+              "action": "Keep the speaker's hedge in the caption and mark it as her own uncertainty, so the viewer hears her doubt rather than a claim.",
+              "japaneseByBand": {
+                "n3": "本人の「たぶん」「はっきりしない」を字幕にそのまま残して、これは本人の迷いだって分かるようにしましょう。",
+                "n2": "本人の「たぶん」「はっきりとは分からない」を字幕にそのまま残して、これはこちらの推測じゃなく本人の迷いなんだと分かる形にしましょう。",
+                "n1": "本人の「たぶん」「はっきりとは分からない」をそのまま字幕に残して、これはこちらの推測ではなく本人自身の迷いなのだ、と伝わる形にしておきましょう。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:under-the-subtitle:before-refusal"
+            },
+            {
+              "id": "option:under-the-subtitle:leave-the-claim-unsaid",
+              "action": "Since the strong claim can't be established, leave it uncaptioned rather than put a certainty on screen that she never gave.",
+              "japaneseByBand": {
+                "n3": "はっきり言えない部分は、無理に字幕をつけないでおきましょう。本人が言ってない断定を、画面に出すよりいいと思う。",
+                "n2": "確実に言えない部分は、いっそ字幕をつけずに空けておきましょう。本人が口にしていない断定を画面に出すよりは、そのほうが誠実だと思う。",
+                "n1": "確実には言えない部分は、いっそ字幕を当てずに空けておきましょう。本人が口にしていない断定を画面に載せるくらいなら、そのほうがずっと誠実だと思うので。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:under-the-subtitle:before-refusal"
+            }
+          ],
+          "convergence": "checkpoint:under-the-subtitle:before-refusal"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:under-the-subtitle:before-refusal",
+          "beatId": "beat:under-the-subtitle:back-attempt",
+          "resume": "The learner has taken a stance on the uncertain part, both readings preserving the speaker's doubt. Now the question of using the smoother OFFICIAL version for the exhibition caption comes up, and Sophie answers it."
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:sophie-declines-the-smooth-cut",
+          "beatId": "beat:under-the-subtitle:refusal",
+          "speakerId": "sophie",
+          "intent": "Decline to sign off on publishing the smoother official version for the exhibition, even though it reads better, and treat that certainty as the speaker's to give, not the class's to supply — one clear refusal, no room read as coldness.",
+          "attentionTarget": "the exhibition caption that would read better if it lied",
+          "variants": {
+            "n3": {
+              "japanese": "展示のキャプションに、きれいなほうの字幕を使いたい気持ちは分かる。読みやすいもんね。でも、私はそれには賛成できない。あの言い切りは、私たちが出していいものじゃないから。本人が「確かだ」と言ってくれない限り、私たちの側から確かにはできないと思う。",
+              "reading": "てんじのキャプションに、きれいなほうのじまくをつかいたいきもちはわかる。よみやすいもんね。でも、わたしはそれにはさんせいできない。あのいいきりは、わたしたちがだしていいものじゃないから。ほんにんが「たしかだ」といってくれないかぎり、わたしたちのがわからたしかにはできないとおもう。",
+              "english": "I get wanting to use the clean subtitle for the exhibition caption. It reads easily. But I can't agree to it. That flat assertion isn't ours to put out there. Unless she herself says 'it's certain,' I don't think we can make it certain from our side."
+            },
+            "n2": {
+              "japanese": "展示のキャプションに、すっきりしたほうの字幕を使いたくなるのは分かる。そのほうが読ませられるし。でも、私はそれには賛成できない。あの言い切りは、私たちが差し出していいものじゃないの。本人が「確かです」と言わない限り、こちらの都合で確かにはできないと思う。",
+              "reading": "てんじのキャプションに、すっきりしたほうのじまくをつかいたくなるのはわかる。そのほうがよませられるし。でも、わたしはそれにはさんせいできない。あのいいきりは、わたしたちがさしだしていいものじゃないの。ほんにんが「たしかです」といわないかぎり、こちらのつごうでたしかにはできないとおもう。",
+              "english": "I understand the pull to use the tidier subtitle for the exhibition caption. It reads better. But I can't agree to it. That flat assertion isn't ours to hand over. Unless she herself says 'it's certain,' we can't make it certain to suit ourselves."
+            },
+            "n1": {
+              "japanese": "展示のキャプションに、すっきり決まったほうの字幕を使いたくなる気持ちは分かるの。そのほうが、ずっと読ませられるしね。でも、私はそれには賛成できなくて。あの言い切りは、そもそも私たちが差し出していいものじゃないから。本人が「確かです」と言ってくれない限り、こちらの都合で確かなことにはできないと思う。",
+              "reading": "てんじのキャプションに、すっきりきまったほうのじまくをつかいたくなるきもちはわかるの。そのほうが、ずっとよませられるしね。でも、わたしはそれにはさんせいできなくて。あのいいきりは、そもそもわたしたちがさしだしていいものじゃないから。ほんにんが「たしかです」といってくれないかぎり、こちらのつごうでたしかなことにはできないとおもう。",
+              "english": "I do understand the pull to use the crisply settled subtitle for the exhibition caption. It reads so much better, after all. But I can't agree to it. That flat assertion was never ours to hand over in the first place. Unless she herself says 'it's certain,' we can't turn it into something certain to suit our own convenience."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:under-the-subtitle:ruparna-redesigns-the-door",
+          "beatId": "beat:under-the-subtitle:repair",
+          "speakerId": "ruparna",
+          "intent": "Accept Sophie's refusal without arguing it back, redesign the exhibition plan around the honest caption, and reframe her seventy-percent door as a limit — preserving the hedge is now a duty, not a preference.",
+          "attentionTarget": "the seventy percent turned from a door into a line she won't cross",
+          "variants": {
+            "n3": {
+              "japanese": "うん、分かった。じゃあ、きれいなほうは展示に出さない。迷いを残した字幕のほうを使いましょう。……前は、七割分かれば進んでいいドアだったんですよね。今度の七割は逆で、「ここから先は、こっちが言い切っちゃいけない」線なんだ。きれいに決まる字幕より、迷ったまま残す字幕のほうが、たぶん正しい。本人の「かもしれない」は、私たちが消していいものじゃないから。",
+              "reading": "うん、わかった。じゃあ、きれいなほうはてんじにださない。まよいをのこしたじまくのほうをつかいましょう。……まえは、しちわりわかればすすんでいいドアだったんですよね。こんどのしちわりはぎゃくで、「ここからさきは、こっちがいいきっちゃいけない」せんなんだ。きれいにきまるじまくより、まよったままのこすじまくのほうが、たぶんただしい。ほんにんの「かもしれない」は、わたしたちがけしていいものじゃないから。",
+              "english": "Yeah, understood. Then we don't put the clean one in the exhibition. Let's use the subtitle that keeps her hesitation. …Before, seventy percent was a door we could go through, wasn't it. This seventy is the reverse — it's a line where 'from here on, we don't get to commit for her.' A subtitle that keeps the doubt is probably truer than one that lands cleanly. Her 'maybe' isn't ours to erase."
+            },
+            "n2": {
+              "japanese": "うん、分かった。それなら、すっきりしたほうは展示に出さないでおきましょう。迷いを残した字幕のほうを使う。……あのときの七割は「ここまで分かったから進んでいい」ドアだった。今度の七割はその裏で、「ここから先は、こちらが言い切っちゃいけない」線なんですね。きれいに決まる字幕より、迷いを残したままの字幕のほうが、きっと誠実なんだ。本人の「かもしれない」は、私たちが勝手に消していいものじゃないので。",
+              "reading": "うん、わかった。それなら、すっきりしたほうはてんじにださないでおきましょう。まよいをのこしたじまくのほうをつかう。……あのときのしちわりは「ここまでわかったからすすんでいい」ドアだった。こんどのしちわりはそのうらで、「ここからさきは、こちらがいいきっちゃいけない」せんなんですね。きれいにきまるじまくより、まよいをのこしたままのじまくのほうが、きっとせいじつなんだ。ほんにんの「かもしれない」は、わたしたちがかってにけしていいものじゃないので。",
+              "english": "Yeah, understood. In that case let's keep the tidy one out of the exhibition. We use the subtitle that keeps her hesitation. …Back then, seventy percent was a door — 'we've grasped this much, so we may go on.' This seventy is its underside: a line where 'from here on, we don't get to commit.' A subtitle that keeps the doubt is surely more honest than one that lands cleanly. Her 'maybe' isn't ours to erase at our own discretion."
+            },
+            "n1": {
+              "japanese": "うん、分かった。それなら、すっきり決まったほうは展示には出さないでおきましょう。迷いを残した字幕のほうを使う。……あのときの七割は、「ここまでつかめたのだから先へ進んでいい」というドアでしたよね。でも今度の七割は、ちょうどその裏で、「ここから先は、こちらが言い切ってはいけない」という一線なんだ。きれいに決まる字幕よりも、迷いを迷いのまま残した字幕のほうが、きっと誠実なんですよ。本人の「かもしれない」は、私たちが勝手に消していいものではないので。",
+              "reading": "うん、わかった。それなら、すっきりきまったほうはてんじにはださないでおきましょう。まよいをのこしたじまくのほうをつかう。……あのときのしちわりは、「ここまでつかめたのだからさきへすすんでいい」というドアでしたよね。でもこんどのしちわりは、ちょうどそのうらで、「ここからさきは、こちらがいいきってはいけない」といういっせんなんだ。きれいにきまるじまくよりも、まよいをまよいのままのこしたじまくのほうが、きっとせいじつなんですよ。ほんにんの「かもしれない」は、わたしたちがかってにけしていいものではないので。",
+              "english": "Yeah, understood. In that case, let's keep the crisply settled one out of the exhibition. We use the subtitle that keeps her hesitation. …Back then, seventy percent was a door — 'we've grasped this much, so we may go forward.' But this seventy is exactly its underside: a line where 'from here on, we must not commit.' A subtitle that leaves the doubt as doubt is surely more honest than one that lands cleanly. Her 'maybe' is not ours to erase at our own discretion."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:under-the-subtitle:hedge-left-standing",
+          "beatId": "beat:under-the-subtitle:exit-image",
+          "cueId": "cue:official-caption-set-aside-hedge-kept",
+          "description": "The OFFICIAL caption is dragged into a folder marked 'not used.' Under the paused frame, only the honest rewrite remains — the 「たぶん」 and the 「はっきりとは覚えていない」 left standing in plain type. The clean sentence that would have read better is gone, and the speaker's uncertainty is the thing the class chose to carry."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:seventy-percent",
+      "state": "transform",
+      "ownerIds": [
+        "ruparna",
+        "sophie"
+      ],
+      "meaningNow": "The seventy-percent door reverses into a limit: a subtitle keeps the speaker's uncertainty instead of manufacturing a complete claim. Where ch19 said partial comprehension was enough evidence to continue, ch31 says the unestablished portion is the speaker's to give and must not be filled in by the translation — the same number now marks where the class may not commit.",
+      "priorUse": {
+        "packageId": "s3e01-after-the-applause",
+        "sceneId": "scene:after-the-applause:one-phrase-three-hearings",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply rewrites the subtitle to keep the speaker's 'probably' and 'I don't clearly remember,' and refuses to publish the cleaner version that read better but claimed more than she said."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:under-the-subtitle:hedge-preserved",
+      "kind": "story",
+      "description": "The class proves a 'clearer' official subtitle manufactured a certainty the interviewee never made, re-subtitles the line to carry her hedge, and declines to publish the smoother version for the exhibition — preserving warranted uncertainty as the speaker's to give rather than the translation's to supply."
+    },
+    {
+      "id": "outcome:under-the-subtitle:ruparna-limit",
+      "kind": "bond",
+      "castId": "ruparna",
+      "chapter": 31,
+      "beat": "limit",
+      "description": "Ruparna's distrust of her beloved subtitles is tested to its limit and becomes an ethical position: fidelity over legibility. She reverses her own seventy-percent door into a line she will not cross, accepts Sophie's refusal without arguing it back, and redesigns the exhibition plan around the honest caption rather than the one that reads better."
+    },
+    {
+      "id": "outcome:under-the-subtitle:sophie-limit-support",
+      "kind": "bond",
+      "castId": "sophie",
+      "chapter": 31,
+      "beat": "limit-support",
+      "description": "Sophie holds the quote-versus-claim line and declines to sign off on publishing the smoother subtitle, treating the speaker's certainty as hers to give; her precision reads as a confidence limit honored, not coldness, and it changes the plan rather than winning an argument."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:sophie-marks-quote-versus-claim-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-resubtitle-step"
+    ],
+    "withdrawnContentFallback": "Use the same restore-warranted-uncertainty-in-a-quoted-translation-choice transfer with neutral nameplates and a generic facilitator who plays an interview clip whose official caption dropped a hedge, then marks quote-versus-claim columns."
+  }
+}

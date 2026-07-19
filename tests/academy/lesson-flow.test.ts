@@ -195,6 +195,31 @@ describe('Academy lesson flow', () => {
         expect(route.go).not.toHaveBeenCalled();
     });
 
+    it('mounts a catalogued advanced package through the shared activity runtime', async () => {
+        const route = context('advanced:n3-pet-housing-01', {
+            route: 'source-activity',
+            selectedBand: 'n3',
+        });
+        const flow = createLessonFlow({
+            evidence: {
+                recordActivity: vi.fn(async () => undefined),
+                recordSupportUse: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+
+        expect(route.shell.current?.dataset.academyScreen).toBe('advanced-lesson');
+        expect(route.shell.current?.dataset.advancedPackageId).toBe('n3-pet-housing-01');
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-activity-chapter-next')?.click();
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-activity-chapter-next')?.click();
+        expect(route.shell.current?.querySelector('[data-activity-id]')).not.toBeNull();
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-advanced-lesson-back')?.click();
+        expect(route.back).toHaveBeenCalledOnce();
+    });
+
     it('shows the Sensei sheet and seeds it before mounting an authored lesson activity screen', async () => {
         vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
             const requestPath = String(value);

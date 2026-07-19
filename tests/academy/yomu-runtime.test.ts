@@ -9,6 +9,7 @@ import {
     observeAcademyAnnotationSurfaces,
     refreshAcademyAnnotationSurfaces,
 } from '../../src/academy/integration/yomu-runtime';
+import { setAcademyReadingSurface } from '../../src/academy/integration/reader-markup';
 
 describe('Academy hosted Yomu runtime', () => {
     it('prefers the Reader bundle next to the hosted Academy before fallbacks', () => {
@@ -135,6 +136,28 @@ describe('Academy hosted Yomu runtime', () => {
         expect(dialogue.textContent).toBe('言いました。会いました。');
         expect(root.querySelector('.jpdb-reader-word')).toBeNull();
         lifecycle.dispose();
+    });
+
+    it('restores Reader eligibility after a VN reveal temporarily suppresses a shown line', () => {
+        const line = document.createElement('p');
+        line.lang = 'ja';
+        line.textContent = '聞いてください。';
+
+        setAcademyReadingSurface(line, true, '聞いてください。', 'academy-dialogue');
+        expect(line.dataset.yomuRuntimeSurface).toBe('academy-dialogue');
+
+        line.dataset.performanceText = 'revealing';
+        line.textContent = '聞いて';
+        setAcademyReadingSurface(line, true, '聞いてください。', 'academy-dialogue');
+        expect(line.getAttribute('data-jpdb-reader-surface-ignore')).not.toBeNull();
+
+        delete line.dataset.performanceText;
+        line.textContent = '聞いてください。';
+        setAcademyReadingSurface(line, true, '聞いてください。', 'academy-dialogue');
+
+        expect(line.getAttribute('data-jpdb-reader-surface-ignore')).toBeNull();
+        expect(line.dataset.yomuRuntimeSurface).toBe('academy-dialogue');
+        expect(line.dataset.yomuFuriganaMode).toBe('all');
     });
 
     it('forces full ruby and keeps pitch metadata on Academy learning text', () => {

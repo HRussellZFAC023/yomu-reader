@@ -1,0 +1,508 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e03-helpful-rewrite",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 27,
+  "title": {
+    "en": "The Helpful Rewrite",
+    "ja": "親切な書き直し"
+  },
+  "synopsis": "Sophie hands back Peter's exhibition caption polished to a shine — one real verb-form error fixed, but his sparse voice and closing question smoothed into anonymous exhibition copy. Peter quietly notes it now sounds like nobody. Sophie catches that she did two different things at once, fixing a mistake and replacing a voice, and only the first was asked for. The learner rebuilds a bounded rewrite that repairs the one error while keeping Peter's words, and the class adopts a practice where an error is pointed out as advice and a voice is changed only with its author's consent.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sophie",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie",
+        "docs/academy/story/dossiers/sophie.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "anxiety, nervousness, or fragility framing",
+        "a correction delivered as cruelty or competence delivered as smugness"
+      ]
+    },
+    {
+      "castId": "peter",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#peter",
+        "docs/academy/story/CAST-AND-CONSENT.md#peter",
+        "docs/academy/story/dossiers/peter.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "a sparse question that implies hidden backstory rather than reframing the task"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e02-caption-without-owner",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "repair-an-error-without-replacing-the-writers-voice",
+          "contentFamily": "n3-paraphrase-register-authorial-stance"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-seven-sophie-limit"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:helpful-rewrite:two-versions",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "afternoon",
+      "weatherState": "spring-clear",
+      "goal": "Meet Sophie proud of a polished rewrite and reach the point where a correct fix has quietly erased the writer's voice.",
+      "dramaticQuestion": "When an edit fixes the error but replaces the person, is it still a correction?",
+      "learnerNeed": "A bounded rewrite where repairing the one real mistake matters, and keeping the writer's voice and stance matters more than making the sentence smoother.",
+      "curriculum": {
+        "sectionId": "repair-the-error-keep-the-voice",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:helpful-rewrite:two-cards",
+          "beatId": "beat:helpful-rewrite:arrival-image",
+          "cueId": "cue:original-and-polished-side-by-side",
+          "description": "Two caption cards sit side by side on the exhibition board. The left is Peter's own draft for a dark route point: 「この道は、だれも通らなくなってから、ずっと灯りがつけている。だれのためだろう。」 The right is Sophie's rewrite: 「人通りの絶えた道を、今もなお静かに照らし続ける、一つの灯り。その温かな光は、道行く人の心をそっと包み込むかのようです。」 The right one reads beautifully and says nothing Peter said."
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:sophie-presents",
+          "beatId": "beat:helpful-rewrite:host-want",
+          "speakerId": "sophie",
+          "intent": "Present her polished rewrite as an improvement, noting she fixed one real verb-form error and smoothed the whole caption for the exhibition, and lean toward using her version.",
+          "attentionTarget": "the polished caption card on the right",
+          "variants": {
+            "n3": {
+              "japanese": "ピーターさんのキャプション、直しておきました。動詞の形が一か所おかしかったので。せっかくだから、展示に出せるように、全体もなめらかに整えて。ほら、こっちのほうがずっと読みやすいでしょう。",
+              "reading": "ピーターさんのキャプション、なおしておきました。どうしのかたちがいっかしょおかしかったので。せっかくだから、てんじにだせるように、ぜんたいもなめらかにととのえて。ほら、こっちのほうがずっとよみやすいでしょう。",
+              "english": "I went ahead and fixed Peter's caption — one verb form was off. And since I was at it, I smoothed the whole thing so it's ready for the exhibition. See, this version reads far more easily, doesn't it."
+            },
+            "n2": {
+              "japanese": "ピーターさんのキャプション、直しておいたんです。動詞の形が一か所だけおかしかったので。どうせならと思って、展示に出せるように全体も整えてしまって。ね、こっちのほうが断然読みやすいでしょう。",
+              "reading": "ピーターさんのキャプション、なおしておいたんです。どうしのかたちがいっかしょだけおかしかったので。どうせならとおもって、てんじにだせるようにぜんたいもととのえてしまって。ね、こっちのほうがだんぜんよみやすいでしょう。",
+              "english": "I went and fixed Peter's caption — just one verb form was off. And thinking I might as well, I tidied the whole thing so it's ready for the exhibition. See, this version is far more readable, isn't it."
+            },
+            "n1": {
+              "japanese": "ピーターさんのキャプション、こちらで直しておきました。動詞の形が一か所だけ引っかかっていたものですから。どうせ手を入れるならと、展示に耐えるよう全体もひととおりなめらかにしてしまって。ほら、こう並べると、こちらのほうが段違いに読みやすいでしょう。",
+              "reading": "ピーターさんのキャプション、こちらでなおしておきました。どうしのかたちがいっかしょだけひっかかっていたものですから。どうせてをいれるならと、てんじにたえるようぜんたいもひととおりなめらかにしてしまって。ほら、こうならべると、こちらのほうがだんちがいによみやすいでしょう。",
+              "english": "I took the liberty of fixing Peter's caption — just one verb form had been snagging. And figuring that if I was touching it at all, I smoothed the whole thing over so it would hold up at the exhibition. Look, side by side like this, this one is incomparably more readable, isn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:peter-sounds-like-nobody",
+          "beatId": "beat:helpful-rewrite:obstruction",
+          "speakerId": "peter",
+          "intent": "Agree the fixed spot is correct, then name quietly that the rewrite no longer sounds like him — it sounds like nobody — because his closing question, the part he most wanted, is gone.",
+          "attentionTarget": "the missing final line 「だれのためだろう」",
+          "variants": {
+            "n3": {
+              "japanese": "直したところは、合っています。ありがとう。…ただ、これ、なんだか私じゃないみたいで。というか、だれの言葉でもない感じがするんです。最後の『だれのためだろう』、消えてますよね。あれ、私が一番書きたかったところなんですが。",
+              "reading": "なおしたところは、あっています。ありがとう。…ただ、これ、なんだかわたしじゃないみたいで。というか、だれのことばでもないかんじがするんです。さいごの『だれのためだろう』、きえてますよね。あれ、わたしがいちばんかきたかったところなんですが。",
+              "english": "The part you fixed is correct. Thank you. …Only, this somehow doesn't sound like me. Or rather, it feels like nobody's words at all. The ending, 「for whose sake, I wonder」 — it's gone, isn't it. That was the one part I most wanted to write."
+            },
+            "n2": {
+              "japanese": "直してくださったところは、確かに正しいです。ありがとうございます。…ただ、これはどうも、私の言葉という気がしなくて。むしろ、だれの言葉でもないというか。最後の『だれのためだろう』が消えていますよね。私としては、あそこが一番の核心だったんですが。",
+              "reading": "なおしてくださったところは、たしかにただしいです。ありがとうございます。…ただ、これはどうも、わたしのことばというきがしなくて。むしろ、だれのことばでもないというか。さいごの『だれのためだろう』がきえていますよね。わたしとしては、あそこがいちばんのかくしんだったんですが。",
+              "english": "What you corrected is certainly right. Thank you. …Only, this somehow doesn't feel like my words. If anything, like nobody's words. The ending, 「for whose sake, I wonder」, is gone, isn't it. For my part, that was the very heart of it."
+            },
+            "n1": {
+              "japanese": "直していただいた箇所は、確かにそのとおりです。ありがとうございます。…ただ、こうなると、どうも自分の言葉という感じがしないもので。いえ、むしろ、だれの言葉でもなくなってしまったというか。最後の『だれのためだろう』、あれが抜けていますよね。私にしてみれば、あの一行こそが書きたかったものだったんですが。",
+              "reading": "なおしていただいたかしょは、たしかにそのとおりです。ありがとうございます。…ただ、こうなると、どうもじぶんのことばというかんじがしないもので。いえ、むしろ、だれのことばでもなくなってしまったというか。さいごの『だれのためだろう』、あれがぬけていますよね。わたしにしてみれば、あのいちぎょうこそがかきたかったものだったんですが。",
+              "english": "The spot you corrected is exactly right, yes. Thank you. …Only, put this way, it somehow no longer feels like my own words. No — rather, it's become nobody's words at all. The ending, 「for whose sake, I wonder」 — that's dropped, isn't it. As far as I'm concerned, that one line was the very thing I wanted to write."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:sophie-two-acts",
+          "beatId": "beat:helpful-rewrite:trial-attempt",
+          "speakerId": "sophie",
+          "intent": "Catch that she did two different things at once — repaired an error and replaced a voice — apologize for acting without asking, and propose keeping Peter's sentence while fixing only the single wrong spot.",
+          "attentionTarget": "the two cards, now read as two different acts",
+          "variants": {
+            "n3": {
+              "japanese": "…あ。そうか。私、二つのことを一緒にやっちゃったんですね。間違いを直すことと、書き方ごと変えること。前者は直しでも、後者は…もう別人の文だ。ごめんなさい、勝手に。じゃあ、戻しましょう。ピーターさんの文のまま、おかしかった一か所だけ直す。それでいいはずですよね。",
+              "reading": "…あ。そうか。わたし、ふたつのことをいっしょにやっちゃったんですね。まちがいをなおすことと、かきかたごとかえること。ぜんしゃはなおしでも、こうしゃは…もうべつじんのぶんだ。ごめんなさい、かってに。じゃあ、もどしましょう。ピーターさんのぶんのまま、おかしかったいっかしょだけなおす。それでいいはずですよね。",
+              "english": "…Oh. I see. I did two different things at once, didn't I. Fixing the mistake, and changing the whole way it's written. The first is a correction, but the second… that's already someone else's sentence. I'm sorry — I did it without asking. Let's put it back, then. Keep Peter's sentence as it is, and fix only the one spot that was off. That should be all it needs, right."
+            },
+            "n2": {
+              "japanese": "…あ、そうか。私、二つのことを一度にやってしまったんですね。間違いを直すことと、書き方そのものを変えること。前者は直しですけど、後者はもう、別の人が書いた文になってしまう。勝手に整えて、ごめんなさい。戻しましょう。ピーターさんの文はそのままに、おかしかった一か所だけ直す。本来、必要なのはそれだけですよね。",
+              "reading": "…あ、そうか。わたし、ふたつのことをいちどにやってしまったんですね。まちがいをなおすことと、かきかたそのものをかえること。ぜんしゃはなおしですけど、こうしゃはもう、べつのひとがかいたぶんになってしまう。かってにととのえて、ごめんなさい。もどしましょう。ピーターさんのぶんはそのままに、おかしかったいっかしょだけなおす。ほんらい、ひつようなのはそれだけですよね。",
+              "english": "…Oh, I see. I did two things at once, didn't I. Fixing the mistake, and changing the very way it's written. The first is a correction, but the second turns it into a sentence someone else wrote. I'm sorry for tidying it without asking. Let's put it back. Leave Peter's sentence as it is, and fix only the one spot that was off. That's really all it needed, isn't it."
+            },
+            "n1": {
+              "japanese": "…ああ、そういうことか。私、まったく性質の違う二つを、一度にやってしまっていたんですね。誤りを直すことと、書きぶりそのものを差し替えること。前者はただの直しでも、後者となると、もう書き手ごと入れ替わった文になってしまう。断りもなく手を入れて、申し訳ありませんでした。戻しましょう。ピーターさんの文はそのまま残して、引っかかっていた一か所だけを直す。元来、要るのはそれだけのはずですよね。",
+              "reading": "…ああ、そういうことか。わたし、まったくせいしつのちがうふたつを、いちどにやってしまっていたんですね。あやまりをなおすことと、かきぶりそのものをさしかえること。ぜんしゃはただのなおしでも、こうしゃとなると、もうかきてごといれかわったぶんになってしまう。ことわりもなくてをいれて、もうしわけありませんでした。もどしましょう。ピーターさんのぶんはそのままのこして、ひっかかっていたいっかしょだけをなおす。がんらい、いるのはそれだけのはずですよね。",
+              "english": "…Ah, so that's it. I'd done two things of completely different natures at once, hadn't I. Correcting an error, and swapping out the very manner of the writing. The first is a mere fix, but the second makes it a sentence with its author replaced. I'm sorry for touching it without asking. Let's put it back. Leave Peter's sentence as it stands, and fix only the one spot that had been snagging. That, originally, is all it needs, isn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:helpful-rewrite:before-rewrite",
+          "beatId": "beat:helpful-rewrite:trial-attempt",
+          "resume": "Both cards stay on the board. The learner steps in to produce the bounded rewrite: repair only the transitive/intransitive error 「灯りがつけている」→「灯りがついている」 while keeping Peter's wording, register, and his closing question 「だれのためだろう」."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:helpful-rewrite:bounded-rewrite",
+          "beatId": "beat:helpful-rewrite:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e03-helpful-rewrite-bounded-rewrite"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e03-helpful-rewrite-bounded-rewrite"
+          },
+          "resumeContext": "Peter's draft is 「この道は、だれも通らなくなってから、ずっと灯りがつけている。だれのためだろう。」 with one real error — the intransitive lantern takes ついている, not がつけている. Sophie's polished rewrite 「人通りの絶えた道を、今もなお静かに照らし続ける、一つの灯り…」 is grammatically clean but has replaced his sparse voice and deleted his closing question. The learner compares the two paraphrases, names what changed between them, and produces a bounded rewrite that fixes only the つけている→ついている intransitive-verb error and keeps Peter's words, plain register, and the line 「だれのためだろう」 — repairing the error without replacing the voice.",
+          "onReady": "checkpoint:helpful-rewrite:after-rewrite",
+          "onRepair": "node:helpful-rewrite:rewrite-repair",
+          "onDefer": "checkpoint:helpful-rewrite:before-rewrite"
+        },
+        {
+          "kind": "stage",
+          "id": "node:helpful-rewrite:rewrite-repair",
+          "beatId": "beat:helpful-rewrite:trial-repair",
+          "cueId": "cue:error-column-and-voice-column",
+          "description": "The change is split into two columns: an ERROR column holding only 「がつけている → がついている」, and a VOICE column holding the words and the question that must stay untouched — 「だれのためだろう」. Whichever the last attempt over-changed comes back for another try; what was kept correctly stays put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:helpful-rewrite:after-rewrite",
+          "beatId": "beat:helpful-rewrite:trial-response",
+          "resume": "Peter's caption now reads 「この道は、だれも通らなくなってから、ずっと灯りがついている。だれのためだろう。」 — one spot mended, his voice and question intact. Sophie looks at it beside her polished version and does not reach to smooth it again."
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:sophie-repair-not-replace",
+          "beatId": "beat:helpful-rewrite:contribution",
+          "speakerId": "sophie",
+          "intent": "Name the distinction cleanly and mark her confidence honestly: she was right about the one verb form, but whether the sentence is good enough for the exhibition was never hers to decide — that belongs to its writer. Repair the error, leave the voice.",
+          "attentionTarget": "the mended caption and her folded-back polished version",
+          "variants": {
+            "n3": {
+              "japanese": "はっきりしました。直すべきだったのは、動詞の形、一か所だけ。『つけている』を『ついている』にする、それだけ。文がいいかどうか、展示に足りるかどうか——それは私が決めることじゃなかった。書いた人のものです。間違いは直す。でも、声は書いた人に残す。",
+              "reading": "はっきりしました。なおすべきだったのは、どうしのかたち、いっかしょだけ。『つけている』を『ついている』にする、それだけ。ぶんがいいかどうか、てんじにたりるかどうか——それはわたしがきめることじゃなかった。かいたひとのものです。まちがいはなおす。でも、こえはかいたひとにのこす。",
+              "english": "Now it's clear. All that needed fixing was one verb form — turning 「つけている」 into 「ついている」, nothing more. Whether the sentence is good, whether it's enough for the exhibition — that wasn't mine to decide. It belongs to the person who wrote it. Fix the mistake. But leave the voice with its author."
+            },
+            "n2": {
+              "japanese": "これではっきりしました。直すべきだったのは、動詞の形が一か所だけ。『つけている』を『ついている』に。それだけだったんです。文の出来がいいかどうか、展示に足るかどうかは、私が判断していいことじゃなかった。書いた本人のものですから。誤りは直す。ただ、声のほうは書き手に残しておく。",
+              "reading": "これではっきりしました。なおすべきだったのは、どうしのかたちがいっかしょだけ。『つけている』を『ついている』に。それだけだったんです。ぶんのできがいいかどうか、てんじにたるかどうかは、わたしがはんだんしていいことじゃなかった。かいたほんにんのものですから。あやまりはなおす。ただ、こえのほうはかきてにのこしておく。",
+              "english": "That settles it. All that needed fixing was one verb form — 「つけている」 to 「ついている」. That was all. Whether the sentence is well-made, whether it's enough for the exhibition — that wasn't mine to judge. It belongs to the one who wrote it. Fix the error. But leave the voice with its writer."
+            },
+            "n1": {
+              "japanese": "これではっきりしました。手を入れるべきだったのは、動詞の形のたった一か所。『つけている』を『ついている』に直す、ただそれだけ。文の出来映えがどうか、展示に堪えるかどうか——そこは、私が下していい判断ではなかったんです。書いた本人に属するものですから。誤りは、直す。けれど声のほうは、あくまで書き手の手に残しておく。",
+              "reading": "これではっきりしました。てをいれるべきだったのは、どうしのかたちのたったいっかしょ。『つけている』を『ついている』になおす、ただそれだけ。ぶんのできばえがどうか、てんじにたえるかどうか——そこは、わたしがくだしていいはんだんではなかったんです。かいたほんにんにぞくするものですから。あやまりは、なおす。けれどこえのほうは、あくまでかきてのてにのこしておく。",
+              "english": "That settles it. What needed touching was one single verb form — just changing 「つけている」 to 「ついている」, nothing else. Whether the writing is accomplished, whether it holds up at the exhibition — that was not a judgment mine to make. It belongs to the person who wrote it. The error, you fix. But the voice you leave in the writer's hands."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:peter-still-mine",
+          "beatId": "beat:helpful-rewrite:contribution",
+          "speakerId": "peter",
+          "intent": "Confirm quietly that the caption reads like him again — corrected, not erased — with the closing question still standing, and thank her.",
+          "attentionTarget": "the restored caption with its final line intact",
+          "variants": {
+            "n3": {
+              "japanese": "うん、これです。これなら、私の言葉だ。…最後の一行が、ちゃんと残ってる。ありがとう。直してもらって、消されなかった。それが、うれしいんです。",
+              "reading": "うん、これです。これなら、わたしのことばだ。…さいごのいちぎょうが、ちゃんとのこってる。ありがとう。なおしてもらって、けされなかった。それが、うれしいんです。",
+              "english": "Yes — this. This is my words. …The last line is still there, properly. Thank you. I was corrected, and not erased. That's what makes me glad."
+            },
+            "n2": {
+              "japanese": "ええ、これです。これなら、私の言葉だと思えます。…最後の一行が、ちゃんと残っている。ありがとうございます。直してもらったのに、消されはしなかった。それが何より、ありがたいんです。",
+              "reading": "ええ、これです。これなら、わたしのことばだとおもえます。…さいごのいちぎょうが、ちゃんとのこっている。ありがとうございます。なおしてもらったのに、けされはしなかった。それがなにより、ありがたいんです。",
+              "english": "Yes, this. This I can feel is my words. …The last line is still there, properly. Thank you. I was corrected, yet not erased. That, above all, is what I'm grateful for."
+            },
+            "n1": {
+              "japanese": "ええ、これですよ。これでこそ、自分の言葉だと思える。…あの最後の一行が、ちゃんと残っている。ありがとうございます。直してもらいながら、消されはしなかった——私にとっては、それが何よりありがたいことでしてね。",
+              "reading": "ええ、これですよ。これでこそ、じぶんのことばだとおもえる。…あのさいごのいちぎょうが、ちゃんとのこっている。ありがとうございます。なおしてもらいながら、けされはしなかった——わたしにとっては、それがなによりありがたいことでしてね。",
+              "english": "Yes, this. Now this I can feel is my own words. …That last line is still there, properly. Thank you. I was corrected and yet not erased — for me, that's the most grateful thing of all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:helpful-rewrite:caption-restored",
+          "beatId": "beat:helpful-rewrite:changed-image",
+          "cueId": "cue:mended-caption-polished-set-aside",
+          "description": "On the board Peter's caption stands mended — one verb form changed, the closing question 「だれのためだろう」 still there. Sophie's polished rewrite is folded to one side, kept but no longer the version on show. Nothing of his has been overwritten."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:helpful-rewrite:point-then-ask"
+      }
+    },
+    {
+      "id": "scene:helpful-rewrite:point-then-ask",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "afternoon",
+      "weatherState": "spring-clear",
+      "goal": "Turn one over-fix into a class practice: point out an error as advice, and change a voice only with its author's consent.",
+      "dramaticQuestion": "Can help stop before it becomes speaking for someone — by asking first?",
+      "learnerNeed": "A stance choice about how a correction is offered so that fixing the error stays separate from, and never presumes, the right to rewrite the voice.",
+      "curriculum": {
+        "sectionId": "point-out-then-ask",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:helpful-rewrite:suggestion-card",
+          "beatId": "beat:helpful-rewrite:regroup-image",
+          "cueId": "cue:mended-caption-and-blank-suggestion-slip",
+          "description": "Peter's mended caption is pinned up. Beside it lies a blank slip headed 提案 (\"suggestion\"), and Sophie's folded polished version rests further off — available if Peter ever wants it, imposed on nothing. The question on the table is how corrections should be offered from now on."
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:sophie-propose-practice",
+          "beatId": "beat:helpful-rewrite:record-want",
+          "speakerId": "sophie",
+          "intent": "Propose the practice: point out an error as advice with 〜ほうがいいと思います and leave the change to the writer, because touching a voice is a separate request from correcting a mistake — ask before touching it.",
+          "attentionTarget": "the blank suggestion slip",
+          "variants": {
+            "n3": {
+              "japanese": "これから、こうしませんか。間違いを見つけたら、『ここ、こうしたほうがいいと思います』って伝えるだけにする。直すかどうかは、書いた人が決める。私が勝手に整えない。……声を変えるのは、間違いを直すのとは、別のお願いなんですよね。手を入れる前に、ちゃんと訊く。",
+              "reading": "これから、こうしませんか。まちがいをみつけたら、『ここ、こうしたほうがいいとおもいます』ってつたえるだけにする。なおすかどうかは、かいたひとがきめる。わたしがかってにととのえない。……こえをかえるのは、まちがいをなおすのとは、べつのおねがいなんですよね。てをいれるまえに、ちゃんときく。",
+              "english": "From now on, shall we do it this way. When we find a mistake, we just say 「here, I think it'd be better like this」 — and whether to change it is up to the person who wrote it. I won't tidy things on my own. …Changing someone's voice is a separate request from fixing a mistake, isn't it. Before touching it, we ask, properly."
+            },
+            "n2": {
+              "japanese": "これからは、こうしませんか。間違いに気づいても、『ここは、こうしたほうがいいと思います』と伝えるだけにとどめる。直すかどうかは、書いた本人に委ねる。私が先回りして整えない。……声に手を入れるのは、誤りを直すのとはまったく別のお願いですから。触れる前に、ひと言訊く。それを決まりにしましょう。",
+              "reading": "これからは、こうしませんか。まちがいにきづいても、『ここは、こうしたほうがいいとおもいます』とつたえるだけにとどめる。なおすかどうかは、かいたほんにんにゆだねる。わたしがさきまわりしてととのえない。……こえにてをいれるのは、あやまりをなおすのとはまったくべつのおねがいですから。ふれるまえに、ひとこときく。それをきまりにしましょう。",
+              "english": "From now on, shall we do it this way. Even when we notice a mistake, we limit ourselves to saying 「here, I think it'd be better like this」. Whether to fix it is left to the writer. I won't get ahead of myself and tidy it. …Touching someone's voice is an entirely separate request from correcting an error. Before touching it, we ask, in a word. Let's make that the rule."
+            },
+            "n1": {
+              "japanese": "これからは、こういう形にしませんか。誤りに気づいても、『ここは、こうなさったほうがいいと思います』と申し添えるだけにとどめておく。直すかどうかの判断は、あくまで書いた本人に返す。私が先回りして、勝手に整えてしまわない。……人の声に手を入れるというのは、誤りを直すのとは、まるで別種のお願いですからね。触れる前に、ひと言うかがう。それを、この教室のやり方にしましょう。",
+              "reading": "これからは、こういうかたちにしませんか。あやまりにきづいても、『ここは、こうなさったほうがいいとおもいます』ともうしそえるだけにとどめておく。なおすかどうかのはんだんは、あくまでかいたほんにんにかえす。わたしがさきまわりして、かってにととのえてしまわない。……ひとのこえにてをいれるというのは、あやまりをなおすのとは、まるでべっしゅのおねがいですからね。ふれるまえに、ひとことうかがう。それを、このきょうしつのやりかたにしましょう。",
+              "english": "From now on, shall we make it this shape. Even noticing an error, we keep to merely adding 「here, I think you'd do better this way」. The judgment of whether to fix it we return to the writer. I won't get ahead and tidy it on my own. …Putting a hand to someone's voice is an altogether different kind of request from correcting an error. Before touching it, we ask, a single word. Let's make that this classroom's way."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:helpful-rewrite:how-to-offer",
+          "beatId": "beat:helpful-rewrite:record-stance",
+          "question": "How should the one fix be offered so it stays Peter's choice to make?",
+          "options": [
+            {
+              "id": "option:helpful-rewrite:advice-to-decline",
+              "action": "Offer the single spot as advice with 〜ほうがいいと思います and let Peter make the change himself, or leave it.",
+              "japaneseByBand": {
+                "n3": "『ここ、「ついている」のほうがいいと思います』って伝えて、直すのはピーターさん自身にやってもらう。",
+                "n2": "『ここは「ついている」のほうがいいと思います』とだけ伝えて、直す手はピーターさんに委ねましょう。",
+                "n1": "『ここは「ついている」となさるほうがいいかと思います』とだけお伝えして、直す手はご本人に委ねましょう。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:helpful-rewrite:before-offer"
+            },
+            {
+              "id": "option:helpful-rewrite:mark-dont-touch",
+              "action": "Leave Peter's card exactly as written and pencil the suggestion on the separate slip, changing nothing until he says yes.",
+              "japaneseByBand": {
+                "n3": "ピーターさんの文はそのままにして、直しの案は別の紙に書いておく。ご本人が『いい』と言うまで、何も変えない。",
+                "n2": "ピーターさんの文には触れずに、直しの案だけ別の付箋に書いておく。ご本人が承知するまでは、一字も変えない。",
+                "n1": "ピーターさんの文そのものには一切触れず、直しの案は別の付箋にとどめておく。ご本人が『それで』とおっしゃるまで、一字たりとも変えない。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:helpful-rewrite:before-offer"
+            }
+          ],
+          "convergence": "checkpoint:helpful-rewrite:before-offer"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:helpful-rewrite:before-offer",
+          "beatId": "beat:helpful-rewrite:record-attempt",
+          "resume": "The learner has chosen how the fix is offered so it stays Peter's to make. Sophie voices the offer that way and names why keeping it advice is the kind part."
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:sophie-offer-not-impose",
+          "beatId": "beat:helpful-rewrite:repair",
+          "speakerId": "sophie",
+          "intent": "Deliver the correction as an offer Peter can decline, and name that finding an error never came with the right to rewrite — leaving the choice is what keeps the correction kind.",
+          "attentionTarget": "the single spot 「ついている」 and Peter's untouched wording",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、こう伝えますね。『ここだけ「ついている」のほうがいいと思います。あとは、そのままがいいです』。……直すか直さないかは、ピーターさんが決めてください。私は、間違いを見つけただけ。書き直す権利まで、もらったわけじゃないので。",
+              "reading": "じゃあ、こうつたえますね。『ここだけ「ついている」のほうがいいとおもいます。あとは、そのままがいいです』。……なおすかなおさないかは、ピーターさんがきめてください。わたしは、まちがいをみつけただけ。かきなおすけんりまで、もらったわけじゃないので。",
+              "english": "Then I'll put it like this. 「Just here, I think 'ついている' would be better. The rest is good as it is.」 …Whether to change it or not, Peter, you decide. I only found a mistake. I wasn't given the right to rewrite it too."
+            },
+            "n2": {
+              "japanese": "では、こう伝えます。『ここだけ「ついている」のほうがいいと思います。ほかは、このままがいいです』。……直すかどうかは、ピーターさんにお任せします。私がしたのは、間違いを見つけたことだけ。書き直す権利まで預かったわけではありませんから。",
+              "reading": "では、こうつたえます。『ここだけ「ついている」のほうがいいとおもいます。ほかは、このままがいいです』。……なおすかどうかは、ピーターさんにおまかせします。わたしがしたのは、まちがいをみつけたことだけ。かきなおすけんりまであずかったわけではありませんから。",
+              "english": "Then I'll say it like this. 「Just here, I think 'ついている' would be better. The rest is good as it is.」 …Whether to fix it, I leave to you, Peter. What I did was only to find a mistake. I wasn't entrusted with the right to rewrite it as well."
+            },
+            "n1": {
+              "japanese": "では、こうお伝えします。『ここだけは「ついている」のほうがよろしいかと思います。あとは、このままがいい』。……直すかどうかは、ピーターさんにお任せします。私がしたのは、誤りを一つ見つけた、それだけのこと。書き直す権利まで預かったわけではありませんからね。",
+              "reading": "では、こうおつたえします。『ここだけは「ついている」のほうがよろしいかとおもいます。あとは、このままがいい』。……なおすかどうかは、ピーターさんにおまかせします。わたしがしたのは、あやまりをひとつみつけた、それだけのこと。かきなおすけんりまであずかったわけではありませんからね。",
+              "english": "Then I'll put it to you like this. 「Just here, I think 'ついている' would be better. The rest is good as it is.」 …Whether to fix it, I leave to you, Peter. What I did was find one error, that and no more. I wasn't entrusted with the right to rewrite it, after all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:helpful-rewrite:peter-fixes-it-himself",
+          "beatId": "beat:helpful-rewrite:changed-action",
+          "speakerId": "peter",
+          "intent": "Take the advice and make the single change in his own hand, keep his closing question, and note that a correction offered this way is one he actually wants to make.",
+          "attentionTarget": "the spot he changes himself, the question he keeps",
+          "variants": {
+            "n3": {
+              "japanese": "では、そこだけ、自分で直します。……『ついている』。うん、これでいい。最後の問いは、残したまま。こういうふうに教えてもらえると、直したくなるものですね。ありがとう。",
+              "reading": "では、そこだけ、じぶんでなおします。……『ついている』。うん、これでいい。さいごのといは、のこしたまま。こういうふうにおしえてもらえると、なおしたくなるものですね。ありがとう。",
+              "english": "Then I'll fix just that spot myself. …「ついている」. Yes, this is good. The final question, left as it is. When it's pointed out to me this way, it makes me want to fix it. Thank you."
+            },
+            "n2": {
+              "japanese": "では、そこだけ、自分の手で直します。……『ついている』。ええ、これでいい。最後の問いは、残したまま。こういう形で示してもらえると、かえって自分で直したくなるものですね。ありがとうございます。",
+              "reading": "では、そこだけ、じぶんのてでなおします。……『ついている』。ええ、これでいい。さいごのといは、のこしたまま。こういうかたちでしめしてもらえると、かえってじぶんでなおしたくなるものですね。ありがとうございます。",
+              "english": "Then I'll fix just that spot with my own hand. …「ついている」. Yes, this is good. The final question, left as it is. When it's shown to me in this form, it actually makes me want to fix it myself. Thank you."
+            },
+            "n1": {
+              "japanese": "では、その一か所だけ、自分の手で直しておきます。……『ついている』。ええ、これでいい。最後の問いは、残したまま。こうして示していただけると、かえって自分で直したくなるものですね。妙なもので。ありがとうございます。",
+              "reading": "では、そのいっかしょだけ、じぶんのてでなおしておきます。……『ついている』。ええ、これでいい。さいごのといは、のこしたまま。こうしてしめしていただけると、かえってじぶんでなおしたくなるものですね。みょうなもので。ありがとうございます。",
+              "english": "Then I'll fix just that one spot with my own hand. …「ついている」. Yes, this is good. The final question, left as it is. Shown to me like this, it actually makes me want to fix it myself — a curious thing. Thank you."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:helpful-rewrite:point-then-ask-note",
+          "beatId": "beat:helpful-rewrite:exit-image",
+          "cueId": "cue:caption-in-his-hand-practice-noted",
+          "description": "Peter's caption now carries the single fix in his own hand, his closing question still standing. Sophie's polished version stays folded to one side, offered but not imposed. On the suggestion slip a small class rule is written: 間違いは伝える。声は、訊いてから。 (\"Point out the error; the voice, only after asking.\") Nothing has been overwritten."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:helpful-rewrite:point-then-ask",
+      "kind": "story",
+      "description": "The class adopts a correction practice: an error is pointed out as advice with 〜ほうがいいと思います, and a person's wording is changed only with their consent. Peter's exhibition caption keeps his sparse voice and closing question with a single verb-form error repaired; Sophie's polished rewrite is kept aside, offered but never imposed."
+    },
+    {
+      "id": "outcome:helpful-rewrite:sophie-limit",
+      "kind": "bond",
+      "castId": "sophie",
+      "chapter": 27,
+      "beat": "limit",
+      "description": "Sophie hits the limit of her own gift: her instinct to smooth a sentence so thoroughly that she repairs the writer out of it. She learns to distinguish repairing an error from replacing a voice, to hold her confidence to exactly the one verb form she was right about, and to offer corrections as advice with room to decline rather than editing without asking — accurate and kind, editing kept separate from authorship."
+    },
+    {
+      "id": "outcome:helpful-rewrite:transfer-return",
+      "kind": "curriculum-return",
+      "description": "N3 paraphrase / register / authorial-stance evidence (compare two paraphrases, name what changed, produce a bounded rewrite that fixes the error but keeps the voice) returns through the registered transfer activity activity:s3e03-helpful-rewrite-bounded-rewrite; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:peter-reads-his-own-caption-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-bounded-rewrite"
+    ],
+    "withdrawnContentFallback": "Use the same repair-vs-replace and point-then-ask beats with neutral nameplates and a generic pair, where one classmate's caption is polished into anonymity after a single correct fix, and the class restores the writer's voice while keeping the one repair."
+  }
+}

@@ -47,7 +47,9 @@ export function validateClassWeekCastPlan(value: unknown): ClassWeekCastPlan {
     validateConcentrationPolicy(plan.concentrationPolicy);
 
     const weeks = array(plan.weeks, 'class-week cast plan weeks') as readonly ClassWeekCastPlanEntry[];
-    if (weeks.length !== CANONICAL_CLASS_WEEK_IDS.length) fail('Class-week cast plan must cover all 73 canonical weeks.');
+    if (weeks.length !== CANONICAL_CLASS_WEEK_IDS.length) {
+        fail(`Class-week cast plan must cover all ${CANONICAL_CLASS_WEEK_IDS.length} canonical weeks.`);
+    }
     const primaryCounts = new Map<string, number>();
     const appearanceCounts = new Map<string, number>();
     let assignedWeekCount = 0;
@@ -118,9 +120,18 @@ function validateWeekIdentity(week: ClassWeekCastPlanEntry, order: number): void
     text(week.weekKind, `week ${week.weekId} kind`);
     const source = record(week.source, `week ${week.weekId} source`) as unknown as ClassWeekCastPlanEntry['source'];
     exactKeys(source, ['donor', 'file', 'title', 'topicEvidence', 'sha256'], `week ${week.weekId} source`);
-    if (source.donor !== 'academy-rebuild-20260711') fail(`Week ${week.weekId} uses an unknown donor.`);
-    const expectedFile = `public/academy/content/weeks/${String(order).padStart(3, '0')}-${week.weekId}.json`;
+    if (source.donor !== 'academy-rebuild-20260711' && source.donor !== 'moodle-reachability-20260719') {
+        fail(`Week ${week.weekId} uses an unknown donor.`);
+    }
+    const donorOrder = CANONICAL_CLASS_WEEK_IDS.slice(0, order)
+        .filter(weekId => weekId !== 'l3plus-l10').length;
+    const expectedFile = source.donor === 'moodle-reachability-20260719'
+        ? 'public/academy/content/lessons/063-l2-l36.json'
+        : `public/academy/content/weeks/${String(donorOrder).padStart(3, '0')}-${week.weekId}.json`;
     if (source.file !== expectedFile) fail(`Week ${week.weekId} has the wrong donor source file.`);
+    if (source.donor === 'moodle-reachability-20260719' && week.weekId !== 'l3plus-l10') {
+        fail(`Week ${week.weekId} cannot use the Lesson 10 reachability source.`);
+    }
     const title = record(source.title, `week ${week.weekId} source title`);
     exactKeys(title, ['en', 'ja'], `week ${week.weekId} source title`);
     text(title.en, `week ${week.weekId} English source title`);

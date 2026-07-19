@@ -1,0 +1,2400 @@
+{
+  "schemaVersion": "yomu-academy.asset-gaps.ch25-48.v1",
+  "generatedAt": "2026-07-19",
+  "scope": "Recovered story Chapters 25-48; inventory, candidate resolution, and the three verified critical event-art bindings.",
+  "policy": {
+    "candidateStatus": "Every existing image is provisionally approved pending the user grader JSON.",
+    "gapRule": "A gap is recorded only when no existing candidate can carry an experience-critical visual requirement.",
+    "noMutation": "Do not delete, rename, move, generate, or wire assets from this inventory."
+  },
+  "sourcesChecked": [
+    "src/academy/content/story-sources/s3*.v2.json",
+    "src/academy/content/story-sources/s4*.v2.json",
+    "docs/academy/story/ASSET-INTEGRATION-MAP.json",
+    "docs/academy/story/PRESENTATION-BINDING.json",
+    "public/academy/art/ACADEMY-ASSET-REGISTRY.json",
+    "public/academy/art/ASSET-USAGE.json",
+    "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
+    "public/academy/art/SPRITE-BATCH-MANIFEST.json",
+    "public/academy/art/**",
+    "src/academy/assets.ts",
+    "src/academy/domain/sprite-performance-contract.ts",
+    "docs/academy/recovery/ACADEMY-ART-CATALOG.json",
+    "docs/academy/recovery/ASSET-INVENTORY.json",
+    "docs/academy/recovery/RECOVERED-ART-MANIFEST.json",
+    "docs/academy/recovery/RECOVERED-GIT-ART-MANIFEST.json",
+    "docs/academy/recovery/art-source-metadata/**"
+  ],
+  "summary": {
+    "chapters": 24,
+    "scenes": 48,
+    "backgroundRequirements": 48,
+    "backgroundRequirementsResolved": 48,
+    "visibleCastRequirements": 113,
+    "spriteRequirementsResolved": 111,
+    "textOnlyCastRequirements": 2,
+    "unresolvedCharacterGaps": 0,
+    "unresolvedExperienceCriticalGaps": 0,
+    "generatedAndBoundCriticalGaps": 3,
+    "uniqueExistingCandidatePaths": 75,
+    "publicArtFilesChecked": 1815,
+    "orphanRiskNotes": 6
+  },
+  "chapters": [
+    {
+      "chapter": 25,
+      "id": "s3e01-after-the-applause",
+      "title": {
+        "en": "After the Applause",
+        "ja": "拍手のあとで"
+      },
+      "scenes": [
+        {
+          "id": "scene:after-applause:one-phrase-three-readings",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "francis",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/francis/francis__thoughtful-glasses-left-three-quarter-halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "mika",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/mika/mika__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "ruparna",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/ruparna/ruparna__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "visitor-line-under-old-tag",
+              "three-reading-cards-one-returns",
+              "three-readings-with-evidence"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:after-applause:register-and-record",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "francis",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/francis/francis__sprite__listening-glasses__front-near-front__halfbody__v005.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "readings-and-the-unchecked-seat",
+              "phrase-verbatim-three-tagged-intents"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 26,
+      "id": "s3e02-caption-without-owner",
+      "title": {
+        "en": "A Caption Without an Owner",
+        "ja": "持ち主のいないキャプション"
+      },
+      "scenes": [
+        {
+          "id": "scene:caption-without-owner:under-the-backing",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "peeled-backing-caption-no-signature",
+              "two-descriptions-named-vs-sourceless",
+              "caption-described-author-unknown"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:caption-without-owner:what-the-record-holds",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__sprite__determined__left-three-quarter__halfbody__v3.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "record-sheet-what-and-source",
+              "source-line-filled-with-absence",
+              "caption-kept-author-line-blank"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 27,
+      "id": "s3e03-helpful-rewrite",
+      "title": {
+        "en": "The Helpful Rewrite",
+        "ja": "親切な書き直し"
+      },
+      "scenes": [
+        {
+          "id": "scene:helpful-rewrite:two-versions",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "afternoon/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/location__classroom-day-overcast-wide__v002.webp",
+              "public/academy/art/locations/mobile/location__classroom-day-overcast-mobile__v002.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__thoughtful-left-three-quarter__v002.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "original-and-polished-side-by-side",
+              "error-column-and-voice-column",
+              "mended-caption-polished-set-aside"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:helpful-rewrite:point-then-ask",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "afternoon/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/location__classroom-day-overcast-wide__v002.webp",
+              "public/academy/art/locations/mobile/location__classroom-day-overcast-mobile__v002.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "encouraging/listening pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "mended-caption-and-blank-suggestion-slip",
+              "caption-in-his-hand-practice-noted"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 28,
+      "id": "s3e04-terms-of-invitation",
+      "title": {
+        "en": "Terms of Invitation",
+        "ja": "招待の条件"
+      },
+      "scenes": [
+        {
+          "id": "scene:terms:venue-asks-early",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "afternoon/spring-light",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/location__cafe-day-open-wide__v002.webp",
+              "public/academy/art/locations/mobile/location__cafe-day-open-mobile__v002.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__determined-front-left-three-quarter__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "venue-message-and-overlong-draft",
+              "request-missing-scope-or-exit",
+              "single-request-in-thread"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:terms:not-yet-changes-the-plan",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "evening/spring-light",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "public/academy/art/locations/mobile/cafe__night-rain--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "warm/happy pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__happy-right-three-quarter__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "not-yet-reply-on-the-table",
+              "consented-page-and-kept-space"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 29,
+      "id": "s3e05-chair-not-reserved",
+      "title": {
+        "en": "The Chair Is Not Reserved",
+        "ja": "その椅子は空けておく"
+      },
+      "scenes": [
+        {
+          "id": "scene:chair-not-reserved:offer-and-limit",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/mild-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jenny",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/jenny/jenny__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "planning-board-front-seat-card",
+              "two-responses-side-by-side",
+              "back-of-house-card-added-front-left-open"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:chair-not-reserved:redesign-not-persuasion",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/mild-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jenny",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/jenny/jenny__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "guide-card-blank-name-line",
+              "guide-card-marked-open-back-role-filled"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 30,
+      "id": "s3e06-two-schedules",
+      "title": {
+        "en": "Two Schedules, One Promise",
+        "ja": "二つの予定表"
+      },
+      "scenes": [
+        {
+          "id": "scene:two-schedules:tabled-plans",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/clear-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__neutral-halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "angel",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/onke/onke__angel-sprite-thinking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "two-schedules-side-by-side",
+              "one-claim-returns-untagged",
+              "both-schedules-tagged-by-source"
+            ],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/classroom-clock-schedule.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:two-schedules:one-promise",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/clear-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "angel",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/onke/onke__angel-sprite-thinking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__sprite__listening__right-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "third-sheet-with-assumptions-column",
+              "clarified-sheet-date-provisional"
+            ],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/classroom-clock-schedule.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 31,
+      "id": "s3e07-under-the-subtitle",
+      "title": {
+        "en": "Under the Subtitle",
+        "ja": "字幕の下で"
+      },
+      "scenes": [
+        {
+          "id": "scene:under-the-subtitle:the-cleaner-cut",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "ruparna",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/ruparna/ruparna__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__thoughtful-left-three-quarter__v002.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "library-screen-two-subtitle-tracks",
+              "audio-hedge-against-flat-caption",
+              "one-clause-upgraded-flagged",
+              "whiteboard-official-versus-honest"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:under-the-subtitle:not-ours-to-fill",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-clear",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "ruparna",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/ruparna/ruparna__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "frame-frozen-two-captions-counted",
+              "official-caption-set-aside-hedge-kept"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 32,
+      "id": "s3e08-right-screen-wrong-draft",
+      "title": {
+        "en": "The Right Screen, the Wrong Draft",
+        "ja": "画面は正しく、原稿は古い"
+      },
+      "scenes": [
+        {
+          "id": "scene:wrong-draft:screen-loads-old-draft",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/winter-dark",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "angel",
+              "presentation": "sprite",
+              "need": "speaking/presenting pose",
+              "candidatePath": "public/academy/art/characters/onke/onke__angel-sprite-speaking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "tom",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "mira",
+              "presentation": "remote-chat",
+              "need": "text/chat presence only; no body or portrait",
+              "candidatePath": null,
+              "resolution": "text-only-no-raster-required"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "rehearsal-screen-shows-old-draft",
+              "chat-ping-just-swap-the-file",
+              "two-versions-side-by-side-unshown",
+              "live-version-stamped-old-draft-quarantined"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:wrong-draft:access-is-not-permission",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/winter-dark",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "angel",
+              "presentation": "sprite",
+              "need": "speaking/presenting pose",
+              "candidatePath": "public/academy/art/characters/onke/onke__angel-sprite-speaking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "two-column-version-and-permission-note",
+              "note-closed-access-is-not-permission"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 33,
+      "id": "s3e09-what-we-can-say",
+      "title": {
+        "en": "What We Can Say",
+        "ja": "言えること、言えないこと"
+      },
+      "scenes": [
+        {
+          "id": "scene:what-we-can-say:three-things",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "afternoon/spring-bright",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/location__cafe-day-open-wide__v002.webp",
+              "public/academy/art/locations/mobile/location__cafe-day-open-mobile__v002.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "jodi",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/jodi/jodi__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__determined-front-left-three-quarter__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "draft-as-flat-fact-photo-and-found-page",
+              "evidence-tags-side-by-side",
+              "caption-source-marked-memory-withheld"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:what-we-can-say:does-it-hold",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "afternoon/spring-bright",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/location__cafe-day-open-wide__v002.webp",
+              "public/academy/art/locations/mobile/location__cafe-day-open-mobile__v002.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "mira",
+              "presentation": "remote-chat",
+              "need": "text/chat presence only; no body or portrait",
+              "candidatePath": null,
+              "resolution": "text-only-no-raster-required"
+            },
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "warm/happy pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__happy-right-three-quarter__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jodi",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/jodi/jodi__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "groupchat-open-calibrated-draft",
+              "wall-draft-marked-memory-with-owner"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 34,
+      "id": "s3e10-empty-microphone",
+      "title": {
+        "en": "The Empty Microphone",
+        "ja": "空っぽのマイク"
+      },
+      "scenes": [
+        {
+          "id": "scene:empty-microphone:host-drops-out",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/early-spring-night",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__thoughtful-left-three-quarter-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "mika",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/mika/mika__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "microphone-on-stand-host-slot-blank",
+              "one-role-returned-others-assigned",
+              "run-sheet-named-cue-role-added"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__empty-microphone-rehearsal__v001.png",
+            "runtimeAssetId": "event.empty-microphone-rehearsal",
+            "gapId": "gap:empty-microphone-rehearsal"
+          }
+        },
+        {
+          "id": "scene:empty-microphone:the-role-on-the-sheet",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/early-spring-night",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "mika",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/mika/mika__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "encouraging/listening pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "rehearsal-running-cue-in-the-wing",
+              "run-sheet-holds-cue-role-mic-unclaimed"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__empty-microphone-rehearsal__v001.png",
+            "runtimeAssetId": "event.empty-microphone-rehearsal",
+            "gapId": "gap:empty-microphone-rehearsal"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 35,
+      "id": "s3e11-names-in-the-margin",
+      "title": {
+        "en": "Names in the Margin",
+        "ja": "余白の名前"
+      },
+      "scenes": [
+        {
+          "id": "scene:names-in-the-margin:reading-the-layers",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "shin",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/shin/shin__sprite__determined__left-three-quarter__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "ownerless-page-laid-flat-layered-ink",
+              "one-trace-returns-for-a-second-read",
+              "layers-ordered-marker-on-the-seam"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:names-in-the-margin:what-the-margin-holds",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/spring-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "shin",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/shin/shin__sprite__listening__right-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "margin-with-empty-name-column",
+              "name-field-blank-margin-qualified"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 36,
+      "id": "s3e12-permission-page",
+      "title": {
+        "en": "The Permission Page",
+        "ja": "許可のページ"
+      },
+      "scenes": [
+        {
+          "id": "scene:permission-page:who-may-share",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/clear-night",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "angel",
+              "presentation": "sprite",
+              "need": "speaking/presenting pose",
+              "candidatePath": "public/academy/art/characters/onke/onke__angel-sprite-speaking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "provenance-records-beside-blank-permission-sheet",
+              "permitted-and-withheld-side-by-side",
+              "permission-column-filled-withheld-sealed"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:permission-page:for-how-long",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/clear-night",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__thoughtful-left-three-quarter__v002.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__sprite__listening__left-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "permission-page-with-confidence-margin",
+              "permission-page-complete-withheld-sealed"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 37,
+      "id": "s4e01-return-address",
+      "title": {
+        "en": "The Return Address",
+        "ja": "返信の余白"
+      },
+      "scenes": [
+        {
+          "id": "scene:return-address:reading-the-reply",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__neutral-halfbody__v003.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "reply-with-declined-line",
+              "three-columns-answered-unsaid-declined"
+            ],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/mission-ticket-letter.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:return-address:the-follow-up",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__sprite__listening__right-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": ["blank-follow-up-sheet", "reply-filed-with-marks"],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/mission-ticket-letter.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 38,
+      "id": "s4e02-map-of-claims",
+      "title": {
+        "en": "A Map of Claims",
+        "ja": "確かさの地図"
+      },
+      "scenes": [
+        {
+          "id": "scene:map-of-claims:table-of-sources",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__thoughtful-left-three-quarter__v002.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__sprite__determined__left-three-quarter__halfbody__v3.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "three-sources-apart-on-the-table",
+              "one-cell-lifted-back-out",
+              "map-ruled-into-tabbed-cells"
+            ],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/l09-group-plan-map.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:map-of-claims:the-colour-for-unknown",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__sprite__listening__right-three-quarter__halfbody__v3.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "one-cell-labelled-we-dont-know",
+              "finished-map-blank-cell-intact"
+            ],
+            "candidatePaths": [
+              "public/academy/art/lesson-scenes/l09-group-plan-map.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 39,
+      "id": "s4e03-polite-no",
+      "title": {
+        "en": "The Polite No",
+        "ja": "丁重なお断り"
+      },
+      "scenes": [
+        {
+          "id": "scene:polite-no:cleaner-ending",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "public/academy/art/locations/mobile/cafe__night-rain--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "robert",
+              "presentation": "sprite",
+              "need": "speaking/presenting pose",
+              "candidatePath": "public/academy/art/characters/robert/robert__speaking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "program-proof-with-venue-note",
+              "three-moves-side-by-side",
+              "reply-holds-one-no"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:polite-no:room-to-answer",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "public/academy/art/locations/mobile/cafe__night-rain--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "robert",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/robert/robert__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "reply-with-open-response-line",
+              "question-ending-blank-line"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 40,
+      "id": "s4e04-three-true-versions",
+      "title": {
+        "en": "Three True Versions",
+        "ja": "三つとも本当"
+      },
+      "scenes": [
+        {
+          "id": "scene:three-versions:three-beginnings",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "jodi",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/jodi/jodi__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "encouraging/listening pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "first-page-three-accounts",
+              "three-accounts-side-by-side"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:three-versions:one-synthesis",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-dusk",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__thoughtful-left-three-quarter-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jodi",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/jodi/jodi__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "three-cards-along-first-page",
+              "one-voice-flattened-restored",
+              "one-synthesis-three-cards-kept"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 41,
+      "id": "s4e05-left-unsaid",
+      "title": {
+        "en": "What Was Left Unsaid",
+        "ja": "言わずにおくこと"
+      },
+      "scenes": [
+        {
+          "id": "scene:left-unsaid:the-line-that-says-too-much",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__determined-front-left-three-quarter__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "taped-stage-line-and-weighted-script",
+              "full-and-trimmed-lines-side-by-side",
+              "closing-note-ends-with-space-after-it"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:left-unsaid:what-stays-off-the-page",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "nanako",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/nanako/nanako__listening-left-three-quarter-glasses__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "margin-note-marks-a-private-clause",
+              "closing-lines-stop-short-note-pocketed"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 42,
+      "id": "s4e06-open-question",
+      "title": {
+        "en": "The Open Question",
+        "ja": "開いたままの問い"
+      },
+      "scenes": [
+        {
+          "id": "scene:open-question:one-name",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-late-light",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__thoughtful-left-three-quarter__v002.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "archive-card-one-empty-field",
+              "premise-bracketed-on-board",
+              "field-blank-notebook-shut"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:open-question:no-single-name",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-late-light",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "sophie",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "archive-card-open-between-them",
+              "author-field-open-mark-to-terms"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 43,
+      "id": "s4e07-journey-not-everyone-takes",
+      "title": {
+        "en": "The Journey Not Everyone Takes",
+        "ja": "それぞれの「いつか」"
+      },
+      "scenes": [
+        {
+          "id": "scene:journey:the-flattest-news",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "public/academy/art/locations/mobile/cafe__night-rain--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__neutral-halfbody__v003.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "aakash",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/aakash/aakash__thoughtful-front-near-front-halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "cafe-summer-evening-phones-out",
+              "group-chat-wakes-around-the-news"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event-first-term-arrival-cafe-v001.png",
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:journey:non-comparative-futures",
+          "background": {
+            "requiredLocation": "location:cafe",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/cafe__night-rain--wide.webp",
+              "public/academy/art/locations/mobile/cafe__night-rain--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "aakash",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/aakash/aakash__determined-left-three-quarter-halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "alex",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/alex/alex__sprite__listening__right-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "thread-fills-with-somedays",
+              "three-futures-laid-level",
+              "three-somedays-level-typing-indicator-stops"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event-first-term-arrival-cafe-v001.png",
+              "public/academy/art/items/cafe-order-scene__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 44,
+      "id": "s4e08-last-revision",
+      "title": {
+        "en": "The Last Revision",
+        "ja": "最後の推敲"
+      },
+      "scenes": [
+        {
+          "id": "scene:last-revision:what-stays-out-of-frame",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/summer-rain",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "stasi",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/stasi/stasi__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "ruparna",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/ruparna/ruparna__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jenny",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/jenny/jenny__neutral-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "library-panel-with-a-bare-block",
+              "plain-tab-beside-the-bare-block"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__withheld-panel-handoff__v001.png",
+            "runtimeAssetId": "event.withheld-panel-handoff",
+            "gapId": "gap:withheld-panel-handoff"
+          }
+        },
+        {
+          "id": "scene:last-revision:vivid-but-restores-nothing",
+          "background": {
+            "requiredLocation": "location:library",
+            "state": "evening/summer-rain",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/library__rain-evening--wide.webp",
+              "public/academy/art/locations/mobile/library__rain-evening--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "xingyu",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "stasi",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/stasi/stasi__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "ruparna",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/ruparna/ruparna__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "tom",
+              "presentation": "sprite",
+              "need": "encouraging/listening pose",
+              "candidatePath": "public/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "draft-line-one-clause-too-vivid",
+              "middle-clause-taken-down-once",
+              "paper-cat-boxed-marker-handed-on"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-library-study__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__withheld-panel-handoff__v001.png",
+            "runtimeAssetId": "event.withheld-panel-handoff",
+            "gapId": "gap:withheld-panel-handoff"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 45,
+      "id": "s4e09-rehearsal-for-leaving",
+      "title": {
+        "en": "Rehearsal for Leaving",
+        "ja": "いなくても、回るように"
+      },
+      "scenes": [
+        {
+          "id": "scene:rehearsal-for-leaving:tested-setup",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-warm",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__sprite__determined__left-three-quarter__halfbody__v3.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "christian",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/christian/christian__sprite__encouraging-listening__right-three-quarter__halfbody__v003.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "labeled-box-and-run-sheet",
+              "runsheet-step-and-branch-side-by-side",
+              "box-labeled-cable-taped-fan-set-aside"
+            ],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:rehearsal-for-leaving:run-it-without-me",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-warm",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "henry",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/henry/henry__thoughtful-front__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "shaun",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/shaun/shaun__sprite__listening__front-near-front__v003.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": ["goodbye-rehearsal-open-chair", "setup-passed-fan-stays"],
+            "candidatePaths": [
+              "public/academy/art/items/classroom-belongings__v001.jpg"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 46,
+      "id": "s4e10-public-evening",
+      "title": {
+        "en": "The Public Japanese Evening",
+        "ja": "公開日本語の夕べ"
+      },
+      "scenes": [
+        {
+          "id": "scene:public-evening:the-question",
+          "background": {
+            "requiredLocation": "location:courtyard",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/courtyard__blue-hour-rain--wide.webp",
+              "public/academy/art/locations/mobile/courtyard__blue-hour-rain--mobile.webp",
+              "public/academy/art/locations/wide/quad__blue-hour--wide.webp",
+              "public/academy/art/locations/mobile/quad__blue-hour--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "francis",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/francis/francis__sprite__neutral-glasses__front-near-front__halfbody__v005.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "mika",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/mika/mika__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__listening-glasses-left-three-quarter-halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "xingyu",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "courtyard-panel-question-from-third-row",
+              "asker-tilts-head-xingyu-holds-a-note",
+              "one-phrase-repeated-slower",
+              "stewardship-not-authorship"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__yomu-first-term-pub-courtyard__v001.png"
+            ],
+            "resolution": "existing-near-match"
+          }
+        },
+        {
+          "id": "scene:public-evening:what-we-can-say",
+          "background": {
+            "requiredLocation": "location:courtyard",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/courtyard__blue-hour-rain--wide.webp",
+              "public/academy/art/locations/mobile/courtyard__blue-hour-rain--mobile.webp",
+              "public/academy/art/locations/wide/quad__blue-hour--wide.webp",
+              "public/academy/art/locations/mobile/quad__blue-hour--mobile.webp"
+            ],
+            "resolution": "existing-near-match-weather"
+          },
+          "visibleCast": [
+            {
+              "id": "francis",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/francis/francis__sprite__listening-glasses__front-near-front__halfbody__v005.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "mika",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/mika/mika__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "sam",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/sam/sam__sprite__listening__left-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "robert",
+              "presentation": "sprite",
+              "need": "speaking/presenting pose",
+              "candidatePath": "public/academy/art/characters/robert/robert__speaking-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "heard-inferred-not-yet-sayable",
+              "column-left-empty-tea-still-warm"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__yomu-first-term-pub-courtyard__v001.png"
+            ],
+            "resolution": "existing-near-match"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 47,
+      "id": "s4e11-atlas-closes",
+      "title": {
+        "en": "The Atlas Closes",
+        "ja": "地図をとじる"
+      },
+      "scenes": [
+        {
+          "id": "scene:atlas-closes:what-the-template-was",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "shin",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/shin/shin__sprite__listening__right-three-quarter__halfbody__v004.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "atlas-and-records-laid-out-for-inquiry",
+              "supported-and-unsupported-columns",
+              "authorship-field-honestly-partial"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp",
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__atlas-finale-next-page__v001.png",
+            "runtimeAssetId": "event.atlas-finale-next-page",
+            "gapId": "gap:atlas-finale-state"
+          }
+        },
+        {
+          "id": "scene:atlas-closes:only-this-far",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__thoughtful-left-three-quarter-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "rose",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/rose/rose__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "evidence-map-with-labelled-blank",
+              "atlas-closed-record-beside-it"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp",
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__atlas-finale-next-page__v001.png",
+            "runtimeAssetId": "event.atlas-finale-next-page",
+            "gapId": "gap:atlas-finale-state"
+          }
+        }
+      ]
+    },
+    {
+      "chapter": 48,
+      "id": "s4e12-next-page",
+      "title": {
+        "en": "The Next Page",
+        "ja": "次のページ"
+      },
+      "scenes": [
+        {
+          "id": "scene:next-page:the-terms-of-the-page",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "encouraging/listening pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jenny",
+              "presentation": "sprite",
+              "need": "determined or firm pose",
+              "candidatePath": "public/academy/art/characters/jenny/jenny__determined-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "peter",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "closed-atlas-blank-page-and-tea",
+              "page-moved-into-the-ring"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp",
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__atlas-finale-next-page__v001.png",
+            "runtimeAssetId": "event.atlas-finale-next-page",
+            "gapId": "gap:atlas-finale-state"
+          }
+        },
+        {
+          "id": "scene:next-page:the-one-thing-left",
+          "background": {
+            "requiredLocation": "location:classroom",
+            "state": "evening/summer-evening",
+            "candidatePaths": [
+              "public/academy/art/locations/wide/classroom__evening-lamplit--wide.webp",
+              "public/academy/art/locations/mobile/classroom__evening-lamplit--mobile.webp"
+            ],
+            "resolution": "existing-candidate"
+          },
+          "visibleCast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "need": "warm/happy pose",
+              "candidatePath": "public/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "robert",
+              "presentation": "sprite",
+              "need": "neutral speaking/listening pose",
+              "candidatePath": "public/academy/art/characters/robert/robert__neutral-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "felix",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/felix/felix__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "stasi",
+              "presentation": "sprite",
+              "need": "thoughtful or concerned pose",
+              "candidatePath": "public/academy/art/characters/stasi/stasi__thoughtful-glasses__v001.png",
+              "resolution": "existing-candidate"
+            },
+            {
+              "id": "jodi",
+              "presentation": "sprite",
+              "need": "attentive/listening pose",
+              "candidatePath": "public/academy/art/characters/jodi/jodi__listening-halfbody-v2__v001.png",
+              "resolution": "existing-candidate"
+            }
+          ],
+          "eventArt": {
+            "need": [
+              "controlled-montage-around-the-page",
+              "keep-one-line-drop-the-rest",
+              "someone-else-locks-up-rie-drinks"
+            ],
+            "candidatePaths": [
+              "public/academy/art/events/event__event-first-class__v001.webp",
+              "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+            ],
+            "resolution": "generated-and-runtime-bound",
+            "candidatePath": "public/academy/art/events/event__atlas-finale-next-page__v001.png",
+            "runtimeAssetId": "event.atlas-finale-next-page",
+            "gapId": "gap:atlas-finale-state"
+          }
+        }
+      ]
+    }
+  ],
+  "generationQueue": [
+    {
+      "priority": 1,
+      "id": "gap:atlas-finale-state",
+      "sceneIds": [
+        "scene:atlas-closes:what-the-template-was",
+        "scene:atlas-closes:only-this-far",
+        "scene:next-page:the-terms-of-the-page",
+        "scene:next-page:the-one-thing-left"
+      ],
+      "need": "Shared finale event/prop family: illuminated atlas with partial authorship field, closed-atlas state, blank next page, chair ring, and Rie tea payoff.",
+      "existingNearMatches": [
+        "public/academy/art/events/event__event-first-class__v001.webp",
+        "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+      ],
+      "reason": "First-class and spare-chair art carries the room but not the atlas state resolving the four-season visual promise.",
+      "result": {
+        "status": "generated-and-runtime-bound",
+        "candidatePath": "public/academy/art/events/event__atlas-finale-next-page__v001.png",
+        "runtimeAssetId": "event.atlas-finale-next-page"
+      }
+    },
+    {
+      "priority": 2,
+      "id": "gap:empty-microphone-rehearsal",
+      "sceneIds": [
+        "scene:empty-microphone:host-drops-out",
+        "scene:empty-microphone:the-role-on-the-sheet"
+      ],
+      "need": "Empty microphone, blank host slot, and Mika cueing from the wing while the microphone remains unclaimed.",
+      "existingNearMatches": [
+        "public/academy/art/events/event__event-lesson-00-spare-chair__v001.webp"
+      ],
+      "reason": "Spare-chair art is adjacent but cannot communicate the title event or the off-mic role.",
+      "result": {
+        "status": "generated-and-runtime-bound",
+        "candidatePath": "public/academy/art/events/event__empty-microphone-rehearsal__v001.png",
+        "runtimeAssetId": "event.empty-microphone-rehearsal"
+      }
+    },
+    {
+      "priority": 3,
+      "id": "gap:withheld-panel-handoff",
+      "sceneIds": [
+        "scene:last-revision:what-stays-out-of-frame",
+        "scene:last-revision:vivid-but-restores-nothing"
+      ],
+      "need": "Library panel with deliberately bare block, grey marker, boxed paper cat, and handoff to Stasi.",
+      "existingNearMatches": [
+        "public/academy/art/events/event__event-library-study__v001.webp"
+      ],
+      "reason": "Library-study art does not show the withheld-space metaphor or handoff.",
+      "result": {
+        "status": "generated-and-runtime-bound",
+        "candidatePath": "public/academy/art/events/event__withheld-panel-handoff__v001.png",
+        "runtimeAssetId": "event.withheld-panel-handoff"
+      }
+    }
+  ],
+  "orphanRiskNotes": [
+    {
+      "id": "orphan:courtyard-runtime-pair",
+      "paths": [
+        "public/academy/art/locations/wide/courtyard__blue-hour-rain--wide.webp",
+        "public/academy/art/locations/mobile/courtyard__blue-hour-rain--mobile.webp",
+        "public/academy/art/locations/wide/quad__blue-hour--wide.webp",
+        "public/academy/art/locations/mobile/quad__blue-hour--mobile.webp"
+      ],
+      "risk": "Clear Chapter 46 candidates lack a known src/academy/assets.ts or Chapter 25-48 binding."
+    },
+    {
+      "id": "orphan:public-evening-event",
+      "paths": [
+        "public/academy/art/events/event__yomu-first-term-pub-courtyard__v001.png"
+      ],
+      "risk": "Recovered metadata identifies a first-term pub courtyard CG; Chapter 46 is its strongest known binding, but current usage/presentation ledgers do not bind it."
+    },
+    {
+      "id": "orphan:angel-onke-alias",
+      "paths": [
+        "public/academy/art/characters/onke/onke__angel-sprite-neutral-halfbody-v2__v001.png",
+        "public/academy/art/characters/onke/onke__angel-sprite-speaking-halfbody-v2__v001.png",
+        "public/academy/art/characters/onke/onke__angel-sprite-thinking-halfbody-v2__v001.png"
+      ],
+      "risk": "Story id angel resolves under characters/onke; the batch manifest pairs id angel with firstName Onke. Preserve until grader/cast authority confirms the alias."
+    },
+    {
+      "id": "orphan:mira-reference-set",
+      "paths": [
+        "public/academy/art/reference-sheets/reference__mira-neutral-front-near-front-halfbody__v001.png",
+        "public/academy/art/reference-sheets/reference__mira-listening-left-three-quarter-halfbody__v001.png",
+        "public/academy/art/reference-sheets/reference__mira-determined-front-near-front-halfbody__v001.png",
+        "public/academy/art/reference-sheets/reference__mira-happy-right-three-quarter-halfbody__v001.png"
+      ],
+      "risk": "No runtime binding. Chapters 32-33 show Mira only in group chat, so forcing these into those scenes would be incorrect."
+    },
+    {
+      "id": "orphan:opaque-recovered-scenes",
+      "pathPattern": "public/academy/art/unassigned/unassigned__scene-###__v001.png",
+      "fileCount": 72,
+      "risk": "Catalog entries contain opaque sequence names and hashes, so no deterministic Chapter 25-48 binding can be asserted without grader/source metadata."
+    },
+    {
+      "id": "orphan:unregistered-candidate-surface",
+      "pathPatterns": [
+        "public/academy/art/characters/**",
+        "public/academy/art/events/**",
+        "public/academy/art/lesson-scenes/**"
+      ],
+      "fileCounts": {
+        "characterRasters": 1097,
+        "eventRasters": 26,
+        "lessonSceneRasters": 28
+      },
+      "risk": "Physical art exceeds runtime ledger coverage. Selected candidates are referenced here; unselected alternates remain pending grader decisions and must not be deleted."
+    }
+  ]
+}

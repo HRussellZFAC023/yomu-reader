@@ -1,0 +1,239 @@
+{
+  "schema": "yomu-academy.week.v1",
+  "id": "l2-l36",
+  "order": 63,
+  "weekKind": "lesson",
+  "title": {
+    "en": "From goals to what became possible",
+    "ja": "目標から、できるようになったことへ"
+  },
+  "estimatedMinutes": 70,
+  "identity": {
+    "title": "Level 3+ Lesson 10",
+    "academyYear": 3,
+    "termId": "l2",
+    "termLabel": "Level 3+",
+    "courseYear": "2025/26",
+    "levelBand": "N4",
+    "weekNumberInTerm": 36,
+    "moduleId": 8870527,
+    "moduleType": "folder",
+    "date": null,
+    "sourceOrdering": {
+      "archiveSequence": 14,
+      "canonicalClassOrder": 72
+    }
+  },
+  "sourceCoverage": {
+    "harvested": true,
+    "archiveModuleId": 8870527,
+    "memberFileCount": 19,
+    "projectedPageCount": 19,
+    "documents": [
+      {
+        "title": "Chapter 36-2 Vocabulary Sheet",
+        "payloadSha256": "76f2f2707d8da2b8969c6c3e093e4cf7b31fa9f6b01dee421697e725ffc321f6",
+        "pages": [
+          1
+        ]
+      },
+      {
+        "title": "Chapter 36-2 Ability",
+        "payloadSha256": "8d6f8d9d1d1b8a2efb262cf3a19dae448b7cb6c4cef91f11cdd181e725aa4975",
+        "pages": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "title": "Chapter 36 listening-1",
+        "payloadSha256": "effc91302dfc989ccb21189fdde96a900a50b13c3540a9f8b16748b5424f6fdd",
+        "pages": [
+          1
+        ]
+      },
+      {
+        "title": "Chapter 36-2 speaking exercise",
+        "payloadSha256": "efe978ce9bb4c95f40791b9b04d8fbd3a5cff92eafed76847e36d64cd3813044",
+        "pages": [
+          1
+        ]
+      },
+      {
+        "title": "Chapter 36-3 Vocabulary Sheet",
+        "payloadSha256": "64411286b0e584fa17925521aba2f6e33b26e5797b68ab7ea12f188efcbac82a",
+        "pages": [
+          1,
+          2
+        ]
+      },
+      {
+        "title": "Chapter 36-3 Possibility",
+        "payloadSha256": "40139ac093fee2dd598cba016bb168f55d23ea4dfab16f930e3b53787ee1af86",
+        "pages": [
+          1,
+          2
+        ]
+      },
+      {
+        "title": "Chapter 36 summary",
+        "payloadSha256": "4019edaedbecea1cb3f364dc49495e15991c4f63d9c8cd9042b6d09667745bf9",
+        "pages": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    ],
+    "pages": [
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-2-vocabulary-page-1.png",
+        "sha256": "67c93ad62c81e07c38688e29785a93fc79606691f14b5dad632cfc0cfd93799a"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-2-ability-page-1.png",
+        "sha256": "0157dea90f0443b34605bb8a97564cbeec6f1025b788a96be447cb3bf14a285c"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-2-ability-page-2.png",
+        "sha256": "656430fa5ef0959bf2412a6d7565463efb5cea250ec789f12ee0aef89e0d2b99"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-2-ability-page-3.png",
+        "sha256": "fc928459cd97da1244a4095da509840236a497ac0574a8a52b601160bcf94dbd"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-listening-1-page-1.png",
+        "sha256": "a9713e931608af5676d15a6b3d52e95239c78e219d4f1c72cf227df66a1a8389"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-2-speaking-page-1.png",
+        "sha256": "ecbe69776f26fbb74fd97ecf3f872a71e0b99215e321ea523f0287da8c761a96"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-3-vocabulary-page-1.png",
+        "sha256": "07c0ffb26588dae35b64b352dcc2c89d5e9fb030de5328358746beb2bc143b3b"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-3-vocabulary-page-2.png",
+        "sha256": "648c9f53fef4658eda01cc0f53c35e5bebf18dd3ea9d5fbe7c87d5894bd6ba42"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-3-possibility-page-1.png",
+        "sha256": "ea47a0cf7be51e706fe5cab81dff4efc8e761fd6a1f7466715e90a757466764f"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-3-possibility-page-2.png",
+        "sha256": "7ad598ae5ff118d0d29a1014cd47389cd0ed98d445c57a054baeb0da25fcf9d5"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-1.png",
+        "sha256": "39d633d642fa01fa90fc366c232a07ff667eb979e4ff466ab70f0b5d5ce3e748"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-2.png",
+        "sha256": "869e1665b31a2d0fcffcd10c22d40e7daf1fa5861aa1eafe9976200db7a19b47"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-3.png",
+        "sha256": "9007fe6bde0076c41080e37c1b936bb4694bdef236d143cf5c5e73e958282c55"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-4.png",
+        "sha256": "2dfe4958fd4d5083e52595c58e7f76ecfd67eb19e8e2f9140e5fe552bc265606"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-5.png",
+        "sha256": "df8465ac89b1131a229b505af2cb235b64ead8c7ce2aea45a4541887f710c892"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-6.png",
+        "sha256": "9f84d8439d75dd39a1a94ac7ecf5ed71bab63c8c44587d0b3d6ce81c53dfb65b"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-7.png",
+        "sha256": "d6121800db42ca6eda296bbcdcc4329e526b5f797e3e5bcffa978c320f1ed1f5"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-8.png",
+        "sha256": "51cf3816aca3b488567f9d983f2a4ad210d6fae79dd842ec92f5105f0c144327"
+      },
+      {
+        "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-summary-page-9.png",
+        "sha256": "4c32fd7f97ed67f723e08d8e548d3aa72bbe8ea9de5be13233e19bcc0886fff0"
+      }
+    ],
+    "audio": {
+      "status": "worksheet-numbered-audio-pairing",
+      "worksheetPayloadSha256": "effc91302dfc989ccb21189fdde96a900a50b13c3540a9f8b16748b5424f6fdd",
+      "tracks": [
+        {
+          "label": "CD B-5",
+          "worksheetQuestion": 1,
+          "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-listening-b5.mp3",
+          "payloadSha256": "1ef9ab11057ec00cda9fb488ecb9a112e9194817865ab73575e570ab8be6164c"
+        },
+        {
+          "label": "CD B-6",
+          "worksheetQuestion": 2,
+          "url": "/academy/content/lessons/l2-l36/moodle-lesson-10-chapter-36-listening-b6.mp3",
+          "payloadSha256": "0ac4399d9d642db81dabe2a40faa08e279f8b4b5ea508765a8b13332c038dea8"
+        }
+      ]
+    },
+    "archiveSha256": "57ca13bfffee06933f2dc4ee47d9b3ce168fd6d37475c12e0e7f243c9658265"
+  },
+  "mapping": {
+    "ucl": "2025/26 · Level 3+ · Lesson 10",
+    "genki": "≈ Genki II · parallel N4 scope",
+    "minna": "Minna no Nihongo II · Lesson 36",
+    "jlpt": "N4",
+    "customOrders": [
+      "chronology",
+      "minna",
+      "jlpt"
+    ],
+    "canonicalClassWeekId": "l3plus-l10",
+    "canonicalClassOrder": 72
+  },
+  "provenance": {
+    "authoringPolicy": "canonical-moodle-source-with-registered-direct-activities",
+    "sourceMappings": [
+      {
+        "sourceId": "source-ucl-moodle-raw-manifest",
+        "relation": "primary-module-and-sequence",
+        "reference": "module 8870527 · Level 3+ Lesson 10 · archive sha256 57ca13bfffee06933f2dc4ee47d9b3ce168fd6d37475c12e0e7f243c9658265",
+        "reuse": "verbatim-authorised"
+      }
+    ],
+    "activityDelivery": {
+      "kind": "registered-direct-chapter",
+      "beatIds": [
+        "youni-goal-workshop",
+        "younarimasu-change-workshop"
+      ]
+    },
+    "answerVisibility": "after-attempt",
+    "unresolvedAnswersPolicy": "quarantine",
+    "canonicalMoodle": {
+      "schema": "yomu-academy.canonical-moodle.v1",
+      "reuse": "verbatim-authorised",
+      "learnerSurfacePolicy": "canonical-source-first",
+      "augmentationPolicy": "Yomu context, furigana, hints, retry support, and the registered direct activities may surround canonical items but may not replace or paraphrase them."
+    }
+  },
+  "explanation": {
+    "order": 5,
+    "intro": "Inspect the canonical Chapter 36 pages and numbered recordings before completing the registered source activities.",
+    "recap": "Connect goals to actions with ように, then express a change in ability with ようになります.",
+    "grammarPoints": []
+  },
+  "components": []
+}

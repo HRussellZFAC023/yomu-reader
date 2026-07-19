@@ -1,0 +1,391 @@
+{
+  "schema": "yomu-academy.presentation-binding.v1",
+  "generatedBy": "cohesion-engineer (Persona staging/cue/music lane)",
+  "generatedAt": "2026-07-18",
+  "scope": "Season 1, chapters 1-24 (authored v2 story-sources). S2-S4 unauthored -> not bound.",
+  "authority": {
+    "themeAndAmbienceSlots": "src/academy/audio/manifest.json (themes[].slot; music bus only)",
+    "sfxCues": "src/academy/audio/manifest.json (sfx[].cue) resolved via src/academy/audio/sfx-catalog.ts semantic cues",
+    "sceneTimeState": "each scene's timeState/weatherState in src/academy/content/story-sources/*.v2.json",
+    "rule": "Every slot and cue below is verbatim from the manifest/catalog. No invented slots."
+  },
+  "busCaveat": "All theme AND world.* slots live on the single 'music' bus. themeSlot (dramatic layer) and ambience (world.* location bed) cannot both sound unless the AudioDirector layers/crossfades. Intended runtime: ambience = looping location bed; themeSlot = the scene's dramatic override that ducks or replaces the bed at the marked beat, then returns to ambience. Where themeSlot IS a location-warm slot (classroom.focus, cafe.social, library.quiet) the ambience is omitted because that slot already carries the room.",
+  "ambienceMap": {
+    "location:classroom": "world.classroom",
+    "location:classroom-entrance": "world.classroom",
+    "location:library": "world.library",
+    "location:cafe": "world.cafe",
+    "location:street": "world.street",
+    "location:ramen": "world.ramen",
+    "location:courtyard": "world.courtyard",
+    "location:language-lab": "world.lab",
+    "note": "classroom-entrance has no dedicated slot; falls back to world.classroom (honest gap, flagged)."
+  },
+  "themeSlotLegend": {
+    "opening.invitation": "royal-days | the game's very first arrival only (S1 pilot scene 1)",
+    "campus.evening": "royal-days | neutral evening-campus establishing bed",
+    "classroom.focus": "royal-days (quiet) | classroom lesson-body / working focus",
+    "library.quiet": "no-more-what-ifs instr | library reading/quiet work",
+    "cafe.social": "kichijoji-199x | cafe + counter social scenes",
+    "bond.quiet": "no-more-what-ifs instr | quiet two-person / generous beats",
+    "mystery.page": "ideal-and-the-real | decode / investigate / listening-inference (loop=false stinger)",
+    "challenge.kanji": "prison-labor | kana/kanji drill or register game (loop=false)",
+    "challenge.major": "take-over | multi-part climax, storm/dark/finale rebuild (loop=false)",
+    "unlock.world": "so-happy-world | first-success / lantern-lit / transfer payoff (loop=false)",
+    "support.kindness": "out-of-kindness | kind repair / sharing a private key (loop=false)",
+    "resolve.late": "i-believe | late-season resolution close (loop=false)",
+    "ending.reflective": "ideal-and-the-real end | chapter/season reflective close (loop=false)"
+  },
+  "sfxRules": {
+    "sceneEnter.locationChanged": "page.turn (semantic travel.transition) when locationId differs from previous scene",
+    "sceneEnter.sameLocation": "scene.advance (semantic vn.advance) for a within-chapter continuation",
+    "line.advance": "scene.advance on each completed line/beat advance",
+    "choice.browse": "menu.move while moving focus across choice options",
+    "choice.commit": "menu.confirm on committing a choice option",
+    "choice.lockedOrDecline": "action.unavailable if an option is gated/blocked",
+    "activity.onReady": "feedback.correct when appended evidence passes",
+    "activity.onRepair": "feedback.repair when the scene returns a kind retry",
+    "activity.hanamaru": "feedback.hanamaru for an earned flourish on a clean pass",
+    "doodle.activity": "doodle.stroke per stroke, doodle.check on completion (kana/kanji tracing only)",
+    "listening.activity": "radio.tune when tuning/replaying an audio surface",
+    "capture.activity": "camera.capture when a photo/memory card is fixed",
+    "relationship.continuityAdvanced": "bond.unlock (first) / bond.rank (raise) on the command node",
+    "chapter.finalExit": "chapter.complete (clap) on the last scene's exit (next=null)"
+  },
+  "timeStateWash": {
+    "S1": "All S1 scenes are 'evening' (an evening class). Time-of-day wash is a single evening key; Ch1 alone steps evening -> evening-late -> evening-close within the night. Seasonal weather wash progresses autumn (rain, clear-night) -> late-autumn (windy, storm-clearing) -> winter (winter-dark from Ch12). Ch1-Ch2 carry NO weatherState (flagged minor).",
+    "checkRule": "ok = timeState present and consistent with the evening-class continuity; note = value worth confirming"
+  },
+  "chapters": [
+    {
+      "chapter": 1,
+      "id": "s1e01-the-blank-atlas",
+      "arc": "opening.invitation -> classroom.focus body -> unlock.world transfer -> ending.reflective close",
+      "scenes": [
+        { "id": "scene:blank-atlas:arrival-greetings", "location": "location:classroom", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "opening.invitation", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "each greeting line advances"}, {"cue": "feedback.correct", "at": "greet-rie activity onReady"}, {"cue": "feedback.repair", "at": "greeting-repair onRepair"} ],
+          "note": "The single true opening.invitation binding in the whole game; covered-atlas arrival is the flagship first image." },
+        { "id": "scene:blank-atlas:sound-script-map", "location": "location:classroom", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "doodle.stroke", "at": "kana-trace-one-stroke each stroke"}, {"cue": "doodle.check", "at": "kana trace completion"}, {"cue": "radio.tune", "at": "vowels-replay-one-gap listening replay"}, {"cue": "feedback.correct", "at": "activity onReady"} ] },
+        { "id": "scene:blank-atlas:classroom-survival", "location": "location:classroom", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "feedback.correct", "at": "each activity onReady"}, {"cue": "feedback.repair", "at": "repair-phrase-one-gap onRepair"}, {"cue": "scene.advance", "at": "line advances"} ] },
+        { "id": "scene:blank-atlas:sentence-frames", "location": "location:classroom", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "feedback.correct", "at": "meaning-contrast activity onReady"}, {"cue": "scene.advance", "at": "label print beat"} ] },
+        { "id": "scene:blank-atlas:useful-vocabulary", "location": "location:classroom", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "menu.move", "at": "name-card choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.correct", "at": "name-card activity onReady"} ] },
+        { "id": "scene:blank-atlas:mission-sound", "location": "location:language-lab", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": "world.lab",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: classroom -> language-lab"}, {"cue": "radio.tune", "at": "sound-route-replay-one-speaker replay"}, {"cue": "feedback.correct", "at": "activity onReady"} ],
+          "note": "world.lab (so-happy-world) is the sound-mission bed; sound work reads as tuning, hence radio.tune." },
+        { "id": "scene:blank-atlas:mission-text", "location": "location:library", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "library.quiet", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: location change to library"}, {"cue": "feedback.correct", "at": "text-route activity onReady"}, {"cue": "scene.advance", "at": "evidence-line reveal"} ] },
+        { "id": "scene:blank-atlas:mission-speaking", "location": "location:classroom-entrance", "timeState": "evening", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": "world.classroom",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: location change to entrance"}, {"cue": "menu.move", "at": "speaking-route choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.correct", "at": "activity onReady"} ],
+          "note": "classroom-entrance has no dedicated ambience slot -> world.classroom fallback (gap flagged)." },
+        { "id": "scene:blank-atlas:reading-writing", "location": "location:classroom", "timeState": "evening-late", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: back to classroom"}, {"cue": "feedback.correct", "at": "each activity onReady"}, {"cue": "feedback.hanamaru", "at": "learner-card clean pass flourish"} ] },
+        { "id": "scene:blank-atlas:transfer", "location": "location:classroom", "timeState": "evening-late", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.classroom",
+          "sfx": [ {"cue": "feedback.correct", "at": "each transfer activity onReady"}, {"cue": "menu.confirm", "at": "transfer choice commit"}, {"cue": "feedback.hanamaru", "at": "first-atlas-lantern-lit payoff"} ],
+          "note": "unlock.world (so-happy-world) swells only at the first-lantern payoff, then returns to classroom bed." },
+        { "id": "scene:blank-atlas:close", "location": "location:classroom", "timeState": "evening-close", "timeStateCheck": "ok",
+          "themeSlot": "ending.reflective", "ambience": null,
+          "sfx": [ {"cue": "bond.unlock", "at": "relationship/continuity command node"}, {"cue": "chapter.complete", "at": "final exit (next=null)"} ] }
+      ]
+    },
+    {
+      "chapter": 2, "id": "s1e02-margin-map", "arc": "mystery.page decode -> support.kindness sharing the key",
+      "scenes": [
+        { "id": "scene:margin-map:the-private-cipher", "location": "location:classroom", "timeState": "evening", "weatherState": null, "timeStateCheck": "note-no-weather",
+          "themeSlot": "mystery.page", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "line advances over the cipher"}, {"cue": "feedback.correct", "at": "plain-label activity onReady"} ] },
+        { "id": "scene:margin-map:readable-for-anyone", "location": "location:classroom", "timeState": "evening", "weatherState": null, "timeStateCheck": "note-no-weather",
+          "themeSlot": "support.kindness", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "support.kindness (out-of-kindness) fits Henry folding his private cipher into a shared key." }
+      ]
+    },
+    {
+      "chapter": 3, "id": "s1e03-route-zero", "arc": "world.street rain establish -> unlock.world one label re-inks / asking-is-leading",
+      "scenes": [
+        { "id": "scene:route-zero:the-confident-route", "location": "location:street", "timeState": "evening", "weatherState": "rain", "timeStateCheck": "ok",
+          "themeSlot": "world.street", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: first street/outdoor scene"}, {"cue": "scene.advance", "at": "label-dissolve staged beats"}, {"cue": "feedback.correct", "at": "place-question activity onReady"} ],
+          "note": "world.street (mementos-upper) is the rainy station-exit bed; no dramatic override needed on setup." },
+        { "id": "scene:route-zero:asking-is-leading", "location": "location:street", "timeState": "evening", "weatherState": "rain", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.street",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "unlock.world stinger on the single re-inked label; returns to street bed." }
+      ]
+    },
+    {
+      "chapter": 4, "id": "s1e04-welcome-frequency", "arc": "mystery.page listen-for-the-chime -> bond.quiet whose-line",
+      "scenes": [
+        { "id": "scene:welcome-frequency:the-loud-room", "location": "location:classroom", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "mystery.page", "ambience": "world.classroom",
+          "sfx": [ {"cue": "radio.tune", "at": "chime-replays-one-interval listening"}, {"cue": "feedback.correct", "at": "activity onReady"}, {"cue": "scene.advance", "at": "gate-opens beat"} ],
+          "note": "The soft-chime-under-the-noise premise is a listening-inference scene; radio.tune grounds the chime replay." },
+        { "id": "scene:welcome-frequency:whose-line-is-it", "location": "location:classroom", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 5, "id": "s1e05-final-boss-kana", "arc": "challenge.kanji the-boss-table -> unlock.world one-small-card wins",
+      "scenes": [
+        { "id": "scene:final-boss-kana:the-boss-table", "location": "location:classroom", "timeState": "evening", "weatherState": "rain-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.kanji", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "boss-table reveal beats"}, {"cue": "feedback.correct", "at": "katakana activity onReady"}, {"cue": "feedback.repair", "at": "onRepair"} ],
+          "note": "'Final Boss' katakana framing -> challenge.kanji (prison-labor). The one-shot track suits the boss set-piece." },
+        { "id": "scene:final-boss-kana:one-small-card", "location": "location:classroom", "timeState": "evening", "weatherState": "rain-dark", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "small card ネコ wins"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 6, "id": "s1e06-invitation-chain", "arc": "cafe.social too-many-options -> resolve one-clear-answer",
+      "scenes": [
+        { "id": "scene:invitation-chain:too-many-options", "location": "location:cafe", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: first cafe scene"}, {"cue": "scene.advance", "at": "branch-multiplying beats"}, {"cue": "feedback.correct", "at": "invitation activity onReady"} ] },
+        { "id": "scene:invitation-chain:one-clear-answer", "location": "location:cafe", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.cafe",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "one honored answer commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "bond.quiet for the single honored invitation; ducks the cafe bed for the answer beat." }
+      ]
+    },
+    {
+      "chapter": 7, "id": "s1e07-no-spoilers", "arc": "cafe.social the-curtain (past-tense care) -> bond.quiet where-are-you",
+      "scenes": [
+        { "id": "scene:no-spoilers:the-curtain", "location": "location:cafe", "timeState": "evening", "weatherState": "rain-evening", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": null,
+          "sfx": [ {"cue": "scene.advance", "at": "opinion-then-question staged beats"}, {"cue": "feedback.correct", "at": "activity onReady"} ] },
+        { "id": "scene:no-spoilers:where-are-you", "location": "location:cafe", "timeState": "evening", "weatherState": "rain-evening", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.cafe",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "menu.cancel", "at": "phone turned face-down (seat-cards-move)"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "menu.cancel (popup-close) grounds the phone flipping face-down without reading past the curtain." }
+      ]
+    },
+    {
+      "chapter": 8, "id": "s1e08-menu-without-pictures", "arc": "cafe.social the-wall-menu (read w/o pictures) -> unlock.world one-bowl-each",
+      "scenes": [
+        { "id": "scene:menu-without-pictures:the-wall-menu", "location": "location:ramen", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": "world.ramen",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: first ramen scene"}, {"cue": "scene.advance", "at": "dish-name split beats"}, {"cue": "feedback.correct", "at": "menu-read activity onReady"} ],
+          "note": "cafe.social (kichijoji-199x) is the counter-social bed; world.ramen (i-believe) held as location tag only to avoid a triumphant loop over a menu-reading scene." },
+        { "id": "scene:menu-without-pictures:one-bowl-each", "location": "location:ramen", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.ramen",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "order commit"}, {"cue": "feedback.hanamaru", "at": "meat-free bowl lands correctly"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 9, "id": "s1e09-the-story-in-two-tenses", "arc": "mystery.page two-captions -> bond.quiet memory-stays-plural",
+      "scenes": [
+        { "id": "scene:two-tenses:the-two-captions", "location": "location:classroom", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "camera.capture", "at": "photo caption-slips pinned side by side"}, {"cue": "feedback.correct", "at": "caption activity onReady"}, {"cue": "scene.advance", "at": "line advances"} ],
+          "note": "camera.capture grounds the photograph-captioning act." },
+        { "id": "scene:two-tenses:memory-stays-plural", "location": "location:classroom", "timeState": "evening", "weatherState": "clear-night", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "Jodi's longer-than-needed look at the photo -> bond.quiet." }
+      ]
+    },
+    {
+      "chapter": 10, "id": "s1e10-instructions-for-a-cloud", "arc": "world.courtyard sequencing -> unlock.world hand-it-back",
+      "scenes": [
+        { "id": "scene:instructions-for-a-cloud:the-ordered-cards", "location": "location:courtyard", "timeState": "evening", "weatherState": "windy-evening", "timeStateCheck": "ok",
+          "themeSlot": "world.courtyard", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: first courtyard scene"}, {"cue": "radio.tune", "at": "recorder on the bench (listening)"}, {"cue": "feedback.correct", "at": "sequence activity onReady"} ],
+          "note": "world.courtyard (royal-days) is the outdoor evening bed; wind is diegetic (windy-evening)." },
+        { "id": "scene:instructions-for-a-cloud:hand-it-back", "location": "location:courtyard", "timeState": "evening", "weatherState": "windy-evening", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.courtyard",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "cloud runs full sequence hands-off"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 11, "id": "s1e11-storm-route-variant", "arc": "challenge.major signs-gone (storm rebuild) -> unlock.world the-back-way",
+      "scenes": [
+        { "id": "scene:storm-route-variant:signs-gone", "location": "location:street", "timeState": "evening", "weatherState": "storm-clearing", "timeStateCheck": "ok",
+          "themeSlot": "challenge.major", "ambience": "world.street",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: back outdoors"}, {"cue": "scene.advance", "at": "route-one-step-returns beats"}, {"cue": "feedback.correct", "at": "reroute activity onReady"} ],
+          "note": "challenge.major (take-over) for the post-storm bare-signpost rebuild; drops back to world.street when the tension eases." },
+        { "id": "scene:storm-route-variant:the-back-way", "location": "location:street", "timeState": "evening", "weatherState": "storm-clearing", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.street",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "route redraws to the lit doorway"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 12, "id": "s1e12-the-vanishing-course", "arc": "cafe.social lost-cues (count/plate) -> bond.quiet one-route-together",
+      "scenes": [
+        { "id": "scene:vanishing-course:lost-cues", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": null,
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: cafe (winter block begins)"}, {"cue": "scene.advance", "at": "serving-cards-blank beats"}, {"cue": "feedback.correct", "at": "count activity onReady"} ] },
+        { "id": "scene:vanishing-course:one-route-together", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.cafe",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 13, "id": "s1e13-dinner-by-if", "arc": "cafe.social the-sequence (conditionals) -> bond.quiet hosting-is-listening",
+      "scenes": [
+        { "id": "scene:dinner-by-if:the-sequence", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": null,
+          "sfx": [ {"cue": "scene.advance", "at": "arrow-broken card beats"}, {"cue": "feedback.correct", "at": "sequence activity onReady"}, {"cue": "feedback.repair", "at": "onRepair"} ] },
+        { "id": "scene:dinner-by-if:hosting-is-listening", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "bond.quiet", "ambience": "world.cafe",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "Robert finally sitting down (host-sits-down) is the quiet turn -> bond.quiet." }
+      ]
+    },
+    {
+      "chapter": 14, "id": "s1e14-two-answers", "arc": "mystery.page contested-particle -> classroom.focus record-not-verdict",
+      "scenes": [
+        { "id": "scene:two-answers:contested-particle", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "mystery.page", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "two-contexts-side-by-side beats"}, {"cue": "feedback.correct", "at": "particle activity onReady"} ] },
+        { "id": "scene:two-answers:record-not-verdict", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "The number-notebook-as-evidence close is a quiet working resolution -> classroom.focus (no over-emote)." }
+      ]
+    },
+    {
+      "chapter": 15, "id": "s1e15-chorus-with-a-hole", "arc": "challenge.kanji the-catchy-hole (katakana) -> unlock.world the-kept-beat",
+      "scenes": [
+        { "id": "scene:chorus-with-a-hole:the-catchy-hole", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.kanji", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "room-hums-the-gap beats"}, {"cue": "feedback.correct", "at": "katakana activity onReady"}, {"cue": "feedback.repair", "at": "onRepair"} ],
+          "note": "katakana card-fill drill with a rhythmic hook -> challenge.kanji (prison-labor)." },
+        { "id": "scene:chorus-with-a-hole:the-kept-beat", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "room claps the kept beat"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 16, "id": "s1e16-the-night-the-map-went-dark", "arc": "challenge.major literal-instruction (projection dies) -> unlock.world teach-it-back",
+      "scenes": [
+        { "id": "scene:night-map-dark:the-literal-instruction", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.major", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "action.unavailable", "at": "console dead / projection drains to black"} ],
+          "note": "The projection failing to black -> challenge.major; action.unavailable grounds the dead console." },
+        { "id": "scene:night-map-dark:teach-it-back", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.classroom",
+          "sfx": [ {"cue": "feedback.correct", "at": "each teach-back activity onReady"}, {"cue": "feedback.repair", "at": "one-segment-returns onRepair"}, {"cue": "feedback.hanamaru", "at": "route rebuilt on paper, wall still dark"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 17, "id": "s1e17-catwalk-clue", "arc": "mystery.page the-moved-marker (library clue) -> unlock.world the-real-order",
+      "scenes": [
+        { "id": "scene:catwalk-clue:the-moved-marker", "location": "location:library", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "mystery.page", "ambience": "world.library",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: library"}, {"cue": "scene.advance", "at": "cat-card-lifted beats"}, {"cue": "feedback.correct", "at": "ordering activity onReady"} ],
+          "note": "Paper-cat trail as the real ordering clue -> mystery.page over the library bed." },
+        { "id": "scene:catwalk-clue:the-real-order", "location": "location:library", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.library",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "five cards read in the cat's order, route holds"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 18, "id": "s1e18-the-memory-card-museum", "arc": "challenge.kanji funniest-card (木/未) -> unlock.world funny-and-true",
+      "scenes": [
+        { "id": "scene:memory-card-museum:the-funniest-card", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.kanji", "ambience": "world.classroom",
+          "sfx": [ {"cue": "camera.capture", "at": "kanji memory cards pinned to the wall museum"}, {"cue": "feedback.correct", "at": "kanji activity onReady"}, {"cue": "feedback.repair", "at": "one-part-line-returns onRepair"} ],
+          "note": "Kanji memory-card wall (木 vs 未, ぶひん button) -> challenge.kanji; camera.capture grounds card pinning." },
+        { "id": "scene:memory-card-museum:funny-and-true", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "unlock.world", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "camera.capture", "at": "revised card pinned back as first finished piece"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 19, "id": "s1e19-seventy-percent-door", "arc": "mystery.page subtitles-drop (heard vs inferred) -> resolve.late the-door",
+      "scenes": [
+        { "id": "scene:seventy-percent-door:subtitles-drop", "location": "location:library", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "mystery.page", "ambience": "world.library",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: library"}, {"cue": "radio.tune", "at": "one-ambiguous-moment-replayed clip"}, {"cue": "feedback.correct", "at": "listening activity onReady"} ],
+          "note": "Audio-clip inference (heard vs read-in columns) -> mystery.page; radio.tune for the clip replay." },
+        { "id": "scene:seventy-percent-door:the-door", "location": "location:library", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "resolve.late", "ambience": "world.library",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "'unconfirmed' tag instead of a false fill is a maturing-learner beat -> resolve.late (i-believe)." }
+      ]
+    },
+    {
+      "chapter": 20, "id": "s1e20-map-from-memory", "arc": "classroom.focus three-rememberings -> resolve.late one-label-many-roads",
+      "scenes": [
+        { "id": "scene:map-from-memory:three-rememberings", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "classroom.focus", "ambience": null,
+          "sfx": [ {"cue": "scene.advance", "at": "two-cards-aligned beats"}, {"cue": "feedback.correct", "at": "recall activity onReady"}, {"cue": "action.unavailable", "at": "eraser hovers but none erased"} ] },
+        { "id": "scene:map-from-memory:one-label-many-roads", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "resolve.late", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "Three routes kept as 'remembered several ways' -> resolve.late." }
+      ]
+    },
+    {
+      "chapter": 21, "id": "s1e21-questions-in-the-dark", "arc": "mystery.page one-question-each -> resolve.late passing-the-question",
+      "scenes": [
+        { "id": "scene:questions-in-the-dark:one-question-each", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "mystery.page", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "single-reciter-runs-dry beats"}, {"cue": "feedback.correct", "at": "question activity onReady"}, {"cue": "feedback.repair", "at": "question-reformed-slowly onRepair"} ] },
+        { "id": "scene:questions-in-the-dark:passing-the-question", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "resolve.late", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "feedback.hanamaru", "at": "district relights block by block"}, {"cue": "chapter.complete", "at": "final exit"} ] }
+      ]
+    },
+    {
+      "chapter": 22, "id": "s1e22-blank-space", "arc": "challenge.kanji reads-too-formal (register game) -> resolve.late a-bounded-seat",
+      "scenes": [
+        { "id": "scene:blank-space:reads-too-formal", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.kanji", "ambience": "world.classroom",
+          "sfx": [ {"cue": "scene.advance", "at": "register card beats"}, {"cue": "action.unavailable", "at": "buzzer on the long polite line (5s timer)"}, {"cue": "feedback.correct", "at": "register activity onReady"} ],
+          "note": "Timed register game with a buzzer -> challenge.kanji tempo; action.unavailable = the buzzer cutting the too-long line." },
+        { "id": "scene:blank-space:a-bounded-seat", "location": "location:classroom", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "resolve.late", "ambience": "world.classroom",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "Shaun given a bounded signal-seat -> resolve.late (accommodation without spotlight)." }
+      ]
+    },
+    {
+      "chapter": 23, "id": "s1e23-farewell-rehearsal", "arc": "cafe.social the-reordered-plan (thanks-first) -> ending.reflective the-unfinished-thanks",
+      "scenes": [
+        { "id": "scene:farewell-rehearsal:the-reordered-plan", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "cafe.social", "ambience": null,
+          "sfx": [ {"cue": "scene.advance", "at": "board-arrow-redrawn beats"}, {"cue": "feedback.correct", "at": "conditional-plan activity onReady"} ] },
+        { "id": "scene:farewell-rehearsal:the-unfinished-thanks", "location": "location:cafe", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "ending.reflective", "ambience": "world.cafe",
+          "sfx": [ {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "menu.cancel", "at": "counter-light-dims / door closes"}, {"cue": "chapter.complete", "at": "final exit"} ],
+          "note": "Deliberately unfinished thanks (half-turned cards remain) -> ending.reflective; the season's penultimate emotional close." }
+      ]
+    },
+    {
+      "chapter": 24, "id": "s1e24-lanterns-return", "arc": "challenge.major the-unlit-route (finale rebuild) -> ending.reflective coordinated-voices / unnamed-caption handover",
+      "scenes": [
+        { "id": "scene:lanterns-return:the-unlit-route", "location": "location:courtyard", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "challenge.major", "ambience": "world.courtyard",
+          "sfx": [ {"cue": "page.turn", "at": "scene enter: exhibition courtyard"}, {"cue": "menu.move", "at": "choice browse"}, {"cue": "menu.confirm", "at": "choice commit"}, {"cue": "action.unavailable", "at": "cable swapped, route still black (machine fails)"} ],
+          "note": "Finale set-piece: the machine cannot light the last route -> challenge.major; class turns from the machine to the map." },
+        { "id": "scene:lanterns-return:coordinated-voices", "location": "location:courtyard", "timeState": "evening", "weatherState": "winter-dark", "timeStateCheck": "ok",
+          "themeSlot": "ending.reflective", "ambience": "world.courtyard",
+          "sfx": [ {"cue": "feedback.correct", "at": "one-handoff-tried-again activity onReady"}, {"cue": "feedback.repair", "at": "onRepair"}, {"cue": "feedback.hanamaru", "at": "finished route settles into a steady glow"}, {"cue": "bond.unlock", "at": "relationship/journal command (season handover)"}, {"cue": "chapter.complete", "at": "season/chapter final exit"} ],
+          "note": "unlock.world could swell on the route lighting, but the unnamed-older-handwriting reveal is a handover to S2 -> ending.reflective owns the close. Consider a brief unlock.world stinger ON the glow, returning to ending.reflective for the caption." }
+      ]
+    }
+  ],
+  "openGaps": [
+    "No ambience slot for location:classroom-entrance (Ch1 s8) -> falls back to world.classroom.",
+    "Ch1 (pilot) and Ch2 carry no weatherState; every other S1 chapter does. A time-of-day/weather wash system will have nothing to key off for the game's first impression.",
+    "Single music bus: themeSlot + ambience cannot both sound without AudioDirector layer/crossfade support. Every 'ambience' entry here assumes the bed ducks under the themeSlot stinger and returns.",
+    "SFX catalog gaps still unmapped and used nowhere here (correctly): speaker.arrival, speaker.emphasis, door.open, door.close, vn.reveal, travel.footstep.* . Door/arrival cues would strengthen Ch1 s8 (open door), Ch23 s2 (door closes) if delivered.",
+    "loop=false dramatic slots (mystery.page, challenge.*, unlock.world, support.kindness, resolve.late, ending.reflective) need an explicit 'return-to-ambience' behavior after the one-shot ends, or the scene falls silent."
+  ]
+}

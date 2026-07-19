@@ -1,0 +1,501 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e05-left-unsaid",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 41,
+  "title": {
+    "en": "What Was Left Unsaid",
+    "ja": "言わずにおくこと"
+  },
+  "synopsis": "Nanako drops in on a quiet rehearsal of the public evening and hears a stage line that explains a deliberate blank with the writer's private reason attached. She asks the season's smallest sharp question — is that something to put on stage? The learner trims the line so the gap itself carries the meaning, then decides how Henry keeps his own reason off the public page without the line going cold. The woman who once glossed everything into English so nothing was lost now shows that a chosen omission is authored too, and closes the visit the way she always closes things.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "nanako",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#nanako",
+        "docs/academy/story/CAST-AND-CONSENT.md#nanako",
+        "docs/academy/story/dossiers/nanako.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness; contextual likeness remains owner-confirmation-pending",
+        "surname, guessed kana name, nationality, age, job, address, itinerary, or private history",
+        "reproduced or closely paraphrased private message or photograph",
+        "romance rendered as class-floor content rather than Henry's off-stage orbit"
+      ]
+    },
+    {
+      "castId": "henry",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "the private reason he keeps stated aloud as biographical fact"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e04-three-true-versions",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "transferIds": [
+            "activity:s4e05-left-unsaid-trim-the-line"
+          ],
+          "function": "compose-meaning-through-implication-ellipsis-and-a-private-public-register-split"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-one-nanako-visits-the-rehearsal"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:left-unsaid:the-line-that-says-too-much",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Reach the point where a rehearsal line that spells out a private reason reads worse on stage than one that stops short and lets the gap carry the meaning.",
+      "dramaticQuestion": "Faced with a blank the audience might not understand, will the class explain it all the way down, or trust the omission to speak?",
+      "learnerNeed": "A changed-context rewrite where saying less on purpose lands better than saying everything.",
+      "curriculum": {
+        "sectionId": "trim-a-line-so-the-gap-speaks",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:left-unsaid:rehearsal-set",
+          "beatId": "beat:left-unsaid:arrival-image",
+          "cueId": "cue:taped-stage-line-and-weighted-script",
+          "description": "The classroom is set for a run-through of the public evening: chairs turned toward a taped line on the floor that stands in for the stage edge, a printed script weighted flat on the front desk. Nanako stands just inside the door, a bag still on her shoulder. She doesn't move toward a chair."
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:nanako-arrives",
+          "beatId": "beat:left-unsaid:visitor-arrival",
+          "speakerId": "nanako",
+          "intent": "Arrive as a visitor, apologize lightly for being a little late, and ask only to watch the run-through from the side without stopping it.",
+          "attentionTarget": "the taped stage line and the script, seen from the doorway rather than a desk",
+          "variants": {
+            "n3": {
+              "japanese": "ごめんね、ちょっとだけ遅れちゃった。座らないで、後ろから見てるだけにするね。続けてて。",
+              "reading": "ごめんね、ちょっとだけおくれちゃった。すわらないで、うしろからみてるだけにするね。つづけてて。",
+              "english": "Sorry, I'm a little late. I won't sit down — I'll just watch from the back. Keep going."
+            },
+            "n2": {
+              "japanese": "ごめんね、少し遅れちゃった。私は座らずに、後ろで見てるだけにするから。気にしないで続けて。",
+              "reading": "ごめんね、すこしおくれちゃった。わたしはすわらずに、うしろでみてるだけにするから。きにしないでつづけて。",
+              "english": "Sorry, I'm a bit late. I'll stay at the back and just watch — don't mind me, keep going."
+            },
+            "n1": {
+              "japanese": "ごめんね、少し遅れちゃって。私は座らずに、後ろで見せてもらうだけにするから。どうぞ気にせず、そのまま続けて。",
+              "reading": "ごめんね、すこしおくれちゃって。わたしはすわらずに、うしろでみせてもらうだけにするから。どうぞきにせず、そのままつづけて。",
+              "english": "Sorry I'm a little late. I'll keep to the back and just let myself watch — please don't mind me, carry right on."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:henry-over-explains",
+          "beatId": "beat:left-unsaid:human-want",
+          "speakerId": "henry",
+          "intent": "Read the draft closing note for the blank route aloud, stacking on the full private reason so the audience will not be confused about why the space was left empty.",
+          "attentionTarget": "the printed script line and the imagined audience, more than the people in the room",
+          "variants": {
+            "n2": {
+              "japanese": "じゃあ最後の説明、読むね。「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きをどうしても書けなかったんです。だから――」……このくらい言わないと、なんで空いてるのか、伝わらないと思って。",
+              "reading": "じゃあさいごのせつめい、よむね。「このいっくかくは、あえてあけてあります。じつは、かいたひとがそのごこのまちをはなれることになって、つづきをどうしてもかけなかったんです。だから――」……このくらいいわないと、なんであいてるのか、つたわらないとおもって。",
+              "english": "Okay, I'll read the closing note. \"This one section is left blank on purpose. The truth is, the person who wrote it ended up leaving the town afterward, and couldn't bring themselves to finish it. So—\" …I figured if we don't say at least this much, no one gets why it's empty."
+            },
+            "n1": {
+              "japanese": "じゃあ締めの説明、読むよ。「この一区画は、あえて空けてあります。実は、書いた本人がその後この街を離れることになりまして、どうしても続きが書けなかった。ですから――」……ここまで言っておかないと、なぜ空白なのか、お客さんには伝わらない気がして。",
+              "reading": "じゃあしめのせつめい、よむよ。「このいっくかくは、あえてあけてあります。じつは、かいたほんにんがそのごこのまちをはなれることになりまして、どうしてもつづきがかけなかった。ですから――」……ここまでいっておかないと、なぜくうはくなのか、おきゃくさんにはつたわらないきがして。",
+              "english": "Okay, reading the closing note. \"This section is left blank on purpose. In fact, the one who wrote it ended up leaving the town afterward, and simply couldn't write the rest. And so—\" …I feel like unless we spell it out this far, the audience won't understand why it's blank."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:nanako-what-belongs-on-stage",
+          "beatId": "beat:left-unsaid:obstruction",
+          "speakerId": "nanako",
+          "intent": "Gently ask whether the private reason belongs on the stage at all — without correcting him — since the audience can feel the space was deliberate without being told why.",
+          "attentionTarget": "the one clause about the writer leaving, and the gap it was meant to explain",
+          "variants": {
+            "n2": {
+              "japanese": "……ねえ、その「実は」のところ。合ってるんだけど、そこ、舞台で言うことかな。空けてあるって分かれば、お客さんはちゃんと受け取るよ。理由まで全部は……言わなくても、伝わると思う。",
+              "reading": "……ねえ、その「じつは」のところ。あってるんだけど、そこ、ぶたいでいうことかな。あけてあるってわかれば、おきゃくさんはちゃんとうけとるよ。りゆうまでぜんぶは……いわなくても、つたわるとおもう。",
+              "english": "…Hey, that \"the truth is\" part. It's accurate — but is it something to say on stage? If they can see it was left open, the audience takes it in fine. The whole reason, though… you don't have to say it for it to land."
+            },
+            "n1": {
+              "japanese": "……ねえ、その「実は」から先。間違ってはいないの。ただ、それ、舞台に上げることかな、って。空けてあるとだけ分かれば、お客さんのほうで受け取ってくれる。理由を最後まで並べなくても……ちゃんと、伝わると思う。",
+              "reading": "……ねえ、その「じつは」からさき。まちがってはいないの。ただ、それ、ぶたいにあげることかな、って。あけてあるとだけわかれば、おきゃくさんのほうでうけとってくれる。りゆうをさいごまでならべなくても……ちゃんと、つたわるとおもう。",
+              "english": "…Hey, from that \"the truth is\" onward. It isn't wrong. It's just — is that something to put on stage? If they only know it was left open, the audience meets it halfway. Without laying the whole reason out… I think it still reaches them."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:left-unsaid:before-trim",
+          "beatId": "beat:left-unsaid:trim-attempt",
+          "resume": "The draft line still reads with its full private explanation. The learner steps in to cut it back so the gap itself carries the meaning, keeping only what the audience needs and leaving the writer's reason off the stage."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:left-unsaid:trim-the-line",
+          "beatId": "beat:left-unsaid:trim-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e05-left-unsaid-trim-the-line"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e05-left-unsaid-trim-the-line"
+          },
+          "resumeContext": "The draft closing note reads 「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きを書けなかったんです。だから――」. The learner rewrites it so the deliberate blank still reads as chosen — trimming the private reason and letting an unfinished 〜けど… or a trailing pause do the work — rather than spelling out why the writer stopped.",
+          "onReady": "checkpoint:left-unsaid:after-trim",
+          "onRepair": "node:left-unsaid:trim-repair",
+          "onDefer": "checkpoint:left-unsaid:before-trim"
+        },
+        {
+          "kind": "stage",
+          "id": "node:left-unsaid:trim-repair",
+          "beatId": "beat:left-unsaid:trim-repair",
+          "cueId": "cue:full-and-trimmed-lines-side-by-side",
+          "description": "Two versions sit side by side on the desk: the full explanation, and a trimmed line that stops at 「あえて空けてあります」 with the rest trailing off. Only the over-explained clause comes back for another pass; the part that already lands stays as it is."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:left-unsaid:after-trim",
+          "beatId": "beat:left-unsaid:trim-response",
+          "resume": "The closing line now stops short of the private reason. Nanako reads the trimmed version back and names what the gap is doing."
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:nanako-blank-is-written",
+          "beatId": "beat:left-unsaid:transform",
+          "speakerId": "nanako",
+          "intent": "Read the trimmed line back and name what the omission is doing now: a line chosen and left off the page still counts as writing. This inverts her old habit of glossing everything so nothing was lost.",
+          "attentionTarget": "the trailing end of the trimmed line and the silence after it",
+          "variants": {
+            "n2": {
+              "japanese": "うん、これでいい。「あえて空けてあります」――そこで止まってるでしょ。この止まってるところが、いちばん喋ってる。昔の私なら、全部言葉にして、英語まで付けて、誰も取りこぼさないようにしてた。でもね、わざと残す空白も、ちゃんと書いたものなんだよ。",
+              "reading": "うん、これでいい。「あえてあけてあります」――そこでとまってるでしょ。このとまってるところが、いちばんしゃべってる。むかしのわたしなら、ぜんぶことばにして、えいごまでつけて、だれもとりこぼさないようにしてた。でもね、わざとのこすくうはくも、ちゃんとかいたものなんだよ。",
+              "english": "Yeah, this is right. \"Left blank on purpose\" — and it stops there, see? That stopping point is what speaks loudest. The old me would have put all of it into words, English and all, so no one got left behind. But a blank you leave on purpose — that's something you wrote too."
+            },
+            "n1": {
+              "japanese": "うん、これでいい。「あえて空けてあります」――そこで、ふっと切れてるでしょう。その切れ目が、いちばん物を言ってる。昔の私だったら、何もかも言葉にして、英語まで添えて、誰一人取りこぼさないようにしてたと思う。……でも、わざと残した余白っていうのも、れっきとした、書かれたものなんだよね。",
+              "reading": "うん、これでいい。「あえてあけてあります」――そこで、ふっときれてるでしょう。そのきれめが、いちばんものをいってる。むかしのわたしだったら、なにもかもことばにして、えいごまでそえて、だれひとりとりこぼさないようにしてたとおもう。……でも、わざとのこしたよはくっていうのも、れっきとした、かかれたものなんだよね。",
+              "english": "Yeah, this is right. \"Left blank on purpose\" — and there it just cuts off, see? That cut is what says the most. The old me would have turned every last thing into words, added the English too, so not one person got left behind. …But a margin you leave on purpose — that's a written thing in its own right, isn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:left-unsaid:blank-left-blank",
+          "beatId": "beat:left-unsaid:changed-image",
+          "cueId": "cue:closing-note-ends-with-space-after-it",
+          "description": "The script's closing note now ends at 「あえて空けてあります」 with a short trailing dash and clear space after it. Beside the taped stage line, the fuller draft lies face down. The blank on the page is left blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:left-unsaid:what-stays-off-the-page"
+      }
+    },
+    {
+      "id": "scene:left-unsaid:what-stays-off-the-page",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Let the learner decide how a contributor's own private reason stays off the public line without the line reading cold, sorting what is private register from what is public.",
+      "dramaticQuestion": "Can a stage line keep a reason private and still sound like the person who means it?",
+      "learnerNeed": "A stance choice about whether to imply a kept-back reason or leave it fully off the page, holding the private/public register split.",
+      "curriculum": {
+        "sectionId": "keep-the-private-reason-off-the-public-line",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:left-unsaid:last-page",
+          "beatId": "beat:left-unsaid:regroup-image",
+          "cueId": "cue:margin-note-marks-a-private-clause",
+          "description": "The run-through has stopped at the last page, the line each contributor says in turn. Henry's own line still carries a clause about why the work matters to him, underlined once. In the margin, a small note in his hand reads 「これ要る?」."
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:henry-worries-cold",
+          "beatId": "beat:left-unsaid:private-want",
+          "speakerId": "henry",
+          "intent": "Worry that cutting his own reason will flatten the line into a plain report, so the audience won't feel why the work mattered.",
+          "attentionTarget": "his own underlined clause, and how the line sounds stripped of it",
+          "variants": {
+            "n3": {
+              "japanese": "でもここ削ると、なんか…ただの報告みたいにならない?どうしてこれ作ったのか、僕なりの理由もあって。それが無いと、線を説明して終わり、って感じで。",
+              "reading": "でもここけずると、なんか…ただのほうこくみたいにならない?どうしてこれつくったのか、ぼくなりのりゆうもあって。それがないと、せんをせつめいしておわり、ってかんじで。",
+              "english": "But if I cut this, doesn't it just… turn into a plain report? I've got my own reason for making it, and without it the line's just describe-the-map-and-done."
+            },
+            "n2": {
+              "japanese": "でもここ削ると、なんか…ただの報告みたいにならない?どうしてこれ作ったのか、僕なりの理由もあって。それが無いと、地図の説明をして、はい終わり、って感じで。",
+              "reading": "でもここけずると、なんか…ただのほうこくみたいにならない?どうしてこれつくったのか、ぼくなりのりゆうもあって。それがないと、ちずのせつめいをして、はいおわり、ってかんじで。",
+              "english": "But if I cut this, doesn't it just… turn into a plain report? There's my own reason for making it, and without it it's like: describe the map, and that's that."
+            },
+            "n1": {
+              "japanese": "でも、そこを落とすと、なんだか…ただの報告で終わらない?どうしてこれを作ったのか、僕なりの理由もあるわけで。それを抜くと、地図の説明をして、はい終わり、みたいになりそうで。",
+              "reading": "でも、そこをおとすと、なんだか…ただのほうこくでおわらない?どうしてこれをつくったのか、ぼくなりのりゆうもあるわけで。それをぬくと、ちずのせつめいをして、はいおわり、みたいになりそうで。",
+              "english": "But dropping it — doesn't it just end up a plain report? I've got my own reason for making this, and if I take it out, it's like: describe the map, and that's it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:nanako-register-split",
+          "beatId": "beat:left-unsaid:register-split",
+          "speakerId": "nanako",
+          "intent": "Separate the private reason from the public line — the audience needs to feel the work is real, not to be told why; the reason can stay his, and the line still carries warmth without it.",
+          "attentionTarget": "the underlined personal clause, kept for him rather than handed to the room",
+          "variants": {
+            "n2": {
+              "japanese": "その理由はね、あなたのものだよ。お客さんに要るのは、「本気で作った」って伝わることで、なんで本気だったかまでじゃない。理由は、知ってる人の間にだけあればいい。舞台の言葉は、みんなに渡せる分だけ乗せて。",
+              "reading": "そのりゆうはね、あなたのものだよ。おきゃくさんにいるのは、「ほんきでつくった」ってつたわることで、なんでほんきだったかまでじゃない。りゆうは、しってるひとのあいだにだけあればいい。ぶたいのことばは、みんなにわたせるぶんだけのせて。",
+              "english": "That reason — it's yours. What the audience needs is to feel you meant it, not why you meant it. The reason can live just between the people who already know. On the stage, put only the part that's yours to hand to everyone."
+            },
+            "n1": {
+              "japanese": "その理由は、あなたのものでいいんだよ。お客さんに伝わればいいのは、「本気で作った」ということで、なぜ本気だったのか、まではいらない。理由のほうは、知っている者の間にだけ、そっとあればいい。舞台に乗せる言葉は、誰に渡してもいい分だけで足りるの。",
+              "reading": "そのりゆうは、あなたのものでいいんだよ。おきゃくさんにつたわればいいのは、「ほんきでつくった」ということで、なぜほんきだったのか、まではいらない。りゆうのほうは、しっているもののあいだにだけ、そっとあればいい。ぶたいにのせることばは、だれにわたしてもいいぶんだけでたりるの。",
+              "english": "That reason can stay yours. What needs to reach the audience is that you meant it — not why you meant it. The reason can rest quietly just among the people who already know. The words you put on stage only need to be the part you can hand to anyone."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:left-unsaid:how-to-hold-the-reason",
+          "beatId": "beat:left-unsaid:private-stance",
+          "question": "How should Henry's line handle the reason he wants to keep?",
+          "options": [
+            {
+              "id": "option:left-unsaid:imply-and-trail-off",
+              "action": "Keep a trace of it — let the line trail off at \"there's a reason, but…\" so the audience feels something private without being told it.",
+              "japaneseByBand": {
+                "n3": "「僕には僕の理由があるんですけど……それはここでは。」って、途中で止めよう。あるって分かるだけで十分だよ。",
+                "n2": "「僕なりの理由もあるんですけど……それはまた。」って、そこで切ろう。理由があるってことだけ、匂わせて渡す。",
+                "n1": "「僕なりの理由もあるんですけど……それは、また今度。」そこで、ふっと止める。“ある”とだけ伝わればいい――中身は言わずに、気配だけ置いていく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:left-unsaid:before-close"
+            },
+            {
+              "id": "option:left-unsaid:leave-it-fully-off",
+              "action": "Take the reason off the page entirely — let a plain, warm public line stand on its own, and keep the reason only between the people who already know it.",
+              "japaneseByBand": {
+                "n3": "理由は書かないでおこう。「ちゃんと作りました」って、まっすぐだけ言う。知ってる人には、それで伝わるから。",
+                "n2": "理由の一行は、いっそ全部落とそう。「心を込めて作りました」って、まっすぐだけ残す。知ってる人には、言わなくても届いてるよ。",
+                "n1": "その一行は、いっそ丸ごと下ろしてしまおう。「心を込めて作りました」――それだけ、まっすぐ置く。知っている人には、口にしなくても、もう届いてるものだから。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:left-unsaid:before-close"
+            }
+          ],
+          "convergence": "checkpoint:left-unsaid:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:left-unsaid:before-close",
+          "beatId": "beat:left-unsaid:close-attempt",
+          "resume": "The learner has chosen how Henry's line will hold the reason he keeps. Nanako closes the rehearsal the way she always closes things."
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:nanako-clean-close",
+          "beatId": "beat:left-unsaid:clean-close",
+          "speakerId": "nanako",
+          "intent": "Close cleanly, linking today's chosen omission back to words once left unfinished — some things stay between people on purpose, and that is authorship, not a failure to finish.",
+          "attentionTarget": "the trimmed script, and the door she came in by",
+          "variants": {
+            "n2": {
+              "japanese": "うん、それでいい。全部言い切らなくても、ちゃんと終われるんだよ。前に、言えないまま終わった言葉があったでしょ。あれもね、失敗じゃなかった。人前で片づけなくていいことって、あるの。……じゃ、私はこのへんで。続き、頑張って。",
+              "reading": "うん、それでいい。ぜんぶいいきらなくても、ちゃんとおわれるんだよ。まえに、いえないままおわったことばがあったでしょ。あれもね、しっぱいじゃなかった。ひとまえでかたづけなくていいことって、あるの。……じゃ、わたしはこのへんで。つづき、がんばって。",
+              "english": "Yeah, that's good. You can end something properly without saying all of it. Remember the words that once went unsaid, back then? Those weren't a failure either. Some things don't have to be settled in front of everyone. …Okay, I'll head off here. Good luck with the rest."
+            },
+            "n1": {
+              "japanese": "うん、それでいい。何もかも言い切らなくたって、人はちゃんと終われるんだよ。ほら、前に、言えないまま流れてしまった言葉があったでしょう。あれも、失敗なんかじゃなかった。人前で決着をつけなくていいことっていうのは、ちゃんとあるの。……さ、私はこのへんで。あとは、頑張って。",
+              "reading": "うん、それでいい。なにもかもいいきらなくたって、ひとはちゃんとおわれるんだよ。ほら、まえに、いえないままながれてしまったことばがあったでしょう。あれも、しっぱいなんかじゃなかった。ひとまえでけっちゃくをつけなくていいことっていうのは、ちゃんとあるの。……さ、わたしはこのへんで。あとは、がんばって。",
+              "english": "Yeah, that's good. People can end things properly without saying every last part. Remember — there were words, before, that slipped by unsaid? Those weren't a failure either. There really are things you don't have to settle in front of everyone. …Right, I'll head off here. The rest is yours — good luck."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:left-unsaid:henry-accepts",
+          "beatId": "beat:left-unsaid:changed-action",
+          "speakerId": "henry",
+          "intent": "Accept the cut without arguing it back, keeping only what he can hand to everyone and letting the rest stay his — the tool-first talker leaving a line understandable without over-explaining it.",
+          "attentionTarget": "the shortened line, and the fact that it still sounds like him",
+          "variants": {
+            "n3": {
+              "japanese": "……うん、分かった。全部言わなくても、これ、ちゃんと僕の言葉だ。……来てくれてありがとう。",
+              "reading": "……うん、わかった。ぜんぶいわなくても、これ、ちゃんとぼくのことばだ。……きてくれてありがとう。",
+              "english": "…Yeah, got it. Even without saying all of it, this still sounds like me. …Thanks for coming."
+            },
+            "n2": {
+              "japanese": "……うん、分かった。全部乗せなくても、これ、ちゃんと僕の言葉だ。ありがとう、来てくれて。",
+              "reading": "……うん、わかった。ぜんぶのせなくても、これ、ちゃんとぼくのことばだ。ありがとう、きてくれて。",
+              "english": "…Yeah, got it. Even without all of it on there, this still sounds like me. Thanks for coming."
+            },
+            "n1": {
+              "japanese": "……うん、分かったよ。全部を乗せなくても、これはちゃんと、僕の言葉のままだ。……来てくれて、ありがとう。",
+              "reading": "……うん、わかったよ。ぜんぶをのせなくても、これはちゃんと、ぼくのことばのままだ。……きてくれて、ありがとう。",
+              "english": "…Yeah, got it. Even without all of it on there, this is still my own line. …Thanks for coming."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:left-unsaid:script-and-door",
+          "beatId": "beat:left-unsaid:exit-image",
+          "cueId": "cue:closing-lines-stop-short-note-pocketed",
+          "description": "The script's closing lines stop short on purpose, a clean space where the reasons used to run on. Henry folds the private note and puts it in his pocket, off the page. Nanako, her bag still on her shoulder, slips out the way she came in. The taped stage line stays where it is; nothing on the page is crossed out."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:nanako-omission-as-authorship",
+      "state": "payoff",
+      "ownerIds": [
+        "nanako"
+      ],
+      "meaningNow": "Nanako's habit of glossing everything into English so no one is stranded inverts into its payoff: she shows that a line chosen and left off the page is authored meaning, and that a private reason can stay off the public register without the line going cold.",
+      "priorUse": {
+        "packageId": "s3e09-what-we-can-say",
+        "sceneId": "scene:what-we-can-say:source-is-not-permission",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "Nanako, visiting the rehearsal, simply helps trim a stage line so a deliberate blank and a kept-back reason carry the meaning, without any callback to her earlier glossing habit."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:left-unsaid:record-omission",
+      "kind": "story",
+      "description": "The rehearsal script's closing lines are trimmed so a deliberate blank reads as chosen and a contributor's private reason is kept off the public page, while the line still reads as the person's own; the public evening's script now carries meaning in what it leaves unsaid."
+    },
+    {
+      "id": "outcome:left-unsaid:nanako-return",
+      "kind": "bond",
+      "castId": "nanako",
+      "chapter": 41,
+      "beat": "return",
+      "description": "Nanako returns as a visitor and, instead of glossing everything so nothing is lost, teaches the class that a chosen omission is authored; her Arrival habit of leaving no one stranded inverts into deliberate leaving-unsaid, and the class can now ask her judgment on what stays private."
+    },
+    {
+      "id": "outcome:left-unsaid:transfer-return",
+      "kind": "curriculum-return",
+      "transferId": "activity:s4e05-left-unsaid-trim-the-line",
+      "description": "Implication, ellipsis, and private/public-register evidence returns through the chapter's transfer activity; no registered N1 lesson package exists yet, and the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:nanako-watches-from-the-back"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-trim-the-line"
+    ],
+    "withdrawnContentFallback": "Use the same trim-the-line and private/public-register beats with neutral nameplates: a visiting friend and a contributor cut a stage line so a deliberate blank and a kept-back reason carry the meaning, with no private-source detail and no likeness."
+  }
+}

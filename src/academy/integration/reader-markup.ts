@@ -29,6 +29,13 @@ export function setAcademyReadingSurface(
     const canonical = source ?? (!renderedByReader && current !== stored ? current : stored ?? current);
     const state = visible ? 'shown' : 'hidden';
     const sourceChanged = stored !== canonical;
+    const eligibilityConverged = visible
+        ? !surface.hasAttribute('data-jpdb-reader-surface-ignore')
+            && surface.dataset.yomuRuntimeSurface === runtimeSurface
+            && surface.dataset.yomuFuriganaMode === 'all'
+        : surface.hasAttribute('data-jpdb-reader-surface-ignore')
+            && surface.dataset.yomuRuntimeSurface === undefined
+            && surface.dataset.yomuFuriganaMode === undefined;
 
     if (surface.getAttribute(SOURCE_ATTRIBUTE) !== canonical) surface.setAttribute(SOURCE_ATTRIBUTE, canonical);
     // VN typewriter text is intentionally a temporary prefix of the canonical
@@ -49,7 +56,7 @@ export function setAcademyReadingSurface(
     // mutations re-fire the Academy annotation observers, which rewrote again —
     // an unbounded microtask-chained cycle that froze the whole tab (Week-02
     // lesson-note transitions, 4/5 runs).
-    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged
+    if (surface.getAttribute(STATE_ATTRIBUTE) === state && !sourceChanged && eligibilityConverged
         && (current === canonical || renderedByReader)) return;
 
     // Ruby textContent contains both base and <rt>; always restore the authored

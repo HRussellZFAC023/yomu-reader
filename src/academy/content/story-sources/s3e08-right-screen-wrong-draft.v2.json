@@ -1,0 +1,545 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e08-right-screen-wrong-draft",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 32,
+  "title": {
+    "en": "The Right Screen, the Wrong Draft",
+    "ja": "画面は正しく、原稿は古い"
+  },
+  "synopsis": "Rehearsal loads the exhibition captions onto the right screen, but the file is an obsolete internal draft that still carries a passage the class formally withdrew. Onke catches it because ready-vs-to-do is her grammar; Henry's reflex is to overwrite the file in thirty seconds, and a chat ping urges the same fast swap. The learner confirms which version is live and repairs the state without letting the withdrawn passage surface, and the class writes down that internal access was never permission.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "angel",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#angel",
+        "docs/academy/story/CAST-AND-CONSENT.md#angel"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, dropped honorific, guessed kana name, nationality, job, or private history",
+        "plans framed as a controlling power move rather than a shared gift",
+        "the projection setup or the atlas treated as literally magical"
+      ]
+    },
+    {
+      "castId": "henry",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, inferred employer, job, or private history",
+        "a technical workaround framed as sufficient to override a consent boundary"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed or proprietary game IP",
+        "challenge or play framing during the withdrawn-material repair beat"
+      ]
+    },
+    {
+      "castId": "mira",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mira",
+        "docs/academy/story/CAST-AND-CONSENT.md#mira"
+      ],
+      "forbiddenClaims": [
+        "portrait, sprite, or private-source likeness (runtime sprite use blocked)",
+        "surname beyond the approved dossier, health, financial, or private-conflict fabrication",
+        "her urgency treated as authority that can override a stated withdrawal"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e07-under-the-subtitle",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "repair-a-wrong-draft-load-and-contain-withdrawn-material-using-evidential-attribution-to-a-document"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-two-first-meeting-onke"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:wrong-draft:screen-loads-old-draft",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Catch that the rehearsal screen is showing an obsolete internal draft with a withdrawn passage, and repair the state before urgency turns access into exposure.",
+      "dramaticQuestion": "With the wrong version already on screen and the rehearsal clock running, does the class swap the file fast, or stop to confirm which draft is live and whether this passage may be shown at all?",
+      "learnerNeed": "A state-check where naming which version is prepared-and-live and attributing the claim to the document matters more than a thirty-second fix.",
+      "curriculum": {
+        "sectionId": "confirm-the-live-version-and-contain-the-withdrawn-passage",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:wrong-draft:rehearsal-screen",
+          "beatId": "beat:wrong-draft:arrival-image",
+          "cueId": "cue:rehearsal-screen-shows-old-draft",
+          "description": "On the rehearsal screen the exhibition caption block loads on cue. One line inside it is a passage the class formally withdrew during review — it was supposed to be gone. No one has read it aloud, and the rehearsal timer is running in the corner."
+        },
+        {
+          "kind": "line",
+          "id": "line:wrong-draft:onke-catches-version",
+          "beatId": "beat:wrong-draft:host-want",
+          "speakerId": "angel",
+          "intent": "Front-load that the screen is supposed to be the prepared, standing version, then discover the assumption is wrong — this is the superseded internal draft, and it still carries the withdrawn passage.",
+          "attentionTarget": "the caption block on the rehearsal screen and the withdrawn line inside it",
+          "variants": {
+            "n3": {
+              "japanese": "待ってください。これ、本番用に用意してある版のはずなんですけど…あれ。違う。前に下げたはずの一文が、まだ入ってる。これ、差し替える前の、古い内部版です。",
+              "reading": "まってください。これ、ほんばんようによういしてあるはんのはずなんですけど…あれ。ちがう。まえにさげたはずのいちぶんが、まだはいってる。これ、さしかえるまえの、ふるいないぶばんです。",
+              "english": "Hold on. This is supposed to be the version prepared for the live show… wait. No. The line we pulled earlier is still in here. This is the old internal draft, from before we swapped it."
+            },
+            "n2": {
+              "japanese": "少し待ってください。これ、本番用に用意してあるはずの版ですよね…いえ、違いますね。前に下げたはずの一文が、まだ残っています。差し替え前の、古い内部版のほうかと。",
+              "reading": "すこしまってください。これ、ほんばんようによういしてあるはずのはんですよね…いえ、ちがいますね。まえにさげたはずのいちぶんが、まだのこっています。さしかえまえの、ふるいないぶばんのほうかと。",
+              "english": "One moment. This is supposed to be the version prepared for the live show, isn't it… no, it's not. The line we were supposed to have pulled is still sitting in here. This looks like the old internal draft, from before the swap."
+            },
+            "n1": {
+              "japanese": "…すみません、一旦止めてください。これ、てっきり本番用に用意してある版だと思っていたんですが…どうも違うようです。以前に下げたはずの一文が、まだそのまま残っている。差し替える前の、古い内部版のほうですね、これは。",
+              "reading": "…すみません、いったんとめてください。これ、てっきりほんばんようによういしてあるはんだとおもっていたんですが…どうもちがうようです。いぜんにさげたはずのいちぶんが、まだそのままのこっている。さしかえるまえの、ふるいないぶばんのほうですね、これは。",
+              "english": "…Sorry, stop it for a second. I'd taken this for granted as the version prepared for the live show, but… it seems it isn't. The line we should have pulled earlier is still here, untouched. This is the old internal draft — the one from before the swap."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:wrong-draft:chat-ping",
+          "beatId": "beat:wrong-draft:obstruction-pressure",
+          "cueId": "cue:chat-ping-just-swap-the-file",
+          "description": "A group-chat notification slides in from Mira, following along from the chat: can't we just swap the file back and keep the rehearsal going, we're on the clock. It is the fast-fix instinct arriving as pressure — not as permission — while the timer keeps counting."
+        },
+        {
+          "kind": "line",
+          "id": "line:wrong-draft:henry-reaches-for-fix",
+          "beatId": "beat:wrong-draft:obstruction",
+          "speakerId": "henry",
+          "intent": "Reach for the mechanism — offer to overwrite the file back to the live version in seconds under the rehearsal clock — then qualify the real risk only a beat late.",
+          "attentionTarget": "the revert control on his laptop and the running timer",
+          "variants": {
+            "n3": {
+              "japanese": "あ、それなら僕、すぐ戻せますよ。ファイルを本番版に上書きすれば、三十秒で直る。…たぶん。あ、でも、その一文、消したことにして進めていいのかな。",
+              "reading": "あ、それならぼく、すぐもどせますよ。ファイルをほんばんばんにうわがきすれば、さんじゅうびょうでなおる。…たぶん。あ、でも、そのいちぶん、けしたことにしてすすんでいいのかな。",
+              "english": "Oh, then I can put it right back — overwrite the file with the live version, fixed in thirty seconds. …Probably. Oh, but — the line, can we just act like it's gone and keep going?"
+            },
+            "n2": {
+              "japanese": "あ、それなら僕のほうですぐ戻せます。本番版で上書きすれば、三十秒もあれば直るはずです。…と思うんですが。いや、待てよ、その一文をなかったことにして進めて、いいものかどうか。",
+              "reading": "あ、それならぼくのほうですぐもどせます。ほんばんばんでうわがきすれば、さんじゅうびょうもあればなおるはずです。…とおもうんですが。いや、まてよ、そのいちぶんをなかったことにしてすすめて、いいものかどうか。",
+              "english": "Oh, I can revert it right away on my end. Overwrite with the live version and it should be fixed in thirty seconds or so. …I think. No, wait — whether we can just treat that line as never-happened and move on, that's another matter."
+            },
+            "n1": {
+              "japanese": "あ、それなら僕のほうで一瞬で戻せますよ。本番版で上書きさえすれば、ものの三十秒で片づく話です。…と、言いかけてなんですが。その一文をなかったことにして先に進めていいのかどうかは、また別ですよね。",
+              "reading": "あ、それならぼくのほうでいっしゅんでもどせますよ。ほんばんばんでうわがきさえすれば、もののさんじゅうびょうでかたづくはなしです。…と、いいかけてなんですが。そのいちぶんをなかったことにしてさきにすすめていいのかどうかは、またべつですよね。",
+              "english": "Oh, I can revert it in a flash on my end — just overwrite it with the live version and the whole thing's done in thirty seconds. …Though, even as I say it — whether we're allowed to treat that line as never-happened and push on is a separate question, isn't it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:wrong-draft:onke-holds-order",
+          "beatId": "beat:wrong-draft:trial-attempt",
+          "speakerId": "angel",
+          "intent": "Stop the fast overwrite; separate being able to reach the file from being allowed to show it; propose confirming which draft is live and containing the withdrawn passage before anything is changed or displayed, attributing the claim to the document rather than to a person.",
+          "attentionTarget": "Henry's hand hovering over the revert control and the withdrawn passage",
+          "variants": {
+            "n3": {
+              "japanese": "あ、上書きはまだ待ってください。ファイルを開けるのと、その一文を出していいのとは、別の話なので。これ、私たちが正式に下げた一文なんです。だから、消して上書き、じゃなくて…まずどっちが本番の版か確かめて、その下げた部分は表に出さないまま直します。順番、間違えたくないんです。",
+              "reading": "あ、うわがきはまだまってください。ファイルをひらけるのと、そのいちぶんをだしていいのとは、べつのはなしなので。これ、わたしたちがせいしきにさげたいちぶんなんです。だから、けしてうわがき、じゃなくて…まずどっちがほんばんのはんかたしかめて、そのさげたぶぶんはおもてにださないままなおします。じゅんばん、まちがえたくないんです。",
+              "english": "Wait on the overwrite for a second. Being able to open the file and being allowed to show that line are two different things. This is a line we formally pulled. So instead of just deleting and overwriting — first we confirm which one is the live version, and we fix it without ever putting the pulled part on screen. I don't want to get the order wrong."
+            },
+            "n2": {
+              "japanese": "上書きは、もう少しだけ待ってもらえますか。ファイルに手が届くことと、その一文を人前に出していいこととは、分けて考えたいんです。これ、私たちがきちんと下げた一文なので。ですから、消して上書き、ではなくて…まずどちらが本番の版なのかを確かめてから、下げた箇所は表に出さないまま直す。順番だけは、間違えたくないんです。",
+              "reading": "うわがきは、もうすこしだけまってもらえますか。ファイルにてがとどくことと、そのいちぶんをひとまえにだしていいこととは、わけてかんがえたいんです。これ、わたしたちがきちんとさげたいちぶんなので。ですから、けしてうわがき、ではなくて…まずどちらがほんばんのはんなのかをたしかめてから、さげたかしょはおもてにださないままなおす。じゅんばんだけは、まちがえたくないんです。",
+              "english": "Could you hold the overwrite just a little longer? I want to keep two things separate: that we can reach the file, and that we may put that line in front of people. This is a line we properly withdrew. So rather than delete-and-overwrite — first we confirm which one is the live version, then repair it while keeping the withdrawn part off the screen. It's the order I don't want to get wrong."
+            },
+            "n1": {
+              "japanese": "上書きだけは、もうほんの少し待ってもらえますか。…ファイルに手が届くというのと、その一文を人目に出していいというのは、切り分けておきたいんです。これ、私たちが正式な手続きで下げた一文ですから。だから、消して上書きして終わり、ではなく…まずどちらが本番の版かを確かめて、そのうえで、下げた箇所は一度も表に出さないまま直す。中身の是非より前に、順番のほうを間違えたくないんですよ。",
+              "reading": "うわがきだけは、もうほんのすこしまってもらえますか。…ファイルにてがとどくというのと、そのいちぶんをひとめにだしていいというのは、きりわけておきたいんです。これ、わたしたちがせいしきなてつづきでさげたいちぶんですから。だから、けしてうわがきしておわり、ではなく…まずどちらがほんばんのはんかをたしかめて、そのうえで、さげたかしょはいちどもおもてにださないままなおす。なかみのぜひよりまえに、じゅんばんのほうをまちがえたくないんですよ。",
+              "english": "Just the overwrite — could you hold it a moment more? …I want to keep them cleanly apart: that we can reach the file, and that we're allowed to put that line before people's eyes. This is a line we withdrew through the proper process. So not delete, overwrite, done — first we confirm which one is the live version, and only then repair it while never once letting the withdrawn part surface. Before the rights and wrongs of the content, it's the order I don't want to get wrong."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:wrong-draft:before-repair",
+          "beatId": "beat:wrong-draft:trial-attempt",
+          "resume": "The old draft is still on the rehearsal screen with the withdrawn passage in it, and Henry's hand is off the revert control. The learner steps in to confirm which version is live and repair the state without letting the withdrawn passage appear."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:wrong-draft:live-draft-repair",
+          "beatId": "beat:wrong-draft:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e08-right-screen-wrong-draft-which-draft-is-live"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e08-right-screen-wrong-draft-which-draft-is-live"
+          },
+          "resumeContext": "The learner uses evidential grammar to mark which draft is live and how they know — 〜てある for the prepared-and-standing version versus a superseded internal draft, and 〜はず / 〜ようだ / 〜かもしれません to separate what is confirmed from what is only assumed. They attribute the withdrawn claim to the document rather than to any person, and repair the state — restore the live version and cover the withdrawn passage — without ever displaying it.",
+          "onReady": "checkpoint:wrong-draft:after-repair",
+          "onRepair": "node:wrong-draft:repair-retry",
+          "onDefer": "checkpoint:wrong-draft:before-repair"
+        },
+        {
+          "kind": "stage",
+          "id": "node:wrong-draft:repair-retry",
+          "beatId": "beat:wrong-draft:trial-repair",
+          "cueId": "cue:two-versions-side-by-side-unshown",
+          "description": "Two versions sit side by side, neither one displayed: the prepared, standing live version and the superseded internal draft. Only the step that went wrong returns — matching the evidential marker to the correct version, or covering the withdrawn passage — while the parts already handled stay as they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:wrong-draft:after-repair",
+          "beatId": "beat:wrong-draft:trial-response",
+          "resume": "The live version is back on the rehearsal screen and the withdrawn passage is covered, never displayed. Onke turns to the room to say plainly what just happened."
+        },
+        {
+          "kind": "line",
+          "id": "line:wrong-draft:onke-apology-repair",
+          "beatId": "beat:wrong-draft:contribution",
+          "speakerId": "angel",
+          "intent": "Give the immediate, plain procedural apology and name the repair — she loaded the old internal draft by mistake, she has now put the live version back, and the withdrawn passage was not shown — attributing the error to the version rather than to any person.",
+          "attentionTarget": "the restored live screen and the room",
+          "variants": {
+            "n3": {
+              "japanese": "すみません、私のミスです。古い内部版のほうを開いてしまいました。今、本番の版に戻してあります。下げた一文は、画面には出していません。誰かが書き足したとかじゃなくて、単純に版を間違えた、それだけです。",
+              "reading": "すみません、わたしのミスです。ふるいないぶばんのほうをひらいてしまいました。いま、ほんばんのはんにもどしてあります。さげたいちぶんは、がめんにはだしていません。だれかがかきたしたとかじゃなくて、たんじゅんにはんをまちがえた、それだけです。",
+              "english": "Sorry — that was my mistake. I opened the old internal draft. I've now put the live version back. The pulled line was not shown on screen. It's not that someone added it back — I simply loaded the wrong version, that's all."
+            },
+            "n2": {
+              "japanese": "申し訳ありません。私の手違いでした。古い内部版のほうを開いてしまって。ただ今、本番の版に差し替えてあります。下げた一文は、画面には一度も出していません。誰かが書き足したという話ではなくて、単に版を取り違えた、それだけのことです。",
+              "reading": "もうしわけありません。わたしのてちがいでした。ふるいないぶばんのほうをひらいてしまって。ただいま、ほんばんのはんにさしかえてあります。さげたいちぶんは、がめんにはいちどもだしていません。だれかがかきたしたというはなしではなくて、たんにはんをとりちがえた、それだけのことです。",
+              "english": "I'm sorry — that was my slip. I opened the old internal draft. I've just swapped it back to the live version. The pulled line was never once shown on screen. It's not a matter of anyone re-adding it — I simply mixed up the versions, nothing more."
+            },
+            "n1": {
+              "japanese": "申し訳ありませんでした。完全に私の手違いです。古い内部版のほうを、そうと知らずに開いてしまって。ただ今、本番の版に差し替えてあります。下げた一文は、画面には一度も出していません。──誰かがこっそり書き戻した、という類の話ではないんです。単純に、私が版を取り違えた。それだけのことなので、そこだけははっきりさせておきます。",
+              "reading": "もうしわけありませんでした。かんぜんにわたしのてちがいです。ふるいないぶばんのほうを、そうとしらずにひらいてしまって。ただいま、ほんばんのはんにさしかえてあります。さげたいちぶんは、がめんにはいちどもだしていません。──だれかがこっそりかきもどした、というたぐいのはなしではないんです。たんじゅんに、わたしがはんをとりちがえた。それだけのことなので、そこだけははっきりさせておきます。",
+              "english": "I'm sorry. That was entirely my slip — I opened the old internal draft without realizing. I've now swapped it back to the live version. The pulled line was never once shown on screen. This isn't the sort of thing where someone quietly restored it — I simply mixed up the versions. That's all it was, and that much I want to make clear."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:wrong-draft:contained",
+          "beatId": "beat:wrong-draft:changed-image",
+          "cueId": "cue:live-version-stamped-old-draft-quarantined",
+          "description": "The live version stands on the rehearsal screen; the withdrawn passage is covered and was never read aloud. Without a word, Tom sets a small version stamp on the corner of the live file and moves the old draft into a separate, labelled place, so the two can no longer be confused for each other."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:wrong-draft:access-is-not-permission"
+      }
+    },
+    {
+      "id": "scene:wrong-draft:access-is-not-permission",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "winter-dark",
+      "goal": "Turn the contained incident into the class's standing rule — internal access is not permission — and record which version is live alongside what may be shown, keeping the withdrawn passage's place without its content.",
+      "dramaticQuestion": "With the draft contained, does the class file this as a version bug it patched, or write down that access was never permission and keep the withdrawn passage's place without its content?",
+      "learnerNeed": "A stance choice about whether the record should hold the incident as version discipline or as a consent boundary, and the realization that it must hold both.",
+      "curriculum": {
+        "sectionId": "record-that-access-is-not-permission",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:access-note:two-column",
+          "beatId": "beat:access-note:regroup-image",
+          "cueId": "cue:two-column-version-and-permission-note",
+          "description": "A note page lies open beside the laptop, ruled into two columns: one headed for which version is live, one headed for what may be shown. In the second column, the withdrawn passage has a marked slot, left deliberately blank."
+        },
+        {
+          "kind": "line",
+          "id": "line:access-note:onke-frames-record",
+          "beatId": "beat:access-note:record-want",
+          "speakerId": "angel",
+          "intent": "Frame the note as recording two separate things — which version is prepared-and-live, and what the class may actually show — and name that being able to reach a file was never the same as permission to display it.",
+          "attentionTarget": "the two-column note page",
+          "variants": {
+            "n3": {
+              "japanese": "これ、ノートに残しておきます。ただの『版を間違えた、直した』じゃなくて。用意してある本番の版はどれか、っていうのと、出していいのはどこまでか、っていうのは、別々に書いておきたいんです。ファイルが開けたからって、出していい許可があるわけじゃない。そこ、分けて書きます。",
+              "reading": "これ、ノートにのこしておきます。ただの『はんをまちがえた、なおした』じゃなくて。よういしてあるほんばんのはんはどれか、っていうのと、だしていいのはどこまでか、っていうのは、べつべつにかいておきたいんです。ファイルがひらけたからって、だしていいきょかがあるわけじゃない。そこ、わけてかきます。",
+              "english": "I'll keep this in the notebook. Not just 'wrong version, fixed it.' Which one is the prepared live version, and how far we're allowed to show — I want to write those down separately. Being able to open the file doesn't mean we have permission to show it. I'll keep those two apart."
+            },
+            "n2": {
+              "japanese": "これは、ノートのほうに残しておきますね。『版を間違えて直しました』で終わらせたくなくて。用意してある本番の版はどれか、というのと、どこまで表に出していいのか、というのは、別の欄に分けて書いておきたいんです。ファイルに手が届いたからといって、出していい許可があることにはならない。その線は、はっきり分けておきます。",
+              "reading": "これは、ノートのほうにのこしておきますね。『はんをまちがえてなおしました』でおわらせたくなくて。よういしてあるほんばんのはんはどれか、というのと、どこまでおもてにだしていいのか、というのは、べつのらんにわけてかいておきたいんです。ファイルにてがとどいたからといって、だしていいきょかがあることにはならない。そのせんは、はっきりわけておきます。",
+              "english": "I'll keep this in the notebook. I don't want to leave it at 'wrong version, repaired.' Which one is the prepared live version, and how far we may put it on show — I want those in separate columns. Being able to reach a file doesn't amount to having permission to show it. I'll keep that line clearly drawn."
+            },
+            "n1": {
+              "japanese": "これは、こちらのノートに書き留めておきます。『版を取り違えて、直しました』で片づけてしまいたくないので。──用意してある本番の版がどれか、という話と、どこまでを人目に出していいのか、という話は、はじめから別の欄に分けておきたいんです。ファイルに手が届いた、というだけでは、それを出していい許可があることには、決してならない。その一線だけは、はっきり引いておきます。",
+              "reading": "これは、こちらのノートにかきとめておきます。『はんをとりちがえて、なおしました』でかたづけてしまいたくないので。──よういしてあるほんばんのはんがどれか、というはなしと、どこまでをひとめにだしていいのか、というはなしは、はじめからべつのらんにわけておきたいんです。ファイルにてがとどいた、というだけでは、それをだしていいきょかがあることには、けっしてならない。そのいっせんだけは、はっきりひいておきます。",
+              "english": "I'll note this into this notebook. I don't want to file it away as 'mixed up the version, fixed it.' Which one is the prepared live version, and how far we may put it before people's eyes — I want those in separate columns from the start. That a file was within reach, on its own, never amounts to permission to show it. That one line, at least, I'll draw clearly."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:access-note:how-to-record",
+          "beatId": "beat:access-note:record-stance",
+          "question": "How should the note start holding what just happened?",
+          "options": [
+            {
+              "id": "option:access-note:version-first",
+              "action": "Anchor it on version state — write which draft is live, stamp it, so the old one can never be loaded into a rehearsal again.",
+              "japaneseByBand": {
+                "n3": "まず版で書きましょう。どれが本番かはっきりさせて、印をつけて。古い版はもう本番に出てこないようにする。",
+                "n2": "まずは版のことから書きましょう。どれが本番用の版かをはっきりさせて、印をつけて、古い版はもう本番に出てこないようにしておく。",
+                "n1": "まずは版の管理として書きましょう。どれが本番用かをはっきりさせ、印を付けて、古い版が二度と本番に紛れ込まないようにしておく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:access-note:before-record"
+            },
+            {
+              "id": "option:access-note:permission-first",
+              "action": "Anchor it on permission — write that the passage was withdrawn and that access was never permission, keeping its place marked but its content blank.",
+              "japaneseByBand": {
+                "n3": "まず許可のほうで書きましょう。あの一文は下げたもので、開けたことは許可じゃない。場所だけ残して、中身は空けておく。",
+                "n2": "まずは許可のほうから書きましょう。あの一文は正式に下げたもので、ファイルを開けたことは許可とは違う。場所だけ残して、中身は空けておきます。",
+                "n1": "まずは許可の問題として書きましょう。あの一文は正式に下げたもので、ファイルに手が届いたことと、出していい許可とは別。場所の印だけ残して、中身は空けておきます。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:access-note:before-record"
+            }
+          ],
+          "convergence": "checkpoint:access-note:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:access-note:before-record",
+          "beatId": "beat:access-note:record-attempt",
+          "resume": "The learner has chosen where the note starts. Onke fills in both columns and says what the record is really for."
+        },
+        {
+          "kind": "line",
+          "id": "line:access-note:onke-two-locks",
+          "beatId": "beat:access-note:repair",
+          "speakerId": "angel",
+          "intent": "Unify the two framings — version discipline and consent are two separate locks, and even a prepared, reachable version is not permission; attribute claims to the document, hedge what cannot be confirmed, and name this as how the class will handle a wrong-draft load from now on.",
+          "attentionTarget": "the two filled columns of the note",
+          "variants": {
+            "n3": {
+              "japanese": "どっちか片方じゃないんです。両方いる。用意してある版はこれ、っていう鍵と、これは出していい・これは下げた、っていう鍵。別々にかけておく。ファイルが手元にあること自体は、許可にならない。まだ確認できていないところは『かもしれない』のまま残して、無理に埋めない。次に版を間違えて開いても、この順番でやる。そう決めておきましょう。",
+              "reading": "どっちかかたほうじゃないんです。りょうほういる。よういしてあるはんはこれ、っていうかぎと、これはだしていい・これはさげた、っていうかぎ。べつべつにかけておく。ファイルがてもとにあることじたいは、きょかにならない。まだかくにんできていないところは『かもしれない』のままのこして、むりにうめない。つぎにはんをまちがえてひらいても、このじゅんばんでやる。そうきめておきましょう。",
+              "english": "It's not one or the other — we need both. One lock for 'this is the prepared version,' and one lock for 'this may be shown, this was pulled.' We set them separately. Having the file in hand is not, in itself, permission. Where we can't confirm yet, we leave it as 'maybe' and don't force it shut. Next time someone opens the wrong version, we do it in this order. Let's make that the rule."
+            },
+            "n2": {
+              "japanese": "どちらか一方では足りないんです。両方いる。『用意してあるのはこの版』という鍵と、『これは出していい、これは下げた』という鍵。別々にかけておく。ファイルが手元にある、ということ自体は、許可にはなりません。まだ確かめきれていないところは『かもしれない』のまま残して、無理に埋めない。次にまた版を取り違えて開いてしまっても、この順番で対処する。これを、うちのやり方にしておきましょう。",
+              "reading": "どちらかいっぽうではたりないんです。りょうほういる。『よういしてあるのはこのはん』というかぎと、『これはだしていい、これはさげた』というかぎ。べつべつにかけておく。ファイルがてもとにある、ということじたいは、きょかにはなりません。まだたしかめきれていないところは『かもしれない』のままのこして、むりにうめない。つぎにまたはんをとりちがえてひらいてしまっても、このじゅんばんでたいしょする。これを、うちのやりかたにしておきましょう。",
+              "english": "One side alone isn't enough — we need both. A lock for 'the prepared one is this version,' and a lock for 'this may be shown, this was pulled.' We set them separately. Having the file in hand is not, by itself, permission. Where we haven't been able to confirm, we leave it as 'maybe' and don't force it shut. If someone mixes up the versions and opens the wrong one again, we handle it in this order. Let's make this how we work."
+            },
+            "n1": {
+              "japanese": "どちらか一方では、足りないんですよ。両方いる。『用意してあるのはこの版だ』という鍵と、『これは出してよい、これは下げた』という鍵と。それぞれ別に、かけておく。──ファイルが手元にあること、それ自体は、どうやっても許可の代わりにはならない。まだ確かめ切れていないところは、無理に断定せず『かもしれない』のまま残しておく。次にまた版を取り違えて開いてしまったとしても、必ずこの順番で手を打つ。これを、この場のやり方として決めておきましょう。",
+              "reading": "どちらかいっぽうでは、たりないんですよ。りょうほういる。『よういしてあるのはこのはんだ』というかぎと、『これはだしてよい、これはさげた』というかぎと。それぞれべつに、かけておく。──ファイルがてもとにあること、それじたいは、どうやってもきょかのかわりにはならない。まだたしかめきれていないところは、むりにだんていせず『かもしれない』のままのこしておく。つぎにまたはんをとりちがえてひらいてしまったとしても、かならずこのじゅんばんでてをうつ。これを、このばのやりかたとしてきめておきましょう。",
+              "english": "One side alone won't do — we need both. A lock for 'the prepared one is this version,' and a lock for 'this may be shown, this was pulled.' Each set separately. That the file is within reach — that, by itself, can never stand in for permission. Where we haven't been able to fully confirm, we don't force a verdict; we leave it as 'maybe.' And if the versions get mixed up and the wrong one is opened again, we act in this exact order, without fail. Let's make this the way this room works."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:access-note:henry-builds-the-check",
+          "beatId": "beat:access-note:changed-action",
+          "speakerId": "henry",
+          "intent": "Instead of arguing for the fast swap, redesign the tool — build a confirm-which-version-is-live check before rehearsal starts and write it down so someone else can run it without him — so the workaround is never the first move again.",
+          "attentionTarget": "his laptop and the filled note",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、僕、さっきみたいに『すぐ戻す』を一番目にしないようにします。リハの前に、どっちが本番版か確認する一手間を、ツールのほうに入れておく。で、それ、僕がいなくても回せるように書いておきます。次は僕が急いで上書き、から始めないで済むように。",
+              "reading": "じゃあ、ぼく、さっきみたいに『すぐもどす』をいちばんめにしないようにします。リハのまえに、どっちがほんばんばんかかくにんするひとてまを、ツールのほうにいれておく。で、それ、ぼくがいなくてもまわせるようにかいておきます。つぎはぼくがいそいでうわがき、からはじめないですむように。",
+              "english": "Then I'll stop making 'just revert it fast' my first move, like I did back there. Before rehearsal, I'll build the one step of confirming which is the live version into the tool. And I'll write it up so it runs even when I'm not here — so next time nobody has to start from me rushing to overwrite."
+            },
+            "n2": {
+              "japanese": "なら、僕はさっきみたいに『すぐ戻す』を最初の手にしないようにします。リハの前に、どちらが本番版かを確認する一手間を、ツール側に組み込んでおく。しかも、それを僕がいなくても回せる形で書き残しておきます。次は、僕が慌てて上書きするところから始まらずに済むように。",
+              "reading": "なら、ぼくはさっきみたいに『すぐもどす』をさいしょのてにしないようにします。リハのまえに、どちらがほんばんばんかをかくにんするひとてまを、ツールがわにくみこんでおく。しかも、それをぼくがいなくてもまわせるかたちでかきのこしておきます。つぎは、ぼくがあわててうわがきするところからはじまらずにすむように。",
+              "english": "Then I'll stop making 'just revert it fast' my first move, the way I did earlier. I'll build the one step of confirming which is the live version into the tool, before rehearsal. And I'll write it up so it runs even without me — so next time it doesn't start from me panicking to overwrite."
+            },
+            "n1": {
+              "japanese": "なら、僕はさっきの『とりあえずすぐ戻す』を、もう最初の一手にはしません。リハの前に、どちらが本番版なのかを確かめる一手間を、ツールのほうにあらかじめ組み込んでおく。しかも、僕が立ち会えなくても他の人が回せる形で、手順を書き残しておきます。──次に同じことが起きても、『僕が慌てて上書きする』ところからは、始まらないように。",
+              "reading": "なら、ぼくはさっきの『とりあえずすぐもどす』を、もうさいしょのいってにはしません。リハのまえに、どちらがほんばんばんなのかをたしかめるひとてまを、ツールのほうにあらかじめくみこんでおく。しかも、ぼくがたちあえなくてもほかのひとがまわせるかたちで、てじゅんをかきのこしておきます。──つぎにおなじことがおきても、『ぼくがあわててうわがきする』ところからは、はじまらないように。",
+              "english": "Then I won't make 'just revert it fast' my first move anymore, the way I did. I'll build the step of confirming which is the live version into the tool ahead of rehearsal — and I'll write the procedure up so someone else can run it even when I can't be there. So that next time this happens, it doesn't begin with me panicking to overwrite."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:access-note:closed",
+          "beatId": "beat:access-note:exit-image",
+          "cueId": "cue:note-closed-access-is-not-permission",
+          "description": "The live version stands stamped on the screen; the old draft sits quarantined in its own labelled place. The note is filled in two columns — which version is live, and what may be shown — with the withdrawn passage's slot marked and left blank. Along the bottom, one line: access is not permission. Nothing withdrawn was ever displayed, and the chat's fast-swap urging was never acted on."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:wrong-charger",
+      "state": "transform",
+      "ownerIds": [
+        "henry",
+        "angel"
+      ],
+      "meaningNow": "The failure moves from hardware to version responsibility: the right screen loads the wrong draft, so the safeguard is no longer 'bring the correct connector' or 'give the correct command' but 'know which version is prepared-and-live before acting.' Onke's ready-vs-to-do grammar (〜てある/〜ておく) is the check that catches it, and the incident proves that reaching a file (access) is never the same as permission to show it — urgency cannot override a withdrawal.",
+      "priorUse": {
+        "packageId": "s1e16-the-night-the-map-went-dark",
+        "sceneId": "scene:map-went-dark:instruction-erases-route",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 4,
+      "optionalFallback": "A rehearsal simply loads an out-of-date file with a passage the group had removed; the lead confirms which version is current and restores it without displaying the removed part, and the group notes that being able to open a file is not permission to show it."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:wrong-draft:contained-not-swapped",
+      "kind": "story",
+      "description": "The obsolete internal draft is caught and contained: the live version is restored, the withdrawn passage is never displayed, and the fast-swap urging is not acted on. The class writes a two-column record — which version is live, and what may be shown — and adds a standing line that internal access is not permission."
+    },
+    {
+      "id": "outcome:wrong-draft:onke-return",
+      "kind": "bond",
+      "castId": "angel",
+      "chapter": 32,
+      "beat": "return",
+      "description": "Onke finally audits the premise before acting on the plan: instead of strengthening the fix, she asks which version is live using her ready-vs-to-do grammar, separates access from permission, and delivers an immediate procedural apology and repair that contains the withdrawn material — the mastery form of her wrong-charger arc, on her own terms."
+    },
+    {
+      "id": "outcome:wrong-draft:tom-return",
+      "kind": "bond",
+      "castId": "tom",
+      "chapter": 32,
+      "beat": "return",
+      "description": "Tom's showman energy has matured into quiet version discipline: without a word he stamps the live file and quarantines the old draft in a separate, labelled place so the two can never be confused again, seeding the version-as-evidence containment that transforms at Chapter 35."
+    },
+    {
+      "id": "outcome:wrong-draft:mira-limit",
+      "kind": "bond",
+      "castId": "mira",
+      "chapter": 32,
+      "beat": "limit",
+      "description": "Mira's fix-it reflex from the chat — just swap the file and keep going — meets its limit: the room declines the shortcut and holds consent over urgency, and her instinct yields without being punished, marking that some problems are a consent problem, not a version problem."
+    },
+    {
+      "id": "outcome:wrong-draft:transfer-return",
+      "kind": "curriculum-return",
+      "description": "Repair-a-wrong-draft-and-contain-withdrawn-material-with-evidential-attribution evidence returns through the authored transfer activity; the story emits no lesson-completion command and references no numbered reservoir, since Season 3 N2 packages are not yet registered."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:henry-watches-the-fast-fix-instinct"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-live-draft-repair"
+    ],
+    "withdrawnContentFallback": "Use the same confirm-the-live-version and access-is-not-permission beats with neutral nameplates and a generic pair who catch an out-of-date file, restore the current version without displaying the removed passage, and record that opening a file is not permission to show it."
+  }
+}

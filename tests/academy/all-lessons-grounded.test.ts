@@ -46,7 +46,7 @@ describe('public Academy lesson grounding gate', () => {
 
     it('validates every imported authored week from its exact committed bytes', async () => {
         const weeks = ACADEMY_LESSON_CONTENT_REGISTRY.filter(entry => entry.kind === 'authored-week');
-        expect(weeks).toHaveLength(59);
+        expect(weeks).toHaveLength(60);
 
         for (const week of weeks) {
             const bytes = fs.readFileSync(path.join(LESSON_DIRECTORY, week.filename));
@@ -54,7 +54,15 @@ describe('public Academy lesson grounding gate', () => {
             expect(observedSha256, week.filename).toBe(week.expectedSha256);
             const { week: adapted } = await week.validate(Uint8Array.from(bytes).buffer);
             expect(adapted.id).toBe(week.packageId);
-            expect(adapted.activities.length).toBeGreaterThan(0);
+            if (adapted.id === 'l2-l36') {
+                expect(adapted.activities).toHaveLength(0);
+                expect(adapted.provenance.packageProvenance).toMatchObject({
+                    activityDelivery: {
+                        kind: 'registered-direct-chapter',
+                        beatIds: ['youni-goal-workshop', 'younarimasu-change-workshop'],
+                    },
+                });
+            } else expect(adapted.activities.length).toBeGreaterThan(0);
             expect(adapted.provenance.source.sha256).toBe(observedSha256);
         }
     });

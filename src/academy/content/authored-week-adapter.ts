@@ -92,7 +92,8 @@ export const AUTHORED_WEEK_HASHES = {
     'l2-l31': '89545b660280f0570a73c4ae2e66a2c39cab803adea1de638a931048b3114dcf',
     'l2-l32': '2c62cac30744372dbc1790806410e647c86baca7695803c3806372f69d09ee23',
     'l2-l33': '766792a660f9f445cb21d23fda504c6403a3d90eaa08ddcf6980cf9a03bdd2d8',
-    'l2-l34': 'bea04efb2eba6ef59b9a5bbd198f5f74db3ed91e6335c710a6cfc9df2462b7a6',
+    'l2-l34': 'a7be0c2a1333dc4b91f9428e087d03609700bdb7b4840accabc7c94e0c1f508b',
+    'l2-l36': 'deab104b569a87118df23c6346b42677c6716713bb40a2525f1c9489cff6ffe2',
 } as const;
 
 export type AuthoredWeekId = keyof typeof AUTHORED_WEEK_HASHES;
@@ -849,6 +850,10 @@ function structuredActivityBase(
 }
 
 function assertStructuredWeekPedagogy(week: LearnerAuthoredWeek): void {
+    if (!week.activities.length) {
+        assertRegisteredDirectActivityDelivery(week);
+        return;
+    }
     const activities = week.activities.map(activity => isStructuredActivity(activity)
         ? {
             ...activity,
@@ -856,6 +861,21 @@ function assertStructuredWeekPedagogy(week: LearnerAuthoredWeek): void {
         }
         : activity);
     assertAuthoredWeekPedagogy({ ...week, activities });
+}
+
+function assertRegisteredDirectActivityDelivery(week: LearnerAuthoredWeek): void {
+    const delivery = week.provenance.packageProvenance.activityDelivery;
+    if (week.id !== 'l2-l36' || !delivery || typeof delivery !== 'object' || Array.isArray(delivery)) {
+        throw new TypeError(`Reachable lesson ${week.id} needs activities.`);
+    }
+    const contract = delivery as Readonly<Record<string, unknown>>;
+    const expectedBeatIds = ['youni-goal-workshop', 'younarimasu-change-workshop'];
+    if (contract.kind !== 'registered-direct-chapter'
+        || !Array.isArray(contract.beatIds)
+        || contract.beatIds.length !== expectedBeatIds.length
+        || contract.beatIds.some((beatId, index) => beatId !== expectedBeatIds[index])) {
+        throw new TypeError('Authored package l2-l36 must pin both registered direct activity beats in order.');
+    }
 }
 
 function isStructuredActivity(

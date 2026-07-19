@@ -1,0 +1,1946 @@
+{
+  "generatedAt": "2026-07-18",
+  "lane": "asset-integration (sprites/expressions/backgrounds per scene + gap list)",
+  "rules": {
+    "likenessGate": "Owner direction 2026-07-18: existing Academy images are provisionally approved for runtime review. The forthcoming asset-review JSON is the per-file authority for keep, reject, regenerate, and swap decisions; never delete or overwrite an existing candidate during standardization.",
+    "reviewAuthority": "Import the grader JSON into the canonical asset ledger. A rejected candidate stays archived by character and is removed only from active bindings; an approved candidate may bind immediately.",
+    "generation": "OpenAI-only families (direct-openai-image-generation / edit-from-approved-reference / owner-approved-existing-reference). Pollinations/Python/parametric-SVG rejected.",
+    "rieExpressionsAvailable": [
+      "comedic",
+      "determined",
+      "encouraging",
+      "happy",
+      "neutral",
+      "sad-vulnerable"
+    ],
+    "rieAngles": "front-near-front, left-three-quarter, right-three-quarter (functionally complete for 6 registers)"
+  },
+  "backgroundInventory": {
+    "location:classroom": "classroom-evening-lamplit",
+    "location:cafe": "cafe-night-rain",
+    "location:library": "library-rain-evening",
+    "location:street": "bloomsbury-street-day-route",
+    "location:ramen": "ramen-evening-steam",
+    "location:language-lab": "language-lab-evening-listening",
+    "location:courtyard": null,
+    "location:classroom-entrance": "campus-entrance-blue-hour-arrival(near-miss:exterior)"
+  },
+  "chapters": [
+    {
+      "chapter": 1,
+      "id": "s1e01-the-blank-atlas",
+      "title": {
+        "en": "The Blank Atlas",
+        "ja": "白紙のアトラス"
+      },
+      "nativeBand": {
+        "lessonId": "lesson:foundation-00",
+        "contentVersion": "2026-07-13.lesson-zero.v1-audio-contract-2",
+        "contentSha256": "87de5e5a9730709f788351cf8c56eb8e66d52732f84ee08a5cee3901d129b68c",
+        "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
+        "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
+        "sectionSequence": [
+          "arrival-greetings",
+          "sound-script-map",
+          "classroom-survival",
+          "sentence-frames",
+          "useful-vocabulary",
+          "multi-speaker-input",
+          "reading-writing",
+          "transfer",
+          "close"
+        ],
+        "sourceSequence": [
+          {
+            "order": 1,
+            "role": "writing-system-prerequisite",
+            "sourceSha256": "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
+            "policy": "render the reviewed teaching surface; do not reproduce source prose in story dialogue"
+          },
+          {
+            "order": 2,
+            "role": "kana-a-row-writing",
+            "sourceSha256": "fe962ee2dc21478ffe53a24ba77ef0abb5a7685ab7a6eda8f79ac63817ad7dd6",
+            "policy": "use only the registered vowel-row activity and learner evidence"
+          },
+          {
+            "order": 3,
+            "role": "greetings-reference-and-audio",
+            "sourceSha256": "846cc2c9fc4d5310c8e6b3ee711817186239c3810e4433ec350015f32a4004b5",
+            "activityIds": [
+              "activity:lesson-zero-greet-rie"
+            ],
+            "policy": "Genki teaching anchor only; no textbook dialogue is stored in this package"
+          },
+          {
+            "order": 4,
+            "role": "classroom-language",
+            "sourceSha256": "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+            "activityIds": [
+              "activity:lesson-zero-follow-instructions",
+              "activity:lesson-zero-reconstruct-repair",
+              "activity:lesson-zero-desk-language"
+            ],
+            "sourceQuestionIds": [
+              "source-question:classroom-phrase-01",
+              "source-question:classroom-phrase-02",
+              "source-question:classroom-phrase-03",
+              "source-question:classroom-phrase-04",
+              "source-question:classroom-phrase-05",
+              "source-question:classroom-phrase-06",
+              "source-question:classroom-phrase-07",
+              "source-question:classroom-phrase-08",
+              "source-question:classroom-phrase-09",
+              "source-question:classroom-phrase-10",
+              "source-question:classroom-phrase-11",
+              "source-question:classroom-phrase-12",
+              "source-question:classroom-phrase-13",
+              "source-question:classroom-phrase-14"
+            ],
+            "policy": "the registered Moodle reconstruction owns prompts, answers, and grading; story owns only the surrounding need and consequence"
+          }
+        ],
+        "missions": [
+          {
+            "id": "sound",
+            "choiceOptionId": "option:blank-atlas:mission-sound",
+            "sceneId": "scene:blank-atlas:mission-sound",
+            "hostIds": [
+              "xingyu",
+              "mika"
+            ],
+            "locationId": "location:language-lab",
+            "openingActivityId": "activity:lesson-zero-sound-input",
+            "transferActivityId": "activity:lesson-zero-sound-transfer",
+            "mementoId": "memento:lesson-zero-class-recording"
+          },
+          {
+            "id": "text",
+            "choiceOptionId": "option:blank-atlas:mission-text",
+            "sceneId": "scene:blank-atlas:mission-text",
+            "hostIds": [
+              "sophie",
+              "ruparna"
+            ],
+            "locationId": "location:library",
+            "openingActivityId": "activity:lesson-zero-text-input",
+            "transferActivityId": "activity:lesson-zero-text-transfer",
+            "mementoId": "memento:lesson-zero-first-page-clue"
+          },
+          {
+            "id": "speaking",
+            "choiceOptionId": "option:blank-atlas:mission-speaking",
+            "sceneId": "scene:blank-atlas:mission-speaking",
+            "hostIds": [
+              "aakash",
+              "sam"
+            ],
+            "locationId": "location:classroom-entrance",
+            "openingActivityId": "activity:lesson-zero-speaking-input",
+            "transferActivityId": "activity:lesson-zero-speaking-transfer",
+            "mementoId": "memento:lesson-zero-first-bond-scene"
+          }
+        ]
+      },
+      "scenes": [
+        {
+          "sceneId": "scene:blank-atlas:arrival-greetings",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:sound-script-map",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:classroom-survival",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "encouraging",
+              "asset": "rie-encouraging-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:sentence-frames",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:useful-vocabulary",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:mission-sound",
+          "locationId": "location:language-lab",
+          "timeState": "evening",
+          "background": {
+            "assetId": "language-lab-evening-listening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "xingyu",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "mika",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:mission-text",
+          "locationId": "location:library",
+          "timeState": "evening",
+          "background": {
+            "assetId": "library-rain-evening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sophie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "ruparna",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:mission-speaking",
+          "locationId": "location:classroom-entrance",
+          "timeState": "evening",
+          "background": {
+            "assetId": "campus-entrance-blue-hour-arrival(near-miss:exterior)",
+            "status": "gap-partial"
+          },
+          "cast": [
+            {
+              "id": "sam",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:reading-writing",
+          "locationId": "location:classroom",
+          "timeState": "evening-late",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "encouraging",
+              "asset": "rie-encouraging-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:transfer",
+          "locationId": "location:classroom",
+          "timeState": "evening-late",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "encouraging",
+              "asset": "rie-encouraging-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-atlas:close",
+          "locationId": "location:classroom",
+          "timeState": "evening-close",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "encouraging",
+              "asset": "rie-encouraging-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 2,
+      "id": "s1e02-margin-map",
+      "title": {
+        "en": "Map in the Margins",
+        "ja": "余白の地図"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:margin-map:the-private-cipher",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "henry",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:margin-map:readable-for-anyone",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "henry",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 3,
+      "id": "s1e03-route-zero",
+      "title": {
+        "en": "Route Zero",
+        "ja": "ゼロからの道"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:route-zero:the-confident-route",
+          "locationId": "location:street",
+          "timeState": "evening",
+          "background": {
+            "assetId": "bloomsbury-street-day-route",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:route-zero:asking-is-leading",
+          "locationId": "location:street",
+          "timeState": "evening",
+          "background": {
+            "assetId": "bloomsbury-street-day-route",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "encouraging",
+              "asset": "rie-encouraging-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 4,
+      "id": "s1e04-welcome-frequency",
+      "title": {
+        "en": "The Welcome Frequency",
+        "ja": "歓迎の周波数"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:welcome-frequency:the-loud-room",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "xingyu",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "mika",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:welcome-frequency:whose-line-is-it",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "xingyu",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "mika",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 5,
+      "id": "s1e05-final-boss-kana",
+      "title": {
+        "en": "Final Boss: One Small Card",
+        "ja": "ラスボスは、小さな一枚"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:final-boss-kana:the-boss-table",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:final-boss-kana:one-small-card",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 6,
+      "id": "s1e06-invitation-chain",
+      "title": {
+        "en": "The Invitation Chain",
+        "ja": "誘いの連鎖"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:invitation-chain:too-many-options",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sam",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:invitation-chain:one-clear-answer",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sam",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 7,
+      "id": "s1e07-no-spoilers",
+      "title": {
+        "en": "No Spoilers Beyond This Curtain",
+        "ja": "この幕から先はネタバレ禁止"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:no-spoilers:the-curtain",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "francis",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:no-spoilers:where-are-you",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "francis",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 8,
+      "id": "s1e08-menu-without-pictures",
+      "title": {
+        "en": "The Menu Without Pictures",
+        "ja": "写真のないメニュー"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:menu-without-pictures:the-wall-menu",
+          "locationId": "location:ramen",
+          "timeState": "evening",
+          "background": {
+            "assetId": "ramen-evening-steam",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "shin",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:menu-without-pictures:one-bowl-each",
+          "locationId": "location:ramen",
+          "timeState": "evening",
+          "background": {
+            "assetId": "ramen-evening-steam",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "shin",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 9,
+      "id": "s1e09-the-story-in-two-tenses",
+      "title": {
+        "en": "The Story in Two Tenses",
+        "ja": "二つの時制の物語"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:two-tenses:the-two-captions",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "jodi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:two-tenses:memory-stays-plural",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "jodi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 10,
+      "id": "s1e10-instructions-for-a-cloud",
+      "title": {
+        "en": "Instructions for a Cloud",
+        "ja": "雲への指示書"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:instructions-for-a-cloud:the-ordered-cards",
+          "locationId": "location:courtyard",
+          "timeState": "evening",
+          "background": {
+            "assetId": null,
+            "status": "gap"
+          },
+          "cast": [
+            {
+              "id": "christian",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "angel",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:instructions-for-a-cloud:hand-it-back",
+          "locationId": "location:courtyard",
+          "timeState": "evening",
+          "background": {
+            "assetId": null,
+            "status": "gap"
+          },
+          "cast": [
+            {
+              "id": "christian",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "angel",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 11,
+      "id": "s1e11-storm-route-variant",
+      "title": {
+        "en": "The Storm Route Variant",
+        "ja": "嵐の迂回ルート"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:storm-route-variant:signs-gone",
+          "locationId": "location:street",
+          "timeState": "evening",
+          "background": {
+            "assetId": "bloomsbury-street-day-route",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "alex",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:storm-route-variant:the-back-way",
+          "locationId": "location:street",
+          "timeState": "evening",
+          "background": {
+            "assetId": "bloomsbury-street-day-route",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "aakash",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "alex",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 12,
+      "id": "s1e12-the-vanishing-course",
+      "title": {
+        "en": "The Vanishing Course",
+        "ja": "消えた献立"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:vanishing-course:lost-cues",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "jenny",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "sam",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:vanishing-course:one-route-together",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "jenny",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 13,
+      "id": "s1e13-dinner-by-if",
+      "title": {
+        "en": "Dinner by If",
+        "ja": "もしもの献立"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:dinner-by-if:the-sequence",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "jenny",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:dinner-by-if:hosting-is-listening",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 14,
+      "id": "s1e14-two-answers",
+      "title": {
+        "en": "Two Answers, One Context",
+        "ja": "二つの正解"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:two-answers:contested-particle",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sophie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:two-answers:record-not-verdict",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sophie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 15,
+      "id": "s1e15-chorus-with-a-hole",
+      "title": {
+        "en": "The Chorus With a Hole",
+        "ja": "穴のあいた合唱"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:chorus-with-a-hole:the-catchy-hole",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "xingyu",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "mika",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:chorus-with-a-hole:the-kept-beat",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "xingyu",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "mika",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 16,
+      "id": "s1e16-the-night-the-map-went-dark",
+      "title": {
+        "en": "The Night the Map Went Dark",
+        "ja": "地図が消えた夜"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:night-map-dark:the-literal-instruction",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "angel",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:night-map-dark:teach-it-back",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "henry",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rie",
+              "presentation": "sprite",
+              "portrayal": "likeness-cleared",
+              "expression": "neutral",
+              "asset": "rie-neutral-glasses(runtime-approved)",
+              "status": "exists"
+            },
+            {
+              "id": "angel",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 17,
+      "id": "s1e17-catwalk-clue",
+      "title": {
+        "en": "The Catwalk Clue",
+        "ja": "猫の通り道"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:catwalk-clue:the-moved-marker",
+          "locationId": "location:library",
+          "timeState": "evening",
+          "background": {
+            "assetId": "library-rain-evening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "stasi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:catwalk-clue:the-real-order",
+          "locationId": "location:library",
+          "timeState": "evening",
+          "background": {
+            "assetId": "library-rain-evening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 18,
+      "id": "s1e18-the-memory-card-museum",
+      "title": {
+        "en": "The Memory Card Museum",
+        "ja": "記おくカードびじゅつかん"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:memory-card-museum:the-funniest-card",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "stasi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "shin",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:memory-card-museum:funny-and-true",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "stasi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "shin",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 19,
+      "id": "s1e19-seventy-percent-door",
+      "title": {
+        "en": "Seventy Percent Is a Door",
+        "ja": "七割のドア"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:seventy-percent-door:subtitles-drop",
+          "locationId": "location:library",
+          "timeState": "evening",
+          "background": {
+            "assetId": "library-rain-evening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "ruparna",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "sophie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:seventy-percent-door:the-door",
+          "locationId": "location:library",
+          "timeState": "evening",
+          "background": {
+            "assetId": "library-rain-evening",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "sophie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "ruparna",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 20,
+      "id": "s1e20-map-from-memory",
+      "title": {
+        "en": "A Map Made From Memory",
+        "ja": "記憶でできた地図"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:map-from-memory:three-rememberings",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "alex",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "jodi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:map-from-memory:one-label-many-roads",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "alex",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "jodi",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rose",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 21,
+      "id": "s1e21-questions-in-the-dark",
+      "title": {
+        "en": "Questions in the Dark",
+        "ja": "暗がりの質問"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:questions-in-the-dark:one-question-each",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "peter",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:questions-in-the-dark:passing-the-question",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "peter",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "felix",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 22,
+      "id": "s1e22-blank-space",
+      "title": {
+        "en": "The Blank Space on the Board",
+        "ja": "黒板の空白"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:blank-space:reads-too-formal",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "shaun",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:blank-space:a-bounded-seat",
+          "locationId": "location:classroom",
+          "timeState": "evening",
+          "background": {
+            "assetId": "classroom-evening-lamplit",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "shaun",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "tom",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 23,
+      "id": "s1e23-farewell-rehearsal",
+      "title": {
+        "en": "The Farewell Rehearsal",
+        "ja": "お別れのリハーサル"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:farewell-rehearsal:the-reordered-plan",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "nanako",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "shaun",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:farewell-rehearsal:the-unfinished-thanks",
+          "locationId": "location:cafe",
+          "timeState": "evening",
+          "background": {
+            "assetId": "cafe-night-rain",
+            "status": "exists"
+          },
+          "cast": [
+            {
+              "id": "nanako",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "shaun",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter": 24,
+      "id": "s1e24-lanterns-return",
+      "title": {
+        "en": "When the Lanterns Return",
+        "ja": "灯がかえるとき"
+      },
+      "nativeBand": {},
+      "scenes": [
+        {
+          "sceneId": "scene:lanterns-return:the-unlit-route",
+          "locationId": "location:courtyard",
+          "timeState": "evening",
+          "background": {
+            "assetId": null,
+            "status": "gap"
+          },
+          "cast": [
+            {
+              "id": "mira",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "robert",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            }
+          ]
+        },
+        {
+          "sceneId": "scene:lanterns-return:coordinated-voices",
+          "locationId": "location:courtyard",
+          "timeState": "evening",
+          "background": {
+            "assetId": null,
+            "status": "gap"
+          },
+          "cast": [
+            {
+              "id": "mira",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "n/a (generic figure-mask)",
+              "status": "exists",
+              "note": null
+            },
+            {
+              "id": "rie",
+              "presentation": "silhouette+nameplate",
+              "portrayal": "name-only",
+              "expression": "encouraging",
+              "status": "exists-suppressed",
+              "note": "The package's name-only tag suppresses Rie's active sprite. Re-tag the approved runtime portrayal without changing the story line."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "gapListRanked": [
+    {
+      "rank": 1,
+      "type": "background",
+      "target": "location:courtyard",
+      "scenesAffected": 4,
+      "usedIn": [
+        "ch10 (2 scenes)",
+        "ch24 finale (2 scenes)"
+      ],
+      "spec": "wide+mobile evening courtyard plate, living-paper painterly style, rain-capable; audio slot already reserved (CD1/02 Royal Days.flac, confident daily loop). Lantern-lit finale variant for ch24.",
+      "generation": "direct-openai-image-generation (wide+mobile responsive pair), no cast likeness, no readable copy",
+      "blocking": "ch24 season finale + ch10 both fall back to no matching plate"
+    },
+    {
+      "rank": 2,
+      "type": "background",
+      "target": "location:classroom-entrance",
+      "scenesAffected": 1,
+      "usedIn": [
+        "ch1 (1 scene: mission-speaking)"
+      ],
+      "spec": "evening threshold/doorway plate between corridor and classroom; can reuse classroom-evening-lamplit palette. campus-entrance-blue-hour-arrival is an exterior near-miss (wrong interior threshold).",
+      "generation": "direct-openai-image-generation OR interim reuse classroom-evening-lamplit",
+      "blocking": "ch1 opening chapter — highest first-impression weight; interim substitute available"
+    },
+    {
+      "rank": 3,
+      "type": "cast-portrayal-fix",
+      "target": "ch24 rie portrayal",
+      "scenesAffected": null,
+      "spec": "ch24 declares Rie portrayal=name-only, suppressing her active sprite in the season finale. This is a content-tag fix, not an art-generation gap.",
+      "generation": "no generation; content edit only",
+      "blocking": "finale loses its lead sprite"
+    },
+    {
+      "rank": 4,
+      "type": "cast-review-and-binding",
+      "target": "classmate sprite candidates",
+      "scenesAffected": "all name-only speakers",
+      "spec": "Use the forthcoming asset-review JSON as the per-file authority. Bind approved candidates by canonical character id and expression; retain rejected candidates out of runtime bindings so they remain available for comparison or regeneration.",
+      "generation": "direct-openai-image-generation, one neutral per character first → consistency gate → expression batch (per ledger)",
+      "blocking": "final binding waits only for the owner's grader export; existing candidates remain provisionally usable meanwhile"
+    }
+  ]
+}

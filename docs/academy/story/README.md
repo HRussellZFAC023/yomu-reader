@@ -7,7 +7,7 @@ This directory is the canonical authoring contract for Yomu Academy's narrative 
 1. `docs/academy/DIRECTION-RESET.md` and `docs/academy/LESSON-EXPERIENCE-CONTRACT.md` remain binding for the Desktop experience.
 2. The executable cast registry remains the source of truth for names and eligibility.
 3. This directory supersedes the older six-season grouping in discovery documents. It preserves the useful Foundation-to-N1 beats but groups the finite plot into four seasons.
-4. This directory does not claim that the runtime already implements the target. `src/academy/content/story-sources/season-one-fiction.json` currently has 24 episodes and declares its ending final. The target preserves those episode IDs as Seasons 1 and 2, then requires a deliberate runtime migration before Seasons 3 and 4 can ship.
+4. The runtime now compiles the complete 48-chapter, four-season canon from `story-package.v2` sources. Chapters whose N3-N1 practice packages are not yet registered remain story-playable and expose an honest practice-pending state; they are not falsely labelled as grounded lessons.
 
 The `s1e13`–`s1e24` prefixes remain historical IDs after migration; the structured `season` field is authoritative. Renaming those IDs would break learner history. Separately, `AcademyClassEvent.season` currently means curriculum band (`foundation` through `n1`), not one of the four story seasons, and must be renamed during implementation to remove that ambiguity.
 
@@ -21,6 +21,9 @@ The `s1e13`–`s1e24` prefixes remain historical IDs after migration; the struct
 - `SCRIPT-ARCHITECTURE.md`: typed authoring units, state boundaries, lesson hooks, scene rhythm, choices, replay, and validation.
 - `CALLBACK-LEDGER.md`: the finite seed/echo/transform/payoff plan and callback use budgets.
 - `CONTENT-LINKAGE.md`: mapping from the shipped Lesson 0 and 60 Level 1/2 packages into narrative seasons and transfer scenes.
+- `PRESENTATION-BINDING.json`: recovered scene-level music, ambience, time, and staging bindings.
+- `ASSET-INTEGRATION-MAP.json`: recovered scene-to-art requirements and candidate bindings; the grader JSON remains the per-file verdict authority.
+- `../provenance/CLAUDE-RECOVERY-20260718.md`: source sessions, recovered artifacts, verification, and unfinished Claude workflow state.
 - `BACKLOG.md`: one ordered delivery stream. It is intentionally not divided into stages or phases.
 
 Read them in that order. The bible decides what happens; the stream decides when it is encountered; cast and relationship documents decide who may participate and at what depth; voice decides how they speak; architecture decides how it is represented; the ledgers prove continuity and grounding.

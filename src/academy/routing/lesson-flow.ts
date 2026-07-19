@@ -1,4 +1,4 @@
-import { ACADEMY_ASSETS } from '../assets';
+import { ACADEMY_ASSETS, type AcademyPlateId } from '../assets';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID, createAakashDirectionsActivity } from '../content/aakash-meet';
 import {
     getAuthoredWeekRegistration,
@@ -18,6 +18,11 @@ import {
     lessonStoryPresentation,
 } from '../content/lesson-story-runtime';
 import { loadLessonZeroContent } from '../content/lesson-zero';
+import {
+    advancedPackageIdFromLessonId,
+    resolveAdvancedCurriculumEntry,
+    type AdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
 import { loadVerticalSliceContent, openingForkActivityId } from '../content/vertical-slice';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { SfxCue } from '../audio/types';
@@ -34,6 +39,7 @@ import { createAuthoredWeekScreen } from '../ui/authored-week-screen';
 import { renderLessonVocabularyPrerequisiteScreen } from '../ui/lesson-vocabulary-prerequisite';
 import { createReachableLessonActivityExtension } from '../ui/lesson-activity-chapter';
 import { renderLoadingScreen } from '../ui/loading-screen';
+import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createAcademyActivityRuntime } from '../minigames';
 import { parseStoryCursor } from '../content/story-runner';
 import { displayAcademyCastName } from '../domain/cast-registry';
@@ -260,6 +266,11 @@ class LessonFlow implements AcademyRouteFlow {
 
     private async renderSourceActivity(context: AcademyRouteContext): Promise<void> {
         context.shell.replace(renderLoadingScreen(context.language, navigator.onLine));
+        const advancedPackageId = advancedPackageIdFromLessonId(context.checkpoint.lessonId);
+        if (advancedPackageId) {
+            this.renderAdvancedPackage(advancedPackageId, context);
+            return;
+        }
         const fork = context.checkpoint.selectedFork ?? 'text';
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         if (fork === 'text') {
@@ -300,6 +311,37 @@ class LessonFlow implements AcademyRouteFlow {
             returning,
             support => this.options.evidence.recordSupportUse(support.activityId, support.supportKind, support.choiceId),
         ));
+    }
+
+    private renderAdvancedPackage(packageId: string, context: AcademyRouteContext): void {
+        const entry = resolveAdvancedCurriculumEntry(packageId);
+        const screen = createAdvancedLessonScreen({
+            language: context.language,
+            entry,
+            plate: advancedPlate(entry),
+            runtime: createAcademyActivityRuntime(),
+            pronunciation: this.options.pronunciation,
+            onEvaluation: (activity, evaluation) => {
+                this.playFeedbackSfx(evaluation.result.outcome);
+                return this.options.evidence.recordActivity({
+                    ...evaluation,
+                    attempt: {
+                        ...evaluation.attempt,
+                        activityId: activity.id,
+                    },
+                }, `advanced:${entry.id}`);
+            },
+            onBack: () => void context.back(),
+            onComplete: () => void context.go('class', {
+                selectedBand: entry.band,
+                lessonId: undefined,
+                sectionId: undefined,
+                activityId: undefined,
+            }),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
     }
 
     private renderAakashMeet(context: AcademyRouteContext): void {
@@ -380,6 +422,14 @@ class LessonFlow implements AcademyRouteFlow {
             } : {}),
         });
     }
+}
+
+function advancedPlate(entry: AdvancedCurriculumEntry): AcademyPlateId {
+    if (/sound|listening/u.test(entry.activity.kind)) return 'languageLab';
+    if (/home|apartment|moving|coupon/u.test(entry.id)) return 'home';
+    if (/pet/u.test(entry.id)) return 'cafe';
+    if (/grammar|contrast/u.test(entry.id)) return 'classroom';
+    return 'library';
 }
 
 function overviewState(

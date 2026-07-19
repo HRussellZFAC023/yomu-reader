@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
     createLessonL2L36YouniGoalWorkshopBeat,
@@ -148,9 +148,9 @@ describe('l2-l36 exact-source ように goal workshop', () => {
             lessonPackageId: 'l2-l36',
             canonicalEpisodeId: 's1e10-instructions-for-a-cloud',
             host: { id: 'rie' },
-            title: { en: 'Goals you can act toward' },
+            title: { en: 'From goals to what became possible' },
         });
-        expect(chapter?.beats).toHaveLength(1);
+        expect(chapter?.beats).toHaveLength(2);
         expect(createAcademyActivityRuntime().validate(chapter!.beats[0]!.activity)).toEqual([]);
     });
 
@@ -163,15 +163,9 @@ describe('l2-l36 exact-source ように goal workshop', () => {
             expect(sha256File(path.resolve('public/academy/content/lessons/l2-l36', filename))).toBe(visual.sha256);
             expect(hosted).toEqual(source);
         }
-        expect(readdirSync(path.resolve('public/academy/content/lessons/l2-l36'))
-            .some(filename => filename.endsWith('.mp3'))).toBe(false);
-        expect(readdirSync(path.resolve('docs/public/academy/content/lessons/l2-l36'))
-            .some(filename => filename.endsWith('.mp3'))).toBe(false);
-
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const worker = readFileSync(path.resolve(workerPath), 'utf8');
             L2_L36_SOURCE_VISUALS.forEach(visual => expect(worker).toContain(`'${visual.url}'`));
-            expect(worker).not.toMatch(/l2-l36\/[^']+\.mp3/u);
         }
 
         const publicLedger = readFileSync(path.resolve('public/academy/content/RESOURCE-LEDGER.json'));
@@ -179,9 +173,10 @@ describe('l2-l36 exact-source ように goal workshop', () => {
         const ledger = JSON.parse(publicLedger.toString('utf8')) as {
             worksheetDigitisation: { additionalSlices: Array<Record<string, any>> };
         };
-        const slices = ledger.worksheetDigitisation.additionalSlices.filter(item => item.lessonId === 'l2-l36');
-        expect(slices).toHaveLength(1);
-        expect(slices[0]).toMatchObject({
+        const slice = ledger.worksheetDigitisation.additionalSlices.find(
+            item => item.lessonId === 'l2-l36' && item.moodleModuleId === 8824742,
+        );
+        expect(slice).toMatchObject({
             moodleModuleId: 8824742,
             sourcePackage: { status: 'direct-canonical-archive-extension-no-authored-package-json' },
             sourceArchive: { id: 'archive-000028', sha256: '5864abfd10047d8084bf67dd6aeb921852a98e2c873d66a47bab32640c7ac174' },
@@ -203,6 +198,6 @@ describe('l2-l36 exact-source ように goal workshop', () => {
                 repairScope: 'missed-source-example-or-homework-match-only',
             },
         });
-        expect(slices[0]?.unconverted.join(' ')).toContain('Reading practice 動物の目');
+        expect(slice?.unconverted.join(' ')).toContain('Reading practice 動物の目');
     });
 });

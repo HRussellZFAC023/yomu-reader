@@ -188,6 +188,7 @@ function episode(
         lessonId: 'lesson:story-n3-batch',
         componentType: mechanic,
         exerciseId: activityId,
+        registered: true,
         nodeId: activityNode.id,
         sceneId,
         requiredEvidence: Object.freeze({ kind: 'activity-passed', activityId }),

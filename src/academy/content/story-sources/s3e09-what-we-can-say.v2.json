@@ -1,0 +1,595 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e09-what-we-can-say",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 33,
+  "title": {
+    "en": "What We Can Say",
+    "ja": "言えること、言えないこと"
+  },
+  "synopsis": "Drafting the exhibition's public caption, the class wants to write Jodi's lived Tokyo memory as flat fact because she was there. Jodi stops them, separating memory, evidence, and permission; Nanako, usually the final word on real Japanese, rules against her own authority; the material page Rose found can be shown but still authorizes no one's story. The learner tags each claim by how it is known and rewrites the permission-scoped public version. Then Mira stress-tests whether the rule survives an actual visitor's question, and the class settles on publishing only what is verified and permitted, holding memory plural and owned by no single person.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "jodi",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jodi",
+        "docs/academy/story/CAST-AND-CONSENT.md#jodi",
+        "docs/academy/story/dossiers/jodi.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "lived experience treated as automatic authority to publish",
+        "her two tenses resolved into one correct version",
+        "age rendered as frailty, confusion, or forgetting"
+      ]
+    },
+    {
+      "castId": "nanako",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#nanako",
+        "docs/academy/story/CAST-AND-CONSENT.md#nanako",
+        "docs/academy/story/dossiers/nanako.md"
+      ],
+      "forbiddenClaims": [
+        "portrait, sprite, or reproduced likeness (owner-confirmation pending)",
+        "surname or reproduced private messages",
+        "her quiet ruling delivered as a scold rather than soft correction",
+        "romance moved onto the class floor",
+        "being the source of a phrase treated as permission to publish it"
+      ]
+    },
+    {
+      "castId": "mira",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mira",
+        "docs/academy/story/CAST-AND-CONSENT.md#mira",
+        "docs/academy/story/dossiers/mira.md"
+      ],
+      "forbiddenClaims": [
+        "portrait, sprite, or face (runtime likeness BLOCKED; name/off-stage/chat-bubble only)",
+        "surname beyond the character handle",
+        "invented guilt, crisis, or sensitive cause for her distance or absences",
+        "the atlas rendered as literally magical"
+      ]
+    },
+    {
+      "castId": "rose",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose",
+        "docs/academy/story/dossiers/jodi.md#contrast-pair"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "material evidence used to authorize another person's story"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e08-right-screen-wrong-draft",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityIds": [
+            "activity:s3e09-what-we-can-say-calibrate-permission"
+          ],
+          "function": "mark-a-claim-by-evidence-source-and-write-the-permission-scoped-public-version"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirtythree-first-meeting-jodi"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:what-we-can-say:three-things",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "afternoon",
+      "weatherState": "spring-bright",
+      "goal": "Reach the moment the class stops treating Jodi's memory as automatic public authority and separates memory, evidence, and permission before writing the caption.",
+      "dramaticQuestion": "When someone was truly there, does being the source of a memory settle what may be published about it?",
+      "learnerNeed": "A calibration task where tagging how each claim is known, and writing only the permitted version, matters more than repeating the confident one.",
+      "curriculum": {
+        "sectionId": "separate-memory-evidence-permission",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:what-we-can-say:contested-draft",
+          "beatId": "beat:what-we-can-say:arrival-image",
+          "cueId": "cue:draft-as-flat-fact-photo-and-found-page",
+          "description": "On the cafe table sits the draft public caption for the exhibition, next to Jodi's old Tokyo photograph: a narrow street, a small shop long gone. Beside them Rose has laid down the page she physically found, the unattributed old caption. Someone has written the draft in confident plain style, 「この角には昔パン屋があった」, as flat established fact, with a margin note: since Jodi was there, just write it."
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:jodi-separate",
+          "beatId": "beat:what-we-can-say:host-want",
+          "speakerId": "jodi",
+          "intent": "Stop the class from publishing her memory as flat fact; name that she remembers it clearly, but remembering, being able to show, and being permitted to publish are three separate things.",
+          "attentionTarget": "the draft sentence written as flat public fact",
+          "variants": {
+            "n3": {
+              "japanese": "ちょっと待って。その角にパン屋があったのは、私、よく覚えてます。でもね、覚えていることと、証拠として見せられることと、みんなに公開していいことは、別々なんです。「私が見たんだから本当だ」では、まだ書けません。",
+              "reading": "ちょっとまって。そのかどにパンやがあったのは、わたし、よくおぼえてます。でもね、おぼえていることと、しょうことしてみせられることと、みんなにこうかいしていいことは、べつべつなんです。「わたしがみたんだからほんとうだ」では、まだかけません。",
+              "english": "Wait a moment. That there was a bakery on that corner, I remember it well. But you know, what I remember, what can be shown as evidence, and what we may make public are three separate things. On 'I saw it, so it's true' alone, we still can't write it."
+            },
+            "n2": {
+              "japanese": "少し待ってください。その角にパン屋があったこと自体は、私もはっきり覚えています。ただ、覚えているということと、証拠として示せるということと、公開してよいということは、それぞれ別の話で。「本人が見たのだから事実だ」というだけでは、まだ壁には載せられないんです。",
+              "reading": "すこしまってください。そのかどにパンやがあったことじたいは、わたしもはっきりおぼえています。ただ、おぼえているということと、しょうことしてしめせるということと、こうかいしてよいということは、それぞれべつのはなしで。「ほんにんがみたのだからじじつだ」というだけでは、まだかべにはのせられないんです。",
+              "english": "Hold on a moment. That there was a bakery on that corner, I do remember it clearly myself. Only, remembering it, being able to show it as evidence, and being permitted to publish it are each a separate matter. On 'she saw it herself, so it's fact' alone, we still can't put it on the wall."
+            },
+            "n1": {
+              "japanese": "いえ、少しだけ待ってくださいな。その角にパン屋があったこと自体は、私もこの目で覚えているつもりです。ただ——覚えているというのと、証拠として示せるというのと、公けにしてよいというのとは、どうしても別々の話でしてね。「当人が見たのだから、それが事実だ」——その一足飛びだけでは、まだとても壁には載せられないんですよ。",
+              "reading": "いえ、すこしだけまってくださいな。そのかどにパンやがあったことじたいは、わたしもこのめでおぼえているつもりです。ただ——おぼえているというのと、しょうことしてしめせるというのと、おおやけにしてよいというのとは、どうしてもべつべつのはなしでしてね。「とうにんがみたのだから、それがじじつだ」——そのいっそくとびだけでは、まだとてもかべにはのせられないんですよ。",
+              "english": "No, do give me just a moment. That there was a bakery on that corner, I believe I remember it with my own eyes. Only, remembering a thing, being able to show it as evidence, and being free to make it public are, unavoidably, three separate matters. 'The person herself saw it, therefore it is fact' — on that one leap alone, we still couldn't possibly put it on the wall."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:nanako-ruling",
+          "beatId": "beat:what-we-can-say:obstruction",
+          "speakerId": "nanako",
+          "intent": "Deliver the quiet ruling turned against her own authority: even the person who decides what is real Japanese finds that being the source of a phrase or a memory is not permission to publish it. Soft, no display.",
+          "attentionTarget": "her own hand resting on the draft she would normally rule on",
+          "variants": {
+            "n3": {
+              "japanese": "うん、それでいいと思う。……いつも私、「それは日本語として自然かどうか」を決める役だけど。今日のこれは、逆なんだよね。私がその言葉を知ってても、それを公開していいって意味にはならない。源だっていうことは、許可とはちがう。やわらかく言うけど、そこははっきりしてる。",
+              "reading": "うん、それでいいとおもう。……いつもわたし、「それはにほんごとしてしぜんかどうか」をきめるやくだけど。きょうのこれは、ぎゃくなんだよね。わたしがそのことばをしってても、それをこうかいしていいっていみにはならない。みなもとだっていうことは、きょかとはちがう。やわらかくいうけど、そこははっきりしてる。",
+              "english": "Yeah, I think that's right. …I'm always the one who decides 'is this natural as Japanese or not.' But this, today, is the reverse. Even if I know the words, that doesn't mean it's okay to publish them. Being the source is not the same as permission. I'll say it gently, but on that point I'm clear."
+            },
+            "n2": {
+              "japanese": "ええ、その通りだと思います。……普段は私が「これは日本語として言うかどうか」の判定役なんですけど、今回ばかりはその判定が自分に返ってくるみたいで。ある言葉を私が知っている、あるいは私がその場にいた——それだけでは、公開してよいという許可にはならないんですよね。源であることと、許可を持っていることは、別なんです。やわらかい言い方をしますが、ここは譲れないところで。",
+              "reading": "ええ、そのとおりだとおもいます。……ふだんはわたしが「これはにほんごとしていうかどうか」のはんていやくなんですけど、こんかいばかりはそのはんていがじぶんにかえってくるみたいで。あることばをわたしがしっている、あるいはわたしがそのばにいた——それだけでは、こうかいしてよいというきょかにはならないんですよね。みなもとであることと、きょかをもっていることは、べつなんです。やわらかいいいかたをしますが、ここはゆずれないところで。",
+              "english": "Yes, I think that's exactly right. …Normally I'm the one who judges 'would you actually say this in Japanese.' But this time the judgment seems to turn back on me. That I know a certain phrase, or that I myself was there — that alone doesn't amount to permission to make it public. Being the source and holding permission are separate things. I'll put it gently, but this is the point I can't give way on."
+            },
+            "n1": {
+              "japanese": "ええ、おっしゃる通りだと思います。……いつもなら、「それは日本語として口にするかどうか」を見きわめるのが私の役どころなのですが——今日に限っては、その物差しが、そっくり自分のほうへ向いてくるようで。ある言い回しを私が知っている、あるいは、たまたま私がその場に居合わせた。そのどちらも、公けにしてよいという許可には、ついにならないんですよね。源であるということと、許しを持っているということは、あくまで別の話で。やわらかく申し上げますけれど、ここだけは、どうしても譲れないんです。",
+              "reading": "ええ、おっしゃるとおりだとおもいます。……いつもなら、「それはにほんごとしてくちにするかどうか」をみきわめるのがわたしのやくどころなのですが——きょうにかぎっては、そのものさしが、そっくりじぶんのほうへむいてくるようで。あることばをわたしがしっている、あるいは、たまたまわたしがそのばにいあわせた。そのどちらも、おおやけにしてよいというきょかには、ついにならないんですよね。みなもとであるということと、ゆるしをもっているということは、あくまでべつのはなしで。やわらかくもうしあげますけれど、ここだけは、どうしてもゆずれないんです。",
+              "english": "Yes, I think you're quite right. …On any other day, weighing 'would one actually utter this in Japanese' is my role — but today, of all days, that measuring stick seems to turn squarely back on me. That I know a certain turn of phrase, or that I happened to be present — neither one, in the end, amounts to permission to make it public. Being the source, and holding the leave to share it, remain separate matters. I put it gently, but on this one point I truly cannot give way."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:jodi-method",
+          "beatId": "beat:what-we-can-say:trial-attempt",
+          "speakerId": "jodi",
+          "intent": "Propose the method: mark each claim by how it is known (saw, heard, inferred), write the two times she always keeps, add a confidence tier, and publish only what has both evidence and permission.",
+          "attentionTarget": "the sentence and the three ways it could be known",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、こうしましょう。一文ずつ、それをどうやって知ったか、印をつけるんです。自分で見たのか、人から聞いたのか、たぶんそうだと思っただけなのか。それから、「昔はこうだった、今はこう」って両方を書いて、最後に「どのくらい確かか」も添える。証拠と許可がそろった分だけ、公開する。",
+              "reading": "じゃあ、こうしましょう。いちぶんずつ、それをどうやってしったか、しるしをつけるんです。じぶんでみたのか、ひとからきいたのか、たぶんそうだとおもっただけなのか。それから、「むかしはこうだった、いまはこう」ってりょうほうをかいて、さいごに「どのくらいたしかか」もそえる。しょうこときょかがそろったぶんだけ、こうかいする。",
+              "english": "Then let's do this. Sentence by sentence, we mark how we came to know it: whether I saw it myself, heard it from someone, or only guessed it was so. Then we write both — 'it was like this before, it's like this now' — and add at the end 'how sure we are.' We publish only as much as we have both the evidence and the permission for."
+            },
+            "n2": {
+              "japanese": "では、こうしませんか。一文ごとに、それをどう知ったのかを印で分けるんです。自分の目で見たのか、誰かから聞いたのか、そう見えるというだけの推測なのか。そのうえで、「以前はこうで、今はこう」と二つの時を並べて書き、最後にどの程度確かなのかを添えておく。証拠と許可の両方がそろったところまでを、公開する。そこまでで止める。",
+              "reading": "では、こうしませんか。いちぶんごとに、それをどうしったのかをしるしでわけるんです。じぶんのめでみたのか、だれかからきいたのか、そうみえるというだけのすいそくなのか。そのうえで、「いぜんはこうで、いまはこう」とふたつのときをならべてかき、さいごにどのていどたしかなのかをそえておく。しょうこときょかのりょうほうがそろったところまでを、こうかいする。そこまででとめる。",
+              "english": "Then shall we do this. For each sentence, we sort by how we came to know it: saw it with my own eyes, heard it from someone, or merely inferred it looked that way. On top of that, we write the two times side by side — 'before it was this, now it's this' — and note at the end how certain each is. We publish up to where both the evidence and the permission are in place. And we stop there."
+            },
+            "n1": {
+              "japanese": "では、こういたしませんか。一文ずつ、それをどう知り得たのかで仕分けをするんです。この目で見たのか、人づてに聞いたのか、そう見えるというだけの当て推量なのか——と。そのうえで、私のいつもの癖どおり、「かつてはこうで、今はこう」と二つの時を重ねて書き、さらにもう一段、どのくらい確かなのかという但し書きを添えておく。証拠と許しの、その両方が揃った線までを公にして——あとは、あえてそこで筆を止める。",
+              "reading": "では、こういたしませんか。いちぶんずつ、それをどうしりえたのかでしわけをするんです。このめでみたのか、ひとづてにきいたのか、そうみえるというだけのあてずいりょうなのか——と。そのうえで、わたしのいつものくせどおり、「かつてはこうで、いまはこう」とふたつのときをかさねてかき、さらにもういちだん、どのくらいたしかなのかというただしがきをそえておく。しょうことゆるしの、そのりょうほうがそろったせんまでをおおやけにして——あとは、あえてそこでふでをとめる。",
+              "english": "Then might we do it this way. Sentence by sentence, we sort by how we were able to know it — saw it with these eyes, heard it at second hand, or merely a guess that it looked so. On that, then, in my usual habit, we write the two times layered — 'once it was this, now it's this' — and add one further tier: a note of how certain each is. We make public only up to the line where both the evidence and the leave to share are in place — and there, deliberately, we set down the pen."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:what-we-can-say:before-calibration",
+          "beatId": "beat:what-we-can-say:trial-attempt",
+          "resume": "The draft sentence still reads as flat fact. The learner steps in to sort the caption's claims by how each is known and to write the version the class actually has both evidence and permission to publish."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:what-we-can-say:calibrate-permission",
+          "beatId": "beat:what-we-can-say:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e09-what-we-can-say-calibrate-permission"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e09-what-we-can-say-calibrate-permission"
+          },
+          "resumeContext": "The contested draft is 「この角には昔パン屋があった」, written as flat public fact. The learner tags each claim by evidence type — observed (〜のを見た), heard (〜そうだ / 〜と言っていた), inferred (〜らしい / 〜ようだ) — and rewrites it as the permission-scoped public caption: a hedged, source-marked line with confidence shown (for example 「かつてこの角にパン屋があったと記憶している人がいる」), while withholding the first-person 'I saw it' claim that Jodi remembers but has not cleared to publish.",
+          "onReady": "checkpoint:what-we-can-say:after-calibration",
+          "onRepair": "node:what-we-can-say:calibrate-repair",
+          "onDefer": "checkpoint:what-we-can-say:before-calibration"
+        },
+        {
+          "kind": "stage",
+          "id": "node:what-we-can-say:calibrate-repair",
+          "beatId": "beat:what-we-can-say:trial-repair",
+          "cueId": "cue:evidence-tags-side-by-side",
+          "description": "The draft is laid out with three evidence tags beside it — saw / heard / inferred — and a confidence mark. Only the claims still written as flat fact return for another pass; the ones already source-marked and permission-scoped stay as they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:what-we-can-say:after-calibration",
+          "beatId": "beat:what-we-can-say:trial-response",
+          "resume": "Each claim in the caption now carries how it is known and how sure it is. Jodi looks at the calibrated version — nothing cleared crossed out, nothing uncleared published — and accepts it."
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:jodi-accepts",
+          "beatId": "beat:what-we-can-say:contribution",
+          "speakerId": "jodi",
+          "intent": "Accept the calibrated, permission-scoped public sentence; mark confidence honestly; keep the first-person memory as memory to hand to one chosen person, not as published fact.",
+          "attentionTarget": "the source-marked caption and the photograph she turns face-down",
+          "variants": {
+            "n3": {
+              "japanese": "これでいい。「パン屋があったと覚えている人がいる」——それなら、私の記憶も、ちゃんと「記憶」のまま置ける。確かなことは確かに、あいまいなことはあいまいに書く。私が見たっていう部分は、私が話したい相手にだけ、私の口から話します。壁には、載せない。",
+              "reading": "これでいい。「パンやがあったとおぼえているひとがいる」——それなら、わたしのきおくも、ちゃんと「きおく」のままおける。たしかなことはたしかに、あいまいなことはあいまいにかく。わたしがみたっていうぶぶんは、わたしがはなしたいあいてにだけ、わたしのくちからはなします。かべには、のせない。",
+              "english": "This is good. 'There are people who remember a bakery here' — that way my memory can stay put as memory. The certain things certainly, the vague things vaguely. The part that I saw, I'll tell with my own mouth, only to the person I want to tell. Not on the wall."
+            },
+            "n2": {
+              "japanese": "これでいいです。「ここにパン屋があったと記憶している人がいる」——そう書けば、私の思い出も、思い出のまま残せる。確かなところは確かに、あいまいなところはあいまいなままに。「自分の目で見た」という部分は、壁に貼るのではなく、話したい相手に、自分の言葉で伝えることにします。公開はしない。それでいい。",
+              "reading": "これでいいです。「ここにパンやがあったときおくしているひとがいる」——そうかけば、わたしのおもいでも、おもいでのままのこせる。たしかなところはたしかに、あいまいなところはあいまいなままに。「じぶんのめでみた」というぶぶんは、かべにはるのではなく、はなしたいあいてに、じぶんのことばでつたえることにします。こうかいはしない。それでいい。",
+              "english": "This is fine. 'There is someone who remembers a bakery stood here' — written so, my memory too can stay as a memory. The certain kept certain, the uncertain left uncertain. As for the 'I saw it with my own eyes' part, rather than post it on the wall, I'll tell it, in my own words, to the person I want to tell. I won't make it public. And that's fine."
+            },
+            "n1": {
+              "japanese": "ええ、これでいい。「かつてここにパン屋があったと、記憶している者がいる」——そう記しておけば、私の思い出も、思い出という形のまま、無理なく残せます。確かなところは確かに、心もとないところは心もとないままに。「この目で見た」という一点だけは、壁に掲げるのではなく、いつか、話したいと思う相手にだけ、私自身の口から手渡すことにします。公にはしません。それで、十分なんです。",
+              "reading": "ええ、これでいい。「かつてここにパンやがあったと、きおくしているものがいる」——そうしるしておけば、わたしのおもいでも、おもいでというかたちのまま、むりなくのこせます。たしかなところはたしかに、こころもとないところはこころもとないままに。「このめでみた」といういってんだけは、かべにかかげるのではなく、いつか、はなしたいとおもうあいてにだけ、わたしじしんのくちからてわたすことにします。おおやけにはしません。それで、じゅうぶんなんです。",
+              "english": "Yes, this is good. 'There is one who remembers a bakery once stood here' — noted so, my memory too can remain, in the shape of a memory, kept without strain. The certain as certain, the uncertain left uncertain. As for the single point of 'I saw it with these eyes' — rather than hang it on the wall, I'll one day hand it, from my own mouth, only to the person I wish to tell. I won't make it public. And that is enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:what-we-can-say:memory-withheld",
+          "beatId": "beat:what-we-can-say:changed-image",
+          "cueId": "cue:caption-source-marked-memory-withheld",
+          "description": "The public draft now reads with its source marked and its confidence shown; the first-person 'I saw it' line is gone from the wall copy. Jodi's Tokyo photograph is turned face-down beside her, kept, not displayed. Rose's found page stays on the table as material the class can show — but nothing on it is claimed as anyone's story."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:what-we-can-say:does-it-hold"
+      }
+    },
+    {
+      "id": "scene:what-we-can-say:does-it-hold",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "afternoon",
+      "weatherState": "spring-bright",
+      "goal": "Stress-test the calibrated rule against a real visitor's question and let the class settle on publishing only what is verified and permitted, holding memory plural and owned by no single person.",
+      "dramaticQuestion": "Does a careful rule about what may be said survive the moment a stranger asks whether it was real?",
+      "learnerNeed": "A stance choice about whether the public version marks the memory with evidence and permission, or withholds it and publishes only what the material page supports.",
+      "curriculum": {
+        "sectionId": "publish-only-what-is-verified-and-permitted",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:what-we-can-say:groupchat-open",
+          "beatId": "beat:what-we-can-say:regroup-image",
+          "cueId": "cue:groupchat-open-calibrated-draft",
+          "description": "The calibrated draft sits between them; on a propped-up phone the group chat is open, and Mira has typed in from Miami, half English and half Japanese, asking whether the careful rule they just made actually holds up when a real visitor pushes on it."
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:mira-stress-test",
+          "beatId": "beat:what-we-can-say:record-want",
+          "speakerId": "mira",
+          "intent": "Stress-test the rule the way she stress-tests a study app: does it work in ordinary use, or just look careful? Name the concrete visitor's question it has to survive.",
+          "attentionTarget": "the phone with her group-chat message",
+          "variants": {
+            "n3": {
+              "japanese": "ねえ、その決まり、実際つかえる? 見た目はきれいだけど。たとえば、当日お客さんに「これ、本当にあったんですか?」って聞かれたら、どう答えるの? 「見た人がいるらしいです」でいい? それとも「はっきりとは言えません」? そこまで決めとかないと、ルールって現場でこわれるよ。",
+              "reading": "ねえ、そのきまり、じっさいつかえる? みためはきれいだけど。たとえば、とうじつおきゃくさんに「これ、ほんとうにあったんですか?」ってきかれたら、どうこたえるの? 「みたひとがいるらしいです」でいい? それとも「はっきりとはいえません」? そこまできめとかないと、ルールってげんばでこわれるよ。",
+              "english": "Hey, does that rule actually work? It looks neat, sure. But say, on the day, a visitor asks 'did this really exist?' — how do you answer? 'It seems there are people who saw it'? Or 'I can't say for certain'? If you don't decide that far, a rule breaks the moment it hits the floor."
+            },
+            "n2": {
+              "japanese": "ねえ、その決まり、実際の場で通用する? 形はきれいにまとまってるけど。たとえば当日、お客さんに「これって本当にあったんですか」って聞かれたとして——そのとき何て返すのか、そこまで決めてある? 「見たという人がいるようです」なのか、「確かなことは言えません」なのか。現場で試されないルールって、だいたい見た目だけなんだよね。そこ、詰めておきたい。",
+              "reading": "ねえ、そのきまり、じっさいのばでつうようする? かたちはきれいにまとまってるけど。たとえばとうじつ、おきゃくさんに「これってほんとうにあったんですか」ってきかれたとして——そのときなんてかえすのか、そこまできめてある? 「みたというひとがいるようです」なのか、「たしかなことはいえません」なのか。げんばでためされないルールって、だいたいみためだけなんだよね。そこ、つめておきたい。",
+              "english": "Hey, will that rule actually hold up in the real setting? It's shaped up nicely, sure. But suppose on the day a visitor asks 'did this really exist?' — do you have it decided that far, what you'd say back? 'It appears there's someone who saw it,' or 'I can't say anything for certain'? A rule that never gets tested on the floor is usually just for show. I'd want to nail that down."
+            },
+            "n1": {
+              "japanese": "ねえ、その取り決め、ほんとに現場で保つ? 形の上ではきれいに片づいてるように見えるけど。仮に当日、お客さんの一人に「これは実際にあったんですか」と正面から聞かれたとして——その一言に、どこまで用意ができてる? 返すのは「見たという方がいるようです」なのか、それとも「確かなことは申し上げられません」なのか。試される場を一度もくぐっていないルールって、たいてい見てくれだけで終わるんだよね。だからこそ、そこだけは先に詰めておきたいの。",
+              "reading": "ねえ、そのとりきめ、ほんとにげんばでたもつ? かたちのうえではきれいにかたづいてるようにみえるけど。かりにとうじつ、おきゃくさんのひとりに「これはじっさいにあったんですか」としょうめんからきかれたとして——そのひとことに、どこまでよういができてる? かえすのは「みたというかたがいるようです」なのか、それとも「たしかなことはもうしあげられません」なのか。ためされるばをいちどもくぐっていないルールって、たいていみてくれだけでおわるんだよね。だからこそ、そこだけはさきにつめておきたいの。",
+              "english": "Hey, will that arrangement really hold on the floor? On paper it looks tidily settled, sure. But suppose that on the day one of the visitors asks you straight out, 'did this actually exist?' — how far are you prepared for that single question? Do you answer 'it seems there's someone who saw it,' or 'I'm not able to say anything for certain'? A rule that's never once passed through a moment of being tested usually ends up as mere appearance. Which is exactly why I want that part pinned down first."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:what-we-can-say:how-to-publish",
+          "beatId": "beat:what-we-can-say:record-stance",
+          "question": "How should the public version handle Jodi's memory?",
+          "options": [
+            {
+              "id": "option:what-we-can-say:hedged-with-permission",
+              "action": "Publish the caption in hedged, source-marked form — attributed to remembered testimony with confidence shown — only for what Jodi has agreed may be shared.",
+              "japaneseByBand": {
+                "n3": "ジョディさんが「これは出していい」って言った分だけ、「覚えている人がいるそうです」って形で出そう。確かさも一緒に書いて。",
+                "n2": "ジョディさんが共有していいと認めた範囲だけ、「記憶している人がいるそうだ」という証拠つきの形で出しましょう。どのくらい確かかも添えて。",
+                "n1": "ジョディさんが「ここまでは出してよい」と認めてくれた範囲に限って、「記憶している方がいるとのことだ」と、伝聞と確度を明示した形で公にしましょう。断定はしないで。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:what-we-can-say:before-record"
+            },
+            {
+              "id": "option:what-we-can-say:withhold-publish-material",
+              "action": "Keep Jodi's memory off the wall entirely; publish only what Rose's found page can materially support, and answer visitors with an honest 'we can't establish that.'",
+              "japaneseByBand": {
+                "n3": "ジョディさんの記憶は壁に出さないで、ローズさんが見つけた紙で確かめられることだけ書こう。聞かれたら「確かめられていません」って正直に答える。",
+                "n2": "ジョディさんの記憶自体は壁に載せず、ローズさんが見つけた紙で裏づけられることだけを書きましょう。尋ねられたら「そこは確かめられていない」と正直に返す。",
+                "n1": "ジョディさんの記憶そのものは壁には出さず、ローズさんが見つけた紙で裏づけの取れることだけを記しましょう。問われたら、「その点はまだ確かめられていません」と、正直にお返しする。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:what-we-can-say:before-record"
+            }
+          ],
+          "convergence": "checkpoint:what-we-can-say:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:what-we-can-say:before-record",
+          "beatId": "beat:what-we-can-say:record-attempt",
+          "resume": "The learner has chosen how the public version will handle Jodi's memory. Nanako writes the wording and names what the choice protects."
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:nanako-hedging-is-precision",
+          "beatId": "beat:what-we-can-say:repair",
+          "speakerId": "nanako",
+          "intent": "Reframe hedging as the grammar of not overclaiming rather than weakness; confirm the permission-scoped version is what they publish and that it survives being asked on the day.",
+          "attentionTarget": "the wording as she writes it in",
+          "variants": {
+            "n3": {
+              "japanese": "うん、どっちでもいい。大事なのは、あいまいに書くのは弱いからじゃなくて、正確だから、っていうこと。「らしい」「と聞いた」「はっきりは言えない」——これ、逃げの言葉じゃなくて、言いすぎないための文法なんだよ。ジョディさんが許可した分だけ、確かさをつけて出す。それでこのやり方、ちゃんと現場でも保てると思う。",
+              "reading": "うん、どっちでもいい。だいじなのは、あいまいにかくのはよわいからじゃなくて、せいかくだから、っていうこと。「らしい」「ときいた」「はっきりはいえない」——これ、にげのことばじゃなくて、いいすぎないためのぶんぽうなんだよ。ジョディさんがきょかしたぶんだけ、たしかさをつけてだす。それでこのやりかた、ちゃんとげんばでもたもてるとおもう。",
+              "english": "Yeah, either one is fine. What matters is: writing it vaguely isn't because we're weak — it's because it's accurate. 'Seems,' 'I heard,' 'can't say for sure' — these aren't escape words, they're the grammar for not overclaiming. We publish only what Jodi permitted, with the confidence marked. Done that way, I think this rule really does hold up on the floor too."
+            },
+            "n2": {
+              "japanese": "ええ、どちらでも構いません。大切なのは、ぼかして書くのが弱さからではなく、正確さのためだ、ということで。「〜らしい」「〜と聞いた」「はっきりとは言えない」——これは逃げるための言葉じゃなくて、言いすぎないための文法なんです。ジョディさんが認めた範囲に、確度を添えて出す。そこまで決めておけば、当日その場で問われても、このやり方はちゃんと保てます。",
+              "reading": "ええ、どちらでもかまいません。たいせつなのは、ぼかしてかくのがよわさからではなく、せいかくさのためだ、ということで。「〜らしい」「〜ときいた」「はっきりとはいえない」——これはにげるためのことばじゃなくて、いいすぎないためのぶんぽうなんです。ジョディさんがみとめたはんいに、かくどをそえてだす。そこまできめておけば、とうじつそのばでとわれても、このやりかたはちゃんとたもてます。",
+              "english": "Yes, either is fine. What matters is that blurring it isn't out of weakness but for accuracy. '〜らしい,' 'I heard,' 'I can't say for certain' — these aren't words for escaping, they're the grammar for not overclaiming. We publish within what Jodi allowed, with the degree of certainty attached. Decided that far, even asked on the spot on the day, this method really will hold."
+            },
+            "n1": {
+              "japanese": "ええ、どちらでも構いませんよ。肝心なのは——ぼかして書くのが、弱腰だからではなく、あくまで正確であろうとするからだ、というところで。「〜らしい」「〜と聞いた」「はっきりとは言いかねる」。これらは、逃げを打つための言葉ではなくて、言い過ぎないための、れっきとした文法なんです。ジョディさんが認めてくださった範囲に、どの程度確かかを添えて差し出す——そこまで詰めておけば、当日その場で正面から問われたとしても、この作法は崩れずに保ちます。ミラさんの心配、ちゃんと通ると思う。",
+              "reading": "ええ、どちらでもかまいませんよ。かんじんなのは——ぼかしてかくのが、よわごしだからではなく、あくまでせいかくであろうとするからだ、というところで。「〜らしい」「〜ときいた」「はっきりとはいいかねる」。これらは、にげをうつためのことばではなくて、いいすぎないための、れっきとしたぶんぽうなんです。ジョディさんがみとめてくださったはんいに、どのていどたしかかをそえてさしだす——そこまでつめておけば、とうじつそのばでしょうめんからとわれたとしても、このさほうはくずれずにたもちます。ミラさんのしんぱい、ちゃんととおるとおもう。",
+              "english": "Yes, either is quite all right. The essential thing is that blurring it comes not from timidity but from meaning to be accurate. '〜らしい,' 'I heard,' 'I couldn't quite say for certain' — these are not words for beating a retreat, but a bona fide grammar for not saying too much. We offer, within the range Jodi has granted, a note of how certain each thing is — pinned down that far, even faced head-on on the day, this way of doing it holds without collapsing. Mira's worry, I think it comes through fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:jodi-atlas-stewardship",
+          "beatId": "beat:what-we-can-say:changed-action",
+          "speakerId": "jodi",
+          "intent": "Widen from the caption to the whole atlas: it was layered by many hands, so keeping each person able to say how far a memory is theirs is more accurate than naming one owner.",
+          "attentionTarget": "the rebuilt atlas and its layered pages",
+          "variants": {
+            "n3": {
+              "japanese": "これ、このアトラス全体にも言えることだと思う。誰か一人のものじゃなくて、いろんな人が少しずつ重ねてきた。だから、一つの正しい話に決めなくていい。それぞれが「どこまで自分のものか」を言えるようにしておけば、記憶はいくつも並べたまま残せる。持ち主を一人に決めるより、そのほうがずっと正確なの。",
+              "reading": "これ、このアトラスぜんたいにもいえることだとおもう。だれかひとりのものじゃなくて、いろんなひとがすこしずつかさねてきた。だから、ひとつのただしいはなしにきめなくていい。それぞれが「どこまでじぶんのものか」をいえるようにしておけば、きおくはいくつもならべたままのこせる。もちぬしをひとりにきめるより、そのほうがずっとせいかくなの。",
+              "english": "I think this holds for the whole atlas too. It's not any one person's — many people layered it, a little at a time. So we don't have to settle on one correct story. If each person can say 'how far this is mine,' the memories can stay side by side, several at once. That's far more accurate than deciding on a single owner."
+            },
+            "n2": {
+              "japanese": "これは、このアトラス全体にも言えることだと思うんです。もともと誰か一人の持ち物ではなくて、いろんな人が少しずつ書き重ねてきたもので。だから、一つの正しい話に絞る必要はない。それぞれが「どこまでが自分のものか」を言える形にしておけば、記憶はいくつも並べたまま抱えておける。持ち主を一人に決めてしまうより、そのほうがよほど正確なんですよ。",
+              "reading": "これは、このアトラスぜんたいにもいえることだとおもうんです。もともとだれかひとりのもちものではなくて、いろんなひとがすこしずつかきかさねてきたもので。だから、ひとつのただしいはなしにしぼるひつようはない。それぞれが「どこまでがじぶんのものか」をいえるかたちにしておけば、きおくはいくつもならべたままかかえておける。もちぬしをひとりにきめてしまうより、そのほうがよほどせいかくなんですよ。",
+              "english": "I think this holds for the whole atlas as well. It was never any one person's belonging — many people wrote onto it, a little at a time. So there's no need to narrow it to one correct story. If we keep it in a form where each person can say 'how far this is mine,' the memories can be held side by side, several at once. That's far more accurate than settling it onto a single owner."
+            },
+            "n1": {
+              "japanese": "これはきっと、このアトラスそのものにも、そっくり言えることなんです。もとより誰か一人の持ち物ではなく、幾人もの手が、少しずつ書き重ねてきたもので——ですから、無理に一つの正しい話へ絞り込む必要はない。それぞれが「どこまでが自分のものか」を、きちんと口にできる形にしてさえおけば、いくつもの記憶を、並べたまま抱え続けていられる。持ち主をただ一人に定めてしまうよりも、そのほうが、かえってずっと正確なんですよ。",
+              "reading": "これはきっと、このアトラスそのものにも、そっくりいえることなんです。もとよりだれかひとりのもちものではなく、いくにんものてが、すこしずつかきかさねてきたもので——ですから、むりにひとつのただしいはなしへしぼりこむひつようはない。それぞれが「どこまでがじぶんのものか」を、きちんとくちにできるかたちにしてさえおけば、いくつものきおくを、ならべたままかかえつづけていられる。もちぬしをただひとりにさだめてしまうよりも、そのほうが、かえってずっとせいかくなんですよ。",
+              "english": "This, surely, can be said of the atlas itself, just the same. From the start it was no one person's belonging, but something many hands wrote onto, a little at a time — so there's no need to force it down to one correct story. As long as we keep it in a form where each person can properly say 'how far this is mine,' we can go on holding many memories side by side. Rather than fixing it onto a single owner, that way is, if anything, far the more accurate."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:what-we-can-say:nanako-clean-close",
+          "beatId": "beat:what-we-can-say:exit-line",
+          "speakerId": "nanako",
+          "intent": "Close the exchange cleanly, her signature: name what goes on the wall and what stays with each owner, warmly and without lingering.",
+          "attentionTarget": "the finalized wall draft and the group settling",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、決まりだね。出すのは、確かめられて、許可がある分だけ。あとは、それぞれの人のところに置いておく。……うん、これなら、いい壁になると思う。おつかれさま。",
+              "reading": "じゃあ、きまりだね。だすのは、たしかめられて、きょかがあるぶんだけ。あとは、それぞれのひとのところにおいておく。……うん、これなら、いいかべになるとおもう。おつかれさま。",
+              "english": "Then it's settled. What we publish is only what's verified and permitted. The rest, we leave where it belongs, with each person. …Yes, I think this'll make a good wall. Nice work, everyone."
+            },
+            "n2": {
+              "japanese": "じゃあ、これで決まりですね。壁に出すのは、確かめられて、許可のある分だけ。残りは、それぞれの持ち主のところに、そっと置いておく。……うん、これなら、胸を張れる壁になると思います。今日はおつかれさま。",
+              "reading": "じゃあ、これできまりですね。かべにだすのは、たしかめられて、きょかのあるぶんだけ。のこりは、それぞれのもちぬしのところに、そっとおいておく。……うん、これなら、むねをはれるかべになるとおもいます。きょうはおつかれさま。",
+              "english": "Then that settles it. What goes on the wall is only what's verified and permitted. The rest, we set quietly back where it belongs, with each owner. …Yes, I think this'll be a wall we can stand behind. Good work today, everyone."
+            },
+            "n1": {
+              "japanese": "では、これで決まり、ということで。壁に掲げるのは、確かめの取れた、そして許しのある分だけ。残りは無理に引き出さず、それぞれの持ち主のもとへ、そっと戻しておく。……ええ、これなら、胸を張って人に見せられる壁になると思いますよ。今日は、ほんとうにおつかれさま。",
+              "reading": "では、これできまり、ということで。かべにかかげるのは、たしかめのとれた、そしてゆるしのあるぶんだけ。のこりはむりにひきださず、それぞれのもちぬしのもとへ、そっともどしておく。……ええ、これなら、むねをはってひとにみせられるかべになるとおもいますよ。きょうは、ほんとうにおつかれさま。",
+              "english": "Then — settled, let's say. What we hang on the wall is only what's verified, and what we have leave to show. The rest we don't force out; we set it quietly back with each of its owners. …Yes, I think this'll be a wall we can show people with our heads held high. Truly, good work today."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:what-we-can-say:wall-finalized",
+          "beatId": "beat:what-we-can-say:exit-image",
+          "cueId": "cue:wall-draft-marked-memory-with-owner",
+          "description": "The public draft is finalized: each line carries how it is known and how sure, and only what was verified and permitted is on it. Jodi's photograph stays face-down beside her, hers to share or not. On the phone, Mira's group-chat reply reads simply that it will hold. Rose's found page remains as shared material; nothing on it is signed as anyone's story."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:nanako-quiet-ruling",
+      "state": "transform",
+      "ownerIds": [
+        "nanako"
+      ],
+      "priorUse": {
+        "packageId": "s3e04-terms-of-invitation",
+        "sceneId": "scene:terms-of-invitation:easy-exit",
+        "state": "echo"
+      },
+      "meaningNow": "The arbiter of what is real Japanese rules against her own authority: being the native source of a phrase, or the person who was there, is not permission to publish it. Her quiet ruling, once used to certify usage, now certifies a limit on herself — delivered in soft evidential language, not as a scold.",
+      "useNumber": 3,
+      "maximumUses": 4,
+      "optionalFallback": "Nanako gently states that knowing a phrase is not the same as having permission to make it public, and the class publishes the permission-scoped version."
+    },
+    {
+      "id": "callback:jodi-two-tense-motif",
+      "state": "transform",
+      "ownerIds": [
+        "jodi"
+      ],
+      "priorUse": {
+        "packageId": "s1e20-map-from-memory",
+        "sceneId": "scene:map-from-memory:overlapping-accounts",
+        "state": "echo"
+      },
+      "meaningNow": "Jodi's habit of keeping two tenses of one place gains a third dimension under publication pressure: each layered claim now also carries a confidence tier and an evidence source, so 'it was this, now it is this' becomes 'here is how sure I am and how I know' — memory held plural AND calibrated, never flattened into publishable fact.",
+      "useNumber": 3,
+      "maximumUses": 4,
+      "optionalFallback": "Jodi keeps her past/present pair for the caption but adds how certain and how known each part is, publishing only the calibrated version."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:what-we-can-say:calibrated-public-version",
+      "kind": "story",
+      "description": "The class publishes the calibrated, permission-scoped caption — each claim source-marked and confidence-shown — and withholds Jodi's first-person memory from the wall. The rule is stress-tested against a visitor's question and holds; the atlas is affirmed as layered stewardship with no single owner."
+    },
+    {
+      "id": "outcome:what-we-can-say:jodi-limit",
+      "kind": "bond",
+      "castId": "jodi",
+      "chapter": 33,
+      "beat": "limit",
+      "description": "Jodi refuses to let 'she was there' become automatic publication authority, separating memory, evidence, and permission; her limit changes the plan from publishing the confident version to publishing the calibrated, permission-scoped one, and her lived experience never overrides anyone's boundary."
+    },
+    {
+      "id": "outcome:what-we-can-say:nanako-limit",
+      "kind": "bond",
+      "castId": "nanako",
+      "chapter": 33,
+      "beat": "limit",
+      "description": "Nanako, usually the final ruling on real Japanese, rules against her own authority in soft language: being the source of a phrase or memory is not permission to publish it. The arbiter naming her own limit is what lets the class hear a hard line without a fight."
+    },
+    {
+      "id": "outcome:what-we-can-say:rose-limit",
+      "kind": "bond",
+      "castId": "rose",
+      "chapter": 33,
+      "beat": "limit",
+      "description": "Rose provides the physically found page as material the class can show, and the scene establishes her limit: material evidence proves what a page is made of but still authorizes no one's story. Her proof is kept as shared material, unsigned, not as permission."
+    },
+    {
+      "id": "outcome:what-we-can-say:transfer-return",
+      "kind": "curriculum-return",
+      "activityId": "activity:s3e09-what-we-can-say-calibrate-permission",
+      "description": "Evidential-marking, hedging, and permission-scope evidence returns through the authored transfer activity: the learner tags each claim as observed, heard, or inferred and writes the permission-scoped public version. The story emits no lesson-completion command and references no registered N2 lesson package."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:nanako-rules-on-herself",
+      "variant:mira-from-the-groupchat"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-calibrate-permission"
+    ],
+    "withdrawnContentFallback": "Use the same separate-memory-evidence-permission and calibrated-publication beats with neutral nameplates: a generic experienced member declines to have a remembered detail published as fact, a gentle arbiter rules that being a source is not permission, and the class publishes only the source-marked, permission-scoped version after a practical stress-test."
+  }
+}

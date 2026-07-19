@@ -2,7 +2,10 @@ import seasonOneSource from './story-sources/season-one-fiction.json';
 import openingArrivalSource from './story-sources/opening-arrival-bridge.v2.json';
 import blankAtlasSource from './story-sources/s1e01-the-blank-atlas.v2.json';
 import { N3_STORY_EPISODES, n3StoryArcForEpisode } from './n3-story-batch';
+import { n3StoryPractice } from './n3-story-practice';
+import { AUTHORED_STORY_CHAPTER_SOURCES } from './story-chapter-sources';
 import { getAcademyCastMember } from '../domain/cast-registry';
+import { isWorldPlaceId, type WorldPlaceId } from '../domain/world-locations';
 
 export const STORY_REVIEW_CALENDAR_SECTION = 'calendar:lantern-atlas-review';
 export const STORY_OPENING_ARC_ID = 'arc:open-doors:first-route';
@@ -125,6 +128,8 @@ export interface StoryArcPackage {
 }
 
 export interface StoryActivityBinding extends StoryActivityHook {
+    /** False when the story beat is authored before its lesson activity exists. */
+    readonly registered: boolean;
     readonly nodeId: string;
     readonly sceneId: string;
     readonly requiredEvidence: Readonly<{ kind: 'activity-passed'; activityId: string }>;
@@ -158,6 +163,17 @@ export interface StoryOpeningArc {
     nextScene(sceneId: string, choices?: Readonly<Record<string, string>>): StoryArcScene | undefined;
 }
 
+/** An authored package outcome (bond/story/curriculum-return...); read-only story truth, never a lesson write. */
+export interface StoryPackageOutcome {
+    readonly kind: string;
+    readonly id?: string;
+    readonly castId?: string;
+    readonly chapter?: number;
+    readonly beat?: string;
+    readonly lessonId?: string;
+    readonly description?: string;
+}
+
 /** The runner-facing subset shared by the opening and later authored chapters. */
 export interface StoryPlayableArc {
     readonly id: string;
@@ -170,9 +186,26 @@ export interface StoryPlayableArc {
         readonly activities: readonly StoryActivityBinding[];
         readonly contentSha256?: string;
     }>;
+    readonly outcomes?: readonly StoryPackageOutcome[];
     readonly replay: Readonly<{ canonicalWrites: false; chronologicalMemory: true }>;
     scene(sceneId: string | undefined): StoryArcScene | undefined;
     nextScene(sceneId: string, choices?: Readonly<Record<string, string>>): StoryArcScene | undefined;
+}
+
+/** One row of the compiled chapter catalog consumed by the Path/Story UI. */
+export interface StoryChapterCatalogEntry {
+    readonly id: string;
+    readonly season: number;
+    readonly chapter?: number;
+    readonly title: string;
+    /**
+     * True only when every activity hook resolves to a registered exercise.
+     * 'authored' chapters (content loads; activities pending) stay false so the
+     * UI can gate honestly instead of promising ungrounded practice.
+     */
+    readonly grounded: boolean;
+    /** The chapter compiled and playableArc(id) returns an arc for it. */
+    readonly playable: boolean;
 }
 
 export type StoryOpeningArcMode = 'canonical' | 'chronological-replay';
@@ -214,6 +247,7 @@ export interface StoryRuntime {
     readonly episodes: readonly StoryEpisode[];
     readonly openingArc: StoryOpeningArc;
     readonly playableArc: (episodeId: string | undefined) => StoryPlayableArc | undefined;
+    readonly chapterCatalog: readonly StoryChapterCatalogEntry[];
     readonly reviewCalendar: Readonly<{
         id: string;
         startsAfterEpisodeId: string;
@@ -237,7 +271,7 @@ interface SeasonOneSource {
     readonly endlessCalendar: StoryRuntime['reviewCalendar'];
 }
 
-interface StoryPackageSource {
+export interface StoryPackageSource {
     readonly schema: string;
     readonly id: string;
     readonly revision: string;
@@ -262,11 +296,13 @@ interface StoryPackageSource {
         readonly checkpointOnEnter: boolean;
         readonly nodes: readonly StoryArcNode[];
     })[];
-    readonly outcomes: readonly {
-        readonly kind: string;
-        readonly castId?: string;
-        readonly chapter?: number;
+    readonly callbacks?: readonly {
+        readonly id: string;
+        readonly state: string;
+        readonly priorUse?: unknown;
+        readonly meaningNow?: unknown;
     }[];
+    readonly outcomes: readonly StoryPackageOutcome[];
     readonly replay: StoryArcPackage['replay'];
     readonly curriculumBinding?: {
         readonly lessonId: string;
@@ -289,9 +325,20 @@ export function loadStoryRuntime(): StoryRuntime {
     if (cachedRuntime) return cachedRuntime;
     const source = seasonOneSource as SeasonOneSource;
     validateSeasonOne(source);
-    const episodes = Object.freeze([...source.episodes, ...N3_STORY_EPISODES].map(episode => Object.freeze(episode)));
+    const authoredIds = new Set(AUTHORED_STORY_CHAPTER_SOURCES.map(chapter => chapter.id));
+    const episodeById = new Map(source.episodes.map(episode => [episode.id, Object.freeze(episode)]));
+    N3_STORY_EPISODES.forEach(episode => {
+        if (!authoredIds.has(episode.id)) episodeById.set(episode.id, Object.freeze(episode));
+    });
+    AUTHORED_STORY_CHAPTER_SOURCES.forEach(chapter => {
+        if (!episodeById.has(chapter.id)) episodeById.set(chapter.id, episodeFromStoryPackage(chapter));
+    });
+    const episodes = Object.freeze([...episodeById.values()]
+        .sort((left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id)));
     const byId = new Map(episodes.map(episode => [episode.id, episode]));
     const openingArc = compileOpeningArc(episodes[0]);
+    const authoredArcs = compileAuthoredChapters(openingArc.episodeId);
+    const chapterCatalog = buildChapterCatalog(openingArc, byId, authoredArcs);
     cachedRuntime = Object.freeze({
         id: source.schema,
         title: source.title,
@@ -304,9 +351,12 @@ export function loadStoryRuntime(): StoryRuntime {
         }),
         episodes,
         openingArc,
+        // Resolution order: opening compile, then authored v2 chapters, then the
+        // programmatic N3 batch (a v2 file supersedes the batch for the same id).
         playableArc: (episodeId: string | undefined) => episodeId === openingArc.episodeId
             ? openingArc
-            : n3StoryArcForEpisode(episodeId),
+            : (episodeId ? authoredArcs.get(episodeId) : undefined) ?? n3StoryArcForEpisode(episodeId),
+        chapterCatalog,
         reviewCalendar: Object.freeze({
             ...source.endlessCalendar,
             startsAfterEpisodeId: 's4e12-next-page',
@@ -315,6 +365,52 @@ export function loadStoryRuntime(): StoryRuntime {
         castMembers: resolveCastMembers,
     });
     return cachedRuntime;
+}
+
+function episodeFromStoryPackage(source: StoryPackageSource): StoryEpisode {
+    const ordinal = source.chapter;
+    if (!ordinal) throw new TypeError(`Story package ${source.id} needs a chapter number for catalog play.`);
+    const scene = source.scenes[0];
+    if (!scene) throw new TypeError(`Story package ${source.id} has no opening scene.`);
+    const activity = source.scenes.flatMap(item => item.nodes)
+        .find(node => node.kind === 'activity' && node.hook)?.hook;
+    const locationId = resolveStoryLocationId(scene.locationId);
+    return Object.freeze({
+        id: source.id,
+        ordinal,
+        curriculum: Object.freeze({
+            stage: source.season === 3 ? 'n3-to-n2' : 'n2-to-n1',
+            milestone: activity?.componentType ?? 'story transfer',
+        }),
+        title: source.title.en,
+        location: Object.freeze({ id: locationId, label: locationId.replaceAll('-', ' ') }),
+        storyBeat: scene.goal,
+        emotionalTurn: scene.dramaticQuestion,
+        curriculumHooks: Object.freeze(source.scenes.flatMap(item => item.nodes)
+            .filter(node => node.kind === 'activity' && node.hook)
+            .map(node => node.hook!.exerciseId)),
+        minigame: Object.freeze({
+            id: activity?.exerciseId ?? `story:${source.id}`,
+            mechanic: activity?.componentType ?? 'story transfer',
+            prompt: scene.learnerNeed,
+            success: 'Return to the story with evidence.',
+        }),
+        cast: Object.freeze(source.cast.map(member => member.castId)),
+        unlocks: Object.freeze(source.outcomes.flatMap(outcome => outcome.id ? [outcome.id] : [])),
+        replayVariants: Object.freeze([
+            Object.freeze({ id: `replay:${source.id}`, label: 'Language-band replay', changes: 'Dialogue band and learner support only.' }),
+        ]),
+        eventArt: Object.freeze({
+            id: `event-art:${source.id}`,
+            brief: `${source.title.en} at ${locationId}`,
+            safety: 'Use only approved Academy assets and registered cast portrayals.',
+        }),
+        sourceSafety: Object.freeze({
+            fictionalComposite: true as const,
+            realEventClaim: false as const,
+            note: 'Compiled from the canonical Yomu Academy story package.',
+        }),
+    });
 }
 
 /**
@@ -402,6 +498,7 @@ function compileOpeningArc(legacyEpisode: StoryEpisode | undefined): StoryOpenin
             node.kind === 'activity' && Boolean(node.hook && node.requiredEvidence))
         .map(node => Object.freeze({
             ...node.hook,
+            registered: true,
             nodeId: node.id,
             sceneId: scene.id,
             requiredEvidence: Object.freeze({
@@ -524,33 +621,7 @@ function validateOpeningPackages(
         || chapter.entry.story.after !== arrival.id) {
         throw new TypeError('The opening story packages do not form the canonical first arc.');
     }
-    for (const source of sources) {
-        if (!source.sourceSafety.originalYomu
-            || source.sourceSafety.externalDialogueUsed
-            || !source.sourceSafety.fictionalComposite
-            || source.sourceSafety.realEventClaim
-            || !source.replay.chronologicalMemory
-            || source.replay.canonicalWrites !== false) {
-            throw new TypeError(`Story package ${source.id} crosses its fiction or replay boundary.`);
-        }
-        validatePackageGraph(source);
-        source.cast.forEach(use => {
-            const member = getAcademyCastMember(use.castId);
-            if (!member.eligibility.story) throw new TypeError(`Cast member ${use.castId} is not story eligible.`);
-            if (use.portrayal === 'name-only' && use.portraitAsset !== undefined) {
-                throw new TypeError(`Name-only cast member ${use.castId} cannot carry a portrait.`);
-            }
-            if (use.portrayal === 'likeness-cleared' && !member.eligibility.likenessRuntime) {
-                throw new TypeError(`Cast member ${use.castId} is not likeness eligible.`);
-            }
-        });
-        const declaredCast = new Set(source.cast.map(use => use.castId));
-        source.scenes.flatMap(scene => scene.nodes).forEach(node => {
-            if (node.speakerId && !declaredCast.has(node.speakerId)) {
-                throw new TypeError(`Speaker ${node.speakerId} is not declared in ${source.id}'s cast.`);
-            }
-        });
-    }
+    sources.forEach(validateStoryPackageSource);
     const binding = chapter.curriculumBinding;
     if (!binding || binding.lessonId !== 'lesson:foundation-00') {
         throw new TypeError('Chapter 1 must bind the registered Lesson 0 package.');
@@ -624,6 +695,227 @@ function validatePackageGraph(source: StoryPackageSource): void {
         requireAddress(node.onRepair, `${node.id} repair`);
         requireAddress(node.onDefer, `${node.id} defer`);
     });
+}
+
+const STORY_VARIANT_BANDS = ['foundation', 'n5', 'n4', 'n3', 'n2', 'n1', 'ngPlus'] as const;
+
+/**
+ * The one alias map between the authored "location:" namespace and the bare
+ * executable world registry (SCRIPT-ARCHITECTURE.md). Unknown aliases are a
+ * validation error; authors never add a second free-string location namespace.
+ */
+const STORY_LOCATION_ALIASES: Readonly<Record<string, WorldPlaceId>> = Object.freeze({
+    'language-lab': 'lab',
+    'campus-entrance': 'courtyard',
+    'classroom-entrance': 'classroom',
+});
+
+export function resolveStoryLocationId(locationId: string): WorldPlaceId {
+    const bare = locationId.startsWith('location:') ? locationId.slice('location:'.length) : locationId;
+    const resolved = STORY_LOCATION_ALIASES[bare] ?? bare;
+    if (!isWorldPlaceId(resolved)) {
+        throw new TypeError(`Unknown story location alias: ${locationId}`);
+    }
+    return resolved;
+}
+
+/** Authored hooks bind the curriculum package under either `lessonId` or `packageId`. */
+interface StorySourceActivityHook {
+    readonly lessonId?: string;
+    readonly packageId?: string;
+    readonly componentType: string;
+    readonly exerciseId: string;
+}
+
+function storyHookLessonId(source: StoryPackageSource, node: StoryArcNode): string {
+    const hook = node.hook as unknown as StorySourceActivityHook | undefined;
+    const lessonId = hook?.lessonId ?? hook?.packageId;
+    if (!hook?.exerciseId) {
+        throw new TypeError(`Activity ${node.id} in ${source.id} has an incomplete hook.`);
+    }
+    return lessonId ?? `lesson:pending:${source.id}`;
+}
+
+/** Package-local gates shared by the opening compile and every generic chapter. */
+function validateStoryPackageSource(source: StoryPackageSource): void {
+    if (source.schema !== 'yomu-academy.story-package.v2') {
+        throw new TypeError(`Story package ${source.id} uses an unsupported schema: ${source.schema}`);
+    }
+    if (!source.sourceSafety.originalYomu
+        || source.sourceSafety.externalDialogueUsed
+        || !source.sourceSafety.fictionalComposite
+        || source.sourceSafety.realEventClaim
+        || !source.replay.chronologicalMemory
+        || source.replay.canonicalWrites !== false) {
+        throw new TypeError(`Story package ${source.id} crosses its fiction or replay boundary.`);
+    }
+    if (source.scenes.length === 0) {
+        throw new TypeError(`Story package ${source.id} has no scenes.`);
+    }
+    validatePackageGraph(source);
+    source.scenes.forEach(scene => resolveStoryLocationId(scene.locationId));
+    source.cast.forEach(use => {
+        const member = getAcademyCastMember(use.castId);
+        if (!member.eligibility.story) throw new TypeError(`Cast member ${use.castId} is not story eligible.`);
+        if (use.portrayal === 'name-only' && use.portraitAsset !== undefined) {
+            throw new TypeError(`Name-only cast member ${use.castId} cannot carry a portrait.`);
+        }
+        if (use.portrayal === 'likeness-cleared' && !member.eligibility.likenessRuntime) {
+            throw new TypeError(`Cast member ${use.castId} is not likeness eligible.`);
+        }
+    });
+    const declaredCast = new Set(source.cast.map(use => use.castId));
+    source.scenes.flatMap(scene => scene.nodes).forEach(node => {
+        if (node.speakerId && node.speakerId !== 'learner' && !declaredCast.has(node.speakerId)) {
+            throw new TypeError(`Speaker ${node.speakerId} is not declared in ${source.id}'s cast.`);
+        }
+        if (node.kind === 'line') {
+            const bands = Object.keys(node.variants ?? {})
+                .filter(band => (STORY_VARIANT_BANDS as readonly string[]).includes(band));
+            if (bands.length === 0) {
+                throw new TypeError(`Line ${node.id} in ${source.id} has no authored band variant.`);
+            }
+        }
+        if (node.kind === 'activity') {
+            storyHookLessonId(source, node);
+            if (node.requiredEvidence?.kind !== 'activity-passed'
+                || node.requiredEvidence.activityId !== node.hook?.exerciseId) {
+                throw new TypeError(`Activity ${node.id} in ${source.id} does not preserve evidence truth.`);
+            }
+        }
+    });
+    (source.callbacks ?? []).forEach(callback => {
+        if (!['seed', 'echo', 'transform', 'payoff'].includes(callback.state)) {
+            throw new TypeError(`Callback ${callback.id} in ${source.id} has invalid state ${callback.state}.`);
+        }
+        if (callback.state !== 'seed' && !callback.priorUse) {
+            throw new TypeError(`Callback ${callback.id} in ${source.id} requires priorUse for ${callback.state}.`);
+        }
+        if (!callback.meaningNow) {
+            throw new TypeError(`Callback ${callback.id} in ${source.id} is missing meaningNow.`);
+        }
+    });
+}
+
+/** Compiles one authored story-package.v2 chapter into a runner-ready arc. */
+export function compileStoryPackage(source: StoryPackageSource): StoryPlayableArc {
+    validateStoryPackageSource(source);
+    const scenes = Object.freeze(source.scenes.map(scene => freezeScene(source, scene)));
+    const sceneById = new Map(scenes.map(scene => [scene.id, scene]));
+    const addressToScene = new Map<string, StoryArcScene>();
+    scenes.forEach(scene => {
+        addressToScene.set(scene.id, scene);
+        scene.nodes.forEach(node => {
+            addressToScene.set(node.id, scene);
+            node.options?.forEach(option => addressToScene.set(option.id, scene));
+        });
+    });
+    const activities = Object.freeze(scenes.flatMap(scene => scene.nodes
+        .filter((node): node is StoryArcNode & Required<Pick<StoryArcNode, 'hook' | 'requiredEvidence'>> =>
+            node.kind === 'activity' && Boolean(node.hook && node.requiredEvidence))
+        .map(node => Object.freeze({
+            lessonId: storyHookLessonId(source, node),
+            componentType: node.hook.componentType,
+            exerciseId: node.hook.exerciseId,
+            registered: storyExerciseRegistered(node.hook.exerciseId),
+            nodeId: node.id,
+            sceneId: scene.id,
+            requiredEvidence: Object.freeze({
+                kind: 'activity-passed' as const,
+                activityId: node.requiredEvidence.activityId,
+            }),
+            ...(node.when ? { when: node.when } : {}),
+        }))));
+    return Object.freeze({
+        id: `arc:${source.id}`,
+        episodeId: source.id,
+        title: source.title.en,
+        scenes,
+        firstSceneId: scenes[0]!.id,
+        lastSceneId: scenes.at(-1)!.id,
+        curriculum: Object.freeze({ activities }),
+        outcomes: Object.freeze(source.outcomes.map(outcome => Object.freeze({ ...outcome }))),
+        replay: Object.freeze({ canonicalWrites: false as const, chronologicalMemory: true as const }),
+        scene: (sceneId: string | undefined) => sceneId ? sceneById.get(sceneId) : undefined,
+        nextScene: (sceneId: string, choices: Readonly<Record<string, string>> = {}) => {
+            const scene = sceneById.get(sceneId);
+            const target = scene?.exit.next;
+            if (!scene || !target) return undefined;
+            const direct = sceneById.get(target);
+            if (direct) return direct;
+            const choice = scene.nodes.find(node => node.kind === 'choice' && node.id === target);
+            if (choice) {
+                const selected = choice.options?.find(option => option.id === choices[choice.id]);
+                return selected ? addressToScene.get(selected.next) : undefined;
+            }
+            return addressToScene.get(target);
+        },
+    });
+}
+
+function storyExerciseRegistered(exerciseId: string): boolean {
+    // The N3 practice map is the only registered in-bundle story exercise source
+    // today; opening-arc activities are grounded separately against Lesson 0.
+    return Boolean(n3StoryPractice(exerciseId));
+}
+
+function arcIsGrounded(arc: StoryPlayableArc): boolean {
+    return arc.curriculum.activities.every(activity => activity.registered);
+}
+
+function compileAuthoredChapters(openingEpisodeId: string): ReadonlyMap<string, StoryPlayableArc> {
+    const arcs = new Map<string, StoryPlayableArc>();
+    for (const source of AUTHORED_STORY_CHAPTER_SOURCES) {
+        if (source.id === openingEpisodeId) {
+            throw new TypeError('Chapter 1 compiles through the opening arc, not the generic chapter registry.');
+        }
+        if (arcs.has(source.id)) throw new TypeError(`Duplicate authored story chapter: ${source.id}`);
+        arcs.set(source.id, compileStoryPackage(source));
+    }
+    return arcs;
+}
+
+function buildChapterCatalog(
+    openingArc: StoryOpeningArc,
+    episodesById: ReadonlyMap<string, StoryEpisode>,
+    authoredArcs: ReadonlyMap<string, StoryPlayableArc>,
+): readonly StoryChapterCatalogEntry[] {
+    const authoredEntries = AUTHORED_STORY_CHAPTER_SOURCES.map(source => Object.freeze({
+        id: source.id,
+        season: source.season,
+        ...(source.chapter !== undefined ? { chapter: source.chapter } : {}),
+        title: source.title.en,
+        grounded: arcIsGrounded(authoredArcs.get(source.id)!),
+        playable: true,
+    }));
+    const batchEntries = N3_STORY_EPISODES
+        .filter(episode => !authoredArcs.has(episode.id))
+        .map(episode => Object.freeze({
+            id: episode.id,
+            season: Number(/^s(\d+)e/.exec(episode.id)?.[1] ?? 3),
+            chapter: episode.ordinal,
+            title: episode.title,
+            grounded: arcIsGrounded(n3StoryArcForEpisode(episode.id)!),
+            playable: true,
+        }));
+    return Object.freeze([
+        Object.freeze({
+            id: openingArc.episodeId,
+            season: 1,
+            chapter: 1,
+            title: episodesById.get(openingArc.episodeId)?.title ?? openingArc.title,
+            // The opening compile pins every hook to the registered Lesson 0 package.
+            grounded: true,
+            playable: true,
+        }),
+        ...authoredEntries,
+        ...batchEntries,
+    ]);
+}
+
+/** Every compiled chapter, in play order, for the Path/Story UI. */
+export function storyChapterCatalog(): readonly StoryChapterCatalogEntry[] {
+    return loadStoryRuntime().chapterCatalog;
 }
 
 function resolveCastMembers(ids: readonly string[]): readonly StoryCastMember[] {

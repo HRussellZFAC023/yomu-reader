@@ -404,11 +404,14 @@ function updateRegistryLedgerHash(registrySha256) {
         const before = source.slice(0, entryStart);
         const entry = source.slice(entryStart, entryEnd < 0 ? source.length : entryEnd);
         const after = entryEnd < 0 ? '' : source.slice(entryEnd);
+        const deliveryPattern = /("path": "\/academy\/art\/ACADEMY-ASSET-REGISTRY\.json",\s*"sha256": ")[0-9a-f]{64}("\s*)/u;
+        if (!deliveryPattern.test(entry)) {
+            throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry delivery.`);
+        }
         const updatedEntry = entry.replace(
-            /("path": "\/academy\/art\/ACADEMY-ASSET-REGISTRY\.json",\s*"sha256": ")[0-9a-f]{64}("\s*)/u,
+            deliveryPattern,
             `$1${registrySha256}$2`,
         );
-        if (updatedEntry === entry) throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry delivery.`);
         fs.writeFileSync(output, `${before}${updatedEntry}${after}`);
     }
 }

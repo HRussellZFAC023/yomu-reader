@@ -30,7 +30,7 @@ import {
     type N2PolicyScopeResponse,
 } from './types';
 
-const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicyScopeResponse> = {
+export const n2PolicyScopePlugin: ActivityPlugin<N2PolicyScopeModel, N2PolicyScopeResponse> = {
     kind: N2_POLICY_SCOPE_ACTIVITY_KIND,
     validate: validateN2PolicyScope,
     render: renderN2PolicyScope,

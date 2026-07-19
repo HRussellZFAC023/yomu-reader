@@ -20,6 +20,7 @@ export const CANONICAL_CLASS_WEEK_IDS = [
     'l3-2-prestudy-volitional', 'l3-2-l08', 'l3-2-l09', 'l3-2-l10', 'l3-2-kanji-6',
     'l3plus-kickoff',
     'l3plus-l01', 'l3plus-l02', 'l3plus-l03', 'l3plus-l04', 'l3plus-l05', 'l3plus-l06', 'l3plus-l07', 'l3plus-l08', 'l3plus-l09',
+    'l3plus-l10',
     'l3plus-kanji-7',
 ] as const;
 
@@ -38,7 +39,7 @@ export interface ClassWeekCastPlanEntry {
     readonly weekId: CanonicalClassWeekId;
     readonly weekKind: string;
     readonly source: Readonly<{
-        donor: 'academy-rebuild-20260711';
+        donor: 'academy-rebuild-20260711' | 'moodle-reachability-20260719';
         file: string;
         title: Readonly<{ en: string; ja: string }>;
         topicEvidence: readonly string[];

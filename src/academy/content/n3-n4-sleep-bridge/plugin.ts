@@ -31,7 +31,7 @@ import {
     type N3N4SleepBridgeResponse,
 } from './types';
 
-const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4SleepBridgeResponse> = {
+export const n3N4SleepBridgePlugin: ActivityPlugin<N3N4SleepBridgeModel, N3N4SleepBridgeResponse> = {
     kind: N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND,
     validate: validateN3N4SleepBridge,
     render: renderN3N4SleepBridge,

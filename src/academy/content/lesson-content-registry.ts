@@ -104,6 +104,7 @@ const AUTHORED_WEEK_FILES = [
     ['058-l2-l31.json', 'l2-l31', 'l3plus-l07'],
     ['059-l2-l32.json', 'l2-l32', 'l3plus-l08'],
     ['060-l2-l33.json', 'l2-l33', 'l3plus-l09'],
+    ['063-l2-l36.json', 'l2-l36', 'l3plus-l10'],
     ['061-l2-l34.json', 'l2-l34', 'l3plus-kanji-7'],
 ] as const satisfies readonly (readonly [string, AuthoredWeekId, string])[];
 

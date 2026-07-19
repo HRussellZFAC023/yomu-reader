@@ -307,21 +307,35 @@ function playableActivityAction(
     const root = element('section', 'academy-story-vn-activity');
     root.dataset.activityId = moment.binding.exerciseId;
     root.dataset.lessonId = moment.binding.lessonId;
+    root.dataset.activityRegistered = String(moment.binding.registered);
     if (arc.curriculum.contentSha256) root.dataset.sourceSha256 = arc.curriculum.contentSha256;
     root.dataset.activityGate = moment.gate;
+    // Only the opening arc's activities belong to Lesson 0. Later chapters bind to
+    // their own week (e.g. l1-l20), so pinning "Lesson 0" here mislabels them. Drop
+    // the pin unless the binding really is the foundation lesson; the human lesson
+    // title comes from the class-week catalog (see Story<->UI linkage spec).
+    const lessonPin = moment.binding.lessonId === 'lesson:foundation-00' ? ' · Lesson 0' : '';
     root.append(
-        textElement('strong', 'academy-story-activity-kind', `${capitalize(moment.binding.componentType)} · Lesson 0`),
+        textElement('strong', 'academy-story-activity-kind', `${capitalize(moment.binding.componentType)}${lessonPin}`),
         textElement('span', 'academy-story-activity-id', moment.binding.exerciseId),
-        textElement('p', 'academy-story-activity-state', activityGateLabel(options.language, moment.gate)),
+        textElement('p', 'academy-story-activity-state', moment.binding.registered
+            ? activityGateLabel(options.language, moment.gate)
+            : options.language === 'ja' ? '練習は準備中です。' : 'Practice is being prepared.'),
     );
     const controls = element('div', 'academy-story-vn-activity-actions');
-    if (options.onOpenActivity) {
+    if (moment.binding.registered && options.onOpenActivity) {
         const open = actionButton(options.language === 'ja' ? '練習を開く' : 'Open practice', 'academy-story-open-activity', actions.open);
         open.dataset.storyCursor = serializeStoryCursor(cursor);
         controls.append(open);
     }
     if (moment.gate === 'passed' || moment.gate === 'placement-equivalent' || moment.gate === 'story-only') {
         controls.append(actionButton(options.language === 'ja' ? '物語を続ける' : 'Continue story', 'academy-story-activity-continue', actions.continue));
+    } else if (!moment.binding.registered) {
+        controls.append(actionButton(
+            options.language === 'ja' ? '物語を続ける' : 'Continue story',
+            'academy-story-activity-story-only',
+            actions.storyOnly,
+        ));
     } else {
         controls.append(actionButton(
             options.language === 'ja' ? '単位を付けずに続ける' : 'Continue without practice credit',
@@ -502,13 +516,14 @@ function activityGateLabel(
 }
 
 function directionForScene(scene: StoryArcScene) {
-    const plate = scene.locationId.includes('entrance')
+    const eventArt = STORY_EVENT_ART_BY_SCENE[scene.id];
+    const plate = eventArt ?? (scene.locationId.includes('entrance')
         ? ACADEMY_ASSETS.locations.entrance
         : scene.locationId.includes('language-lab')
             ? ACADEMY_ASSETS.locations.languageLab
             : scene.locationId.includes('library')
                 ? ACADEMY_ASSETS.locations.library
-                : ACADEMY_ASSETS.locations.classroom;
+                : ACADEMY_ASSETS.locations.classroom);
     return {
         plate: {
             id: scene.locationId,
@@ -526,6 +541,21 @@ function storyCurrentPlace(scene: StoryArcScene): 'courtyard' | 'classroom' | 'l
     if (scene.locationId.includes('library')) return 'library';
     if (scene.locationId.includes('campus-entrance')) return 'courtyard';
     return 'classroom';
+}
+
+const STORY_EVENT_ART_BY_SCENE: Readonly<Record<string, Readonly<{ wide: string; mobile: string }>>> = {
+    'scene:empty-microphone:host-drops-out': eventPlate(ACADEMY_ASSETS.events.emptyMicrophoneRehearsal),
+    'scene:empty-microphone:the-role-on-the-sheet': eventPlate(ACADEMY_ASSETS.events.emptyMicrophoneRehearsal),
+    'scene:last-revision:what-stays-out-of-frame': eventPlate(ACADEMY_ASSETS.events.withheldPanelHandoff),
+    'scene:last-revision:vivid-but-restores-nothing': eventPlate(ACADEMY_ASSETS.events.withheldPanelHandoff),
+    'scene:atlas-closes:what-the-template-was': eventPlate(ACADEMY_ASSETS.events.atlasFinaleNextPage),
+    'scene:atlas-closes:only-this-far': eventPlate(ACADEMY_ASSETS.events.atlasFinaleNextPage),
+    'scene:next-page:the-terms-of-the-page': eventPlate(ACADEMY_ASSETS.events.atlasFinaleNextPage),
+    'scene:next-page:the-one-thing-left': eventPlate(ACADEMY_ASSETS.events.atlasFinaleNextPage),
+};
+
+function eventPlate(source: string): Readonly<{ wide: string; mobile: string }> {
+    return Object.freeze({ wide: source, mobile: source });
 }
 
 function renderEpisodeOutline(options: StoryScreenOptions, episode: StoryEpisode): HTMLElement {

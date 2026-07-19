@@ -1,0 +1,486 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e02-map-of-claims",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 38,
+  "title": {
+    "en": "A Map of Claims",
+    "ja": "確かさの地図"
+  },
+  "synopsis": "The library table holds three sources of different weight: the former learner's letter with one question left declined, the physical page's layered ink, and the class's own notes. Sophie wants to pull them into one clean account tonight, but Henry names that the sources will not merge and refuses to invent an author field. Together they turn the number notebook into an evidence map where colour marks how sure and where-from, and the learner decides how the map holds a claim the record cannot support.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sophie",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "confident inference framed as unchallengeable fact",
+        "any anxiety, clinical, or fragility framing of her wish to be fast and liked"
+      ]
+    },
+    {
+      "castId": "henry",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, or private history",
+        "inferred employer or real job",
+        "a technical workaround presented as resolving the atlas's provenance"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e01-return-address",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityIds": [
+            "activity:s4e02-map-of-claims-evidence-map"
+          ],
+          "function": "synthesize-sources-of-mixed-reliability-and-mark-each-claims-confidence-and-source-kind"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-eight-return-sophie"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:map-of-claims:table-of-sources",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Lay out three sources of unequal reliability and reach the point where merging them into one account would mean inventing what the record cannot support.",
+      "dramaticQuestion": "Faced with sources that disagree, will the class write one clean story, or a map that keeps each claim at its true confidence?",
+      "learnerNeed": "A synthesis task where sorting each claim to its source and marking how sure it is matters more than producing a single finished account.",
+      "curriculum": {
+        "sectionId": "map-confidence-and-source-kind",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:map-of-claims:table-of-sources",
+          "beatId": "beat:map-of-claims:arrival-image",
+          "cueId": "cue:three-sources-apart-on-the-table",
+          "description": "The library's long table is cleared to bare wood. Three things sit on it, set well apart: a single handwritten letter, the lower half of it left blank where a question went unanswered; a shallow tray of paper offcuts and ink samples lifted from the old page; a stack of the class's own notes. Sophie's colour-coded notebook is open to a fresh spread beside them."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:sophie-frame",
+          "beatId": "beat:map-of-claims:host-want",
+          "speakerId": "sophie",
+          "intent": "Spread the three sources as a finishable job and lean toward pulling them into one clean account tonight, her finish-first reflex reaching for a single story.",
+          "attentionTarget": "the three sources laid out and the empty notebook spread waiting for one account",
+          "variants": {
+            "n3": {
+              "japanese": "材料、そろったよ。あの人の手紙と、紙そのものと、私たちのメモ。これ、今夜のうちに一つの話にまとめちゃおうと思って。もう、だいたい筋は見えてるし。",
+              "reading": "ざいりょう、そろったよ。あのひとのてがみと、かみそのものと、わたしたちのメモ。これ、こんやのうちにひとつのはなしにまとめちゃおうとおもって。もう、だいたいすじはみえてるし。",
+              "english": "We've got the pieces. Her letter, the paper itself, and our own notes. I figured we'd pull it into one story tonight. The shape's more or less there already."
+            },
+            "n2": {
+              "japanese": "材料はひと通りそろったよ。あの人からの返事と、紙そのものと、私たちのメモ。これ、今夜のうちに一本の話にまとめちゃおうかなと思って。大筋はもう見えてる気がするんだよね。",
+              "reading": "ざいりょうはひととおりそろったよ。あのひとからのへんじと、かみそのものと、わたしたちのメモ。これ、こんやのうちにいっぽんのはなしにまとめちゃおうかなとおもって。おおすじはもうみえてるきがするんだよね。",
+              "english": "We've got a full set of pieces now. Her reply, the paper itself, and our own notes. I was thinking we could pull it into one clean account tonight. The broad shape's there already, I think."
+            },
+            "n1": {
+              "japanese": "材料は、ひと通りそろったよ。あの人からの返事に、紙そのもの、それに私たちのメモ。これ、今夜のうちに一本の話に落とし込めるかな、と思って。……大筋のほうは、もう見えてる気がするんだよね。",
+              "reading": "ざいりょうは、ひととおりそろったよ。あのひとからのへんじに、かみそのもの、それにわたしたちのメモ。これ、こんやのうちにいっぽんのはなしにおとしこめるかな、とおもって。……おおすじのほうは、もうみえてるきがするんだよね。",
+              "english": "The pieces are all in, more or less. Her reply, the paper itself, and our own notes. I was thinking we might get it down into one account tonight. …The broad shape of it, I feel like I can already see."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:henry-different-kinds",
+          "beatId": "beat:map-of-claims:obstruction",
+          "speakerId": "henry",
+          "intent": "Stop the merge before it starts: name that the three sources are different kinds of evidence, that one question was declined, and that adding an author field would be inventing the answer, so propose ranking confidence instead of filling gaps.",
+          "attentionTarget": "the gap between what each source can actually support, and the blank half of the letter",
+          "variants": {
+            "n2": {
+              "japanese": "まとめる前に、一個だけ。この三つ、種類が違うんだよね。手紙は本人が言ったこと、でも一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とは書いてない。ここで著者欄を足したら、それ、こっちが作った話になる。……だから、埋めにいくんじゃなくて、どのくらい確かかを並べる形にしない?",
+              "reading": "まとめるまえに、いっこだけ。このみっつ、しゅるいがちがうんだよね。てがみはほんにんがいったこと、でもいっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはかいてない。ここでちょしゃらんをたしたら、それ、こっちがつくったはなしになる。……だから、うめにいくんじゃなくて、どのくらいたしかかをならべるかたちにしない?",
+              "english": "Before we merge it, one thing. These three are different kinds. The letter is what she said herself, but there's one spot she declined to answer. The paper only shows the marks of several classes layered on top of each other, with no line saying who. If we add an author field here, that becomes a story we made up. …So instead of going in to fill the gaps, how about a form that lines up how sure each thing is?"
+            },
+            "n1": {
+              "japanese": "まとめにかかる前に、一点だけ。この三つ、そもそも種類が違うんだよ。手紙は本人が言ったこと。ただ、一箇所は答えを断られてる。紙のほうは、いくつものクラスが上から重ねてきた跡が残ってるだけで、誰が、とはどこにも書いてない。ここで著者欄をこしらえたら……それ、結局こっちが作った話になっちゃう。だから、空欄を埋めにいくんじゃなくて、どこまで確かかを並べておく形にしないかな。……たぶん、そのほうが後で困らないと思う。",
+              "reading": "まとめにかかるまえに、いってんだけ。このみっつ、そもそもしゅるいがちがうんだよ。てがみはほんにんがいったこと。ただ、いっかしょはこたえをことわられてる。かみのほうは、いくつものクラスがうえからかさねてきたあとがのこってるだけで、だれが、とはどこにもかいてない。ここでちょしゃらんをこしらえたら……それ、けっきょくこっちがつくったはなしになっちゃう。だから、くうらんをうめにいくんじゃなくて、どこまでたしかかをならべておくかたちにしないかな。……たぶん、そのほうがあとでこまらないとおもう。",
+              "english": "Before we start merging, just one point. These three are different kinds to begin with. The letter is what she said herself. Except there's one spot she declined to answer. The paper only has the marks of several classes layered on top, and nowhere does it say who. If we go and build an author field here… that ends up a story we made. So rather than fill the blank in, how about we lay out how far each thing holds. …It saves us trouble later, probably."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:sophie-turns-to-a-map",
+          "beatId": "beat:map-of-claims:calibration",
+          "speakerId": "sophie",
+          "intent": "Take the turn away from one account and toward a map where every claim carries its source and its confidence, giving her colour-coding the new job and naming the diagnostic level 'this only goes as far as apparently.'",
+          "attentionTarget": "her coloured pens, now standing in for degrees of certainty rather than topics",
+          "variants": {
+            "n3": {
+              "japanese": "……そうか。うん、一本にしなくていいんだ。じゃあ、地図にしよう。一つひとつの主張に、『どこから来たか』と『どのくらい確かか』を付ける。手紙で本人が言い切ったところは濃い色、紙から推せるだけのところは薄い色。ここなんかは、『そうらしい』までかな。色が、確かさそのものになる。",
+              "reading": "……そうか。うん、いっぽんにしなくていいんだ。じゃあ、ちずにしよう。ひとつひとつのしゅちょうに、『どこからきたか』と『どのくらいたしかか』をつける。てがみでほんにんがいいきったところはこいいろ、かみからおせるだけのところはうすいいろ。ここなんかは、『そうらしい』までかな。いろが、たしかさそのものになる。",
+              "english": "…Right. Yeah, we don't have to make it one account. Then let's make it a map. Every claim gets a 'where it came from' and a 'how sure.' Where she says it outright in the letter, a dark colour; where the paper only lets us guess, a pale one. This one here only goes as far as 'apparently,' I'd say. Colour becomes the certainty itself."
+            },
+            "n2": {
+              "japanese": "……なるほど。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておく。手紙で本人がはっきり言い切ったところは濃い色。紙から推せるだけのところは薄い色。ここなんかは、正直、『そうらしい』までかな。色そのものが、確かさの目盛りになる。",
+              "reading": "……なるほど。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておく。てがみでほんにんがはっきりいいきったところはこいいろ。かみからおせるだけのところはうすいいろ。ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、たしかさのめもりになる。",
+              "english": "…I see. Yeah, we don't have to force it into one account. Then let's just make it a map. On every claim we stick a 'where the story came from' and a 'how far it holds.' Where she says it flat out in the letter, a dark colour. Where the paper only lets us infer, a pale one. This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty."
+            },
+            "n1": {
+              "japanese": "……なるほどね。うん、無理に一本にまとめなくていい。じゃあ、いっそ地図にしよう。主張の一つひとつに、『どこから来た話か』と『どこまで確かか』を貼っておくの。手紙で本人がはっきり言い切ったところは、濃い色で。紙から推せるだけのところは、薄い色で。……ここなんかは、正直、『そうらしい』までかな。色そのものが、そのまま確かさの目盛りになる。",
+              "reading": "……なるほどね。うん、むりにいっぽんにまとめなくていい。じゃあ、いっそちずにしよう。しゅちょうのひとつひとつに、『どこからきたはなしか』と『どこまでたしかか』をはっておくの。てがみでほんにんがはっきりいいきったところは、こいいろで。かみからおせるだけのところは、うすいいろで。……ここなんかは、しょうじき、『そうらしい』までかな。いろそのものが、そのままたしかさのめもりになる。",
+              "english": "…I see. Yeah, no need to force it into one account. Then let's just make it a map. On each single claim we pin a 'where the story came from' and a 'how far it holds.' Where she says it outright in the letter, in a dark colour. Where the paper only lets us infer, in a pale one. …This one, honestly, only reaches as far as 'apparently.' The colour itself becomes the scale of certainty, just like that."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-of-claims:before-map",
+          "beatId": "beat:map-of-claims:map-attempt",
+          "resume": "The three sources are laid out and the plan is a map, not one account. The learner steps in to sort each claim to its source, mark how sure it is with the right hedge, and leave what the record cannot support as a labelled blank."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:map-of-claims:build-evidence-map",
+          "beatId": "beat:map-of-claims:map-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e02-map-of-claims-evidence-map"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e02-map-of-claims-evidence-map"
+          },
+          "resumeContext": "Three sources of unequal weight are in front of the learner: the letter (what she stated, with one point declined), the physical page (layered ink from several classes, no author line), and the class notes. The learner places each claim in its cell, tags it with source attribution and the confidence its evidence warrants — 〜によると for the letter, 〜らしい / 〜ようだ for what the paper only suggests, a flat statement only where the evidence is firm — and leaves the earliest-origin claim, which no source supports, as a blank labelled 'we don't know this yet' rather than filling it.",
+          "onReady": "checkpoint:map-of-claims:after-map",
+          "onRepair": "node:map-of-claims:map-repair",
+          "onDefer": "checkpoint:map-of-claims:before-map"
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-of-claims:map-repair",
+          "beatId": "beat:map-of-claims:map-repair",
+          "cueId": "cue:one-cell-lifted-back-out",
+          "description": "Only the one cell whose confidence tag outran its source is lifted back out. Its coloured tab is set to the side while the source line under it is read again, slower. The cells already placed stay exactly where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-of-claims:after-map",
+          "beatId": "beat:map-of-claims:map-response",
+          "resume": "Each claim now sits under its source with a colour that matches how sure it is, and the unsupported cell is a labelled blank. Henry looks over the finished grid before touching anything."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:henry-structure-holds",
+          "beatId": "beat:map-of-claims:changed-image",
+          "speakerId": "henry",
+          "intent": "Confirm the structure holds each claim at its own level and mark his own changed behavior: he no longer fills a gap he finds, and he trusts a map that says out loud where it is not certain.",
+          "attentionTarget": "the blank cell that has stayed blank on purpose",
+          "variants": {
+            "n2": {
+              "japanese": "うん、これでいい。埋まってないところが、ちゃんと埋まってないまま見える。前の俺なら、こういう穴を見つけると、とりあえず何か足したくなってたけど……この地図は、確かじゃないところを、自分から『ここは確かじゃない』って言ってくれる。取り繕うより、そのほうがずっと信用できるよ。",
+              "reading": "うん、これでいい。うまってないところが、ちゃんとうまってないままみえる。まえのおれなら、こういうあなをみつけると、とりあえずなにかたしたくなってたけど……このちずは、たしかじゃないところを、じぶんから『ここはたしかじゃない』っていってくれる。とりつくろうより、そのほうがずっとしんようできるよ。",
+              "english": "Yeah, this is right. Where it isn't filled, you can see it isn't filled. The old me, when I found a hole like this, would want to add something to it… but this map says it for you: 'this part isn't certain.' I trust that more than papering it over."
+            },
+            "n1": {
+              "japanese": "うん、これでいいと思う。埋まっていないところが、埋まっていないまま、ちゃんと見える。……前の俺なら、こういう穴を見つけたら、とりあえず何か足して塞ごうとしてたんだよな。でもこの地図は、確かじゃない箇所を、自分から『ここは確かじゃない』って言ってくれる。下手に取り繕うより、そのほうがずっと信用できるよ。",
+              "reading": "うん、これでいいとおもう。うまっていないところが、うまっていないまま、ちゃんとみえる。……まえのおれなら、こういうあなをみつけたら、とりあえずなにかたしてふさごうとしてたんだよな。でもこのちずは、たしかじゃないかしょを、じぶんから『ここはたしかじゃない』っていってくれる。へたにとりつくろうより、そのほうがずっとしんようできるよ。",
+              "english": "Yeah, I think this is right. Where it isn't filled, it stays unfilled, and you can see it plainly. …The old me, if I found a hole like this, would just add something to plug it. But this map says it for you: 'this part isn't certain.' I trust that a lot more than a clumsy cover-up."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-of-claims:grid-takes-shape",
+          "beatId": "beat:map-of-claims:changed-image-2",
+          "cueId": "cue:map-ruled-into-tabbed-cells",
+          "description": "A large sheet now covers the table, ruled into cells. Each filled cell carries a coloured tab and a short source line under it. One cell near the middle is left uncoloured, a single phrase written across it and nothing else."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:map-of-claims:the-colour-for-unknown"
+      }
+    },
+    {
+      "id": "scene:map-of-claims:the-colour-for-unknown",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Let the map's most rigorous move be a visible blank, and decide how it holds a claim the former learner declined to answer without either inventing it or erasing that she declined.",
+      "dramaticQuestion": "Is the strongest mark on a record the one that is filled in, or the one honestly left open?",
+      "learnerNeed": "A stance on holding a claim the record cannot support and a person chose not to answer, keeping both facts visible.",
+      "curriculum": {
+        "sectionId": "hold-the-unsupported-claim",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:map-of-claims:blank-labelled",
+          "beatId": "beat:map-of-claims:regroup-image",
+          "cueId": "cue:one-cell-labelled-we-dont-know",
+          "description": "The map is nearly full. In the middle, one cell stays deliberately empty except for three words written across it: we don't know this yet. Nothing around it has been stretched to reach over it. Sophie's notebook lies open beside the sheet, the old two-column page showing through under the new grid."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:sophie-blank-is-strongest",
+          "beatId": "beat:map-of-claims:record-want",
+          "speakerId": "sophie",
+          "intent": "Name the labelled blank as the strongest cell on the map, mark her own change from wanting every cell filled, and tie the whole map back to the number notebook as its grown-up form.",
+          "attentionTarget": "the empty cell that reads 'we don't know this yet,' and the notebook it grew out of",
+          "variants": {
+            "n3": {
+              "japanese": "見て、ここ。『まだ分からない』って書いてある空欄。これ、この地図でいちばん強いマスだと思う。昔の私だったら、絶対ここも何かで埋めてた。全部埋まってないと落ち着かなくて。……でも今は、空けたままにしておけるほうが、ずっといい仕事だって分かる。あのノート、覚えてる? 数字を場面ごと書いてたやつ。あれが、こういう形になったんだね。",
+              "reading": "みて、ここ。『まだわからない』ってかいてあるくうらん。これ、このちずでいちばんつよいマスだとおもう。むかしのわたしだったら、ぜったいここもなにかでうめてた。ぜんぶうまってないとおちつかなくて。……でもいまは、あけたままにしておけるほうが、ずっといいしごとだってわかる。あのノート、おぼえてる? すうじをばめんごとかいてたやつ。あれが、こういうかたちになったんだね。",
+              "english": "Look, here. The empty cell that says 'still don't know.' I think it's the strongest cell on the map. The old me would definitely have filled this in with something too. I couldn't settle unless everything was full. …But now I get that leaving it open is the better piece of work. Remember that notebook? The one where we wrote each number with its situation. This is what it turned into."
+            },
+            "n2": {
+              "japanese": "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。全部埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、こういう地図になったんだ。",
+              "reading": "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、こういうちずになったんだ。",
+              "english": "Look, here. The empty cell that we went to the trouble of writing 'still don't know' across. I think this might be the strongest cell on the map. The old me would surely have filled this in with something too. I just couldn't settle unless it was all full. But now I see that leaving it open, marked 'don't know,' is far more use. …Remember that notebook? Where we wrote each number with which situation we counted it in. That's what became this map."
+            },
+            "n1": {
+              "japanese": "見て、ここ。『まだ分からない』って、わざわざ書いてある空欄。……これ、この地図でいちばん強いマスなんじゃないかな。昔の私なら、ここもきっと何かで埋めてた。ぜんぶ埋まってないと、どうにも落ち着かなくてね。でも今は、空けたまま『分からない』って置いておけることのほうが、よっぽど仕事になるって分かる。……ほら、あのノート。数字を、どの場面で数えたかごと書いてたやつ。あれが、めぐりめぐって、こういう地図になったんだね。",
+              "reading": "みて、ここ。『まだわからない』って、わざわざかいてあるくうらん。……これ、このちずでいちばんつよいマスなんじゃないかな。むかしのわたしなら、ここもきっとなにかでうめてた。ぜんぶうまってないと、どうにもおちつかなくてね。でもいまは、あけたまま『わからない』っておいておけることのほうが、よっぽどしごとになるってわかる。……ほら、あのノート。すうじを、どのばめんでかぞえたかごとかいてたやつ。あれが、めぐりめぐって、こういうちずになったんだね。",
+              "english": "Look, here. The empty cell that we went out of our way to write 'still don't know' across. …I think this might just be the strongest cell on the map. The old me would surely have filled it in with something. I couldn't settle at all unless every last thing was full. But now I understand that leaving it open, marked 'don't know,' is by far the better work. …Remember that notebook? The one where we wrote each number along with which situation we'd counted it in. That, going all the way round, became this map."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:map-of-claims:how-to-hold-the-declined",
+          "beatId": "beat:map-of-claims:record-stance",
+          "question": "The one question she declined to answer — how should the map hold it?",
+          "options": [
+            {
+              "id": "option:map-of-claims:record-as-declined",
+              "action": "Record it as her choice not to answer, and leave the cell open rather than infer past it.",
+              "japaneseByBand": {
+                "n3": "答えを断られたところは、『本人が話さないと決めた』って、そのまま書いておこう。こっちで推測して埋めない。それも一つの記録だから。",
+                "n2": "あの人が答えを控えた点は、『本人が話さないことを選んだ』と、そのまま残しておこう。こっちで推測して埋めたりしないで。断ったこと自体が、はっきりした記録だから。",
+                "n1": "あの人が答えを控えたところは、無理に推さずに、『本人が話さないと決めた』と、そのまま書き残しておこう。空欄をこっちの想像で埋めにいかない。……答えないという選択そのものが、一つのはっきりした記録なんだと思う。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:map-of-claims:before-mechanism"
+            },
+            {
+              "id": "option:map-of-claims:infer-at-low-confidence",
+              "action": "Add what the paper alone suggests at the palest confidence, with her declining written into the same cell.",
+              "japaneseByBand": {
+                "n3": "断られた点も、紙から推せる範囲でなら、いちばん薄い色で『推測』って添えておかない? 本人が答えなかったことも、一緒に書いた上で。",
+                "n2": "答えを控えられた点も、紙から推せるぶんだけ、いちばん薄い色で『あくまで推測』と添えておかない? 本人が答えなかった事実も、必ず同じ欄に並べて書いた上で。",
+                "n1": "答えを控えられた点についても、紙から推せる範囲でなら、いちばん薄い色で『あくまで推測』と添えておくのはどうかな。……ただし、本人が答えなかったという事実を、必ず同じ欄に並べて書いておく前提で。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:map-of-claims:before-mechanism"
+            }
+          ],
+          "convergence": "checkpoint:map-of-claims:before-mechanism"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:map-of-claims:before-mechanism",
+          "beatId": "beat:map-of-claims:mechanism-attempt",
+          "resume": "The learner has chosen how the map holds the declined claim. Henry answers by setting up the map's data so the gap survives on screen and no cleaner draft can quietly overwrite it."
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:henry-tool-shows-the-gap",
+          "beatId": "beat:map-of-claims:repair",
+          "speakerId": "henry",
+          "intent": "Commit to building the map's data so blanks stay blank on screen and versions are dated, changed behavior after the wrong-draft incident: the tool itself now shows where it is uncertain rather than smoothing it over.",
+          "attentionTarget": "the same empty cell rendered empty on the laptop, and the dated version label",
+          "variants": {
+            "n2": {
+              "japanese": "地図のデータのほう、俺が組んでおくよ。空いてるマスは、空いてるまま画面に出す。気を利かせて勝手に埋める処理は入れない。あと、版はちゃんと日付で分けておく。……この前みたいに、誰かが『こっちのほうが見栄えがいい』って古い版をうっかり出しちゃう、ああいうのはもう起こしたくないから。確かじゃない情報は、確かじゃないって、画面のほうにもちゃんと出しておく。",
+              "reading": "ちずのデータのほう、おれがくんでおくよ。あいてるマスは、あいてるままがめんにだす。きをきかせてかってにうめるしょりはいれない。あと、はんはちゃんとひづけでわけておく。……このまえみたいに、だれかが『こっちのほうがみばえがいい』ってふるいはんをうっかりだしちゃう、ああいうのはもうおこしたくないから。たしかじゃないじょうほうは、たしかじゃないって、がめんのほうにもちゃんとだしておく。",
+              "english": "I'll build the map's data side. Empty cells go on screen empty. No helpful auto-fill routine. And I'll keep the versions split by date. …I don't want another time like before, where someone pulls up an old version because it 'looks nicer' by mistake. Where information isn't certain, the screen says so too."
+            },
+            "n1": {
+              "japanese": "データのほうは、俺が組んでおく。空いてるマスは、空いてるまま画面に出すよ。気を利かせて自動で埋める、みたいな処理は一切入れない。……版も、きちんと日付で切り分けておく。この前みたいに、誰かが『こっちのほうが見栄えがいいから』って古い版をうっかり出しちゃう、ああいうのはもう二度と起こしたくないんだよね。確かじゃない情報は、確かじゃないと、ちゃんと画面のほうにも出しておくよ。",
+              "reading": "データのほうは、おれがくんでおく。あいてるマスは、あいてるままがめんにだすよ。きをきかせてじどうでうめる、みたいなしょりはいっさいいれない。……はんも、きちんとひづけできりわけておく。このまえみたいに、だれかが『こっちのほうがみばえがいいから』ってふるいはんをうっかりだしちゃう、ああいうのはもうにどとおこしたくないんだよね。たしかじゃないじょうほうは、たしかじゃないと、ちゃんとがめんのほうにもだしておくよ。",
+              "english": "I'll put the data side together. Empty cells go on screen empty. Not a single auto-fill routine trying to be helpful. …And I'll cut the versions apart cleanly by date. I really don't want a repeat of last time, someone pulling up an old version by mistake because it 'looks better.' Where the information isn't certain, the screen will say it isn't, too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:map-of-claims:sophie-only-this-far",
+          "beatId": "beat:map-of-claims:exit-line",
+          "speakerId": "sophie",
+          "intent": "Weigh the two sources against each other, conclude only to the level the record supports, and set the map's line as the way the class will one day close the atlas.",
+          "attentionTarget": "the letter and the physical page side by side, and the line the map draws between what can and cannot be said",
+          "variants": {
+            "n2": {
+              "japanese": "うん。……こうして並べると、はっきりするね。手紙によると、で言えるのはここまで。紙が示してるのは、何クラスも重ねてきた、ということだけ。誰が最初か、までは、どっちの材料も言ってない。だから地図には、こう書いておく。『ここまでは言える。これ以上は、まだ言えない』。……アトラスを閉じるときも、たぶん、このやり方でいいんだよね。",
+              "reading": "うん。……こうしてならべると、はっきりするね。てがみによると、でいえるのはここまで。かみがしめしてるのは、なんクラスもかさねてきた、ということだけ。だれがさいしょか、までは、どっちのざいりょうもいってない。だからちずには、こうかいておく。『ここまではいえる。これいじょうは、まだいえない』。……アトラスをとじるときも、たぶん、このやりかたでいいんだよね。",
+              "english": "Yeah. …Laid out like this, it gets clear. According to the letter, we can say this much and no more. What the paper shows is only that several classes layered onto it. Who was first — neither source says. So on the map we write this: 'this far we can say; beyond this, not yet.' …When we close the atlas too, this is probably the way to do it."
+            },
+            "n1": {
+              "japanese": "うん。……こうして横に並べてみると、かえってはっきりするね。手紙によると、で言い切れるのは、ここまで。紙のほうが示しているのは、いくつものクラスが上から重ねてきた、という一点だけ。どちらの材料も、『誰が最初に始めたか』までは、何も言ってない。だからこの地図には、こう書いておくの。『ここまでは言える。これ以上は、まだ言えない』って。……いつかアトラスを閉じるときも、きっと、このやり方でいいんだと思う。",
+              "reading": "うん。……こうしてよこにならべてみると、かえってはっきりするね。てがみによると、でいいきれるのは、ここまで。かみのほうがしめしているのは、いくつものクラスがうえからかさねてきた、といういってんだけ。どちらのざいりょうも、『だれがさいしょにはじめたか』までは、なにもいってない。だからこのちずには、こうかいておくの。『ここまではいえる。これいじょうは、まだいえない』って。……いつかアトラスをとじるときも、きっと、このやりかたでいいんだとおもう。",
+              "english": "Yeah. …Set side by side like this, it actually gets clearer. According to the letter, what we can state outright reaches this far. What the paper shows is the one point that several classes layered on top of it. Neither source says a thing about who started it first. So on the map we write this: 'this far we can say; beyond this, not yet.' …Whenever we come to close the atlas, this is surely the way to do it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:map-of-claims:map-left-on-the-table",
+          "beatId": "beat:map-of-claims:exit-image",
+          "cueId": "cue:finished-map-blank-cell-intact",
+          "description": "The finished map lies flat under the reading lamp, colour standing for how sure and where-from, one cell a labelled blank. Henry's laptop shows the same grid, the empty cell empty on screen too. Sophie caps her darkest pen without reaching for the blank, and closes the number notebook over the new page."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:useful-number-notebook",
+      "state": "transform",
+      "ownerIds": [
+        "sophie",
+        "rose",
+        "henry"
+      ],
+      "meaningNow": "The number notebook becomes a shared evidence map: colour now encodes how sure a claim is and what kind of source it came from, source attribution and hedging carry each claim at its true confidence, and one cell is a labelled blank for what the record cannot support.",
+      "priorUse": {
+        "packageId": "s1e20-map-from-memory",
+        "sceneId": "scene:map-from-memory:three-rememberings",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "Sophie and Henry simply sort the three sources into a table, colour each entry by how sure they are, and leave the earliest-origin claim as a blank marked 'we don't know this yet.'"
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:map-of-claims:evidence-map",
+      "kind": "story",
+      "description": "The class turns its number notebook into a provenance evidence map that marks each claim's source kind and confidence in colour, records the former learner's declined question without inventing an answer, and leaves the earliest-origin claim as a visible labelled blank rather than filling it."
+    },
+    {
+      "id": "outcome:map-of-claims:sophie-return",
+      "kind": "bond",
+      "castId": "sophie",
+      "chapter": 38,
+      "beat": "return",
+      "description": "The student who once wanted every cell filled and correct builds a map whose strongest mark is a blank labelled 'we don't know this yet'; her colour-coding becomes a calibration tool for confidence and source kind, and she is at peace concluding only as far as the record supports. She has become the class's calibration voice."
+    },
+    {
+      "id": "outcome:map-of-claims:henry-return",
+      "kind": "bond",
+      "castId": "henry",
+      "chapter": 38,
+      "beat": "return",
+      "description": "Having learned at his limit that provenance is an absence no author field can fix, Henry stops reaching to plug the gap and instead builds structure that shows its uncertainty: the map's data shows empty cells empty and dates its versions so no cleaner draft overwrites the truth. The class can now ask him to structure a record that says out loud where it is not certain."
+    },
+    {
+      "id": "outcome:map-of-claims:transfer-return",
+      "kind": "curriculum-return",
+      "transferId": "activity:s4e02-map-of-claims-evidence-map",
+      "description": "Synthesis, source-quality weighing, and calibrated-certainty evidence returns through the chapter's transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:henry-structures-the-grid-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-evidence-map-step"
+    ],
+    "withdrawnContentFallback": "Use the same synthesis-and-calibration beats with neutral nameplates: two classmates weigh a partial letter against physical page evidence, mark each claim's confidence and source in colour, record a declined question without inventing it, and leave the unsupported origin as a labelled blank."
+  }
+}

@@ -1,0 +1,526 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e03-polite-no",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 39,
+  "title": {
+    "en": "The Polite No",
+    "ja": "丁重なお断り"
+  },
+  "synopsis": "The venue likes the program but wants a cleaner, more inspirational ending — a single founder, an uplifting close the evidence map can't support. Robert's first instinct is to fill the gap the way he always has, by adding a line, a name, a photo, until Sam points at the one cell the class marked 'we don't know this yet.' Setting the pen down, Robert composes a refusal instead: one concession, one clear alternative that ends on the open question, and a line left blank for the venue to answer. The over-built plan is declined rather than expanded, and the door stays open.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "robert",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#robert",
+        "docs/academy/story/CAST-AND-CONSENT.md#robert"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim",
+        "failure mode cured by adding more options rather than by leaving the gap"
+      ]
+    },
+    {
+      "castId": "sam",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "real-event claim",
+        "inclusion or agreement achieved by pushing past a stated no"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e02-map-of-claims",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [],
+          "function": "decline-a-request-in-keigo-with-a-concession-and-one-clear-alternative-that-keeps-the-relationship"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-nine-first-meeting-robert"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:polite-no:cleaner-ending",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Reach the moment Robert stops trying to satisfy the venue by adding, and commits to a refusal that keeps the relationship.",
+      "dramaticQuestion": "Offered the chance to fill one more gap, will Robert add the ending the venue wants or decline the one the evidence can't hold?",
+      "learnerNeed": "A composed keigo refusal that concedes the venue's intent, holds the boundary, and offers one clear alternative instead of more options.",
+      "curriculum": {
+        "sectionId": "compose-the-bounded-no",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:polite-no:venue-ask",
+          "beatId": "beat:polite-no:arrival-image",
+          "cueId": "cue:program-proof-with-venue-note",
+          "description": "The cafe's long table is covered by the public-evening program proof. Clipped to its final panel is a short printed note from the venue, courteous, asking for a cleaner and more inspirational ending. Beside it lies the class's evidence map from last week, one cell still deliberately blank under a small label reading 「まだわからない」."
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:robert-adds",
+          "beatId": "beat:polite-no:host-want",
+          "speakerId": "robert",
+          "intent": "Read the venue's polite ask aloud, welcome it warmly, then reach straight for his old reflex — satisfy it by adding a closing line, a founder's name, a photo.",
+          "attentionTarget": "the venue's note and every addition he can still make to the final panel",
+          "variants": {
+            "n3": {
+              "japanese": "会場さんからの連絡、読みました。『もっとすっきりした、感動的な終わり方にしてほしい』って。……うーん、じゃあ、最後に一言添えましょうか。締めの言葉と、あと創立者の名前と、写真も一枚。足せるものは、全部足せば……。",
+              "reading": "かいじょうさんからのれんらく、よみました。『もっとすっきりした、かんどうてきなおわりかたにしてほしい』って。……うーん、じゃあ、さいごにひとことそえましょうか。しめのことばと、あとそうりつしゃのなまえと、しゃしんもいちまい。たせるものは、ぜんぶたせば……。",
+              "english": "I read the message from the venue. 'We'd like a cleaner, more moving ending,' they say. …Hmm, all right, shall we add a line at the end? A closing line, the founder's name, and one photo too. If we add everything we can add…"
+            },
+            "n2": {
+              "japanese": "会場の方からのご連絡、拝見しました。『できれば、もう少しすっきりした、感動的な締めくくりに』とのことで。……なるほど。じゃあ、最後に一言、こちらで添えましょうか。締めの一文に、創立者のお名前、それに写真を一枚。足せるものを全部足していけば、きっと形にはなりますよ。",
+              "reading": "かいじょうのかたからのごれんらく、はいけんしました。『できれば、もうすこしすっきりした、かんどうてきなしめくくりに』とのことで。……なるほど。じゃあ、さいごにひとこと、こちらでそえましょうか。しめのいちぶんに、そうりつしゃのおなまえ、それにしゃしんをいちまい。たせるものをぜんぶたしていけば、きっとかたちにはなりますよ。",
+              "english": "I've read the message from the venue. 'If possible, a slightly cleaner, more moving close,' is what they'd like. …I see. All right, shall we add a line at the end from our side? A closing sentence, the founder's name, and one photo. Keep adding everything we can add, and it'll surely come together."
+            },
+            "n1": {
+              "japanese": "会場の方からのご連絡、拝見しましたよ。『叶うなら、もう少しすっきりと、心に残る締めくくりにしていただけたら』と、まあ、そういうご要望でしてね。……うん、なるほど。だったら最後に一言、こちらで添えてしまいましょうか。締めの一文を一つ、それに創立者のお名前を添えて、写真も一枚どこかに。……足せるものを片っ端から足していけば、体裁くらいは、どうにか。",
+              "reading": "かいじょうのかたからのごれんらく、はいけんしましたよ。『かなうなら、もうすこしすっきりと、こころにのこるしめくくりにしていただけたら』と、まあ、そういうごようぼうでしてね。……うん、なるほど。だったらさいごにひとこと、こちらでそえてしまいましょうか。しめのいちぶんをひとつ、それにそうりつしゃのおなまえをそえて、しゃしんもいちまいどこかに。……たせるものをかたっぱしからたしていけば、ていさいくらいは、どうにか。",
+              "english": "I've read the message from the venue. 'If it's at all possible, could you make the close a little cleaner, something that stays with people' — that, more or less, is the request. …Yes, I see. In that case, shall I just add a line at the end from our side? One closing sentence, the founder's name alongside it, a photo somewhere too. …Add everything there is to add, one after another, and we can at least keep up appearances, somehow."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:sam-blank-cell",
+          "beatId": "beat:polite-no:obstruction",
+          "speakerId": "sam",
+          "intent": "Stop the additions by pointing at the one cell the class left blank on purpose — a single founder would be a fact they don't have — and ask, once, whether the honest move is to decline.",
+          "attentionTarget": "the evidence map's blank cell and the founder the class cannot name",
+          "variants": {
+            "n3": {
+              "japanese": "ロバートさん、待って。……そこ、まだ埋まってないでしょ。『まだわからない』って、自分たちで書いたところ。創立者を一人に決めたら、それ、無いものを足すことになるよ。足すんじゃなくて……ここは、断る、でいいのかな。",
+              "reading": "ロバートさん、まって。……そこ、まだうまってないでしょ。『まだわからない』って、じぶんたちでかいたところ。そうりつしゃをひとりにきめたら、それ、ないものをたすことになるよ。たすんじゃなくて……ここは、ことわる、でいいのかな。",
+              "english": "Robert, wait. …That spot's still blank, right? The one we labeled 'we don't know this yet' ourselves. If we settle on a single founder, that's adding something that isn't there. Not adding, but… here, is it okay if we just decline?"
+            },
+            "n2": {
+              "japanese": "ロバートさん、ちょっと待って。……そこ、まだ埋めてないところでしょ。自分たちで『まだわからない』って印をつけた一マス。ここで創立者を一人に絞っちゃうと、無い事実を足すことになる。足すんじゃなくて——今回は、お断りする、でいいんじゃないかな。一回だけ聞くけど、どう?",
+              "reading": "ロバートさん、ちょっとまって。……そこ、まだうめてないところでしょ。じぶんたちで『まだわからない』ってしるしをつけたひとマス。ここでそうりつしゃをひとりにしぼっちゃうと、ないじじつをたすことになる。たすんじゃなくて——こんかいは、おことわりする、でいいんじゃないかな。いっかいだけきくけど、どう?",
+              "english": "Robert, hold on. …That's the spot we haven't filled, right? The one cell we marked 'we don't know this yet' ourselves. If we narrow it to a single founder here, we're adding a fact that isn't there. Not adding — this time, I think declining is the way. I'll ask just once: what do you think?"
+            },
+            "n1": {
+              "japanese": "ロバートさん、ちょっとだけ待って。……そこ、僕らが自分で空けておいたマスでしょ。『まだわからない』って、わざわざ印までつけて。ここで創立者を一人に決めてしまったら、結局、無い事実をこしらえて足すのと同じだよ。足す方向じゃなくて——今回ばかりは、きちんとお断りする、っていうのでいいんじゃないかな。……念のため、一度だけ訊くよ。それでいい?",
+              "reading": "ロバートさん、ちょっとだけまって。……そこ、ぼくらがじぶんであけておいたマスでしょ。『まだわからない』って、わざわざしるしまでつけて。ここでそうりつしゃをひとりにきめてしまったら、けっきょく、ないじじつをこしらえてたすのとおなじだよ。たすほうこうじゃなくて——こんかいばかりは、きちんとおことわりする、っていうのでいいんじゃないかな。……ねんのため、いちどだけきくよ。それでいい?",
+              "english": "Robert, just wait a second. …That's the cell we deliberately left open ourselves, isn't it. We even went to the trouble of marking it 'we don't know this yet.' If we pin the founder to one person here, in the end it's the same as making up a fact that isn't there and adding it in. So not by adding — just this once, I think the honest move is to decline it, properly. …Just to be sure, I'll ask one time. Is that all right?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:robert-sets-pen-down",
+          "beatId": "beat:polite-no:refusal-attempt",
+          "speakerId": "robert",
+          "intent": "Catch his own reflex, set the pen down, and switch from adding to declining — name the shape of the reply (concede, refuse, offer one alternative, leave room) and ask the learner to put it into words.",
+          "attentionTarget": "the pen he is about to write more with, and the refusal he will compose instead",
+          "variants": {
+            "n3": {
+              "japanese": "……そうだね。僕、また足そうとしてた。すきまを見ると、つい。——ペン、置くよ。じゃあ、こう返そう。『せっかくのご提案だけど、創立者を一人に決めるのは難しい』。その代わりに、終わりは「問い」のままにする。案は一つだけ出して、あとは向こうに決めてもらう。……その断り方、一緒に文にしてくれる?",
+              "reading": "……そうだね。ぼく、またたそうとしてた。すきまをみると、つい。——ペン、おくよ。じゃあ、こうかえそう。『せっかくのごていあんだけど、そうりつしゃをひとりにきめるのはむずかしい』。そのかわりに、おわりは「とい」のままにする。あんはひとつだけだして、あとはむこうにきめてもらう。……そのことわりかた、いっしょにぶんにしてくれる?",
+              "english": "…You're right. I was about to add again. See a gap, and I just… — I'll put the pen down. Okay, let's reply like this. 'Grateful as we are for the suggestion, settling on a single founder is difficult.' Instead, we leave the ending as a question. Put out just one proposal, and let them decide the rest. …Would you help me put that refusal into words?"
+            },
+            "n2": {
+              "japanese": "……そうだね。僕、またすきまを埋めにいくところだった。悪い癖だ。——ペンは置くよ。じゃあ、こう返そう。『せっかくお声がけいただいたのですが、創立者をお一人に絞るのは、難しいかと存じます』。その代わり、締めは「問い」のかたちで残す。案はこちらから一つだけ出して、あとはご判断をお預けする。……この断り方、文面にするの、手伝ってくれる?",
+              "reading": "……そうだね。ぼく、またすきまをうめにいくところだった。わるいくせだ。——ペンはおくよ。じゃあ、こうかえそう。『せっかくおこえがけいただいたのですが、そうりつしゃをおひとりにしぼるのは、むずかしいかとぞんじます』。そのかわり、しめは「とい」のかたちでのこす。あんはこちらからひとつだけだして、あとはごはんだんをおあずけする。……このことわりかた、ぶんめんにするの、てつだってくれる?",
+              "english": "…You're right. I was about to go fill the gap again. Bad habit. — I'll set the pen down. Okay, let's reply like this. 'Grateful as we are that you reached out, narrowing it to a single founder would, we fear, be difficult.' Instead, we keep the close in the form of a question. We offer just one proposal from our side, and leave the judgment to them. …Would you help me put this refusal into written words?"
+            },
+            "n1": {
+              "japanese": "……うん、そうだね。僕、性懲りもなく、またすきまを埋めにいこうとしてた。——ペンは、置く。じゃあ、こう返そうか。『せっかくのお申し出に、水を差すようで恐縮なのですが、創立者をお一人に絞り込むことは、いたしかねます』。その代わり、締めくくりは「問い」の形のまま残しておく。こちらからお出しするのは案を一つだけ、あとのご判断は、そちらにお預けする。……この、断りつつ扉は閉めない言い方、文面に起こすの、付き合ってくれるかな。",
+              "reading": "……うん、そうだね。ぼく、しょうこりもなく、またすきまをうめにいこうとしてた。——ペンは、おく。じゃあ、こうかえそうか。『せっかくのおもうしでに、みずをさすようできょうしゅくなのですが、そうりつしゃをおひとりにしぼりこむことは、いたしかねます』。そのかわり、しめくくりは「とい」のかたちのままのこしておく。こちらからおだしするのはあんをひとつだけ、あとのごはんだんは、そちらにおあずけする。……この、ことわりつつとびらはとじないいいかた、ぶんめんにおこすの、つきあってくれるかな。",
+              "english": "…Yeah, you're right. Shameless as ever, I was about to go fill the gap again. — The pen goes down. Okay, shall we reply like this. 'Loath as we are to pour cold water on such a kind offer, narrowing the founder down to a single person is something we are unable to do.' Instead, we keep the close in the form of a question. What we offer from our side is one single proposal; the judgment beyond that, we leave with them. …This way of putting it — refusing, but not closing the door — would you sit with me while I get it down?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:polite-no:before-compose",
+          "beatId": "beat:polite-no:refusal-attempt",
+          "resume": "The pen is down and the venue's note stays clipped to the proof. The learner steps in to compose the reply: concede the venue's intent, decline the single-founder ending the evidence can't support, and offer one clear alternative that ends on the open question."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:polite-no:compose-refusal",
+          "beatId": "beat:polite-no:refusal-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e03-polite-no-compose-bounded-refusal"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e03-polite-no-compose-bounded-refusal"
+          },
+          "resumeContext": "The venue asked for a cleaner, single-founder ending. The learner composes the polite no in keigo: a concession that honors the intent (せっかく〜ですが), a refusal that keeps the relationship (〜のは難しいかと存じます / 〜いたしかねます), one clear alternative that ends on the open question the evidence supports (〜のかわりに、〜ではどうでしょうか), and a closing line that leaves the venue room to answer rather than a demand.",
+          "onReady": "checkpoint:polite-no:after-compose",
+          "onRepair": "node:polite-no:refusal-repair",
+          "onDefer": "checkpoint:polite-no:before-compose"
+        },
+        {
+          "kind": "stage",
+          "id": "node:polite-no:refusal-repair",
+          "beatId": "beat:polite-no:refusal-repair",
+          "cueId": "cue:three-moves-side-by-side",
+          "description": "The three moves are laid out as cards along the table edge: a concession, a refusal, and one alternative with an open line beneath it. Only the move the learner left out returns for another pass; the cards already placed stay where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:polite-no:after-compose",
+          "beatId": "beat:polite-no:refusal-response",
+          "resume": "The reply now holds a concession, a clear no, and one alternative that ends on a question. Robert reads it back and decides whether it holds."
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:robert-reads-it-back",
+          "beatId": "beat:polite-no:contribution",
+          "speakerId": "robert",
+          "intent": "Read the composed refusal back, commit to it as the ending the class can stand behind, keep the warmth toward the venue, and stop — add nothing more.",
+          "attentionTarget": "the finished reply and the impulse, now refused, to keep adding to it",
+          "variants": {
+            "n3": {
+              "japanese": "……うん、これでいい。『ご期待に添えなくて、すみません。でも、この終わり方なら、私たちは胸を張って出せます』。——これ以上は、足さない。一人に決めない代わりに、問いで終わる。それを一つ、ちゃんと差し出す。断ってるけど、突き放してはいないよね。",
+              "reading": "……うん、これでいい。『ごきたいにそえなくて、すみません。でも、このおわりかたなら、わたしたちはむねをはってだせます』。——これいじょうは、たさない。ひとりにきめないかわりに、といでおわる。それをひとつ、ちゃんとさしだす。ことわってるけど、つきはなしてはいないよね。",
+              "english": "…Yeah, this is good. 'We're sorry we can't meet your hopes. But this ending, we can present with our heads held high.' — Nothing more than this. Instead of settling on one person, we end on a question. We offer that, clearly, as one thing. It's a refusal, but it isn't a brush-off, is it."
+            },
+            "n2": {
+              "japanese": "……うん、これでいこう。『ご期待に沿えず、心苦しいのですが、この締めくくりであれば、私どもとして自信を持ってお出しできます』。——もう、足さない。お一人に決めない代わりに、問いのまま終える。その案を、一つだけきちんとお渡しする。断ってはいるけど、扉は閉めてない。それが、いちばん正直な終わり方だと思う。",
+              "reading": "……うん、これでいこう。『ごきたいにそえず、こころぐるしいのですが、このしめくくりであれば、わたしどもとしてじしんをもっておだしできます』。——もう、たさない。おひとりにきめないかわりに、といのままおえる。そのあんを、ひとつだけきちんとおわたしする。ことわってはいるけど、とびらはとじてない。それが、いちばんしょうじきなおわりかただとおもう。",
+              "english": "…Yeah, let's go with this. 'It pains us that we can't meet your expectations, but this close is one we can present with confidence.' — No more adding. Instead of settling on one person, we end it as a question. We hand over that one proposal, properly. It's a refusal, but the door isn't shut. That's the most honest ending, I think."
+            },
+            "n1": {
+              "japanese": "……うん、これで出そう。『ご期待に十分お応えできず、心苦しい限りなのですが、この締めくくりであれば、私どもとしても自信を持ってお届けできます』。——もう、一切足さない。お一人に絞らない、その代わりに、問いを残したまま終える。差し出すのは、その案ただ一つ。……断ってはいる。でも、突き放してはいない。——「足す」のがホストの仕事だと、ずっと思ってたんだけどな、僕は。",
+              "reading": "……うん、これでだそう。『ごきたいにじゅうぶんおこたえできず、こころぐるしいかぎりなのですが、このしめくくりであれば、わたしどもとしてもじしんをもっておとどけできます』。——もう、いっさいたさない。おひとりにしぼらない、そのかわりに、といをのこしたままおえる。さしだすのは、そのあんただひとつ。……ことわってはいる。でも、つきはなしてはいない。——「たす」のがホストのしごとだと、ずっとおもってたんだけどな、ぼくは。",
+              "english": "…Yeah, let's send this. 'That we can't fully meet your expectations pains us no end, but this close is one we can deliver with confidence.' — Nothing more, not one thing. We don't narrow it to one person; instead, we end with the question left standing. What we offer is that single proposal, and only that. …It is a refusal. But it isn't a brush-off. — And here I always thought adding was a host's whole job."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:sam-backs-it",
+          "beatId": "beat:polite-no:changed-action-1",
+          "speakerId": "sam",
+          "intent": "Back the refusal from the other side of the table — it is easy for the venue to receive because it does not end at 'no' but sets down one clear next move with room to answer.",
+          "attentionTarget": "how the reply lands for the person who has to receive it",
+          "variants": {
+            "n3": {
+              "japanese": "うん。これ、向こうも受け取りやすいよ。断られた、で終わらない。ちゃんと、次の一手が置いてある。",
+              "reading": "うん。これ、むこうもうけとりやすいよ。ことわられた、でおわらない。ちゃんと、つぎのいってがおいてある。",
+              "english": "Yeah. This is easy for them to receive, too. It doesn't end at 'we were refused.' There's a clear next move set down for them."
+            },
+            "n2": {
+              "japanese": "うん、いいと思う。これなら、向こうも受け取りやすい。『断られて終わり』じゃなくて、ちゃんと次の一手が、一つ置いてあるから。答えを返す余地が、残ってる。",
+              "reading": "うん、いいとおもう。これなら、むこうもうけとりやすい。『ことわられておわり』じゃなくて、ちゃんとつぎのいってが、ひとつおいてあるから。こたえをかえすよちが、のこってる。",
+              "english": "Yeah, I think it's good. Like this, it's easy for them to receive. It isn't 'refused, the end' — there's one clear next move set down. Room to send an answer back is left open."
+            },
+            "n1": {
+              "japanese": "うん、これでいい。相手からすると、ずっと受け取りやすいはずだよ。『断られて、はい終わり』じゃない。ちゃんと、次の一手が一つだけ、そっと置いてある。——答えを返す余地が、きちんと残してある。それが、いちばん大きいと思う。",
+              "reading": "うん、これでいい。あいてからすると、ずっとうけとりやすいはずだよ。『ことわられて、はいおわり』じゃない。ちゃんと、つぎのいってがひとつだけ、そっとおいてある。——こたえをかえすよちが、きちんとのこしてある。それが、いちばんおおきいとおもう。",
+              "english": "Yeah, this is right. From their side, it should be far easier to receive. It's not 'refused, and that's that.' There's one clear next move, just one, set down gently. — Room to send an answer back is properly left open. That's the biggest thing, I think."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:polite-no:additions-set-aside",
+          "beatId": "beat:polite-no:changed-image",
+          "cueId": "cue:reply-holds-one-no",
+          "description": "The extra material Robert reached for — a sticky note with a guessed founder name, two spare captions, a photo — is pushed to the far edge of the table, unused. The reply now holds one concession, one no, and one alternative, with a blank line waiting at the bottom for the venue's answer. The evidence map's cell stays blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:polite-no:room-to-answer"
+      }
+    },
+    {
+      "id": "scene:polite-no:room-to-answer",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Let the reply leave the venue real room to answer, so a refusal opens a conversation instead of closing one.",
+      "dramaticQuestion": "Can a 'no' be sent once, without chasing, and still keep the relationship warm?",
+      "learnerNeed": "A stance on how much room a polite refusal should leave for the other side to decide.",
+      "curriculum": {
+        "sectionId": "leave-room-to-answer",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:polite-no:reply-open-line",
+          "beatId": "beat:polite-no:regroup-image",
+          "cueId": "cue:reply-with-open-response-line",
+          "description": "The reply sits finished on the table, the program's final panel reworked from a founder's box into a single line of question. The last line of the message is still empty — an open space where the venue's answer will go, not a demand for one."
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:sam-send-once",
+          "beatId": "beat:polite-no:send-want",
+          "speakerId": "sam",
+          "intent": "Frame the sending: one message, no chasing, wait for the venue's answer — and make sure the warmth, that the class still wants to do this with them, survives a letter that says no.",
+          "attentionTarget": "the single unanswered space at the foot of the reply and the relationship it has to keep",
+          "variants": {
+            "n3": {
+              "japanese": "送るのは、一回でいいと思う。返事を急かさないで、向こうの答えを待とう。……こっちは、まだ一緒にやりたい。それだけは、ちゃんと伝わるように書いておこう。",
+              "reading": "おくるのは、いっかいでいいとおもう。へんじをせかさないで、むこうのこたえをまとう。……こっちは、まだいっしょにやりたい。それだけは、ちゃんとつたわるようにかいておこう。",
+              "english": "I think we send it just once. Don't rush the reply — let's wait for their answer. …We still want to do this together. That one thing, let's make sure it comes through."
+            },
+            "n2": {
+              "japanese": "送るのは、一回だけでいいと思う。何度も催促しないで、向こうの返事をちゃんと待とう。押したら、たぶん逆効果だし。……こっちはまだ一緒にやりたいんだ、っていうのだけは、伝わるように残しておきたいな。",
+              "reading": "おくるのは、いっかいだけでいいとおもう。なんどもさいそくしないで、むこうのへんじをちゃんとまとう。おしたら、たぶんぎゃくこうかだし。……こっちはまだいっしょにやりたいんだ、っていうのだけは、つたわるようにのこしておきたいな。",
+              "english": "I think we send it just the once. Don't chase it over and over — let's properly wait for their reply. Push, and it probably backfires anyway. …The one thing I do want to leave through is that we still want to do this together."
+            },
+            "n1": {
+              "japanese": "送るのは、一度きりでいいと思うんだ。何度も催促を重ねたりせずに、向こうが答えを返してくるのを、こっちは黙って待つ。押せば、たぶん逆に閉じちゃうから。……ただ、『それでもまだ、ご一緒したいと思っています』——そこだけは、行間ににじむように残しておきたい。断りの手紙でも、そこさえ消えてなければ、関係は切れないよ。",
+              "reading": "おくるのは、いちどきりでいいとおもうんだ。なんどもさいそくをかさねたりせずに、むこうがこたえをかえしてくるのを、こっちはだまってまつ。おせば、たぶんぎゃくにとじちゃうから。……ただ、『それでもまだ、ごいっしょしたいとおもっています』——そこだけは、ぎょうかんににじむようにのこしておきたい。ことわりのてがみでも、そこさえきえてなければ、かんけいはきれないよ。",
+              "english": "I think we send it one time and one time only. No stacking up reminder after reminder — we just wait, quietly, for them to send an answer back. Push, and it probably closes instead. …Only, 'even so, we'd still like to work with you' — that one thing, I want to leave bleeding through between the lines. Even in a letter that says no, as long as that hasn't been erased, the relationship doesn't break."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:polite-no:how-to-leave-room",
+          "beatId": "beat:polite-no:room-stance",
+          "question": "How should the reply leave the venue room to answer?",
+          "options": [
+            {
+              "id": "option:polite-no:invite-their-say",
+              "action": "Add a closing line that invites the venue to say what would suit them if this alternative doesn't — opening the refusal into a conversation.",
+              "japaneseByBand": {
+                "n3": "最後に一言、添えよう。『もしこの案が合わないようでしたら、どんな終わり方がいいか、ぜひ教えてください』って。向こうから話を続けられるようにする。",
+                "n2": "最後に一文、添えておこう。『もしこの形がご希望に合わないようでしたら、どのような締めくくりをお望みか、ぜひお聞かせください』——そう書いて、向こうが話を続けられる余地を残す。",
+                "n1": "最後に一文だけ、そっと添えておこうか。『もしこの形がご意向にそぐわないようでしたら、どのような締めくくりをお望みか、ぜひ忌憚なくお聞かせください』——こう書けば、断りが会話の終わりじゃなくて、続きの入り口になる。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:polite-no:before-send"
+            },
+            {
+              "id": "option:polite-no:hand-them-the-call",
+              "action": "Hand the final decision plainly back to the venue — one alternative offered, theirs to accept or not — so the boundary and the decision ownership are both clear.",
+              "japaneseByBand": {
+                "n3": "最後は、向こうに預けよう。『この一案でよければ、この形で進めます。ご判断を、お待ちしています』って。決めるのは、あくまで向こう。",
+                "n2": "最後は、判断を向こうにお預けしよう。『この案でよろしければ、この形で進めさせていただきます。ご判断をお待ちしております』——こちらは一つ出した、あとは向こうが決める、っていう線をはっきりさせる。",
+                "n1": "最後は、決定そのものを向こうにお返ししよう。『この一案でご了承いただけるようでしたら、この形で進めさせていただきます。ご判断を、お待ちしております』——こちらが出すのは案一つ、決めるのはあくまでそちら、という線を、はっきり引いておく。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:polite-no:before-send"
+            }
+          ],
+          "convergence": "checkpoint:polite-no:before-send"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:polite-no:before-send",
+          "beatId": "beat:polite-no:send-attempt",
+          "resume": "The learner has chosen how the reply leaves room for the venue. Robert looks at the finished refusal and says what it turned out to be."
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:robert-warm-no",
+          "beatId": "beat:polite-no:reframe",
+          "speakerId": "robert",
+          "intent": "Name what he learned in the act, not as a lesson but as a surprise — the strongest reply is the one he didn't fill, and a courteous no is a different thing from a cold one.",
+          "attentionTarget": "the deliberately unfilled ending and the warmth that survived the refusal",
+          "variants": {
+            "n3": {
+              "japanese": "不思議だね。何も足さなかったのに、これがいちばん強い。……終わりを埋めなかったから、かえって誠実に見える。丁寧に断っても、冷たくはならないんだな。",
+              "reading": "ふしぎだね。なにもたさなかったのに、これがいちばんつよい。……おわりをうめなかったから、かえってせいじつにみえる。ていねいにことわっても、つめたくはならないんだな。",
+              "english": "Funny. We didn't add a thing, and this is the strongest version. …Because we left the ending unfilled, it comes across as more honest, if anything. You can refuse politely and still not come out cold."
+            },
+            "n2": {
+              "japanese": "妙なもんだね。何一つ足さなかったのに、これがいちばん強い返事になった。……終わりを無理に埋めなかったぶん、かえって誠実に見えるんだ。丁寧にお断りしても、ちゃんと温度は残る。断り方って、冷たさとは別のことなんだな。",
+              "reading": "みょうなもんだね。なにひとつたさなかったのに、これがいちばんつよいへんじになった。……おわりをむりにうめなかったぶん、かえってせいじつにみえるんだ。ていねいにおことわりしても、ちゃんとおんどはのこる。ことわりかたって、つめたさとはべつのことなんだな。",
+              "english": "Strange thing. We didn't add a single thing, and it turned into the strongest reply of the lot. …Because we didn't force the ending shut, it reads as more honest, if anything. Refuse politely and the warmth still stays. Turns out how you say no is a separate thing from being cold."
+            },
+            "n1": {
+              "japanese": "妙なものだね。結局、何一つ足さなかった。なのに、これがいちばん強い返事になってしまった。……終わりを無理に埋めずに空けておいたぶん、かえって誠実に映る。丁寧にお断りしたって、温度まで下がるわけじゃない。——「丁重な拒絶」と「冷たさ」は、まるで別物だったんだな。ずいぶん長いこと、同じものだと思い込んでたよ。",
+              "reading": "みょうなものだね。けっきょく、なにひとつたさなかった。なのに、これがいちばんつよいへんじになってしまった。……おわりをむりにうめずにあけておいたぶん、かえってせいじつにうつる。ていねいにおことわりしたって、おんどまでさがるわけじゃない。——「ていちょうなきょぜつ」と「つめたさ」は、まるでべつものだったんだな。ずいぶんながいこと、おなじものだとおもいこんでたよ。",
+              "english": "Strange thing. In the end, we didn't add a single thing. And yet it became the strongest reply of all. …Because we left the ending open instead of forcing it shut, it reads as more honest, if anything. Refuse politely and the warmth doesn't drop with it. — A courteous 'no' and coldness turned out to be altogether different things. For the longest time I had them confused for the same one."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:polite-no:sam-added-nothing",
+          "beatId": "beat:polite-no:changed-action-2",
+          "speakerId": "sam",
+          "intent": "Land the payoff plainly and warmly, without a joke — the strength came from what Robert didn't add — then move to send it the once and wait.",
+          "attentionTarget": "the reply about to go, sent one time, with the door left open",
+          "variants": {
+            "n3": {
+              "japanese": "そうだね。……今日のロバートさん、一つも足さなかった。それが、いちばん効いたよ。じゃあ、これで一回だけ送ろう。あとは、待つだけ。",
+              "reading": "そうだね。……きょうのロバートさん、ひとつもたさなかった。それが、いちばんきいたよ。じゃあ、これでいっかいだけおくろう。あとは、まつだけ。",
+              "english": "Yeah. …Today, Robert, you didn't add one single thing. And that's what worked best. Okay — let's send this, just once. After that, we just wait."
+            },
+            "n2": {
+              "japanese": "うん。……今日のロバートさん、結局、何も足さなかったね。その「足さなかった」のが、いちばん効いてる。じゃあ、これで一回だけ送ろう。返事が来るまで、こっちは急かさずに待つ。それでいこう。",
+              "reading": "うん。……きょうのロバートさん、けっきょく、なにもたさなかったね。その「たさなかった」のが、いちばんきいてる。じゃあ、これでいっかいだけおくろう。へんじがくるまで、こっちはせかさずにまつ。それでいこう。",
+              "english": "Yeah. …Today, Robert, in the end you didn't add anything. And that 'not adding' is what lands hardest. Okay — let's send this, just once. Until a reply comes, we wait without rushing them. Let's go with that."
+            },
+            "n1": {
+              "japanese": "うん。……今日のロバートさん、とうとう最後まで、何も足さなかった。その、足さなかったことが、いちばん効いてるんだよ。——じゃあ、これで一度だけ、送ろう。あとは急かさずに、向こうが答えを返してくるのを待つ。断ったのに、扉はちゃんと開けたままだ。それで、いい。",
+              "reading": "うん。……きょうのロバートさん、とうとうさいごまで、なにもたさなかった。その、たさなかったことが、いちばんきいてるんだよ。——じゃあ、これでいちどだけ、おくろう。あとはせかさずに、むこうがこたえをかえしてくるのをまつ。ことわったのに、とびらはちゃんとあけたままだ。それで、いい。",
+              "english": "Yeah. …Today, Robert, right to the end, you didn't add anything at all. And that — the not adding — is what lands hardest. — Okay, let's send this, just once. Then, without rushing them, we wait for them to send an answer back. We refused, and yet the door's still properly open. And that's fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:polite-no:reply-sent",
+          "beatId": "beat:polite-no:exit-image",
+          "cueId": "cue:question-ending-blank-line",
+          "description": "The reply goes out once. Its final panel ends on a question rather than a founder, and the last line of the message stays an open space for the venue's answer. Robert caps the pen he never picked back up and sets it down beside the proof. Nothing is added; nothing is crossed out; the evidence map's cell is still blank."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:overbuilt-schedule",
+      "state": "payoff",
+      "ownerIds": [
+        "sam",
+        "angel",
+        "robert"
+      ],
+      "meaningNow": "Robert's reflex to fill a gap with more options is finally declined instead of expanded: the venue's request for a cleaner, more inspirational single-founder ending is refused in keigo with one concession, one clear alternative that ends on the open question the evidence supports, and a line left blank for the venue's answer. The over-provision inverts into one bounded, relationship-keeping no.",
+      "priorUse": {
+        "packageId": "s3e06-two-schedules",
+        "sceneId": "scene:two-schedules:decision-ownership",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "Robert declines the venue's cleaner ending by offering a single alternative and leaving room for their reply, instead of adding more captions and a guessed founder to satisfy the request."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:polite-no:reply-not-invention",
+      "kind": "story",
+      "description": "The class declines the venue's cleaner, single-founder ending and replies with one concession, one clear alternative that ends on the open question, and a line left blank for the venue to answer. The program's final panel stays a question, the evidence map's cell stays blank, and nothing is invented to satisfy the request."
+    },
+    {
+      "id": "outcome:polite-no:robert-limit",
+      "kind": "bond",
+      "castId": "robert",
+      "chapter": 39,
+      "beat": "limit",
+      "description": "Robert holds a boundary as a host for the first time: offered his own earlier failure mode at civic scale — fill the gap to please the venue — he sets the pen down, declines in keigo with one concession and one alternative, and leaves the ending unfilled. Hosting now includes refusal, and the class can later ask him to hold a line without smoothing it over with more options."
+    },
+    {
+      "id": "outcome:polite-no:transfer-return",
+      "kind": "curriculum-return",
+      "description": "Keigo concession-then-refusal with one clear alternative and room to answer returns through the chapter's transfer activity (activity:s4e03-polite-no-compose-bounded-refusal); the story emits no lesson-completion command, and no N2/N1 package is claimed as registered."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:sam-reads-the-venue-ask-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-compose-refusal"
+    ],
+    "withdrawnContentFallback": "Use the same concession-then-refusal and leave-room beats with neutral nameplates: a generic host and a generic classmate decline a venue's request to overstate an ending the evidence can't support, offering one clear alternative and one open line for the answer, and adding nothing invented."
+  }
+}

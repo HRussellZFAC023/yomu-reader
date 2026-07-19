@@ -1,4 +1,6 @@
 node_modules/
+__pycache__/
+*.py[cod]
 .env
 .env.*
 !.env.example
@@ -10,6 +12,7 @@ node_modules/
 /.cursor/
 /.idea/
 /.playwright-mcp/
+/.local/
 /.vscode/
 /release-worktrees/
 /screens/
@@ -48,6 +51,7 @@ docs/.vitepress/dist/
 /docs/*-parity.md
 /docs/*-research.md
 /docs/research/
+/docs/academy/provenance/private/
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
 qa-audit-a3/

@@ -1,0 +1,551 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e10-empty-microphone",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 34,
+  "title": {
+    "en": "The Empty Microphone",
+    "ja": "空っぽのマイク"
+  },
+  "synopsis": "The exhibition host drops out the night before the run-through, and the class's reflex is to push a quiet person to the front. Rie stops carrying the hole alone and starts assigning jobs with easy exits; Mika turns his old pause-and-count into a backstage cue so someone can hold a real, public-facing role without ever standing at the mic. The learner runs the role negotiation and, when a live entrance is missed, the cue repairs it without blame. The class decides how to write the offstage role onto the run sheet, and a quiet role is recorded as full participation.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "mika",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mika",
+        "docs/academy/story/CAST-AND-CONSENT.md#mika",
+        "docs/academy/story/dossiers/mika.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness (runtimeLikeness: no — silhouette, nameplate, or offstage voice only)",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quiet pacing framed as timidity to be cured rather than expertise",
+        "his named kanji-reading difficulty framed as embarrassment rather than method"
+      ]
+    },
+    {
+      "castId": "rie",
+      "role": "support",
+      "portrayal": "likeness-cleared",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie"
+      ],
+      "forbiddenClaims": [
+        "private biography beyond the approved teacher role",
+        "practical warmth framed as martyrdom rather than a chosen, delegated way of running the room",
+        "accepting help framed as a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e09-what-we-can-say",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "negotiate-and-redistribute-a-public-role-with-an-explicit-opt-out-so-quiet-participation-counts-as-full-participation",
+          "note": "Season 3 N2 role-negotiation / spontaneous-repair family (Ch 34-36 content contract). No registered N2 lesson package exists yet; the chapter uses an original changed-context transfer, not a lesson wrapper."
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-four-return-mika"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:empty-microphone:host-drops-out",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "early-spring-night",
+      "goal": "Meet the empty host slot the night before the run-through and reach a redistribution of the public role that coerces no one.",
+      "dramaticQuestion": "When the person at the front is gone, does the class push someone forward, or build a role a quiet person can choose?",
+      "learnerNeed": "A role negotiation where offering a job, naming its exit, and honouring a 'not yet' matters more than filling the microphone.",
+      "curriculum": {
+        "sectionId": "redistribute-a-public-role-without-coercion",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:empty-microphone:blank-host-slot",
+          "beatId": "beat:empty-microphone:arrival-image",
+          "cueId": "cue:microphone-on-stand-host-slot-blank",
+          "description": "The classroom is set up for the exhibition run-through: a microphone stands alone at the front, and a run sheet on the board lists every job but leaves the host line blank — the person who was to host cannot come. Rie's tea sits cold on the side desk. Three classmates have half-raised their hands to cover, glancing at the quietest people in the room."
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:rie-assign",
+          "beatId": "beat:empty-microphone:host-want",
+          "speakerId": "rie",
+          "intent": "Instead of shouldering the empty host slot herself, thank the volunteers and split the job into named roles, each offered with an easy decline.",
+          "attentionTarget": "the blank host line and the raised hands",
+          "variants": {
+            "n3": {
+              "japanese": "司会の人、今日は来られないみたい。…手を挙げてくれて、ありがとう。でも、私が一人で抱えなくていいんだよね。役を分けましょう。受付をお願いできる人、進行を見てくれる人。できる範囲でいいから。無理なら、遠慮なく断ってね。",
+              "reading": "しかいのひと、きょうはこられないみたい。…てをあげてくれて、ありがとう。でも、わたしがひとりでかかえなくていいんだよね。やくをわけましょう。うけつけをおねがいできるひと、しんこうをみてくれるひと。できるはんいでいいから。むりなら、えんりょなくことわってね。",
+              "english": "The host can't make it today, it seems. …Thank you, all of you, for raising your hands. But I don't have to carry this alone, do I. Let's split up the roles. Someone who can take reception, someone who'll watch the timing. As much as you can manage is fine. If it's too much, turn it down, no hesitation."
+            },
+            "n2": {
+              "japanese": "司会の方、今日はどうしても来られなくなったそうで。…手を挙げてくれて、ありがとう。でも、これ、私が一人で抱え込まなくていいんですよね。役割を分けましょう。受付をお願いできる方と、進行に目を配ってくださる方。できる範囲で構いません。難しそうなら、遠慮なく断ってくださいね。",
+              "reading": "しかいのかた、きょうはどうしてもこられなくなったそうで。…てをあげてくれて、ありがとう。でも、これ、わたしがひとりでかかえこまなくていいんですよね。やくわりをわけましょう。うけつけをおねがいできるかたと、しんこうにめをくばってくださるかた。できるはんいでかまいません。むずかしそうなら、えんりょなくことわってくださいね。",
+              "english": "The host, it turns out, absolutely can't come today. …Thank you for raising your hands. But this — I don't have to shoulder it all by myself, do I. Let's divide the roles. Someone I can ask to take reception, and someone who'll keep an eye on the timing. As much as you can manage is fine. If it looks hard, please turn it down without hesitation."
+            },
+            "n1": {
+              "japanese": "司会の方が、今日はどうしても都合がつかなくなったそうで。…みんな、手を挙げてくれてありがとう。でも、これは私が一人で抱え込んでしまわなくていい話なんですよね。役割のほうを、先に分けてしまいましょう。受付をお願いできる方、進行に目を配ってくださる方。できる範囲で構いませんし、難しいと思ったら、遠慮なく断ってくださって大丈夫ですから。",
+              "reading": "しかいのかたが、きょうはどうしてもつごうがつかなくなったそうで。…みんな、てをあげてくれてありがとう。でも、これはわたしがひとりでかかえこんでしまわなくていいはなしなんですよね。やくわりのほうを、さきにわけてしまいましょう。うけつけをおねがいできるかた、しんこうにめをくばってくださるかた。できるはんいでかまいませんし、むずかしいとおもったら、えんりょなくことわってくださってだいじょうぶですから。",
+              "english": "The host, it seems, simply couldn't make the time work today. …Everyone, thank you for raising your hands. But this is something I don't have to end up shouldering alone, isn't it. Let's go ahead and divide the roles up first. Someone I can ask for reception, someone who'll keep an eye on the timing. As much as you can manage is fine — and if you think it's too much, it's perfectly all right to turn it down, no hesitation."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:mika-propose",
+          "beatId": "beat:empty-microphone:obstruction",
+          "speakerId": "mika",
+          "intent": "After a beat of silence, reframe the empty microphone: the front is not the only real role, and his old pause-and-count can become an offstage cue so a person who does not want the mic can still hold a public-facing job.",
+          "attentionTarget": "the microphone at the front versus the wing where a cue could be given",
+          "variants": {
+            "n3": {
+              "japanese": "ええと…一ついいですか。マイクの前だけが、本番の役じゃないと思うんです。…前に、入るタイミングを数で合図したこと、あったでしょう。あれ、袖からできます。声を出したくない人でも、合図なら出せる。前に立たなくても、ちゃんと本番の役です。",
+              "reading": "ええと…ひとついいですか。マイクのまえだけが、ほんばんのやくじゃないとおもうんです。…まえに、はいるタイミングをかずであいずしたこと、あったでしょう。あれ、そでからできます。こえをだしたくないひとでも、あいずならだせる。まえにたたなくても、ちゃんとほんばんのやくです。",
+              "english": "Um… may I say one thing. I don't think the front of the mic is the only real role. …Remember before, when we signalled the entrance timing with a count? That can be done from the wings. Even someone who doesn't want to use their voice can give a cue. You don't have to stand up front for it to be a real role."
+            },
+            "n2": {
+              "japanese": "ええと…一つ、いいですか。マイクの前に立つことだけが、本番の役ってわけじゃない気がして。…ほら、前に、入るタイミングを数で合図したこと、ありましたよね。あれ、袖からでもできるんです。人前で話したくない人でも、合図を出す役ならできる。前に立たなくても、それはちゃんと、本番の一つの役なんです。",
+              "reading": "ええと…ひとつ、いいですか。マイクのまえにたつことだけが、ほんばんのやくってわけじゃないきがして。…ほら、まえに、はいるタイミングをかずであいずしたこと、ありましたよね。あれ、そでからでもできるんです。ひとまえではなしたくないひとでも、あいずをだすやくならできる。まえにたたなくても、それはちゃんと、ほんばんのひとつのやくなんです。",
+              "english": "Um… one thing, may I. I feel like standing at the mic isn't the only real role. …Look, remember before, we signalled the entrance timing with a count? That can be done from the wings too. Even someone who doesn't want to speak in front of people can take the role of giving the cue. You don't have to stand up front — it's still a proper role of its own."
+            },
+            "n1": {
+              "japanese": "ええと…一つだけ、いいですか。マイクの前に立つこと、それだけが本番の役というわけでもない気がして。…ほら、以前、入るタイミングを数で合図したこと、ありましたよね。あれ、袖からでも十分できるんです。人前で声を出したくない人でも、合図を送る役なら引き受けられる。前に立たなくたって、それはちゃんと、本番の一つの役なんですよ。",
+              "reading": "ええと…ひとつだけ、いいですか。マイクのまえにたつこと、それだけがほんばんのやくというわけでもないきがして。…ほら、いぜん、はいるタイミングをかずであいずしたこと、ありましたよね。あれ、そでからでもじゅうぶんできるんです。ひとまえでこえをだしたくないひとでも、あいずをおくるやくならひきうけられる。まえにたたなくたって、それはちゃんと、ほんばんのひとつのやくなんですよ。",
+              "english": "Um… just one thing, may I. Standing at the mic — I feel like that alone isn't what makes it a real role. …Look, before, we once signalled the entrance timing with a count, didn't we. That can be done perfectly well from the wings. Even someone who doesn't want to use their voice in front of people can take on the role of sending the cue. Even without standing up front, it's still a proper role of its own."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:rie-offer",
+          "beatId": "beat:empty-microphone:negotiate-attempt",
+          "speakerId": "rie",
+          "intent": "Turn Mika's idea into an actual offer, modelling the negotiation shape the learner will run: state the job, put an easy no and a way out in the same breath, and make either answer fine.",
+          "attentionTarget": "how the offer is phrased so the exit is built in",
+          "variants": {
+            "n3": {
+              "japanese": "いいね、それ。…じゃあ、こう聞いてみよう。『合図の役、やってみない?前には出なくていい。やってみて違ったら、いつでも代わるから。』ってね。返事は、どっちでも大丈夫にしておく。",
+              "reading": "いいね、それ。…じゃあ、こうきいてみよう。『あいずのやく、やってみない?まえにはでなくていい。やってみてちがったら、いつでもかわるから。』ってね。へんじは、どっちでもだいじょうぶにしておく。",
+              "english": "That's good. …Then let's ask it like this: 'The cue role — want to try it? You don't have to come out front. If you try it and it's not right, we'll switch anytime.' Like that. We keep it so that either answer is fine."
+            },
+            "n2": {
+              "japanese": "いいですね、それ。…じゃあ、こう聞いてみましょう。『合図の役、引き受けてもらえますか。前に出る必要はありません。やってみて違うと思ったら、いつでも代わりますから。』って。返事は、どちらでも大丈夫、という形にしておいて。",
+              "reading": "いいですね、それ。…じゃあ、こうきいてみましょう。『あいずのやく、ひきうけてもらえますか。まえにでるひつようはありません。やってみてちがうとおもったら、いつでもかわりますから。』って。へんじは、どちらでもだいじょうぶ、というかたちにしておいて。",
+              "english": "That's good. …Then let's ask it like this: 'Could you take on the cue role? There's no need to come out front. If you try it and it feels wrong, we'll switch anytime.' And we frame it so that either answer is perfectly fine."
+            },
+            "n1": {
+              "japanese": "いいですね、それ。…なら、こう切り出してみましょうか。『合図の役、引き受けていただけませんか。前に出ていただく必要はありません。やってみて、違うと感じたら、いつでも代わりますので。』と。返事は、どちらを選んでも構わない、という前提にしておいて。",
+              "reading": "いいですね、それ。…なら、こうきりだしてみましょうか。『あいずのやく、ひきうけていただけませんか。まえにでていただくひつようはありません。やってみて、ちがうとかんじたら、いつでもかわりますので。』と。へんじは、どちらをえらんでもかまわない、というぜんていにしておいて。",
+              "english": "That's good. …Then shall we broach it like this: 'Might you take on the cue role? There's no need for you to come out front. If you try it and feel it's wrong, we'll switch anytime.' And we set it on the premise that whichever they choose is perfectly fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:empty-microphone:before-negotiate",
+          "beatId": "beat:empty-microphone:negotiate-attempt",
+          "resume": "The host slot is empty and no one is being pushed to the mic. The learner steps in to run the redistribution: offer each job with its exit built in, honour any 'not yet', and turn the offstage cue into a role someone can freely choose."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:empty-microphone:role-negotiation",
+          "beatId": "beat:empty-microphone:negotiate-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e10-empty-microphone-role-negotiation"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e10-empty-microphone-role-negotiation"
+          },
+          "resumeContext": "The exhibition host is gone and the microphone stands unclaimed. The learner offers the offstage cue role and the other jobs in a formal-event register, naming the activity and an explicit, easy decline in each offer (…ましょうか / …てもらえますか / できる範囲で / むりをしなくてもいいですよ). When one offer draws a 'not yet', the learner redesigns the plan around that limit instead of re-asking, so a quiet, offstage role ends up counting as full participation rather than a hole to fill.",
+          "onReady": "checkpoint:empty-microphone:after-negotiate",
+          "onRepair": "node:empty-microphone:negotiate-repair",
+          "onDefer": "checkpoint:empty-microphone:before-negotiate"
+        },
+        {
+          "kind": "stage",
+          "id": "node:empty-microphone:negotiate-repair",
+          "beatId": "beat:empty-microphone:negotiate-repair",
+          "cueId": "cue:one-role-returned-others-assigned",
+          "description": "Only the one job whose offer landed wrong comes back for another pass — re-phrased so the exit is unmistakable this time. The roles already agreed, each with its stated way out, stay assigned on the run sheet; no one who said 'not yet' is asked again."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:empty-microphone:after-negotiate",
+          "beatId": "beat:empty-microphone:negotiate-response",
+          "resume": "Every job on the run sheet now has a name beside it and an exit stated aloud, and the offstage cue is a role someone chose rather than one forced on them. Mika confirms the arrangement."
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:mika-accept-cue",
+          "beatId": "beat:empty-microphone:contribution",
+          "speakerId": "mika",
+          "intent": "Confirm the redistributed roles, take the offstage cue himself as a chosen role, and name his familiar step-back as a deliberate handoff now, not a retreat.",
+          "attentionTarget": "the wing where he will count, and the front left open to whoever wants it",
+          "variants": {
+            "n3": {
+              "japanese": "決まりですね。…僕は袖で数えます。前は、出たい人に。…昔は、こういう時、黙って下がってただけだったけど。今日は、下がるんじゃなくて、渡す。それだけの違いです。",
+              "reading": "きまりですね。…ぼくはそででかぞえます。まえは、でたいひとに。…むかしは、こういうとき、だまってさがってただけだったけど。きょうは、さがるんじゃなくて、わたす。それだけのちがいです。",
+              "english": "It's settled, then. …I'll count from the wings. The front goes to whoever wants it. …In the old days, at a moment like this, I just went quiet and stepped back. Today it's not stepping back — it's handing off. That's the whole difference."
+            },
+            "n2": {
+              "japanese": "じゃあ、これで決まりですね。…僕は袖で数えます。前は、出たい人に任せる。…前なら、こういう時、黙って下がってただけだったんですよ。でも今日は、下がるんじゃなくて、渡す。違いはそれだけです。",
+              "reading": "じゃあ、これできまりですね。…ぼくはそででかぞえます。まえは、でたいひとにまかせる。…まえなら、こういうとき、だまってさがってただけだったんですよ。でもきょうは、さがるんじゃなくて、わたす。ちがいはそれだけです。",
+              "english": "Then that settles it. …I'll count from the wings. The front, I leave to whoever wants it. …Before, at a moment like this, I'd just have gone quiet and stepped back. But today it's not stepping back — it's handing off. That's the only difference."
+            },
+            "n1": {
+              "japanese": "じゃあ、これで決まりということで。…僕は袖で数を数えます。前に立つのは、出たい人に任せて。…以前の僕なら、こういう場面では、ただ黙って下がっていただけなんですよ。でも今日は、下がるんじゃなくて、渡す。違いは、本当にそれだけなんです。",
+              "reading": "じゃあ、これできまりということで。…ぼくはそででかずをかぞえます。まえにたつのは、でたいひとにまかせて。…いぜんのぼくなら、こういうばめんでは、ただだまってさがっていただけなんですよ。でもきょうは、さがるんじゃなくて、わたす。ちがいは、ほんとうにそれだけなんです。",
+              "english": "Then let's call it settled. …I'll count from the wings. Standing up front, I leave to whoever wants it. …The old me, in a scene like this, would just have gone quiet and stepped back. But today it isn't stepping back — it's handing off. The difference really is only that."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:empty-microphone:roles-assigned",
+          "beatId": "beat:empty-microphone:changed-image",
+          "cueId": "cue:run-sheet-named-cue-role-added",
+          "description": "The run sheet now carries a name beside every job, with a new offstage cue role written in among them. The microphone still stands unclaimed at the front — but it reads as an open place now, not a hole someone must be pushed into filling."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:empty-microphone:the-role-on-the-sheet"
+      }
+    },
+    {
+      "id": "scene:empty-microphone:the-role-on-the-sheet",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "early-spring-night",
+      "goal": "Run the rehearsal, let the backstage cue repair a live miss without blame, and decide how the quiet role is recorded.",
+      "dramaticQuestion": "Is an offstage cue a small favour, or a full role worth writing down beside the microphone?",
+      "learnerNeed": "A stance on whether a quiet, offstage contribution is named as full participation or kept deliberately un-spotlighted at the person's own preference.",
+      "curriculum": {
+        "sectionId": "record-a-quiet-role-as-full-participation",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:empty-microphone:run-through",
+          "beatId": "beat:empty-microphone:regroup-image",
+          "cueId": "cue:rehearsal-running-cue-in-the-wing",
+          "description": "The rehearsal runs. Mika stands in the wing with the run sheet and a quiet hand ready to count. The mic is live at the front, but no one is being held to it. Partway through, an entrance is missed — a half-second of dead air — and the room tenses."
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:mika-repair",
+          "beatId": "beat:empty-microphone:human-want",
+          "speakerId": "mika",
+          "intent": "Repair the missed entrance from offstage with the count, keep the run going, and name the miss as a timing slip that belongs to no one — spontaneous repair without blame.",
+          "attentionTarget": "the count that catches the entrance and the absence of any accusation",
+          "variants": {
+            "n3": {
+              "japanese": "大丈夫、止めなくていい。…いち、に、で、そこ。うん、入れた。……今のところ、もう一回だけ合わせよう。間が少し早かっただけだから。誰のせいでもないよ。",
+              "reading": "だいじょうぶ、とめなくていい。…いち、に、で、そこ。うん、はいれた。……いまのところ、もういっかいだけあわせよう。まがすこしはやかっただけだから。だれのせいでもないよ。",
+              "english": "It's okay, no need to stop. …One, two, and — there. Yes, you got in. ……That part just now, let's just match it up once more. The pause was only a little early, that's all. It's no one's fault."
+            },
+            "n2": {
+              "japanese": "大丈夫、止めなくていいです。…いち、に、で、そこ。うん、入れた。……今の入り、もう一回だけ合わせておきましょう。間が少しだけ早かった、それだけなので。誰のせいでもないですから。",
+              "reading": "だいじょうぶ、とめなくていいです。…いち、に、で、そこ。うん、はいれた。……いまのはいり、もういっかいだけあわせておきましょう。まがすこしだけはやかった、それだけなので。だれのせいでもないですから。",
+              "english": "It's okay, no need to stop. …One, two, and — there. Yes, in. ……That entrance just now, let's just match it once more. The pause was a touch early, that's all. It's no one's fault."
+            },
+            "n1": {
+              "japanese": "大丈夫、止めなくていいですよ。…いち、に、で、そこ。うん、入れた。……今の入りのところ、もう一回だけ合わせておきましょうか。間がほんの少し早かった、ただそれだけのことなので。誰のせいでもないですから。",
+              "reading": "だいじょうぶ、とめなくていいですよ。…いち、に、で、そこ。うん、はいれた。……いまのはいりのところ、もういっかいだけあわせておきましょうか。まがほんのすこしはやかった、ただそれだけのことなので。だれのせいでもないですから。",
+              "english": "It's okay, no need to stop. …One, two, and — there. Yes, in. ……That entrance just now, shall we match it once more. The pause was ever so slightly early, that's simply all it was. It's no one's fault."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:rie-name-role",
+          "beatId": "beat:empty-microphone:record-want",
+          "speakerId": "rie",
+          "intent": "Point out that the offstage cue held the whole run together, and ask to record it on the sheet at the same weight as the microphone role.",
+          "attentionTarget": "the run sheet and the size of the cue role written on it",
+          "variants": {
+            "n3": {
+              "japanese": "今の、ミカさんの合図がなかったら、止まってたよね。…この役、ちゃんと表に書いておきたいの。マイクを持つ役と、同じ大きさで。裏だからって、小さい役じゃないから。",
+              "reading": "いまの、ミカさんのあいずがなかったら、とまってたよね。…このやく、ちゃんとひょうにかいておきたいの。マイクをもつやくと、おなじおおきさで。うらだからって、ちいさいやくじゃないから。",
+              "english": "Just now — if Mika's cue hadn't been there, it would have stalled, wouldn't it. …I want this role written properly onto the sheet. The same size as the role holding the mic. Being backstage doesn't make it a small role."
+            },
+            "n2": {
+              "japanese": "今の、ミカさんの合図がなかったら、完全に止まってましたよね。…この役、きちんと進行表に書いておきたいんです。マイクを持つ役と、同じ大きさで。裏方だからって、小さい役ってわけじゃないので。",
+              "reading": "いまの、ミカさんのあいずがなかったら、かんぜんにとまってましたよね。…このやく、きちんとしんこうひょうにかいておきたいんです。マイクをもつやくと、おなじおおきさで。うらかただからって、ちいさいやくってわけじゃないので。",
+              "english": "Just now — if Mika's cue hadn't been there, it would have stopped dead, wouldn't it. …I want this role written properly into the run sheet. The same size as the role holding the mic. Being a backstage job doesn't make it a small role."
+            },
+            "n1": {
+              "japanese": "今の、ミカさんの合図がなかったら、あそこで完全に止まってましたよね。…だからこの役、きちんと進行表に書き込んでおきたいんです。マイクを持つ役と、まったく同じ大きさで。裏方だからといって、小さい役だということには、ならないので。",
+              "reading": "いまの、ミカさんのあいずがなかったら、あそこでかんぜんにとまってましたよね。…だからこのやく、きちんとしんこうひょうにかきこんでおきたいんです。マイクをもつやくと、まったくおなじおおきさで。うらかただからといって、ちいさいやくだということには、ならないので。",
+              "english": "Just now — if Mika's cue hadn't been there, it would have stopped dead right there, wouldn't it. …So I want this role written properly into the run sheet. Exactly the same size as the role holding the mic. Being a backstage job simply doesn't make it a small role."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:empty-microphone:how-to-record-role",
+          "beatId": "beat:empty-microphone:record-stance",
+          "question": "How should the run sheet hold the offstage cue role?",
+          "options": [
+            {
+              "id": "option:empty-microphone:name-it-equal",
+              "action": "Write the cue as its own named role on the public run sheet, at the same weight as the host.",
+              "japaneseByBand": {
+                "n3": "裏の合図も、一つの役として名前をつけて、表に書きましょう。司会と同じ大きさで。",
+                "n2": "裏の合図も、一つの役としてきちんと名前をつけて、進行表に載せましょう。司会と同じ扱いで。",
+                "n1": "裏の合図も、独立した一つの役として名前を立てて、進行表にちゃんと載せましょう。司会と同じ重みで。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:empty-microphone:before-reframe"
+            },
+            {
+              "id": "option:empty-microphone:keep-it-unspotlighted",
+              "action": "At the person's own preference, keep the name off the public sheet and log the cue as a shared role anyone can pass, in the internal run notes only.",
+              "japaneseByBand": {
+                "n3": "本人が目立ちたくないなら、名前は出さないでおこう。合図はみんなで回せる役にして、中のメモにだけ書いておく。",
+                "n2": "ご本人が前に出たくないなら、名前は伏せておきましょう。合図は誰でも回せる役にして、内輪の進行メモにだけ残しておきましょう。",
+                "n1": "ご本人が目立つのを望まないなら、名前は伏せておきましょう。合図は誰でも引き継げる役にしておいて、あくまで内輪の進行メモにだけ書き留めておきましょう。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:empty-microphone:before-reframe"
+            }
+          ],
+          "convergence": "checkpoint:empty-microphone:before-reframe"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:empty-microphone:before-reframe",
+          "beatId": "beat:empty-microphone:record-attempt",
+          "resume": "The learner has chosen how the quiet role is recorded. Either way it counts as full participation — named on the sheet, or kept un-spotlighted at the person's own request. Mika names what changed for him."
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:mika-reframe",
+          "beatId": "beat:empty-microphone:repair",
+          "speakerId": "mika",
+          "intent": "Name the season's turn: a quiet role is not the hole left by someone missing but a role chosen and held; and his own step-back is now a handoff he stays to watch land.",
+          "attentionTarget": "the quiet role recorded as full participation, and Mika staying rather than retreating",
+          "variants": {
+            "n3": {
+              "japanese": "うん、それでいい。…前は、こういう時、僕がすっと引いてたんです。でも今日は、引くんじゃなくて、渡す。静かな役は、抜けた穴じゃなくて、選んだ役だから。……ちゃんと、最後まで見てます。",
+              "reading": "うん、それでいい。…まえは、こういうとき、ぼくがすっとひいてたんです。でもきょうは、ひくんじゃなくて、わたす。しずかなやくは、ぬけたあなじゃなくて、えらんだやくだから。……ちゃんと、さいごまでみてます。",
+              "english": "Yeah, that's good. …Before, at a time like this, I'd quietly pull back. But today it's not pulling back — it's handing off. A quiet role isn't the hole someone left; it's a role you chose. ……And this time, I'm staying to the end to watch it."
+            },
+            "n2": {
+              "japanese": "うん、それでいいと思います。…以前なら、こういう場面で、僕はすっと引いてたんですよ。でも今日は、引くんじゃなくて、渡す。静かな役って、誰かが抜けた穴じゃなくて、自分で選んだ役なので。……今日は最後まで、ちゃんと見てます。",
+              "reading": "うん、それでいいとおもいます。…いぜんなら、こういうばめんで、ぼくはすっとひいてたんですよ。でもきょうは、ひくんじゃなくて、わたす。しずかなやくって、だれかがぬけたあなじゃなくて、じぶんでえらんだやくなので。……きょうはさいごまで、ちゃんとみてます。",
+              "english": "Yeah, I think that's good. …Before, in a scene like this, I'd quietly pull back. But today it's not pulling back — it's handing off. A quiet role isn't a hole someone left; it's a role you chose for yourself. ……Today I'm staying to the end to watch it, properly."
+            },
+            "n1": {
+              "japanese": "うん、それでいいと思います。…前の僕なら、こういう場面では、たぶんすっと身を引いてたんですよね。でも今日は、引くんじゃなくて、渡す。静かな役っていうのは、誰かが抜けたあとの穴なんかじゃなくて、自分で選んで引き受けた役なので。……今日はちゃんと、最後まで見届けるつもりです。",
+              "reading": "うん、それでいいとおもいます。…まえのぼくなら、こういうばめんでは、たぶんすっとみをひいてたんですよね。でもきょうは、ひくんじゃなくて、わたす。しずかなやくっていうのは、だれかがぬけたあとのあななんかじゃなくて、じぶんでえらんでひきうけたやくなので。……きょうはちゃんと、さいごまでみとどけるつもりです。",
+              "english": "Yeah, I think that's good. …The old me, in a scene like this, would probably have quietly drawn back. But today it's not drawing back — it's handing off. A quiet role isn't the hole left after someone drops out; it's a role you chose and took on yourself. ……Today I mean to stay and see it through to the end, properly."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:empty-microphone:rie-close",
+          "beatId": "beat:empty-microphone:changed-action",
+          "speakerId": "rie",
+          "intent": "Accept that the room runs without her holding every thread, and hand the closing to someone else — accepting a specific handoff rather than absorbing the last job herself.",
+          "attentionTarget": "the filled run sheet and the closing job she is giving away",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、これで進行表は埋まったね。…私が全部見てなくても、ちゃんと回る。うん、それでいい。最後の締めは、私じゃなくて、誰かにお願いしようかな。",
+              "reading": "じゃあ、これでしんこうひょうはうまったね。…わたしがぜんぶみてなくても、ちゃんとまわる。うん、それでいい。さいごのしめは、わたしじゃなくて、だれかにおねがいしようかな。",
+              "english": "Then the run sheet's filled in now. …Even if I'm not watching every part, it runs fine. Yes — that's how it should be. The closing at the end, maybe I'll ask someone else to take it, not me."
+            },
+            "n2": {
+              "japanese": "じゃあ、これで進行表は埋まりましたね。…私が全部を見ていなくても、ちゃんと回る。うん、それでいいんです。最後の締めも、私が抱えないで、どなたかにお願いしようと思います。",
+              "reading": "じゃあ、これでしんこうひょうはうまりましたね。…わたしがぜんぶをみていなくても、ちゃんとまわる。うん、それでいいんです。さいごのしめも、わたしがかかえないで、どなたかにおねがいしようとおもいます。",
+              "english": "Then the run sheet's filled in now. …Even if I'm not watching all of it, it runs fine. Yes — that's how it should be. The closing too, rather than shouldering it, I think I'll ask someone else to take it."
+            },
+            "n1": {
+              "japanese": "じゃあ、これで進行表も埋まりましたね。…私が全部に目を配っていなくても、ちゃんと回る。うん、それでいいんです。最後の締めも、今回は私が抱え込まないで、どなたかにお願いしてみようと思います。",
+              "reading": "じゃあ、これでしんこうひょうもうまりましたね。…わたしがぜんぶにめをくばっていなくても、ちゃんとまわる。うん、それでいいんです。さいごのしめも、こんかいはわたしがかかえこまないで、どなたかにおねがいしてみようとおもいます。",
+              "english": "Then the run sheet's filled in now too. …Even if I'm not keeping an eye on all of it, it runs fine. Yes — that's how it should be. The closing too — this time, rather than shouldering it, I think I'll try asking someone else to take it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:empty-microphone:sheet-holds-the-role",
+          "beatId": "beat:empty-microphone:exit-image",
+          "cueId": "cue:run-sheet-holds-cue-role-mic-unclaimed",
+          "description": "The run sheet holds the offstage cue role — named in full beside the host, or kept in the internal notes at the person's own request, whichever the class chose. The microphone stays on its stand, unclaimed and unforced, because the role that held the evening together was never the mic. Every 'yes' on the sheet was chosen; every 'no' left a real exit."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:quiet-count",
+      "state": "transform",
+      "ownerIds": [
+        "mika",
+        "xingyu"
+      ],
+      "meaningNow": "Mika's pause-and-count stops being a way to locate a listening entrance and becomes a backstage cue system: it lets a person who does not want the microphone hold a real, public-facing role from the wings, and it repairs a missed live entrance without blame — quiet participation engineered as a full, chosen role rather than a hole someone must be pushed to fill.",
+      "priorUse": {
+        "packageId": "s1e15-chorus-with-a-hole",
+        "sceneId": "scene:chorus-with-a-hole:locate-the-hole",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "Mika simply offers to count entrances from offstage so a quiet person can take a real event role without standing at the microphone, and the count catches one missed entrance during the run-through."
+    },
+    {
+      "id": "callback:cold-tea",
+      "state": "transform",
+      "ownerIds": [
+        "rie",
+        "francis",
+        "learner"
+      ],
+      "meaningNow": "Faced with an empty host slot and several people offering to help, Rie stops absorbing the extra work with 'I'm fine, I'll do it' and instead assigns named jobs with easy exits, then hands the closing to someone else — accepting a specific handoff rather than letting her tea go cold while she carries the room alone.",
+      "priorUse": {
+        "packageId": "s1e07-no-spoilers",
+        "sceneId": "scene:no-spoilers:notices-the-cold-cup",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 4,
+      "optionalFallback": "When the host drops out, Rie divides the work into named roles and lets someone else close the run-through instead of quietly taking every job herself."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:empty-microphone:quiet-role-counts",
+      "kind": "story",
+      "description": "With the exhibition host gone, the class redistributes the public job without coercion: each role is offered with an explicit exit, the offstage cue becomes a chosen role that repairs a live miss without blame, and the run sheet records that quiet role as full participation — named beside the host or kept un-spotlighted at the person's own request."
+    },
+    {
+      "id": "outcome:empty-microphone:mika-return",
+      "kind": "bond",
+      "castId": "mika",
+      "chapter": 34,
+      "beat": "return",
+      "description": "Mika's arc lands its turn: he no longer just leaves space, he engineers it — turning his old pause-and-count into a backstage cue so a person who does not want the microphone can hold a full public role, and repairing a missed entrance without exposing anyone. His familiar step-back becomes a deliberate handoff he stays to watch land, protecting the quiet role as expertise instead of yielding the floor."
+    },
+    {
+      "id": "outcome:empty-microphone:rie-return",
+      "kind": "bond",
+      "castId": "rie",
+      "chapter": 34,
+      "beat": "return",
+      "description": "Rie proves the ensemble heard her over-extension limit through changed behaviour: offered help from several people, she assigns named jobs with easy exits and hands the closing away instead of saying she is fine, accepting a specific handoff and sharing authorship of the run-through."
+    },
+    {
+      "id": "outcome:empty-microphone:transfer-return",
+      "kind": "curriculum-return",
+      "description": "N2 role-negotiation / spontaneous-repair evidence returns through the original transfer activity activity:s3e10-empty-microphone-role-negotiation; the story emits no lesson-completion command and references no registered lesson package, because none exists yet for this band."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:rie-assigns-the-jobs-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-role-negotiation"
+    ],
+    "withdrawnContentFallback": "Use the same role-negotiation and quiet-role-as-full-participation beats with neutral nameplates and a generic facilitator and offstage cue-giver who redistribute a dropped host's job without coercion and record the quiet role at equal weight."
+  }
+}

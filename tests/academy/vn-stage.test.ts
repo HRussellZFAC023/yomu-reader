@@ -94,6 +94,36 @@ describe('Academy VN stage', () => {
         expect(japanese.dataset.jpdbReaderSurfaceIgnore).toBe('');
     });
 
+    it('keeps a Japanese speaker label eligible when the next line replaces it', () => {
+        const stage = createAcademyVnStage();
+        stage.setLine({
+            id: 'line:first',
+            speakerId: 'rie',
+            speakerName: 'りえ先生',
+            japanese: '見てください。',
+            reading: { visible: true, showLabel: 'Show readings', hideLabel: 'Hide readings' },
+        });
+        stage.completeTextReveal();
+
+        const speaker = stage.element.querySelector<HTMLElement>('.academy-vn-speaker')!;
+        expect(speaker.dataset.yomuRuntimeSurface).toBe('academy-dialogue');
+        expect(speaker.dataset.yomuFuriganaMode).toBe('all');
+
+        stage.setLine({
+            id: 'line:next',
+            speakerId: 'learner',
+            speakerName: '山田さん',
+            japanese: 'はい。',
+            reading: { showLabel: 'Show readings', hideLabel: 'Hide readings' },
+        });
+        stage.completeTextReveal();
+
+        expect(speaker.textContent).toBe('山田さん');
+        expect(speaker.getAttribute('data-yomu-academy-reading-source')).toBe('山田さん');
+        expect(speaker.dataset.yomuRuntimeSurface).toBe('academy-dialogue');
+        expect(speaker.dataset.yomuFuriganaMode).toBe('all');
+    });
+
     it('never mounts a translation until the caller marks that support as earned', () => {
         const stage = createAcademyVnStage();
         const line = {

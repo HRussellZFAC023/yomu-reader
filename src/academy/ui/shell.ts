@@ -3,7 +3,6 @@ import { academyText } from '../../reader/app/academy-copy';
 import { DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, NEW_TAB_PAGE_URL } from '../../reader/app/constants';
 import type { AcademyPresentationMode } from '../routing/route-history';
 import { copyButton, element, setCopy } from './dom';
-import { setAcademyTooltip } from './tooltip';
 
 export type AcademyNavigation = 'campus' | 'story' | 'class' | 'review' | 'journal';
 export type AcademyClassBoardAccess = 'account-required' | 'available';
@@ -83,7 +82,11 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     let presentationMode: AcademyPresentationMode = 'story';
     let muted = false;
     const refreshCopy = () => {
-        setAcademyTooltip(utilityToggle, academyText(language, 'utilityMenu'));
+        // The toggle renders its own visible caption from data-tooltip (the
+        // ink-tag ::after), so the portalled hover tooltip would duplicate it.
+        const menuLabel = academyText(language, 'utilityMenu');
+        utilityToggle.setAttribute('aria-label', menuLabel);
+        utilityToggle.dataset.tooltip = menuLabel;
         // Name the destination, so the control answers “where will this take me?”
         // rather than describing the mode that is already active.
         setCopy(presentation, language, presentationMode === 'course' ? 'navPresentationStory' : 'navPresentationCourse');

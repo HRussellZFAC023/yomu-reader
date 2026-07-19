@@ -1,5 +1,10 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
+import {
+    advancedCurriculumForBand,
+    type AdvancedCurriculumBand,
+    type AdvancedCurriculumEntry,
+} from '../content/advanced-curriculum';
 import { ACADEMY_CLASS_EVENTS } from '../content/class-event-catalog';
 import type { ClassWeekCastPlan, ClassWeekCastPlanEntry } from '../content/class-week-cast-plan';
 import {
@@ -10,19 +15,28 @@ import {
     type AcademyCastMemberId,
     type CastCategory,
 } from '../domain/cast-registry';
+import type { DailyLearningRoute, DailyRouteAction } from '../domain/daily-learning-loop';
+import type { JlptBand } from '../domain/learner-record';
 import type { CharacterDirectoryEntryProjection } from '../domain/progress-projections';
 import { academyBackgroundPicture, backButton, copyElement, element } from './dom';
+import { renderDailyRoutePanel } from './daily-route-panel';
 import { createAcademySprite } from './sprite';
 
 export interface ClassPathScreenOptions {
     readonly language: AcademyLanguage;
     readonly plan: ClassWeekCastPlan;
     readonly currentOrder: number;
+    readonly selectedBand?: JlptBand;
+    readonly advancedPackages?: readonly AdvancedCurriculumEntry[];
     readonly playableWeekIds: ReadonlySet<string>;
     readonly completedWeekIds?: ReadonlySet<string>;
     readonly characters?: readonly CharacterDirectoryEntryProjection[];
+    readonly dailyRoute?: DailyLearningRoute;
+    readonly learningReason?: string;
     readonly onBack: () => void;
     readonly onOpenWeek: (weekId: string) => void;
+    readonly onOpenAdvanced?: (packageId: string) => void;
+    readonly onOpenDailyAction?: (action: DailyRouteAction) => void;
 }
 
 interface PathLevel {
@@ -80,6 +94,14 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
     const title = copyElement('h1', 'academy-class-path-title', options.language, 'classPathTitle');
 
     const path = sectionShell('academy-class-path-weeks', options.language, 'classPathWeeks');
+    if (options.dailyRoute && options.onOpenDailyAction) {
+        path.append(renderDailyRoutePanel({
+            language: options.language,
+            route: options.dailyRoute,
+            ...(options.learningReason ? { learningReason: options.learningReason } : {}),
+            onOpenAction: options.onOpenDailyAction,
+        }));
+    }
     const spine = element('ol', 'academy-class-week-spine');
     let previousPlayable: ClassWeekCastPlanEntry | undefined;
     for (const week of options.plan.weeks) {
@@ -87,6 +109,12 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
         if (options.playableWeekIds.has(week.weekId)) previousPlayable = week;
     }
     path.append(spine);
+    const advancedBand = advancedBandForPath(options);
+    if (advancedBand) {
+        const packages = (options.advancedPackages ?? advancedCurriculumForBand(advancedBand))
+            .filter(entry => entry.band === advancedBand);
+        if (packages.length) path.append(renderAdvancedRail(packages, advancedBand, options, screen));
+    }
 
     const people = sectionShell('academy-class-path-people', options.language, 'classPathPeople');
     people.append(renderPeople(options.plan.weeks, options.language, options.characters));
@@ -107,6 +135,71 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
     screen.append(plate, scene);
     activateSection('weeks', index, panels);
     return screen;
+}
+
+function renderAdvancedRail(
+    packages: readonly AdvancedCurriculumEntry[],
+    band: AdvancedCurriculumBand,
+    options: ClassPathScreenOptions,
+    screen: HTMLElement,
+): HTMLElement {
+    const rail = element('section', 'academy-advanced-rail');
+    rail.dataset.advancedBand = band;
+    rail.setAttribute('aria-labelledby', `academy-advanced-rail-title-${band}`);
+    const heading = element('h3', 'academy-advanced-rail-title');
+    heading.id = `academy-advanced-rail-title-${band}`;
+    heading.textContent = options.language === 'ja'
+        ? `${band.toUpperCase()}の続き`
+        : `${band.toUpperCase()} continuation`;
+    const summary = element('p', 'academy-advanced-rail-summary');
+    summary.textContent = options.language === 'ja'
+        ? '完了した上級パッケージを、いつでも開き直せます。'
+        : 'Revisit completed advanced packages whenever you are ready.';
+    const list = element('ol', 'academy-advanced-rail-list');
+    for (const curriculum of packages) {
+        const item = element('li', 'academy-advanced-rail-stop');
+        item.dataset.packageId = curriculum.id;
+        item.dataset.lessonId = curriculum.lessonId;
+        const button = element('button', 'academy-advanced-rail-entry');
+        button.type = 'button';
+        const title = curriculum.title[options.language];
+        const action = options.language === 'ja' ? '開き直す' : 'Revisit';
+        button.setAttribute('aria-label', `${action}: ${title}`);
+        button.addEventListener('click', () => {
+            if (options.onOpenAdvanced) {
+                options.onOpenAdvanced(curriculum.id);
+                return;
+            }
+            screen.dispatchEvent(new CustomEvent('academy:open-advanced', {
+                bubbles: true,
+                detail: { lessonId: curriculum.lessonId, packageId: curriculum.id },
+            }));
+        });
+
+        const eyebrow = element('span', 'academy-advanced-rail-eyebrow');
+        eyebrow.textContent = `${curriculum.location[options.language]} · ${curriculum.host.localizedName[options.language]}`;
+        const titleElement = element('strong', 'academy-advanced-rail-label');
+        titleElement.textContent = title;
+        const packageSummary = element('span', 'academy-advanced-rail-copy');
+        packageSummary.textContent = curriculum.summary[options.language];
+        const revisit = element('span', 'academy-advanced-rail-action');
+        revisit.textContent = action;
+        button.append(eyebrow, titleElement, packageSummary, revisit);
+        item.append(button);
+        list.append(item);
+    }
+    rail.append(heading, summary, list);
+    return rail;
+}
+
+function advancedBandForPath(options: ClassPathScreenOptions): AdvancedCurriculumBand | undefined {
+    if (options.selectedBand === 'n3' || options.selectedBand === 'n2' || options.selectedBand === 'n1') {
+        return options.selectedBand;
+    }
+    if (options.selectedBand !== undefined) return undefined;
+    if (options.currentOrder >= 62) return 'n2';
+    if (options.currentOrder >= 48) return 'n3';
+    return undefined;
 }
 
 function localIndex(

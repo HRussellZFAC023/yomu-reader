@@ -1,0 +1,563 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e08-last-revision",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 44,
+  "title": {
+    "en": "The Last Revision",
+    "ja": "最後の推敲"
+  },
+  "synopsis": "The public panel is nearly done, but one block of caption is a bare rectangle where a withdrawn passage used to sit, and the blank reads like a mistake. In the library, Stasi, Ruparna, and Xingyu build the final form under the constraint that nothing withdrawn may come back: Stasi marks the withheld place with a plain tab that shows nothing, Ruparna keeps it out of frame, and Xingyu's ear catches where a vivid clause smuggles the certainty back. The line ends vivid and honest, and it is the constraint that gets it there, with nothing withdrawn brought back to do the work.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "stasi",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#stasi",
+        "docs/academy/story/CAST-AND-CONSENT.md#stasi"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, address, or private history",
+        "visual preference treated as factual memory",
+        "misgendering; they/them is stated once and never re-litigated",
+        "flattening the arc into 'the accurate one' — revision must keep the expression",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "ruparna",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#ruparna",
+        "docs/academy/story/CAST-AND-CONSENT.md#ruparna"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "resolving her ambiguity into one flattened reading",
+        "the generic camera prop instead of the subtitle/caption lane",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "xingyu",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#xingyu",
+        "docs/academy/story/CAST-AND-CONSENT.md#xingyu"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "inferred biography beyond authorized sound/rhythm texture",
+        "her happiness framed as a mask to see through or cure",
+        "reproduced song lyrics",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "jenny",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jenny",
+        "docs/academy/story/CAST-AND-CONSENT.md#jenny"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "stepping back framed as a confidence deficit to cure",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "tom",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#tom",
+        "docs/academy/story/CAST-AND-CONSENT.md#tom"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed game IP",
+        "bank or account details",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e07-journey-not-everyone-takes",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityIds": [
+            "activity:s4e08-last-revision-vivid-without-restoring"
+          ],
+          "function": "revise-a-public-version-vivid-without-restoring-withdrawn-detail-and-justify-the-editing-rationale-in-n1"
+        }
+      ],
+      "recommendedBand": "n1",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-four-editing-under-constraint"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:last-revision:what-stays-out-of-frame",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "summer-rain",
+      "goal": "Reach the moment the class stops trying to fill the withdrawn block and reframes the job as holding its place without showing it, and Stasi marks that place with a plain tab.",
+      "dramaticQuestion": "Faced with a blank that reads like a mistake, will the class fill the gap or design a mark that keeps it open on purpose?",
+      "learnerNeed": "A stance on a plan that preserves a withheld place instead of restoring its content.",
+      "curriculum": {
+        "sectionId": "hold-the-place-not-the-content",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:last-revision:blanked-panel",
+          "beatId": "beat:last-revision:arrival-image",
+          "cueId": "cue:library-panel-with-a-bare-block",
+          "description": "Rain runs down the tall library windows. The near-final public panel lies flat across the long table, its blocks of caption set in reading order. One block is a bare rectangle of card where a withdrawn passage used to sit. Jenny has already re-blocked the panel from the back bench so the empty block falls where the layout can carry it, then gone back to her own work. Tom's old paper cat sits in an open box at the table's edge."
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:stasi-the-blank-reads-as-a-hole",
+          "beatId": "beat:last-revision:human-want",
+          "speakerId": "stasi",
+          "intent": "Name the plain problem: the blank reads like a dropped stitch and they can't restore what was removed, so the real task is to build an absence that doesn't look like a gap.",
+          "attentionTarget": "the bare block, and the way an eye falls into it rather than past it",
+          "variants": {
+            "n2": {
+              "japanese": "ここ、空白のままだと、抜けたみたいに見えるんだよね。目がそこに落ちる。でも、消したものを戻すわけにはいかないし……かといって、ただ白く空けておくと、忘れたのかって思われる。",
+              "reading": "ここ、くうはくのままだと、ぬけたみたいにみえるんだよね。めがそこにおちる。でも、けしたものをもどすわけにはいかないし……かといって、ただしろくあけておくと、わすれたのかっておもわれる。",
+              "english": "Here — if we leave it blank, it looks like something dropped out. The eye falls into it. But we can't put back what we removed… and yet if we just leave it white and open, people will think we forgot."
+            },
+            "n1": {
+              "japanese": "ここ、白いまま残すと、どうしても“抜け落ちた”ように見えるんだよね。目が吸い込まれる。かといって、外したものを戻すわけにはいかない——戻さずに、それでも欠けて見せない。そこをどう作るか、なんだと思う。",
+              "reading": "ここ、しろいままのこすと、どうしても“ぬけおちた”ようにみえるんだよね。めがすいこまれる。かといって、はずしたものをもどすわけにはいかない——もどさずに、それでもかけてみせない。そこをどうつくるか、なんだとおもう。",
+              "english": "Here — leave it white and it always reads as if something fell out. Your eye gets pulled in. But we can't put back what we took out. Restore nothing, and still don't let it look like a gap. Making that — that's the whole problem, I think."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:ruparna-out-of-frame",
+          "beatId": "beat:last-revision:reframe",
+          "speakerId": "ruparna",
+          "intent": "Reframe it from restoration to framing: the question is what to keep out of frame. Use the subtitle logic that a part you chose not to show stays truer unshown. Point at the room; don't open the door.",
+          "attentionTarget": "the edge of the block as a frame line, and everything the frame is allowed to leave out",
+          "variants": {
+            "n2": {
+              "japanese": "戻すものの話じゃないと思う。フレームの外に、何を置いたままにするか——そっちの話だよ。字幕と同じで、映さないって決めた部分は、映さないままのほうが正確なの。部屋を指せばいい。ドアは開けなくていい。",
+              "reading": "もどすもののはなしじゃないとおもう。フレームのそとに、なにをおいたままにするか——そっちのはなしだよ。じまくとおなじで、うつさないってきめたぶぶんは、うつさないままのほうがせいかくなの。へやをさせばいい。ドアはあけなくていい。",
+              "english": "I don't think this is about what to put back. It's about what to leave outside the frame — that's the question. Same as a subtitle: the part you decided not to show stays truer left unshown. Point at the room. You don't have to open the door."
+            },
+            "n1": {
+              "japanese": "たぶん、“何を戻すか”じゃないんだよね。フレームの外に、何を残しておくか。字幕でもそうだけど、あえて映さないと決めたところは、映さないほうがむしろ正確で。部屋のほうを指すだけでいい——ドアまで開けなくても、ちゃんと伝わる。",
+              "reading": "たぶん、“なにをもどすか”じゃないんだよね。フレームのそとに、なにをのこしておくか。じまくでもそうだけど、あえてうつさないときめたところは、うつさないほうがむしろせいかくで。へやのほうをさすだけでいい——ドアまであけなくても、ちゃんとつたわる。",
+              "english": "It's probably not 'what to put back.' It's what to keep outside the frame. It's like a subtitle — the place you chose not to show is more accurate left unshown. Just point toward the room. You don't have to open the door for it to land."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:last-revision:how-to-back-it",
+          "beatId": "beat:last-revision:stance",
+          "question": "Stasi wants to mark the withheld block so its place is kept without its content shown. How do you back it?",
+          "options": [
+            {
+              "id": "option:last-revision:commit-neutral-marker",
+              "action": "Commit — put a plain, deliberately dull marker there whose only message is that something is kept out, nothing like the old mascot.",
+              "japaneseByBand": {
+                "n2": "じゃあ、目印を置こう。前のあの猫とは別の、うんと地味なやつ。“ここに、出せないものがある”ってことだけ伝わる印にしよう。",
+                "n1": "じゃあ、印を一つ置こう。前のあの猫みたいに可愛いのじゃなくて、うんと地味な——“ここには、出さないと決めたものがある”それだけを伝える印。中身は言わない。場所だけ残す。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:last-revision:before-marker"
+            },
+            {
+              "id": "option:last-revision:test-the-vivid-version",
+              "action": "Ask to read the vivid version aloud first, to check the withdrawn detail hasn't quietly crept back before you mark anything.",
+              "japaneseByBand": {
+                "n2": "印の前に、一回声に出して読んでみない?この“いい感じ”の言い方、消したはずのところがこっそり戻ってきてないか、確かめてから決めよう。",
+                "n1": "印を置く前に、一度声に出して読んでみようよ。この“据わりのいい”言い回し、外したはずのものがこっそり滑り込んでないか——確かめてからにしない?"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:last-revision:before-marker"
+            }
+          ],
+          "convergence": "checkpoint:last-revision:before-marker"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:last-revision:before-marker",
+          "beatId": "beat:last-revision:response",
+          "resume": "The learner has backed a plan to hold the withheld place rather than fill it. Stasi answers by designing the mark."
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:stasi-the-marker-holds-the-place",
+          "beatId": "beat:last-revision:payoff",
+          "speakerId": "stasi",
+          "intent": "Pay off the paper-cat: set a plain new marker in the withheld block's place and name the reversal. The old cat pointed at the clue; this one shows nothing and only keeps a place that must not be filled.",
+          "attentionTarget": "the plain tab going down beside the bare block, and the boxed paper cat it looks nothing like",
+          "variants": {
+            "n2": {
+              "japanese": "昔は、あの紙の猫で“どこが大事か”を教えてたよね。今日は逆。これは、何も教えない印。ただ“ここは空けてある、わざとだ”っていう場所だけを守る。中身の代わりじゃなくて、中身を出さないための印なんだ。",
+              "reading": "むかしは、あのかみのねこで“どこがだいじか”をおしえてたよね。きょうはぎゃく。これは、なにもおしえないしるし。ただ“ここはあけてある、わざとだ”っていうばしょだけをまもる。なかみのかわりじゃなくて、なかみをださないためのしるしなんだ。",
+              "english": "Back then, that paper cat told you where the important thing was. Today it's the opposite. This is a marker that tells you nothing. It only holds the place — 'this is left open, on purpose.' Not a stand-in for the content. A marker for keeping the content out."
+            },
+            "n1": {
+              "japanese": "前は、あの紙の猫が“ここを見て”って教える役だったでしょ。今日のこれは、真逆なんだよね。何も見せないための印。地味でいい——むしろ地味じゃなきゃ困る。“ここは、わざと空けてある”それだけを守って、中身の代わりには絶対にならない。埋めちゃいけない場所を、埋めずに残しておくための印。",
+              "reading": "まえは、あのかみのねこが“ここをみて”っておしえるやくだったでしょ。きょうのこれは、まぎゃくなんだよね。なにもみせないためのしるし。じみでいい——むしろじみじゃなきゃこまる。“ここは、わざとあけてある”それだけをまもって、なかみのかわりにはぜったいにならない。うめちゃいけないばしょを、うめずにのこしておくためのしるし。",
+              "english": "Before, that paper cat's job was to say 'look here.' This one is the exact reverse. A marker for showing nothing. Plain is fine — plain is the point. It holds one thing: 'this is left open, deliberately.' It never stands in for what's missing. A marker for keeping a place you mustn't fill, unfilled."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:last-revision:marked-absence",
+          "beatId": "beat:last-revision:exit-image",
+          "cueId": "cue:plain-tab-beside-the-bare-block",
+          "description": "Stasi sets a plain grey tab beside the bare block. Nothing drawn on it, nothing like the cat. Next to the marker, the empty rectangle stops looking like a dropped stitch and starts looking left open. The class reads the panel again from the top, and no one reaches to fill the gap."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:last-revision:vivid-but-restores-nothing"
+      }
+    },
+    {
+      "id": "scene:last-revision:vivid-but-restores-nothing",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "summer-rain",
+      "goal": "Turn the constraint into the final revised caption line: vivid, restoring nothing withdrawn, keeping the marker's place. The learner does the bounded rewrite and justifies the editing rationale aloud.",
+      "dramaticQuestion": "Can a line be cut down under a hard constraint and come out sharper instead of plainer?",
+      "learnerNeed": "A bounded rewrite that keeps the vividness, restores no withdrawn detail, and can be defended as editing rationale in N1.",
+      "curriculum": {
+        "sectionId": "vivid-under-constraint",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:last-revision:over-vivid-clause",
+          "beatId": "beat:last-revision:regroup-image",
+          "cueId": "cue:draft-line-one-clause-too-vivid",
+          "description": "On the board, the draft caption line is pinned up large. One clause in the middle runs bright and certain, and it leans on the very detail the class agreed to withhold. The rest of the line waits around it, and the grey marker sits in its block below."
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:xingyu-sing-it",
+          "beatId": "beat:last-revision:human-want",
+          "speakerId": "xingyu",
+          "intent": "Use her ear as the accuracy tool: read the line aloud like a song, notice the clause that feels too good, and propose dropping it to test whether the line stands on its own or was leaning on the withdrawn certainty.",
+          "attentionTarget": "the middle clause, and how good it feels in the mouth versus whether the sentence needs it",
+          "variants": {
+            "n2": {
+              "japanese": "ちょっと、声に出して読んでみて。……この一文、耳に残るのはいいんだけど、残りすぎてる。歌みたいに気持ちいい言い方って、たいてい言い切っちゃってるんだよね。そのクセを外しても、まだ立つ?",
+              "reading": "ちょっと、こえにだしてよんでみて。……このいちぶん、みみにのこるのはいいんだけど、のこりすぎてる。うたみたいにきもちいいいいかたって、たいていいいきっちゃってるんだよね。そのクセをはずしても、まだたつ?",
+              "english": "Here — read it out loud. …This sentence sticks in the ear, which is nice, but it sticks too well. A phrasing that feels good like a song usually means you've overstated it. Take that habit out — does it still stand?"
+            },
+            "n1": {
+              "japanese": "一回、口に出して、歌うみたいに読んでみて。……うん、気持ちいいんだよね、この言い回し。でも“気持ちいい”ときって、たいてい言い切りすぎてるの。試しに、そのひと節を落としてみて——それでも文が立つなら本物。崩れるなら、そこに寄りかかってたってことだよ。",
+              "reading": "いっかい、くちにだして、うたうみたいによんでみて。……うん、きもちいいんだよね、このいいまわし。でも“きもちいい”ときって、たいていいいきりすぎてるの。ためしに、そのひとふしをおとしてみて——それでもぶんがたつならほんもの。くずれるなら、そこによりかかってたってことだよ。",
+              "english": "Read it aloud once, like you're singing it. …Yeah, it feels good, this phrasing. But when it feels that good, you've usually overstated it. Try dropping that one clause — if the sentence still stands, it's real. If it collapses, it was leaning on it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:stasi-three-conditions",
+          "beatId": "beat:last-revision:set-conditions",
+          "speakerId": "stasi",
+          "intent": "Lock the three plain editing conditions (keep the vividness, put nothing withdrawn back, keep the marker's place), then hand the rewrite to the learner with an easy way to decline.",
+          "attentionTarget": "the three things that must not move, and the one line the learner is being handed",
+          "variants": {
+            "n2": {
+              "japanese": "じゃあ、直す前に条件だけ決めよう。色は落とさない——地味にはしない。外したものは、一言も戻さない。印の場所は、そのまま残す。この三つさえ守れば、あとは自由。……この一文の直し、あなたにやってみてほしいんだけど、いい?気が乗らなければ、私がやるよ。",
+              "reading": "じゃあ、なおすまえにじょうけんだけきめよう。いろはおとさない——じみにはしない。はずしたものは、ひとこともどさない。しるしのばしょは、そのままのこす。このみっつさえまもれば、あとはじゆう。……このいちぶんのなおし、あなたにやってみてほしいんだけど、いい?きがのらなければ、わたしがやるよ。",
+              "english": "Okay, before we touch it, let's fix the rules. Don't lose the colour — no retreating into plain. Not one word of what we cut goes back. The marker's place stays where it is. Keep those three and the rest is open. …I'd like you to take the fix on this line — that alright? If you're not up for it, I'll do it."
+            },
+            "n1": {
+              "japanese": "直しにかかる前に、動かさないところだけ決めておこうか。鮮やかさは殺さない——地味に逃げない。外したものは、ひと言も戻さない。印の場所は、そのまま。守るのはこの三つだけで、あとはどう組んでもいい。……で、この一文、あなたに直してみてほしいんだ。もちろん、気が乗らなければ私がやる。",
+              "reading": "なおしにかかるまえに、うごかさないところだけきめておこうか。あざやかさはころさない——じみににげない。はずしたものは、ひとこともどさない。しるしのばしょは、そのまま。まもるのはこのみっつだけで、あとはどうくんでもいい。……で、このいちぶん、あなたになおしてみてほしいんだ。もちろん、きがのらなければわたしがやる。",
+              "english": "Before we start cutting, let's just fix what doesn't move. Don't kill the vividness — no escaping into plain. Not one word of what we took out comes back. The marker's place stays put. Only those three are locked; build the rest however you like. …And this line — I'd like you to try the fix. Of course, if you're not feeling it, I'll take it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:last-revision:before-rewrite",
+          "beatId": "beat:last-revision:production-attempt",
+          "resume": "Conditions locked and the over-vivid clause identified, the learner takes the rewrite: cut the line so it stays vivid, restore nothing withdrawn, keep the marker's place, and defend the editing choice aloud."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:last-revision:revise-vivid-without-restoring",
+          "beatId": "beat:last-revision:production-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e08-last-revision-vivid-without-restoring"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e08-last-revision-vivid-without-restoring"
+          },
+          "resumeContext": "The learner rewrites the over-vivid clause so the caption line stays vivid, restores no withdrawn detail, and keeps the marker's place, then justifies the cut as editing rationale in N1 (why this form is final under the constraint).",
+          "onReady": "checkpoint:last-revision:after-rewrite",
+          "onRepair": "node:last-revision:clause-recut",
+          "onDefer": "checkpoint:last-revision:before-rewrite"
+        },
+        {
+          "kind": "stage",
+          "id": "node:last-revision:clause-recut",
+          "beatId": "beat:last-revision:production-repair",
+          "cueId": "cue:middle-clause-taken-down-once",
+          "description": "Only the middle clause comes down; the rest of the line stays pinned. The grey marker in the block below does not move while the learner re-cuts the phrasing on the same three conditions."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:last-revision:after-rewrite",
+          "beatId": "beat:last-revision:production-response",
+          "resume": "The line is rewritten under the constraint. Stasi reads it back and names why the constrained form is the better one."
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:stasi-precise-not-plain",
+          "beatId": "beat:last-revision:transform",
+          "speakerId": "stasi",
+          "intent": "Land the arc: the constrained line came out sharper, not smaller. It reached this shape because they could not restore or fill, and it kept every bit of the vividness while letting no lie in.",
+          "attentionTarget": "the cut line reading stronger than the draft, and the marker still holding its place below",
+          "variants": {
+            "n2": {
+              "japanese": "……うん、これでいい。むしろ、前より効いてる。減らしたのに、痩せてないんだよね。戻せない、埋められない——その縛りがあったから、この形になった。地味にならずに、正確になった。",
+              "reading": "……うん、これでいい。むしろ、まえよりきいてる。へらしたのに、やせてないんだよね。もどせない、うめられない——そのしばりがあったから、このかたちになった。じみにならずに、せいかくになった。",
+              "english": "…Yeah, this works. If anything it lands harder than before. We took things out and it didn't get thinner. Couldn't restore, couldn't fill — because of that constraint, it came out this shape. Accurate, without going plain."
+            },
+            "n1": {
+              "japanese": "……うん、これだ。減らしたのに、むしろ強くなってる。戻せない、埋められない——その縛りがあったからこそ、この一本にたどり着けたんだと思う。鮮やかさは、一ミリも手放してない。それでいて、嘘は一つも混ざってない。",
+              "reading": "……うん、これだ。へらしたのに、むしろつよくなってる。もどせない、うめられない——そのしばりがあったからこそ、このいっぽんにたどりつけたんだとおもう。あざやかさは、いちミリもてばなしてない。それでいて、うそはひとつもまざってない。",
+              "english": "…Yeah, this is it. We cut it down and it got stronger. Couldn't restore, couldn't fill — it's because of that constraint we reached this single clean line. Didn't give up a millimetre of the vividness. And not one lie slipped in."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:ruparna-out-of-frame-stays",
+          "beatId": "beat:last-revision:changed-action",
+          "speakerId": "ruparna",
+          "intent": "Close her framing arc: what they chose not to show stays unshown to the end, and the piece is finished and honest. Filling it without showing it is the hardest thing to pull off, and it worked.",
+          "attentionTarget": "the whole panel reading as complete despite the kept-out block",
+          "variants": {
+            "n2": {
+              "japanese": "フレームの外は、外のまま。それで、ちゃんと完成してる。見せてないのに、足りない感じがしない——これがいちばん難しいやつだよ。",
+              "reading": "フレームのそとは、そとのまま。それで、ちゃんとかんせいしてる。みせてないのに、たりないかんじがしない——これがいちばんむずかしいやつだよ。",
+              "english": "What's outside the frame stays outside. And it's finished, properly. We didn't show it, and it doesn't feel like anything's missing — that's the hardest one to pull off."
+            },
+            "n1": {
+              "japanese": "映さないと決めたものは、最後まで映さないまま。それで、もう完成なんだよね。隠したのに、欠けて見えない——この“見せずに満たす”が、いちばん厄介で、いちばん効くところ。",
+              "reading": "うつさないときめたものは、さいごまでうつさないまま。それで、もうかんせいなんだよね。かくしたのに、かけてみえない——この“みせずにみたす”が、いちばんやっかいで、いちばんきくところ。",
+              "english": "What we chose not to show stays unshown to the end. And that's it finished. Hidden, and yet it doesn't read as a gap — this 'fill it without showing it' is the trickiest part, and the part that works hardest."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:last-revision:xingyu-it-holds",
+          "beatId": "beat:last-revision:sign-off",
+          "speakerId": "xingyu",
+          "intent": "Sign off by singing the finished line through once: nothing drops, it stands all the way, and it can go out.",
+          "attentionTarget": "the finished line read end to end, checking nothing collapses",
+          "variants": {
+            "n2": {
+              "japanese": "最後にもう一回、歌ってみるね。……うん、落ちない。ちゃんと立ってる。よし、これで出せる。",
+              "reading": "さいごにもういっかい、うたってみるね。……うん、おちない。ちゃんとたってる。よし、これでだせる。",
+              "english": "Let me sing it through one more time. …Yeah, nothing drops. It stands. Good — we can put this out."
+            },
+            "n1": {
+              "japanese": "じゃ、しめに一回だけ歌ってみる。……ん、大丈夫、どこも落ちない。最後までちゃんと立ってる。——これ、出せるね。",
+              "reading": "じゃ、しめにいっかいだけうたってみる。……ん、だいじょうぶ、どこもおちない。さいごまでちゃんとたってる。——これ、だせるね。",
+              "english": "Okay, one last sing-through to close. …Mm, it's fine, nothing drops anywhere. It stands all the way to the end. —We can put this out."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:last-revision:tom-hands-over",
+          "beatId": "beat:last-revision:exit-image",
+          "cueId": "cue:paper-cat-boxed-marker-handed-on",
+          "description": "Tom closes the box on the paper cat and slides the grey marker and a half-page of method notes across the table to Stasi. The mascot is set down for good; the marker and the next turn go to someone else to run. The finished panel stands with its one place kept open and unfilled."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:paper-cat",
+      "state": "payoff",
+      "ownerIds": [
+        "tom",
+        "felix",
+        "stasi"
+      ],
+      "meaningNow": "A new plain marker preserves the place of a withheld passage without exposing its content. The mascot that once pointed at the smallest clue becomes a discipline that holds a space it must not fill.",
+      "priorUse": {
+        "packageId": "s3e11-names-in-the-margin",
+        "sceneId": "scene:names-in-the-margin:version-evidence",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "The class marks the spot where a withdrawn passage sat with a plain placeholder so its place is kept without showing what it held; the public version stays vivid and restores nothing."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:last-revision:public-version",
+      "kind": "story",
+      "description": "The public panel is finalized vivid without restoring any withdrawn detail: a plain marker preserves the withheld passage's place, the framing keeps it out of frame, and the over-vivid clause is re-cut so the line stands honestly. The final form came from the constraint rather than from anything put back."
+    },
+    {
+      "id": "outcome:last-revision:stasi-return",
+      "kind": "bond",
+      "castId": "stasi",
+      "chapter": 44,
+      "beat": "return",
+      "description": "Stasi makes the public version vivid without restoring withdrawn content and designs a plain new marker that keeps a withheld passage's place without exposing it; the arc lands as precise without becoming plain, and the class can later ask them to hold an authored absence in staging."
+    },
+    {
+      "id": "outcome:last-revision:ruparna-return",
+      "kind": "bond",
+      "castId": "ruparna",
+      "chapter": 44,
+      "beat": "return",
+      "description": "Ruparna's framing decides what stays out of frame; her Chapter 31 limit returns as changed behavior (she can hold the ambiguity and still ship a finished piece), and the class can ask her to frame an honest public version."
+    },
+    {
+      "id": "outcome:last-revision:xingyu-return",
+      "kind": "bond",
+      "castId": "xingyu",
+      "chapter": 44,
+      "beat": "return",
+      "description": "Xingyu's ear returns as an accuracy tool rather than a memorability trap; she reads a rewrite aloud to test whether a vivid clause smuggles withdrawn certainty back, proving the Chapter 31 limit landed, and the class can ask her to sing-check a line before it ships."
+    },
+    {
+      "id": "outcome:last-revision:jenny-return",
+      "kind": "bond",
+      "castId": "jenny",
+      "chapter": 44,
+      "beat": "return",
+      "description": "Jenny returns on the backstage terms she named at Chapter 29 and re-blocks the panel like a finished layout; the class works from her staging without pulling her to the front, proof it heard her stated limit rather than treating it as a gap to fix."
+    },
+    {
+      "id": "outcome:last-revision:tom-future",
+      "kind": "bond",
+      "castId": "tom",
+      "chapter": 44,
+      "beat": "future",
+      "description": "Tom retires the paper-cat mascot and hands Stasi the plain marker and the method, designing a generous rematch so someone else runs and wins; his showman arc opens onto mentorship the class can call on next."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:stasi-editing-under-constraint"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-rewrite-step"
+    ],
+    "withdrawnContentFallback": "Use the same vivid-without-restoring editing evidence with neutral nameplates: a visual lead marks a withheld passage's place with a plain placeholder, a framing voice keeps it out of frame, and a sound-first voice checks the rewrite restores nothing."
+  }
+}

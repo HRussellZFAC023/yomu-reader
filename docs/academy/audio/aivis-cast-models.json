@@ -1,0 +1,137 @@
+[
+ {
+  "speaker": "rie",
+  "model": "morioki",
+  "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
+ },
+ {
+  "speaker": "sophie",
+  "model": "まお (Mao / Oz Chat)",
+  "uuid": "a59cb814-0083-4369-8542-f51a29e72af7"
+ },
+ {
+  "speaker": "jenny",
+  "model": "コハク (Kohaku / Oz Chat)",
+  "uuid": "22e8ed77-94fe-4ef2-871f-a86f94e9a579"
+ },
+ {
+  "speaker": "mika",
+  "model": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+  "uuid": null
+ },
+ {
+  "speaker": "jodi",
+  "model": "ほのか (Honoka / リアボVC)",
+  "uuid": "59f96896-64d2-4378-830a-4d5feb3d81aa"
+ },
+ {
+  "speaker": "stasi",
+  "model": "みちのくあいり (Michinoku Airi)",
+  "uuid": "1b2830f4-8cf1-4184-a0d9-3a1bace3a844"
+ },
+ {
+  "speaker": "ruparna",
+  "model": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+  "uuid": null
+ },
+ {
+  "speaker": "rose",
+  "model": "RikkaBotan sweet (jp_extra_sweet_original)",
+  "uuid": null
+ },
+ {
+  "speaker": "angel",
+  "model": "凛音エル (Rinne Eru)",
+  "uuid": "f5017410-fbb5-49e1-97cb-e785f42e15f5"
+ },
+ {
+  "speaker": "nanako",
+  "model": "花音 (Kanon)",
+  "uuid": "a670e6b8-0852-45b2-8704-1bc9862f2fe6"
+ },
+ {
+  "speaker": "mira",
+  "model": "zonoko",
+  "uuid": "7fc08a41-b64d-456d-8b22-8e1284674775"
+ },
+ {
+  "speaker": "narrator",
+  "model": "らせつん (Rasetsun)",
+  "uuid": null
+ },
+ {
+  "speaker": "henry",
+  "model": "fumifumi",
+  "uuid": "71e72188-2726-4739-9aa9-39567396fb2a"
+ },
+ {
+  "speaker": "aakash",
+  "model": "kokuren_voice",
+  "uuid": "e40d5b99-8cde-4442-a45b-0ebec9167506"
+ },
+ {
+  "speaker": "alex",
+  "model": "yukyu",
+  "uuid": "1f04a608-916c-4d9e-bf6e-b9da5c176f85"
+ },
+ {
+  "speaker": "tom",
+  "model": "Lux",
+  "uuid": "3dabea2b-cc10-41da-955b-4618ce84e716"
+ },
+ {
+  "speaker": "sam",
+  "model": "にせ (nise)",
+  "uuid": "6d11c6c2-f4a4-4435-887e-23dd60f8b8dd"
+ },
+ {
+  "speaker": "shin",
+  "model": "立神ケイ (Tategami Kei)",
+  "uuid": "b2bee8fc-3f65-4c99-9607-a1075a10066b"
+ },
+ {
+  "speaker": "christian",
+  "model": "澤原 玄二郎 (Sawabaru Genjirou)",
+  "uuid": "2e1fdde8-d089-42d7-b64f-cf89952b1bdc"
+ },
+ {
+  "speaker": "felix",
+  "model": "はきみて れく (Hakimite Reku)",
+  "uuid": "70ad7e84-6a10-48d6-8f9a-8dac4bba3c0b"
+ },
+ {
+  "speaker": "robert",
+  "model": "阿井田 茂 (Aida Shigeru)",
+  "uuid": null
+ },
+ {
+  "speaker": "peter",
+  "model": "hinakoyuhara",
+  "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43"
+ },
+ {
+  "speaker": "steve",
+  "model": "観測症 (Kansokushou)",
+  "uuid": "ed47c952-c253-405e-adba-1172399816a1"
+ },
+ {
+  "speaker": "tom2",
+  "model": "宗周定昌 (Soushuu Sadamasa)",
+  "uuid": "00f29eb2-e12b-4f64-a5e8-4188be62de33"
+ },
+ {
+  "speaker": "shaun",
+  "model": "結亜ナル (Yua Naru)",
+  "uuid": null
+ },
+ {
+  "speaker": "xingyu",
+  "model": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+  "uuid": null
+ },
+ {
+  "speaker": "francis",
+  "model": "TANAKA",
+  "uuid": "470a41e2-863f-4bf2-8a20-bf7cde0d8f7b"
+ }
+]

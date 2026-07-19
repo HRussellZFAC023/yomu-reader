@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { validateClassWeekCastPlan } from '../../src/academy/content/class-week-cast-plan';
+import { projectDailyLearningRoute } from '../../src/academy/domain/daily-learning-loop';
 import { renderClassPathScreen } from '../../src/academy/ui/class-path-screen';
 
 function plan() {
@@ -30,7 +31,7 @@ describe('Class path', () => {
         expect([...screen.querySelectorAll('.academy-class-week-level')].map(node => node.textContent?.replace(' · ', ''))).toEqual([
             'Foundation', 'N5', 'N4', 'N3', 'N2 → N1',
         ]);
-        expect(screen.querySelectorAll('.academy-class-week-node')).toHaveLength(73);
+        expect(screen.querySelectorAll('.academy-class-week-node')).toHaveLength(74);
         expect(screen.querySelector('.academy-class-week-node:first-child')?.getAttribute('data-week-id')).toBe('orientation');
         expect(screen.querySelector('.academy-class-week-node:last-child')?.getAttribute('data-week-id')).toBe('l3plus-kanji-7');
         expect(screen.querySelector('[data-week-id="orientation"] .academy-class-week-sequence')?.textContent).toBe('Lesson 0');
@@ -62,6 +63,46 @@ describe('Class path', () => {
         expect(open).toHaveBeenCalledWith('orientation');
         expect(screen.querySelector('[data-week-id="l1-kickoff"] button')).toBeNull();
         expect(screen.querySelector('[data-week-id="l1-kickoff"] [aria-disabled="true"]')).not.toBeNull();
+    });
+
+    it('mounts one daily thread with the learner reason and delegates its primary action', () => {
+        const openDaily = vi.fn();
+        const route = projectDailyLearningRoute({
+            events: [],
+            evidence: [],
+            candidates: [{
+                kind: 'lesson',
+                id: 'authored-week:l1-l01',
+                sequence: 1,
+                completionActivityId: 'complete:authored-week:l1-l01',
+                completionEncounterIds: ['class-week:l1-l01'],
+                label: 'First class',
+                conceptIds: ['concept:first-class'],
+                grounding: { sourceId: 'moodle:first-class' },
+                modeId: 'normal-challenge',
+                skill: 'grammar',
+                format: 'mixed',
+                incentive: { kind: 'journal-memory', id: 'memory:first-class' },
+            }],
+            now: 0,
+            dayBoundary: { timeZone: 'Europe/London', dayBoundaryHour: 4 },
+        });
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 1,
+            playableWeekIds: new Set(['l1-l01']),
+            dailyRoute: route,
+            learningReason: 'Read with friends',
+            onBack: vi.fn(),
+            onOpenWeek: vi.fn(),
+            onOpenDailyAction: openDaily,
+        });
+
+        expect(screen.querySelector('[data-daily-route="true"]')?.textContent)
+            .toContain('Your reason: Read with friends');
+        screen.querySelector<HTMLButtonElement>('[data-daily-action-id="authored-week:l1-l01"]')?.click();
+        expect(openDaily).toHaveBeenCalledWith(route.primaryAction);
     });
 
     it('shows people and events for the full path and keeps concise Japanese section labels', () => {

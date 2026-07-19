@@ -2999,18 +2999,30 @@
       "gaps": [
         "no-exact-source-vocabulary-sheet"
       ]
+    },
+    {
+      "lessonId": "l2-l36",
+      "moodleModuleId": 8870527,
+      "sheets": [],
+      "lessonRowCount": 0,
+      "orderedLessonRowFingerprints": [],
+      "parityStatus": "gap-declared",
+      "matchedSourceId": null,
+      "gaps": [
+        "no-exact-source-vocabulary-sheet"
+      ]
     }
   ],
   "summary": {
-    "lessonCount": 60,
+    "lessonCount": 61,
     "exactLessonCount": 0,
-    "gapLessonCount": 60,
+    "gapLessonCount": 61,
     "sourceSheetCount": 79,
     "extractedRowCount": 691,
     "completeRowCount": 285,
     "gapCounts": {
       "lesson-prestudy-list-missing": 17,
-      "no-exact-source-vocabulary-sheet": 15,
+      "no-exact-source-vocabulary-sheet": 16,
       "ordered-vocabulary-content-mismatch": 28,
       "source-sheet-extraction-incomplete": 45,
       "source-vocabulary-media-unresolved": 2

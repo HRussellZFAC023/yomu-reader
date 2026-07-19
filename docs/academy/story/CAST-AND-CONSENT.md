@@ -13,7 +13,10 @@ The current registry contains:
   - **Nanako** — Henry's girlfriend, met on **HelloTalk**; native Japanese speaker; was in London ~4 months (met Aakash and Tom then), now long-distance splitting UK/Japan. She is the group's beloved informal sensei-figure and the emotional engine of Henry's motivation to learn ("working hard to be with her someday"). She appears via visits, reunions, group chat, and Japanese-anchor moments — never as a class lesson lead.
   - **Mira** — real name **Karen** ("Karen Mira"); Henry's Japanese-learning friend from an online circle, US/Miami-based; joins the group chat from a distance and visits (the RHS garden day out). Self-directed learner (meetups, ~30-60 min/day, the photo-vocab game). Extended cast, returns-after-absence arc.
   - Both remain in the roster with full bond/relationship arcs; their scenes ride Henry's orbit and the group chat, not the classroom curriculum.
-- textbook legends: Miller, Tawapon, Mary, and Takeshi.
+- textbook legends: Miller, Tawapon, Mary, and Takeshi (registered), plus the wider textbook cast that already appears in lesson content and should be registered as assets/roles land: Genki — Ken, Sue, Robert-Smith (distinguish from classmate Robert), Yui, John, Naomi; Minna — Watt, Wang, Karina, Maria, Santos, Yamada, Matsumoto, Kimura, Lee, Watanabe, Schmidt, Gupta.
+
+## Owner directive (2026-07-18): textbook characters are ACTIVE cast
+All textbook characters are part of stories AND activities: they have their own lines, appear in scenes, and come up in SPEAKING activities that include them (model-sentence partners, dialogue counterparts, listening voices). This supersedes the earlier "sparse cameo only" cap. Still true: their dialogue is original Yomu writing in the spirit of their textbook persona (never copied textbook text or art); they keep their comic-cameo flavour (Miller still announces Kobe and vanishes); they get no continuity cursor, bond route, private emotional arc, or graduation payoff — presence and personality yes, interiority no. They are ideal speaking-practice partners precisely because a model-sentence character can repeat, slow down, and stay in register without breaking realism.
 
 The two phone-number-only contacts described in the evidence dossier are not cast. They receive no placeholder name, line, portrait, or inferred identity.
 

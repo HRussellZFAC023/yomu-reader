@@ -17,6 +17,22 @@ This queue is the release scheduler. Work below it remains required, but these i
 | P1 | Production proof | Google sign-in, refresh/resume, phone layout, online assets, and route return | Queued behind golden path |
 | P1 | Expansion | Continue source integration, story, minigames, quizzes, flashcards, listening, and cast arcs through N1 | Continuous after each proven slice |
 
+### Immediate release sequence
+
+This is the short operational order inside the queue above. The detailed catalogue below remains the complete scope.
+
+- [x] Recover the interrupted Claude story/voice/art sessions, preserve private transcript archives with hashes, and record their exact finished and unfinished outputs.
+- [x] Recover, validate, compile, and list all 48 four-season story chapters; later chapters remain playable while unregistered practice is labelled honestly.
+- [ ] Prove the real learner golden path in Browser: onboarding → lesson → repair/SRS → story return → journal/world continuation, with the journal redesign and furigana regressions resolved.
+- [x] Integrate Moodle Lesson 10 as canonical `l3plus-l10`, including its handouts, listening, homework, runtime route, source ledger, and focused reachability tests.
+- [ ] Verify Lessons 1-10 source, handout, listening, homework, and runtime coverage against the Moodle inventory as one release audit.
+- [ ] Finish N3-N1 lesson packages and bind every Season 3-4 practice hook to a real lesson, varied activity, deterministic evidence, and SRS consequence.
+- [ ] Complete the voice roster for all Academy and textbook characters plus narrator/UI/worksheet/minigame lines; naturalness-lock each line before pitch-reviewed Aivis rendering and runtime binding.
+- [ ] Reconcile every existing image with the forthcoming grader JSON, bind provisionally approved candidates, fill only verified scene gaps, and retain rejected/replaced candidates as review history.
+- [x] Wire the deterministic daily learning route and warm return arc into the live Course route from the world; connect due SRS, grounded lessons, relationships, place discovery, visible diegetic payoffs, and one dominant next action without grind rewards.
+- [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
+- [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
+
 ## Stage 0 — clean base
 
 - [x] Fast-forward `main` to current `origin/main` without losing active Reader work.
@@ -57,7 +73,7 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [x] Make learner writes resolve a complete lesson from shipped bytes: typed registry entry, pinned lesson ID/revision/SHA-256, full grounding audit, playable lesson/activity check, source scope, and canonical review allow-list.
 - [x] Resolve grading, instruction, prerequisite, repair, review, and surface-audit references through one definition registry; reject dangling definitions, divergent review identities, and self-asserted answer-concealment claims.
 - [x] Make concealment evidence executable and renderer-bound: exact renderer ID/revision/SHA/source, content-derived answer corpus, pure stored-DOM replay, stale/tamper/entity checks, and fail-closed opaque surfaces.
-- [x] Derive all 73 Week delivery states from the lesson audit: orientation review-blocked, 72 planning-only, zero grounded-playable.
+- [x] Derive all delivery states for the original 73-stop baseline from the lesson audit: orientation review-blocked, 72 planning-only, zero grounded-playable.
 - [x] Make Source Question denominators obey the same current-route rule: 1 audited, 1 implemented, 0 learner-reachable grounded-playable.
 - [x] Classify and sanitize every legacy ungrounded activity route from current navigation and Back history; remove known legacy provenance, retain reviewed cards with an audit tag, and append-only neutralize their former Academy schedules without deleting Study history.
 - [x] Mount the canonical Reader Study surface inside Academy with living-paper tokens, a real 15-minute countdown, Pause, and route-history Back.
@@ -76,7 +92,7 @@ The Stage 1 closure above remains valid engineering evidence, but user acceptanc
 - [x] Enlarge the Rie journal cutout, use Aakash's transparent sprite instead of the event CG, and prove both in the current app.
 - [x] Enforce canonical cast names, dossier-backed lesson specialties, and peer-rotation thresholds without inventing identities or unsafe likeness swaps.
 - [x] Add Shaun and retain Peter as distinct first-term story/scrapbook characters; keep Shaun's new neutral sprite behind owner/cast-scale review and Peter behind a defensible likeness gate.
-- [x] Pin a planning-only 73-week classmate appearance package to real donor topics: 67 source-backed assignments, six review-required gaps, all 19 documented classmates represented, no authored/playable inflation.
+- [x] Pin the original planning-only 73-stop classmate appearance package to real donor topics: 67 source-backed assignments, six review-required gaps, all 19 documented classmates represented, no authored/playable inflation.
 - [ ] Record and pair reviewed authored Lesson 0 speech; the canonical Moodle handout has no source audio and browser TTS is forbidden.
   - Evidence audit: 0/4 current speech inputs have a release-ready recording. The missing vowel row and learner-turn scripts are repaired; recording, transcript/timecode, consent, and exact binding remain. See `evidence/lesson-zero-audio/REPORT.md`.
 
@@ -107,7 +123,7 @@ Acceptance: a Japanese teacher can identify what the learner was taught, practis
 
 Acceptance: every payload has a status; every processed document has question/media counts; no image/audio task silently degrades to text.
 
-## Stage 3 — all 73 class weeks
+## Stage 3 — all 74 class stops
 
 - [x] Select the next grounding candidate without inflating delivery: [`l3-2-l04`](evidence/next-grounded-week/REPORT.md) is the smallest closed source surface and remains an explicit no-go pending source-question, locus, media, audio, answer, teaching, production, runtime, and browser proof.
 - [ ] Author and expose every week while preserving all source occurrences/questions.
@@ -116,7 +132,7 @@ Acceptance: every payload has a status; every processed document has question/me
 - [ ] Project one concept graph into Class, Genki, Minna, JLPT, and JF/CEFR views.
 - [ ] Give every classmate meaningful learning appearances.
 
-Acceptance: 73/73 weeks reachable and 100% audited Moodle source questions faithfully playable; manual-review reasons cannot substitute for activities.
+Acceptance: 74/74 class stops reachable and 100% audited Moodle source questions faithfully playable; manual-review reasons cannot substitute for activities.
 
 ## Stage 4 — Foundation to N1
 
@@ -130,7 +146,8 @@ Acceptance: every advertised level has four-skill evidence while JLPT receptive 
 
 ## Stage 5 — story and approved art
 
-- [ ] Author the six-season finite story, graduation, New Game Plus, alumni calendar, and recurring postgame learning loop.
+- [x] Author and validate the complete 48-chapter, four-season finite story through graduation, and compile every chapter into the runtime catalog.
+- [ ] Build New Game Plus, the alumni calendar, and the recurring postgame learning loop on the same finite canon.
 - [ ] Author ten meaningful relationship-journal chapters for every classmate, including recognition, friction, repair, reciprocity, support, shared memory, and an earned enduring bond.
 - [ ] Generate one OpenAI neutral sprite per character, obtain likeness/style approval, then expand expressions/poses.
 - [ ] Complete backgrounds, event CGs, props, worksheet media, unlocks, backlog, auto/read-skip, group chat, radio, transitions, and seasonal states.
@@ -327,6 +344,28 @@ Reference patterns: [KanaDojo](https://github.com/lingdojo/kanadojo) for four-wa
 - [ ] Perspective replay: New Game Plus may replay completed episodes through another character's information and a higher language ladder without rewriting canon.
 - [ ] Immersion Hall bridge: story graduation opens an endless i+1 loop of permitted media, source lessons, procedural place events, and real SRS review.
 - [ ] The page you leave: the finite ending is a revisitable capstone, while the calendar, relationships, media, JLPT events, and mastery systems continue indefinitely.
+
+### Daily loop, Reader quests, and humane incentives
+
+- [x] Implement and test the deterministic domain projection for one quiet daily route: due repair, the next grounded lesson, and one optional `n+1` place/bond/immersion encounter, with one primary action and at most three actions total.
+- [x] Present the projected route in Course from the live world, and route its actions into the existing evidence-backed review, lesson, and story flows.
+- [ ] Mirror the route's concise continuation state in the world and journal without creating duplicate progress or navigation.
+- [ ] Make review contextual first: a due word returns in a character exchange, sign, source object, subtitle, or place activity before the library card fallback.
+- [x] Treat a missed day as recovery rather than failure in the daily projection and Course surface: preserve earned memories, retain one clear primary action, and never display a broken-streak or lost-reward message.
+- [ ] Add the factual story-continuity recap and low-energy return queue to the world/journal re-entry scene.
+- [x] Restrict projected incentives to meaningful diegetic outcomes: journal memory, reciprocal bond scene, place discovery, or source unlock; passive toggles, raw minutes, repeated easy items, and grinding do not verify rewards.
+- [ ] Keep canonical story progression evidence-gated and authored; repeated reviews may deepen recall and relationships but cannot grind-open unseen plot.
+- [ ] Add Yomu Reader quests for sustained comprehensible reading, returning to a spaced passage, mining an unknown word and later recalling it, reading with translation hidden, and completing a source-linked article response.
+- [ ] Add Yomu Watch quests for attentive Japanese-subtitle viewing, replaying a difficult line, shadowing it, mining language, and later recalling it; time alone and leaving Japanese-only or immersion-filter toggles enabled do not count.
+- [ ] Let Japanese-only and immersion-filter modes suggest a voluntary challenge with a visible exit; verify learning through a short recall, retell, or transfer response instead of rewarding the setting itself.
+- [ ] Rotate daily routes deterministically by due evidence, learner energy, skill imbalance, known-word coverage, story state, place, and recent repetition so novelty serves learning rather than variable-ratio compulsion.
+- [x] Give the daily Course route one dominant action, stable reading order, restrained motion, and gaze-efficient action/payoff grouping with no competing points, streaks, counters, or badges.
+- [ ] Apply the same visual-attention audit to every active lesson, review, story, and minigame surface at phone, tablet, and desktop sizes.
+- [ ] Add a learner-controlled low-energy route (listen, recognize, one recall) and deep-focus route (lesson, production, transfer) without changing the underlying mastery standard.
+- [ ] Add a transparent weekly reflection showing what became independently usable across reading, listening, speaking, and writing; avoid leaderboards, public streaks, arbitrary XP, and comparative pressure.
+- [ ] Expose a privacy-safe JSON answer-check contract for optional LLM feedback: task context, learner response, allowed rubric/evidence, structured verdict, uncertainty, and suggested repair; never send answer keys, private journal text, credentials, or unrelated history.
+- [ ] Add a reading-resilience mode that rotates through reviewed Japanese font families at controlled difficulty, records per-font confusion evidence, keeps furigana/zoom available, and never changes the underlying answer or surprise-switches fonts mid-item.
+- [ ] Measure success by retained recall, transfer, returning voluntarily, and reduced support use; do not optimize session length, notification opens, or screen time.
 
 Acceptance: every grounded lesson has at least one source-faithful interaction that is not plain multiple choice or typing; modality choice follows the learning target; vocabulary sheets match the teacher source; and reuse is a tested engine plus distinct content/story behavior, never palette-only variation.
 

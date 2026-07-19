@@ -1,0 +1,609 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e10-public-evening",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 46,
+  "title": {
+    "en": "The Public Japanese Evening",
+    "ja": "公開日本語の夕べ"
+  },
+  "synopsis": "At the courtyard's public Japanese evening, the panel starts to answer the wrong question — a listener asked who has kept the atlas going, and the class heard who made it. Mika counts the pause and stops the room before the answer runs ahead, turning his old 'one more time, is that okay?' into a stage-sized repair. With the question re-heard, the class states its provenance to the room only as far as the record allows — heard, inferred, and not-yet-sayable kept plainly apart. Francis moderates the stumble out loud instead of hiding it, Sam lands one clean invitation, and the evening holds because the room has learned to use Mika's quiet on purpose.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "mika",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mika",
+        "docs/academy/story/CAST-AND-CONSENT.md#mika",
+        "docs/academy/story/dossiers/mika.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quiet pacing framed as timidity to be cured rather than expertise",
+        "kanji-reading difficulty framed as embarrassment rather than method",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "francis",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#francis",
+        "docs/academy/story/CAST-AND-CONSENT.md#francis"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "borrowed or proprietary media IP presented as worked-on material",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "sam",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "inclusion pressed past a heard 'no'",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e09-rehearsal-for-leaving",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "content-family",
+          "family": "n1-integrated-public-inquiry",
+          "activityIds": [
+            "activity:s4e10-public-evening-live-repair"
+          ],
+          "function": "listen-and-repair-a-misunderstanding-live-then-state-sources-only-to-the-level-the-record-supports"
+        }
+      ],
+      "recommendedBand": "n1",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-six-public-evening"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:public-evening:the-question",
+      "mode": "live",
+      "locationId": "location:courtyard",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Present the atlas to a mixed public and repair, out loud, a live misunderstanding the moment it happens.",
+      "dramaticQuestion": "When the answer starts to run ahead of the question in front of an audience, does the panel push on, or stop and hear it again?",
+      "learnerNeed": "A way to catch that a question was misheard, hold the room through the pause, and re-open it so the answer can start clean.",
+      "curriculum": {
+        "sectionId": "live-listen-and-repair",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:public-evening:lanterns-and-the-question",
+          "beatId": "beat:public-evening:arrival-image",
+          "cueId": "cue:courtyard-panel-question-from-third-row",
+          "description": "Paper lanterns cross the courtyard for the public evening. Folding chairs face the atlas panels; the audience runs from fluent to two-lessons-in. A question has just come up from the third row and the whole panel has turned to take it. Rie stands at the back by the tea, nowhere near the microphone."
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:francis-starts-the-wrong-answer",
+          "beatId": "beat:public-evening:obstruction",
+          "speakerId": "francis",
+          "intent": "Relay the audience question to the panel and start answering it — but answer the version the panel thinks it heard (who made the atlas) rather than the one that was asked.",
+          "attentionTarget": "the question hanging over the rows of chairs",
+          "variants": {
+            "n3": {
+              "japanese": "はい、ありがとうございます。今の質問は、この地図を『誰が作ったか』ですよね。それは、ええと――",
+              "reading": "はい、ありがとうございます。いまのしつもんは、このちずを『だれがつくったか』ですよね。それは、ええと――",
+              "english": "Yes, thank you. Your question just now is who *made* this map, right? On that, um—"
+            },
+            "n2": {
+              "japanese": "はい、ありがとうございます。ええと、今のご質問は…この地図を『誰が作ったのか』、ということですよね。それについては、実は――",
+              "reading": "はい、ありがとうございます。ええと、いまのごしつもんは…このちずを『だれがつくったのか』、ということですよね。それについては、じつは――",
+              "english": "Yes, thank you. So, your question just now was… who *made* this map, is that it? On that, actually—"
+            },
+            "n1": {
+              "japanese": "はい、ご質問ありがとうございます。今のは…この地図を『誰が作ったのか』、というお尋ねでしたよね。それについては、ええと――",
+              "reading": "はい、ごしつもんありがとうございます。いまのは…このちずを『だれがつくったのか』、というおたずねでしたよね。それについては、ええと――",
+              "english": "Yes, thank you for the question. That was… who *made* this map, wasn't it — that's what you were asking. On that, um—"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:public-evening:the-mismatch",
+          "beatId": "beat:public-evening:human-want",
+          "cueId": "cue:asker-tilts-head-xingyu-holds-a-note",
+          "description": "In the third row the person who asked tilts their head a fraction; that isn't quite what they said. Off to one side Xingyu lets a single low note hang under her breath, the way she marks a beat. Mika, who has not spoken all evening, lifts one finger — wait — and counts the pause before the panel commits."
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:mika-quiet-cue",
+          "beatId": "beat:public-evening:japanese-attempt",
+          "speakerId": "mika",
+          "intent": "Stop the panel before it answers the wrong question, ask the asker to repeat, and name the mismatch plainly — then stay in the pause instead of stepping back.",
+          "attentionTarget": "the gap between what was asked and what was about to be answered",
+          "variants": {
+            "n3": {
+              "japanese": "…すみません、ちょっと待って。今の、質問とずれてる気がします。『作った』じゃなくて『守ってきた』って聞こえました。もう一回、いいですか。",
+              "reading": "…すみません、ちょっとまって。いまの、しつもんとずれてるきがします。『つくった』じゃなくて『まもってきた』ってきこえました。もういっかい、いいですか。",
+              "english": "…Sorry, one second. I think that's slipping off the question. I heard 'kept it going,' not 'made it.' One more time, is that okay?"
+            },
+            "n2": {
+              "japanese": "…すみません、ちょっと待ってください。今のは、たぶん質問とずれてます。……『作った』じゃなくて、『守ってきた』って聞こえたんですけど。もう一回、いいですか。",
+              "reading": "…すみません、ちょっとまってください。いまのは、たぶんしつもんとずれてます。……『つくった』じゃなくて、『まもってきた』ってきこえたんですけど。もういっかい、いいですか。",
+              "english": "…Sorry, hold on a moment. I think that's off from the question. …I heard 'kept it going,' not 'made it.' One more time, is that okay?"
+            },
+            "n1": {
+              "japanese": "…すみません、少しだけ。今、答えが質問を追い越しかけました。……『作った』ではなくて、『守ってきた』と聞こえたんです。もう一回、いいですか。",
+              "reading": "…すみません、すこしだけ。いま、こたえがしつもんをおいこしかけました。……『つくった』ではなくて、『まもってきた』ときこえたんです。もういっかい、いいですか。",
+              "english": "…Sorry, just a moment. The answer nearly overtook the question just now. …It wasn't 'made it' — I heard 'kept it going.' One more time, is that okay?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:francis-hands-it-back",
+          "beatId": "beat:public-evening:calibration",
+          "speakerId": "francis",
+          "intent": "Take Mika's stop and make it graceful in public — tell the room openly that the panel may have misheard, and invite the asker to say it once more without anyone losing face.",
+          "attentionTarget": "the asker in the third row, and the whole room breathing",
+          "variants": {
+            "n3": {
+              "japanese": "あ、すみません。こちらが聞き違えたみたいです。もう一度、聞いてもいいですか。ゆっくりで大丈夫ですよ。",
+              "reading": "あ、すみません。こちらがききちがえたみたいです。もういちど、きいてもいいですか。ゆっくりでだいじょうぶですよ。",
+              "english": "Oh, sorry. Looks like we misheard on our end. Could we hear it once more? Take your time, it's fine."
+            },
+            "n2": {
+              "japanese": "あ――失礼しました。どうやら、こちらが聞き違えていたみたいで。せっかくなので、もう一度、伺ってもいいですか。急ぎませんので、ゆっくりで大丈夫です。",
+              "reading": "あ――しつれいしました。どうやら、こちらがききちがえていたみたいで。せっかくなので、もういちど、うかがってもいいですか。いそぎませんので、ゆっくりでだいじょうぶです。",
+              "english": "Oh — my apologies. It seems we misheard on our side. While we're here, could we ask you again? No rush, please take your time."
+            },
+            "n1": {
+              "japanese": "あ――これは失礼しました。どうやら、こちらが取り違えていたようです。よろしければ、もう一度だけ、お聞かせ願えますか。急ぎませんから、どうぞごゆっくり。",
+              "reading": "あ――これはしつれいしました。どうやら、こちらがとりちがえていたようです。よろしければ、もういちどだけ、おきかせねがえますか。いそぎませんから、どうぞごゆっくり。",
+              "english": "Oh — my apologies for that. It seems we'd taken it the wrong way. If you don't mind, might we hear it just once more? There's no hurry — please, in your own time."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:public-evening:before-repair",
+          "beatId": "beat:public-evening:repair-attempt",
+          "resume": "The panel has stopped, the asker is about to repeat, and the room is holding the pause Mika opened. The learner steps in to mediate: separate what was asked from what the panel began to answer, put the actual question back to the room, and re-open it so the answer can start clean."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:public-evening:live-repair",
+          "beatId": "beat:public-evening:repair-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e10-public-evening-live-repair"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e10-public-evening-live-repair"
+          },
+          "resumeContext": "In front of a mixed-level audience, the learner mediates the live misunderstanding: names that the panel's answer ran ahead of the question, restates the actual question back to the room in an audience-aware register, and hands the floor back to the asker — repairing out loud rather than papering over the slip.",
+          "onReady": "checkpoint:public-evening:after-repair",
+          "onRepair": "node:public-evening:re-ask-slower",
+          "onDefer": "checkpoint:public-evening:before-repair"
+        },
+        {
+          "kind": "stage",
+          "id": "node:public-evening:re-ask-slower",
+          "beatId": "beat:public-evening:repair-retry",
+          "cueId": "cue:one-phrase-repeated-slower",
+          "description": "Only the one phrase comes again, slower: the asker repeats it, and this time the room hears the difference between 作った and 守ってきた. Nobody hurries to fill the gap while it lands."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:public-evening:after-repair",
+          "beatId": "beat:public-evening:repair-response",
+          "resume": "The question stands again as it was actually asked. Francis lets the corrected version settle so the panel can answer the real thing next."
+        },
+        {
+          "kind": "stage",
+          "id": "node:public-evening:question-re-heard",
+          "beatId": "beat:public-evening:changed-image",
+          "cueId": "cue:stewardship-not-authorship",
+          "description": "The question is back on the courtyard, this time the way it was meant: who has kept the atlas going. Not who made it. A harder question, and an honest one, and now the panel has room to answer instead of racing past it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:public-evening:what-we-can-say"
+      }
+    },
+    {
+      "id": "scene:public-evening:what-we-can-say",
+      "mode": "live",
+      "locationId": "location:courtyard",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Answer the re-heard question in public only to the level the record supports, keeping heard, inferred, and not-yet-sayable plainly apart.",
+      "dramaticQuestion": "Under an audience's eyes, does the class fill the unknown to sound finished, or leave it standing where everyone can see it?",
+      "learnerNeed": "A public stance that states what was heard and what was inferred without letting the part it cannot establish sound like a failure.",
+      "curriculum": {
+        "sectionId": "state-sources-to-the-level-the-record-supports",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:public-evening:three-column-board",
+          "beatId": "beat:public-evening:regroup-image",
+          "cueId": "cue:heard-inferred-not-yet-sayable",
+          "description": "Beside the atlas, on a board Ruparna set up before the doors opened, three columns wait: 聞こえたこと, 推測, まだ言えないこと — heard, inferred, not-yet-sayable. Until tonight it was a rehearsal prop. Now the whole courtyard can read it, the third column and all."
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:francis-sets-the-terms",
+          "beatId": "beat:public-evening:human-want",
+          "speakerId": "francis",
+          "intent": "Tell the audience plainly that the panel will answer to the level the record supports and no further — set the honest terms out loud before answering.",
+          "attentionTarget": "the room, and the three columns on the board",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、正直に答えますね。全部分かってるわけじゃないんです。分かってること、たぶんそうだと思うこと、まだ言えないこと、分けて話します。",
+              "reading": "じゃあ、しょうじきにこたえますね。ぜんぶわかってるわけじゃないんです。わかってること、たぶんそうだとおもうこと、まだいえないこと、わけてはなします。",
+              "english": "So, honestly, then. It's not that we know all of it. What we know, what we think is probably so, what we still can't say — we'll keep those separate."
+            },
+            "n2": {
+              "japanese": "じゃあ、正直にお答えしますね。全部が分かっているわけじゃないんです。分かっていること、たぶんそうだと思うこと、まだ言えないこと――これ、分けてお話しします。",
+              "reading": "じゃあ、しょうじきにおこたえしますね。ぜんぶがわかっているわけじゃないんです。わかっていること、たぶんそうだとおもうこと、まだいえないこと――これ、わけておはなしします。",
+              "english": "So, we'll answer you honestly. It isn't that all of it is known. What we know, what we think is likely so, what we still can't say — we'll lay those out separately."
+            },
+            "n1": {
+              "japanese": "では、分かる範囲で、正直にお答えします。実のところ、すべてが判明しているわけではありません。確かなこと、おそらくそうだろうということ、そしてまだ何とも言えないこと――そこは、はっきり分けてお伝えします。",
+              "reading": "では、わかるはんいで、しょうじきにおこたえします。じつのところ、すべてがはんめいしているわけではありません。たしかなこと、おそらくそうだろうということ、そしてまだなんともいえないこと――そこは、はっきりわけておつたえします。",
+              "english": "So, we'll answer honestly, as far as we can. In truth, not all of it has been established. What's certain, what is probably the case, and what we still can't say either way — we'll keep those clearly apart for you."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:mika-heard-inferred-unknown",
+          "beatId": "beat:public-evening:japanese-attempt",
+          "speakerId": "mika",
+          "intent": "Put the actual split into words for the room — one thing heard and confirmed, one thing inferred, one thing that cannot be established — and refuse to let the empty third column sound like a shortfall.",
+          "attentionTarget": "the three columns, and the empty third one",
+          "variants": {
+            "n3": {
+              "japanese": "分かってるのは、ここまでです。最初の白い地図は、先生が授業のために作った。そのあと誰かが最初の道を足した――これはたぶん。そこから先は、まだ分かりません。でも、その空きは、埋めなくていいと思ってます。",
+              "reading": "わかってるのは、ここまでです。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。そのあとだれかがさいしょのみちをたした――これはたぶん。そこからさきは、まだわかりません。でも、そのあきは、うめなくていいとおもってます。",
+              "english": "What we know reaches this far. The first blank map — the teacher made it, for class. After that, someone added the first route — that's a maybe. Past that, we don't know yet. But I think that gap doesn't need filling."
+            },
+            "n2": {
+              "japanese": "聞こえたのは、ここまで。最初の白い地図は、先生が授業のために作った。……たぶん、そのあと誰かが最初の道を足した。ここは、推測です。それより後のことは――正直、まだ分かりません。でも、分からないままで、いいと思ってて。",
+              "reading": "きこえたのは、ここまで。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。……たぶん、そのあとだれかがさいしょのみちをたした。ここは、すいそくです。それよりあとのことは――しょうじき、まだわかりません。でも、わからないままで、いいとおもってて。",
+              "english": "What we actually caught reaches this far. The first blank map — the teacher made it, for class. …Probably, someone added the first route after that. That part's a guess. Anything later than that — honestly, we still don't know. But I think it's fine left unknown."
+            },
+            "n1": {
+              "japanese": "はっきりしているのは、ここまでなんです。最初の白紙の地図は、先生が授業用に用意した。……そのあと、誰かが最初の一本を書き足した――ここはもう、推測になります。それ以降は、正直、まだ何とも。ただ、その『まだ言えない』を、無理に埋めないでおきたくて。",
+              "reading": "はっきりしているのは、ここまでなんです。さいしょのはくしのちずは、せんせいがじゅぎょうようによういした。……そのあと、だれかがさいしょのいっぽんをかきたした――ここはもう、すいそくになります。それいこうは、しょうじき、まだなんとも。ただ、その『まだいえない』を、むりにうめないでおきたくて。",
+              "english": "What's clear only reaches this far. The first blank map — the teacher prepared it, for class. …After that, someone wrote in the first line — that's already a guess. Anything past that, honestly, we can't say. I'd just rather not force that 'not-yet-sayable' full."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:public-evening:how-to-hold-the-register",
+          "beatId": "beat:public-evening:stance",
+          "question": "The room is waiting. How do you steer what the panel says next about the part it cannot establish?",
+          "options": [
+            {
+              "id": "option:public-evening:hold-the-line",
+              "action": "Answer only to what's confirmed and leave the not-yet-sayable column visibly empty rather than filling it for the audience.",
+              "japaneseByBand": {
+                "n3": "今日は、確かなことだけ話します。空いてるところは、そのままにしておきます。今埋めるのは早いので。",
+                "n2": "今日は、確かなことだけお話しします。空いているところは、空いたままで。埋めるのは、まだ早いと思うので。",
+                "n1": "今夜は、確かなところだけをお伝えします。その空欄は、あえて空けたまま残します。ここを今埋めてしまうのは、まだ早い気がするので。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:public-evening:after-register"
+            },
+            {
+              "id": "option:public-evening:open-the-record",
+              "action": "Invite whoever in the room has kept the atlas going to add what they know, so the third column fills in their words, not the panel's guess.",
+              "japaneseByBand": {
+                "n3": "よかったら、この地図を守ってきた人に、知ってることを足してもらえませんか。三つ目の欄は、私たちの推測より、その人の言葉で埋まったほうがいいので。",
+                "n2": "もしよかったら、この地図を守ってきた方に、知っていることを足していただけませんか。三つ目の欄は、私たちの推測より、その方の言葉で埋まったほうがいいと思うので。",
+                "n1": "もしよろしければ、この地図を守ってこられた方に、ご存じのことを書き足していただけないでしょうか。三つ目の欄は、私たちの推測でではなく、その方ご自身の言葉で埋まるほうが、ずっといい気がするので。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:public-evening:after-register"
+            }
+          ],
+          "convergence": "checkpoint:public-evening:after-register"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:public-evening:after-register",
+          "beatId": "beat:public-evening:back-attempt",
+          "resume": "The learner has set how the panel holds the unknown in public. The evening's formal part is done, and Sam takes the one beat left to make an ordinary plan."
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:sam-one-invitation",
+          "beatId": "beat:public-evening:contribution",
+          "speakerId": "sam",
+          "intent": "Close the public part with a single clear invitation to the after-gathering — one real opening, an easy way to decline — and, this time, not branch it into a dozen options.",
+          "attentionTarget": "the whole courtyard, addressed once",
+          "variants": {
+            "n3": {
+              "japanese": "あの、一つだけ。このあと、みんなでご飯に行きます。お好み焼きのお店、六時半からです。来られる人だけで大丈夫。無理しないでくださいね。",
+              "reading": "あの、ひとつだけ。このあと、みんなでごはんにいきます。おこのみやきのおみせ、ろくじはんからです。こられるひとだけでだいじょうぶ。むりしないでくださいね。",
+              "english": "One thing, quickly. After this, we're going to eat — an okonomiyaki place, from six-thirty. Just whoever can make it. Don't push yourself over it."
+            },
+            "n2": {
+              "japanese": "あの、一つだけ。このあと、みんなで軽く食べに行きます。お好み焼きのお店、六時半から取ってあります。来られる人だけで大丈夫。無理な人は、全然気にしないでくださいね。",
+              "reading": "あの、ひとつだけ。このあと、みんなでかるくたべにいきます。おこのみやきのおみせ、ろくじはんからとってあります。こられるひとだけでだいじょうぶ。むりなひとは、ぜんぜんきにしないでくださいね。",
+              "english": "One thing, quickly. After this, we're going for a bite — an okonomiyaki place, booked from six-thirty. Just whoever can come. Anyone who can't, honestly, don't give it a thought."
+            },
+            "n1": {
+              "japanese": "あ、一つだけ、いいですか。このあと、みんなで軽く食べに行くんです。お好み焼きの店を、六時半から押さえてあります。来られる方だけで大丈夫ですし、都合が悪ければ、どうぞ気にせず。",
+              "reading": "あ、ひとつだけ、いいですか。このあと、みんなでかるくたべにいくんです。おこのみやきのみせを、ろくじはんからおさえてあります。こられるかただけでだいじょうぶですし、つごうがわるければ、どうぞきにせず。",
+              "english": "Ah, one thing, if I may. After this, we're all going for a light bite — I've got an okonomiyaki place held from six-thirty. Only whoever can come, and if it doesn't suit, please don't think twice."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:francis-closes-the-room",
+          "beatId": "beat:public-evening:repair",
+          "speakerId": "francis",
+          "intent": "Close the evening as a host who no longer needs a hidden reveal — thank the room, and let the part they couldn't answer stand as something they showed on purpose, not something to apologize away.",
+          "attentionTarget": "the audience, and the unfinished column left in plain sight",
+          "variants": {
+            "n3": {
+              "japanese": "今日は、来てくれてありがとうございました。うまく答えられなかったところもありました。でも、それも含めて、今の私たちです。それを見てもらえたなら、よかったです。",
+              "reading": "きょうは、きてくれてありがとうございました。うまくこたえられなかったところもありました。でも、それもふくめて、いまのわたしたちです。それをみてもらえたなら、よかったです。",
+              "english": "Thanks for coming today. There were parts we couldn't answer well. But that included, that's us right now. If you got to see that, then good."
+            },
+            "n2": {
+              "japanese": "今日は、来てくださってありがとうございました。うまく答えられなかったところも、ありました。でも、それも含めて、今の私たちなので。……今夜は、それを見ていただけたなら。",
+              "reading": "きょうは、きてくださってありがとうございました。うまくこたえられなかったところも、ありました。でも、それもふくめて、いまのわたしたちなので。……こんやは、それをみていただけたなら。",
+              "english": "Thank you all for coming today. There were places we couldn't answer cleanly. But that included, this is who we are now. …Tonight, if you got to see that, then."
+            },
+            "n1": {
+              "japanese": "本日は、お越しいただき、ありがとうございました。うまく答えきれなかったところも、正直ありました。ただ、その分からないところも含めて、今の私たちなんだと思います。……それを見ていただけたのなら、それで。",
+              "reading": "ほんじつは、おこしいただき、ありがとうございました。うまくこたえきれなかったところも、しょうじきありました。ただ、そのわからないところもふくめて、いまのわたしたちなんだとおもいます。……それをみていただけたのなら、それで。",
+              "english": "Thank you for coming this evening. There were places we couldn't quite answer, honestly. But the not-knowing included, I think that's who we are right now. …If you got to see that, then that's enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:public-evening:mika-first-evening-aside",
+          "beatId": "beat:public-evening:exit-line",
+          "speakerId": "mika",
+          "intent": "Name, quietly and only to the class, that the stop worked because the room has learned to use his pause on purpose — drop the observation and, this time, stay in it instead of retreating.",
+          "attentionTarget": "the class, and the beat they all just held together",
+          "variants": {
+            "n3": {
+              "japanese": "……ねえ。さっきの間、みんな待ってくれたね。前は、僕が黙ると気まずかったのに。はじめての夜、おぼえてる? あの『もう一回』。今のと同じだよ。",
+              "reading": "……ねえ。さっきのま、みんなまってくれたね。まえは、ぼくがだまるときまずかったのに。はじめてのよる、おぼえてる? あの『もういっかい』。いまのとおなじだよ。",
+              "english": "…Hey. That pause just now — everyone waited. There was a time my going quiet just made it awkward. Remember the first evening? That 'one more time.' Same thing, this."
+            },
+            "n2": {
+              "japanese": "……ねえ。さっきの間、みんな、ちゃんと待ってくれた。前は、僕が黙ると気まずかったのに。……はじめての夜、おぼえてる? あの『もう一回』。あれ、今のと同じやつ。",
+              "reading": "……ねえ。さっきのま、みんな、ちゃんとまってくれた。まえは、ぼくがだまるときまずかったのに。……はじめてのよる、おぼえてる? あの『もういっかい』。あれ、いまのとおなじやつ。",
+              "english": "…Hey. That pause just now — everyone actually waited it out. There was a time my going quiet just made things awkward. …Remember the first evening? That 'one more time.' Same one as just now."
+            },
+            "n1": {
+              "japanese": "……ねえ。さっきの一拍、誰も埋めなかったでしょ。前は、僕が黙るとみんな気まずそうだったのに。……はじめての夜、おぼえてる? あの『もう一回、いいですか』。あれ、結局、今のと同じなんだよね。",
+              "reading": "……ねえ。さっきのいっぱく、だれもうめなかったでしょ。まえは、ぼくがだまるとみんなきまずそうだったのに。……はじめてのよる、おぼえてる? あの『もういっかい、いいですか』。あれ、けっきょく、いまのとおなじなんだよね。",
+              "english": "…Hey. That one beat just now — nobody rushed to fill it, did they. There was a time my going quiet had everyone looking uneasy. …Remember the first evening? That 'one more time, is that okay?' In the end, it's the same thing as just now."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:public-evening:evening-holds",
+          "beatId": "beat:public-evening:exit-image",
+          "cueId": "cue:column-left-empty-tea-still-warm",
+          "description": "This time Mika doesn't step back into the quiet — he stays in it, watching the class hold the pause he taught them. At the reception table Robert catches a mix-up, someone's brought the wrong tray, and instead of replacing it three times over he says which one it is, once, and lets the single correction stand. Rie's tea sits untouched near the back, still warm for now. The not-yet-sayable column stays empty on the board, and the courtyard is easy with it."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:quiet-count",
+      "state": "payoff",
+      "ownerIds": [
+        "mika",
+        "xingyu"
+      ],
+      "meaningNow": "On a real public stage, the pause-and-count Mika seeded is used by the whole room on purpose: his quiet cue, marked by Xingyu's held note, buys the class the beat it needs to stop before the answer runs ahead and repair the misunderstanding out loud rather than papering over it.",
+      "priorUse": {
+        "packageId": "s3e10-empty-microphone",
+        "sceneId": "scene:empty-microphone:backstage-cue",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "Mika signals a stop, the panel waits a beat, and the class re-asks the audience's question before answering it — the repair works even for a learner who never saw the first-evening pause."
+    },
+    {
+      "id": "callback:seventy-percent",
+      "state": "payoff",
+      "ownerIds": [
+        "ruparna",
+        "sophie"
+      ],
+      "meaningNow": "The graduated-comprehension stance goes public: in front of the audience the class distinguishes what it heard and confirmed, what it infers, and what it still cannot establish, leaving the not-yet-sayable column visibly empty instead of manufacturing a complete claim.",
+      "priorUse": {
+        "packageId": "s3e07-under-the-subtitle",
+        "sceneId": "scene:under-the-subtitle:preserved-hedge",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "The class answers the room only as far as its record allows and marks the rest unknown on the board, without pretending it caught everything."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:public-evening:transparent-public-repair",
+      "kind": "story",
+      "description": "The public evening succeeds after one live misunderstanding is repaired out loud: the panel catches that its answer ran ahead of the question, re-hears it (who kept the atlas going, not who made it), and states its provenance to the room only to the level the record supports, leaving the unestablished part plainly marked."
+    },
+    {
+      "id": "outcome:public-evening:mika-future",
+      "kind": "bond",
+      "castId": "mika",
+      "chapter": 46,
+      "beat": "future",
+      "description": "Mika's first-evening pause-and-count returns as a stage-sized repair tool: the quiet he once yielded is now used by the whole room on purpose, and for once he stays in the pause to watch it land instead of retreating. His future is not a cured shyness but a class that has learned to breathe through a mistake on his cue."
+    },
+    {
+      "id": "outcome:public-evening:francis-future",
+      "kind": "bond",
+      "castId": "francis",
+      "chapter": 46,
+      "beat": "future",
+      "description": "Francis moderates a mixed-level public room live and repairs a stumble in the open rather than hiding it — the no-spoilers host of the first term grown into someone who can hand a question back, hold a pause, and close an evening on what the class could not answer as much as on what it could."
+    },
+    {
+      "id": "outcome:public-evening:sam-future",
+      "kind": "bond",
+      "castId": "sam",
+      "chapter": 46,
+      "beat": "future",
+      "description": "Sam lands one clean, audience-aware invitation with a real opening and an easy no, and does not branch it — the over-optioned invitation of his arrival now asks once, and the after-gathering is the one the group actually attends."
+    },
+    {
+      "id": "outcome:public-evening:xingyu-future",
+      "kind": "bond",
+      "castId": "xingyu",
+      "chapter": 46,
+      "beat": "future",
+      "description": "Xingyu's single held note marks the beat that lets the class stop and re-count in public alongside Mika's count — her sound work stays original and, at the finale, serves a transparent live repair rather than a performance."
+    },
+    {
+      "id": "outcome:public-evening:ruparna-future",
+      "kind": "bond",
+      "castId": "ruparna",
+      "chapter": 46,
+      "beat": "future",
+      "description": "Ruparna's heard / inferred / not-yet-sayable board becomes the class's honest public register: the framing that once preserved an alternate reading now keeps what cannot be established visible on stage instead of smoothing it into a finished-sounding claim."
+    },
+    {
+      "id": "outcome:public-evening:robert-return",
+      "kind": "bond",
+      "castId": "robert",
+      "chapter": 46,
+      "beat": "return",
+      "description": "Robert hosts the reception and, hearing a live mix-up, names it plainly and lets one correction stand — proof the hosting changed: the Robert who once filled a gap with three replacements now leaves a single fix in place."
+    },
+    {
+      "id": "outcome:public-evening:transfer-return",
+      "kind": "curriculum-return",
+      "transferId": "activity:s4e10-public-evening-live-repair",
+      "description": "Integrated N1 public-inquiry evidence — live listen-and-repair, source explanation to the level the record supports, and audience negotiation — returns through the chapter's transfer activity; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:francis-moderates-from-the-front"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-repair-step"
+    ],
+    "withdrawnContentFallback": "Use the same live-repair and heard-versus-inferred evidence with neutral nameplates and a generic facilitator who stops a public panel that misheard a question, re-asks it, and states an answer only to the level the record supports."
+  }
+}

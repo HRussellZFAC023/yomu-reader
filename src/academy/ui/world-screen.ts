@@ -1124,15 +1124,32 @@ export function renderJournalScreen(
         onProfileSync?: () => void;
     }>,
 ): HTMLElement {
-    const { screen, content } = screenFrame({
+    const { screen, panel, content } = screenFrame({
         language,
         className: 'academy-journal-screen',
         plate: 'classroom',
         title: 'journalTitle',
     });
+    panel.classList.add('academy-journal-book');
+    content.classList.add('academy-journal-book-content');
+
+    const bookTabs = element('div', 'academy-journal-book-tabs');
+    bookTabs.setAttribute('role', 'tablist');
+    bookTabs.setAttribute('aria-label', language === 'ja' ? '日誌の項目' : 'Journal sections');
+    const peopleTab = journalTab(language === 'ja' ? 'みんな' : 'People', true);
+    const linesTab = journalTab(language === 'ja' ? '学習の記録' : 'Learning lines', false);
+    bookTabs.append(peopleTab, linesTab);
+
+    const bookIntro = element('p', 'academy-journal-book-intro');
+    bookIntro.textContent = language === 'ja'
+        ? '出会った人と、一緒に学んだこと。'
+        : 'The people you have met, and what you learned together.';
+
     const page = element('section', 'academy-character-page');
     page.hidden = true;
     const characters = journalCharacters(state);
+    let bookFooter: HTMLElement | undefined;
+    let learningLines: HTMLElement | undefined;
     const directory = characterDirectory(language, characters, characterId => {
         const character = characters.find(candidate => candidate.characterId === characterId)!;
         const definition: CharacterPageDefinition = {
@@ -1156,9 +1173,16 @@ export function renderJournalScreen(
         page.replaceChildren(characterPage(language, definition, () => {
             page.hidden = true;
             directory.hidden = false;
+            bookTabs.hidden = false;
+            bookIntro.hidden = false;
+            if (bookFooter) bookFooter.hidden = false;
             directory.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.focus();
         }));
         directory.hidden = true;
+        bookTabs.hidden = true;
+        bookIntro.hidden = true;
+        if (learningLines) learningLines.hidden = true;
+        if (bookFooter) bookFooter.hidden = true;
         page.hidden = false;
         page.querySelector<HTMLButtonElement>('.academy-character-page-back')?.focus();
     });
@@ -1167,12 +1191,96 @@ export function renderJournalScreen(
         profileSync.type = 'button';
         profileSync.textContent = language === 'ja' ? 'プロフィールと同期' : 'Profile & sync';
         profileSync.addEventListener('click', callbacks.onProfileSync);
-        content.append(profileSync);
+        bookTabs.append(profileSync);
     }
-    const learningLines = 'characters' in state ? state.journalLines ?? [] : [];
-    if (learningLines.length) content.append(journalLearningLines(language, learningLines));
-    content.append(directory, page);
+    const recordedLines = 'characters' in state ? state.journalLines ?? [] : [];
+    learningLines = journalLearningLines(language, recordedLines);
+    learningLines.hidden = true;
+    bookFooter = journalBookFooter(language, directory, learningLines);
+
+    const showSection = (section: 'people' | 'lines'): void => {
+        const showsPeople = section === 'people';
+        directory.hidden = !showsPeople;
+        learningLines!.hidden = showsPeople;
+        setJournalTabState(peopleTab, showsPeople);
+        setJournalTabState(linesTab, !showsPeople);
+        bookFooter!.dataset.journalSection = section;
+        bookFooter!.dispatchEvent(new CustomEvent('academy-journal-section-change'));
+    };
+    peopleTab.addEventListener('click', () => showSection('people'));
+    linesTab.addEventListener('click', () => showSection('lines'));
+    bookTabs.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const showLines = event.key === 'ArrowRight' || event.key === 'End';
+        showSection(showLines ? 'lines' : 'people');
+        (showLines ? linesTab : peopleTab).focus();
+    });
+
+    content.append(bookIntro, bookTabs, directory, learningLines, page, bookFooter);
     return screen;
+}
+
+function journalTab(label: string, selected: boolean): HTMLButtonElement {
+    const button = element('button', 'academy-journal-book-tab');
+    button.type = 'button';
+    button.setAttribute('role', 'tab');
+    button.textContent = label;
+    setJournalTabState(button, selected);
+    return button;
+}
+
+function setJournalTabState(button: HTMLButtonElement, selected: boolean): void {
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+}
+
+function journalBookFooter(
+    language: AcademyLanguage,
+    directory: HTMLElement,
+    learningLines: HTMLElement,
+): HTMLElement {
+    const footer = element('nav', 'academy-journal-book-footer');
+    footer.dataset.journalSection = 'people';
+    footer.setAttribute('aria-label', language === 'ja' ? '日誌のページ' : 'Journal pages');
+    const previous = element('button', 'academy-journal-page-turn academy-journal-page-previous');
+    previous.type = 'button';
+    previous.textContent = language === 'ja' ? '← 前のページ' : '← Previous';
+    const indicator = element('span', 'academy-journal-page-indicator');
+    indicator.setAttribute('aria-live', 'polite');
+    const next = element('button', 'academy-journal-page-turn academy-journal-page-next');
+    next.type = 'button';
+    next.textContent = language === 'ja' ? '次のページ →' : 'Next →';
+    footer.append(previous, indicator, next);
+
+    const pageBySection = { people: 0, lines: 0 };
+    const renderPage = (): void => {
+        const section = footer.dataset.journalSection === 'lines' ? 'lines' : 'people';
+        const host = section === 'people' ? directory : learningLines;
+        const items = [...host.querySelectorAll<HTMLElement>('[data-journal-book-item]')];
+        const perPage = section === 'people' ? 6 : 4;
+        const pageCount = Math.max(1, Math.ceil(items.length / perPage));
+        const currentPage = Math.min(pageBySection[section], pageCount - 1);
+        pageBySection[section] = currentPage;
+        items.forEach((item, index) => { item.hidden = Math.floor(index / perPage) !== currentPage; });
+        previous.disabled = currentPage === 0;
+        next.disabled = currentPage >= pageCount - 1;
+        indicator.textContent = `${currentPage + 1} / ${pageCount}`;
+        footer.hidden = pageCount <= 1;
+    };
+    previous.addEventListener('click', () => {
+        const section = footer.dataset.journalSection === 'lines' ? 'lines' : 'people';
+        pageBySection[section] = Math.max(0, pageBySection[section] - 1);
+        renderPage();
+    });
+    next.addEventListener('click', () => {
+        const section = footer.dataset.journalSection === 'lines' ? 'lines' : 'people';
+        pageBySection[section] += 1;
+        renderPage();
+    });
+    footer.addEventListener('academy-journal-section-change', renderPage);
+    renderPage();
+    return footer;
 }
 
 export interface JournalCharacterState {
@@ -1217,10 +1325,19 @@ function journalLearningLines(
     const heading = element('h2');
     heading.textContent = language === 'ja' ? '学習の日誌' : 'Learning journal';
     section.append(heading);
+    if (!lines.length) {
+        const empty = element('p', 'academy-journal-learning-empty');
+        empty.dataset.journalBookItem = '';
+        empty.textContent = language === 'ja'
+            ? 'レッスンで見つけた言葉が、ここに残ります。'
+            : 'Lines you earn in lessons will stay here.';
+        section.append(empty);
+    }
     [...lines]
         .sort((left, right) => left.at - right.at || left.journalLineId.localeCompare(right.journalLineId))
         .forEach(line => {
             const entry = element('blockquote', 'academy-journal-learning-line');
+            entry.dataset.journalBookItem = '';
             entry.dataset.journalLineId = line.journalLineId;
             entry.dataset.activityId = line.activityId;
             entry.textContent = line.text[language];
@@ -1261,6 +1378,7 @@ function characterDirectoryEntry(
     onOpen: () => void,
 ): HTMLElement {
     const entry = element('article', 'academy-character-entry');
+    entry.dataset.journalBookItem = '';
     entry.dataset.character = member.id;
     entry.dataset.unlocked = String(character.unlocked);
     entry.style.setProperty('--academy-character-order', String(Math.min(12, order)));

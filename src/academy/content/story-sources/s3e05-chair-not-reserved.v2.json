@@ -1,0 +1,525 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e05-chair-not-reserved",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 29,
+  "title": {
+    "en": "The Chair Is Not Reserved",
+    "ja": "その椅子は空けておく"
+  },
+  "synopsis": "As the class blocks out the public exhibition evening, Sam offers Jenny the visible guide role — the person who stands at the front and walks visitors through the atlas — with a real, easy exit. Jenny declines, softly and without over-explaining: this time she'd like to help from the back. The group's first reflex is to treat the empty front seat as a problem to solve for her, and Sam starts trimming the role to coax her back. The learner learns to hear the refusal as a complete choice and redesign the evening around Jenny's stated limit instead of persuading her; the class makes the back-of-house running-order a full role and leaves the front guide chair open rather than filled.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "jenny",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jenny",
+        "docs/academy/story/CAST-AND-CONSENT.md#jenny",
+        "docs/academy/story/dossiers/jenny.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "stepping back framed as a confidence deficit or a problem for the group to cure",
+        "any invented cause for the refusal — no medical, financial-hardship, or relationship gossip presented as fact",
+        "narration that diagnoses why she went quiet beyond what a camera or ear could register"
+      ]
+    },
+    {
+      "castId": "sam",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "an invitation that overrides a heard answer or keeps re-asking after a no"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e04-terms-of-invitation",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [],
+          "function": "hear-a-softened-refusal-and-redesign-a-plan-around-a-stated-limit"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-nine-jenny-back-of-house"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:chair-not-reserved:offer-and-limit",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "mild-evening",
+      "goal": "Reach the moment Jenny declines the visible guide role and the group's first instinct is to solve the empty seat for her.",
+      "dramaticQuestion": "When someone declines a visible role, will the class shrink the role to pull them back, or hear the no and change the plan?",
+      "learnerNeed": "A changed-context task where redesigning the evening around a stated limit matters more than finding a better way to persuade.",
+      "curriculum": {
+        "sectionId": "hear-a-refusal-and-redesign",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:chair:planning-board",
+          "beatId": "beat:chair:arrival-image",
+          "cueId": "cue:planning-board-front-seat-card",
+          "description": "The exhibition-evening plan is chalked on the board as a row of role cards. One card reads 「案内役 — 前に立って地図を説明する」 with a blank name line. Jenny is in her usual seat, a half-finished scarf on her lap, one needle resting mid-row."
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:sam-offer",
+          "beatId": "beat:chair:host-want",
+          "speakerId": "sam",
+          "intent": "Offer Jenny the visible front-of-house guide role while naming the activity plainly and making a decline genuinely easy in the same breath.",
+          "attentionTarget": "the blank name line on the guide-role card",
+          "variants": {
+            "n3": {
+              "japanese": "ジェニーさん、当日の案内役、お願いできないかなと思って。前に立って、地図をお客さんに説明する役です。もちろん、気が進まなければ、ぜんぜん断ってもらっていいので。",
+              "reading": "ジェニーさん、とうじつのあんないやく、おねがいできないかなとおもって。まえにたって、ちずをおきゃくさんにせつめいするやくです。もちろん、きがすすまなければ、ぜんぜんことわってもらっていいので。",
+              "english": "Jenny, I was wondering if you'd take the guide role on the day — the person who stands at the front and walks visitors through the map. Of course, if you'd rather not, you can absolutely turn it down."
+            },
+            "n2": {
+              "japanese": "ジェニーさん、当日の案内役をお願いできればと思っているんですが。前に立って、来場者に地図を説明していただく役で。ただ、少しでも気が進まないようでしたら、遠慮なく断っていただいて構いませんので。",
+              "reading": "ジェニーさん、とうじつのあんないやくをおねがいできればとおもっているんですが。まえにたって、らいじょうしゃにちずをせつめいしていただくやくで。ただ、すこしでもきがすすまないようでしたら、えんりょなくことわっていただいてかまいませんので。",
+              "english": "Jenny, I'm hoping I might ask you to be the guide on the day — the role of standing at the front and explaining the map to visitors. That said, if you're the least bit reluctant, please feel entirely free to decline."
+            },
+            "n1": {
+              "japanese": "ジェニーさん、当日の案内役、もしよければお願いできないかと思っていまして。前に立って、来場の方に地図をご案内いただく、あの役なんですが。とはいえ、少しでも気が乗らないようでしたら、どうか遠慮なさらずに断っていただいて構いませんから。",
+              "reading": "ジェニーさん、とうじつのあんないやく、もしよければおねがいできないかとおもっていまして。まえにたって、らいじょうのかたにちずをごあんないいただく、あのやくなんですが。とはいえ、すこしでもきがのらないようでしたら、どうかえんりょなさらずにことわっていただいてかまいませんから。",
+              "english": "Jenny, if you're willing, I was hoping I might ask you to take the guide role on the day — that role of standing at the front and showing the map to the visitors. All the same, if you feel even slightly disinclined, please don't hold back; you're entirely free to decline."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:jenny-refuse",
+          "beatId": "beat:chair:obstruction",
+          "speakerId": "jenny",
+          "intent": "Decline the visible role softly and name the back-of-house role she does want, without over-explaining or offering a justifying reason.",
+          "attentionTarget": "the scarf on her lap and, past it, the back-of-house side of the plan",
+          "variants": {
+            "n3": {
+              "japanese": "ありがとう。……うん、今回は、裏のほうを手伝いたいかな。前じゃなくて。理由っていうほどのことでもないんだけど、そうさせてもらえたら。",
+              "reading": "ありがとう。……うん、こんかいは、うらのほうをてつだいたいかな。まえじゃなくて。りゆうっていうほどのことでもないんだけど、そうさせてもらえたら。",
+              "english": "Thanks. …Yeah, this time I'd like to help from the back, I think. Not the front. It's nothing that really counts as a reason, but if you'd let me do that."
+            },
+            "n2": {
+              "japanese": "ありがとう。……そうね、今回は、前に立つより、裏のほうを手伝えたらと思ってて。特に理由というわけでもないんだけど、そうさせてもらえると助かるかな。",
+              "reading": "ありがとう。……そうね、こんかいは、まえにたつより、うらのほうをてつだえたらとおもってて。とくにりゆうというわけでもないんだけど、そうさせてもらえるとたすかるかな。",
+              "english": "Thanks. …Well, this time, rather than standing at the front, I'd like to help from the back if I could. It's not that there's any particular reason, but I'd appreciate being allowed to do that."
+            },
+            "n1": {
+              "japanese": "ありがとう。……そうねえ、今回に関しては、前に立つよりも、裏方のほうに回らせてもらえたらと思っていて。これといった理由があるわけでもないんだけど、そうさせてもらえたら、それがいちばんありがたいかな。",
+              "reading": "ありがとう。……そうねえ、こんかいにかんしては、まえにたつよりも、うらかたのほうにまわらせてもらえたらとおもっていて。これといったりゆうがあるわけでもないんだけど、そうさせてもらえたら、それがいちばんありがたいかな。",
+              "english": "Thanks. …Well now, as far as this time goes, rather than standing at the front, I'd like to be allowed to move to the back-of-house side. It's not that I have any particular reason, but if you'd let me do that, that would be what I'd be most grateful for."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:sam-reshape",
+          "beatId": "beat:chair:trial-attempt",
+          "speakerId": "sam",
+          "intent": "Reflexively treat the empty seat as a gap to close by shrinking the front role so Jenny can still be coaxed into it — the well-meaning instinct the scene has to correct.",
+          "attentionTarget": "the guide-role card, as if it could be edited smaller",
+          "variants": {
+            "n3": {
+              "japanese": "あ、そっか。……じゃあ、案内役、もっと短くしようか。最初のひとことだけとか。それなら前でも負担にならないでしょ? そうすれば、ジェニーさんもできるし。",
+              "reading": "あ、そっか。……じゃあ、あんないやく、もっとみじかくしようか。さいしょのひとことだけとか。それならまえでもふたんにならないでしょ? そうすれば、ジェニーさんもできるし。",
+              "english": "Oh, I see. …Then, shall we make the guide role shorter? Just the opening word or two, say. That way the front wouldn't be a burden, right? Then you'd be able to do it too."
+            },
+            "n2": {
+              "japanese": "あ、なるほど。……じゃあ、案内役のほうを、もっと軽くしてみようか。最初のひとことだけにするとか。それくらいなら、前に立っても負担にならないだろうし。そうすれば、ジェニーさんにも無理なくできるかなって。",
+              "reading": "あ、なるほど。……じゃあ、あんないやくのほうを、もっとかるくしてみようか。さいしょのひとことだけにするとか。それくらいなら、まえにたってもふたんにならないだろうし。そうすれば、ジェニーさんにもむりなくできるかなって。",
+              "english": "Oh, right. …Then, shall we try making the guide role lighter? Cut it down to just the first word or two. Something that small wouldn't be a burden even at the front, and then you'd be able to manage it without strain too, I'd think."
+            },
+            "n1": {
+              "japanese": "あ、なるほどね。……だったら、案内役のほうを、もっと削って軽くしてみようか。いっそ最初のひとことだけにするとか。それくらいの分量なら、前に立ったところで負担ってほどでもないだろうし。そうすれば、ジェニーさんにも無理なく収まるんじゃないかなって。",
+              "reading": "あ、なるほどね。……だったら、あんないやくのほうを、もっとけずってかるくしてみようか。いっそさいしょのひとことだけにするとか。それくらいのぶんりょうなら、まえにたったところでふたんってほどでもないだろうし。そうすれば、ジェニーさんにもむりなくおさまるんじゃないかなって。",
+              "english": "Oh, I see. …In that case, shall we try trimming the guide role down to make it lighter? Cut it right back to just the first word or two, even. A portion that small wouldn't really amount to a burden even standing at the front, and then it might fit you without any strain, I'd think."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chair:before-redesign",
+          "beatId": "beat:chair:trial-attempt",
+          "resume": "Jenny's 「裏のほうを手伝いたい」 stands, and Sam has started shrinking the front role to coax her back. The learner steps in to hear the softened refusal as a complete choice and redesign the evening around her stated limit instead of persuading her."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:chair:redesign-around-limit",
+          "beatId": "beat:chair:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e05-chair-not-reserved-redesign-around-limit"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e05-chair-not-reserved-redesign-around-limit"
+          },
+          "resumeContext": "The offer still holds a real exit and Jenny has said 「今回は、裏のほうを手伝いたい」. The learner detects the softened refusal under Sam's polite surface, then — instead of shrinking the front role to pull her back — redesigns the plan around her stated limit: the running order and prop-prep become a full back-of-house role, and the front guide seat is left open. The learner practises accepting the no and rebuilding the plan, not overcoming the refusal.",
+          "onReady": "checkpoint:chair:after-redesign",
+          "onRepair": "node:chair:redesign-repair",
+          "onDefer": "checkpoint:chair:before-redesign"
+        },
+        {
+          "kind": "stage",
+          "id": "node:chair:redesign-repair",
+          "beatId": "beat:chair:trial-repair",
+          "cueId": "cue:two-responses-side-by-side",
+          "description": "Two drafted responses sit side by side on the board: one that trims the front role to coax Jenny back, one that leaves the front seat open and builds a full role from the back. Only the persuade-shaped response returns for another pass; the redesign-shaped one stays where it is."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chair:after-redesign",
+          "beatId": "beat:chair:trial-response",
+          "resume": "The plan now moves the running order and prop-prep into a named back-of-house role and leaves the front guide seat open. Nobody asks Jenny to justify her no; nobody edits the front role smaller to pull her forward."
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:jenny-back-of-house",
+          "beatId": "beat:chair:contribution",
+          "speakerId": "jenny",
+          "intent": "Accept the redesign, take the back-of-house role as a full contribution rather than a lesser one, and turn her knitting-repair on the plan's shape — not on her own visibility.",
+          "attentionTarget": "her hands picking up the dropped row, then the back-of-house side of the board",
+          "variants": {
+            "n3": {
+              "japanese": "ありがとう。でも、案内役を短くしなくて大丈夫。前は前で、そのまま置いといて。私は裏で、順番と道具の準備を回すよ。……この段、ちょっと編み直すね。直すのは私じゃなくて、段取りのほうだから。",
+              "reading": "ありがとう。でも、あんないやくをみじかくしなくてだいじょうぶ。まえはまえで、そのままおいといて。わたしはうらで、じゅんばんとどうぐのじゅんびをまわすよ。……このだん、ちょっとあみなおすね。なおすのはわたしじゃなくて、だんどりのほうだから。",
+              "english": "Thanks. But you don't need to shorten the guide role. Leave the front as the front, just as it is. I'll run the order of things and the props from the back. …I'll re-knit this row a little. What I'm mending isn't me — it's the plan's shape."
+            },
+            "n2": {
+              "japanese": "ありがとう。でも、案内役を削らなくて大丈夫だよ。前は前のまま残しておいて。私は裏に回って、進行の順番と道具の支度を見るから。……この段だけ、編み直しておくね。直すのは私のほうじゃなくて、段取りの形のほうなんだ。",
+              "reading": "ありがとう。でも、あんないやくをけずらなくてだいじょうぶだよ。まえはまえのままのこしておいて。わたしはうらにまわって、しんこうのじゅんばんとどうぐのしたくをみるから。……このだんだけ、あみなおしておくね。なおすのはわたしのほうじゃなくて、だんどりのかたちのほうなんだ。",
+              "english": "Thanks. But you don't need to trim the guide role. Leave the front as the front. I'll move to the back and look after the running order and the prep of the props. …I'll just re-knit this one row. What I'm mending isn't me — it's the shape of the plan."
+            },
+            "n1": {
+              "japanese": "ありがとう。でも、案内役を削ってもらわなくて大丈夫だから。前は前のまま、そっくり残しておいて。私は裏に回って、進行の順番と道具の支度のほうを見ておくよ。……この段だけ、そっと編み直しておくね。ほどいて直すのは私自身じゃなくて、あくまで段取りの形のほう、っていうだけの話。",
+              "reading": "ありがとう。でも、あんないやくをけずってもらわなくてだいじょうぶだから。まえはまえのまま、そっくりのこしておいて。わたしはうらにまわって、しんこうのじゅんばんとどうぐのしたくのほうをみておくよ。……このだんだけ、そっとあみなおしておくね。ほどいてなおすのはわたしじしんじゃなくて、あくまでだんどりのかたちのほう、っていうだけのはなし。",
+              "english": "Thanks. But you don't need to trim the guide role for me. Leave the front exactly as the front, all of it. I'll move to the back and keep an eye on the running order and the prep of the props. …I'll quietly re-knit just this one row. What I'm unravelling and mending isn't myself — it's only the shape of the plan, that's all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:chair:changed-board",
+          "beatId": "beat:chair:changed-image",
+          "cueId": "cue:back-of-house-card-added-front-left-open",
+          "description": "A new card now sits on the back-of-house side: 「進行・道具の段取り — ジェニー」. The guide-role card keeps its blank name line, uncrossed. Jenny's needle has moved on a row; the scarf is a little longer."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:chair-not-reserved:redesign-not-persuasion"
+      }
+    },
+    {
+      "id": "scene:chair-not-reserved:redesign-not-persuasion",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "mild-evening",
+      "goal": "Decide how to hold the open guide seat so support reads as redesign, not a seat kept warm for Jenny's return.",
+      "dramaticQuestion": "Can an open chair be a finished plan rather than an unfilled gap waiting for the person who declined it?",
+      "learnerNeed": "A stance choice about whether an open role is an invitation left genuinely open or a front dissolved so no single narrator is needed.",
+      "curriculum": {
+        "sectionId": "an-open-role-as-a-finished-plan",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:chair:open-board",
+          "beatId": "beat:chair:regroup-image",
+          "cueId": "cue:guide-card-blank-name-line",
+          "description": "The board is redrawn clean. The back-of-house role reads 「ジェニー」. The guide-role card still stands, its name line blank — not scribbled out, not reassigned, simply open."
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:sam-propose",
+          "beatId": "beat:chair:record-want",
+          "speakerId": "sam",
+          "intent": "Frame the open guide seat as something to keep open on purpose rather than have Jenny fill, while admitting a bare blank feels unfinished and asking how to hold it open well.",
+          "attentionTarget": "the blank guide-role card",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、案内役のところは、いったん空けておこうか。ジェニーさんに埋めてもらうんじゃなくて。……でも、ただ空欄にしておくだけだと落ち着かないよね。どういう形で空けておくか、そこは決めたいんだ。",
+              "reading": "じゃあ、あんないやくのところは、いったんあけておこうか。ジェニーさんにうめてもらうんじゃなくて。……でも、ただくうらんにしておくだけだとおちつかないよね。どういうかたちであけておくか、そこはきめたいんだ。",
+              "english": "So, shall we leave the guide slot open for now? Not have Jenny fill it. …But just leaving it a blank feels unsettled, doesn't it. How exactly we leave it open — that part I do want to decide."
+            },
+            "n2": {
+              "japanese": "じゃあ、案内役のところは、ひとまず空けておくことにしようか。ジェニーさんに埋めてもらうんじゃなくてね。……とはいえ、ただの空欄のままにしておくと、どうにも落ち着かない。どういう形で空けておくのか、そこだけは決めておきたいんだけど。",
+              "reading": "じゃあ、あんないやくのところは、ひとまずあけておくことにしようか。ジェニーさんにうめてもらうんじゃなくてね。……とはいえ、ただのくうらんのままにしておくと、どうにもおちつかない。どういうかたちであけておくのか、そこだけはきめておきたいんだけど。",
+              "english": "So, shall we settle on leaving the guide slot open for the time being? Not having Jenny fill it, that is. …That said, left as a plain blank it's somehow unsettling. Just how we leave it open — that much I'd like to have decided."
+            },
+            "n1": {
+              "japanese": "じゃあ、案内役のところは、ひとまず空けておくことにしようか。ジェニーさんに埋めてもらう、というのとは違う形でね。……とはいえ、ただ空欄で放っておくというのも、どうにも据わりが悪い。どういう形で空けておくのか——そこのところだけは、きちんと決めておきたいんだ。",
+              "reading": "じゃあ、あんないやくのところは、ひとまずあけておくことにしようか。ジェニーさんにうめてもらう、というのとはちがうかたちでね。……とはいえ、ただくうらんでほうっておくというのも、どうにもすわりがわるい。どういうかたちであけておくのか——そこのところだけは、きちんときめておきたいんだ。",
+              "english": "So, shall we settle on leaving the guide slot open for the time being — in a different form from having Jenny fill it, I mean. …That said, simply leaving it a blank and letting it be doesn't sit right either. Just what form we leave it open in — that part alone, I'd like to have properly decided."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:chair:how-to-hold-open",
+          "beatId": "beat:chair:record-stance",
+          "question": "How should the class hold the open guide role?",
+          "options": [
+            {
+              "id": "option:chair:open-invitation",
+              "action": "Keep the seat as a genuinely open invitation — anyone may take it or no one, offered with the same easy exit Jenny used, and fine if it stays empty.",
+              "japaneseByBand": {
+                "n3": "席は空けたまま、「やりたい人がいたらどうぞ」にしておこう。誰も手を挙げなくても大丈夫、っていう空け方で。ジェニーさんが前に言ったみたいに、断るのも自由なやつ。",
+                "n2": "席は空けたままにして、「やってみたい人がいれば、どうぞ」という形にしておこう。誰も手を挙げなくてもそれで構わない、という空け方で。ジェニーさんがさっき示してくれたみたいに、断るのも自由なままにして。",
+                "n1": "席は空けたまま、「もしやってみたい人がいれば、どうぞ」という誘いの形にしておこう。誰の手も挙がらなければ、それはそれで構わない——そういう空け方でね。さっきジェニーさんが見せてくれたように、断る自由も残したまま。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:chair:before-reframe"
+            },
+            {
+              "id": "option:chair:dissolve-front",
+              "action": "Redesign so the evening needs no single front narrator at all — visitors read the map at their own pace while Jenny supports the running order from the back.",
+              "japaneseByBand": {
+                "n3": "いっそ、前で一人が全部語る形をやめよう。お客さんが自分で地図を見て回れるようにして、裏からジェニーさんが順番を支える。そうすれば、前の一席はもう要らない。",
+                "n2": "いっそのこと、前で一人が全部を語るという形自体をやめてしまおう。来場者が自分で地図を見て回れるようにして、進行はジェニーさんが裏から支える。そうすれば、前の一席そのものが要らなくなる。",
+                "n1": "いっそのこと、前に一人立って全部を語る、という形そのものをやめてしまおうか。来場の方が自分のペースで地図を見て回れるようにして、その進行をジェニーさんが裏から支える。そうすれば、前の一席というもの自体が、そもそも要らなくなる。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:chair:before-reframe"
+            }
+          ],
+          "convergence": "checkpoint:chair:before-reframe"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:chair:before-reframe",
+          "beatId": "beat:chair:record-attempt",
+          "resume": "The learner has chosen how the open seat will be held. Sam names what an open chair does and does not mean, and points the plan away from persuasion."
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:sam-reframe",
+          "beatId": "beat:chair:repair",
+          "speakerId": "sam",
+          "intent": "Name that the empty chair is neither reserved for Jenny's return nor a hole to plug out of anxiety, and that rebuilding the plan around it is what support actually is.",
+          "attentionTarget": "the open guide seat and the rebuilt back-of-house side",
+          "variants": {
+            "n3": {
+              "japanese": "わかった。……この椅子、ジェニーさんのために取っておくわけじゃないんだよね。戻ってきてもらう席でもないし、あわてて誰かで埋める穴でもない。空いてても回るように、こっちを作り直せばいいんだ。それが、手伝うってことだと思う。",
+              "reading": "わかった。……このいす、ジェニーさんのためにとっておくわけじゃないんだよね。もどってきてもらうせきでもないし、あわててだれかでうめるあなでもない。あいててもまわるように、こっちをつくりなおせばいいんだ。それが、てつだうってことだとおもう。",
+              "english": "Got it. …This chair isn't being kept reserved for Jenny. It's not a seat for her to come back to, and it's not a hole to plug with someone in a panic either. We just rebuild things on our side so it runs even with the seat empty. That, I think, is what helping means."
+            },
+            "n2": {
+              "japanese": "わかった。……この椅子、ジェニーさんのために取っておくわけじゃないんだよね。戻ってきてもらうための席でもないし、不安だからって誰かで急いで埋める穴でもない。空いていても回るように、こっち側を作り直す。それが、手伝うっていうことなんだと思う。",
+              "reading": "わかった。……このいす、ジェニーさんのためにとっておくわけじゃないんだよね。もどってきてもらうためのせきでもないし、ふあんだからってだれかでいそいでうめるあなでもない。あいていてもまわるように、こちらがわをつくりなおす。それが、てつだうっていうことなんだとおもう。",
+              "english": "Got it. …This chair isn't being kept reserved for Jenny. It's not a seat meant for her to come back to, and it's not a hole to hurriedly plug with someone just because we're uneasy. We rebuild our side so it runs even with the seat empty. That, I think, is what helping actually means."
+            },
+            "n1": {
+              "japanese": "わかった。……つまりこの椅子は、ジェニーさんのために取っておくわけじゃない、ってことだよね。戻ってきてもらうための席でもなければ、空いているのが不安だからと誰かで慌てて埋める穴でもない。空席のままでもちゃんと回るように、こちら側の組み立てを作り直す。結局、それがいちばん「手伝う」ってことに近いんだと思う。",
+              "reading": "わかった。……つまりこのいすは、ジェニーさんのためにとっておくわけじゃない、ってことだよね。もどってきてもらうためのせきでもなければ、あいているのがふあんだからとだれかであわててうめるあなでもない。くうせきのままでもちゃんとまわるように、こちらがわのくみたてをつくりなおす。けっきょく、それがいちばん「てつだう」ってことにちかいんだとおもう。",
+              "english": "Got it. …So this chair isn't something we keep reserved for Jenny — that's the point. It's neither a seat meant for her return nor a hole to be plugged in a fluster with someone just because an empty one makes us anxious. We rebuild the arrangement on our side so it runs perfectly well even left vacant. In the end, that, I think, comes closest to what 'helping' really is."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:jenny-atlas",
+          "beatId": "beat:chair:changed-action",
+          "speakerId": "jenny",
+          "intent": "Widen from the seat to the atlas: showing the map was never one person's job at the front, so an open chair does not leave it unspoken — the back-of-house work is a real part of the telling.",
+          "attentionTarget": "the rebuilt map spread across the front tables",
+          "variants": {
+            "n3": {
+              "japanese": "うん。……考えてみたら、この地図、もともと誰か一人が前で語るものじゃないもんね。裏で順番を整えるのも、ちゃんと「案内」の一部。前の椅子が空いてても、地図はちゃんと伝わるよ。",
+              "reading": "うん。……かんがえてみたら、このちず、もともとだれかひとりがまえでかたるものじゃないもんね。うらでじゅんばんをととのえるのも、ちゃんと「あんない」のいちぶ。まえのいすがあいてても、ちずはちゃんとつたわるよ。",
+              "english": "Yeah. …When you think about it, this map was never something for one person to narrate from the front. Setting the order from the back is a real part of 'guiding' too. Even with the front chair empty, the map still comes across."
+            },
+            "n2": {
+              "japanese": "うん。……考えてみれば、この地図って、もともと誰か一人が前に立って語るものじゃないんだよね。裏で順番を整えたり、道具を出す間を計ったりするのも、立派に「案内」のうち。前の椅子が空いていても、地図はちゃんと伝わるよ。誰か一人のものじゃないから。",
+              "reading": "うん。……かんがえてみれば、このちずって、もともとだれかひとりがまえにたってかたるものじゃないんだよね。うらでじゅんばんをととのえたり、どうぐをだすまをはかったりするのも、りっぱに「あんない」のうち。まえのいすがあいていても、ちずはちゃんとつたわるよ。だれかひとりのものじゃないから。",
+              "english": "Yeah. …When you think about it, this map was never something for one person to stand at the front and narrate. Setting the order from the back, timing when the props come out — that's fully part of 'guiding' too. Even with the front chair empty, the map comes across just fine. Because it isn't any one person's."
+            },
+            "n1": {
+              "japanese": "うん。……よく考えてみれば、この地図って、もとをただせば誰か一人が前に立って語り聞かせるようなものじゃないんだよね。裏で順番を整えたり、道具を出す間合いを計ったり——そういうのだって、れっきとした「案内」のうちなんだと思う。だから、前の椅子がひとつ空いていたって、地図はちゃんと伝わる。もともと、誰か一人が抱えて語るようにはできていないんだから。",
+              "reading": "うん。……よくかんがえてみれば、このちずって、もとをただせばだれかひとりがまえにたってかたりきかせるようなものじゃないんだよね。うらでじゅんばんをととのえたり、どうぐをだすまあいをはかったり——そういうのだって、れっきとした「あんない」のうちなんだとおもう。だから、まえのいすがひとつあいていたって、ちずはちゃんとつたわる。もともと、だれかひとりがかかえてかたるようにはできていないんだから。",
+              "english": "Yeah. …When you really think it through, this map, at its root, was never a thing for one person to stand at the front and recite. Setting the order from the back, judging the timing for when the props come out — that too, I think, is squarely part of 'guiding.' So even with one front chair left empty, the map still comes across. It was never built for any one person to hold and narrate on their own."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:chair:sam-exit",
+          "beatId": "beat:chair:exit-line",
+          "speakerId": "sam",
+          "intent": "Mark the guide seat as deliberately open and point the day's flow into Jenny's back-of-house running order, closing without filling the chair.",
+          "attentionTarget": "the blank guide-role card and the small note he adds beside it",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、案内役のところには、小さく印だけ付けておくね。「空けたまま」って。埋めないで、そのまま残す。当日の流れは、ジェニーさんの段取りのほうに書いておくから。",
+              "reading": "じゃあ、あんないやくのところには、ちいさくしるしだけつけておくね。「あけたまま」って。うめないで、そのままのこす。とうじつのながれは、ジェニーさんのだんどりのほうにかいておくから。",
+              "english": "Then on the guide slot I'll just put a small mark. 'Left open.' We don't fill it, we leave it as is. The flow for the day, I'll write into Jenny's running order instead."
+            },
+            "n2": {
+              "japanese": "じゃあ、案内役のところには、小さく印だけ付けておくね。「空けたまま」って。無理に埋めずに、そのまま残しておく。当日の流れのほうは、ジェニーさんの段取りに書き込んでおくから。",
+              "reading": "じゃあ、あんないやくのところには、ちいさくしるしだけつけておくね。「あけたまま」って。むりにうめずに、そのままのこしておく。とうじつのながれのほうは、ジェニーさんのだんどりにかきこんでおくから。",
+              "english": "Then on the guide slot I'll just add a small mark. 'Left open.' No forcing it filled — we leave it as it is. The flow for the day itself, I'll write into Jenny's running order."
+            },
+            "n1": {
+              "japanese": "じゃあ、案内役のところには、ごく小さな印を一つだけ添えておくよ。「空けたまま」とね。無理に一人で埋めてしまわずに、そのまま残しておく。当日の流れのほうは、ジェニーさんの段取りのほうに書き込んでおくことにするから。",
+              "reading": "じゃあ、あんないやくのところには、ごくちいさなしるしをひとつだけそえておくよ。「あけたまま」とね。むりにひとりでうめてしまわずに、そのままのこしておく。とうじつのながれのほうは、ジェニーさんのだんどりのほうにかきこんでおくことにするから。",
+              "english": "Then on the guide slot I'll add just one very small mark. 'Left open.' Rather than force it filled with a single person, we leave it as it is. The flow for the day itself, I'll write into Jenny's running order instead."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:chair:exit-image",
+          "beatId": "beat:chair:exit-image",
+          "cueId": "cue:guide-card-marked-open-back-role-filled",
+          "description": "The guide-role card keeps its blank name line with a small note beside it — 「空けたまま」. The back-of-house card reads 「ジェニー」, its role written out in full. Nothing on the board is crossed out, and the scarf on Jenny's lap has grown one even row longer."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:open-chair",
+      "state": "transform",
+      "ownerIds": [
+        "rie",
+        "learner"
+      ],
+      "meaningNow": "Jenny declines the visible guide role, and instead of filling the seat or coaxing her back by shrinking it, the class redesigns the evening so an open front chair still works — a kept-open place stops being an invitation waiting to be occupied and becomes a stated limit honoured by redesign, with the back-of-house role written out as a full contribution.",
+      "priorUse": {
+        "packageId": "s1e01-the-blank-atlas",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "If the earlier open-chair beats were not seen, Jenny simply declines the front guide role and the group leaves the seat open with a small mark and builds a full back-of-house role rather than filling it or persuading her."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:chair-not-reserved:redesign",
+      "kind": "story",
+      "description": "Jenny declines the visible guide role; the class stops trying to solve the empty seat for her and redesigns the exhibition evening around her stated limit — the back-of-house running-order becomes a full named role and the front guide seat is left open with a small 「空けたまま」 mark rather than filled or reassigned."
+    },
+    {
+      "id": "outcome:chair-not-reserved:jenny-limit",
+      "kind": "bond",
+      "castId": "jenny",
+      "chapter": 29,
+      "beat": "limit",
+      "description": "Jenny states a boundary — 「今回は、裏のほうを手伝いたい」 — softly and without over-explaining, and holds it; the ensemble hears the refusal as a complete choice rather than a confidence deficit and changes the plan instead of pursuing her, and her knitting-repair transforms into mending the plan's shape rather than her own visibility."
+    },
+    {
+      "id": "outcome:chair-not-reserved:transfer-return",
+      "kind": "curriculum-return",
+      "description": "The N3 refusal / role-negotiation function — hear a softened refusal under a polite surface and redesign a plan around a stated limit — returns through the authored transfer activity; the story emits no lesson-completion command, and no registered N3 package is claimed because none exists yet."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:jenny-mends-the-plan-not-herself"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-redesign-around-limit"
+    ],
+    "withdrawnContentFallback": "Use the same softened-refusal and redesign-not-persuasion beats with neutral nameplates and a generic pair who leave a visible role open and build a full behind-the-scenes role after one person declines the front, without pursuing them or asking them to justify the no."
+  }
+}

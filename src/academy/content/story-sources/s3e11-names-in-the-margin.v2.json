@@ -1,0 +1,501 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e11-names-in-the-margin",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 35,
+  "title": {
+    "en": "Names in the Margin",
+    "ja": "余白の名前"
+  },
+  "synopsis": "The old ownerless page is laid flat under a library lamp, and the class wants a name to close the mystery. Shin can read every character but flips his own joke — the reading is easy, the history is not — and orders the writing hands without naming them; Rose reads the paper, ink, and the paper cat's placement as version evidence, and the question turns from who is the author to how it was stewarded. The learner compares the traces and states a conclusion qualified to the evidence, and the class records several hands over years while leaving the name column deliberately blank.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "rose",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "practical evidence used to authorize or narrate another person's story",
+        "material certainty framed as authority over a person's meaning or identity"
+      ]
+    },
+    {
+      "castId": "shin",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shin",
+        "docs/academy/story/CAST-AND-CONSENT.md#shin"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "heritage-reader strength reduced to a stereotype or a punchline",
+        "form/component expertise presented as certainty about a source's owner"
+      ]
+    },
+    {
+      "castId": "felix",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#felix",
+        "docs/academy/story/CAST-AND-CONSENT.md#felix"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cats treated as his whole personality rather than one attention home",
+        "a tracked marker's history presented as a solved provenance"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e10-empty-microphone",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityIds": [
+            "activity:s3e11-names-in-the-margin-source-compare"
+          ],
+          "function": "compare-provenance-records-and-state-a-conclusion-qualified-to-the-evidence"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-five-return-rose"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:names-in-the-margin:reading-the-layers",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-evening",
+      "goal": "Examine the ownerless page as physical evidence and reach the point where reading the characters cannot answer who wrote it.",
+      "dramaticQuestion": "When the class wants a name to close the mystery, will decoding produce an author, or will the material only support a qualified account of stewardship?",
+      "learnerNeed": "A way to compare paper, ink, and version traces across a record and state a conclusion qualified to exactly what the evidence supports.",
+      "curriculum": {
+        "sectionId": "compare-sources-for-a-qualified-conclusion",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:names-in-the-margin:page-under-the-lamp",
+          "beatId": "beat:names-in-the-margin:arrival-image",
+          "cueId": "cue:ownerless-page-laid-flat-layered-ink",
+          "description": "The old unattributed caption page from the atlas backing is laid flat under the library lamp. Beside it sit two things Felix brought: the small paper cat marker, and his own quiet log of where that marker has rested across successive terms — column after column of dates and positions, kept but never explained. Under a loupe the caption is not one clean hand: the ink darkens and lightens down the sheet, and the paper itself is thicker at the bottom than at the top."
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:shin-orders-the-hands",
+          "beatId": "beat:names-in-the-margin:host-want",
+          "speakerId": "shin",
+          "intent": "Read the characters with obvious ease but flip his own joke — the reading is easy, the history is not — and order the writing hands by stroke habit without naming a single one.",
+          "attentionTarget": "the sweep of the brush strokes down the layered sheet",
+          "variants": {
+            "n3": {
+              "japanese": "字を読むだけなら、簡単だよ。全部読める。…でも今回はそれだけじゃ足りないんだよね。見て、この払いの癖。ここと、この行とで、力の入れ方が違う。同じ人の字じゃない。少なくとも三人は書いてる。名前は、言えないけど。",
+              "reading": "じをよむだけなら、かんたんだよ。ぜんぶよめる。…でもこんかいはそれだけじゃたりないんだよね。みて、このはらいのくせ。ここと、このぎょうとで、ちからのいれかたがちがう。おなじひとのじじゃない。すくなくともさんにんはかいてる。なまえは、いえないけど。",
+              "english": "Just reading the characters? That's easy. I can read all of it. …But this time that alone isn't enough. Look — the way the strokes sweep off. Here, and in this line, the pressure is different. It's not one person's hand. At least three people wrote this. I just can't give you names."
+            },
+            "n2": {
+              "japanese": "読むだけなら簡単なんだ。字は一つ残らず読める。…ただ、今回はそこが肝心じゃなくてね。この払いの癖を見てほしいんだけど、ここと、この数行下とで、明らかに運びが違う。少なくとも三人、それも別々の時期に書き足してる。順番までは並べられる。ただ、誰かとなると、断定はできない。",
+              "reading": "よむだけならかんたんなんだ。じはひとつのこらずよめる。…ただ、こんかいはそこがかんじんじゃなくてね。このはらいのくせをみてほしいんだけど、ここと、このすうぎょうしたとで、あきらかにはこびがちがう。すくなくともさんにん、それもべつべつのじきにかきたしてる。じゅんばんまではならべられる。ただ、だれかとなると、だんていはできない。",
+              "english": "The reading is easy — I can read every last character. …Only, that's not the crux this time. Look at the way the strokes sweep off: here, and a few lines down, the motion is plainly different. At least three people, and each adding at a different time. I can even put them in order. But as for who — that I can't state for certain."
+            },
+            "n1": {
+              "japanese": "読むだけなら、造作もないよ。一字残らず読める。…ただ、肝心なのはそこじゃなくてね。この払いの運び――ここと、数行下と、筆の抜き方がまるで違う。少なくとも三人の手が、しかも時期を違えて入ってる。前後の順まではどうにか並べられるんだ。ただ、それが誰なのかとなると、そこから先はもう言い切れない。",
+              "reading": "よむだけなら、ぞうさもないよ。いちじのこらずよめる。…ただ、かんじんなのはそこじゃなくてね。このはらいのはこび――ここと、すうぎょうしたと、ふでのぬきかたがまるでちがう。すくなくともさんにんのてが、しかもじきをたがえてはいってる。ぜんごのじゅんまではどうにかならべられるんだ。ただ、それがだれなのかとなると、そこからさきはもういいきれない。",
+              "english": "Reading it is no trouble at all — I can read every character. …Only, that isn't where it matters this time. The sweep of these strokes — here, and a few lines down, the way the brush lifts is completely different. At least three hands, and entered at different times, too. I can just about put them in sequence. But as for whose hands they are — past that point, I simply can't say."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:rose-reads-the-material",
+          "beatId": "beat:names-in-the-margin:obstruction",
+          "speakerId": "rose",
+          "intent": "Start from the physical object — paper weight, sun-fade, ink colour by layer — and only then widen to the long view, turning the question from who is the author to how the page was handed down.",
+          "attentionTarget": "the thickness and colour of the stacked paper layers",
+          "variants": {
+            "n3": {
+              "japanese": "紙も、そう言ってる。ここ、触ってみて。下の層だけ紙が厚くて、日に焼けてる。上に足された紙は、まだ白い。インクの色も、一枚ごとに違う。…これ、一人が書いた一枚じゃないんですよ。何年もかけて、いくつかのクラスが、少しずつ書き足してきた。だとしたら、探すべきは『誰が作者か』じゃない。『どう受け継がれてきたか』のほうだと思う。",
+              "reading": "かみも、そういってる。ここ、さわってみて。したのそうだけかみがあつくて、ひにやけてる。うえにたされたかみは、まだしろい。インクのいろも、いちまいごとにちがう。…これ、ひとりがかいたいちまいじゃないんですよ。なんねんもかけて、いくつかのクラスが、すこしずつかきたしてきた。だとしたら、さがすべきは『だれがさくしゃか』じゃない。『どううけつがれてきたか』のほうだとおもう。",
+              "english": "The paper says the same thing. Here — feel this. Only the bottom layer is thick, and sun-faded. The paper added on top is still white. The ink colour differs sheet by sheet too. …This isn't one page written by one person. Over years, several classes added to it, a little at a time. If that's so, what we should be looking for isn't 'who is the author.' It's 'how it was handed down.'"
+            },
+            "n2": {
+              "japanese": "紙も同じことを言ってます。ここ、指で触ると分かる。下の層だけ厚くて、日に焼けてる。あとから重ねた紙は、まだ白いまま。インクの色も、層ごとに少しずつ違うんです。…つまりこれ、誰か一人が書き上げた一枚じゃない。何年もかけて、いくつかのクラスが順番に書き足してきたもの。そう考えると、私たちが立てるべき問いは『作者は誰か』じゃなくて、『どう手渡されてきたか』のほうなんだと思う。",
+              "reading": "かみもおなじことをいってます。ここ、ゆびでさわるとわかる。したのそうだけあつくて、ひにやけてる。あとからかさねたかみは、まだしろいまま。インクのいろも、そうごとにすこしずつちがうんです。…つまりこれ、だれかひとりがかきあげたいちまいじゃない。なんねんもかけて、いくつかのクラスがじゅんばんにかきたしてきたもの。そうかんがえると、わたしたちがたてるべきといは『さくしゃはだれか』じゃなくて、『どうてわたされてきたか』のほうなんだとおもう。",
+              "english": "The paper says the same. Here — you can feel it with a finger. Only the bottom layer is thick and sun-faded. The paper laid on later is still white. The ink colour, too, shifts a little from layer to layer. …So this isn't a single sheet finished by one person. It's something several classes added to in turn, over years. Seen that way, the question we ought to be asking isn't 'who is the author' — it's 'how it was handed on.'"
+            },
+            "n1": {
+              "japanese": "紙のほうも、同じことを言ってるんですよ。ここ、指を這わせると分かる。いちばん下の層だけが厚くて、しっかり日に焼けてる。あとから重ねていった紙は、まだ白いまま残ってる。インクの色にしても、層ごとに微妙に違うんです。…要するにこれは、誰か一人が一気に書き上げた一枚じゃない。何年もかけて、いくつものクラスが、順に少しずつ書き継いできたもの。そう捉えると、私たちが立てるべき問いは、『作者は誰か』ではなくて、『これがどう受け継がれてきたか』のほうなんだと思う。",
+              "reading": "かみのほうも、おなじことをいってるんですよ。ここ、ゆびをはわせるとわかる。いちばんしたのそうだけがあつくて、しっかりひにやけてる。あとからかさねていったかみは、まだしろいままのこってる。インクのいろにしても、そうごとにびみょうにちがうんです。…ようするにこれは、だれかひとりがいっきにかきあげたいちまいじゃない。なんねんもかけて、いくつものクラスが、じゅんにすこしずつかきついできたもの。そうとらえると、わたしたちがたてるべきといは、『さくしゃはだれか』ではなくて、『これがどううけつがれてきたか』のほうなんだとおもう。",
+              "english": "The paper is telling us the same thing. Here — run a finger along it. Only the very bottom layer is thick, well sun-faded. The paper stacked on afterward is still white. Even the ink colour differs, subtly, layer by layer. …In short, this isn't a single sheet dashed off by one person. It's something several classes wrote onto in turn, little by little, over years. Taken that way, the question we should be raising isn't 'who is the author' — it's 'how this was handed down.'"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:names-in-the-margin:before-compare",
+          "beatId": "beat:names-in-the-margin:compare-attempt",
+          "resume": "The page's layers, the ink shifts, and the marker's logged positions are all laid out. The learner steps in to compare the traces across records and state a conclusion qualified to exactly what the evidence supports — several hands, over time, and no named author."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:names-in-the-margin:source-compare",
+          "beatId": "beat:names-in-the-margin:compare-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e11-names-in-the-margin-source-compare"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e11-names-in-the-margin-source-compare"
+          },
+          "resumeContext": "The record is the layered page plus Felix's log of the marker's positions. Comparing paper weight, ink colour, and the marker's placement across records (〜によると, この層は…), the learner writes a conclusion calibrated to the evidence — 少なくとも三人が, 時期を違えて, 書き継いだと思われる, 作者は特定できない, 断定はできない — concluding layered stewardship rather than naming a single author.",
+          "onReady": "checkpoint:names-in-the-margin:after-compare",
+          "onRepair": "node:names-in-the-margin:compare-repair",
+          "onDefer": "checkpoint:names-in-the-margin:before-compare"
+        },
+        {
+          "kind": "stage",
+          "id": "node:names-in-the-margin:compare-repair",
+          "beatId": "beat:names-in-the-margin:compare-repair",
+          "cueId": "cue:one-trace-returns-for-a-second-read",
+          "description": "The layers the learner already ordered stay lined up in sequence. Only the one trace whose claim outran its evidence returns — an over-confident line quietly re-set beside the paper and ink it was supposed to rest on, waiting to be stated again at the strength the record actually supports."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:names-in-the-margin:after-compare",
+          "beatId": "beat:names-in-the-margin:compare-response",
+          "resume": "The conclusion now sits at the strength the evidence supports: several hands, over years, in order, no names. Rose looks over the ordered layers and draws the line she can and cannot cross."
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:rose-only-this-far",
+          "beatId": "beat:names-in-the-margin:contribution",
+          "speakerId": "rose",
+          "intent": "Name exactly how far the material reaches — composition, dating, and order — and hold her binding limit: proof of the material is not permission to name a person or narrate their story.",
+          "attentionTarget": "the border between what the paper supports and what it does not",
+          "variants": {
+            "n3": {
+              "japanese": "これで、はっきりしたね。この紙が何でできてて、いつ、どの順番で書かれたか――そこまでは、私、言える。証拠がちゃんと支えてくれてるから。…でも、言えるのはそこまで。誰の物語なのかは、紙には書いてない。作者を一人、名指しすることはできないの。ううん、してはいけない。そこはもう、証拠の届く場所じゃないから。",
+              "reading": "これで、はっきりしたね。このかみがなんでできてて、いつ、どのじゅんばんでかかれたか――そこまでは、わたし、いえる。しょうこがちゃんとささえてくれてるから。…でも、いえるのはそこまで。だれのものがたりなのかは、かみにはかいてない。さくしゃをひとり、なざしすることはできないの。ううん、してはいけない。そこはもう、しょうこのとどくばしょじゃないから。",
+              "english": "That settles it. What this paper is made of, when and in what order it was written — that much, I can say. The evidence actually backs it up. …But that's as far as I can go. Whose story it is, the paper doesn't say. I can't point to a single author by name. No — I mustn't. Past that, it's no longer a place the evidence reaches."
+            },
+            "n2": {
+              "japanese": "これで、はっきりしました。この紙が何でできているか、いつ、どの順で書かれたか――そこまでなら、私は言える。証拠がちゃんと支えてくれてるので。…ただ、言えるのはそこまでなんです。誰の物語なのかまでは、紙には書かれていない。作者を一人に絞って名指しすることはできない。というより、してはいけないんだと思う。そこはもう、この証拠が届く範囲の外なので。",
+              "reading": "これで、はっきりしました。このかみがなんでできているか、いつ、どのじゅんでかかれたか――そこまでなら、わたしはいえる。しょうこがちゃんとささえてくれてるので。…ただ、いえるのはそこまでなんです。だれのものがたりなのかまでは、かみにはかかれていない。さくしゃをひとりにしぼってなざしすることはできない。というより、してはいけないんだとおもう。そこはもう、このしょうこがとどくはんいのそとなので。",
+              "english": "That settles it. What this paper is made of, when and in what order it was written — that far, I can say it. The evidence properly supports it. …Only, that's as far as it goes. Whose story it is, the paper doesn't record. I can't narrow it to one named author. Rather, I don't think I should. Past that lies outside the range this evidence reaches."
+            },
+            "n1": {
+              "japanese": "これで、はっきりしました。この紙が何でできているのか、いつ、どういう順で書き継がれたのか――そこまでであれば、私は言い切れる。証拠がきちんと支えてくれているので。…ただ、言えるのは本当にそこまでで。これが誰の物語なのかまでは、紙のどこにも書かれていない。作者を一人に絞って名指しすることは、できない。いえ、してはいけないんだと思うんです。そこから先は、もうこの証拠の届く範囲じゃないので。",
+              "reading": "これで、はっきりしました。このかみがなんでできているのか、いつ、どういうじゅんでかきつがれたのか――そこまでであれば、わたしはいいきれる。しょうこがきちんとささえてくれているので。…ただ、いえるのはほんとうにそこまでで。これがだれのものがたりなのかまでは、かみのどこにもかかれていない。さくしゃをひとりにしぼってなざしすることは、できない。いえ、してはいけないんだとおもうんです。そこからさきは、もうこのしょうこのとどくはんいじゃないので。",
+              "english": "That settles it. What this paper is made of, when and in what order it was written onto — that far, I can state with confidence. The evidence supports it properly. …Only, that really is as far as I can go. Whose story this is, nowhere on the paper is it written. I can't narrow it to one named author. No — I don't think I should. Beyond that lies outside the reach of this evidence."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:names-in-the-margin:layers-in-order",
+          "beatId": "beat:names-in-the-margin:changed-image",
+          "cueId": "cue:layers-ordered-marker-on-the-seam",
+          "description": "The page's layers now lie in reconstructed order, oldest and sun-faded at the base, whitest on top. The paper cat rests on the seam between two of them. The margin beside the caption is still empty of any name."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:names-in-the-margin:what-the-margin-holds"
+      }
+    },
+    {
+      "id": "scene:names-in-the-margin:what-the-margin-holds",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-evening",
+      "goal": "Decide what the margin will record when the class wants a name but the evidence supports only a qualified account of stewardship.",
+      "dramaticQuestion": "Can a blank name column and a qualified note be more honest than a single name that closes the mystery too soon?",
+      "learnerNeed": "A stance on recording a source comparison as a conclusion qualified to the evidence, without naming a person the record cannot support.",
+      "curriculum": {
+        "sectionId": "record-a-qualified-conclusion",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:names-in-the-margin:blank-name-column",
+          "beatId": "beat:names-in-the-margin:regroup-image",
+          "cueId": "cue:margin-with-empty-name-column",
+          "description": "A fresh index card sits beside the page, ruled into two fields: one headed 'name,' one headed 'what the record supports.' A pencil rests across it. The paper cat still marks the seam between the layers, quietly turning from a mascot into the point where one class's writing hands off to the next."
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:rose-declines-the-name",
+          "beatId": "beat:names-in-the-margin:record-want",
+          "speakerId": "rose",
+          "intent": "Refuse to write a single name, state why the evidence and the ethics both stop her, and redesign the plan — leave the name field blank and record only what the evidence supports.",
+          "attentionTarget": "the empty 'name' field and the pencil",
+          "variants": {
+            "n3": {
+              "japanese": "ここに名前を一つ書いておきたい、っていう気持ちは分かる。そのほうが、きれいに収まるもんね。…でも、書けないの。紙が支えてくれるのは『何人かで、何年もかけて』ってところまで。『それが誰か』までは、支えてくれない。それに――もし分かったとしても、人の名前を勝手にここに載せるのは、私たちが決めていいことじゃないから。だから、名前の欄は空けておこう。代わりに、証拠が言えることだけを、余白に書く。",
+              "reading": "ここになまえをひとつかいておきたい、っていうきもちはわかる。そのほうが、きれいにおさまるもんね。…でも、かけないの。かみがささえてくれるのは『なんにんかで、なんねんもかけて』ってところまで。『それがだれか』までは、ささえてくれない。それに――もしわかったとしても、ひとのなまえをかってにここにのせるのは、わたしたちがきめていいことじゃないから。だから、なまえのらんはあけておこう。かわりに、しょうこがいえることだけを、よはくにかく。",
+              "english": "I understand the urge to write one name here. It would sit more neatly that way. …But we can't. What the paper backs up only goes as far as 'several people, over years.' It won't back up 'who.' And besides — even if we did know, putting a person's name here on our own isn't ours to decide. So let's leave the name column blank. Instead, we write only what the evidence can say, in the margin."
+            },
+            "n2": {
+              "japanese": "ここに名前を一つ書いておきたい、その気持ちは分かる。そのほうが、見た目にはきれいに収まるので。…でも、書けないんです。紙が支えてくれるのは『何人かが、何年もかけて』というところまで。『それが誰か』は、支えてくれない。それに――仮に分かったとしても、人の名前を断りもなくここへ載せるのは、私たちが決めていいことじゃないと思う。だから、名前の欄は空けておきましょう。代わりに、証拠が確かに言えることだけを、余白に書く。",
+              "reading": "ここになまえをひとつかいておきたい、そのきもちはわかる。そのほうが、みためにはきれいにおさまるので。…でも、かけないんです。かみがささえてくれるのは『なんにんかが、なんねんもかけて』というところまで。『それがだれか』は、ささえてくれない。それに――かりにわかったとしても、ひとのなまえをことわりもなくここへのせるのは、わたしたちがきめていいことじゃないとおもう。だから、なまえのらんはあけておきましょう。かわりに、しょうこがたしかにいえることだけを、よはくにかく。",
+              "english": "The urge to write one name here — I understand it. It would sit more neatly to look at. …But we can't. What the paper supports goes only as far as 'several people, over years.' It won't support 'who.' And besides — even supposing we knew, putting a person's name here without their leave isn't ours to decide, I think. So let's leave the name column blank. Instead, we write in the margin only what the evidence can genuinely say."
+            },
+            "n1": {
+              "japanese": "ここに名前を一つ入れておきたい――その気持ちは、よく分かるんです。そのほうが、見た目には収まりがいいので。…でも、書けない。紙が支えてくれるのは、あくまで『何人かの手が、何年もかけて』というところまで。『それが誰なのか』までは、どうしても支えてくれない。それに――仮に突き止められたとしても、人の名前を断りもなくここへ刻むかどうかは、そもそも私たちが決めていい類いのことじゃないと思う。だから、名前の欄は空けたままにしておきましょう。その代わり、証拠が確かに言い切れることだけを、余白のほうに書き留めておく。",
+              "reading": "ここになまえをひとついれておきたい――そのきもちは、よくわかるんです。そのほうが、みためにはおさまりがいいので。…でも、かけない。かみがささえてくれるのは、あくまで『なんにんかのてが、なんねんもかけて』というところまで。『それがだれなのか』までは、どうしてもささえてくれない。それに――かりにつきとめられたとしても、ひとのなまえをことわりもなくここへきざむかどうかは、そもそもわたしたちがきめていいたぐいのことじゃないとおもう。だから、なまえのらんはあけたままにしておきましょう。そのかわり、しょうこがたしかにいいきれることだけを、よはくのほうにかきとめておく。",
+              "english": "I understand the urge to put one name in here — I do. It would look more settled that way. …But we can't. What the paper supports reaches only as far as 'several hands, over years.' 'Who they were' it simply won't support. And besides — even supposing we pinned it down, whether to carve a person's name in here without their leave isn't the sort of thing that's ours to decide in the first place. So let's leave the name column blank. In its place, we write down in the margin only what the evidence can truly assert."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:names-in-the-margin:how-to-record",
+          "beatId": "beat:names-in-the-margin:record-stance",
+          "question": "With the name field left blank, how should the margin record the conclusion?",
+          "options": [
+            {
+              "id": "option:names-in-the-margin:qualified-conclusion",
+              "action": "Write one calibrated stewardship conclusion — several hands, over years, no named author — pinned to the strength of the evidence.",
+              "japaneseByBand": {
+                "n3": "余白に、こう書きましょう。『少なくとも三人が、何年もかけて書き継いだと思われる。作者は特定できない』。名前じゃなくて、そこまでを残す。",
+                "n2": "余白には、こう書いておきましょう。『少なくとも三人の手が、数年にわたって書き継いだものと思われる。個々の作者は特定できない』。名前ではなく、証拠が支える範囲だけを残す。",
+                "n1": "余白には、こう記しておきましょう。『少なくとも三人の手が、数年をかけて書き継いだものと思われる。ただし、個々の作者を特定することはできない』と。名前ではなく、証拠が支えるところまでを、そのまま残す。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:names-in-the-margin:before-record"
+            },
+            {
+              "id": "option:names-in-the-margin:source-by-source",
+              "action": "Record it layer by layer — what each trace supports and how sure of it we are — so the confidence sits with each source rather than one blanket claim.",
+              "japaneseByBand": {
+                "n3": "層ごとに分けて書きましょう。『この下の層によると、いちばん古い。次の層は、インクが違う。あとから足された』。一枚ずつ、どこまで確かか印をつける。",
+                "n2": "層ごとに分けて書きましょう。『下の層によれば最も古く、上の層はインクが異なり、後から加えられたと思われる』。一枚ずつ、どこまでが確かかを添えておく。",
+                "n1": "いっそ層ごとに分けて書きましょう。『下の層によれば最も古く、その上の層はインクが異なることから、後年になって加えられたものと思われる』と。一枚ごとに、どこまでが確かでどこからが推測か、断り書きを添えておく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:names-in-the-margin:before-record"
+            }
+          ],
+          "convergence": "checkpoint:names-in-the-margin:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:names-in-the-margin:before-record",
+          "beatId": "beat:names-in-the-margin:record-attempt",
+          "resume": "The learner has chosen how the margin will hold the qualified conclusion. Shin looks over the ordered layers and the marker, and says what the reading finally added up to."
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:shin-easy-reading-hard-history",
+          "beatId": "beat:names-in-the-margin:repair",
+          "speakerId": "shin",
+          "intent": "Return his suspended joke transformed — the reading was easy, the history is not — and read the paper cat's placement as version evidence, stating the conclusion by source comparison at qualified confidence.",
+          "attentionTarget": "the paper cat sitting on the seam between two layers",
+          "variants": {
+            "n3": {
+              "japanese": "読むのは、やっぱり簡単だったよ。…でも、こうやって並べると、面白いのは字そのものじゃないんだ。この紙の猫――ずっと、ただの目印だと思ってた。違うんだね。古い層と新しい層の、ちょうど境目に置いてある。つまりこれ自体が、『ここで書き手が代わった』っていう印なんだ。紙と、インクと、この猫の位置。三つ合わせれば、順番までは言える。『少なくとも三人、別々の時期に』――そう思われる、まで。そこから先は、簡単じゃない。",
+              "reading": "よむのは、やっぱりかんたんだったよ。…でも、こうやってならべると、おもしろいのはじそのものじゃないんだ。このかみのねこ――ずっと、ただのめじるしだとおもってた。ちがうんだね。ふるいそうとあたらしいそうの、ちょうどさかいめにおいてある。つまりこれじたいが、『ここでかきてがかわった』っていうしるしなんだ。かみと、インクと、このねこのいち。みっつあわせれば、じゅんばんまではいえる。『すくなくともさんにん、べつべつのじきに』――そうおもわれる、まで。そこからさきは、かんたんじゃない。",
+              "english": "The reading really was easy, after all. …But laid out like this, the interesting part isn't the characters themselves. This paper cat — I'd always thought it was just a marker. Turns out it isn't. It's set right on the seam between an old layer and a newer one. Which means the thing itself is a mark saying 'the writer changed here.' The paper, the ink, and where this cat sits — put the three together and you can even give the order. 'At least three people, at different times' — as far as 'it seems so.' Past that, it isn't easy."
+            },
+            "n2": {
+              "japanese": "読むのは、やっぱり簡単だったよ。…ただ、こうして並べてみると、面白いのは字そのものじゃないんだよね。この紙の猫――今まで、ただの目印だとばかり思ってた。でも違う。古い層と新しい層の、ちょうど境目に置いてあるんだ。つまりこれ自体が、『ここで一度、書き手が代わった』という印になってる。紙と、インクの色と、この猫の位置。三つを突き合わせれば、書かれた順番までは並べられる。『少なくとも三人が、時期を違えて』――そう思われる、というところまで。そこから先は、もう簡単じゃない。",
+              "reading": "よむのは、やっぱりかんたんだったよ。…ただ、こうしてならべてみると、おもしろいのはじそのものじゃないんだよね。このかみのねこ――いままで、ただのめじるしだとばかりおもってた。でもちがう。ふるいそうとあたらしいそうの、ちょうどさかいめにおいてあるんだ。つまりこれじたいが、『ここでいちど、かきてがかわった』というしるしになってる。かみと、インクのいろと、このねこのいち。みっつをつきあわせれば、かかれたじゅんばんまではならべられる。『すくなくともさんにんが、じきをたがえて』――そうおもわれる、というところまで。そこからさきは、もうかんたんじゃない。",
+              "english": "The reading really was easy, after all. …Only, laid out like this, the interesting part isn't the characters themselves. This paper cat — until now I'd taken it for nothing but a marker. But no. It's set right on the seam between an old layer and a newer one. Which means the thing itself has become a mark reading 'here, once, the writer changed.' The paper, the ink colour, and where this cat sits — set the three against each other and you can put even the order of writing in line. 'At least three people, at staggered times' — as far as 'it appears so.' Past that, it's no longer easy."
+            },
+            "n1": {
+              "japanese": "読むだけなら、やっぱり造作もなかったよ。…ただ、こうして並べてみると、面白いのは字そのものじゃないんだ。この紙の猫――今までは、単なる目印としか思っていなかった。でも、違ったんだね。古い層と新しい層の、ちょうど境目に据えてある。ということは、これ自体がもう、『ここで一度、書き手が入れ替わった』という印になってるわけだ。紙の質と、インクの色と、この猫の位置と――その三つを突き合わせれば、書き継がれた順番までは、どうにか並べられる。『少なくとも三人の手が、時期を違えて』――そう思われる、というところまでね。そこから先は、もう簡単じゃない。",
+              "reading": "よむだけなら、やっぱりぞうさもなかったよ。…ただ、こうしてならべてみると、おもしろいのはじそのものじゃないんだ。このかみのねこ――いままでは、たんなるめじるしとしかおもっていなかった。でも、ちがったんだね。ふるいそうとあたらしいそうの、ちょうどさかいめにすえてある。ということは、これじたいがもう、『ここでいちど、かきてがいれかわった』というしるしになってるわけだ。かみのしつと、インクのいろと、このねこのいちと――そのみっつをつきあわせれば、かきつがれたじゅんばんまでは、どうにかならべられる。『すくなくともさんにんのてが、じきをたがえて』――そうおもわれる、というところまでね。そこからさきは、もうかんたんじゃない。",
+              "english": "Just to read it was no trouble at all, after all. …Only, laid out like this, the interesting part isn't the characters themselves. This paper cat — until now I'd thought of it as a mere marker, nothing more. But I was wrong. It's placed right on the seam between an old layer and a newer one. Which means the thing itself has already become a mark reading 'here, once, the writer changed over.' The grade of the paper, the colour of the ink, and where this cat sits — set those three against one another, and you can just about line up even the order it was written in. 'At least three hands, at staggered times' — as far as 'so it seems.' Beyond that, it's no longer easy."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:names-in-the-margin:rose-stewardship-not-owner",
+          "beatId": "beat:names-in-the-margin:changed-action",
+          "speakerId": "rose",
+          "intent": "Widen from the single page to the whole atlas: no owner, but tended by many across years, so the class's job is to receive and pass on rather than to sign a name.",
+          "attentionTarget": "the atlas as a thing kept by many and owned by none",
+          "variants": {
+            "n3": {
+              "japanese": "…考えてみれば、このアトラス全体が、同じなんですよね。誰か一人が作って終わり、じゃない。何年もかけて、いくつものクラスが手を入れて、少しずつここまで来た。持ち主はいない。でも、ずっと誰かが手入れしてきた。だったら私たちも、名前を足すんじゃなくて、受け取って、また次に渡す。それでいいんだと思う。",
+              "reading": "…かんがえてみれば、このアトラスぜんたいが、おなじなんですよね。だれかひとりがつくっておわり、じゃない。なんねんもかけて、いくつものクラスがてをいれて、すこしずつここまできた。もちぬしはいない。でも、ずっとだれかがていれしてきた。だったらわたしたちも、なまえをたすんじゃなくて、うけとって、またつぎにわたす。それでいいんだとおもう。",
+              "english": "…Come to think of it, this whole atlas is the same, isn't it. It's not one person making it and that's the end. Over years, several classes worked on it and it came this far, little by little. There's no owner. But someone has always tended it. So we, too, don't add a name — we take it up, and hand it to the next. I think that's enough."
+            },
+            "n2": {
+              "japanese": "…考えてみれば、このアトラス全体が、これと同じなんですよね。誰か一人が作って、それで終わり、じゃない。何年もかけて、いくつものクラスが少しずつ手を入れて、ここまで来た。持ち主は、いないんです。でも、途切れずに誰かが手入れをしてきた。だとしたら、私たちがすることも、名前を書き足すことじゃない。受け取って、手入れをして、また次のクラスに渡す。たぶん、それで十分なんだと思う。",
+              "reading": "…かんがえてみれば、このアトラスぜんたいが、これとおなじなんですよね。だれかひとりがつくって、それでおわり、じゃない。なんねんもかけて、いくつものクラスがすこしずつてをいれて、ここまできた。もちぬしは、いないんです。でも、とぎれずにだれかがていれをしてきた。だとしたら、わたしたちがすることも、なまえをかきたすことじゃない。うけとって、ていれをして、またつぎのクラスにわたす。たぶん、それでじゅうぶんなんだとおもう。",
+              "english": "…Come to think of it, this whole atlas is the same as this, isn't it. It's not one person making it and that being the end. Over years, several classes each put a hand to it, little by little, and it came this far. There is no owner. But without a break, someone has always tended it. If that's so, then what we do isn't to add a name either. We take it up, tend it, and hand it to the next class. That, I think, is probably enough."
+            },
+            "n1": {
+              "japanese": "…考えてみれば、このアトラスというもの自体が、まるごとこれと同じなんですよね。誰か一人が作り上げて、それで完結、というものじゃない。何年もの時をかけて、いくつものクラスが順々に手を入れて、ようやくここまで来た。持ち主と呼べる人は、いない。それでも、途切れることなく、誰かが手入れを続けてきた。だとすれば、私たちのすることも、そこに自分の名前を書き足すことじゃないんだと思う。受け取って、手入れをして、また次のクラスへ渡す――ただそれだけで、きっと十分なんです。",
+              "reading": "…かんがえてみれば、このアトラスというものじたいが、まるごとこれとおなじなんですよね。だれかひとりがつくりあげて、それでかんけつ、というものじゃない。なんねんものときをかけて、いくつものクラスがじゅんじゅんにてをいれて、ようやくここまできた。もちぬしとよべるひとは、いない。それでも、とぎれることなく、だれかがていれをつづけてきた。だとすれば、わたしたちのすることも、そこにじぶんのなまえをかきたすことじゃないんだとおもう。うけとって、ていれをして、またつぎのクラスへわたす――ただそれだけで、きっとじゅうぶんなんです。",
+              "english": "…Come to think of it, the atlas itself, the whole of it, is the same as this, isn't it. It isn't something one person builds and thereby completes. Over years of time, several classes put a hand to it one after another, and it finally came this far. There's no one you could call its owner. And yet, without a break, someone has kept tending it. If that's so, then what we do isn't to add our own name to it either. We take it up, tend it, and hand it on to the next class — just that, and surely that's enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:names-in-the-margin:margin-holds-the-record",
+          "beatId": "beat:names-in-the-margin:exit-image",
+          "cueId": "cue:name-field-blank-margin-qualified",
+          "description": "The index card's 'name' field stays blank on purpose. In the field beside it sits the qualified conclusion — several hands, over years, in order, no author named. The paper cat rests on the seam between two layers as a version-index rather than a mascot, marking where one class handed the page to the next. Nothing is claimed beyond what the record supports."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:paper-cat",
+      "state": "transform",
+      "ownerIds": [
+        "tom",
+        "felix",
+        "stasi"
+      ],
+      "meaningNow": "The paper cat stops being a mascot or a card-tracker and becomes version evidence: its physical layers and its placement on the seam between an older and a newer paper layer mark where one class's writing handed off to the next, letting the class order the page's accretion and reach a qualified stewardship conclusion without naming any writer.",
+      "priorUse": {
+        "packageId": "s1e17-catwalk-clue",
+        "sceneId": "scene:catwalk-clue:the-moved-marker",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "A plain marker sits on the boundary between two paper layers and simply shows where the writing changes over, so the class can order the layers and date the accretion without it carrying any earlier association."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:names-in-the-margin:stewardship-record",
+      "kind": "story",
+      "description": "The class establishes that the ownerless page accreted across several classes over years, records a source-compared conclusion qualified to the evidence (at least three hands, in order, no named author), and deliberately leaves the name field blank — the mystery turns from author to stewardship in the phrasing, not only the plot."
+    },
+    {
+      "id": "outcome:names-in-the-margin:rose-return",
+      "kind": "bond",
+      "castId": "rose",
+      "chapter": 35,
+      "beat": "return",
+      "description": "Rose returns changed: she aims her material-evidence method at the right question, using paper, ink, and the marker's placement to date the accretion and turn author into stewardship — and she holds her binding limit out loud, that proving what the page is made of is not permission to name a person or narrate their story."
+    },
+    {
+      "id": "outcome:names-in-the-margin:shin-return",
+      "kind": "bond",
+      "castId": "shin",
+      "chapter": 35,
+      "beat": "return",
+      "description": "The ensemble hands the decoding problem back to Shin in the right shape; his heritage eye for stroke habits orders the writing hands without naming them, and his suspended joke returns transformed — the reading is easy, the history is not — as a qualified finding rather than a triumphant answer."
+    },
+    {
+      "id": "outcome:names-in-the-margin:felix-return",
+      "kind": "bond",
+      "castId": "felix",
+      "chapter": 35,
+      "beat": "return",
+      "description": "Felix's kept log of where the marker has rested across successive terms lets the class read the paper cat as version evidence; his living memory of the marker's movement is what fixes it on the seam between layers, and he supplies that record without claiming to have solved who wrote the page."
+    },
+    {
+      "id": "outcome:names-in-the-margin:transfer-return",
+      "kind": "transfer-return",
+      "activityId": "activity:s3e11-names-in-the-margin-source-compare",
+      "description": "Compare-provenance-records-and-state-a-qualified-conclusion evidence returns through the original N2 transfer activity; the story emits no lesson-completion command and references no registered reservoir package."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:felix-tracks-the-marker-across-terms",
+      "variant:shin-orders-the-hands-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-source-compare"
+    ],
+    "withdrawnContentFallback": "Use the same source-comparison and qualified-conclusion beats with neutral nameplates and a generic pair who read paper, ink, and a plain marker's placement as version evidence, conclude several hands over years, and leave the name field blank."
+  }
+}

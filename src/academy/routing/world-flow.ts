@@ -2,6 +2,7 @@ import type { AudioDirector } from '../audio/director';
 import type { AcademySyncClient } from '../account/sync-client';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
 import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
+import { advancedCurriculumForBand, advancedLessonId } from '../content/advanced-curriculum';
 import { ACADEMY_LESSON_CONTENT_REGISTRY } from '../content/lesson-content-registry';
 import {
     loadLibraryVocabularySheet,
@@ -19,6 +20,12 @@ import type { ReplayLanguageBand } from '../domain/story-replay-projection';
 import { projectCharacterDirectory, type CharacterRevisitPath } from '../domain/progress-projections';
 import { markWorldVisit, worldRouteForPlace, type WorldPlaceId, type WorldRoute } from '../domain/world-locations';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
+import {
+    projectDailyLearningRoute,
+    type DailyLearningCandidate,
+    type DailyLearningRoute,
+    type DailyRouteAction,
+} from '../domain/daily-learning-loop';
 import {
     createCanonicalAcademyStudyModule,
     mountAcademyStudyModule,
@@ -354,7 +361,16 @@ class WorldFlow implements AcademyRouteFlow {
         const plan = await loadClassWeekCastPlan();
         const delivery = await loadClassWeekDeliveryCatalog(plan);
         const playableWeeks = delivery.weeks.filter(week => week.state === 'grounded-playable');
-        const requestedOrder = classOrderForBand(context.projection.curriculumEntry?.band);
+        const replayEvents = await this.options.evidence.history?.() ?? [];
+        const dailyRoute = dailyLearningRoute(
+            plan,
+            playableWeeks,
+            loadStoryRuntime().episodes,
+            replayEvents,
+            context.language,
+        );
+        const selectedBand = context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band;
+        const requestedOrder = classOrderForBand(selectedBand);
         const currentOrder = nearestPlayableOrder(plan.weeks, new Set(playableWeeks.map(week => week.weekId)), requestedOrder);
         context.shell.replace(renderClassPathScreen({
             language: context.language,
@@ -362,6 +378,12 @@ class WorldFlow implements AcademyRouteFlow {
             currentOrder,
             playableWeekIds: new Set(playableWeeks.map(week => week.weekId)),
             characters: projectCharacterDirectory(context.projection),
+            selectedBand,
+            advancedPackages: advancedCurriculumForBand(selectedBand),
+            ...(dailyRoute ? { dailyRoute } : {}),
+            ...(context.projection.profile?.learningReason
+                ? { learningReason: context.projection.profile.learningReason }
+                : {}),
             onBack: () => void context.back(),
             onOpenWeek: weekId => {
                 const lesson = delivery.weeks.find(entry => entry.weekId === weekId);
@@ -380,7 +402,32 @@ class WorldFlow implements AcademyRouteFlow {
                 }
                 void context.go('lesson-overview', { lessonId: lesson.lessonId });
             },
+            onOpenAdvanced: packageId => {
+                this.options.audio?.playSfx?.('menu.confirm');
+                void context.go('source-activity', {
+                    selectedBand,
+                    lessonId: advancedLessonId(packageId),
+                    sectionId: undefined,
+                    activityId: undefined,
+                });
+            },
+            onOpenDailyAction: action => this.openDailyAction(action, context),
         }));
+    }
+
+    private openDailyAction(action: DailyRouteAction, context: AcademyRouteContext): void {
+        this.options.audio?.playSfx?.('menu.confirm');
+        if (action.kind === 'repair') {
+            void context.go('review');
+            return;
+        }
+        if (action.kind === 'lesson') {
+            void context.go('lesson-overview', { lessonId: action.id });
+            return;
+        }
+        if (action.id.startsWith('story:')) {
+            void context.go('story', { sectionId: action.id.slice('story:'.length) });
+        }
     }
 
     private async renderReview(context: AcademyRouteContext): Promise<void> {
@@ -615,6 +662,74 @@ class WorldFlow implements AcademyRouteFlow {
         void context.go('story', { sectionId: path.targetId });
     }
 
+}
+
+function dailyLearningRoute(
+    plan: Awaited<ReturnType<typeof loadClassWeekCastPlan>>,
+    playableWeeks: readonly Extract<
+        Awaited<ReturnType<typeof loadClassWeekDeliveryCatalog>>['weeks'][number],
+        { state: 'grounded-playable' }
+    >[],
+    episodes: ReturnType<typeof loadStoryRuntime>['episodes'],
+    events: Parameters<typeof projectDailyLearningRoute>[0]['events'],
+    language: AcademyRouteContext['language'],
+): DailyLearningRoute | undefined {
+    const candidates: DailyLearningCandidate[] = playableWeeks.flatMap(delivery => {
+        const week = plan.weeks.find(candidate => candidate.weekId === delivery.weekId);
+        if (!week) return [];
+        const packageId = delivery.lessonId.startsWith('authored-week:')
+            ? delivery.lessonId.slice('authored-week:'.length)
+            : delivery.lessonId;
+        const conceptIds = week.source.topicEvidence.map(
+            (_, index) => `source:${week.source.sha256}:topic:${index + 1}`,
+        );
+        return [{
+            kind: 'lesson' as const,
+            id: delivery.lessonId,
+            sequence: delivery.order,
+            completionActivityId: `complete:${delivery.lessonId}`,
+            completionEncounterIds: [`class-week:${delivery.weekId}`, `class-week:${packageId}`],
+            label: week.source.title[language],
+            conceptIds: conceptIds.length ? conceptIds : [`class-week:${delivery.weekId}`],
+            grounding: { sourceId: `moodle:${week.source.sha256}` },
+            modeId: 'normal-challenge' as const,
+            skill: 'grammar' as const,
+            format: 'mixed' as const,
+            incentive: {
+                kind: 'journal-memory' as const,
+                id: `class-week:${delivery.weekId}`,
+            },
+        }];
+    });
+    episodes.forEach(episode => {
+        const characterId = episode.cast[0];
+        candidates.push({
+            kind: 'encounter',
+            id: `story:${episode.id}`,
+            label: episode.title,
+            conceptIds: episode.curriculumHooks.length ? episode.curriculumHooks : [`story:${episode.id}`],
+            modeId: 'mixed-range',
+            skill: 'reading',
+            format: 'reading',
+            encounterKind: characterId ? 'bond' : 'world',
+            ...(characterId ? { characterId } : {}),
+            incentive: characterId
+                ? { kind: 'bond-scene', id: `bond:${characterId}:${episode.id}` }
+                : { kind: 'place-discovery', id: `story-place:${episode.location.id}` },
+        });
+    });
+    if (!candidates.length && !events.length) return undefined;
+    try {
+        return projectDailyLearningRoute({
+            events,
+            evidence: [],
+            candidates,
+            now: Date.now(),
+            dayBoundary: { timeZone: 'Europe/London', dayBoundaryHour: 4 },
+        });
+    } catch {
+        return undefined;
+    }
 }
 
 function replayCheckpointBand(band: ReplayLanguageBand): JlptBand | undefined {

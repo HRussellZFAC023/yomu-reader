@@ -1,0 +1,110 @@
+{
+  "schema": "yomu-academy.n2-moving-priority-listening-package/v1",
+  "revision": "n2-home-life-opening-05-listening/2026-07-18.1",
+  "package": {
+    "id": "n2-home-life-opening-05-listening",
+    "band": "N2",
+    "sequence": {
+      "order": 5,
+      "total": 5,
+      "previousPackageId": "n2-home-life-opening-04-reader"
+    },
+    "activityId": "activity:n2-home-life-opening-05-listening",
+    "activityKind": "academy-n2-moving-priority-listening",
+    "pedagogy": "n-plus-one-task-priority-update",
+    "assessment": {
+      "choiceJudgments": 1,
+      "passScore": 1,
+      "answerVisibility": "after-attempt",
+      "transcriptVisibility": "after-attempt",
+      "grading": "deterministic-exact-option-id"
+    }
+  },
+  "references": [
+    {
+      "scope": "japanese-library",
+      "family": "sou-matome",
+      "title": "日本語総まとめ N2 聴解",
+      "documentSha256": "4b8f5d6d18f3c7bd06da6701c6cfad7890d9430f09b0ccf4c29ddacd9143f9aa",
+      "documentByteLength": 98934329,
+      "locusSha256": "062d7b9521f3efd3d2b03b023dbfcfd15b900d08f97f2bd8d2d39063ca9e0892",
+      "locus": {
+        "pdfPage": 13,
+        "printedPage": 13,
+        "section": "第1章 準備しよう",
+        "item": "1 発音に関する聞き取り"
+      },
+      "delivery": "reference-only"
+    },
+    {
+      "scope": "japanese-library",
+      "family": "shin-kanzen",
+      "title": "新完全マスター聴解 N2",
+      "documentSha256": "b3c6d199a7c1d0f34fd76da34a1b9426cd98ae62c08ef7d970848e9e0734f1f8",
+      "documentByteLength": 202381716,
+      "locusSha256": "6350411a5bcc6a1d1658e08c8c4279f17d32f6ed8751e4aa0e4c8459db060310",
+      "locus": {
+        "pdfPage": 13,
+        "printedPage": 4,
+        "section": "問題紹介",
+        "item": "2 ポイント理解"
+      },
+      "delivery": "reference-only"
+    }
+  ],
+  "source": {
+    "scope": "soya-research",
+    "family": "soya-jlpt",
+    "relativePath": "data/courses/jlpt_n2/mock_test_no1.js",
+    "documentSha256": "4665de0aab5656717c930508ee9b92e60d11f71d5030482b86ea31b7a50b5aa5",
+    "documentByteLength": 292617,
+    "itemId": "n2_m1_listening_task_0_3",
+    "itemJsonSha256": "29438b237e0698d53a3dedc56e3553d19d7d283ecb3b8aa8b270cd952dd8abb5",
+    "locusSha256": "cde2ed514c0956537eefd3b7c5ee2d596af14458be98ee4bb7729f3ca39a66c6",
+    "combinedSourceLocusSha256": "ec06a60b51a9fe27b4f4c9f0fdccc96a9ac79bcab94dc46efdd6cd2b161dcaa8"
+  },
+  "assets": [
+    {
+      "role": "exact-source-audio",
+      "path": "/academy/content/n2-moving-priority-listening/soya-n2-m1-listening-task-0-3.mp3",
+      "mediaType": "audio/mpeg",
+      "byteLength": 667700,
+      "sha256": "52bcc28d845bfbd4fa2cff6a2a2c036e72940f988076528f68a80bf508d37c42"
+    },
+    {
+      "role": "exact-source-image",
+      "path": "/academy/content/n2-moving-priority-listening/soya-n2-m1-task-home.png",
+      "mediaType": "image/png",
+      "byteLength": 317807,
+      "sha256": "f83c5f590d046b22281762da385004877f69d1b753fddeb6defff9fe217eb2b3"
+    }
+  ],
+  "rights": {
+    "state": "user-permitted-local-educational-use",
+    "authorization": "explicit-user-request-2026-07-18-first-real-n2-source-tranche",
+    "commercialReferenceText": "not-delivered",
+    "commercialReferenceImage": "not-delivered",
+    "soyaTranscript": "post-attempt-only",
+    "soyaAnswer": "post-attempt-only",
+    "soyaAudio": "exact-network-served-package-asset",
+    "soyaImage": "exact-network-served-package-asset"
+  },
+  "readerSrs": {
+    "contentSurfacesAtMount": 1,
+    "transcriptSurfacesAtReveal": 10,
+    "reviewTargetCount": 2,
+    "miningRequestCount": 0,
+    "transcriptGate": "after-attempt"
+  },
+  "offline": {
+    "requiredNetworkRequests": 2,
+    "sourceMediaBundled": true,
+    "offlineReady": false,
+    "serviceWorkerPrecached": false,
+    "manifestPath": "/academy/content/n2-moving-priority-listening/package.v1.json"
+  },
+  "registration": {
+    "sharedActivityRegistry": "deferred",
+    "hook": "import n2MovingPriorityListeningPlugin and append it to ACADEMY_ACTIVITY_PLUGINS in src/academy/minigames/index.ts"
+  }
+}

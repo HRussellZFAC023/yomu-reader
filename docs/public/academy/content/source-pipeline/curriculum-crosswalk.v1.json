@@ -1629,7 +1629,7 @@
         "sourceId": "moodle-module:8121293",
         "moduleId": 8121293,
         "sourceOrdinal": 46,
-        "classOrder": 72
+        "classOrder": 73
       },
       "minna": {
         "sourceId": "japanese-minna:strand",
@@ -1643,15 +1643,40 @@
         "missing-genki-prerequisite-anchor",
         "moodle-module-reused-by-distinct-lessons"
       ]
+    },
+    {
+      "lessonId": "l2-l36",
+      "lessonOrder": 63,
+      "progressionGroup": "level-3-plus",
+      "moodle": {
+        "sourceId": "moodle-module:8870527",
+        "moduleId": 8870527,
+        "sourceOrdinal": 53,
+        "classOrder": 72
+      },
+      "minna": {
+        "sourceId": "japanese-minna:36-36",
+        "kind": "chapter-range",
+        "range": [
+          36,
+          36
+        ]
+      },
+      "genki": null,
+      "enrichmentPolicy": "introduced-prerequisites-only",
+      "status": "gap-declared",
+      "gaps": [
+        "missing-genki-prerequisite-anchor"
+      ]
     }
   ],
   "summary": {
-    "lessonCount": 60,
+    "lessonCount": 61,
     "fullyAnchored": 30,
-    "withDeclaredGaps": 30,
+    "withDeclaredGaps": 31,
     "gapCounts": {
       "genki-prerequisite-order-regression": 1,
-      "missing-genki-prerequisite-anchor": 29,
+      "missing-genki-prerequisite-anchor": 30,
       "moodle-module-reused-by-distinct-lessons": 4
     }
   }

@@ -21,7 +21,7 @@
     "date": null,
     "sourceOrdering": {
       "archiveSequence": 7,
-      "canonicalClassOrder": 72
+      "canonicalClassOrder": 73
     }
   },
   "sourceCoverage": {
@@ -67,7 +67,7 @@
       "jlpt"
     ],
     "canonicalClassWeekId": "l3plus-kanji-7",
-    "canonicalClassOrder": 72
+    "canonicalClassOrder": 73
   },
   "provenance": {
     "authoringPolicy": "canonical-moodle-source-with-yomu-scaffolds",

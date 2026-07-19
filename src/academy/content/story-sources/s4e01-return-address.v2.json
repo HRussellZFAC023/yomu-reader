@@ -1,0 +1,494 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e01-return-address",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 37,
+  "title": {
+    "en": "The Return Address",
+    "ja": "返信の余白"
+  },
+  "synopsis": "A former learner answers three of the class's mailed questions about the old caption, leaves one unmentioned, and openly declines the last. Peter reads the reply the way he reads a work email, looking first for where the line got drawn. Alex, flat and formal, takes the decline as a proper answer, not a gap to chase. The learner sorts the reply into answered, left-unsaid, and declined, then chooses how the follow-up honors the bounded no. Nothing withheld is pried open. The declined question is filed as declined, not as a hole.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "peter",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#peter",
+        "docs/academy/story/CAST-AND-CONSENT.md#peter",
+        "docs/academy/story/dossiers/peter.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "a sparse question used to imply concealed backstory rather than reframe the task",
+        "quiet observation treated as a deficit to be cured"
+      ]
+    },
+    {
+      "castId": "alex",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#alex",
+        "docs/academy/story/CAST-AND-CONSENT.md#alex",
+        "docs/academy/story/dossiers/alex.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "understatement opened into eloquent vulnerability under pressure",
+        "a formal decline framed as evasion or as something to overcome"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e12-permission-page",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityId": "activity:s4e01-return-address-sort-the-reply",
+          "function": "interpret-a-selective-reply-read-the-omission-and-respect-a-bounded-decline"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirtyseven-first-meeting-peter"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:return-address:reading-the-reply",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-dusk",
+      "goal": "Read the former learner's selective reply and reach the point where the class must decide whether to chase the gaps or accept a bounded, partly-declined answer.",
+      "dramaticQuestion": "When a reply answers some questions, quietly skips one, and openly refuses another, will the class pry at the gaps or read the omission as an answer in itself?",
+      "learnerNeed": "A changed-context transfer where sorting a formal reply into answered, left-unsaid, and declined, then reading what the omission and refusal mean, matters more than extracting every withheld fact.",
+      "curriculum": {
+        "sectionId": "sort-a-selective-reply",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:return-address:letter-on-table",
+          "beatId": "beat:return-address:arrival-image",
+          "cueId": "cue:reply-with-declined-line",
+          "description": "A printed reply sits squared on the classroom table. The class had mailed a former learner five questions about the old caption. Three paragraphs answer. One of the five goes unmentioned. The last paragraph stops at 「その理由については、お答えしかねます」. Peter is already in the window seat nobody uses, the pages lined up in front of him."
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:peter-frame",
+          "beatId": "beat:return-address:host-want",
+          "speakerId": "peter",
+          "intent": "Name the shape of the reply before its content: some answered, one left unmentioned, one openly declined. Then say he wants to read where the line was drawn, the way he reads a work email.",
+          "attentionTarget": "the reply's paragraphs and its declined last line",
+          "variants": {
+            "n3": {
+              "japanese": "返事、来ましたね。…でも、全部には答えてない。答えたのが三つ。触れてないことが一つ。で、最後は『お答えしかねます』って、はっきり断ってある。何を書いたかだけじゃなくて、どこで線を引いたか、そこを読みたいんです。",
+              "reading": "へんじ、きましたね。…でも、ぜんぶにはこたえてない。こたえたのがみっつ。ふれてないことがひとつ。で、さいごは『おこたえしかねます』って、はっきりことわってある。なにをかいたかだけじゃなくて、どこでせんをひいたか、そこをよみたいんです。",
+              "english": "The reply's here. …Only, it doesn't answer everything. Three questions answered. One thing left untouched. And the last one it turns down flat: 'I must decline to answer.' What I want to read is where they drew the line, not just the wording."
+            },
+            "n2": {
+              "japanese": "お返事、届きました。ただ、全部に答えてはいないんですよね。答えてくださったのが三つ。触れずにおいてあるのが一つ。そして最後の一つは、はっきり『お答えしかねます』と。…何が書いてあるかより、どう線を引いたか。そこを読みたいんです。",
+              "reading": "おへんじ、とどきました。ただ、ぜんぶにこたえてはいないんですよね。こたえてくださったのがみっつ。ふれずにおいてあるのがひとつ。そしてさいごのひとつは、はっきり『おこたえしかねます』と。…なにがかいてあるかより、どうせんをひいたか。そこをよみたいんです。",
+              "english": "The reply arrived. Though it doesn't answer all of it. Three they were kind enough to answer. One left untouched on purpose. And the last one, plainly: 'I must decline to answer.' Less what's written than where the line got drawn. That's the part I want to read."
+            },
+            "n1": {
+              "japanese": "お返事、拝見しました。もっとも、こちらの問いすべてに答えてくださったわけではなくて。お答えいただけたのが三つ、あえて触れずにおかれたのが一つ。そして最後の一つには、はっきりと『お答えしかねます』と。…何が書かれているか、というより、どこで線を引かれたか。仕事柄、私はまずそちらを読んでしまうんです。",
+              "reading": "おへんじ、はいけんしました。もっとも、こちらのといすべてにこたえてくださったわけではなくて。おこたえいただけたのがみっつ、あえてふれずにおかれたのがひとつ。そしてさいごのひとつには、はっきりと『おこたえしかねます』と。…なにがかかれているか、というより、どこでせんをひかれたか。しごとがら、わたしはまずそちらをよんでしまうんです。",
+              "english": "I've read the reply. Not that they answered every question we sent, mind. Three they were good enough to answer, one deliberately left untouched. And the last, in plain words: 'I must decline to answer.' What's written matters less to me than where they drew the line. Occupational habit. That's the part I read first."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:alex-decline-is-answer",
+          "beatId": "beat:return-address:obstruction",
+          "speakerId": "alex",
+          "intent": "Flat and itemized: a formal decline is a complete answer, not a dodge; you record it and don't chase it, the way he writes one at work.",
+          "attentionTarget": "the declined last line of the reply",
+          "variants": {
+            "n3": {
+              "japanese": "答えは三つ。触れてないのが一つ。断ったのが一つ。…『お答えしかねます』。これはこれで、ちゃんとした返事です。追いかけない。",
+              "reading": "こたえはみっつ。ふれてないのがひとつ。ことわったのがひとつ。…『おこたえしかねます』。これはこれで、ちゃんとしたへんじです。おいかけない。",
+              "english": "Three answers. One untouched. One declined. …'I must decline.' That's a proper reply in itself. We don't chase it."
+            },
+            "n2": {
+              "japanese": "答えが三つ。触れていないのが一つ。断りが一つ。…『お答えしかねます』というのは、逃げじゃないんです。それも一つの答え。こちらから、もう一度は訊きません。",
+              "reading": "こたえがみっつ。ふれていないのがひとつ。ことわりがひとつ。…『おこたえしかねます』というのは、にげじゃないんです。それもひとつのこたえ。こちらから、もういちどはききません。",
+              "english": "Three answers. One left untouched. One refusal. …'I must decline to answer' isn't a dodge. It's an answer too. We don't ask again from our end."
+            },
+            "n1": {
+              "japanese": "答えが三つ、触れていないのが一つ、はっきり断られたのが一つ。…『お答えしかねます』。仕事でも、よく書きます。あれは逃げではなくて、きちんとした返事なんですよ。追いかけて訊き直すものじゃない。",
+              "reading": "こたえがみっつ、ふれていないのがひとつ、はっきりことわられたのがひとつ。…『おこたえしかねます』。しごとでも、よくかきます。あれはにげではなくて、きちんとしたへんじなんですよ。おいかけてききなおすものじゃない。",
+              "english": "Three answered, one untouched, one plainly declined. …'I must decline.' I write that at work often enough. It isn't a dodge. It's a proper reply. Not the kind of thing you chase and ask over."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:peter-propose-sort",
+          "beatId": "beat:return-address:trial-attempt",
+          "speakerId": "peter",
+          "intent": "Before writing anything back, propose sorting the reply into answered, left-unsaid, and declined — and read the omission as deliberate, not an oversight.",
+          "attentionTarget": "the reply laid flat, ready to be sorted",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、まず分けましょう。答えてくれたこと。書いてないこと。断ったこと。三つに。…書いてないところは、忘れたんじゃなくて、たぶんわざとなんです。",
+              "reading": "じゃあ、まずわけましょう。こたえてくれたこと。かいてないこと。ことわったこと。みっつに。…かいてないところは、わすれたんじゃなくて、たぶんわざとなんです。",
+              "english": "Then let's sort it first. What they answered. What they didn't write. What they declined. Into three. …The unwritten part isn't forgotten. Probably on purpose."
+            },
+            "n2": {
+              "japanese": "なら、返事を書く前に、一度分けてみませんか。答えてくださったこと、あえて書かれなかったこと、断られたこと。この三つに。…書かれていない部分は、抜けたんじゃない。おそらく、意図して外してある。",
+              "reading": "なら、へんじをかくまえに、いちどわけてみませんか。こたえてくださったこと、あえてかかれなかったこと、ことわられたこと。このみっつに。…かかれていないぶぶんは、ぬけたんじゃない。おそらく、いとしてはずしてある。",
+              "english": "Then before we write back, shall we sort it once? What they answered, what they left off on purpose, what they declined. Into these three. …The part that isn't written didn't slip. It was likely left out on purpose."
+            },
+            "n1": {
+              "japanese": "でしたら、こちらから何か書き送る前に、一度整理してみましょうか。お答えいただけたこと、あえて書かずにおかれたこと、そしてお断りになったこと。その三つに分けて。…空いている箇所は、うっかり抜けたわけじゃないでしょう。おそらくは、承知のうえで外してある。",
+              "reading": "でしたら、こちらからなにかかきおくるまえに、いちどせいりしてみましょうか。おこたえいただけたこと、あえてかかずにおかれたこと、そしておことわりになったこと。そのみっつにわけて。…あいているかしょは、うっかりぬけたわけじゃないでしょう。おそらくは、しょうちのうえではずしてある。",
+              "english": "In that case, before we send anything back, let's put it in order. What they answered, what they chose to leave unwritten, and what they declined. Sorted into three. …The empty spot wasn't an oversight. Left out knowingly, more likely."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:return-address:before-sort",
+          "beatId": "beat:return-address:trial-attempt",
+          "resume": "The reply stays on the table, its parts still mixed. The learner steps in to sort each mailed question into answered, left-unsaid, or declined, and to read what the deliberate omission and the bounded refusal are saying."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:return-address:sort-the-reply",
+          "beatId": "beat:return-address:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e01-return-address-sort-the-reply"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e01-return-address-sort-the-reply"
+          },
+          "resumeContext": "The reply answers three of the class's five questions. The former learner added one of the routes, left the space open on purpose, and grants that the class may display it under its own terms. It leaves the question of who else worked on the page unmentioned, and closes one question with 「その理由については、お答えしかねます」. The learner sorts each mailed question into answered / left-unsaid-by-omission / explicitly-declined, and reads what the deliberate omission and the bounded decline communicate, without treating the refusal as a gap to pry open.",
+          "onReady": "checkpoint:return-address:after-sort",
+          "onRepair": "node:return-address:sort-repair",
+          "onDefer": "checkpoint:return-address:before-sort"
+        },
+        {
+          "kind": "stage",
+          "id": "node:return-address:sort-repair",
+          "beatId": "beat:return-address:trial-repair",
+          "cueId": "cue:three-columns-answered-unsaid-declined",
+          "description": "The reply's parts lie in three columns now: answered, left unsaid, declined. Only the line that went into the wrong column comes back. The rest stay where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:return-address:after-sort",
+          "beatId": "beat:return-address:trial-response",
+          "resume": "Each question now sits under answered, left unsaid, or declined. Peter looks at the short declined column and does not try to pry it open."
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:peter-omission-authored",
+          "beatId": "beat:return-address:contribution",
+          "speakerId": "peter",
+          "intent": "Read the sorted reply: the former learner told the class exactly what they'll confirm and where they'll stop, so the omission and the decline read as authored, not accidental. Close on a quiet 'splendid.'",
+          "attentionTarget": "the three columns, the short declined one",
+          "variants": {
+            "n3": {
+              "japanese": "…なるほど。これで見えました。この人は、言えることと、言わないことを、自分で決めてる。断ったのも、書かなかったのも、ちゃんと選んでる。お見事、というか。",
+              "reading": "…なるほど。これでみえました。このひとは、いえることと、いわないことを、じぶんできめてる。ことわったのも、かかなかったのも、ちゃんとえらんでる。おみごと、というか。",
+              "english": "…I see. Now it's clear. This person decides for themselves what they'll say and what they won't. The refusal, the silence: both of them chosen. Rather splendid, really."
+            },
+            "n2": {
+              "japanese": "…なるほど、こうして並べるとよく分かる。この方は、確かめられることと、言わずにおくことを、自分で線引きしている。断りも、あの空白も、選んだうえでのことなんです。……お見事、ですね。",
+              "reading": "…なるほど、こうしてならべるとよくわかる。このかたは、たしかめられることと、いわずにおくことを、じぶんでせんびきしている。ことわりも、あのくうはくも、えらんだうえでのことなんです。……おみごと、ですね。",
+              "english": "…I see. Laid out like this, it's clear. They draw their own line between what can be checked and what they'll keep unsaid. The refusal, that blank space: both chosen on purpose. ……Splendidly done."
+            },
+            "n1": {
+              "japanese": "…ええ、こうして三つに並べてみると、はっきりします。この方は、確かめられることと、口にしないでおくことを、ご自分で引き分けておられる。お断りになったのも、あの空白も、承知のうえで選ばれた線なんですよ。……お見事、というほかない。",
+              "reading": "…ええ、こうしてみっつにならべてみると、はっきりします。このかたは、たしかめられることと、くちにしないでおくことを、ごじぶんでひきわけておられる。おことわりになったのも、あのくうはくも、しょうちのうえでえらばれたせんなんですよ。……おみごと、というほかない。",
+              "english": "…Yes. Set out in three like this, it's plain. They draw their own line between what may be checked and what they'll leave unspoken. The refusal, that blank space: a line drawn knowingly. ……Nothing for it but to call it splendid."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:alex-shape-enough",
+          "beatId": "beat:return-address:exit-line",
+          "speakerId": "alex",
+          "intent": "Flat — the way the reply was returned is already the answer; there's no need to send it back asking more.",
+          "attentionTarget": "the reply squared back into one page",
+          "variants": {
+            "n3": {
+              "japanese": "これで十分です。形が、もう答えになってる。…返事は、短くていい。",
+              "reading": "これでじゅうぶんです。かたちが、もうこたえになってる。…へんじは、みじかくていい。",
+              "english": "This is enough. The shape's already the answer. …Our reply can be short."
+            },
+            "n2": {
+              "japanese": "これで十分ですよ。返し方そのものが、もう答えになってる。…だから、こっちの返事も、短くていい。",
+              "reading": "これでじゅうぶんですよ。かえしかたそのものが、もうこたえになってる。…だから、こっちのへんじも、みじかくていい。",
+              "english": "This is plenty. The way they answered is already the answer. …So our reply can be short too."
+            },
+            "n1": {
+              "japanese": "もう、これで十分でしょう。答えの返し方そのものが、ひとつの答えになっている。…ならこちらの返事も、長々と書く必要はないんです。短くていい。",
+              "reading": "もう、これでじゅうぶんでしょう。こたえのかえしかたそのものが、ひとつのこたえになっている。…ならこちらのへんじも、ながながとかくひつようはないんです。みじかくていい。",
+              "english": "This is enough, surely. The very way they returned it is one answer in itself. …Then our reply needn't run long either. Short is fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:return-address:the-follow-up"
+      }
+    },
+    {
+      "id": "scene:return-address:the-follow-up",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-dusk",
+      "goal": "Compose a follow-up that accepts the bounded reply — thank what was given, press nothing withheld, and decide how to treat the one declined question.",
+      "dramaticQuestion": "Can a reply that presses nothing still be a complete, adult answer?",
+      "learnerNeed": "A stance choice about whether the follow-up sets the declined question down for good or leaves one easy door open without pressure.",
+      "curriculum": {
+        "sectionId": "compose-a-bounded-follow-up",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:return-address:blank-follow-up",
+          "beatId": "beat:return-address:regroup-image",
+          "cueId": "cue:blank-follow-up-sheet",
+          "description": "A blank sheet beside the sorted reply. The declined question sits by itself in the short column. Nobody has started the follow-up."
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:peter-frame-follow-up",
+          "beatId": "beat:return-address:record-want",
+          "speakerId": "peter",
+          "intent": "Frame the follow-up: thank them for what they gave, touch nothing they withheld, keep it in keigo — a reply that accepts the bounded answer without reopening it.",
+          "attentionTarget": "the blank sheet",
+          "variants": {
+            "n3": {
+              "japanese": "返事を書きましょう。答えてくれたことに、お礼を。書かなかったことには、触れない。断ったことも、もう一度は訊かない。それだけです。",
+              "reading": "へんじをかきましょう。こたえてくれたことに、おれいを。かかなかったことには、ふれない。ことわったことも、もういちどはきかない。それだけです。",
+              "english": "Let's write back. Thanks for what they answered. Don't touch what they didn't. Don't ask the declined one again. That's all."
+            },
+            "n2": {
+              "japanese": "では、お返事を書きましょう。答えてくださった分に、きちんとお礼を。触れられなかったことは、こちらも触れない。お断りのところも、蒸し返さない。…それで一通、成り立ちます。",
+              "reading": "では、おへんじをかきましょう。こたえてくださったぶんに、きちんとおれいを。ふれられなかったことは、こちらもふれない。おことわりのところも、むしかえさない。…それでいっつう、なりたちます。",
+              "english": "Then let's write our reply. Proper thanks for what they answered. What they couldn't touch, we don't touch either. The refusal, we don't rake up. …That makes a whole letter."
+            },
+            "n1": {
+              "japanese": "では、こちらからお返事を。お答えいただけた分には、丁寧にお礼を申し上げて。書かずにおかれたことには、こちらも踏み込まない。お断りになった件も、蒸し返さずにおく。……それで、一通の手紙としてちゃんと立ちます。",
+              "reading": "では、こちらからおへんじを。おこたえいただけたぶんには、ていねいにおれいをもうしあげて。かかずにおかれたことには、こちらもふみこまない。おことわりになったけんも、むしかえさずにおく。……それで、いっつうのてがみとしてちゃんとたちます。",
+              "english": "Then, our reply. Sincere thanks for what they were able to answer. What they left unwritten, we don't press into. The matter they declined, we leave unraked. ……That stands as a proper letter."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:return-address:how-to-close",
+          "beatId": "beat:return-address:record-stance",
+          "question": "How should the follow-up treat the one declined question?",
+          "options": [
+            {
+              "id": "option:return-address:set-it-down",
+              "action": "Accept the refusal outright. Thank them, and say the class won't raise that question again.",
+              "japaneseByBand": {
+                "n3": "断られたことは、もう訊きません、って書きましょう。『お気持ち、分かりました』って。それで閉じる。",
+                "n2": "お断りの件は、もう伺いません、と書き添えましょう。『承知しました』と一言。…そこはきれいに閉じておく。",
+                "n1": "お断りの一件については、もうお尋ねいたしません、と一言添えておきましょう。『承知いたしました』と。……そこは、きれいに閉じておくのが筋だと思います。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:return-address:before-send"
+            },
+            {
+              "id": "option:return-address:one-open-door",
+              "action": "Accept the refusal, but leave it open once, with an easy no and no pressure, in case they ever change their mind.",
+              "japaneseByBand": {
+                "n3": "断られたことは、それでいい、って伝えつつ、『もし気が向いたら、いつでも。でも無理はしないで』って、一つだけ扉を残しましょう。押しつけない形で。",
+                "n2": "お断りは尊重したうえで、『もしお気が向くことがあれば、いつでも。もちろん、ご無理には及びません』と、扉だけ一つ残しておきましょうか。…あくまで、押しつけない形で。",
+                "n1": "お断りはそのまま尊重したうえで、『もしいつかお気が向かれることがあれば、その折には。むろん、ご無理を申すつもりはありません』と、扉をひとつだけ残しておく。……あくまで、押し返す余地のある形で、ですが。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:return-address:before-send"
+            }
+          ],
+          "convergence": "checkpoint:return-address:before-send"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:return-address:before-send",
+          "beatId": "beat:return-address:record-attempt",
+          "resume": "The learner has chosen how the follow-up treats the declined question. Peter writes the reply and files the refusal as a refusal."
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:alex-bounded-no-honored",
+          "beatId": "beat:return-address:repair",
+          "speakerId": "alex",
+          "intent": "Flat and even, no lift in the voice: a bounded no, taken as a no, costs nothing, and the letter stands complete either way. A keigo refusal, in his mouth, still lands warm.",
+          "attentionTarget": "the drafted follow-up",
+          "variants": {
+            "n3": {
+              "japanese": "どっちでもいい。断りを、断りのまま受け取る。それができてれば、返事はもう十分あったかい。",
+              "reading": "どっちでもいい。ことわりを、ことわりのままうけとる。それができてれば、へんじはもうじゅうぶんあったかい。",
+              "english": "Either way's fine. Take the no as a no. If we manage that, the reply's already warm."
+            },
+            "n2": {
+              "japanese": "どちらでも成り立ちます。断りを、断りのまま受け取る。…それさえできていれば、この返事は、もう十分あたたかいんですよ。",
+              "reading": "どちらでもなりたちます。ことわりを、ことわりのままうけとる。…それさえできていれば、このへんじは、もうじゅうぶんあたたかいんですよ。",
+              "english": "Either one works. Take the refusal as the refusal. …As long as we do that, this reply is warm enough already."
+            },
+            "n1": {
+              "japanese": "どちらを選んでも、成り立ちます。お断りを、お断りのまま受け取る。……それさえ守れていれば、この一通は、もう十分にあたたかい。冷たい『いいえ』なんて、書かなくていいんです。",
+              "reading": "どちらをえらんでも、なりたちます。おことわりを、おことわりのままうけとる。……それさえまもれていれば、このいっつうは、もうじゅうぶんにあたたかい。つめたい『いいえ』なんて、かかなくていいんです。",
+              "english": "Whichever you pick, it holds. Take the refusal as a refusal, nothing more. ……So long as we keep to that, this letter is warm enough. No need to write a cold 'no' into it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:return-address:peter-file-as-declined",
+          "beatId": "beat:return-address:exit-line",
+          "speakerId": "peter",
+          "intent": "Seal the follow-up and file the declined question in the record as declined, not as a blank or unfinished business. Close the evening quietly.",
+          "attentionTarget": "the reply filed with its one question marked",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、これで送ります。断られた質問は、『答えなし』じゃなくて、『断られた』って、そのまま記録に残す。…穴じゃない。ちゃんと、そういう一行です。",
+              "reading": "じゃあ、これでおくります。ことわられたしつもんは、『こたえなし』じゃなくて、『ことわられた』って、そのままきろくにのこす。…あなじゃない。ちゃんと、そういういちぎょうです。",
+              "english": "Then we send it. The declined question: we log it as 'declined,' not 'no answer.' …Not a hole. A proper line."
+            },
+            "n2": {
+              "japanese": "では、これで送りましょう。お断りになった質問は、『空欄』じゃなくて、『お断りあり』と、そのまま記録に残しておく。…あれは穴じゃない。ちゃんと埋まった一行なんです。",
+              "reading": "では、これでおくりましょう。おことわりになったしつもんは、『くうらん』じゃなくて、『おことわりあり』と、そのままきろくにのこしておく。…あれはあなじゃない。ちゃんとうまったいちぎょうなんです。",
+              "english": "Then let's send it. The declined question we record as 'declined,' not 'blank.' …That's no hole. It's a line that's filled."
+            },
+            "n1": {
+              "japanese": "では、これで送りましょう。お断りいただいた問いは、『未回答』ではなく、『お断りあり』と、そのかたちのまま記録に残しておきます。……あれは空いた穴じゃない。あれで、ちゃんと埋まっている一行なんですよ。",
+              "reading": "では、これでおくりましょう。おことわりいただいたといは、『みかいとう』ではなく、『おことわりあり』と、そのかたちのままきろくにのこしておきます。……あれはあいたあなじゃない。あれで、ちゃんとうまっているいちぎょうなんですよ。",
+              "english": "Then let's send it. The question they declined we keep on record as 'declined,' in that exact form, not as 'unanswered.' ……That's no empty hole. It's a line that's properly filled."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:return-address:filed-reply",
+          "beatId": "beat:return-address:exit-image",
+          "cueId": "cue:reply-filed-with-marks",
+          "description": "The follow-up goes out. The reply is filed with every question marked answered, left unsaid, or declined. The last one is written in as 'declined, not to be reopened.' The window seat is empty again. The pages stay squared where Peter left them."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:return-address:reply-sorted-and-honored",
+      "kind": "story",
+      "description": "The class sorts the former learner's selective reply into answered, left-unsaid, and declined, then sends an audience-aware follow-up that accepts the bounded decline. The one declined question is filed as declined, not as a gap, and nothing withheld is pressed. The reply confirms an earlier learner added one route and left space on purpose, while leaving other contributors and the reason for the unfinished page unresolved, priming the layered provenance account of later chapters."
+    },
+    {
+      "id": "outcome:return-address:transfer-return",
+      "kind": "curriculum-return",
+      "description": "N2/N1 correspondence, omission, and concession evidence returns through the chapter's transfer activity (interpret a selective reply, read the deliberate omission, and respect a bounded decline). The story emits no lesson-completion command and claims no registered lesson package."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:alex-reads-the-decline-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-sort-the-reply"
+    ],
+    "withdrawnContentFallback": "Use the same sort-the-reply and accept-the-bounded-decline beats with neutral nameplates and a generic pair who honor a former contributor's selective reply after mailing questions about an old page, without naming or characterizing the offstage correspondent."
+  }
+}

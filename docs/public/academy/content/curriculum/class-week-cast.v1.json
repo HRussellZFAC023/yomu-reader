@@ -2514,6 +2514,43 @@
     },
     {
       "order": 72,
+      "weekId": "l3plus-l10",
+      "weekKind": "lesson",
+      "source": {
+        "donor": "moodle-reachability-20260719",
+        "file": "public/academy/content/lessons/063-l2-l36.json",
+        "title": {
+          "en": "From goals to what became possible",
+          "ja": "目標から、できるようになったことへ"
+        },
+        "topicEvidence": [
+          "Chapter 36-2 Ability and speaking exercise",
+          "Chapter 36 listening-1 with numbered B-5 and B-6 audio",
+          "Chapter 36-3 Possibility and summary"
+        ],
+        "sha256": "deab104b569a87118df23c6346b42677c6716713bb40a2525f1c9489cff6ffe2"
+      },
+      "status": "source-backed",
+      "learningSpecialties": [
+        "grammar",
+        "listening"
+      ],
+      "primary": {
+        "id": "sophie",
+        "firstName": "Sophie",
+        "matchedSpecialty": "grammar"
+      },
+      "supporting": [
+        {
+          "id": "xingyu",
+          "firstName": "Xingyu",
+          "matchedSpecialty": "listening"
+        }
+      ]
+    },
+
+    {
+      "order": 73,
       "weekId": "l3plus-kanji-7",
       "weekKind": "kanji-set",
       "source": {

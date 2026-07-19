@@ -87,6 +87,7 @@ import {
 } from './lesson-l2-l34-kanji-menu-workshop';
 import { createLessonL2L35ConsiderateRecommendationBeat } from './lesson-l2-l35-considerate-recommendation';
 import { createLessonL2L36YouniGoalWorkshopBeat } from './lesson-l2-l36-youni-goal-workshop';
+import { createLessonL2L36YounarimasuChangeWorkshopBeat } from './lesson-l2-l36-younarimasu-change-workshop';
 import { createLessonFourObjectDistanceModel } from './lesson-four-object-distance';
 import { createLessonFourPictureVocabularyModel } from './lesson-four-picture-vocabulary';
 import { createLessonTwoProfileBoardModel } from './lesson-two-profile-board';
@@ -155,10 +156,11 @@ export const LESSON_ACTIVITY_CHAPTER_PACKAGES = Object.freeze([
     'l2-l31',
     'l2-l32',
     'l2-l33',
+    'l2-l36',
     'l1-l07',
 ] as const);
 
-const DIRECT_ACTIVITY_CHAPTER_PACKAGES = Object.freeze(['l2-l35', 'l2-l36'] as const);
+const DIRECT_ACTIVITY_CHAPTER_PACKAGES = Object.freeze(['l2-l35'] as const);
 
 type ChapterPackageId =
     | typeof LESSON_ACTIVITY_CHAPTER_PACKAGES[number]
@@ -563,15 +565,15 @@ export async function loadLessonActivityChapter(
             }, [createLessonL2L35ConsiderateRecommendationBeat()]);
         case 'l2-l36':
             return chapter('l2-l36', 's1e10-instructions-for-a-cloud', 'rie', {
-                ja: '行動につながる目標',
-                en: 'Goals you can act toward',
+                ja: '目標から、できるようになったことへ',
+                en: 'From goals to what became possible',
             }, {
-                ja: 'りえ先生が Chapter 36-1 の四枚を作業台に並べます。目標と、そのために今できる行動を「ように」でつなぎます。',
-                en: 'Rie lays the four Chapter 36-1 pages across the workbench. Connect each goal to an action you can take now with ように.',
+                ja: 'りえ先生が Chapter 36-1 と Lesson 10 の原本を作業台に並べます。「ように」で目標と行動をつないだあと、語彙、B-5・B-6、そして「できるようになったこと」へ進みます。',
+                en: 'Rie lays out Chapter 36-1 and the new Lesson 10 originals. After connecting goals to actions with ように, continue through the source vocabulary, B-5 and B-6, and what has become possible.',
             }, {
-                ja: '八つの印刷例を原文どおりに戻し、目標と行動、避けたい結果と予防を分けられるようになりました。',
-                en: 'All eight printed examples are restored in source wording, separating goals from actions and unwanted outcomes from prevention.',
-            }, [createLessonL2L36YouniGoalWorkshopBeat()]);
+                ja: '目標と行動、避けたい結果と予防を原文どおりに分け、五つの文で「できるようになったこと」も表せました。Lesson 10 の全原本と二つの音声は、いつでも戻れます。',
+                en: 'You separated goals, actions, unwanted outcomes, and prevention in source wording, then expressed what became possible across five printed sentences. Every Lesson 10 original and both recordings remain available for replay.',
+            }, [createLessonL2L36YouniGoalWorkshopBeat(), createLessonL2L36YounarimasuChangeWorkshopBeat()]);
         case 'l1-l01':
             return chapter('l1-l01', 's1e01-the-blank-atlas', 'rie', {
                 ja: '白い地図帳の名札',

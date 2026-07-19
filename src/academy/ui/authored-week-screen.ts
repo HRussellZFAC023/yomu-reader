@@ -83,7 +83,9 @@ const COPY = {
 } as const satisfies Readonly<Record<string, LocalizedText>>;
 
 export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): AuthoredWeekScreen {
-    if (options.week.activities.length === 0) throw new TypeError('An authored week needs at least one activity.');
+    if (options.week.activities.length === 0 && !options.extension) {
+        throw new TypeError('An authored week needs at least one activity.');
+    }
 
     const lifecycle = new AbortController();
     const screen = element('section', 'academy-screen academy-authored-week-screen');
@@ -158,7 +160,7 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
     let disposed = false;
     let completionNotified = false;
     let showingComplete = false;
-    let showingAuthoredActivity = true;
+    let showingAuthoredActivity = options.week.activities.length > 0;
     let extensionController: ReturnType<LessonActivityExtension['mount']> | undefined;
     let activityController: ActivityController | undefined;
 
@@ -232,6 +234,12 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
         extensionController = undefined;
         showingComplete = false;
         showingAuthoredActivity = true;
+        if (!options.week.activities.length) {
+            showingAuthoredActivity = false;
+            if (!preAssessmentComplete) renderPreAssessment(focus);
+            else renderExtension();
+            return;
+        }
         const activity = options.week.activities[currentIndex];
         const hasTeachingSupport = activity.kind !== 'academy-source-vocabulary-sheet';
         if (currentIndex === 0 && !preAssessmentComplete) {
@@ -353,8 +361,14 @@ export function createAuthoredWeekScreen(options: AuthoredWeekScreenOptions): Au
                 renderComplete();
             },
             onBack() {
-                currentIndex = options.week.activities.length - 1;
-                renderCurrent(true);
+                if (options.week.activities.length) {
+                    currentIndex = options.week.activities.length - 1;
+                    renderCurrent(true);
+                } else if (options.week.preAssessment.length) {
+                    preAssessmentComplete = false;
+                    preAssessmentIndex = options.week.preAssessment.length - 1;
+                    renderPreAssessment(true);
+                }
             },
             registerReadingSurface: languageSupport.registerReadingSurface,
         });

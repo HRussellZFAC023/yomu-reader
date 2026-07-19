@@ -1,0 +1,519 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e04-terms-of-invitation",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 28,
+  "title": {
+    "en": "Terms of Invitation",
+    "ja": "招待の条件"
+  },
+  "synopsis": "The venue wants a public version of the exhibition captions before every contributor has agreed, and Sam's first instinct is to re-ask the two who have gone quiet and stack an easier option onto the request. Nanako shows him that a heard 'no' is built, not chased: the scope and an easy exit belong in the same sentence. Sam asks once, states what and how far, and when one contributor answers 'not yet,' he accepts it and redesigns the page rather than arguing the person into yes. The public version carries only consented parts, marks the rest as pending, and points to the class's terms.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sam",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam",
+        "docs/academy/story/dossiers/sam.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, age, employer, job, or address",
+        "his real early departure written as a sad exit, rift, or the group failing him",
+        "inclusion succeeding by pushing past a heard no",
+        "Saturday-tennis or overbuilt-schedule comedy run during this refusal beat"
+      ]
+    },
+    {
+      "castId": "nanako",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#nanako",
+        "docs/academy/story/CAST-AND-CONSENT.md#nanako"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, address, or private history",
+        "verbatim HelloTalk messages, photographs, or any private-source content",
+        "sensitive fabrication (health, financial hardship, private conflict) framed as fact",
+        "framed as a classroom lesson lead rather than Henry's visiting Japanese anchor"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e03-helpful-rewrite",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityId": "activity:s3e04-terms-of-invitation-scoped-consent-request",
+          "function": "set-scope-and-request-consent-with-a-real-exit-then-accept-a-refusal"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-eight-terms-sam"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:terms:venue-asks-early",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "afternoon",
+      "weatherState": "spring-light",
+      "goal": "Meet Sam mid-draft as the venue's deadline pushes him toward re-asking the silent contributors, and reach the point where adding options can no longer make the request kinder.",
+      "dramaticQuestion": "When a public version is wanted before everyone has agreed, will Sam chase the missing yeses or build one request that makes 'no' easy to give?",
+      "learnerNeed": "A composed request that names the event and its scope and, in the same sentence, leaves a real and easy way to decline.",
+      "curriculum": {
+        "sectionId": "ask-once-with-scope-and-an-exit",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:terms:cafe-draft",
+          "beatId": "beat:terms:arrival-image",
+          "cueId": "cue:venue-message-and-overlong-draft",
+          "description": "On the cafe table, beside the drinks Sam has already set out, sits the venue's message: the public evening wants a shareable version of the exhibition captions by the weekend. Sam's draft invitation to the contributors is open on his phone, and it has grown three follow-ups long — a second way to ask, a spare option, a gentle nudge for the two who have not replied."
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-frame",
+          "beatId": "beat:terms:host-want",
+          "speakerId": "sam",
+          "intent": "Relay the venue's deadline and, under the pressure of it, propose re-asking the two who have gone quiet and adding one easier option so the yes comes faster.",
+          "attentionTarget": "the venue's message and the two unanswered names in the draft",
+          "variants": {
+            "n3": {
+              "japanese": "会場から連絡が来て、今週末までに公開できる版がほしいそうです。でも、まだ二人、返事が来てなくて。…もう一回、聞いてみましょうか。それか、選べる形をもう一つ増やせば、「はい」って言いやすくなるかもしれない。",
+              "reading": "かいじょうかられんらくがきて、こんしゅうまつまでにこうかいできるはんがほしいそうです。でも、まだふたり、へんじがきてなくて。…もういっかい、きいてみましょうか。それか、えらべるかたちをもうひとつふやせば、「はい」っていいやすくなるかもしれない。",
+              "english": "The venue got in touch — they want a version we can make public by this weekend. But two people still haven't replied. …Should we ask them one more time? Or if we add one more option to choose from, maybe it'll be easier for them to say yes."
+            },
+            "n2": {
+              "japanese": "会場から連絡がありまして、今週末までに公開できる版がほしいとのことなんです。ただ、まだお二人から返事が来ていなくて。…もう一度、こちらから声をかけてみましょうか。あるいは、選べる形をもう一つ用意すれば、「はい」と言いやすくなるかもしれませんし。",
+              "reading": "かいじょうかられんらくがありまして、こんしゅうまつまでにこうかいできるはんがほしいとのことなんです。ただ、まだおふたりからへんじがきていなくて。…もういちど、こちらからこえをかけてみましょうか。あるいは、えらべるかたちをもうひとつよういすれば、「はい」といいやすくなるかもしれませんし。",
+              "english": "The venue's been in touch — they say they'd like a version we can make public by this weekend. Only, we still haven't heard back from two of them. …Shall I reach out to them once more? Or if I prepare one more option for them to choose from, it might make it easier to say yes."
+            },
+            "n1": {
+              "japanese": "会場のほうから、今週末までに公開できる版を、と。…ただ、お二人はまだ。…もう一度こちらから伺ってみましょうか。いっそ、選べる形をもう一つ添えておけば、「はい」のほうへ少しは傾くかもしれませんし。",
+              "reading": "かいじょうのほうから、こんしゅうまつまでにこうかいできるはんを、と。…ただ、おふたりはまだ。…もういちどこちらからうかがってみましょうか。いっそ、えらべるかたちをもうひとつそえておけば、「はい」のほうへすこしはかたむくかもしれませんし。",
+              "english": "From the venue — a version we can make public by the weekend, they say. …Only, the two of them, not yet. …Shall I go back to them once more? Or better, if I attach one more option to choose from, it might tip things a little toward a yes."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:nanako-scope-exit",
+          "beatId": "beat:terms:obstruction",
+          "speakerId": "nanako",
+          "intent": "Point out that re-asking and stacking options makes refusal harder, not easier, and that a request must carry its scope and an easy 'no' inside the same sentence.",
+          "attentionTarget": "the two follow-up questions Sam has stacked onto the draft",
+          "variants": {
+            "n3": {
+              "japanese": "サム、それ、たぶん逆かも。もう一回聞いたり、選択肢を増やしたりすると、かえって断りにくくなるんです。日本語だと、「よかったら」って誘って、同じ文の中に「もちろん、無理なら大丈夫」って逃げ道を置く。範囲と、断っていい、っていうのを、一緒に言うんですよ。",
+              "reading": "サム、それ、たぶんぎゃくかも。もういっかいきいたり、せんたくしをふやしたりすると、かえってことわりにくくなるんです。にほんごだと、「よかったら」ってさそって、おなじぶんのなかに「もちろん、むりならだいじょうぶ」ってにげみちをおく。はんいと、ことわっていい、っていうのを、いっしょにいうんですよ。",
+              "english": "Sam, that's probably backwards. Asking again, or piling on options — it actually makes it harder to refuse. In Japanese you invite with \"if you'd like,\" and in the same sentence you leave an out: \"of course, if it's too much, that's fine.\" You say the scope and the \"you may decline\" together."
+            },
+            "n2": {
+              "japanese": "サム、それ、おそらく逆効果なんです。もう一度声をかけたり、選択肢を足したりするほど、相手はかえって断りづらくなる。日本語なら、「よろしければ」と誘っておいて、その同じ文の中に「もちろん、難しければ遠慮なく」という逃げ道を一緒に置くんです。どこまでの話なのか、という範囲と、断ってもいい、という許可を、セットで伝える。",
+              "reading": "サム、それ、おそらくぎゃくこうかなんです。もういちどこえをかけたり、せんたくしをたしたりするほど、あいてはかえってことわりづらくなる。にほんごなら、「よろしければ」とさそっておいて、そのおなじぶんのなかに「もちろん、むずかしければえんりょなく」というにげみちをいっしょにおくんです。どこまでのはなしなのか、というはんいと、ことわってもいい、というきょかを、セットでつたえる。",
+              "english": "Sam, that's likely to backfire. The more you reach out again or add options, the harder you actually make it for them to refuse. In Japanese you'd invite with \"if it suits you,\" and in that same sentence leave the out: \"of course, if it's difficult, don't hesitate.\" You deliver the scope — how far this goes — and the permission to decline, as a set."
+            },
+            "n1": {
+              "japanese": "サム、それはたぶん、逆に働くんですよ。もう一声かける、選択肢を足す——そうするほど、相手は「いいえ」を言いづらくなる。日本語なら、「よろしければ」と差し出しておいて、その同じ一文のなかに「もちろん、難しいようでしたらどうぞご遠慮なく」と逃げ道をたたんでおく。どこまでの話か、という範囲と、断って構わない、という許しを、初めから一緒に手渡してしまう。",
+              "reading": "サム、それはたぶん、ぎゃくにはたらくんですよ。もうひとこえかける、せんたくしをたす——そうするほど、あいては「いいえ」をいいづらくなる。にほんごなら、「よろしければ」とさしだしておいて、そのおなじいちぶんのなかに「もちろん、むずかしいようでしたらどうぞごえんりょなく」とにげみちをたたんでおく。どこまでのはなしか、というはんいと、ことわってかまわない、というゆるしを、はじめからいっしょにてわたしてしまう。",
+              "english": "Sam, it probably works the other way. One more nudge, one more option — the more you do it, the harder you make \"no\" to say. In Japanese you'd hold it out with \"if it suits you,\" and fold the out into that same sentence: \"of course, if it seems difficult, please don't hesitate at all.\" The scope — how far this goes — and the permission to decline, you hand over together, right from the start."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-ask-once",
+          "beatId": "beat:terms:trial-attempt",
+          "speakerId": "sam",
+          "intent": "Drop the re-ask and the extra option, and commit to asking once — with what and how far stated as scope, and an easy decline folded into the same sentence.",
+          "attentionTarget": "the draft, ready to be cut down to one request",
+          "variants": {
+            "n3": {
+              "japanese": "…なるほど。じゃあ、もう追いかけないで、一回だけ聞きます。何を、どこまで公開するか、範囲をはっきり書いて。そのうえで、「無理なら、まだで大丈夫」って、同じ文に入れておく。一回、それで出してみましょう。",
+              "reading": "…なるほど。じゃあ、もうおいかけないで、いっかいだけききます。なにを、どこまでこうかいするか、はんいをはっきりかいて。そのうえで、「むりなら、まだでだいじょうぶ」って、おなじぶんにいれておく。いっかい、それでだしてみましょう。",
+              "english": "…I see. Then I'll stop chasing it and ask just once. I'll write clearly what we'd make public and how far — the scope. And I'll put \"if it's too much, 'not yet' is fine\" into the same sentence. Let's send it once, like that."
+            },
+            "n2": {
+              "japanese": "…なるほど、そういうことか。なら、もう追いかけるのはやめて、一度だけ伺います。何を、どの範囲まで公開するのか、そこをはっきり書いたうえで、「難しければ『まだ』のままで構いません」と、同じ文に入れておく。とりあえず一度、その形で出してみましょう。",
+              "reading": "…なるほど、そういうことか。なら、もうおいかけるのはやめて、いちどだけうかがいます。なにを、どのはんいまでこうかいするのか、そこをはっきりかいたうえで、「むずかしければ『まだ』のままでかまいません」と、おなじぶんにいれておく。とりあえずいちど、そのかたちでだしてみましょう。",
+              "english": "…I see, that's it. Then I'll stop chasing it and ask just once. I'll write clearly what we'd make public and to what extent — the scope — and put \"if it's difficult, 'not yet' is perfectly fine\" into the same sentence. For now, let's send it once in that form."
+            },
+            "n1": {
+              "japanese": "…なるほど、腑に落ちました。なら、追いかけるのはもうやめにして、伺うのは一度きり。何を、どこまで公にするのか——その範囲をはっきり書いたうえで、「難しいようでしたら、『まだ』のままで一向に構いません」と、同じ一文に畳み込んでおく。ひとまず一度、その形で出してみましょう。",
+              "reading": "…なるほど、ふにおちました。なら、おいかけるのはもうやめにして、うかがうのはいちどきり。なにを、どこまでおおやけにするのか——そのはんいをはっきりかいたうえで、「むずかしいようでしたら、『まだ』のままでいっこうにかまいません」と、おなじいちぶんにたたみこんでおく。ひとまずいちど、そのかたちでだしてみましょう。",
+              "english": "…I see, that lands. Then I'll stop chasing it altogether — I ask just the once. What we'd make public, and how far — with that scope written out clearly, I'll fold \"if it seems difficult, staying at 'not yet' is entirely fine\" into the same sentence. For now, let's send it once in that form."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:terms:before-request",
+          "beatId": "beat:terms:trial-attempt",
+          "resume": "The stacked follow-ups are set aside. The learner steps in to compose the single request: one sentence that names the event and the exact scope of what would be shown, and folds an easy 'not yet' into the same breath."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:terms:scoped-consent-request",
+          "beatId": "beat:terms:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e04-terms-of-invitation-scoped-consent-request"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e04-terms-of-invitation-scoped-consent-request"
+          },
+          "resumeContext": "The venue wants a public version by the weekend and two contributors have not answered. The learner composes one scoped consent request in N3 register: a conditional or keigo ask (〜ていただけますか / 〜てもらえませんか / 〜たら・〜なら) that names the event, limits the scope to each person's own contribution (今回のイベントに限り / 出した分だけ / 〜の範囲で), and puts an easy refusal inside the same sentence (もちろん、まだなら『まだ』で大丈夫 / 難しければ遠慮なく) — asking once rather than re-asking, so a 'no' is easy to give.",
+          "onReady": "checkpoint:terms:after-request",
+          "onRepair": "node:terms:request-repair",
+          "onDefer": "checkpoint:terms:before-request"
+        },
+        {
+          "kind": "stage",
+          "id": "node:terms:request-repair",
+          "beatId": "beat:terms:trial-repair",
+          "cueId": "cue:request-missing-scope-or-exit",
+          "description": "The draft request is laid out with its two parts underlined: the scope line and the decline line. Only the part that was missing returns for another try — a request without a stated range, or one with no easy way to say no — while the part that already worked stays in place."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:terms:after-request",
+          "beatId": "beat:terms:trial-response",
+          "resume": "The single request now holds both its scope and its easy exit. Sam reads it back before sending, and does not add a fourth line to it."
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-reads-request",
+          "beatId": "beat:terms:contribution",
+          "speakerId": "sam",
+          "intent": "Read the composed request aloud — one sentence that names the event and the scope and, in the same breath, makes 'not yet' an easy answer — and notice that this makes declining easy on purpose.",
+          "attentionTarget": "the one-line request ready to send",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、これで。「今回の夜のイベントで、みなさんが出した分だけ、名前つきで公開させてもらえませんか。もちろん、まだなら『まだ』で大丈夫です。」…うん、これなら、断るのも簡単だ。",
+              "reading": "じゃあ、これで。「こんかいのよるのイベントで、みなさんがだしたぶんだけ、なまえつきでこうかいさせてもらえませんか。もちろん、まだなら『まだ』でだいじょうぶです。」…うん、これなら、ことわるのもかんたんだ。",
+              "english": "Okay, this then. \"For this evening's event, just the parts each of you contributed, may we make them public with your names? Of course, if you're not ready, 'not yet' is fine.\" …Yeah — this way, saying no is easy too."
+            },
+            "n2": {
+              "japanese": "では、これで送ります。「今回の夜のイベントに限り、みなさんが出された分だけ、お名前を添えて公開させていただけますか。もちろん、まだでしたら『まだ』のままで構いません。」…ええ、これなら、断るほうもずっと楽ですね。",
+              "reading": "では、これでおくります。「こんかいのよるのイベントにかぎり、みなさんがだされたぶんだけ、おなまえをそえてこうかいさせていただけますか。もちろん、まだでしたら『まだ』のままでかまいません。」…ええ、これなら、ことわるほうもずっとらくですね。",
+              "english": "Then I'll send it like this. \"For this evening's event only, just the parts each of you contributed — might we make them public with your names attached? Of course, if you're not ready, staying at 'not yet' is fine.\" …Yes — this way it's far easier for them to decline, too."
+            },
+            "n1": {
+              "japanese": "では、これで。「今回の夜のイベントに限り、みなさまが出された分に限って、お名前を添えて公開させていただけませんでしょうか。もちろん、まだということでしたら、『まだ』のままで一向に構いません。」…ええ、これなら、断るほうにもちゃんと余地がある。",
+              "reading": "では、これで。「こんかいのよるのイベントにかぎり、みなさまがだされたぶんにかぎって、おなまえをそえてこうかいさせていただけませんでしょうか。もちろん、まだということでしたら、『まだ』のままでいっこうにかまいません。」…ええ、これなら、ことわるほうにもちゃんとよちがある。",
+              "english": "Then, this. \"For this evening's event only, and only the parts each of you contributed — might we be permitted to make them public with your names attached? Of course, if it's 'not yet,' then staying at 'not yet' is entirely fine.\" …Yes — this way there's real room for them to decline."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:terms:request-sent",
+          "beatId": "beat:terms:changed-image",
+          "cueId": "cue:single-request-in-thread",
+          "description": "Sam sends the one message and closes the draft. The three follow-ups are gone from it; only the single scoped request stands in the thread, an easy 'not yet' sitting inside it. The drinks stay on the table, untouched, waiting."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:terms:not-yet-changes-the-plan"
+      }
+    },
+    {
+      "id": "scene:terms:not-yet-changes-the-plan",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "spring-light",
+      "goal": "Let a contributor's 'not yet' arrive and change the plan, so the public version is redesigned to carry only consented material instead of arguing the missing yes into place.",
+      "dramaticQuestion": "When one contributor says 'not yet,' will the class chase a better yes or rebuild the page around the answer it was given?",
+      "learnerNeed": "A stance choice about how a public page should hold a part that cannot be shown yet, without treating a heard 'no' as a problem to solve.",
+      "curriculum": {
+        "sectionId": "a-refusal-redesigns-the-plan",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:terms:not-yet-arrives",
+          "beatId": "beat:terms:regroup-image",
+          "cueId": "cue:not-yet-reply-on-the-table",
+          "description": "A reply lands on the table between them. One of the two has answered — 「まだ、名前は出さないでほしい」, not yet, please don't use my name. The part of the caption that belongs to that person now cannot go on the public page. The venue's deadline is still Saturday."
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-accepts",
+          "beatId": "beat:terms:record-want",
+          "speakerId": "sam",
+          "intent": "Feel the pull to soften the no with one more small question, stop himself, accept 'not yet' as a complete answer, and turn to what the plan must become instead.",
+          "attentionTarget": "the 'not yet' reply and his own thumb hovering over a follow-up",
+          "variants": {
+            "n3": {
+              "japanese": "「まだ」か。…一言だけ、理由を聞いても——いや。やめておきます。「まだ」は、もう答えだ。追いかけない。じゃあ、その人の分は載せない。それで、どう作り直すか、ですね。",
+              "reading": "「まだ」か。…ひとことだけ、りゆうをきいても——いや。やめておきます。「まだ」は、もうこたえだ。おいかけない。じゃあ、そのひとのぶんはのせない。それで、どうつくりなおすか、ですね。",
+              "english": "\"Not yet,\" huh. …Could I just ask the reason— no. I'll leave it. \"Not yet\" is already an answer. I won't chase it. So — we don't put that person's part in. The question is how we rebuild it, then."
+            },
+            "n2": {
+              "japanese": "「まだ」ですか。…一言、理由だけでも伺——いや、やめておきます。「まだ」というのは、もうそれで一つの答えなんですよね。追いかけない。なら、その方の分は載せない。あとは、それを前提にどう作り直すか、です。",
+              "reading": "「まだ」ですか。…ひとこと、りゆうだけでもうかが——いや、やめておきます。「まだ」というのは、もうそれでひとつのこたえなんですよね。おいかけない。なら、そのかたのぶんはのせない。あとは、それをぜんていにどうつくりなおすか、です。",
+              "english": "\"Not yet,\" is it. …Just a word, even just the reason— no, I'll leave it. \"Not yet\" is already an answer in itself, isn't it. I won't chase it. Then — we don't include that person's part. What's left is how we rebuild it on that basis."
+            },
+            "n1": {
+              "japanese": "「まだ」、ですか。…一言、理由だけでもと——いや、よします。「まだ」というのは、それ自体もう立派な答えですから。追いかけたりはしない。であれば、その方の分は載せない。あとはもう、それを前提に、どう組み直すか、という話ですね。",
+              "reading": "「まだ」、ですか。…ひとこと、りゆうだけでもと——いや、よします。「まだ」というのは、それじたいもうりっぱなこたえですから。おいかけたりはしない。であれば、そのかたのぶんはのせない。あとはもう、それをぜんていに、どうくみなおすか、というはなしですね。",
+              "english": "\"Not yet,\" is it. …Just a word, even just the reason— no, I'll drop it. \"Not yet\" is, in itself, a perfectly complete answer. I won't go chasing it. In that case, that person's part doesn't go in. From here it's simply a matter of how we reassemble it, on that basis."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:terms:how-to-hold-the-gap",
+          "beatId": "beat:terms:record-stance",
+          "question": "How should the public page hold the part that can't be shown yet?",
+          "options": [
+            {
+              "id": "option:terms:marked-pending-space",
+              "action": "Leave the space marked and pending, with the condition written beside it: shown only if and when the person agrees.",
+              "japaneseByBand": {
+                "n3": "抜けたところは、空けたまま印をつけましょう。「本人がいいと言ったら出します」って、条件だけ書いて。",
+                "n2": "抜けた箇所は、埋めずに印だけ残しましょう。「ご本人の了承が得られれば公開します」と、条件を添えて。",
+                "n1": "欠けた箇所は、無理に埋めず、印だけ残しておきましょう。「ご本人の了承が得られ次第、公開いたします」と、条件のほうを書き添えて。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:terms:before-redesign"
+            },
+            {
+              "id": "option:terms:consented-only",
+              "action": "Publish only the consented parts and route the rest to the class's terms, with no placeholder on the public page.",
+              "japaneseByBand": {
+                "n3": "公開版には、みんながいいと言った分だけ載せます。残りは公開しないで、あとで話せる形にしておく。",
+                "n2": "公開版には、了承が取れた分だけ載せましょう。残りは公にせず、あらためて相談できる形にしておく。",
+                "n1": "公開版に載せるのは、了承の取れた分だけにしましょう。残りは公にはせず、いずれあらためて相談できる形で、こちらに預かっておく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:terms:before-redesign"
+            }
+          ],
+          "convergence": "checkpoint:terms:before-redesign"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:terms:before-redesign",
+          "beatId": "beat:terms:record-attempt",
+          "resume": "The learner has chosen how the public page holds the withheld part. Sam and Nanako build the version around the answer they were given, and say what the scoped page is for."
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:nanako-scope-is-honest",
+          "beatId": "beat:terms:repair",
+          "speakerId": "nanako",
+          "intent": "Reframe the scoped page not as a lesser version but as the more honest, more precise one, and name asking-once-with-an-exit as the way the class works now.",
+          "attentionTarget": "the redesigned page with only the consented captions",
+          "variants": {
+            "n3": {
+              "japanese": "それでいいと思う。範囲を狭くするのは、手を抜くことじゃないです。出していい分だけの公開版のほうが、かえって正確なんですよ。一回だけ聞いて、逃げ道を残す——それを、このクラスのやり方にすればいい。",
+              "reading": "それでいいとおもう。はんいをせまくするのは、てをぬくことじゃないです。だしていいぶんだけのこうかいばんのほうが、かえってせいかくなんですよ。いっかいだけきいて、にげみちをのこす——それを、このクラスのやりかたにすればいい。",
+              "english": "I think that's right. Narrowing the scope isn't cutting corners. A public version with only the parts we're allowed to show is actually the more accurate one. Ask once, leave an out — make that how this class works."
+            },
+            "n2": {
+              "japanese": "それでいいと思います。範囲を狭めるのは、手を抜くことじゃない。公開していい分だけを載せた版のほうが、むしろ正確なんです。一度だけ尋ねて、断る余地を残しておく——これを、このクラスのやり方にしていけばいい。",
+              "reading": "それでいいとおもいます。はんいをせばめるのは、てをぬくことじゃない。こうかいしていいぶんだけをのせたはんのほうが、むしろせいかくなんです。いちどだけたずねて、ことわるよちをのこしておく——これを、このクラスのやりかたにしていけばいい。",
+              "english": "I think that's right. Narrowing the scope isn't cutting corners. A version carrying only the parts we may show is, if anything, the more accurate one. Ask just once, leave room to decline — let's make this how the class works."
+            },
+            "n1": {
+              "japanese": "それでいいと思います。範囲を絞るのは、手を抜くことでも、諦めることでもない。公開してよい分だけを載せた版のほうが、かえって正確でいられる。一度だけ尋ね、断る余地をきちんと残しておく——これを、これからのこのクラスのやり方にしていけばいいんです。",
+              "reading": "それでいいとおもいます。はんいをしぼるのは、てをぬくことでも、あきらめることでもない。こうかいしてよいぶんだけをのせたはんのほうが、かえってせいかくでいられる。いちどだけたずね、ことわるよちをきちんとのこしておく——これを、これからのこのクラスのやりかたにしていけばいいんです。",
+              "english": "I think that's right. Narrowing the scope isn't cutting corners, nor giving up. A version carrying only the parts we're permitted to show can stay the more accurate one, in fact. Ask just once, and keep proper room to decline — let's make this the way this class works from here on."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-atlas-long-view",
+          "beatId": "beat:terms:changed-action",
+          "speakerId": "sam",
+          "intent": "Extend from this one caption to the whole public atlas — it carries only consented material and points to the terms for the rest, which is what keeps it honest rather than one owned story.",
+          "attentionTarget": "the rebuilt atlas and its 'under discussion' marks",
+          "variants": {
+            "n3": {
+              "japanese": "これ、アトラス全体も同じですね。公開する分は、出していいって言われた分だけ。あとは「相談中」って印を残して、条件のほうへ送る。全部を一人の話にまとめないから、かえって正しくいられる。",
+              "reading": "これ、アトラスぜんたいもおなじですね。こうかいするぶんは、だしていいっていわれたぶんだけ。あとは「そうだんちゅう」ってしるしをのこして、じょうけんのほうへおくる。ぜんぶをひとりのはなしにまとめないから、かえってただしくいられる。",
+              "english": "This goes for the whole atlas too. What we make public is only what we've been told we may show. The rest keeps an \"under discussion\" mark and points to the terms. Because we don't fold it all into one person's story, it stays truthful, if anything."
+            },
+            "n2": {
+              "japanese": "これ、アトラス全体にも言えることですね。公開するのは、出してよいと言われた分だけ。残りは「相談中」の印を残して、条件のページへ回す。すべてを一人の物語にまとめてしまわないからこそ、かえって正確でいられる。",
+              "reading": "これ、アトラスぜんたいにもいえることですね。こうかいするのは、だしてよいといわれたぶんだけ。のこりは「そうだんちゅう」のしるしをのこして、じょうけんのページへまわす。すべてをひとりのものがたりにまとめてしまわないからこそ、かえってせいかくでいられる。",
+              "english": "This holds for the whole atlas, too. What we publish is only what we've been told we may show. The rest keeps an \"under discussion\" mark and routes to the terms page. Precisely because we don't gather it all into one person's story, it can stay accurate."
+            },
+            "n1": {
+              "japanese": "これは、アトラス全体にもそのまま当てはまりますね。公にするのは、出してよいと言われた分だけ。残りは「相談中」の印だけ残して、条件のページのほうへ預ける。何もかもを一人の物語に束ねてしまわないからこそ、かえって正確でいられる——もともと、そういうものなんでしょう。",
+              "reading": "これは、アトラスぜんたいにもそのままあてはまりますね。おおやけにするのは、だしてよいといわれたぶんだけ。のこりは「そうだんちゅう」のしるしだけのこして、じょうけんのページのほうへあずける。なにもかもをひとりのものがたりにたばねてしまわないからこそ、かえってせいかくでいられる——もともと、そういうものなんでしょう。",
+              "english": "This applies to the whole atlas as it stands, too. What we make public is only what we've been told we may show. The rest keeps just an \"under discussion\" mark and is entrusted to the terms page. Precisely because we don't bind it all into one person's story, it can stay accurate — that's how it was, to begin with."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:terms:sam-door-stays-open",
+          "beatId": "beat:terms:exit-line",
+          "speakerId": "sam",
+          "intent": "Close the evening by leaving the door open for the person who said 'not yet' — their space is kept, offered again only if they choose, with no pursuit.",
+          "attentionTarget": "the marked space kept open on the page",
+          "variants": {
+            "n3": {
+              "japanese": "あの人には、こっちからもう催促はしません。気が変わったら、いつでも言ってくださいって、それだけ返しておく。場所は空けたまま。待つのは、追いかけるのとは違うから。",
+              "reading": "あのひとには、こっちからもうさいそくはしません。きがかわったら、いつでもいってくださいって、それだけかえしておく。ばしょはあけたまま。まつのは、おいかけるのとはちがうから。",
+              "english": "I won't press that person any further. I'll just reply, \"if you ever change your mind, tell me anytime\" — that's all. The space stays open. Waiting isn't the same as chasing."
+            },
+            "n2": {
+              "japanese": "あの方には、こちらから催促はもうしません。「気が変わられたら、いつでも仰ってください」と、それだけお返ししておく。場所は空けたまま残しておきます。待つのと、追いかけるのは、別のことなので。",
+              "reading": "あのかたには、こちらからさいそくはもうしません。「きがかわられたら、いつでもおっしゃってください」と、それだけおかえししておく。ばしょはあけたまま、のこしておきます。まつのと、おいかけるのは、べつのことなので。",
+              "english": "I won't press that person any further. I'll just return one line: \"if you change your mind, tell me anytime.\" The space I'll leave open. Waiting and chasing are two different things."
+            },
+            "n1": {
+              "japanese": "あの方には、こちらから催促めいたことはもういたしません。「お気が変わられたら、いつでも仰ってください」と、その一言だけお返ししておく。場所のほうは、空けたまま残しておきます。待つというのは、追いかけるのとは、まったく別のことですから。",
+              "reading": "あのかたには、こちらからさいそくめいたことはもういたしません。「おきがかわられたら、いつでもおっしゃってください」と、そのひとことだけおかえししておく。ばしょのほうは、あけたままのこしておきます。まつというのは、おいかけるのとは、まったくべつのことですから。",
+              "english": "I won't do anything resembling pressing that person again. I'll return just the one line: \"if you change your mind, please tell me anytime.\" Their space, I'll leave open. Waiting is an entirely different thing from chasing."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:terms:page-goes-out-scoped",
+          "beatId": "beat:terms:exit-image",
+          "cueId": "cue:consented-page-and-kept-space",
+          "description": "The public page is set with only the consented captions, one space left marked 'under discussion' with its condition written beside it. The venue has its version by Saturday; the withheld part is not on it. Sam's single reply to the 'not yet' sits sent and quiet, no pursuit behind it. Only now do the two of them pick up the drinks that have been waiting on the table."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:terms:consent-before-commitment",
+      "kind": "story",
+      "description": "Faced with a venue asking for a public version before every contributor agreed, the class issues one scoped consent request, receives a 'not yet' from one contributor, and redesigns the public page to carry only consented captions — the withheld part kept as a marked, pending space pointed at the class's terms rather than argued onto the page."
+    },
+    {
+      "id": "outcome:terms:sam-limit",
+      "kind": "bond",
+      "castId": "sam",
+      "chapter": 28,
+      "beat": "limit",
+      "description": "Sam's Limit: under a deadline he reaches for a second inclusion question and one more option to make a yes easier, then stops. He leads the consent language by asking once, stating the scope, and accepting a 'not yet' as a complete answer — his gift for getting people to yes now survives learning that a heard no is also inclusion, and the refusal changes the plan rather than triggering a better argument."
+    },
+    {
+      "id": "outcome:terms:nanako-contribution",
+      "kind": "bond",
+      "castId": "nanako",
+      "chapter": 28,
+      "beat": "contribution",
+      "description": "Nanako's Contribution: as the group's visiting Japanese anchor she tunes the request with native pragmatics, showing that scope and an easy exit must sit in the same sentence — 'would you like to?' and 'you can absolutely say no' together — so a refusal is easy to give and easy to hear. Her craft makes Sam's single ask land as consent rather than pressure."
+    },
+    {
+      "id": "outcome:terms:transfer-return",
+      "kind": "curriculum-return",
+      "activityId": "activity:s3e04-terms-of-invitation-scoped-consent-request",
+      "description": "Set-scope-and-request-consent-with-a-real-exit-then-accept-a-refusal evidence returns through the unregistered Season-3 transfer activity (N3 conditions, formal requests, scope, and respectful refusal); the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:nanako-reads-the-request-for-its-exit"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-scoped-consent-request"
+    ],
+    "withdrawnContentFallback": "Use the same ask-once-with-scope-and-an-exit and refusal-redesigns-the-plan beats with neutral nameplates: a generic host who drops the re-ask, composes one scoped consent request, and rebuilds the public page around a contributor's 'not yet' so only consented material is shown."
+  }
+}

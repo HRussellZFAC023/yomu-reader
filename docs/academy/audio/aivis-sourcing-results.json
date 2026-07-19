@@ -1,0 +1,1217 @@
+{
+ "models": [
+  {
+   "name": "らせつん (rasetsun)",
+   "url": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+   "voiceDescription": "Explicitly an 'approachable gender-neutral voice' (親しみやすさのある中性ボイス). Calm, even, unhurried timbre with 8 emotion styles (標準/標準2/喜び/悲しみ/怒り/驚き/嫌悪/恐怖). The neutral standard style plus the 悲しみ(sadness)/標準2 styles give a soft, reflective read — the best fit for a calm rainy-evening storyteller narrator. Speaker: 上戸恵里 (commissioned original voice, part of the Kozukata Gakuen / Morioka city project — not a cloned celebrity).",
+   "gender": "neutral",
+   "ageEnergy": "adult, calm, low-key mid-energy",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine (speaker/style ids from GET /speakers)",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "PRIMARY narrator pick. License + neutral description verified from the AivisHub model page and the AivisHub API detail endpoint. ACML-1.0 = commercial OK, credit optional, impersonation/deepfake forbidden."
+  },
+  {
+   "name": "fumifumi",
+   "url": "https://hub.aivis-project.com/aivm-models/71e72188-2726-4739-9aa9-39567396fb2a",
+   "voiceDescription": "Creator's own description: 落ち着いた青年 — 'a calm young man', purpose-built for relaxed narration. Single 'ノーマル' style, warm and steady. Reads as a soft male-leaning storyteller; good neutral-alt narrator or a distinct calm young-adult male for the cast. Speaker: サガワフミヤ (Sagawa Fumiya), commissioned original.",
+   "gender": "neutral",
+   "ageEnergy": "young adult, calm, gentle",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "Alternate narrator / calm young-male gap-fill. Description + ACML-1.0 verified from AivisHub API detail endpoint. Only one style, so less emotional range than rasetsun."
+  },
+  {
+   "name": "みちのくあいり (Michinoku Airi)",
+   "url": "https://hub.aivis-project.com/aivm-models/1b2830f4-8cf1-4184-a0d9-3a1bace3a844",
+   "voiceDescription": "Calm, gentle, youthful female voice with a composed, endearing quality; 7 emotion styles (標準/喜び/悲しみ/怒り/驚き/嫌悪/恐怖). Soft enough to double as a female-narrator alt, or fills a gentle adult-female cast slot (e.g. a warm classmate). Speaker: 上戸恵里 — note this is the SAME speaker as rasetsun, so do NOT place adjacent to rasetsun in the cast.",
+   "gender": "female",
+   "ageEnergy": "youthful adult female, calm, gentle",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "Gentle female narrator-alt / gap-fill. Verified from AivisHub API detail endpoint. Shares speaker identity with rasetsun — keep them non-adjacent."
+  },
+  {
+   "name": "阿井田 茂 (Aida Shigeru / 'Moai')",
+   "url": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+   "voiceDescription": "Baritone older gentleman, cheerful and warm. Distinct low, mature male timbre — good for an older male classmate/teacher slot to spread ages across the cast. Creator: 古山キリヲ.",
+   "gender": "male",
+   "ageEnergy": "older adult male, warm baritone, moderate energy",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": false,
+   "notes": "GAP candidate (older male). License shown as ACML-1.0 in the AivisHub search API list but NOT individually re-verified from its own model page/API detail — confirm before shipping."
+  },
+  {
+   "name": "ろてじん (Rotejin, elder voice)",
+   "url": "https://hub.aivis-project.com/aivm-models/696c98a2-c0b7-4fe7-8cf2-c7e9b8a9bd82",
+   "voiceDescription": "Elderly male voice with a slow, wisdom-oriented delivery. Very distinct age extreme — useful if the cast needs a grandfatherly/senior character so the 20+ voices don't collapse into a narrow age band.",
+   "gender": "male",
+   "ageEnergy": "elderly male, slow, low energy",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": false,
+   "notes": "GAP candidate (elderly male, max age-spread). ACML-1.0 seen in API list only — re-verify from its own page before shipping."
+  },
+  {
+   "name": "観測症 (Kansokushou)",
+   "url": "https://hub.aivis-project.com/aivm-models/ed47c952-c253-405e-adba-1172399816a1",
+   "voiceDescription": "Plain, level adult male suited to technical/explanatory delivery — an unremarkable 'everyman' timbre that's valuable precisely because it differs from the warmer baritone (Moai) and the calm young-man (fumifumi), giving another distinct male slot.",
+   "gender": "male",
+   "ageEnergy": "adult male, neutral, even",
+   "engine": "Style-Bert-VITS2 JP-Extra via AivisSpeech Engine",
+   "source": "aivishub",
+   "license": "ACML-1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": false,
+   "notes": "GAP candidate (plain adult male). ACML-1.0 from API list only — re-verify from its own page before shipping."
+  },
+  {
+   "name": "JVNV-F1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+   "url": "https://huggingface.co/litagin/style_bert_vits2_jvnv",
+   "voiceDescription": "Adult female, first JVNV speaker; emotional-speech corpus with 7 selectable styles (Neutral/Happy/Sad/Angry/Fear/Disgust/Surprise). Clear, natural, realistic Japanese. Good for a bright/younger female classmate or narrator (Neutral).",
+   "gender": "female",
+   "license": "CC-BY-SA-4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "huggingface",
+   "ageEnergy": "adult, medium energy",
+   "engine": "Style-Bert-VITS2 JP-Extra (convert to AIVMX for AivisSpeech Engine)",
+   "notes": "License CC-BY-SA-4.0 inherited from the JVNV emotional-speech corpus (consenting corpus speakers, NOT a celebrity clone). ShareAlike: generated audio may be considered a derivative — attribute and be mindful of copyleft; ACML/CC0 models are cleaner for proprietary shipping. Per-speaker timbre descriptions are inferred from corpus role, not itemized on the card."
+  },
+  {
+   "name": "RikkaBotan sweet (jp_extra_sweet_original)",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_sweet_original",
+   "voiceDescription": "Female, childish/innocent laid-back sweet tone, suited to emotional dialogue. Good for a younger female classmate or a soft narrator.",
+   "gender": "female",
+   "license": "CC-BY-SA-4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "huggingface",
+   "ageEnergy": "young, gentle",
+   "engine": "Style-Bert-VITS2 JP-Extra (convert to AIVMX)",
+   "notes": "Model card EXPLICITLY permits commercial use ('商用・非商用問わず自由に無料で') and states training data is ONLY the researcher's own voice — clean provenance. sweet/cool/asmr are the SAME speaker in 3 timbres, so don't place two RikkaBotan variants adjacent."
+  },
+  {
+   "name": "RikkaBotan cool (jp_extra_cool_original)",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_cool_original",
+   "voiceDescription": "Female, gentle-but-composed 'cool' tone suited to explanatory/reading text. Works for a calm female classmate or expository narration.",
+   "gender": "female",
+   "license": "CC-BY-SA-4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "huggingface",
+   "ageEnergy": "young-adult, calm",
+   "engine": "Style-Bert-VITS2 JP-Extra (convert to AIVMX)",
+   "notes": "Author's own original voice; commercial explicitly allowed. Same speaker as sweet/asmr."
+  },
+  {
+   "name": "RikkaBotan asmr (jp_extra_asmr_original)",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_asmr_original",
+   "voiceDescription": "Female whisper/ASMR delivery, very soft. Strong fit for the 'gentle rainy-evening storyteller' narrator.",
+   "gender": "female",
+   "license": "CC-BY-SA-4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "huggingface",
+   "ageEnergy": "soft, low-energy",
+   "engine": "Style-Bert-VITS2 JP-Extra (convert to AIVMX)",
+   "notes": "Author's own original voice; commercial explicitly allowed. Same speaker as sweet/cool."
+  },
+  {
+   "name": "Anneli — REJECTED (do not ship; also the AivisSpeech factory default)",
+   "url": "https://huggingface.co/kaunista/style-bert-vits2-Anneli",
+   "voiceDescription": "Realistic adult female; widely used as the AivisSpeech standard voice — but see notes: real-seiyuu provenance problem.",
+   "gender": "female",
+   "license": "ACML-1.0 (nominal)",
+   "licenseCommercialOk": "no",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "ageEnergy": "adult",
+   "engine": "Style-Bert-VITS2 JP-Extra",
+   "notes": "REJECT. Repo itself states it learned from game character Esuto (月に寄りそう乙女の作法2) with NO consent from Navel, seiyuu Nonoyama Aka, or similar-voiced seiyuu Yamamura Hibiku, who publicly reported the unauthorized use (2025-09-05); HF model files removed 2025-09-08. A nominal ACML tag cannot cure non-consensual real-person cloning — impersonation/passing-off is itself forbidden by ACML. Critically, this is the AivisSpeech DEFAULT model, so it must be actively swapped out before shipping any engine-generated audio."
+  },
+  {
+   "name": "morioki",
+   "url": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+   "voiceDescription": "The ONLY adult-female (AdultFemale timbre) model on AivisHub — a calm, general-purpose grown woman's voice, not a squeaky anime character. The natural fit for Rie-SENSEI (warm mature teacher / lead adult voice). Voice provided by もりおき, model by yuki.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "mature adult, warm/steady — teacher",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: rie. UUID baaae3c0-7b22-4605-8ba5-80c959b41a48. Only 1 style. Credit requested (trivial): 'ボイス提供: もりおき'. This is essentially a forced pick — no other adult/elderly female timbre exists on the hub."
+  },
+  {
+   "name": "まお (Mao / Oz Chat)",
+   "url": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7",
+   "voiceDescription": "Bright, playful 'small-devil' mischievous young-female voice with 6 emotional styles (normal/anger/disgust/fear/joy/sad). Most-downloaded female on the hub. Original character owned by Oz Chat/Trippy, CV by voice actor ねゆたろ but released as an original-character model under ACML 1.0.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, bright/genki, mischievous",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: sophie (genki lead). Credit string requested: 'AivisSpeech: まお'. 6 styles give good range for a lively classmate. Original character (rights held by Oz Chat) — not a real-person clone."
+  },
+  {
+   "name": "コハク (Kohaku / Oz Chat)",
+   "url": "https://hub.aivis-project.com/aivm-models/22e8ed77-94fe-4ef2-871f-a86f94e9a579",
+   "voiceDescription": "Sweet, kitten-like soft young-female voice, 4 styles. Original character (Oz Chat/Trippy, CV ねゆたろ). Softer/cuter counterpart to まお — good for the soft/quiet-but-warm slot.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, soft/sweet, gentle",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: jenny. Credit: 'AivisSpeech: コハク'. Distinct enough from まお (softer, breathier). Original character, not a real-person clone."
+  },
+  {
+   "name": "凛音エル (Rinne Eru)",
+   "url": "https://hub.aivis-project.com/aivm-models/f5017410-fbb5-49e1-97cb-e785f42e15f5",
+   "voiceDescription": "Clear, bright AI-character voice (電脳天使工業's 'cyber angel' character 凛音エル), 5 styles. Thematically perfect for the character literally nicknamed 'Angel/Onke'.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, bright/clear",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: angel (Onke) — on-the-nose (cyber angel). 5 styles. Original character, credit optional."
+  },
+  {
+   "name": "ほのか (Honoka / リアボVC)",
+   "url": "https://hub.aivis-project.com/aivm-models/59f96896-64d2-4378-830a-4d5feb3d81aa",
+   "voiceDescription": "Natural, realistic 'real 20s-woman' voice, 5 styles — trained from a consenting paid general-adult voice actor (not a public figure) for the RiaboVC voice-changer, released under ACML 1.0. Breaks up the anime-character timbres with a grounded natural-sounding classmate.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young-adult, natural/realistic",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: jodi. Credit requested: '声は @dopoiro のAI'. Six near-identical siblings exist (かりん/わかな/れな/もえ/さつき/すみれ, same source actor) — use only ONE of the family or they'll all sound alike; ほのか picked as representative."
+  },
+  {
+   "name": "まい (Mai)",
+   "url": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+   "voiceDescription": "Research/prototype young-female model explicitly marked '自由に使用可' (free to use). No real-person attribution — one of the cleanest identity-wise. 1 style.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, neutral",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: mika. SAME-LAB prototype family as るな/桜音/花音 — audition for distinctness before final casting. Swap alternates: 中2 (9107b8b6, teen-younger) or F2/F1 (CC BY-SA)."
+  },
+  {
+   "name": "るな (Runa)",
+   "url": "https://hub.aivis-project.com/aivm-models/4f281e78-eba6-495a-8e50-5c322d02b5b1",
+   "voiceDescription": "Research/prototype young-female model, '自由に使用可' (free to use), 1 style. No real-person attribution.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, neutral",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: stasi. Same-lab prototype family (see まい) — audition for distinctness."
+  },
+  {
+   "name": "桜音 (Sakura-ne)",
+   "url": "https://hub.aivis-project.com/aivm-models/3328da9a-8124-4619-a853-f7fc2f37889f",
+   "voiceDescription": "Research/prototype young-female model, '自由に使用可' (free to use), 1 style. No real-person attribution.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, neutral",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: ruparna. Same-lab prototype family (see まい) — audition for distinctness."
+  },
+  {
+   "name": "花音 (Kanon)",
+   "url": "https://hub.aivis-project.com/aivm-models/a670e6b8-0852-45b2-8704-1bc9862f2fe6",
+   "voiceDescription": "Research/prototype young-female model, '自由に使用可' (free to use), 1 style. No real-person attribution.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, neutral",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: rose. Same-lab prototype family (see まい) — audition for distinctness. If too similar to siblings, swap to F2 (25b39db7, CC BY-SA 4.0, commercial-OK with attribution+sharealike)."
+  },
+  {
+   "name": "zonoko",
+   "url": "https://hub.aivis-project.com/aivm-models/7fc08a41-b64d-456d-8b22-8e1284674775",
+   "voiceDescription": "Young-female voice, 5 styles. Trained from an OpenGameArt CC0 English voice re-voiced to Japanese via the Zonos cloning tool; creator inherits the source's CC0 license. The single most license-clean option — zero attribution or commercial restrictions.",
+   "gender": "female",
+   "engine": "AivisSpeech / Style-Bert-VITS2 (JP-Extra)",
+   "ageEnergy": "young, distinct/slightly-accented",
+   "license": "CC0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "Assign to: mira. CC0 = no obligations at all. Distinct source (English-derived) so it won't collide with the anime/prototype voices — good for a foreign-background classmate. UUID 7fc08a41-b64d-456d-8b22-8e1284674775."
+  },
+  {
+   "name": "Amitaro (あみたろ) Style-Bert-VITS2 model — bundled default",
+   "url": "https://github.com/litagin02/Style-Bert-VITS2",
+   "voiceDescription": "Bright, youthful female character voice (あみたろの声素材工房). One of two consenting original character voices shipped as SBV2 defaults since v2.5.0. Distinct young/energetic timbre — good for a younger female classmate (e.g. nanako or mira).",
+   "gender": "female",
+   "license": "あみたろの声素材工房 free-material terms (commercial allowed, own consenting voice)",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": false,
+   "source": "github",
+   "ageEnergy": "young, bright/energetic",
+   "engine": "Style-Bert-VITS2 (bundled)",
+   "notes": "STRONG CANDIDATE but license NOT yet verified from the primary あみたろ terms page (amitaro.net/voice) — the corpus is a known consenting-owner free-commercial voice, but VERIFY the current terms + required credit line before shipping. Provenance is clean (voice owner consents and distributes it herself), unlike Anneli. Distinct real PERSON, so adds true cast diversity."
+  },
+  {
+   "name": "Tsukuyomi-chan (つくよみちゃん) Style-Bert-VITS2 model",
+   "url": "https://tyc.rei-yumesaki.net/work/software/style-bert-vits2/",
+   "voiceDescription": "Official free character voice (calm, gentle, slightly formal young female). Explicit owner consent, widely used commercially with credit. Good for a polite/measured female role.",
+   "gender": "female",
+   "license": "CC-BY-SA-4.0 + Tsukuyomi-chan official character terms",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": false,
+   "source": "other",
+   "ageEnergy": "young-adult, calm/polite",
+   "engine": "Style-Bert-VITS2",
+   "notes": "Consenting official character (clean provenance, opposite of Anneli). License is CC-BY-SA per the corpus, with the Tsukuyomi-chan character-usage rules (credit required, some content restrictions). VERIFY the current official terms page before shipping; commercial use is generally permitted with credit. Adds a distinct clean female voice."
+  },
+  {
+   "name": "AivisHub Anneli (and its merges/derivatives) — REJECTED, listed as a warning",
+   "url": "https://hub.aivis-project.com/",
+   "voiceDescription": "The AivisSpeech DEFAULT and top AivisHub voice. Despite ACML-1.0 license, CONFIRMED trained on seiyuu Yamamura Hibiku's performance WITHOUT consent (Konami pulled Yu-Gi-Oh AI-commentary videos over it, Sep 2025).",
+   "gender": "female",
+   "license": "ACML-1.0 (but tainted provenance)",
+   "licenseCommercialOk": "no",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "ageEnergy": "adult female",
+   "engine": "Style-Bert-VITS2 JP-Extra / AivisSpeech",
+   "notes": "HARD REJECT and a template for the whole audit: ACML-1.0 permits commercial use AND forbids impersonation/passing-off — an unauthorized real-seiyuu clone violates the license's OWN prohibition, and creates direct legal exposure (Japan is actively litigating AI voice cloning; Kenjiro Tsuda suit Nov-2025). Because Anneli's weights seeded countless AivisHub merges, treat the popular/high-download AivisHub catalogue as GUILTY-until-provenance-proven. Do not ship Anneli or any model that lists Anneli as a merge parent."
+  },
+  {
+   "name": "TANAKA",
+   "url": "https://hub.aivis-project.com/aivm-models/470a41e2-863f-4bf2-8a20-bf7cde0d8f7b",
+   "voiceDescription": "Elderly-male narration voice, built for YouTube auto-caption read-aloud. Even, calm, documentary-narrator feel — good second mature/narration option.",
+   "gender": "male",
+   "ageEnergy": "elderly, even narration",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 470a41e2-863f-4bf2-8a20-bf7cde0d8f7b. Creator notes it is still being refined. Credit optional. dl 2.0k."
+  },
+  {
+   "name": "hinakoyuhara",
+   "url": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+   "voiceDescription": "Plain middle-aged man's voice. Neutral, unremarkable-in-a-good-way adult timbre — a solid 'ordinary older classmate' voice distinct from the baritone Aida.",
+   "gender": "male",
+   "ageEnergy": "middle-aged, plain",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43. Creator calls it a trial model. Credit optional. dl 1.6k."
+  },
+  {
+   "name": "ろてじん（匿名インタビュー風）(Rotejin — anonymous-interview)",
+   "url": "https://hub.aivis-project.com/aivm-models/80fe2db4-5891-4550-a3f3-dff9a91c0946",
+   "voiceDescription": "Middle-aged man, anonymous-interview style, pitch-shifted for a muffled/disguised texture. Distinct grainy mature timbre — useful for a gruff or secretive classmate.",
+   "gender": "male",
+   "ageEnergy": "middle-aged, muffled/disguised",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 80fe2db4-5891-4550-a3f3-dff9a91c0946. Same creator as the Elder model but a clearly different voice. Credit optional. dl 1.1k."
+  },
+  {
+   "name": "yukyu",
+   "url": "https://hub.aivis-project.com/aivm-models/1f04a608-916c-4d9e-bf6e-b9da5c176f85",
+   "voiceDescription": "Straightforward male voice model, no strong character coloring. A clean neutral adult-male baseline — good for a plain-spoken classmate.",
+   "gender": "male",
+   "ageEnergy": "adult/young, neutral",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 1f04a608-916c-4d9e-bf6e-b9da5c176f85. Creator yukyu (x @yukyu30). Credit optional. dl 1.75k."
+  },
+  {
+   "name": "Lux",
+   "url": "https://hub.aivis-project.com/aivm-models/3dabea2b-cc10-41da-955b-4618ce84e716",
+   "voiceDescription": "Professional-quality young-male voice: trained on 96kHz/16bit studio audio (noise & reverb removed) plus the ITA 424-sentence corpus. The cleanest, most broadcast-ready timbre in the set — strong pick for the main protagonist.",
+   "gender": "male",
+   "ageEnergy": "young adult, clean/pro",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 3dabea2b-cc10-41da-955b-4618ce84e716. Credit optional. dl 1.5k."
+  },
+  {
+   "name": "にせ (nise)",
+   "url": "https://hub.aivis-project.com/aivm-models/6d11c6c2-f4a4-4435-887e-23dd60f8b8dd",
+   "voiceDescription": "Bright youthful-male prototype voice, creator explicitly marks it 'free to use'. The most-downloaded male model on the hub — dependable standard bright-young timbre.",
+   "gender": "male",
+   "ageEnergy": "young, bright",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 6d11c6c2-f4a4-4435-887e-23dd60f8b8dd. R&D prototype, 自由に使用可. Credit optional. dl 16.2k (highest male)."
+  },
+  {
+   "name": "澤原 玄二郎 (Sawabaru Genjirou)",
+   "url": "https://hub.aivis-project.com/aivm-models/2e1fdde8-d089-42d7-b64f-cf89952b1bdc",
+   "voiceDescription": "Hasty, rowdy young 'cat-guy' character — energetic and cheeky. Adds a lively, brash young-male color distinct from the calm/clean voices.",
+   "gender": "male",
+   "ageEnergy": "young, energetic/brash",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 2e1fdde8-d089-42d7-b64f-cf89952b1bdc. CV 古山キリヲ (same collaborator as Aida but a very different character/voice). Creator warns output is noisy by design — run denoise after synthesis. Credit optional. dl 3.0k."
+  },
+  {
+   "name": "宗周定昌 (Soushuu Sadamasa)",
+   "url": "https://hub.aivis-project.com/aivm-models/00f29eb2-e12b-4f64-a5e8-4188be62de33",
+   "voiceDescription": "'Somehow sounds like an anime character' young-male voice — a slightly stylized, animated young timbre good for a more expressive classmate.",
+   "gender": "male",
+   "ageEnergy": "young, anime-stylized",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 00f29eb2-e12b-4f64-a5e8-4188be62de33. Credit optional. dl 879."
+  },
+  {
+   "name": "kokuren_voice",
+   "url": "https://hub.aivis-project.com/aivm-models/e40d5b99-8cde-4442-a45b-0ebec9167506",
+   "voiceDescription": "Creator's own young-male voice. Another natural, everyday young-adult option to keep adjacent classmates sounding like separate people.",
+   "gender": "male",
+   "ageEnergy": "young, natural",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID e40d5b99-8cde-4442-a45b-0ebec9167506. Creator kokuren (x @wangoroge333) — self-voice, self-uploaded. Credit optional. dl 737."
+  },
+  {
+   "name": "立神ケイ (Tategami Kei)",
+   "url": "https://hub.aivis-project.com/aivm-models/b2bee8fc-3f65-4c99-9607-a1075a10066b",
+   "voiceDescription": "Low, slightly muttering/breathy young-male voice ('bosotsuku'). A quieter, lower-register young timbre — good for a reserved or moody character, distinct from the bright youths.",
+   "gender": "male",
+   "ageEnergy": "young, low/muttered",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID b2bee8fc-3f65-4c99-9607-a1075a10066b. Creator umiduki.nike. Credit optional. dl 816."
+  },
+  {
+   "name": "はきみて れく (Hakimite Reku)",
+   "url": "https://hub.aivis-project.com/aivm-models/70ad7e84-6a10-48d6-8f9a-8dac4bba3c0b",
+   "voiceDescription": "Original 'tech-attribute monster' VTuber character, boyish/high young-male energy. Creator explicitly grants free use within the license — a distinct sprightly boyish voice.",
+   "gender": "male",
+   "ageEnergy": "boyish, high energy",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID 70ad7e84-6a10-48d6-8f9a-8dac4bba3c0b. Original fictional VTuber, self-uploaded; creator adds '公序良俗に反しなければ自由に使っていい'. Credit optional. dl 476."
+  },
+  {
+   "name": "蒼月ハヤテ (Aotsuki Hayate)",
+   "url": "https://hub.aivis-project.com/aivm-models/eefe1fbd-d15a-49ae-bc83-fc4aaad680e1",
+   "voiceDescription": "Original character 'Aotsuki Hayate' — a bright youthful-male character voice. Rounds out the boyish/young end of the cast.",
+   "gender": "male",
+   "ageEnergy": "young, bright character",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "Custom (AivisSpeech voice terms — commercial OK)",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID eefe1fbd-d15a-49ae-bc83-fc4aaad680e1. Custom license text (read from API) explicitly allows commercial AND non-commercial use; requires credit 'AivisSpeech: 蒼月ハヤテ' (mandatory for video/music sites, 'best-effort / on a service page' for commercial products where inline credit is hard). Include a credits screen. dl 758."
+  },
+  {
+   "name": "M1 (Style-Bert-VITS2 default male 1 / jvnv-M1)",
+   "url": "https://hub.aivis-project.com/aivm-models/d7255c2c-ddd0-425a-808c-662cd94c7f41",
+   "voiceDescription": "The official Style-Bert-VITS2 bundled default male voice #1 (jvnv-M1 corpus). Neutral studio young-adult male — a known-quality, reliable fallback voice.",
+   "gender": "male",
+   "ageEnergy": "adult, neutral studio",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "CC BY-SA 4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID d7255c2c-ddd0-425a-808c-662cd94c7f41. license_text (read from API) inherits JVNV corpus CC BY-SA 4.0. Commercial OK WITH attribution + ShareAlike; distribute generated WAVs (not the model file) to avoid the copyleft biting. dl 1.35k. Pair with M2 (d1a7446f-230d-4077-afdf-923eddabe53c) for a second default."
+  },
+  {
+   "name": "M2 (Style-Bert-VITS2 default male 2 / jvnv-M2)",
+   "url": "https://hub.aivis-project.com/aivm-models/d1a7446f-230d-4077-afdf-923eddabe53c",
+   "voiceDescription": "The official Style-Bert-VITS2 bundled default male voice #2 (jvnv-M2 corpus). Slightly different studio young-adult male from M1 — a second dependable fallback.",
+   "gender": "male",
+   "ageEnergy": "adult, neutral studio",
+   "engine": "Style-Bert-VITS2 (JP-Extra)",
+   "license": "CC BY-SA 4.0",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "source": "aivishub",
+   "notes": "UUID d1a7446f-230d-4077-afdf-923eddabe53c. license_text (read from API) inherits JVNV corpus CC BY-SA 4.0. Same attribution+ShareAlike terms as M1. dl 2.6k."
+  },
+  {
+   "name": "まお (Mao)",
+   "url": "https://hub.aivis-project.com/model/a59cb814-0083-4369-8542-f51a29e72af7",
+   "voiceDescription": "YouthfulFemale, bright mischievous 'little-devil' character with 6 styles (ノーマル/ふつー/あまあま=sweet/おちつき=calm/からかい=teasing/せつなめ=wistful). Wide emotional range makes it a strong flexible lead; use the おちつき style for the mature Rie-SENSEI read or the narrator.",
+   "gender": "female",
+   "ageEnergy": "youthful/energetic, adult-capable via calm style",
+   "engine": "AivisSpeech Engine (Style-Bert-VITS2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "API explicitly reports voice_type=Synthetic (AI-generated), architecture=Style-Bert-VITS2 JP-Extra, and note: original Oz Chat character, not a recording of a real person. UUID a59cb814-0083-4369-8542-f51a29e72af7. Best-vetted model in the set. ACML-1.0: credit optional, forbids passing-off as a real person, derivatives must ship the license file."
+  },
+  {
+   "name": "まい (Mai)",
+   "url": "https://hub.aivis-project.com/model/e9339137-2ae3-4d41-9394-fb757a7e61e6",
+   "voiceDescription": "Mature, alluring adult female (tag 妖艶な女性). Warm low-register timbre — the natural fit for Rie-SENSEI, the lead adult teacher voice.",
+   "gender": "female",
+   "ageEnergy": "mature adult, warm",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "Single style (ノーマル) — vary speedScale/pitchScale for range. UUID e9339137-2ae3-4d41-9394-fb757a7e61e6. Confirm on model page it is an original character before ship (pseudonymous uploader)."
+  },
+  {
+   "name": "コハク (Kohaku)",
+   "url": "https://hub.aivis-project.com/model/22e8ed77-94fe-4ef2-871f-a86f94e9a579",
+   "voiceDescription": "YouthfulFemale, soft/gentle; styles ノーマル/あまあま(sweet)/せつなめ(wistful)/ねむたい(sleepy). Good for a soft-spoken younger classmate (e.g. mika, nanako).",
+   "gender": "female",
+   "ageEnergy": "youthful, soft",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 22e8ed77-94fe-4ef2-871f-a86f94e9a579."
+  },
+  {
+   "name": "みちのくあいり (Michinoku Airi)",
+   "url": "https://hub.aivis-project.com/model/1b2830f4-8cf1-4184-a0d9-3a1bace3a844",
+   "voiceDescription": "Female with a full emotion set (標準/喜び/怒り/嫌悪/驚き/恐怖/悲しみ). The most expressive female model — good for a dramatic classmate (stasi, jodi).",
+   "gender": "female",
+   "ageEnergy": "adult, expressive",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 1b2830f4-8cf1-4184-a0d9-3a1bace3a844. 7 emotional styles cover range without pitch-shifting."
+  },
+  {
+   "name": "凛音エル (Rinne Eru)",
+   "url": "https://hub.aivis-project.com/model/f5017410-fbb5-49e1-97cb-e785f42e15f5",
+   "voiceDescription": "Female with styles ノーマル/Angry/Fear/Happy/Sad. Distinct from the softer females; good for a lively classmate (sophie, rose).",
+   "gender": "female",
+   "ageEnergy": "youthful-adult, lively",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID f5017410-fbb5-49e1-97cb-e785f42e15f5."
+  },
+  {
+   "name": "ほのか (Honoka)",
+   "url": "https://hub.aivis-project.com/model/59f96896-64d2-4378-830a-4d5feb3d81aa",
+   "voiceDescription": "Female with emotional styles (normal/sadness/joy/surprise). Another distinct female timbre for cast spread (jenny, mira, angel).",
+   "gender": "female",
+   "ageEnergy": "adult",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 59f96896-64d2-4378-830a-4d5feb3d81aa."
+  },
+  {
+   "name": "花音 (Kanon)",
+   "url": "https://hub.aivis-project.com/model/a670e6b8-0852-45b2-8704-1bc9862f2fe6",
+   "voiceDescription": "Clean standard female voice (single ノーマル style, tagged Aivis Cloud API sample — a first-party-adjacent clean model). Good neutral female (ruparna, nanako).",
+   "gender": "female",
+   "ageEnergy": "adult, neutral",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID a670e6b8-0852-45b2-8704-1bc9862f2fe6."
+  },
+  {
+   "name": "阿井田 茂 (Aida Shigeru)",
+   "url": "https://hub.aivis-project.com/model/47e53151-a378-46f3-abee-ce13aa07feb1",
+   "voiceDescription": "Adult male, 7 styles (ノーマル/Calm/Far/Heavy/Mid/Shout/Surprise). Solid mature male lead — good for narrator (Calm) or a lead male (henry, robert).",
+   "gender": "male",
+   "ageEnergy": "mature adult",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 47e53151-a378-46f3-abee-ce13aa07feb1. This is the model AivisSpeech's own docs use as the /aivm_models/install curl example — well-known clean model."
+  },
+  {
+   "name": "hinakoyuhara",
+   "url": "https://hub.aivis-project.com/model/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+   "voiceDescription": "MiddleAgedMale, styles ノーマル/普通/落ち着き(calm)/怒り(anger). Grounded middle-aged timbre — ideal calm narrator, or an older-student male (peter, steve, christian).",
+   "gender": "male",
+   "ageEnergy": "middle-aged, calm",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43. voice_timbre=MiddleAgedMale per API — key for age variety."
+  },
+  {
+   "name": "TANAKA",
+   "url": "https://hub.aivis-project.com/model/470a41e2-863f-4bf2-8a20-bf7cde0d8f7b",
+   "voiceDescription": "ElderlyMale, styles ノーマル/Anger/Happy/Silly/surprise. Distinct older-man character voice — great for an older classmate or comic-relief elder (francis, shaun).",
+   "gender": "male",
+   "ageEnergy": "elderly, characterful",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 470a41e2-863f-4bf2-8a20-bf7cde0d8f7b. voice_timbre=ElderlyMale — anchors the older end of the age spread."
+  },
+  {
+   "name": "yukyu",
+   "url": "https://hub.aivis-project.com/model/1f04a608-916c-4d9e-bf6e-b9da5c176f85",
+   "voiceDescription": "YouthfulMale, single デフォルト style. Bright young-adult male — good for a younger student (alex, felix, sam).",
+   "gender": "male",
+   "ageEnergy": "youthful",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 1f04a608-916c-4d9e-bf6e-b9da5c176f85. voice_timbre=YouthfulMale."
+  },
+  {
+   "name": "Lux",
+   "url": "https://hub.aivis-project.com/model/3dabea2b-cc10-41da-955b-4618ce84e716",
+   "voiceDescription": "YouthfulMale, single ノーマル style. A second distinct young-male timbre so youthful males don't all sound alike (tom, tom2, shin).",
+   "gender": "male",
+   "ageEnergy": "youthful",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 3dabea2b-cc10-41da-955b-4618ce84e716."
+  },
+  {
+   "name": "kokuren_voice",
+   "url": "https://hub.aivis-project.com/model/e40d5b99-8cde-4442-a45b-0ebec9167506",
+   "voiceDescription": "YouthfulMale with a full emotion set (ノーマル/Disgust/Fear/Surprised/Happy/Sad). Expressive young male for a dramatic student role (aakash, xingyu).",
+   "gender": "male",
+   "ageEnergy": "youthful, expressive",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID e40d5b99-8cde-4442-a45b-0ebec9167506."
+  },
+  {
+   "name": "澤原 玄二郎 (Sawahara Genjiro)",
+   "url": "https://hub.aivis-project.com/model/2e1fdde8-d089-42d7-b64f-cf89952b1bdc",
+   "voiceDescription": "Adult male, styles ノーマル/close/close-shout/far/far-shout. Different adult-male color from Aida — good for a second lead male (robert, christian).",
+   "gender": "male",
+   "ageEnergy": "adult",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 2e1fdde8-d089-42d7-b64f-cf89952b1bdc. Tagged けものフレンズアブリッジ (a fan-abridged project) — confirm on the model page it is an original synthetic voice, not an actor impression, before ship."
+  },
+  {
+   "name": "ろてじん (長老ボイス / Elder voice)",
+   "url": "https://hub.aivis-project.com/model/696c98a2-c0b7-4fe7-8cf2-c7e9b8a9bd82",
+   "voiceDescription": "Old-man / elder voice (single ノーマル). A second distinct elderly-male option alongside TANAKA for a wise-elder or grandfatherly character.",
+   "gender": "male",
+   "ageEnergy": "elderly, gentle",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 696c98a2-c0b7-4fe7-8cf2-c7e9b8a9bd82."
+  },
+  {
+   "name": "結亜ナル (Yua Naru)",
+   "url": "https://hub.aivis-project.com/model/b79c40e4-8a5e-4f20-802c-2c0eba2f0983",
+   "voiceDescription": "YouthfulMale, single ノーマル style. CC0 / public domain — zero license obligations, the safest possible choice for a shipped product. Good filler young-male voice (steve, shaun).",
+   "gender": "male",
+   "ageEnergy": "youthful",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "CC0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID b79c40e4-8a5e-4f20-802c-2c0eba2f0983. CC0 = no attribution, no impersonation clause, no redistribution obligation — cleanest in the set. Still glance at the page to confirm it's an original voice."
+  },
+  {
+   "name": "morioki",
+   "url": "https://hub.aivis-project.com/model/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+   "voiceDescription": "Male, single ノーマル style — a plain, natural male read. Useful neutral filler to round out the male ensemble.",
+   "gender": "male",
+   "ageEnergy": "adult, neutral",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID baaae3c0-7b22-4605-8ba5-80c959b41a48."
+  },
+  {
+   "name": "猩々博士 (Shoujou-hakase / 'Professor', chat voice)",
+   "url": "https://hub.aivis-project.com/model/70a875a9-feae-41e6-a586-8cf9e47c6c0b",
+   "voiceDescription": "Older/professorial male chat voice (single ノーマル). Distinct 'learned older man' color — fits a scholarly classmate or mentor figure.",
+   "gender": "male",
+   "ageEnergy": "older adult, measured",
+   "engine": "AivisSpeech Engine (SBV2 JP-Extra)",
+   "source": "aivishub",
+   "license": "ACML 1.0",
+   "licenseCommercialOk": "yes",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "UUID 70a875a9-feae-41e6-a586-8cf9e47c6c0b. Tagged 'test' — verify quality/stability on the sample before committing."
+  },
+  {
+   "name": "Koharune Ami / amitaro (あみたろの声素材工房) — official AivisSpeech model",
+   "url": "https://amitaro.net/voice/voice_rule/",
+   "voiceDescription": "Naturally cute, relaxed young-female voice. The creator ('amitaro') is an individual who releases her OWN recorded voice as free material — not a hired seiyuu — and an official Koharune Ami AivisSpeech/AIVMX model exists on AivisHub, so it drops straight into the engine.",
+   "gender": "female",
+   "ageEnergy": "young adult, gentle/cute, relaxed",
+   "engine": "AivisSpeech AIVMX (Style-Bert-VITS2 under the hood) — install into the engine Models dir",
+   "source": "aivishub",
+   "license": "amitaro voice-material terms (own-voice free-use)",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "Verified from amitaro's own terms page: all her voice material is commercial-OK and monetizable WITH a visible credit ('音声素材：あみたろの声素材工房 https://amitaro.net/'); prohibits deepfakes/impersonation/adult/political use. Caveat: her terms forbid SELLING a self-trained model of only her voice (we are not selling a model, only shipping generated audio, which is permitted). The AivisHub Koharune Ami page's own license badge (CC0 vs ACML) was NOT confirmed from primary — check it live before pull; the underlying voice rights are clean either way."
+  },
+  {
+   "name": "Tsukuyomi-chan Style-Bert-VITS2 (ayousanz)",
+   "url": "https://huggingface.co/ayousanz/tsukuyomi-chan-style-bert-vits2-model",
+   "voiceDescription": "Well-known free-use anime-style young female voice (つくよみちゃん), trained on the official Tsukuyomi-chan free corpus. Good for a distinct youthful classmate voice.",
+   "gender": "female",
+   "ageEnergy": "young, bright/anime-leaning",
+   "engine": "Style-Bert-VITS2 JP-Extra; convert to AIVMX or run via SBV2",
+   "source": "huggingface",
+   "license": "other (Tsukuyomi-chan corpus terms)",
+   "licenseCommercialOk": "yes-with-credit",
+   "licenseVerifiedFromPrimary": false,
+   "notes": "HF card license = 'other', pointing at the Tsukuyomi-chan corpus / voice-actor statistical corpus terms (widely used, generally commercial-OK with credit and standard anti-defamation clauses). NOT verified from the primary corpus terms page in this pass — confirm https://tyc.rei-yumesaki.net/material/corpus/ before shipping. Include only after that check; treat as inferred."
+  },
+  {
+   "name": "Anneli (kaunista/style-bert-vits2-Anneli) — REJECTED, do not ship",
+   "url": "https://hub.aivis-project.com/aivm-models/1e5ae2f1-b3bc-4d90-b618-d891a3d7383b",
+   "voiceDescription": "AivisSpeech's own DEFAULT bundled model, high quality — but flagged here specifically to prevent it being used. Reject despite being ACML-1.0.",
+   "gender": "female",
+   "ageEnergy": "adult female",
+   "engine": "AivisSpeech AIVMX (SBV2JE)",
+   "source": "aivishub",
+   "license": "ACML-1.0 (on AivisHub)",
+   "licenseCommercialOk": "no",
+   "licenseVerifiedFromPrimary": true,
+   "notes": "REJECT. Verified from the primary HF card + coverage: trained on a commercial game character's voice (『月に寄りそう乙女の作法2』, seiyuu 野々山あか, acknowledged 'similar to' 山村響) with '許諾は一切取っていない' (no permission obtained); HF repo scrubbed its files Sept 2025 after voice actor Hibiku Yamamura publicly reported unauthorized AI use. The ACML-1.0 badge on AivisHub does NOT cure the underlying rights defect — this is exactly the 'cloned from a real identifiable seiyuu without rights' case the constraints forbid. Its status as the engine default means it must be explicitly excluded from voice-map.json."
+  }
+ ],
+ "recipes": [
+  {
+   "lane": "Narrator + gap candidates",
+   "recipe": "SELF-HOST ON macOS APPLE SILICON (Python 3.14-safe — no pip/torch):\n1. Download the prebuilt engine from github.com/Aivis-Project/AivisSpeech-Engine/releases (macOS arm64 asset) OR reuse the copy bundled inside the desktop app at /Applications/AivisSpeech.app/Contents/Resources/AivisSpeech-Engine/run . It ships its own ONNX Runtime — CPU-only is fine, no GPU, needs macOS 13+ and ~1.5GB RAM. This avoids the Python 3.14 / torch wheel problem entirely (the engine does NOT use your system Python).\n2. Run it: it listens on http://127.0.0.1:10101 by default. Interactive API docs at http://127.0.0.1:10101/docs .\n3. Install voice models: download each .aivmx from AivisHub (button on each model's hub.aivis-project.com/aivm-models/<uuid> page, or POST to the engine's aivm install endpoint) and drop into ~/Library/Application Support/AivisSpeech-Engine/Models — the engine auto-discovers on start. GET /speakers lists loaded voices + their per-style speaker UUIDs.\n\nSTORY SYNTHESIS (VOICEVOX-compatible, per line):\n4. POST /audio_query?text=<line>&speaker=<styleId>  → returns an AudioQuery JSON.\n5. Optionally tweak AudioQuery.speedScale / pitchScale / intonationScale (global, these DO work) for the rainy-evening calm delivery, and pick the emotion style per line by choosing the right speaker style id (rasetsun exposes 標準/標準2/悲しみ/etc.).\n6. POST /synthesis?speaker=<styleId> with the AudioQuery body → WAV. Cache 323 WAVs keyed by (line, speaker, style).\n\nPITCH-ACCENT DRILL LANE (learner-safe):\n7. The AudioQuery.accent_phrases array carries mora units and an integer `accent` = nucleus position per phrase; the engine honors that placement, so you can force heiban/atamadaka/nakadaka/odaka by editing `accent` before /synthesis. This is the correct knob for drill/imitation audio.\n8. HARD LIMIT to record: the per-mora numeric `pitch` (and consonant_length/vowel_length) fields are dummy 0.0 and NOT editable in the AivisSpeech Engine — so you can move the accent nucleus but cannot hand-tune a pitch contour. If the drill spec needs exact per-mora Hz shaping, that requires raw Style-Bert-VITS2-JP-Extra in Python (blocked here by Python 3.14 → would need a 3.11 venv/conda or a container). Recommend accepting accent-position control as the offline drill path and flagging the pitch-contour limitation to the owner.\n\nLICENSE HYGIENE AT SHIP: ACML-1.0 credit is optional but keep an in-app attribution/credits list anyway; add an \"unofficial / not affiliated with the voice provider\" line in credits to stay clear of the impersonation clause; if you redistribute any .aivmx, bundle the full ACML-1.0 text alongside it (redistribution requires including the license)."
+  },
+  {
+   "lane": "HuggingFace + AivisHub Style-Bert-VITS2 JP-Extra models with commercial-clean licenses; self-hosted offline TTS via the AivisSpeech Engine on macOS Apple Silicon.",
+   "recipe": "=== ENGINE / OFFLINE SELF-HOST (macOS Apple Silicon, Python 3.14 present) ===\nDo NOT pip-install Style-Bert-VITS2 (needs torch<2.4 which has no wheels for Python 3.14, and the SBV2 code is AGPL-3.0). Use the AivisSpeech Engine — it ships its own bundled runtime, no system Python.\n\n1. Install: download AivisSpeech.app (or the standalone AivisSpeech-Engine release) from github.com/Aivis-Project/AivisSpeech-Engine/releases. Bundled engine binary lives at /Applications/AivisSpeech.app/Contents/Resources/AivisSpeech-Engine/run.\n2. First run downloads default models (~250MB) + BERT (~650MB). IMPORTANT: the factory default voice is Anneli — swap it out (see reject) so it never ends up in shipped audio.\n3. Run headless API: `.../AivisSpeech-Engine/run --host 127.0.0.1 --port 10101` (VOICEVOX-compatible HTTP server, default port 10101; --host 0.0.0.0 to expose).\n4. Install voices: drop AIVMX files in `~/Library/Application Support/AivisSpeech-Engine/Models`, or POST via the engine's model-management API, or AivisSpeech UI → Settings → Manage voice synthesis models (one-click install straight from AivisHub).\n\n=== SYNTHESIS + LEARNER-SAFE ACCENT DRILL ===\n5. POST /audio_query?speaker=<style_id>&text=<JA> → returns AudioQuery with accent_phrases[] → moras[] (text/consonant/vowel/pitch) and an accent index (downstep position) per phrase.\n6. For DRILL audio: read/patch accent_phrases[].accent to set the correct pitch-accent nucleus — SBV2 JP-Extra renders that high/low mora pattern faithfully, so drills stay accent-correct. NOTE: consonant_length/vowel_length/pitch scalar fields return DUMMY values and are ignored by this engine — do not rely on them for fine F0; the accent-nucleus field is the lever.\n7. POST /synthesis?speaker=<style_id> with the (patched) AudioQuery JSON → WAV. Each speaker style is a separate speaker/style id in /speakers.\n\n=== GETTING NON-AIVMX MODELS (JVNV, RikkaBotan) INTO THE ENGINE ===\n8. JVNV and RikkaBotan ship as raw SBV2 .safetensors (model_assets), not AIVMX. Convert with the AIVM Generator (aivm-generator, aivis-project) → produces an .aivmx you install per step 4. (Alternative: run raw SBV2 in an isolated Python 3.11 conda/uv env with torch<2.4 — but that pulls in AGPL code; prefer the AIVMX+engine path for a shippable product.)\n\n=== CAST ASSIGNMENT (distinct-per-adjacent, from verified-clean set) ===\nRie-SENSEI(lead adult female, warm/mature) → JVNV-F2 Neutral/Happy. Narrator(gentle rainy-evening) → RikkaBotan asmr (soft) or JVNV-F1 Neutral. Female classmates (sophie/jenny/mika/jodi/stasi/ruparna/rose/angel/nanako/mira) → spread across JVNV-F1 (× emotion styles), RikkaBotan sweet + cool, and vetted AivisHub ACML female originals (e.g. まお/まい/花音 after provenance check) so no two adjacent share a model. Male classmates (henry/aakash/alex/tom/sam/shin/christian/felix/robert/peter/steve/tom2/shaun/xingyu/francis) → JVNV-M1 + JVNV-M2 (× emotion styles) + fumifumi + vetted AivisHub ACML male originals (morioki/にせ/凛音エル/阿井田茂 after provenance check). Use the 7 emotion styles per JVNV speaker to widen apparent-person count without reusing the same style back-to-back. To truly fill 20+ DISTINCT people you MUST add ~10 hand-vetted AivisHub ACML originals — budget provenance-verification time per model page (reject any referencing a real seiyuu/VTuber/game/anime character)."
+  },
+  {
+   "lane": "AivisHub — female voices (commercial-clean, SBV2 JP-Extra)",
+   "recipe": "SELF-HOSTED OFFLINE ENGINE + PITCH-ACCENT DRILL PATH (macOS Apple Silicon).\n\n1) INSTALL — Do NOT pip-install raw Style-Bert-VITS2 on this Mac (Python 3.14 has no torch wheels). Instead use the AivisSpeech Engine, which ships as a self-contained PyInstaller binary (bundles its own Python 3.11 + runtime). Grab the macOS arm64 release from github.com/Aivis-Project/AivisSpeech-Engine/releases (or install the AivisSpeech.app GUI, which embeds the same engine). Requires macOS 13 Ventura+. Apple Silicon is the actively-supported target.\n\n2) RUN — launch the engine binary; it serves a VOICEVOX-compatible HTTP API at http://127.0.0.1:10101. Verify: `curl http://127.0.0.1:10101/version`.\n\n3) LOAD MODELS — download each .aivmx from its hub page (URL: https://hub.aivis-project.com/aivm-models/{uuid}, or programmatically via the model's download endpoint) and register it: `curl -X POST 'http://127.0.0.1:10101/aivm_models/install' -F 'file=@morioki.aivmx'`. List installed speaker/style IDs via `GET /speakers` — each model exposes a speaker UUID and one style_id per style (morioki=1 style; まお=6, みちのくあいり=7, etc.).\n\n4) STORY LINES (323 fixed lines) — for each line: `POST /audio_query?text=<line>&speaker=<style_id>` -> returns an AudioQuery JSON with accent_phrases; then `POST /synthesis?speaker=<style_id>` with that JSON body -> WAV. Batch this offline, one WAV per line, cache by (style_id, text) hash.\n\n5) PITCH-ACCENT DRILL AUDIO (learner-safe) — the accent DOWNSTEP is editable and this is what matters for 平板/頭高/中高/尾高 drills. In the AudioQuery, each accent_phrase has an integer `accent` field = the mora index of the pitch drop (0 = heiban/no drop). Overwrite it from your Kanjium/OJAD accent data per word, then re-synthesize. CAVEAT confirmed from the engine README: the numeric per-mora `pitch` field is returned as a dummy 0.0 and is NOT settable (`consonant_length`/`vowel_length`/`pitch` unsupported) — so you get correct HIGH/LOW accent SHAPE via the accent index, but not fine Hz tuning. For most drill/imitation lines the accent-index path is sufficient and stays learner-safe. If you ever need true per-mora Hz control, that requires raw litagin02/Style-Bert-VITS2 inference under a separate Python 3.11 pyenv/conda env with torch — keep that as an optional side-path, not the default.\n\n6) LICENSING AT SHIP — ACML 1.0 allows commercial use with credit optional; still add a credits screen listing each model + creator to satisfy good practice and the Oz Chat / リアボVC models' requested-credit strings (e.g. 'AivisSpeech: まお', 'morioki (X:@morioki_5)'). Never use these voices to impersonate/pass-off a real person (ACML 1.0 forbids it). zonoko is CC0 (no obligation). Re-verify each model's license on its hub page at ship time in case a creator changes it."
+  },
+  {
+   "lane": "Offline pitch-accent path for drill audio (no AWS)",
+   "recipe": "OFFLINE PITCH-ACCENT DRILL AUDIO — concrete pipeline (no AWS, no torch/pip).\n\n=== ENGINE: AivisSpeech Engine on macOS Apple Silicon ===\n1. Download AivisSpeech.app from github.com/Aivis-Project/AivisSpeech releases (Apple Silicon native; ships its own ONNX runtime, so Python 3.14 is irrelevant). Engine binary: ~/Applications/AivisSpeech.app/Contents/Resources/AivisSpeech-Engine/run. Launch it (or the .app) → HTTP API on http://127.0.0.1:10101, Swagger at /docs. Engine license LGPL-3.0 (dynamic runtime, does not taint your app). Models (.aivmx) go in ~/Library/Application Support/AivisSpeech-Engine/Models. DO NOT ship the bundled Anneli default (tainted). Install a clean model (see models[]) instead.\n\n=== KANJIUM NUMBER → ACCENT, THE DIRECT BRIDGE ===\nReuse scripts/build-pitch-accents-sql.mjs's existing converter (self-tested ハ'シ / ハシ' / ハシ). Its AquesTalk-style output IS exactly what AivisSpeech /accent_phrases?is_kana=true consumes. Mapping from a Kanjium accent number N over a reading of M moras:\n  - N=1 (atamadaka): apostrophe AFTER mora 1  → 箸 はし → \"ハ'シ\"  (H L; following particle stays low)\n  - N=M (odaka): apostrophe AFTER the final mora → 橋 はし → \"ハシ'\"  (L H, then the particle FALLS)\n  - 1<N<M (nakadaka): apostrophe after mora N\n  - N=0 (heiban): NO apostrophe → 端 はし → \"ハシ\"  (L H H…, particle stays HIGH)\nNote: for an isolated drill word (no particle) odaka and heiban are audibly identical; the H/L→particle difference only manifests when a following particle is attached in the same accent phrase — handle that only for full sentence lines, not single-word drills.\n\n=== FORCING 箸 (atamadaka) vs 橋 (odaka) VIA THE HTTP API ===\nTwo-call flow per line/word:\n  A) POST /accent_phrases?speaker=<styleId>&is_kana=true  body: \"ハ'シ\"  (atamadaka)  → returns AccentPhrase[] with accent=1, moras=[{text:\"ハ\",consonant:\"h\",vowel:\"a\",...,pitch:~5.9},{text:\"シ\",consonant:\"sh\",vowel:\"i\",...,pitch:~5.3}]. For 橋 send \"ハシ'\" → accent=2 (downstep after final mora). For 端 send \"ハシ\" → accent=0.\n     (Schema: AccentPhrase={moras[], accent:int 1-indexed downstep-mora position, pause_mora, is_interrogative}; Mora={text,consonant,consonant_length,vowel,vowel_length,pitch}; pitch is per-mora log-f0.)\n  B) Wrap those accent_phrases into an AudioQuery: call POST /audio_query?text=<reading-in-kana>&speaker=<id> to get a full AudioQuery with default speedScale/pitchScale/intonationScale/prosody, then REPLACE its .accent_phrases with the array from step A (this pins the downstep exactly, overriding the model's g2p guess). POST that AudioQuery to /synthesis?speaker=<id> → WAV bytes.\n     (Shortcut: you can also directly patch a single AudioQuery.accent_phrases[i].accent integer = your Kanjium N — same effect as the apostrophe kana — but is_kana kana is safer because it also fixes mora segmentation/rendaku.)\n  C) ffmpeg -i out.wav -c:a libopus -b:a 48k out.opus (or your existing Web-Audio-bytes path) → cache in R2 keyed by term×reading×kanjiumN×styleId.\n\nPure-OpenJTalk alternative (no neural model, fully offline, if you ever drop AivisSpeech): pip install pyopenjtalk (needs a Python ≤3.12 venv — system 3.14 won't build it), then build a User Dictionary / patch the accent so extract_fullcontext emits your Kanjium nucleus, or synthesize via OpenJTalk HTS voice. Lower realism; keep it only as a non-neural fallback.\n\n=== VERIFICATION: does the rendered line actually carry the expected accent? ===\nGate every rendered line before caching:\n  1) EXPECTED pattern: pyopenjtalk.g2p(reading, kana=False) + pyopenjtalk_g2p_prosody(reading) gives the '[' (rise) ']' (downstep) '#' (phrase-boundary) symbol string; the mora index of ']' = expected downstep. Cross-check it equals your Kanjium N (they must agree; if Kanjium and OpenJTalk disagree, TRUST Kanjium and flag). Equivalently parse extract_fullcontext()'s /A: field (a1==0 marks the accent-nucleus mora).\n  2) ACTUAL pattern: extract f0 from the rendered WAV (pyworld.harvest or librosa.pyin), average f0 per mora using the AudioQuery mora boundaries (vowel_length/consonant_length give the timing), and locate the mora after which f0 drops >~15%. That measured downstep-mora must equal the expected one.\n  3) SCORE: run PASQA (github.com/lycorp-jp/PASQA, LY Corp's open pitch-accent quality scorer) on the WAV for a per-line accent-correctness score; auto-pass above threshold, queue below-threshold lines for a re-synth with a stronger apostrophe/accent override or manual mora-pitch edit. Minimal-pair regression set to always assert: 箸/橋/端 (はし 1/2/0), 雨/飴 (あめ 1/0), 神/紙 (かみ). Only hand-fix flagged words; never trust neural g2p for anything a learner imitates."
+  },
+  {
+   "lane": "AivisHub — distinct male voices (commercial-clean)",
+   "recipe": "OFFLINE ENGINE + PITCH-ACCENT PIPELINE (macOS Apple Silicon, no AWS/Polly, no pip torch — sidesteps Python 3.14).\n\n1) INSTALL ENGINE (self-contained runtime, no Python env needed): Download the AivisSpeech Engine macOS arm64 build from github.com/Aivis-Project/AivisSpeech-Engine/releases (or install the AivisSpeech.app desktop bundle, which embeds the same engine). It ships ONNX Runtime + its own interpreter — you do NOT pip-install style-bert-vits2/torch, so the machine's Python 3.14 is irrelevant. Run: ./run  (or launch AivisSpeech.app). It serves an HTTP API on http://127.0.0.1:10101 (override with --port). This is the strongly-preferred path over raw pip SBV2JE.\n\n2) INSTALL VOICE MODELS: For each chosen model, download its .aivmx (ONNX) file — model page hub.aivis-project.com/aivm-models/<uuid>, download endpoint GET https://api.aivis-project.com/v1/aivm-models/<uuid>/download?model_type=AIVMX — and drop it into  ~/Library/Application Support/AivisSpeech-Engine/Models/ . The engine auto-discovers .aivmx at startup. (AivisSpeech.app also has an in-app \"install from AivisHub\" button and the engine exposes POST /aivm_models/install for scripted install by uuid.) Restart engine; confirm via GET /speakers (returns each model's style IDs).\n\n3) SYNTHESIZE A STORY LINE (2-step VOICEVOX-compatible flow): \n   a. POST /audio_query?speaker=<styleId>&text=<line>  -> returns an AudioQuery JSON whose accent_phrases[].moras[] carry per-mora pitch (accent position). \n   b. POST /synthesis?speaker=<styleId>  with that JSON body -> 24kHz WAV.\n   Assign one DISTINCT styleId per character (map the 16 male + 1 neutral models to henry/aakash/alex/tom/sam/shin/christian/felix/robert/peter/steve/tom2/shaun/xingyu/francis + narrator; keep adjacent classmates on different models so no two sound alike). Batch all 323 lines through this loop; cache WAVs by (styleId,textHash).\n\n4) LEARNER-SAFE DRILL / IMITATION LINES: for drill audio, first call /audio_query, then programmatically OVERWRITE moras[].pitch to the canonical Kanjium/OJAD accent for the target word before /synthesis, so the pitch contour is pedagogically correct rather than whatever the model improvised. This per-mora override is the reason to stay on SBV2JE/AivisSpeech rather than a black-box TTS. (You already have the Kanjium D1 pitch data in the yomu-audio worker — reuse it here for the offline path.)\n\n5) LICENSING AT SHIP TIME: ACML 1.0 models (15 of 17) need NO credit and permit the shipped commercial product; just never present the audio as a real person's real voice (impersonation/deepfake is the only ACML bar). For 蒼月ハヤテ (Custom) and M1/M2 (CC BY-SA 4.0) add a credit line in an About/credits screen (\"音声モデル: 蒼月ハヤテ\" / \"jvnv corpus, CC BY-SA 4.0\"); CC BY-SA also wants the model file itself, if you redistribute it, kept under CC BY-SA — fine as long as you distribute generated WAVs, not the .aivmx.\n\nNOTE ON RAW SBV2JE: only fall back to pip-installing style-bert-vits2 if you need training/fine-tuning; it requires torch and Python <=3.12, which this Mac cannot satisfy on 3.14 — so use a pyenv/conda 3.11 env in that case. For pure inference of these pre-made models, the bundled AivisSpeech Engine is the correct and only-needed runtime."
+  },
+  {
+   "lane": "AivisSpeech Engine headless setup + VOICEVOX-compatible batch synthesis on macOS Apple Silicon, feeding pre-made SBV2 JP-Extra voices from AivisHub.",
+   "recipe": "=== A. INSTALL THE ENGINE (macOS arm64, no pip, Python 3.14 irrelevant) ===\n1. Download AivisSpeech.app (or the standalone AivisSpeech-Engine) from github.com/Aivis-Project/AivisSpeech/releases (Apple Silicon build). The .app bundles the engine + its own runtime.\n2. First run auto-downloads a BERT model (~650MB) + default voice (~250MB) into ~/Library/Application Support/AivisSpeech-Engine/. Do NOT pip install style-bert-vits2/torch — the bundled onnxruntime runtime is self-contained, so host Python 3.14 never touches it.\n\n=== B. RUN HEADLESS (HTTP API on :10101) ===\n  \"/Applications/AivisSpeech.app/Contents/Resources/AivisSpeech-Engine/run\" --host 127.0.0.1 --port 10101\nHealth check + interactive docs: open http://127.0.0.1:10101/docs (Swagger). Engine license: LGPL-3.0. macOS is CPU-only (omit --use_gpu; it is a no-op here). 323 lines = a few minutes one-time.\n\n=== C. INSTALL VOICE MODELS FROM AIVISHUB BY UUID (scriptable) ===\n  # download URL format: https://api.aivis-project.com/v1/aivm-models/{UUID}/download?model_type=AIVMX\n  install(){ curl --fail -X POST \"http://127.0.0.1:10101/aivm_models/install\" \\\n      -F \"url=https://api.aivis-project.com/v1/aivm-models/$1/download?model_type=AIVMX\"; }\n  install a59cb814-0083-4369-8542-f51a29e72af7   # まお (lead-teacher candidate)\n  install 47e53151-a378-46f3-abee-ce13aa07feb1   # 阿井田茂 (adult male)\n  # ...repeat for each cast UUID in the models[] array.\n  # (Manual alt: drop the .aivmx files into ~/Library/Application Support/AivisSpeech-Engine/Models and restart.)\n  # List installed + discover each style's global speaker id:\n  curl -s http://127.0.0.1:10101/speakers | jq '.[] | {name, styles:[.styles[]|{name,id}]}'\n  # Note: the API's per-style local_id (0,1,2..) is NOT the synthesis id — always read the global \"id\" from /speakers.\n\n=== D. SYNTHESIZE ONE LINE -> WAV (audio_query -> synthesis) ===\n  SID=888753760   # a global style id from /speakers (per character/emotion)\n  curl -s -X POST \"http://127.0.0.1:10101/audio_query?speaker=$SID\" \\\n       --get --data-urlencode \"text=おはようございます、今日の授業を始めましょう。\" > q.json\n  curl -s -H \"Content-Type: application/json\" -d @q.json \\\n       -X POST \"http://127.0.0.1:10101/synthesis?speaker=$SID\" > line.wav\n  # Per-call knobs live INSIDE q.json (edit before synthesis): speedScale, pitchScale,\n  # intonationScale, volumeScale, prePhonemeLength, postPhonemeLength. Switching character = switch $SID.\n\n=== E. LEARNER-SAFE PITCH-ACCENT DRILL PATH (why SBV2 JP-Extra matters) ===\n  q.json.accent_phrases[] carries { moras:[{text,consonant,vowel,pitch}], accent:N }.\n  For drill/imitation lines, overwrite accent (the downstep mora index, 1-based) and/or per-mora pitch to the\n  textbook Tokyo-dialect accent, then POST the edited query to /synthesis. This guarantees the reference audio\n  matches the accent you teach — the reason to self-host SBV2 rather than a black-box TTS. (Optional: POST the\n  raw text to /accent_phrases first to get a clean starting frame, or use /mora_pitch helpers if present.)\n\n=== F. ENCODE OPUS (ffmpeg libopus) ===\n  ffmpeg -y -i line.wav -c:a libopus -b:a 48k -vbr on -application voip line.opus\n  # story narration: -application audio -b:a 64k. Batch: loop lines.tsv (id\\ttext\\tspeaker_id) -> wav -> opus.\n\n=== G. CASTING STRATEGY (20+ distinct people from the models[] set) ===\nAssign one model per character by voice_timbre so no two adjacent voices collide; use each model's built-in\nemotional styles (normal/calm/anger/happy/sad/teasing/wistful) for range instead of pitch-shifting one voice.\nWhere you have more characters than models, reuse a model on a DIFFERENT style + a small pitchScale offset\n(<=0.05) and keep it away from its twin in seating order. Suggested anchors: rie(SENSEI, mature lead)->まい妖艶\nor まお/おちつき; narrator->hinakoyuhara(MiddleAgedMale, calm) or 阿井田茂/Calm; elders/professor roles->\nTANAKA(ElderlyMale) & ろてじん(長老) & 猩々博士; youthful males(henry/alex/felix/sam...)->yukyu, Lux, kokuren,\nmorioki, fumifumi, 結亜ナル(CC0); youthful females(sophie/jenny/mika/rose/nanako/mira...)->コハク, 花音, るな,\n桜音, ほのか, 凛音エル, みちのくあいり; spread ElderlyMale/MiddleAgedMale/Youthful across the cast for age variety.\n\n=== H. ALTERNATIVE (if you prefer managed) ===\nAivis Cloud API (api.aivis-project.com) offers the same models server-side — but the self-hosted engine keeps\nthe offline drill path and avoids per-call cost; recommended for a shipped product."
+  },
+  {
+   "lane": "Offline render→QA→R2 pipeline for the 323 fixed academy voice lines",
+   "recipe": "PIPELINE: offline render → accent-QA → Opus → R2, re-runnable/incremental. Files under scripts/academy-voice/.\n\n0) PREREQS (macOS Apple Silicon, one-time)\n- Install AivisSpeech.app (bundles its own runtime — avoids this Mac's Python 3.14/torch wall). Start the engine headless: `~/Applications/AivisSpeech.app/Contents/Resources/AivisSpeech-Engine/run --host 127.0.0.1 --port 10101` (or launch the app). Health: `curl localhost:10101/version`.\n- Drop chosen AIVMX models into `~/Library/Application Support/AivisSpeech-Engine/Models/` (or POST the AivisHub install endpoint), then `GET /speakers` to read each model's styles and their numeric `style_id`. These style_ids are what /audio_query&/synthesis take as `speaker=`.\n- `brew install ffmpeg jq`; `wrangler --version` (auth'd to the account owning the audio R2 bucket).\n\n1) CONFIG: scripts/academy-voice/voice-map.json  — speaker(id) → { aivm_uuid, style_id, style_name, speedScale, pitchScale, intonationScale, model_version }.\n   - Assign a DISTINCT base model per adjacent character (not one model + pitch shifts). Seed from the verified-clean set: narrator/rie → RikkaBotan sweet/cool; male cast (henry/aakash/alex/tom/…) → JVNV M1/M2 across its 6 emotions + AivisHub male community models; female cast → amitaro/Koharune Ami + RikkaBotan variants + distinct AivisHub female models. Differentiate further with per-speaker speedScale/pitchScale/intonationScale/style so a dozen base models cover 20+ people.\n   - `model_version` is a hand-bumped string per speaker; it is what forces re-render when you change a voice (see step 7 — the sha does NOT change when the model changes, because it hashes only text+speaker).\n\n2) LOAD WORK LIST: read public/academy/audio/voice-lines.json → list of {sha:<manifestKey>, speaker, text}. The manifest key IS the R2 <sha>; use it verbatim so it lines up with whatever the worker looks up. Add a self-check: recompute the hash with the worker's exact algorithm (hash(speaker + '\\0' + text) truncated to 12 bytes/24 hex — confirm against worker source) and assert it equals the manifest key; abort on drift so the renderer can never write to a key the worker won't read.\n   - Determine the accent-QA target set: lines the learner imitates (non-narrator character drill lines, plus any line tagged as a pitch drill in the academy content). Narrator lines skip the strict accent gate (they still get a sanity pass).\n\n3) INCREMENTAL SKIP (re-runnable): keep scripts/academy-voice/ledger.json { sha: {speaker, model_version, done:true} }. For each line: skip if ledger has it done AND ledger.model_version == voice-map[speaker].model_version. Optionally reconcile once at start with `wrangler r2 object list --prefix voice/` so a fresh checkout re-hydrates the ledger from what's already in R2 instead of re-rendering everything.\n\n4) RENDER (per line): \n   a. `curl -s -X POST \"localhost:10101/audio_query?speaker=<style_id>\" --get --data-urlencode text=\"<text>\"` → query.json.\n   b. Apply per-speaker prosody from voice-map: set query.speedScale / pitchScale / intonationScale / prePhonemeLength / postPhonemeLength.\n   c. `curl -s -X POST \"localhost:10101/synthesis?speaker=<style_id>\" -H 'Content-Type: application/json' -d @query.json --output line.wav` (24kHz WAV).\n\n5) ACCENT-QA GATE (drill/imitation lines only) — keeps learners safe:\n   - Intended pitch pattern comes from the app's existing pitch data (Kanjium/NHK: accent-nucleus / mora count) for the drilled headword(s).\n   - Symbolic check: in query.json, for the accent_phrase containing the target word, assert `accent_phrases[].accent` (the downstep mora index) == the expected accent type. If it differs, PATCH accent (and mora boundaries) to the correct value and re-POST /synthesis with the corrected query — this is the whole reason to use AivisSpeech: the mora pitch is editable pre-synthesis.\n   - Acoustic confirm: run line.wav through a pitch tracker (librosa.pyin or WORLD f0) and verify the H→L downstep lands on the expected mora within tolerance (and that unvoiced morae aren't spuriously voiced). \n   - On fail after one patch attempt: DO NOT ship the take — log {sha, speaker, word, expected, got} to qa-fails.json and fall back to a known-good \"flat/neutral\" reference voice for that line so a wrong accent is never taught. Passing takes proceed.\n\n6) ENCODE Opus: `ffmpeg -y -i line.wav -ac 1 -c:a libopus -b:a 32k -vbr on -application voip -ar 48000 line.opus` (mono speech; 24–32 kbps is transparent for narration; bump narrator to -b:a 48k -application audio if you want richer storyteller tone). \n\n7) R2 PUT keyed like the worker cache: \n   `wrangler r2 object put <BUCKET>/voice/<speaker>/<sha>.opus --file line.opus --content-type \"audio/ogg\" --cache-control \"public, max-age=31536000, immutable\"`.\n   - Stamp custom metadata so voice-model changes are detectable despite the content-only sha: wrangler supports custom metadata — write `model-version=<voice-map model_version>` (and model uuid/style). On the next run, step 3 compares this against the current map and re-renders+overwrites when a speaker's voice was reassigned. (If a given wrangler build lacks custom-metadata flags, keep model_version authoritative in ledger.json and treat a map bump as \"delete the key + re-put\".)\n   - Mark ledger[sha] = {speaker, model_version, done:true} only after a successful put.\n\n8) VERIFY: for a sample of shas, `curl -I https://audio.yomureader.com/voice/line?text=<enc>&speaker=<id>` and assert 200 + audio/ogg + the object length matches; spot-listen the accent-QA fallback lines.\n\nRE-RUNNABILITY SUMMARY: idempotent by (sha, model_version) via ledger.json + R2 custom metadata; a second run with no map changes does zero engine calls and zero puts; changing one speaker's model_version re-renders only that speaker's lines; the manifest is the single source of truth for the work list and the R2 key. Wrap steps 4–7 in a small Node or Python driver over the manifest with a concurrency cap (2–4 parallel synths; the engine is CPU/ANE-bound) and retry/backoff on 5xx from the engine and from wrangler."
+  }
+ ],
+ "mapping": {
+  "assignments": [
+   {
+    "speakerId": "rie",
+    "modelName": "morioki",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48",
+    "rationale": "FORCED pick and exactly the brief: the only AdultFemale (mature grown-woman) timbre on AivisHub — calm, warm, steady. The natural Rie-SENSEI teacher voice. ACML 1.0, commercial OK, trivial credit 'ボイス提供: もりおき'."
+   },
+   {
+    "speakerId": "sophie",
+    "modelName": "まお (Mao / Oz Chat)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7",
+    "rationale": "Bright, playful young-female with 6 emotion styles — the genki classmate lead. Distinct high-energy anime timbre, well-vetted original character (voice_type=Synthetic), no real-person clone. ACML 1.0, credit 'AivisSpeech: まお'."
+   },
+   {
+    "speakerId": "jenny",
+    "modelName": "コハク (Kohaku / Oz Chat)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/22e8ed77-94fe-4ef2-871f-a86f94e9a579",
+    "rationale": "Soft, sweet, kitten-like young-female — softer/breathier counterpart to Mao so the two lively classmates don't collide. Original character, ACML 1.0, credit 'AivisSpeech: コハク'."
+   },
+   {
+    "speakerId": "mika",
+    "modelName": "JVNV-M2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+    "modelUrl": "https://huggingface.co/litagin/style_bert_vits2_jvnv",
+    "rationale": "CORRECTED 2026-07-18: Mika is male (he/him) per owner sprite refinement — moved from JVNV-F1 to the JVNV male-2 voice (soft/quiet male fits the quiet-polyglot anchor)."
+   },
+   {
+    "speakerId": "jodi",
+    "modelName": "ほのか (Honoka / リアボVC)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/59f96896-64d2-4378-830a-4d5feb3d81aa",
+    "rationale": "Grounded, realistic 'real 20s-woman' voice from a consenting paid actor — a natural everyday classmate distinct from both the anime and corpus timbres. ACML 1.0, credit '声は @dopoiro のAI'. Used only this one of its six near-identical siblings."
+   },
+   {
+    "speakerId": "stasi",
+    "modelName": "みちのくあいり (Michinoku Airi)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/1b2830f4-8cf1-4184-a0d9-3a1bace3a844",
+    "rationale": "Most expressive female (7 emotion styles) — good for a dramatic classmate. Speaker 上戸恵里 also voices the narrator (rasetsun), so placed far from narrator in cast order (non-adjacent). ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "ruparna",
+    "modelName": "JVNV-F2 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+    "modelUrl": "https://huggingface.co/litagin/style_bert_vits2_jvnv",
+    "rationale": "Warmer/lower-set second corpus female — a distinct realistic timbre sitting a register below F1 (mika). Consenting corpus, CC-BY-SA-4.0 with attribution."
+   },
+   {
+    "speakerId": "rose",
+    "modelName": "RikkaBotan sweet (jp_extra_sweet_original)",
+    "modelUrl": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_sweet_original",
+    "rationale": "Warm, soft, emotionally-expressive female from a trusted single-author own-voice source (clean provenance). Distinct real person adds true diversity. CC-BY-SA-4.0, commercial explicitly allowed with credit; ship audio not weights. Only RikkaBotan variant used, so no same-speaker collision."
+   },
+   {
+    "speakerId": "angel",
+    "modelName": "凛音エル (Rinne Eru)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/f5017410-fbb5-49e1-97cb-e785f42e15f5",
+    "rationale": "Clear, bright 'cyber angel' character (5 styles) — thematically on-the-nose for the character nicknamed Angel/Onke, and a lively clear timbre separate from the soft/natural females. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "nanako",
+    "modelName": "花音 (Kanon)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/a670e6b8-0852-45b2-8704-1bc9862f2fe6",
+    "rationale": "Clean, neutral standard female (single style, Aivis Cloud sample-adjacent clean model) — a plain, composed classmate to contrast the emotive voices. ACML 1.0, credit optional. Chosen as the one representative of the same-lab prototype family to avoid siblings sounding alike."
+   },
+   {
+    "speakerId": "mira",
+    "modelName": "zonoko",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/7fc08a41-b64d-456d-8b22-8e1284674775",
+    "rationale": "The single most license-clean pick (CC0, zero obligations). English-derived source gives a slightly-accented distinct timbre — ideal for a foreign-background classmate and guaranteed not to collide with the anime/corpus voices."
+   },
+   {
+    "speakerId": "narrator",
+    "modelName": "らせつん (Rasetsun)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad",
+    "rationale": "The ONLY Neutral/androgynous timbre on the hub — friendly, calm, unhurried, with 8 emotion styles incl. sadness for a soft reflective read. The natural rainy-evening storyteller. ACML 1.0, credit optional. Shares speaker with stasi (Airi) but they sit far apart in cast order."
+   },
+   {
+    "speakerId": "henry",
+    "modelName": "fumifumi",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/71e72188-2726-4739-9aa9-39567396fb2a",
+    "rationale": "Calm, composed young-adult man — the cleanest-license male (ACML 1.0, credit optional, no ShareAlike, native AIVMX). Ideal steady protagonist voice. Consenting original character (Sagawa Fumiya), not a clone."
+   },
+   {
+    "speakerId": "aakash",
+    "modelName": "kokuren_voice",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/e40d5b99-8cde-4442-a45b-0ebec9167506",
+    "rationale": "Expressive young male with a full 6-emotion set — good for a dramatic student role, distinct from the calm fumifumi. Creator's own self-uploaded voice. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "alex",
+    "modelName": "yukyu",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/1f04a608-916c-4d9e-bf6e-b9da5c176f85",
+    "rationale": "Straightforward neutral YouthfulMale, no strong character coloring — a plain-spoken classmate baseline. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "tom",
+    "modelName": "Lux",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/3dabea2b-cc10-41da-955b-4618ce84e716",
+    "rationale": "Broadcast-clean young-male (96kHz studio + ITA corpus) — the crispest young timbre, distinct from the neutral yukyu and casual voices. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "sam",
+    "modelName": "にせ (nise)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/6d11c6c2-f4a4-4435-887e-23dd60f8b8dd",
+    "rationale": "Bright youthful-male prototype, creator marks 自由に使用可; most-downloaded male on the hub — a dependable bright-young standard. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "shin",
+    "modelName": "立神ケイ (Tategami Kei)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/b2bee8fc-3f65-4c99-9607-a1075a10066b",
+    "rationale": "Low, breathy, slightly muttering young-male — a reserved/moody register that contrasts sharply with the bright youths (sam/tom). ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "christian",
+    "modelName": "澤原 玄二郎 (Sawabaru Genjirou)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/2e1fdde8-d089-42d7-b64f-cf89952b1bdc",
+    "rationale": "Hasty, rowdy, brash young 'cat-guy' — high-energy cheeky color distinct from the calm/clean males. ACML 1.0, credit optional. Run denoise after synthesis (noisy by design)."
+   },
+   {
+    "speakerId": "felix",
+    "modelName": "はきみて れく (Hakimite Reku)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/70ad7e84-6a10-48d6-8f9a-8dac4bba3c0b",
+    "rationale": "Boyish, high, sprightly young-male VTuber original — the highest/most youthful male register, separating the young-male block. Creator grants free use. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "robert",
+    "modelName": "阿井田 茂 (Aida Shigeru)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1",
+    "rationale": "Warm, resonant middle-aged baritone — a mature lead male anchoring the older-adult band away from the young cluster. Well-known clean model (AivisSpeech install example). ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "peter",
+    "modelName": "hinakoyuhara",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+    "rationale": "Plain MiddleAgedMale (voice_timbre=MiddleAgedMale) — an 'ordinary older classmate' grounded timbre, distinct from Aida's baritone but in the same age band for variety. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "steve",
+    "modelName": "観測症 (Kansokushou)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/ed47c952-c253-405e-adba-1172399816a1",
+    "rationale": "Natural, casual, close-mic adult male with candid un-polished texture — an everyman voice distinct from the studio-clean and middle-aged voices. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "tom2",
+    "modelName": "宗周定昌 (Soushuu Sadamasa)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/00f29eb2-e12b-4f64-a5e8-4188be62de33",
+    "rationale": "Slightly anime-stylized young-male — a more expressive/animated color that keeps tom2 clearly separate from tom's broadcast-clean Lux. ACML 1.0, credit optional."
+   },
+   {
+    "speakerId": "shaun",
+    "modelName": "結亜ナル (Yua Naru)",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/b79c40e4-8a5e-4f20-802c-2c0eba2f0983",
+    "rationale": "CC0 / public-domain YouthfulMale — the safest license in the male set (no attribution, no impersonation clause). A distinct clean young timbre for a filler student. Glance at page to confirm original voice."
+   },
+   {
+    "speakerId": "xingyu",
+    "modelName": "JVNV-M1 (Style-Bert-VITS2 JP-Extra, JVNV corpus)",
+    "modelUrl": "https://huggingface.co/litagin/style_bert_vits2_jvnv",
+    "rationale": "Neutral realistic adult-male corpus speaker (7 emotion styles) — adds a grounded human male timbre from the consenting academic corpus, distinct from the AivisHub character voices. CC-BY-SA-4.0 with attribution."
+   },
+   {
+    "speakerId": "francis",
+    "modelName": "TANAKA",
+    "modelUrl": "https://hub.aivis-project.com/aivm-models/470a41e2-863f-4bf2-8a20-bf7cde0d8f7b",
+    "rationale": "ElderlyMale, characterful (voice_timbre=ElderlyMale, 5 styles) — anchors the oldest end of the male age spread so the cast doesn't collapse into a narrow band. ACML 1.0, credit optional."
+   }
+  ],
+  "distinctnessNotes": "All 27 speakers (11 female + narrator + 15 male) receive a DISTINCT underlying voice identity — zero reuse. Rie gets morioki, the only mature AdultFemale timbre and a forced pick per the brief. Spread strategy: FEMALE runs mature-teacher (morioki) → genki (Mao) → soft-sweet (Kohaku) → natural-corpus (JVNV-F1) → realistic-20s (Honoka) → dramatic (Airi) → warm-lower-corpus (JVNV-F2) → warm own-voice (RikkaBotan sweet) → bright cyber-clear (Rinne Eru) → clean-neutral (Kanon) → CC0 accented (zonoko). MALE spreads across age bands: elderly (TANAKA) / middle-aged baritone (Aida) / plain middle-aged (hinakoyuhara) / casual-natural adult (Kansokushou) / corpus adult (JVNV-M1) down through calm-young (fumifumi), clean-pro-young (Lux), bright-young (nise), neutral-young (yukyu), expressive-young (kokuren), brash (Sawabaru), boyish-high (Hakimite Reku), low-muttered (Tategami Kei), anime-stylized (Soushuu), CC0-young (Yua Naru). Same-speaker/family hazards handled: (1) 上戸恵里 voices BOTH narrator (rasetsun) and stasi (Michinoku Airi) — placed non-adjacent (cast positions ~6 and 12). (2) Only ONE RikkaBotan variant used (sweet), so cool/asmr siblings can't collide. (3) Only ONE Honoka-family sibling used. (4) Only ONE same-lab prototype (Kanon) used for a shipped role; るな/桜音/まい left unassigned to avoid near-identical siblings. tom (Lux, clean) and tom2 (Soushuu, stylized) deliberately given maximally different young-male colors despite similar names.",
+  "gaps": "No gaps. The sourced pool contains far more than 27 distinct license-clean voice identities, so every speaker got a unique voice with no reuse. Unused spares remain available as swaps: females まい/Mai, るな/Runa, 桜音/Sakura-ne, Amitaro/Koharune Ami, Tsukuyomi-chan, RikkaBotan cool/asmr; males ろてじん Elder, ろてじん anonymous-interview, 蒼月ハヤテ/Aotsuki Hayate, 猩々博士/Shoujou-hakase, JVNV-M2, and the M1/M2 SBV2 defaults. Licensing note (not a gap): the JVNV picks (mika, ruparna, xingyu) and RikkaBotan (rose) are CC-BY-SA-4.0 — commercial OK but require a credits-page attribution and shipping generated AUDIO only (never the model weights) to avoid copyleft/redistribution issues; all AivisHub ACML/CC0 picks are cleaner (credit optional or none). Two picks flagged for a pre-ship glance to confirm original-voice provenance: 澤原玄二郎 (tagged けものフレンズアブリッジ fan project) and 結亜ナル (confirm CC0 original). Sawabaru also needs post-synthesis denoise."
+ },
+ "licenseVerdicts": [
+  {
+   "modelName": "morioki",
+   "licenseVerdict": "clean-commercial",
+   "detail": "AivisHub page confirms ACML 1.0. Speaker is a real living person (実在人物・存命) who self-provided their voice (X: @morioki_5) via the platform's rights-affirmed upload, so consent is established. ACML 1.0 permits all commercial use; credit optional. Prohibits impersonation/defamation content only.",
+   "url": "https://hub.aivis-project.com/aivm-models/baaae3c0-7b22-4605-8ba5-80c959b41a48"
+  },
+  {
+   "modelName": "まお (Mao / Oz Chat)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "Page confirms ACML 1.0, category キャラクター（オリジナル）(original character, 卯畑まお from Oz Chat). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7"
+  },
+  {
+   "modelName": "コハク (Kohaku / Oz Chat)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "Page confirms ACML 1.0, original character (voice performed by ねゆたろ, licensed for the AI model). Commercial OK; credit optional under ACML (recommended attribution 'AivisSpeech: コハク' is voluntary).",
+   "url": "https://hub.aivis-project.com/aivm-models/22e8ed77-94fe-4ef2-871f-a86f94e9a579"
+  },
+  {
+   "modelName": "みちのくあいり (Michinoku Airi)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, category original character (Kozukata Gakuen Project; voice provided by 上戸恵里 for a fictional character). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/1b2830f4-8cf1-4184-a0d9-3a1bace3a844"
+  },
+  {
+   "modelName": "凛音エル (Rinne Eru)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (AI character of Dennou Tenshi Kogyo). Not based on a real person or seiyuu. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/f5017410-fbb5-49e1-97cb-e785f42e15f5"
+  },
+  {
+   "modelName": "ほのか (Honoka / リアボVC)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0. Real-person voice-conversion model, but description states voice rights were purchased from a consenting general female part-time contributor ('権利購入&マージ済み'); face image is AI-generated. Consent documented → commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/59f96896-64d2-4378-830a-4d5feb3d81aa"
+  },
+  {
+   "modelName": "まい (Mai)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (R&D prototype, young female voice). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/e9339137-2ae3-4d41-9394-fb757a7e61e6"
+  },
+  {
+   "modelName": "るな (Runa)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (R&D prototype by MAHOPROGRAM). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/4f281e78-eba6-495a-8e50-5c322d02b5b1"
+  },
+  {
+   "modelName": "桜音 (Sakura-ne)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (研究開発用試作モデル). Not a real person/seiyuu. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/3328da9a-8124-4619-a853-f7fc2f37889f"
+  },
+  {
+   "modelName": "花音 (Kanon)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (R&D prototype, youthful female voice). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/a670e6b8-0852-45b2-8704-1bc9862f2fe6"
+  },
+  {
+   "modelName": "zonoko",
+   "licenseVerdict": "clean-commercial",
+   "detail": "Confirmed CC0 (public domain): creator inherits the source voice's CC0 license ('元ボイスのライセンスを継承してcc0'). Original character from OpenGameArt English source. No restrictions.",
+   "url": "https://hub.aivis-project.com/aivm-models/7fc08a41-b64d-456d-8b22-8e1284674775"
+  },
+  {
+   "modelName": "ろてじん（長老ボイス）(Rotejin — Elder)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (elder-voice performance recording, not a real public figure). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/696c98a2-c0b7-4fe7-8cf2-c7e9b8a9bd82"
+  },
+  {
+   "modelName": "阿井田 茂 (Aida Shigeru)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (fictional 'Moai-san' persona by 古山キリヲ/Khirio). Despite the human-sounding name it is categorized オリジナル, not a real public figure or seiyuu. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/47e53151-a378-46f3-abee-ce13aa07feb1"
+  },
+  {
+   "modelName": "TANAKA",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (creator's self-made voice for YouTube narration). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/470a41e2-863f-4bf2-8a20-bf7cde0d8f7b"
+  },
+  {
+   "modelName": "hinakoyuhara",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (experimental middle-aged male voice by creator 柚原比奈子). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43"
+  },
+  {
+   "modelName": "ろてじん（匿名インタビュー風）(Rotejin — anonymous-interview)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (anonymous-interview-style performance, pitch-shifted). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/80fe2db4-5891-4550-a3f3-dff9a91c0946"
+  },
+  {
+   "modelName": "fumifumi",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character ('composed young man' by kokushin; vocal performance by sagawafumiya). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/71e72188-2726-4739-9aa9-39567396fb2a"
+  },
+  {
+   "modelName": "観測症 (Kansokushou)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0. Real human voice but it is the creator's own (@hdae describes 'the voice I managed to put out') → self-provided/consented. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/ed47c952-c253-405e-adba-1172399816a1"
+  },
+  {
+   "modelName": "yukyu",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/1f04a608-916c-4d9e-bf6e-b9da5c176f85"
+  },
+  {
+   "modelName": "Lux",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (by creator Lami). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/3dabea2b-cc10-41da-955b-4618ce84e716"
+  },
+  {
+   "modelName": "にせ (nise)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (youthful male voice, R&D prototype by MAHOPROGRAM). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/6d11c6c2-f4a4-4435-887e-23dd60f8b8dd"
+  },
+  {
+   "modelName": "澤原 玄二郎 (Sawabaru Genjirou)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (fictional 'cat' persona created by voice actor 古山キリヲ/Khirio). Categorized オリジナル, not a real public figure. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/2e1fdde8-d089-42d7-b64f-cf89952b1bdc"
+  },
+  {
+   "modelName": "宗周定昌 (Soushuu Sadamasa)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/00f29eb2-e12b-4f64-a5e8-4188be62de33"
+  },
+  {
+   "modelName": "kokuren_voice",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (youthful male voice, 6 emotion styles, by creator kokuren). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/e40d5b99-8cde-4442-a45b-0ebec9167506"
+  },
+  {
+   "modelName": "立神ケイ (Tategami Kei)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (creator's own performed voice). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/b2bee8fc-3f65-4c99-9607-a1075a10066b"
+  },
+  {
+   "modelName": "はきみて れく (Hakimite Reku)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (original VTuber persona). Creator explicitly permits free use per license absent public-order violations. Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/70ad7e84-6a10-48d6-8f9a-8dac4bba3c0b"
+  },
+  {
+   "modelName": "蒼月ハヤテ (Aotsuki Hayate)",
+   "licenseVerdict": "unverifiable",
+   "detail": "CORRECTION: page shows 'カスタムライセンス' (Custom License) with NO license text displayed on the model page. The input's claim of 'commercial OK' could not be confirmed from the primary source — the actual custom terms are not shown. Treat as unverifiable pending the full custom-license document.",
+   "url": "https://hub.aivis-project.com/aivm-models/eefe1fbd-d15a-49ae-bc83-fc4aaad680e1"
+  },
+  {
+   "modelName": "らせつん (Rasetsun) — NARRATOR / neutral",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0, original character (Kozukata Gakuen Project; voice by 上戸恵里 for a fictional character). Commercial OK, credit optional.",
+   "url": "https://hub.aivis-project.com/aivm-models/9f36ec0d-8dac-42dc-aff4-149c5f99faad"
+  },
+  {
+   "modelName": "M1 (Style-Bert-VITS2 default male 1 / jvnv-M1) — AivisHub",
+   "licenseVerdict": "needs-credit",
+   "detail": "CORRECTION: AivisHub license field shows 'カスタムライセンス' (Custom License), not plain CC BY-SA 4.0. Description states it is a redistribution of the Style-Bert-VITS2 default male model under CC BY-SA 4.0 (JVNV-corpus derived). Category 架空人物. Commercial OK but CC BY-SA 4.0 requires attribution + share-alike.",
+   "url": "https://hub.aivis-project.com/aivm-models/d7255c2c-ddd0-425a-808c-662cd94c7f41"
+  },
+  {
+   "modelName": "M2 (Style-Bert-VITS2 default male 2 / jvnv-M2) — AivisHub",
+   "licenseVerdict": "needs-credit",
+   "detail": "CORRECTION: AivisHub license field shows 'カスタムライセンス' (Custom License); description confirms redistribution under CC BY-SA 4.0 (JVNV-derived default male 2). Commercial OK but requires attribution + share-alike.",
+   "url": "https://hub.aivis-project.com/aivm-models/d1a7446f-230d-4077-afdf-923eddabe53c"
+  },
+  {
+   "modelName": "結亜ナル (Yua Naru)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "Confirmed CC0 (also cited as WTFPL/public-domain-equivalent). Original character, youthful male voice. No attribution or restrictions.",
+   "url": "https://hub.aivis-project.com/aivm-models/b79c40e4-8a5e-4f20-802c-2c0eba2f0983"
+  },
+  {
+   "modelName": "猩々博士 (Shoujou-hakase / chat voice)",
+   "licenseVerdict": "clean-commercial",
+   "detail": "ACML 1.0 (commercial OK, credit optional). CAUTION: this is a real-person-derived model built from VTuber Shoujou-hakase's stream audio ('配信音声から作成'). Uploader handle 'ろてじん/猩々博士' pairs the model-maker with the VTuber, implying self/authorized upload under the platform's rights affirmation — so treated as consented rather than clone-risk, but the VTuber-derived origin is the one item worth a rights double-check before commercial reliance.",
+   "url": "https://hub.aivis-project.com/aivm-models/70a875a9-feae-41e6-a586-8cf9e47c6c0b"
+  },
+  {
+   "modelName": "JVNV-F1 (Style-Bert-VITS2, litagin, JVNV corpus)",
+   "licenseVerdict": "needs-credit",
+   "detail": "HF repo confirms CC-BY-SA-4.0, inherited from the JVNV corpus (Takamichi lab). Commercial permitted but attribution required and share-alike applies to derivatives.",
+   "url": "https://huggingface.co/litagin/style_bert_vits2_jvnv"
+  },
+  {
+   "modelName": "JVNV-F2 (Style-Bert-VITS2, litagin, JVNV corpus)",
+   "licenseVerdict": "needs-credit",
+   "detail": "Same repo/license as JVNV-F1: CC-BY-SA-4.0 (JVNV corpus). Commercial OK, attribution + share-alike required.",
+   "url": "https://huggingface.co/litagin/style_bert_vits2_jvnv"
+  },
+  {
+   "modelName": "JVNV-M1 (Style-Bert-VITS2, litagin, JVNV corpus)",
+   "licenseVerdict": "needs-credit",
+   "detail": "Same repo/license: CC-BY-SA-4.0 (JVNV corpus). Commercial OK, attribution + share-alike required.",
+   "url": "https://huggingface.co/litagin/style_bert_vits2_jvnv"
+  },
+  {
+   "modelName": "JVNV-M2 (Style-Bert-VITS2, litagin, JVNV corpus)",
+   "licenseVerdict": "needs-credit",
+   "detail": "Same repo/license: CC-BY-SA-4.0 (JVNV corpus). Commercial OK, attribution + share-alike required.",
+   "url": "https://huggingface.co/litagin/style_bert_vits2_jvnv"
+  },
+  {
+   "modelName": "RikkaBotan cool (jp_extra_cool_original)",
+   "licenseVerdict": "needs-credit",
+   "detail": "HF repo confirms CC-BY-SA-4.0. Author states commercial and non-commercial free use allowed; training data is only the author's own voice (original synthetic, not a real third party). Attribution + share-alike required; no model redistribution.",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_cool_original"
+  },
+  {
+   "modelName": "RikkaBotan sweet (jp_extra_sweet_original)",
+   "licenseVerdict": "needs-credit",
+   "detail": "HF repo confirms CC-BY-SA-4.0; commercial OK, author's own voice. Attribution + share-alike required.",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_sweet_original"
+  },
+  {
+   "modelName": "RikkaBotan asmr (jp_extra_asmr_original)",
+   "licenseVerdict": "needs-credit",
+   "detail": "HF repo confirms CC-BY-SA-4.0; commercial OK, author's own voice. Attribution + share-alike required.",
+   "url": "https://huggingface.co/RikkaBotan/style_bert_vits2_jp_extra_asmr_original"
+  },
+  {
+   "modelName": "Amitaro / Koharune Ami (あみたろ, Style-Bert-VITS2 bundled default)",
+   "licenseVerdict": "needs-credit",
+   "detail": "amitaro.net terms confirm commercial use and monetization OK, but CREDIT IS MANDATORY ('あみたろの声素材工房 (https://amitaro.net/)' or '小春音アミ' shown prominently). AI/voice-model use allowed; selling a model made only of Amitaro's voice is prohibited, as are adult/deepfake/NFT/political uses. Own consenting voice, not clone-risk.",
+   "url": "https://amitaro.net/voice/voice_rule/"
+  },
+  {
+   "modelName": "Tsukuyomi-chan (つくよみちゃん) Style-Bert-VITS2",
+   "licenseVerdict": "needs-credit",
+   "detail": "Terms follow the Tsukuyomi-chan corpus (rei-yumesaki.net): commercial use allowed for individuals/orgs, but credit is required for any public/published use with a prescribed attribution format; carry-forward licensing on derived software. Established official character with defined terms — consenting, not clone-risk. (ayousanz HF mirror defers to these same corpus terms.)",
+   "url": "https://tyc.rei-yumesaki.net/material/corpus/"
+  }
+ ]
+}

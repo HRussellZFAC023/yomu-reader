@@ -4,8 +4,21 @@ import { reportedMessageWorkshopPlugin } from '../content/lesson-l2-l27-reported
 import { followTheModelWorkshopPlugin } from '../content/lesson-l2-l28-follow-the-model-workshop';
 import { considerateRecommendationPlugin } from '../content/lesson-l2-l35-considerate-recommendation';
 import { youniGoalWorkshopPlugin } from '../content/lesson-l2-l36-youni-goal-workshop';
+import { younarimasuChangeWorkshopPlugin } from '../content/lesson-l2-l36-younarimasu-change-workshop';
+import { advancedImmersionPlugin } from '../content/advanced-immersion/plugin';
+import { n1OpeningSequencePlugin } from '../content/n1-opening-sequence/plugin';
 import { n1SoundDiscriminationPlugin } from '../content/n1-sound-discrimination/plugin';
+import { n1ContrastInferencePlugin } from '../content/n1-contrast-inference/plugin';
+import { n2ApartmentMovingPlugin } from '../content/n2-apartment-moving/plugin';
 import { n2ExtensiveReadingPlugin } from '../content/n2-extensive-reading/plugin';
+import { n2HomeLifeReaderPlugin } from '../content/n2-home-life-reader/plugin';
+import { n2MovingCouponPlugin } from '../content/n2-moving-coupon/plugin';
+import { n2MovingPriorityListeningPlugin } from '../content/n2-moving-priority-listening/plugin';
+import { n2PolicyScopePlugin } from '../content/n2-policy-scope/plugin';
+import { n2PpoiImpressionPlugin } from '../content/n2-ppoi-impression/plugin';
+import { n3N4SleepBridgePlugin } from '../content/n3-n4-sleep-bridge/plugin';
+import { n3PetHousingPlugin } from '../content/n3-pet-housing/plugin';
+import { n3SourceOpeningPlugin } from '../content/n3-source-opening/plugin';
 import { createActivityRuntime, type ActivityPlugin, type ActivityRuntime } from '../domain/activity-runtime';
 import { adjectiveDescriptionWorkbookPlugin } from './adjective-description-workbook';
 import { bankListeningClozePlugin } from './bank-listening-cloze';
@@ -71,8 +84,20 @@ import { weeklyPlanWorkbookPlugin } from './weekly-plan-workbook';
 
 export const ACADEMY_ACTIVITY_PLUGINS: readonly ActivityPlugin[] = Object.freeze([
     choiceActivityPlugin,
+    advancedImmersionPlugin,
+    n1OpeningSequencePlugin,
     n1SoundDiscriminationPlugin,
+    n1ContrastInferencePlugin,
     n2ExtensiveReadingPlugin,
+    n2ApartmentMovingPlugin,
+    n2PpoiImpressionPlugin,
+    n2MovingCouponPlugin,
+    n2HomeLifeReaderPlugin,
+    n2MovingPriorityListeningPlugin,
+    n2PolicyScopePlugin,
+    n3SourceOpeningPlugin,
+    n3N4SleepBridgePlugin,
+    n3PetHousingPlugin,
     adjectiveDescriptionWorkbookPlugin,
     bankListeningClozePlugin,
     typedResponsePlugin,
@@ -114,6 +139,7 @@ export const ACADEMY_ACTIVITY_PLUGINS: readonly ActivityPlugin[] = Object.freeze
     followTheModelWorkshopPlugin,
     considerateRecommendationPlugin,
     youniGoalWorkshopPlugin,
+    younarimasuChangeWorkshopPlugin,
     stateInspectionPlugin,
     particleSignalMixerPlugin,
     tokiThresholdPlugin,

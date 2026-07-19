@@ -23,7 +23,7 @@ describe('Academy resource-ledger claim honesty', () => {
         expect(ledger.stage1VerticalSlice.currentRouteState).toBe('trusted-source-playable');
         expect(ledger.stage1VerticalSlice.learnerEvidenceWritesAllowed).toBe(true);
         expect(ledger.coverage.classWeeksPlayable).toBe(playableWeekIds.length);
-        expect(ledger.coverage.classWeeksTotal).toBe(73);
+        expect(ledger.coverage.classWeeksTotal).toBe(74);
         expect(ledger.stage2LibraryCensus.note).toMatch(/contributes no verified or playable source questions/i);
     });
 

@@ -30,7 +30,7 @@ import {
     type N3PetHousingResponse,
 } from './types';
 
-const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingResponse> = {
+export const n3PetHousingPlugin: ActivityPlugin<N3PetHousingModel, N3PetHousingResponse> = {
     kind: N3_PET_HOUSING_ACTIVITY_KIND,
     validate: validateN3PetHousing,
     render: renderN3PetHousing,

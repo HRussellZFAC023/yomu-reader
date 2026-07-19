@@ -1,0 +1,1141 @@
+{
+  "schema": "yomu-academy.listening-source-bank/v1",
+  "policy": {
+    "purpose": "A reviewable, progressive bank of exact audio, transcript, prompt, and answer pairings. Source identity never grants delivery rights.",
+    "transcriptCanonicalFormat": "speaker-tab-text-lines-v1",
+    "releaseRule": "Only entries with release.state=approved, recorded approval evidence, and an opaque Worker asset may resolve. All other states fail closed.",
+    "answerReveal": "after-attempt",
+    "transcriptReveal": "after-attempt"
+  },
+  "inventory": {
+    "reviewedOn": "2026-07-18",
+    "inventoryRef": "public/academy/content/audio/source-inventory.v1.json",
+    "sourceBankCoverage": {
+      "recordings": 5,
+      "tasks": 19
+    },
+    "sourceFamilies": {
+      "moodle": {
+        "id": "moodle",
+        "kind": "course-archive-inventory",
+        "rootLocator": "academy-archive://moodle-raw/ucl-japanese-2023-2024",
+        "facts": {
+          "audioOccurrences": 185,
+          "uniqueAudioPayloads": 146,
+          "duplicateAudioOccurrences": 39,
+          "exactTaskBoundPayloads": 11,
+          "exactTaskBindings": 43
+        },
+        "selected": {
+          "recordings": 1,
+          "tasks": 3
+        },
+        "rights": "private-course-source-review-required",
+        "runtime": "inventory-only"
+      },
+      "soya": {
+        "id": "soya",
+        "kind": "directory",
+        "rootLocator": "/private/yomu-references/soya-research/audio-public",
+        "facts": {
+          "audioFiles": 58920,
+          "uniqueAudioPayloads": 50973,
+          "duplicateAudioFiles": 7947,
+          "jlptQuestionMapRecords": 487,
+          "staticCompleteJlptTasks": 386,
+          "n1BrowserTtsFallbackRecords": 30
+        },
+        "selected": {
+          "recordings": 2,
+          "tasks": 2
+        },
+        "rights": "private-source-review-required",
+        "runtime": "inventory-only"
+      },
+      "minna": {
+        "id": "minna",
+        "kind": "archive",
+        "rootLocator": "/private/source-downloads/0-0001-01-230020-0.zip",
+        "archiveSha256": "b9b3c693080df851f722b7697a57ca66f6c3f0a43434e68e609be14b1afe6da5",
+        "facts": {
+          "audioFiles": 87,
+          "uniqueAudioPayloads": 87,
+          "exactMoodlePayloads": 30,
+          "exactAcademyPackageReferences": 24,
+          "unmatchedAudioFiles": 57,
+          "exactTaskBoundPayloads": 5
+        },
+        "selected": {
+          "recordings": 1,
+          "tasks": 4
+        },
+        "rights": "official-download-access-verified-redistribution-not-claimed",
+        "runtime": "inventory-only"
+      },
+      "genki": {
+        "id": "genki",
+        "kind": "archive",
+        "rootLocator": "/private/source-downloads/Genki Japanese-20260714T213954Z-1-001.zip",
+        "archiveSha256": "da8ee188f74cb9fbbe47ae197e150dbe8e83b4f6d80095a48bb0dbb78ad4c8ac",
+        "facts": {
+          "audioFiles": 464,
+          "uniqueAudioPayloads": 463,
+          "duplicateAudioFiles": 1,
+          "exactMoodlePayloads": 0,
+          "exactAcademyPackageReferences": 0,
+          "verifiedTaskPairings": 0
+        },
+        "selected": {
+          "recordings": 0,
+          "tasks": 0
+        },
+        "rights": "private-source-review-required",
+        "runtime": "excluded-no-verified-pairing"
+      },
+      "jlpt-library": {
+        "id": "jlpt-library",
+        "kind": "directory",
+        "rootLocator": "/private/japanese-library/",
+        "facts": {
+          "audioFiles": 3801,
+          "uniqueAudioPayloads": 3785,
+          "visualFiles": 1302,
+          "shinKanzenListeningAudioFilesN3ToN1": 445,
+          "shinKanzenListeningAudioFilesN1": 149,
+          "verifiedTaskPairings": 1
+        },
+        "selected": {
+          "recordings": 1,
+          "tasks": 10
+        },
+        "rights": "private-source-review-required",
+        "runtime": "inventory-only"
+      }
+    }
+  },
+  "levels": {
+    "n5": {
+      "id": "n5-moodle-a45-frequency",
+      "level": "n5",
+      "title": "Moodle A-45 frequency listening",
+      "sourceFamily": "moodle",
+      "instruction": "3. １日・１週間・１年に 何回 しますか。",
+      "source": {
+        "assetId": "listening-n5-moodle-a45-7a7f9cf7c9d0a109",
+        "localPath": "/private/yomu-repo/public/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3",
+        "originRef": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/16-folder-6310077-lesson-10.zip#audio materials/45 A-45.mp3",
+        "sha256": "7a7f9cf7c9d0a10932007df1528f10fdfd7c0f38fe59bb938aa7a6952ccc47c8",
+        "bytes": 2830402,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 103,
+        "sampleRateHz": 44100,
+        "channels": 2
+      },
+      "pairing": {
+        "status": "verified",
+        "method": "The three worksheet prompts and options are verbatim from page 2 task 3; answers and transcript were reviewed against the exact paired A-45 recording.",
+        "evidence": [
+          {
+            "kind": "task-source",
+            "path": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/16-folder-6310077-lesson-10.zip#Handouts from last week/Chapter 11_listening.pdf",
+            "sha256": "797c858bc8070541ec31bae8e631ac03d7c3a28a3409602f331020e1192002e8",
+            "locus": "PDF page 2, task 3, items 1-3"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "/private/yomu-repo/public/academy/content/listening/media/academy-listening-7a7f9cf7c9d0a109.mp3",
+            "sha256": "7a7f9cf7c9d0a10932007df1528f10fdfd7c0f38fe59bb938aa7a6952ccc47c8",
+            "locus": "Original recording review for the Ogawa, Miller, and Tawapon segments"
+          },
+          {
+            "kind": "archive-container",
+            "path": "academy-archive://moodle-raw/ucl-japanese-2023-2024/rie-level-1-plus-thursday-7pm/16-folder-6310077-lesson-10.zip",
+            "sha256": "0d4a991fc8dcc2f8487f6ce3d44513c5a45306541b35fee5c5ac8e5937f55a0a",
+            "locus": "Audio and worksheet members in the same Moodle module archive"
+          }
+        ]
+      },
+      "learnerContract": {
+        "answerReveal": "after-attempt",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "transcript": {
+        "storage": "inline",
+        "format": "speaker-tab-text-lines-v1",
+        "sha256": "06608336333f4e11ec95e5f13ce8f5b2710dc018d1aa708eeee97017717c9dd6",
+        "lineCount": 6,
+        "lines": [
+          {
+            "speaker": "小川さん",
+            "text": "朝ごはんと 昼ごはんと 晩ごはんを 食べます。"
+          },
+          {
+            "speaker": "小川さん",
+            "text": "それから １０時と ３時に くだものを 食べます。"
+          },
+          {
+            "speaker": "ミラーさん",
+            "text": "だいたい １か月に １回 出張します。"
+          },
+          {
+            "speaker": "ミラーさん",
+            "text": "８月と １２月は 行きません。"
+          },
+          {
+            "speaker": "タワポンさん",
+            "text": "火曜日と 金曜日は 休みます。"
+          },
+          {
+            "speaker": "タワポンさん",
+            "text": "土曜日と 日曜日は 働きます。"
+          }
+        ],
+        "coverage": [
+          {
+            "taskId": "ex-l20-a45-ogawa",
+            "lineNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "taskId": "ex-l20-a45-miller",
+            "lineNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "taskId": "ex-l20-a45-tawapon",
+            "lineNumbers": [
+              5,
+              6
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "id": "ex-l20-a45-ogawa",
+          "sourceQuestionId": "moodle:6310077:797c858b:pdf-p2:task-3:item-1:audio-a45",
+          "kind": "single-choice",
+          "prompt": "小川さんは １日に {3 4 5} 回 食べます。",
+          "choices": [
+            {
+              "id": "3",
+              "label": "3"
+            },
+            {
+              "id": "4",
+              "label": "4"
+            },
+            {
+              "id": "5",
+              "label": "5"
+            }
+          ],
+          "answer": {
+            "choiceId": "5"
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l1-l20",
+            "sourceQuestionId": "ex-l20-a45-ogawa"
+          }
+        },
+        {
+          "id": "ex-l20-a45-miller",
+          "sourceQuestionId": "moodle:6310077:797c858b:pdf-p2:task-3:item-2:audio-a45",
+          "kind": "single-choice",
+          "prompt": "ミラーさんは １年に {1 10 12} 回 出張します。",
+          "choices": [
+            {
+              "id": "1",
+              "label": "1"
+            },
+            {
+              "id": "10",
+              "label": "10"
+            },
+            {
+              "id": "12",
+              "label": "12"
+            }
+          ],
+          "answer": {
+            "choiceId": "10"
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l1-l20",
+            "sourceQuestionId": "ex-l20-a45-miller"
+          }
+        },
+        {
+          "id": "ex-l20-a45-tawapon",
+          "sourceQuestionId": "moodle:6310077:797c858b:pdf-p2:task-3:item-3:audio-a45",
+          "kind": "single-choice",
+          "prompt": "タワポンさんは １週間に {4 5 7} 回 アルバイトを します。",
+          "choices": [
+            {
+              "id": "4",
+              "label": "4"
+            },
+            {
+              "id": "5",
+              "label": "5"
+            },
+            {
+              "id": "7",
+              "label": "7"
+            }
+          ],
+          "answer": {
+            "choiceId": "5"
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l1-l20",
+            "sourceQuestionId": "ex-l20-a45-tawapon"
+          }
+        }
+      ],
+      "release": {
+        "state": "rights-review-required",
+        "reason": "The exact Moodle course pairing is verified, but private-course redistribution approval has not been recorded for this source bank."
+      }
+    },
+    "n4": {
+      "id": "n4-minna-075-conversation",
+      "level": "n4",
+      "title": "Minna 075 room-search conversation",
+      "sourceFamily": "minna",
+      "instruction": "Minna 075 を聞いて、四つの質問に答えます。",
+      "source": {
+        "assetId": "listening-n4-minna-075-360cef1923b1e824",
+        "localPath": "/private/yomu-repo/public/academy/content/listening/media/academy-listening-360cef1923b1e824.mp3",
+        "originRef": "/private/source-downloads/0-0001-01-230020-0.zip#0-0001-01-230001/minna_shokyu_1_075.mp3",
+        "sha256": "360cef1923b1e824f22ec5ebdaf18896e87846c8c9019f25228da60675c79834",
+        "bytes": 1039726,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 43.232667,
+        "sampleRateHz": 44100,
+        "channels": 2
+      },
+      "pairing": {
+        "status": "verified",
+        "method": "Four exact Moodle Chapter 22 worksheet questions were paired with Moodle Minna 075 after byte comparison to the official 3A archive and recording review.",
+        "evidence": [
+          {
+            "kind": "task-source",
+            "path": "academy-archive://moodle-raw/module-6974657#Homework/HW Chapter 22_Conversation listening.pdf",
+            "sha256": "c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0",
+            "locus": "PDF page 1, four questions in source order"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "tmp/listening-source-bank/transcripts/n4-minna-075.json",
+            "sha256": "5e775a494e0f7a79e756d27fa1efa30376551539e4b3663084d9505d38bf2621",
+            "locus": "Thirteen-line transcript reviewed against track 075"
+          },
+          {
+            "kind": "archive-container",
+            "path": "/private/source-downloads/0-0001-01-230020-0.zip",
+            "sha256": "b9b3c693080df851f722b7697a57ca66f6c3f0a43434e68e609be14b1afe6da5",
+            "locus": "0-0001-01-230001/minna_shokyu_1_075.mp3"
+          }
+        ]
+      },
+      "learnerContract": {
+        "answerReveal": "after-attempt",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "transcript": {
+        "storage": "local-sidecar",
+        "format": "speaker-tab-text-lines-v1",
+        "sha256": "5e775a494e0f7a79e756d27fa1efa30376551539e4b3663084d9505d38bf2621",
+        "lineCount": 13,
+        "localPath": "tmp/listening-source-bank/transcripts/n4-minna-075.json",
+        "localFileSha256": "e91f43784d9d84eeb5863e657f5b6931a4403c165ea069c1e9763bbfafc12efa",
+        "coverage": [
+          {
+            "taskId": "n4-minna-075-room-request",
+            "lineNumbers": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13
+            ]
+          },
+          {
+            "taskId": "n4-minna-075-rent",
+            "lineNumbers": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13
+            ]
+          },
+          {
+            "taskId": "n4-minna-075-station-time",
+            "lineNumbers": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13
+            ]
+          },
+          {
+            "taskId": "n4-minna-075-view-today",
+            "lineNumbers": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "id": "n4-minna-075-room-request",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-1",
+          "kind": "short-answer",
+          "prompt": "ワンさんは どんな 部屋を 探していますか。",
+          "answer": {
+            "accepted": [
+              "家賃は８万円ぐらいで、駅から遠くない所です。",
+              "８万円ぐらいで、駅から遠くない所です。"
+            ]
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l2-l09",
+            "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-1"
+          }
+        },
+        {
+          "id": "n4-minna-075-rent",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-2",
+          "kind": "short-answer",
+          "prompt": "この 部屋の 家賃は いくらですか。",
+          "answer": {
+            "accepted": [
+              "８万３千円です。",
+              "８万３千円。",
+              "８万３千円"
+            ]
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l2-l09",
+            "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-2"
+          }
+        },
+        {
+          "id": "n4-minna-075-station-time",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-3",
+          "kind": "short-answer",
+          "prompt": "駅から 何分 かかりますか。",
+          "answer": {
+            "accepted": [
+              "１０分です。",
+              "１０分。",
+              "１０分"
+            ]
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l2-l09",
+            "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-3"
+          }
+        },
+        {
+          "id": "n4-minna-075-view-today",
+          "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-4",
+          "kind": "short-answer",
+          "prompt": "今日 この 部屋を 見る ことが できますか。",
+          "answer": {
+            "accepted": [
+              "はい、できます。",
+              "はい。",
+              "はい",
+              "ええ、できます。"
+            ]
+          },
+          "registry": {
+            "status": "existing-binding",
+            "packageId": "l2-l09",
+            "sourceQuestionId": "moodle:6974657:c52c08bd27d6ed7d2c29eafbecaca8b83e14a4a0d35dc9139f4003c6718bb2f0:pdf-p1:minna075-conversation:item-4"
+          }
+        }
+      ],
+      "release": {
+        "state": "rights-review-required",
+        "reason": "Free, no-registration access to the official archive is verified, but redistribution permission is not claimed."
+      }
+    },
+    "n3": {
+      "id": "n3-soya-smartphone-battery",
+      "level": "n3",
+      "title": "Soya smartphone choice",
+      "sourceFamily": "soya",
+      "instruction": "会話を聞いて、男の人がスマートフォンを選んだ理由を選びます。",
+      "source": {
+        "assetId": "listening-n3-soya-mock1-l10-07a2a5a708f5a6ea",
+        "localPath": "/private/yomu-references/soya-research/audio-public/audio/mock1/mock1_l_10.mp3",
+        "originRef": "https://soya-eagle-online.com/audio/mock1/mock1_l_10.mp3",
+        "sha256": "07a2a5a708f5a6ea42e435d8df261fbca7f00e7ffe3cab587a450b177583c4c3",
+        "bytes": 317324,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 38.792,
+        "sampleRateHz": 24000,
+        "channels": 1
+      },
+      "pairing": {
+        "status": "verified",
+        "method": "The static audio path, Japanese script, options, and answer coexist in the same Soya source item and are reproduced by the local question/audio map.",
+        "evidence": [
+          {
+            "kind": "task-source",
+            "path": "/private/yomu-references/soya-research/extracted-src-all/data/courses/jlpt_n3/mock1_listening.js",
+            "sha256": "2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71",
+            "locus": "n3_mock1_listening item id mock1_l_10"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "/private/yomu-references/soya-research/listening-question-audio-map.json",
+            "sha256": "05c8155d0e2538b95f6985e30bd05366c55ca60a1959ca369a772ed1f9d2860e",
+            "locus": "questions[id=mock1_l_10]"
+          }
+        ]
+      },
+      "learnerContract": {
+        "answerReveal": "after-attempt",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "transcript": {
+        "storage": "inline",
+        "format": "speaker-tab-text-lines-v1",
+        "sha256": "2e628614434151e163fd41029378a5c7c106316167cd1a13e7bdfc65cfa03d69",
+        "lineCount": 3,
+        "lines": [
+          {
+            "speaker": "ナレーター",
+            "text": "男の人が携帯電話ショップで話しています。男の人がこのスマートフォンを選んだ理由は何ですか。"
+          },
+          {
+            "speaker": "男",
+            "text": "すみません、この機種をください。色々迷ったんですが、これにします。デザインや軽さも魅力的なんですけど、仕事で外に出ていることが多くて、途中で充電が切れるのが一番困るんですよ。これなら夜まで安心して使えそうなので。"
+          },
+          {
+            "speaker": "ナレーター",
+            "text": "男の人がこのスマートフォンを選んだ理由は何ですか。"
+          }
+        ],
+        "coverage": [
+          {
+            "taskId": "n3-soya-mock1-l10",
+            "lineNumbers": [
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "id": "n3-soya-mock1-l10",
+          "sourceQuestionId": "mock1_l_10",
+          "kind": "single-choice",
+          "prompt": "男の人がこのスマートフォンを選んだ理由は何ですか。",
+          "choices": [
+            {
+              "id": "design",
+              "label": "デザインが良いから"
+            },
+            {
+              "id": "battery",
+              "label": "電池が長持ちするから"
+            },
+            {
+              "id": "camera",
+              "label": "カメラの性能が良いから"
+            },
+            {
+              "id": "weight",
+              "label": "軽いから"
+            }
+          ],
+          "answer": {
+            "choiceId": "battery"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        }
+      ],
+      "release": {
+        "state": "rights-review-required",
+        "reason": "The Soya item is byte- and script-verified, but item-level redistribution approval has not been recorded."
+      }
+    },
+    "n2": {
+      "id": "n2-soya-time-saving-appliances",
+      "level": "n2",
+      "title": "Soya time-saving appliances summary",
+      "sourceFamily": "soya",
+      "instruction": "話を聞いて、男の人の中心的な主張を短く答えます。",
+      "source": {
+        "assetId": "listening-n2-soya-time-saving-1490d0b5f287864b",
+        "localPath": "/private/yomu-references/soya-research/audio-public/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3",
+        "originRef": "https://soya-eagle-online.com/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3",
+        "sha256": "1490d0b5f287864b014fed4ea26e5ad4c10ef702658e5c527943340976ee4d4b",
+        "bytes": 635204,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 68.768,
+        "sampleRateHz": 24000,
+        "channels": 1
+      },
+      "pairing": {
+        "status": "verified",
+        "method": "The static audio path, Japanese script, open response, and exact answer coexist in the same Soya source item. No multiple-choice distractors were invented.",
+        "evidence": [
+          {
+            "kind": "task-source",
+            "path": "/private/yomu-references/soya-research/extracted-src-all/data/courses/jlpt_n2/mock_test_no1.js",
+            "sha256": "4665de0aab5656717c930508ee9b92e60d11f71d5030482b86ea31b7a50b5aa5",
+            "locus": "n2_mock_no1_pool item id n2_m1_listening_summary_3_1"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "/private/yomu-references/soya-research/listening-question-audio-map.json",
+            "sha256": "05c8155d0e2538b95f6985e30bd05366c55ca60a1959ca369a772ed1f9d2860e",
+            "locus": "questions[id=n2_m1_listening_summary_3_1]"
+          }
+        ]
+      },
+      "learnerContract": {
+        "answerReveal": "after-attempt",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "transcript": {
+        "storage": "inline",
+        "format": "speaker-tab-text-lines-v1",
+        "sha256": "334e116e45336da7b4806b792b700c0f797d412683ad2f1eb99e99f43b668ddc",
+        "lineCount": 3,
+        "lines": [
+          {
+            "speaker": "N",
+            "text": "男の人が話しています。"
+          },
+          {
+            "speaker": "M",
+            "text": "最近、ロボット掃除機や自動調理鍋といった、いわゆる「時短家電」が人気を集めていますね。家事にかかる時間を短縮してくれるこれらの製品は、忙しい現代人にとって確かに魅力的です。空いた時間を趣味や家族との対話に使えれば、生活はより豊かになるでしょう。しかし、一方で、こうした家電は高価なものが多く、導入には慎重にならざるを得ません。また、何でも機械任せにすることで、人間が本来持っていた生活の知恵や能力が失われるのではないかという懸念の声も聞かれます。便利さを追求するあまり、大切な何かを見失ってはいないか。単に時間を節約するだけでなく、その生まれた時間をどう有意義に使うか、という視点を持つことが、これからの家電との付き合い方で最も重要になるのではないでしょうか。"
+          },
+          {
+            "speaker": "N",
+            "text": "男の人は、時短家電について主に何が大切だと言っていますか。"
+          }
+        ],
+        "coverage": [
+          {
+            "taskId": "n2-soya-time-saving-summary",
+            "lineNumbers": [
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "id": "n2-soya-time-saving-summary",
+          "sourceQuestionId": "n2_m1_listening_summary_3_1",
+          "kind": "short-answer",
+          "prompt": "男の人は、時短家電について主に何が大切だと言っていますか。",
+          "answer": {
+            "accepted": [
+              "生まれた時間をどう活用するかを考えること"
+            ]
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        }
+      ],
+      "release": {
+        "state": "rights-review-required",
+        "reason": "The Soya item is byte- and script-verified, but item-level redistribution approval has not been recorded."
+      }
+    },
+    "n1": {
+      "id": "n1-shin-kanzen-a07-minimal-pairs",
+      "level": "n1",
+      "title": "Shin Kanzen Master N1 A07 similar sounds",
+      "sourceFamily": "jlpt-library",
+      "instruction": "文を聞いてください。どちらですか。",
+      "source": {
+        "assetId": "listening-n1-shin-kanzen-a07-c1d18d224b6036ae",
+        "localPath": "/private/japanese-library/Resource Packs/Japanese Language Learning Pack - Learn Japanese!/07 Japanese N3-N1/新完全マスター N3-N1. Shin kanzen masutā/新完全マスター N1/新完全マスター聴解, N1 Shin kanzen masutā chōkai/CD1 - 新完全マスター聴解, N1 chōkai/07.mp3",
+        "originRef": "Shin Kanzen Master N1 listening CD1, A07, track 7 of 76",
+        "sha256": "c1d18d224b6036ae0fbe6beb63a6e705969fa38b4df2bac84cddc3a0df4ef72c",
+        "bytes": 1456001,
+        "mediaType": "audio/mpeg",
+        "codec": "mp3",
+        "durationSeconds": 42.8,
+        "sampleRateHz": 44100,
+        "channels": 2
+      },
+      "pairing": {
+        "status": "verified",
+        "method": "The main book labels exercise 1 as A07 and supplies ten a/b prompts; CD1 track metadata identifies track 7; the answer/script booklet prints the same ten spoken lines and answers.",
+        "evidence": [
+          {
+            "kind": "task-source",
+            "path": "/private/japanese-library/Resource Packs/Japanese Language Learning Pack - Learn Japanese!/07 Japanese N3-N1/新完全マスター N3-N1. Shin kanzen masutā/新完全マスター N1/新完全マスター聴解, N1 Shin kanzen masutā chōkai/新完全マスター聴解, N1 Shin kanzen masutā chōkai, N1.pdf",
+            "sha256": "cb9872226b092bc48b4f6c070247b15ea64e2ce9e250df555ac8898eab1d1ecf",
+            "locus": "PDF page 23, printed page 14, exercise 1, A07"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "/private/japanese-library/Resource Packs/Japanese Language Learning Pack - Learn Japanese!/07 Japanese N3-N1/新完全マスター N3-N1. Shin kanzen masutā/新完全マスター N1/新完全マスター聴解, N1 Shin kanzen masutā chōkai/新完全マスター聴解, N1 - Answers. Shin kanzen masutā chōkai, N1.pdf",
+            "sha256": "8351e1bac580c37360ca8d878e16495825562119ddee80481e6b87ab8a98df23",
+            "locus": "PDF page 2, exercise 1 script and answer column"
+          },
+          {
+            "kind": "transcript-source",
+            "path": "tmp/listening-source-bank/transcripts/n1-shin-kanzen-a07.json",
+            "sha256": "3415dff3c0e6431c09507daa76f0f8d8af6b0168b282e5e0c0dd72e715b42a22",
+            "locus": "Locally retained eleven-line transcription, including the worked example"
+          }
+        ]
+      },
+      "learnerContract": {
+        "answerReveal": "after-attempt",
+        "transcriptReveal": "after-attempt",
+        "hintReveal": "after-attempt",
+        "grading": "deterministic"
+      },
+      "transcript": {
+        "storage": "local-sidecar",
+        "format": "speaker-tab-text-lines-v1",
+        "sha256": "3415dff3c0e6431c09507daa76f0f8d8af6b0168b282e5e0c0dd72e715b42a22",
+        "lineCount": 11,
+        "localPath": "tmp/listening-source-bank/transcripts/n1-shin-kanzen-a07.json",
+        "localFileSha256": "d5f4d5e5dc24c21ed675f1186cd1047973098790a9bd497151cec59c0de35883",
+        "coverage": [
+          {
+            "taskId": "n1-shin-kanzen-a07-1",
+            "lineNumbers": [
+              2
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-2",
+            "lineNumbers": [
+              3
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-3",
+            "lineNumbers": [
+              4
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-4",
+            "lineNumbers": [
+              5
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-5",
+            "lineNumbers": [
+              6
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-6",
+            "lineNumbers": [
+              7
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-7",
+            "lineNumbers": [
+              8
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-8",
+            "lineNumbers": [
+              9
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-9",
+            "lineNumbers": [
+              10
+            ]
+          },
+          {
+            "taskId": "n1-shin-kanzen-a07-10",
+            "lineNumbers": [
+              11
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "id": "n1-shin-kanzen-a07-1",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-1",
+          "kind": "single-choice",
+          "prompt": "それは（　）のです。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "他人"
+            },
+            {
+              "id": "b",
+              "label": "担任"
+            }
+          ],
+          "answer": {
+            "choiceId": "b"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-2",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-2",
+          "kind": "single-choice",
+          "prompt": "病院に（　）の声が届けられた。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "感謝"
+            },
+            {
+              "id": "b",
+              "label": "患者"
+            }
+          ],
+          "answer": {
+            "choiceId": "b"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-3",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-3",
+          "kind": "single-choice",
+          "prompt": "それは（　）です。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "乱暴"
+            },
+            {
+              "id": "b",
+              "label": "暖房"
+            }
+          ],
+          "answer": {
+            "choiceId": "a"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-4",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-4",
+          "kind": "single-choice",
+          "prompt": "（　）したくないんです。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "損を"
+            },
+            {
+              "id": "b",
+              "label": "そう"
+            }
+          ],
+          "answer": {
+            "choiceId": "a"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-5",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-5",
+          "kind": "single-choice",
+          "prompt": "（　）いいね。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "見つかったら"
+            },
+            {
+              "id": "b",
+              "label": "3つ買ったら"
+            }
+          ],
+          "answer": {
+            "choiceId": "a"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-6",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-6",
+          "kind": "single-choice",
+          "prompt": "種類は（　）あります。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "約30"
+            },
+            {
+              "id": "b",
+              "label": "130"
+            }
+          ],
+          "answer": {
+            "choiceId": "a"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-7",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-7",
+          "kind": "single-choice",
+          "prompt": "今日は（　）します。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "早退"
+            },
+            {
+              "id": "b",
+              "label": "招待"
+            }
+          ],
+          "answer": {
+            "choiceId": "a"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-8",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-8",
+          "kind": "single-choice",
+          "prompt": "この（　）を使おう。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "マイク"
+            },
+            {
+              "id": "b",
+              "label": "マーク"
+            }
+          ],
+          "answer": {
+            "choiceId": "b"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-9",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-9",
+          "kind": "single-choice",
+          "prompt": "この文は（　）あるんです。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "訳して"
+            },
+            {
+              "id": "b",
+              "label": "略して"
+            }
+          ],
+          "answer": {
+            "choiceId": "b"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        },
+        {
+          "id": "n1-shin-kanzen-a07-10",
+          "sourceQuestionId": "shin-kanzen-n1-a07-item-10",
+          "kind": "single-choice",
+          "prompt": "これは（　）のプログラムです。",
+          "choices": [
+            {
+              "id": "a",
+              "label": "データ通信"
+            },
+            {
+              "id": "b",
+              "label": "データ中心"
+            }
+          ],
+          "answer": {
+            "choiceId": "b"
+          },
+          "registry": {
+            "status": "awaiting-package-placement"
+          }
+        }
+      ],
+      "release": {
+        "state": "rights-review-required",
+        "reason": "The A07 audio, task region, transcript, and answers are exactly paired; that verification does not establish redistribution rights."
+      }
+    }
+  },
+  "exclusions": [
+    {
+      "id": "genki-no-verified-task-pairing",
+      "sourceFamily": "genki",
+      "scope": "All 464 Genki audio files in the supplied archive",
+      "reason": "The archive has no byte-exact Moodle payload match, no Academy package reference, and no reviewed worksheet, transcript, and answer binding. Filename or lesson-number inference is insufficient.",
+      "blockedBy": [
+        "task-pairing-unverified",
+        "transcript-audio-pairing-unverified",
+        "rights-review-required"
+      ]
+    },
+    {
+      "id": "moodle-unbound-payloads",
+      "sourceFamily": "moodle",
+      "scope": "135 of 146 unique Moodle audio payloads beyond the 11 payloads already carrying exact task bindings",
+      "reason": "Audio presence alone does not identify a worksheet region, transcript, answer, or learner contract.",
+      "blockedBy": [
+        "task-pairing-unverified"
+      ]
+    },
+    {
+      "id": "minna-remainder",
+      "sourceFamily": "minna",
+      "scope": "86 of 87 Minna tracks not selected for this five-level bank",
+      "reason": "The remainder comprises 57 tracks with no Moodle byte match, 25 byte-matched tracks without an exact task binding, and four exact task-bound recordings already covered elsewhere but not duplicated into this bank.",
+      "blockedBy": [
+        "exact-progressive-selection-not-met",
+        "task-pairing-unverified"
+      ]
+    },
+    {
+      "id": "soya-jlpt-remainder",
+      "sourceFamily": "soya",
+      "scope": "485 of 487 JLPT question-map records beyond the selected N3 and N2 items",
+      "reason": "Of 487 JLPT records, 386 have complete static task data and 101 are incomplete or non-static. The two selected items are the only Soya records promoted into this bank; the rest remain inventory candidates pending item-level selection and rights review.",
+      "blockedBy": [
+        "item-selection-required",
+        "rights-review-required"
+      ]
+    },
+    {
+      "id": "soya-n1-browser-tts-only",
+      "sourceFamily": "soya",
+      "scope": "All 30 mapped Soya N1 listening records",
+      "reason": "Every mapped N1 record uses browser TTS fallback and lacks a static audio path with a transcript array, so none is an exact audio-task pairing.",
+      "blockedBy": [
+        "static-audio-missing",
+        "transcript-missing"
+      ]
+    },
+    {
+      "id": "jlpt-library-unpaired-remainder",
+      "sourceFamily": "jlpt-library",
+      "scope": "444 of 445 Shin Kanzen N3-N1 listening audio files beyond N1 CD1 A07",
+      "reason": "No other recording was promoted without a visually reviewed worksheet region, matching script or answer locus, exact track identity, and rights review.",
+      "blockedBy": [
+        "item-region-unverified",
+        "transcript-audio-pairing-unverified",
+        "rights-review-required"
+      ]
+    },
+    {
+      "id": "n1-a07-delivery-rights",
+      "sourceFamily": "jlpt-library",
+      "scope": "The included N1 CD1 A07 pairing",
+      "reason": "Pairing verification resolves track identity, task region, transcript, and answers only. It does not grant redistribution or runtime delivery.",
+      "blockedBy": [
+        "rights-review-required",
+        "worker-ingest-not-approved"
+      ]
+    }
+  ]
+}

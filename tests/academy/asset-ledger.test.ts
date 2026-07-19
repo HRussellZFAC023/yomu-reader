@@ -287,11 +287,18 @@ describe('Academy runtime asset ledger', () => {
             runtimeHome: [],
             status: 'owner-rejected-2026-07-14; must-not-bind-or-use-as-generation-reference',
         });
-        expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
-            '/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png',
-        ]);
-        expect(fs.existsSync(path.resolve('public/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png'))).toBe(false);
-        expect(fs.existsSync(path.resolve('docs/public/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png'))).toBe(false);
+        const rejectedPath = '/academy/art/characters/xingyu/xingyu__neutral__halfbody__v001.png';
+        expect(preview?.deliveries).toEqual([{
+            path: rejectedPath,
+            sha256: review.rejection.outputSha256,
+        }]);
+        for (const root of ['public', 'docs/public']) {
+            const file = path.resolve(root, rejectedPath.replace(/^\//, ''));
+            expect(fs.existsSync(file), `preserved review evidence ${file}`).toBe(true);
+            expect(sha256File(file), file).toBe(review.rejection.outputSha256);
+        }
+        expect(collectPaths(ACADEMY_ASSETS)).not.toContain(rejectedPath);
+        expect(collectPaths(ACADEMY_RUNTIME_ASSET_REGISTRY)).not.toContain(rejectedPath);
 
         expect(review).toMatchObject({
             verdict: 'owner-rejected-wrong-likeness',

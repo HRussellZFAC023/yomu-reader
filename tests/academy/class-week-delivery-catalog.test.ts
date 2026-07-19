@@ -31,14 +31,14 @@ function lessonFetcher(requests: string[] = []): typeof fetch {
     }) as typeof fetch;
 }
 
-describe('73-Week delivery catalog', () => {
+describe('74-Week delivery catalog', () => {
     it('covers the canonical chronology exactly once and without order drift', async () => {
         const catalog = await loadClassWeekDeliveryCatalog(planJson(), lessonFetcher());
 
-        expect(catalog.weeks).toHaveLength(73);
+        expect(catalog.weeks).toHaveLength(74);
         expect(catalog.weeks.map(week => week.weekId)).toEqual(CANONICAL_CLASS_WEEK_IDS);
-        expect(catalog.weeks.map(week => week.order)).toEqual([...Array(73).keys()]);
-        expect(new Set(catalog.weeks.map(week => week.weekId)).size).toBe(73);
+        expect(catalog.weeks.map(week => week.order)).toEqual([...Array(74).keys()]);
+        expect(new Set(catalog.weeks.map(week => week.weekId)).size).toBe(74);
         for (const week of catalog.weeks) expect(catalog.get(week.weekId)).toBe(week);
     });
 
@@ -82,20 +82,26 @@ describe('73-Week delivery catalog', () => {
             state: 'grounded-playable',
             lessonId: 'authored-week:l2-l03',
         });
+        expect(catalog.get('l3plus-l10')).toEqual({
+            order: 72,
+            weekId: 'l3plus-l10',
+            state: 'grounded-playable',
+            lessonId: 'authored-week:l2-l36',
+        });
         expect(catalog.weeks.filter(week => week.state === 'review-blocked').map(week => week.weekId))
             .toEqual(['orientation']);
         expect(catalog.weeks.filter(week => week.state === 'planning-only')).toHaveLength(13);
-        expect(catalog.weeks.filter(week => week.state === 'grounded-playable')).toHaveLength(59);
+        expect(catalog.weeks.filter(week => week.state === 'grounded-playable')).toHaveLength(60);
         expect(catalog.weeks.filter(week => week.state === 'grounded-playable').at(-1)?.weekId)
             .toBe('l3plus-kanji-7');
-        expect(catalog.playableCount).toBe(59);
+        expect(catalog.playableCount).toBe(60);
 
         const sourceBackedWeekIds = new Set(plan.weeks
             .filter(week => week.status === 'source-backed')
             .map(week => week.weekId));
         expect(catalog.weeks
             .filter(week => sourceBackedWeekIds.has(week.weekId))
-            .filter(week => week.state === 'grounded-playable')).toHaveLength(58);
+            .filter(week => week.state === 'grounded-playable')).toHaveLength(59);
     });
 
     it('audits complete lessons and authored weeks, never support shards', async () => {
@@ -152,6 +158,6 @@ describe('73-Week delivery catalog', () => {
 
         expect(ledger.coverage.classWeeksTotal).toBe(catalog.weeks.length);
         expect(ledger.coverage.classWeeksPlayable).toBe(catalog.playableCount);
-        expect(catalog.playableCount).toBe(59);
+        expect(catalog.playableCount).toBe(60);
     });
 });

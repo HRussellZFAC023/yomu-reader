@@ -44,8 +44,8 @@
     "listeningQuestionsAudited": 10,
     "listeningQuestionsPaired": 10,
     "answerKeyRelationsVerified": 0,
-    "classWeeksPlayable": 59,
-    "classWeeksTotal": 73,
+    "classWeeksPlayable": 60,
+    "classWeeksTotal": 74,
     "documentsCensused": 527,
     "sourceItemCandidates": 879,
     "positionedMediaRegionCandidates": 2982,
@@ -4992,7 +4992,7 @@
         "scope": "Kanji 7 exact-source slice: both canonical Moodle pages teach the printed readings, words, examples, stroke rows, and reading task before eight source-visible reading retrievals and one 理 handwriting activity. The source has no independently verified answer key; Yomu supplies only deterministic reading pairings, interaction controls, feedback, and a separately attributed KanjiVG trace.",
         "sourcePackage": {
           "filename": "061-l2-l34.json",
-          "sha256": "bea04efb2eba6ef59b9a5bbd198f5f74db3ed91e6335c710a6cfc9df2462b7a6"
+          "sha256": "a7be0c2a1333dc4b91f9428e087d03609700bdb7b4840accabc7c94e0c1f508b"
         },
         "sourceArchive": {
           "id": "archive-000096",
@@ -5062,6 +5062,55 @@
           "The 理 handwriting flow uses the canonical worksheet panel plus a separately attributed KanjiVG trace; no extra source stroke or pronunciation claim is made.",
           "Minna and Genki provide chronology and scope only; neither contributes learner-facing wording, prompts, media, or answers.",
           "The Moodle archive contains no audio member, so no listening or source pronunciation recording is delivered."
+        ]
+      },
+      {
+        "lessonId": "l2-l36",
+        "moodleModuleId": 8870527,
+        "scope": "Level 3+ Lesson 10 exact-source continuation for Chapter 36: all nineteen supplied pages are retained, B-5 and B-6 are paired by the worksheet numbering, and five visibly printed Chapter 36-2 transformations are graded after teaching and source inspection.",
+        "sourcePackage": {
+          "status": "numbered-authored-package",
+          "filename": "063-l2-l36.json",
+          "sha256": "deab104b569a87118df23c6346b42677c6716713bb40a2525f1c9489cff6ffe2",
+          "canonicalClassWeekId": "l3plus-l10"
+        },
+        "sourceArchive": {
+          "path": "resources/yomu-academy/moodle-raw/ucl-japanese-2025-2026/rie-level-3-plus-thursday-7pm/14-folder-8870527-lesson-10.zip",
+          "sha256": "57ca13bfffee06933f2dc4ee47d9b3ce168fd6d37475c12e0e7f243c9658265",
+          "moduleId": 8870527,
+          "title": "Level 3+ Lesson 10"
+        },
+        "documents": [
+          { "payloadSha256": "76f2f2707d8da2b8969c6c3e093e4cf7b31fa9f6b01dee421697e725ffc321f6", "title": "Chapter 36-2 Vocabulary Sheet", "pages": [1] },
+          { "payloadSha256": "8d6f8d9d1d1b8a2efb262cf3a19dae448b7cb6c4cef91f11cdd181e725aa4975", "title": "Chapter 36-2 Ability", "pages": [1, 2, 3] },
+          { "payloadSha256": "effc91302dfc989ccb21189fdde96a900a50b13c3540a9f8b16748b5424f6fdd", "title": "Chapter 36 listening-1", "pages": [1] },
+          { "payloadSha256": "efe978ce9bb4c95f40791b9b04d8fbd3a5cff92eafed76847e36d64cd3813044", "title": "Chapter 36-2 speaking exercise", "pages": [1] },
+          { "payloadSha256": "64411286b0e584fa17925521aba2f6e33b26e5797b68ab7ea12f188efcbac82a", "title": "Chapter 36-3 Vocabulary Sheet", "pages": [1, 2] },
+          { "payloadSha256": "40139ac093fee2dd598cba016bb168f55d23ea4dfab16f930e3b53787ee1af86", "title": "Chapter 36-3 Possibility", "pages": [1, 2] },
+          { "payloadSha256": "4019edaedbecea1cb3f364dc49495e15991c4f63d9c8cd9042b6d09667745bf9", "title": "Chapter 36 summary", "pages": [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+        ],
+        "audio": {
+          "status": "worksheet-numbered-audio-pairing",
+          "worksheetPayloadSha256": "effc91302dfc989ccb21189fdde96a900a50b13c3540a9f8b16748b5424f6fdd",
+          "sourceAudioTracksDelivered": 2,
+          "tracks": [
+            { "label": "CD B-5", "worksheetQuestion": 1, "payloadSha256": "1ef9ab11057ec00cda9fb488ecb9a112e9194817865ab73575e570ab8be6164c" },
+            { "label": "CD B-6", "worksheetQuestion": 2, "payloadSha256": "0ac4399d9d642db81dabe2a40faa08e279f8b4b5ea508765a8b13332c038dea8" }
+          ]
+        },
+        "offline": {
+          "status": "nineteen-source-pages-and-two-paired-recordings-precached",
+          "assetCount": 21
+        },
+        "claims": {
+          "canonicalMoodlePagesRendered": 19,
+          "deterministicSourceTransformationsAssessed": 5,
+          "originalAudioTracksDelivered": 2,
+          "answerVisibility": "after-attempt",
+          "repairScope": "missed-source-transformation-only"
+        },
+        "unconverted": [
+          "Open speaking responses, homework, handouts from last week, and summer self-study remain available as source material but are not presented as deterministically graded answers in this workshop."
         ]
       }
     ]

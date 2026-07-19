@@ -10,7 +10,7 @@ import { createActivityRuntime } from '../../src/academy/domain/activity-runtime
 import { stateInspectionPlugin, type StateInspectionModel } from '../../src/academy/minigames/state-inspection';
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
-const SOURCE_PACKAGE_SHA256 = 'bea04efb2eba6ef59b9a5bbd198f5f74db3ed91e6335c710a6cfc9df2462b7a6';
+const SOURCE_PACKAGE_SHA256 = 'a7be0c2a1333dc4b91f9428e087d03609700bdb7b4840accabc7c94e0c1f508b';
 
 function model(): StateInspectionModel {
     return createLessonL2L34KanjiMenuReadingBeat().activity as StateInspectionModel;

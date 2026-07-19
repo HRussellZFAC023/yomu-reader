@@ -1,0 +1,556 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e07-journey-not-everyone-takes",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 43,
+  "title": {
+    "en": "The Journey Not Everyone Takes",
+    "ja": "それぞれの「いつか」"
+  },
+  "synopsis": "Over a summer evening in the cafe, Alex hands the class the term's biggest news in its flattest voice — a job in Japan, next month, already decided — and the room refuses to let the send-off slide past while refusing just as hard to crown his leaving as brave. As Aakash sets his own uncertain camera road-trip beside the move and Mira returns to the group chat with no apology, the class states each future in its honest modality and holds leaving, staying, and undecided level, none ranked above the others.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "alex",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#alex",
+        "docs/academy/story/CAST-AND-CONSENT.md#alex"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history beyond warm owner-authorised texture",
+        "departure framed as the brave or correct future, or ranked above staying or undecided",
+        "voice opened into eloquent vulnerability under pressure rather than narrowing further"
+      ]
+    },
+    {
+      "castId": "aakash",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#aakash",
+        "docs/academy/story/CAST-AND-CONSENT.md#aakash"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "energetic invitation overriding a stated no",
+        "leaving framed as braver than staying or than his own open plan"
+      ]
+    },
+    {
+      "castId": "mira",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mira",
+        "docs/academy/story/CAST-AND-CONSENT.md#mira"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, address, or private history",
+        "return framed as needing a guilt explanation or an invented cause of absence",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e06-open-question",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "lesson-function",
+          "lessonIds": [],
+          "function": "state-plans-under-uncertainty-and-hold-non-comparative-futures"
+        }
+      ],
+      "recommendedBand": "n1",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-three-first-meeting-alex"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:journey:the-flattest-news",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Meet Alex delivering the biggest news of the term in the flattest register in the room, and let the class refuse to let the send-off slide past without turning his leaving into a brave act.",
+      "dramaticQuestion": "When the biggest fact lands in the calmest clause, will the room catch it and mark it on his terms?",
+      "learnerNeed": "A stance on how to meet a flat, enormous announcement — naming the load-bearing clause the calm was hiding, and keeping the send-off from inflating.",
+      "curriculum": {
+        "sectionId": "hear-the-load-bearing-clause",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:journey:cafe-after-class",
+          "beatId": "beat:journey:arrival-image",
+          "cueId": "cue:cafe-summer-evening-phones-out",
+          "description": "The cafe after class, summer light going amber in the window. Phones are out on the table and the group chat is scrolling. Alex sets his down face-up, waits for a gap in the talk, and lets one open before he uses it."
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:alex-announces",
+          "beatId": "beat:journey:host-want",
+          "speakerId": "alex",
+          "intent": "Deliver the term's biggest news in the flattest possible register, letting the load-bearing clause — next month, and already decided — land the calmest of all.",
+          "attentionTarget": "the gap in the conversation, and how little he raises his voice to fill it",
+          "variants": {
+            "n3": {
+              "japanese": "あのさ、日本で働く話、あってさ。……で、来月から。うん、もう決まった。",
+              "reading": "あのさ、にほんではたらくはなし、あってさ。……で、らいげつから。うん、もうきまった。",
+              "english": "So, hey — there's this work thing in Japan. …Anyway, from next month. Yeah, it's decided."
+            },
+            "n2": {
+              "japanese": "あのさ、大した話でもないんだけど。向こうで働く口があって。……来月から。うん、もう決まったんだ。",
+              "reading": "あのさ、たいしたはなしでもないんだけど。むこうではたらくくちがあって。……らいげつから。うん、もうきまったんだ。",
+              "english": "So, hey — it's not a big deal or anything. There's a position over there. …From next month. Yeah, it's already settled."
+            },
+            "n1": {
+              "japanese": "あのさ、ほんと、ついで程度の話なんだけど。日本で働く口が、一つあって。……来月から。ええ、もう決まってる。",
+              "reading": "あのさ、ほんと、ついでていどのはなしなんだけど。にほんではたらくくちが、ひとつあって。……らいげつから。ええ、もうきまってる。",
+              "english": "So, hey — honestly, it's barely worth mentioning. There's one position, over in Japan. …From next month. Yeah, it's settled already."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:aakash-catches-it",
+          "beatId": "beat:journey:obstruction",
+          "speakerId": "aakash",
+          "intent": "Refuse to let the biggest clause pass flat — catch what he under-stressed, name it back, and ask, leaving him room to decline, to mark the leaving properly.",
+          "attentionTarget": "the buried clause 'next month, already settled' and Alex's refusal to raise it",
+          "variants": {
+            "n3": {
+              "japanese": "待って待って、今さらっと言ったでしょ。「来月」「もう決まった」って、そこが一番でかいとこじゃん。……ちゃんと送らせてよ。嫌じゃなければ。",
+              "reading": "まってまって、いまさらっといったでしょ。「らいげつ」「もうきまった」って、そこがいちばんでかいとこじゃん。……ちゃんとおくらせてよ。いやじゃなければ。",
+              "english": "Wait, wait — you just slid right past it. \"Next month,\" \"already decided\" — that's the biggest part, right there. …Let us see you off properly. If you're okay with it."
+            },
+            "n2": {
+              "japanese": "いやいや、待って。今、一番効くとこ、思いっきり普通のトーンで言わなかった?「来月、もう決まってる」でしょ。……そこは、こっちにもちゃんと送らせてほしいんだけど。無理にとは言わないけどさ。",
+              "reading": "いやいや、まって。いま、いちばんきくとこ、おもいっきりふつうのトーンでいわなかった?「らいげつ、もうきまってる」でしょ。……そこは、こっちにもちゃんとおくらせてほしいんだけど。むりにとはいわないけどさ。",
+              "english": "No, no — hold on. You just said the part that actually lands in the flattest voice imaginable, didn't you. \"Next month, already settled.\" …I'd really like us to see you off for that. I won't push it, but."
+            },
+            "n1": {
+              "japanese": "いや待ってって、今さらっと流したよね。一番効いてるとこ、わざと普通の声で言ったでしょ——「来月、もう決まってる」。……そこだけは、こっちにもちゃんと送らせてほしいな。もちろん、アレックスが嫌なら引くけど。",
+              "reading": "いやまってって、いまさらっとながしたよね。いちばんきいてるとこ、わざとふつうのこえでいったでしょ——「らいげつ、もうきまってる」。……そこだけは、こっちにもちゃんとおくらせてほしいな。もちろん、アレックスがいやならひくけど。",
+              "english": "No — wait, you just breezed right past it. The part that really lands, you said it in an ordinary voice on purpose — \"next month, already settled.\" …That part, at least, I'd like us to see you off for. Of course, if you'd rather not, I'll drop it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:alex-narrows",
+          "beatId": "beat:journey:attempt",
+          "speakerId": "alex",
+          "intent": "Under attention his voice narrows rather than opens — accept a send-off only if it stays small, and name the real uncertainty plainly without dramatizing it.",
+          "attentionTarget": "how little he wants made of it, and the parts he genuinely has not decided",
+          "variants": {
+            "n3": {
+              "japanese": "ありがとう。でも大げさなのは無しでね。いつ戻るかも、まだ決めてないし。転勤がちょっと延びた、くらいの話だよ。",
+              "reading": "ありがとう。でもおおげさなのはなしでね。いつもどるかも、まだきめてないし。てんきんがちょっとのびた、くらいのはなしだよ。",
+              "english": "Thanks. But nothing over the top, okay. I haven't even decided yet when I'll be back. It's about the size of a transfer that ran a bit long."
+            },
+            "n2": {
+              "japanese": "送ってくれるのはありがたいよ。ただ、大ごとにはしないでほしいな。いつ帰るかも、正直まだ決めてないし。まあ、転勤が少し延びた、くらいのことでさ。",
+              "reading": "おくってくれるのはありがたいよ。ただ、おおごとにはしないでほしいな。いつかえるかも、しょうじきまだきめてないし。まあ、てんきんがすこしのびた、くらいのことでさ。",
+              "english": "I appreciate the send-off. Just — don't make it a whole thing. Honestly, I haven't decided yet when I'll be back. It's about the size of a transfer that ran a little long."
+            },
+            "n1": {
+              "japanese": "送ってくれる気持ちは、ありがたい。ただ、大ごとにだけはしないでほしいんだ。いつ戻るかも、正直まだ決めてない。……なんというか、転勤がちょっと延びた、くらいの話でさ。",
+              "reading": "おくってくれるきもちは、ありがたい。ただ、おおごとにだけはしないでほしいんだ。いつもどるかも、しょうじきまだきめてない。……なんというか、てんきんがちょっとのびた、くらいのはなしでさ。",
+              "english": "The thought means a lot, it does. Only — don't let it become a whole occasion. When I'll be back, honestly, I haven't decided. …It's about the size of a transfer that ran a bit long, is all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:journey:how-to-mark-it",
+          "beatId": "beat:journey:stance",
+          "question": "Alex has handed you the biggest news of the term in the flattest voice in the room. How do you meet it?",
+          "options": [
+            {
+              "id": "option:journey:restate-buried-clause",
+              "action": "Say the load-bearing clause back to him, plainly, so the calm doesn't hide it.",
+              "japaneseByBand": {
+                "n3": "一つだけ確認ね。来月から、もう決まってる。……さらっと言ってたけど、そこが本題でしょ。",
+                "n2": "じゃあ、そこだけ確認させて。来月から、もう決まってる。——うん、一番大事なのはそこだよね。",
+                "n1": "じゃあ一つだけ、はっきりさせておくね。来月から、もう決まってる。……普通の声で言ってたけど、本題はそこでしょ。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:journey:before-alex-terms"
+            },
+            {
+              "id": "option:journey:send-off-on-his-terms",
+              "action": "Promise the send-off stays his size — small, ordinary, no one crowned for leaving.",
+              "japaneseByBand": {
+                "n3": "送別は、アレックスのペースでいいよ。派手にしない。それだけ決めて、あとはいつも通り。",
+                "n2": "送別会は、アレックスのさじ加減に合わせる。大げさにはしない——それだけ決めて、あとは普段通りでいこう。",
+                "n1": "送る側も、アレックスのさじ加減に合わせるよ。大ごとにはしない——そこだけ決めて、あとはいつも通りで。誰かを「偉い」ことにもしない。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:journey:before-alex-terms"
+            }
+          ],
+          "convergence": "checkpoint:journey:before-alex-terms"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:journey:before-alex-terms",
+          "beatId": "beat:journey:response",
+          "resume": "The learner has met the flat announcement — either naming the clause Alex under-stressed, or holding the send-off to his size. Alex answers by setting the terms he can live with."
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:alex-sets-terms",
+          "beatId": "beat:journey:contribution",
+          "speakerId": "alex",
+          "intent": "Accept a small send-off on plain terms, and refuse in advance to be made the one who did the brave thing.",
+          "attentionTarget": "the difference between being seen off and being held up as an example",
+          "variants": {
+            "n3": {
+              "japanese": "うん、それでいい。送別は軽くね。あと一つだけ——俺のこと、勇気ある人みたいにはしないで。ただ順番が来ただけだから。",
+              "reading": "うん、それでいい。そうべつはかるくね。あとひとつだけ——おれのこと、ゆうきあるひとみたいにはしないで。ただじゅんばんがきただけだから。",
+              "english": "Yeah, that works. Keep the send-off light. One more thing — don't make me out to be brave. My turn just came up, that's all."
+            },
+            "n2": {
+              "japanese": "うん、それでいい。送別は軽めで。……あと一つだけ頼み。俺を「勇気あるやつ」みたいに扱わないでほしい。たまたま順番が先に来ただけだからさ。",
+              "reading": "うん、それでいい。そうべつはかるめで。……あとひとつだけたのみ。おれを「ゆうきあるやつ」みたいにあつかわないでほしい。たまたまじゅんばんがさきにきただけだからさ。",
+              "english": "Yeah, that works. A light send-off. …One favor, though. Don't treat me like the brave one. My turn just happened to come up first, that's all it is."
+            },
+            "n1": {
+              "japanese": "うん、それでいい。送別は、ごく軽く。……あと一つだけ、頼みがある。俺を「勇気を出したやつ」みたいには、しないでほしいんだ。たまたま順番が先に回ってきた、それだけの話だから。",
+              "reading": "うん、それでいい。そうべつは、ごくかるく。……あとひとつだけ、たのみがある。おれを「ゆうきをだしたやつ」みたいには、しないでほしいんだ。たまたまじゅんばんがさきにまわってきた、それだけのはなしだから。",
+              "english": "Yeah, that works. A very light send-off. …And one more favor. Don't turn me into the guy who was brave. My turn just happened to come around first — that's all it is."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:journey:phones-light-up",
+          "beatId": "beat:journey:changed-image",
+          "cueId": "cue:group-chat-wakes-around-the-news",
+          "description": "As Alex finishes, the phones on the table light one after another — the group chat waking around his news. Someone types a farewell emoji; someone types nothing yet. Alex's own screen stays face-up and quiet."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:journey:non-comparative-futures"
+      }
+    },
+    {
+      "id": "scene:journey:non-comparative-futures",
+      "mode": "live",
+      "locationId": "location:cafe",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Let the class lay its different futures — leaving, staying, undecided — side by side, and hold them without ranking any above the others.",
+      "dramaticQuestion": "When one person's 'someday in Japan' finally comes true, does the room rank it above the ones still open?",
+      "learnerNeed": "A transfer where the learner states each person's future in honest modality and refuses the comparative frame that would crown one.",
+      "curriculum": {
+        "sectionId": "hold-futures-without-ranking",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:journey:chat-of-somedays",
+          "beatId": "beat:journey:regroup-image",
+          "cueId": "cue:thread-fills-with-somedays",
+          "description": "The group chat fills with half-plans: one person's 'someday, for work,' another's 'maybe never,' a third's 'not decided.' After a long quiet in the thread, a familiar name surfaces at the bottom, typing from somewhere hours behind them."
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:aakash-open-plan",
+          "beatId": "beat:journey:human-want",
+          "speakerId": "aakash",
+          "intent": "Put his own future on the table as a genuine maybe — the solo camera road-trip — and hold it beside Alex's decided move without ranking either.",
+          "attentionTarget": "his road-trip as a hope he hasn't committed to, not a lesser version of Alex's move",
+          "variants": {
+            "n3": {
+              "japanese": "俺は逆に、まだ全然決めてなくてさ。いつか一人でカメラ持って、大阪とか箕面の滝とか回れたらな、とは思ってる。行くかどうかは、まだ分かんない。",
+              "reading": "おれはぎゃくに、まだぜんぜんきめてなくてさ。いつかひとりでカメラもって、おおさかとかみのおのたきとかまわれたらな、とはおもってる。いくかどうかは、まだわかんない。",
+              "english": "Me, I'm the opposite — haven't decided a thing. Someday, on my own, camera in hand, round Osaka, Minoo Falls, that sort of thing. Whether I actually go, though, I still don't know."
+            },
+            "n2": {
+              "japanese": "俺なんか、まだ真っ白でさ。いつか一人でカメラ持って、大阪とか箕面の滝とか、あの音楽バーとか、のんびり回りたいとは思ってる。……実際に行けるかどうかは、また別としてね。",
+              "reading": "おれなんか、まだまっしろでさ。いつかひとりでカメラもって、おおさかとかみのおのたきとか、あのおんがくバーとか、のんびりまわりたいとはおもってる。……じっさいにいけるかどうかは、またべつとしてね。",
+              "english": "Me, I'm still a blank page. Someday, alone, camera in hand — Osaka, Minoo Falls, that music bar — take my time going round. …Whether I can actually pull it off is a separate matter, mind."
+            },
+            "n1": {
+              "japanese": "俺はと言えば、まだ何も決まってないよ。いつか一人、カメラ片手に——大阪、箕面の滝、あの七十年代の音楽バー。回れたらいいな、とは思ってる。実際に行くかどうかは、また別の話だけどね。",
+              "reading": "おれはといえば、まだなにもきまってないよ。いつかひとり、カメラかたてに——おおさか、みのおのたき、あのななじゅうねんだいのおんがくバー。まわれたらいいな、とはおもってる。じっさいにいくかどうかは、またべつのはなしだけどね。",
+              "english": "Me, though — nothing's settled at all. Someday, on my own, camera in one hand — Osaka, Minoo Falls, that seventies music bar. I'd love to make the round. Whether I actually go, that's another matter entirely."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "message",
+          "id": "message:journey:mira-returns",
+          "beatId": "beat:journey:return",
+          "speakerId": "mira",
+          "channel": "group-chat",
+          "intent": "Return after a long absence without a shred of apology, pick the thread straight up, refuse to let the futures be ranked, and invite a lapsed learner to restart with no pressure.",
+          "attentionTarget": "the three kinds of 'someday' in the thread, held level, and an open hand to whoever stalled",
+          "variants": {
+            "n3": {
+              "japanese": "うわ、久しぶりに開いたらこの話してる。笑 私も最近サボり気味だったけど、まあ気にしてない。行く人、残る人、迷ってる人——別に競争じゃないしね。ねえ、よかったらまた一緒に、ゆるく再開しない?",
+              "reading": "うわ、ひさしぶりにひらいたらこのはなししてる。わら わたしもさいきんサボりぎみだったけど、まあきにしてない。いくひと、のこるひと、まよってるひと——べつにきょうそうじゃないしね。ねえ、よかったらまたいっしょに、ゆるくさいかいしない?",
+              "english": "Whoa — open the chat after ages and this is what you're on. lol I've been slacking lately too, but eh, not fussed about it. People leaving, people staying, people still deciding — it's not a contest or anything. Hey, if you're up for it, want to restart together, nice and easy?"
+            },
+            "n2": {
+              "japanese": "わ、久しぶりにのぞいたら、いい話してるじゃん。私もここ最近すっかりサボってたけど、まあ、そこは気にしてないよ。行く人も、残る人も、まだ迷ってる人も、どれかが上って話じゃないでしょ。……ねえ、責める気は全然ないから、よかったらまた一緒に、ゆるっと再開しない?",
+              "reading": "わ、ひさしぶりにのぞいたら、いいはなししてるじゃん。わたしもここさいきんすっかりサボってたけど、まあ、そこはきにしてないよ。いくひとも、のこるひとも、まだまよってるひとも、どれかがうえってはなしじゃないでしょ。……ねえ、せめるきはぜんぜんないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
+              "english": "Oh — peek in after ages and you're having a good talk. I've totally been slacking lately myself, but honestly, I'm not bothered about that. People leaving, people staying, people still on the fence — none of them's the higher one, right. …Hey, zero pressure, but if you feel like it, want to restart together, nice and loose?"
+            },
+            "n1": {
+              "japanese": "うわ、久しぶりに開いたら、ちょうどいい話してる。……私もここのところすっかりご無沙汰だったけど、まあ、そこは気にしてない。行く人、残る人、まだ決めかねてる人——どれかが偉い、って話じゃそもそもないしね。ねえ、責める気なんて一切ないから、よかったらまた一緒に、ゆるっと再開しない?",
+              "reading": "うわ、ひさしぶりにひらいたら、ちょうどいいはなししてる。……わたしもここのところすっかりごぶさただったけど、まあ、そこはきにしてない。いくひと、のこるひと、まだきめかねてるひと——どれかがえらい、ってはなしじゃそもそもないしね。ねえ、せめるきなんていっさいないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
+              "english": "Whoa — open the chat after ages and it's exactly the right conversation. …I've gone completely quiet lately myself, but honestly, I'm not going to make a thing of it. People leaving, people staying, people who still can't decide — none of them's the admirable one, that was never the point. Hey — not a word of blame from me, so if you're up for it, want to pick it back up together, easy does it?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:journey:before-futures",
+          "beatId": "beat:journey:production-attempt",
+          "resume": "Three kinds of future sit in the thread — decided, undecided, staying. The learner takes them up and states each in its honest form, without lifting one over the others."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:journey:non-comparative-futures",
+          "beatId": "beat:journey:production-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e07-journey-not-everyone-takes-non-comparative-futures"
+          },
+          "resumeContext": "The learner phrases each person's future in the modality it actually has — Alex's move as decided (〜ことになった / もう決まった), Aakash's trip as a genuine maybe (〜かもしれない / 〜たいと思っている / まだわからない), someone's staying as its own settled choice — and joins them without a comparative word that would rank one above another.",
+          "onReady": "checkpoint:journey:after-futures",
+          "onRepair": "node:journey:futures-repair",
+          "onDefer": "checkpoint:journey:before-futures"
+        },
+        {
+          "kind": "stage",
+          "id": "node:journey:futures-repair",
+          "beatId": "beat:journey:production-repair",
+          "cueId": "cue:three-futures-laid-level",
+          "description": "The three futures are set out as three cards at the same height — leaving, staying, undecided. Only the card that got ranked, or forced into a certainty it did not have, comes back to be restated; the ones already phrased honestly stay put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:journey:after-futures",
+          "beatId": "beat:journey:production-response",
+          "resume": "The three futures now sit level, each in its own honest modality. Alex looks at them lined up and says what his leaving is, and is not."
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:alex-just-my-turn",
+          "beatId": "beat:journey:transform",
+          "speakerId": "alex",
+          "intent": "Land the term's drifting 'someday, for work' on himself as payoff, and refuse the frame that would make his decided departure braver than a staying or an undecided one.",
+          "attentionTarget": "the group's old 'someday, for work' phrase, now his, and the three futures held level",
+          "variants": {
+            "n3": {
+              "japanese": "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のは、順番が先に来ただけだよ。偉くもなんともない。行くのも、残るのも、迷うのも、同じだけ本気の話でしょ。",
+              "reading": "みんながずっといってた「いつか、しごとで」ってやつ。おれのは、じゅんばんがさきにきただけだよ。えらくもなんともない。いくのも、のこるのも、まようのも、おなじだけほんきのはなしでしょ。",
+              "english": "That 'someday, for work' thing everyone kept saying. Mine just came up first in the queue, that's all. Nothing admirable about it. Going, staying, still deciding — they're all just as serious."
+            },
+            "n2": {
+              "japanese": "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のはたまたま順番が先に回ってきただけの話でさ。別に偉いわけじゃない。行くのも、残るのも、迷うのも、どれも同じくらい本気なんだよ。",
+              "reading": "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのはたまたまじゅんばんがさきにまわってきただけのはなしでさ。べつにえらいわけじゃない。いくのも、のこるのも、まようのも、どれもおなじくらいほんきなんだよ。",
+              "english": "That 'someday, for work, Japan' line everyone's always said — mine just happened to come round first, that's all. It doesn't make me the admirable one. Going, staying, still deciding — every one of them's just as serious."
+            },
+            "n1": {
+              "japanese": "ほら、みんながずっと口にしてた「いつか、仕事で日本」ってやつ。俺のは、たまたま順番が先に回ってきただけなんだ。勇気でも手柄でもない。行く人も、残る人も、まだ決めない人も——どれも、同じだけ本気の話でしょ。",
+              "reading": "ほら、みんながずっとくちにしてた「いつか、しごとでにほん」ってやつ。おれのは、たまたまじゅんばんがさきにまわってきただけなんだ。ゆうきでもてがらでもない。いくひとも、のこるひとも、まだきめないひとも——どれも、おなじだけほんきのはなしでしょ。",
+              "english": "You know that 'someday, for work, in Japan' thing everyone's always said? Mine just happened to come round first — that's all. It's not courage, it's not an achievement. People leaving, people staying, people not deciding yet — every one of them's just as serious."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:journey:aakash-doesnt-rush",
+          "beatId": "beat:journey:changed-action",
+          "speakerId": "aakash",
+          "intent": "Show the reflex-organizer sitting with an open plan — keep the send-off small as Alex asked, and let his own trip stay undecided instead of accelerating it into an event.",
+          "attentionTarget": "the send-off he chooses not to inflate, and his own trip he chooses not to pin down tonight",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ送別会も、派手にはしない。アレックスの言う通り、いつも通りで。……で、俺の撮り旅は、決まったらまた言うよ。今日は急がない。",
+              "reading": "じゃあそうべつかいも、はでにはしない。アレックスのいうとおり、いつもどおりで。……で、おれのとりたびは、きまったらまたいうよ。きょうはいそがない。",
+              "english": "Then no big send-off either. Like Alex said — same as always. …And my camera trip, I'll say more once it's decided. No rushing it tonight."
+            },
+            "n2": {
+              "japanese": "なら送別会も、盛大にはしないでおく。アレックスの言う通り、いつも通りにさ。……で、俺の撮り旅のほうは、決まったらまた言うよ。今日のところは、急がない。",
+              "reading": "ならそうべつかいも、せいだいにはしないでおく。アレックスのいうとおり、いつもどおりにさ。……で、おれのとりたびのほうは、きまったらまたいうよ。きょうのところは、いそがない。",
+              "english": "Then I'll keep the send-off from getting grand, too. Like Alex said — same as always. …And my camera trip, I'll tell you more once it's settled. For tonight, I'm not rushing it."
+            },
+            "n1": {
+              "japanese": "なら送別会も、派手にはしないでおくよ。アレックスの言う通り、いつも通りにさ。……で、俺の撮り旅のほうは、決まったらまた言う。柄にもなく、今日は急がないでおくわ。",
+              "reading": "ならそうべつかいも、はでにはしないでおくよ。アレックスのいうとおり、いつもどおりにさ。……で、おれのとりたびのほうは、きまったらまたいう。がらにもなく、きょうはいそがないでおくわ。",
+              "english": "Then I'll keep the send-off from getting flashy, too. Like Alex said — same as always. …And my camera trip, I'll say more when it's settled. Not like me, but tonight I'll let it stay unhurried."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:journey:somedays-side-by-side",
+          "beatId": "beat:journey:exit-image",
+          "cueId": "cue:three-somedays-level-typing-indicator-stops",
+          "description": "The phones stay face-up on the table, the thread scrolling three kinds of someday — one leaving next month, one staying, one still open. At the bottom a typing indicator blinks under a name hours away, then stops. Nobody has been moved up or down the list."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:alex-timetable-register",
+      "state": "payoff",
+      "ownerIds": [
+        "alex"
+      ],
+      "meaningNow": "Alex delivers the term's biggest event — an actual move to Japan — in the flattest possible register, and the class has finally learned to listen for the unstressed clause ('next month, already settled'); his understatement is now something the room can decode and mark, not miss, and it is used to keep the departure ordinary rather than heroic.",
+      "priorUse": {
+        "packageId": "s3e06-two-schedules",
+        "sceneId": "scene:two-schedules:conflicting-plans",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 4,
+      "optionalFallback": "Alex announces a large, decided plan very plainly and the class marks it without inflating it, whether or not the learner recalls his earlier flat-delivery beats."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:journey:non-comparative-futures",
+      "kind": "story",
+      "description": "Alex's decided move to Japan is announced in the flattest register and marked with a small send-off on his terms; the class lays its leaving, staying, and undecided futures side by side and holds them level, ranking none as the brave one."
+    },
+    {
+      "id": "outcome:journey:alex-future",
+      "kind": "bond",
+      "castId": "alex",
+      "chapter": 43,
+      "beat": "future",
+      "description": "Alex delivers his actual move to Japan in the flattest possible register and names his own uncertainty plainly rather than opening into a speech; he accepts a small send-off on his terms and refuses to be crowned the brave one, leaving departure ordinary and his return date genuinely open."
+    },
+    {
+      "id": "outcome:journey:aakash-future",
+      "kind": "bond",
+      "castId": "aakash",
+      "chapter": 43,
+      "beat": "future",
+      "description": "Aakash puts his solo camera road-trip on the table as a real maybe and, for once, does not accelerate it or the send-off into an event; the reflex-organizer sits with an open plan and lets it stay undecided beside Alex's settled one."
+    },
+    {
+      "id": "outcome:journey:mira-return",
+      "kind": "bond",
+      "castId": "mira",
+      "chapter": 43,
+      "beat": "return",
+      "description": "Mira returns to the group chat after a long absence with no apology theatre, picks the thread straight up, holds the class's different futures level, and invites a lapsed learner to restart with an explicit easy-out; the group treats her restart as normal rather than a debt."
+    },
+    {
+      "id": "outcome:journey:transfer-return",
+      "kind": "curriculum-return",
+      "description": "Plans-under-uncertainty and non-comparative-futures evidence returns through the chapter's transfer activity; the story emits no lesson-completion command, and no registered N1 package is claimed."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:mira-reading-the-thread-from-a-distance"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-non-comparative-futures"
+    ],
+    "withdrawnContentFallback": "Use the same flat-announcement and non-comparative-futures beats with neutral nameplates: a classmate announces a decided move very plainly, a friend keeps an open trip undecided beside it, a distant member returns without guilt, and the class states each future in its honest modality without ranking one as braver."
+  }
+}

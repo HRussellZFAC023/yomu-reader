@@ -30,7 +30,7 @@ import {
   type N1ContrastInferenceResponse,
 } from "./types";
 
-const n1ContrastInferencePlugin: ActivityPlugin<
+export const n1ContrastInferencePlugin: ActivityPlugin<
   N1ContrastInferenceModel,
   N1ContrastInferenceResponse
 > = {

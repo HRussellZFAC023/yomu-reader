@@ -2678,6 +2678,394 @@
     }
 }
 
+/* Class Journal: one finite, paged book over the classroom scene. */
+.academy-journal-screen {
+    min-height: 100dvh;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.academy-journal-screen .academy-background img {
+    object-position: center;
+    filter: saturate(0.92) brightness(0.7) contrast(1.04);
+    transform: scale(1.015);
+}
+
+.academy-journal-screen .academy-screen-veil {
+    min-height: 100dvh;
+    place-items: center;
+    overflow: hidden;
+    padding: max(74px, calc(env(safe-area-inset-top) + 62px)) clamp(14px, 3vw, 42px) max(14px, env(safe-area-inset-bottom));
+    background:
+        linear-gradient(90deg, rgba(9, 13, 12, 0.44), rgba(9, 13, 12, 0.14) 46%, rgba(9, 13, 12, 0.42)),
+        linear-gradient(0deg, rgba(9, 13, 12, 0.34), transparent 55%);
+}
+
+.academy-journal-screen .academy-journal-book {
+    width: min(1120px, 100%);
+    height: min(760px, calc(100dvh - max(96px, calc(env(safe-area-inset-top) + 78px))));
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform-origin: center bottom;
+    animation: academy-journal-book-open 520ms cubic-bezier(0.18, 0.72, 0.24, 1) both;
+    perspective: 1200px;
+}
+
+.academy-journal-screen .academy-journal-book::before {
+    position: absolute;
+    z-index: -1;
+    inset: 9px -10px -11px 8px;
+    border: 2px solid rgba(229, 189, 104, 0.72);
+    background: #452d26;
+    box-shadow: 0 26px 64px rgba(3, 7, 6, 0.48);
+    clip-path: polygon(1% 2%, 99% 0, 100% 96%, 96% 100%, 2% 98%, 0 6%);
+    content: '';
+}
+
+.academy-journal-screen .academy-journal-book::after {
+    display: none;
+}
+
+.academy-journal-screen .academy-journal-book-content {
+    position: relative;
+    display: grid;
+    grid-template:
+        'title tabs' auto
+        'intro tabs' auto
+        'spread spread' minmax(0, 1fr)
+        'footer footer' auto
+        / minmax(0, 1fr) auto;
+    gap: 7px 18px;
+    height: 100%;
+    overflow: hidden;
+    padding: clamp(20px, 3vw, 34px) clamp(22px, 4vw, 52px) clamp(16px, 2vw, 24px);
+    color: #29271f;
+    background:
+        linear-gradient(90deg, transparent 49.6%, rgba(94, 72, 43, 0.16) 49.9%, rgba(255, 255, 255, 0.2) 50.2%, transparent 50.55%),
+        repeating-linear-gradient(0deg, transparent 0 29px, rgba(83, 105, 92, 0.075) 30px 31px),
+        radial-gradient(circle at 17% 24%, rgba(118, 94, 56, 0.06) 0 1px, transparent 1.6px),
+        #f3ecd9 !important;
+    background-size: auto, auto, 23px 27px, auto !important;
+    box-shadow: inset 0 0 30px rgba(96, 70, 38, 0.08);
+    clip-path: polygon(1% 0, 48% 1%, 50% 0, 52% 1%, 99% 0, 100% 96%, 97% 100%, 52% 99%, 50% 100%, 48% 99%, 2% 100%, 0 94%);
+}
+
+.academy-journal-screen .academy-title {
+    grid-area: title;
+    max-width: none;
+    margin: 0;
+    padding-left: 13px;
+    border-left: 6px solid #b94e4b;
+    color: #29271f;
+    background: transparent;
+    box-shadow: none;
+    text-shadow: none;
+    font-size: clamp(1.8rem, 3.2vw, 3rem);
+    letter-spacing: 0;
+}
+
+.academy-journal-book-intro {
+    grid-area: intro;
+    margin: 0;
+    color: #615c50;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.academy-journal-book-tabs {
+    grid-area: tabs;
+    display: flex;
+    align-self: end;
+    gap: 5px;
+    align-items: center;
+}
+
+.academy-journal-book-tab,
+.academy-journal-page-turn {
+    min-height: 42px;
+    padding: 7px 11px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    color: #504a3f;
+    background: transparent;
+    font: 760 0.82rem/1.15 var(--academy-font);
+    cursor: pointer;
+}
+
+.academy-journal-book-tab[aria-selected='true'] {
+    border-bottom-color: #557862;
+    color: #263c32;
+    background: rgba(85, 120, 98, 0.08);
+}
+
+.academy-journal-book-tab:is(:hover, :focus-visible),
+.academy-journal-page-turn:not(:disabled):is(:hover, :focus-visible) {
+    outline: 2px solid #557862;
+    outline-offset: 2px;
+}
+
+.academy-journal-screen .academy-character-directory,
+.academy-journal-learning-lines,
+.academy-journal-screen .academy-character-page {
+    grid-area: spread;
+    min-height: 0;
+}
+
+.academy-journal-screen .academy-character-directory {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 2vw, 24px);
+    height: 100%;
+    margin: 8px 0 0;
+    padding: 20px 4px 5px;
+    overflow: visible;
+    border: 0;
+}
+
+.academy-journal-screen .academy-character-entry {
+    min-height: 0;
+    height: 100%;
+    overflow: visible;
+    animation: academy-journal-character-arrive 340ms calc(min(var(--academy-character-order), 5) * 45ms) ease-out both;
+}
+
+.academy-journal-screen [hidden] {
+    display: none !important;
+}
+
+.academy-journal-learning-lines {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 14px 22px;
+    align-content: stretch;
+    height: 100%;
+    padding: 20px 10px 8px;
+}
+
+.academy-journal-learning-lines h2 {
+    grid-column: 1 / -1;
+    align-self: end;
+    margin: 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #b94e4b;
+    font-size: clamp(1.2rem, 2vw, 1.7rem);
+}
+
+.academy-journal-learning-line,
+.academy-journal-learning-empty {
+    min-width: 0;
+    margin: 0;
+    padding: 16px 18px;
+    border-left: 5px solid #557862;
+    color: #39362f;
+    background: rgba(255, 252, 241, 0.46);
+    font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+    line-height: 1.5;
+}
+
+.academy-journal-book-footer {
+    grid-area: footer;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+    min-height: 44px;
+    border-top: 1px solid rgba(55, 49, 37, 0.18);
+}
+
+.academy-journal-page-previous { justify-self: start; }
+.academy-journal-page-next { justify-self: end; }
+.academy-journal-page-turn:disabled { visibility: hidden; }
+.academy-journal-page-indicator {
+    color: #6b6354;
+    font: 740 0.78rem/1 var(--academy-font);
+}
+
+.academy-journal-screen .academy-journal-profile-sync {
+    position: static;
+    width: fit-content;
+    min-height: 38px;
+    margin-left: 8px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    color: #263c32;
+    background: rgba(85, 120, 98, 0.1);
+    box-shadow: none;
+}
+
+.academy-journal-screen .academy-character-page {
+    align-self: stretch;
+    height: 100%;
+    overflow: visible;
+}
+
+.academy-journal-screen .academy-character-dossier {
+    display: grid;
+    grid-template:
+        'copy back' auto
+        'gallery gallery' auto
+        / minmax(0, 1fr) auto;
+    gap: clamp(10px, 2vh, 18px) 18px;
+    align-content: start;
+    width: min(920px, 100%);
+    height: calc(100% - 18px);
+    max-height: 100%;
+    margin: 18px auto 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.academy-journal-screen .academy-character-dossier .academy-journal-copy {
+    grid-area: copy;
+    min-width: 0;
+    padding-right: 0;
+}
+
+.academy-journal-screen .academy-character-dossier .academy-character-page-back {
+    position: static;
+    grid-area: back;
+    align-self: start;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery,
+.academy-journal-screen .academy-character-dossier > .academy-journal-portrait {
+    grid-area: gallery;
+    align-self: start;
+    min-height: 0;
+}
+
+.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery-image {
+    height: min(31dvh, 300px);
+}
+
+@keyframes academy-journal-book-open {
+    from { opacity: 0; transform: translateY(24px) rotateX(-7deg) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+}
+
+@keyframes academy-journal-character-arrive {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 700px) {
+    .academy-journal-screen .academy-screen-veil {
+        padding: max(62px, calc(env(safe-area-inset-top) + 54px)) 8px max(8px, env(safe-area-inset-bottom));
+    }
+
+    .academy-journal-screen .academy-journal-book {
+        width: 100%;
+        height: calc(100dvh - max(70px, calc(env(safe-area-inset-top) + 62px)) - max(8px, env(safe-area-inset-bottom)));
+    }
+
+    .academy-journal-screen .academy-journal-book-content {
+        grid-template:
+            'title title' auto
+            'intro intro' auto
+            'tabs tabs' auto
+            'spread spread' minmax(0, 1fr)
+            'footer footer' auto
+            / 1fr auto;
+        gap: 5px 8px;
+        padding: 15px 13px 10px;
+    }
+
+    .academy-journal-screen .academy-title {
+        width: auto;
+        max-width: calc(100% - 94px);
+        margin: 0;
+        padding: 4px 0 4px 9px;
+        font-size: clamp(1.45rem, 7vw, 2rem);
+        line-height: 1.05;
+    }
+
+    .academy-journal-book-intro { font-size: 0.76rem; }
+    .academy-journal-book-tabs { justify-content: flex-end; }
+    .academy-journal-book-tab { min-height: 38px; padding: 5px 8px; font-size: 0.74rem; }
+
+    .academy-journal-screen .academy-character-directory {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 8px 10px;
+        margin-top: 2px;
+        padding: 12px 2px 3px;
+    }
+
+    .academy-journal-screen .academy-character-entry {
+        min-height: 0;
+    }
+
+    .academy-journal-screen .academy-character-caption {
+        padding: 7px 8px;
+    }
+
+    .academy-journal-screen .academy-character-name { font-size: 0.78rem; }
+    .academy-journal-screen .academy-character-state { min-height: 0; font-size: 0.61rem; }
+
+    .academy-journal-learning-lines {
+        grid-template-columns: 1fr;
+        gap: 9px;
+        padding: 10px 3px 4px;
+    }
+
+    .academy-journal-learning-lines h2 { font-size: 1.05rem; }
+    .academy-journal-learning-line,
+    .academy-journal-learning-empty { padding: 10px 12px; font-size: 0.82rem; }
+
+    .academy-journal-page-turn { min-height: 40px; padding: 5px 7px; font-size: 0.68rem; }
+
+    .academy-journal-screen .academy-character-dossier {
+        grid-template:
+            'back' auto
+            'copy' auto
+            'gallery' auto
+            / minmax(0, 1fr);
+        gap: 8px 10px;
+        height: calc(100% - 8px);
+        max-height: 100%;
+        margin-top: 8px;
+        padding: 8px;
+    }
+
+    .academy-journal-screen .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+        height: clamp(112px, 34vw, 142px);
+    }
+
+    .academy-journal-screen .academy-character-dossier .academy-journal-copy h2 {
+        display: block;
+        min-height: 0;
+        margin-top: 0;
+        padding: 0;
+        font-size: 1.3rem;
+        line-height: 1.15;
+    }
+
+    .academy-journal-screen .academy-journal-profile-sync {
+        min-height: 34px;
+        margin-left: 2px;
+        padding: 5px 7px;
+        font-size: 0.68rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-journal-screen .academy-journal-book,
+    .academy-journal-screen .academy-character-entry {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
 /* Current-place world. The location is the interface; campus remains a route only. */
 .academy-world-screen {
     min-height: 100dvh;
@@ -5562,6 +5950,16 @@
     gap: 7px;
 }
 
+/* While the first-visit arrival dialogue is open it is the only speaking
+   surface: the centred paper and the purpose card collide below ~1200px and
+   both carry the same speaker ink tag. Hold the purpose card back until the
+   learner continues; completeWorldArrival then reveals and focuses it. */
+.academy-world-screen:has(.academy-world-arrival-dialogue:not([hidden])) .academy-world-purpose-surface {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 260ms ease-out;
+}
+
 .academy-world-arrival-speaker,
 .academy-world-arrival-line,
 .academy-world-arrival-support {
@@ -7164,6 +7562,10 @@
     filter: drop-shadow(0 8px 8px rgba(3, 10, 13, 0.24));
     transform: rotate(-2deg);
     animation: academy-courtyard-canopy-in 560ms 80ms ease-out both;
+    /* The canopy hangs in from the top-left corner; without a mask its
+       branch streaks and petals stop dead at the mark's bounding box. */
+    -webkit-mask-image: radial-gradient(130% 125% at 0% 0%, #000 52%, transparent 96%);
+    mask-image: radial-gradient(130% 125% at 0% 0%, #000 52%, transparent 96%);
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-scene-mark[data-landmark='cherry-canopy']::after {
@@ -7176,7 +7578,7 @@
     background: #ef9a9d;
     box-shadow: 38px 25px 0 #f1b0aa, 91px -8px 0 #dc7e89, 138px 44px 0 #f1aaa9;
     content: '';
-    animation: academy-courtyard-petal-drift 6.5s ease-in-out infinite alternate;
+    animation: academy-courtyard-petal-drift 6.5s linear infinite;
 }
 
 .academy-world-screen[data-current-place='courtyard'] .academy-world-scene-mark[data-landmark='garden-path'] {
@@ -7442,8 +7844,9 @@
 }
 
 @keyframes academy-courtyard-petal-drift {
-    from { translate: -4px -4px; rotate: -8deg; }
-    to { translate: 18px 22px; rotate: 12deg; }
+    0% { opacity: 0; translate: -8px -12px; rotate: -12deg; }
+    14%, 78% { opacity: 0.92; }
+    100% { opacity: 0; translate: 28px 52px; rotate: 34deg; }
 }
 
 @keyframes academy-courtyard-path-in {

@@ -37,7 +37,7 @@ function cursor(sceneId: string, nodeId: string, choices: Readonly<Record<string
 describe('Academy Story screen', () => {
     it('opens the complete episode list and distinguishes the authored first arc', () => {
         const { screen, actions } = render();
-        expect(screen.querySelectorAll('[data-episode-id]')).toHaveLength(30);
+        expect(screen.querySelectorAll('[data-episode-id]')).toHaveLength(48);
         expect(screen.querySelector<HTMLElement>('[data-episode-id="s1e01-the-blank-atlas"]')?.dataset.storyFormat).toBe('authored-arc');
         screen.querySelector<HTMLButtonElement>('[data-episode-id="s1e01-the-blank-atlas"]')?.click();
         expect(actions.onOpenEpisode).toHaveBeenCalledWith('s1e01-the-blank-atlas');
@@ -209,60 +209,54 @@ describe('Academy Story screen', () => {
         expect(onSceneEncounter).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps later unscripted episodes honest and records only explicit continuation', async () => {
-        const completed = vi.fn(async () => undefined);
-        const { screen, actions } = render('s1e12-the-vanishing-course', { onCompleteEpisode: completed });
-        expect(screen.textContent).toContain('Story outline · full authored scene pending');
-        expect(screen.querySelector('img')).toBeNull();
-        screen.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
-        await vi.waitFor(() => expect(completed).toHaveBeenCalledWith('s1e12-the-vanishing-course'));
-        await vi.waitFor(() => expect(actions.onOpenEpisode).toHaveBeenCalledWith('s1e13-dinner-by-if'));
+    it('opens later authored episodes through the same playable VN surface', () => {
+        const { screen } = render('s1e12-the-vanishing-course');
+        expect(screen.querySelector('[data-story-arc-id="arc:s1e12-the-vanishing-course"]')).not.toBeNull();
+        expect(screen.textContent).not.toContain('full authored scene pending');
+        expect(screen.querySelector('.academy-vn-stage')).not.toBeNull();
     });
 
-    it('continues from the legacy exhibition into N3 and keeps postgame closed after the authored batch', () => {
+    it('continues from Season 2 into the fully authored N3 season', async () => {
         const finale = render('s1e24-lanterns-return');
-        finale.screen.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
+        await finishAuthoredArc(finale.screen);
+        finale.screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
         expect(finale.actions.onOpenReviewCalendar).not.toHaveBeenCalled();
         expect(finale.actions.onOpenEpisode).toHaveBeenCalledWith('s3e01-after-the-applause');
-        const batchEnd = render('s3e03-helpful-rewrite');
-        expect(batchEnd.screen.querySelector('.academy-story-review-open')).toBeNull();
         const { screen } = render(STORY_REVIEW_CALENDAR_SECTION);
         expect(screen.querySelectorAll('[data-review-template-id]')).toHaveLength(7);
     });
 
-    it('plays the first N3 chapter in the VN and records only its mapped deterministic practice', async () => {
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
-        const { screen } = render('s3e01-after-the-applause', {
-            selectedBand: 'n3',
-            onCompleteStoryPractice,
-        });
+    it('plays the first N3 chapter and keeps its not-yet-grounded practice honest', () => {
+        const { screen } = render('s3e01-after-the-applause', { selectedBand: 'n3' });
 
         expect(screen.querySelector('[data-story-arc-id="arc:s3e01-after-the-applause"]')).not.toBeNull();
-        advance(screen, 3);
-        const activity = screen.querySelector<HTMLElement>('[data-activity-id="activity:story-n3:after-applause-tone"]')!;
-        activity.querySelector<HTMLButtonElement>('[data-story-practice-option="decision-open"]')?.click();
-        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(
-            'activity:story-n3:after-applause-tone', 'pass',
-        ));
-        await vi.waitFor(() => expect(screen.querySelector('.academy-vn-primary-action')).not.toBeNull());
-        advance(screen);
-        expect(screen.querySelector('[data-story-option-id="option:after-applause:confirm-scope"]')).not.toBeNull();
+        advanceTo(screen, '[data-activity-id="activity:s3e01-after-the-applause-three-readings"]');
+        const activity = screen.querySelector<HTMLElement>('[data-activity-id="activity:s3e01-after-the-applause-three-readings"]')!;
+        expect(activity.dataset.lessonId).toBe('lesson:pending:s3e01-after-the-applause');
+        expect(activity.dataset.activityRegistered).toBe('false');
+        expect(activity.querySelector('.academy-story-open-activity')).toBeNull();
+        expect(activity.textContent).toContain('Practice is being prepared.');
+        expect(activity.querySelector('.academy-story-activity-story-only')).not.toBeNull();
     });
 
-    it('returns to the episode list after the authored N3 batch instead of inventing a next VN chapter', async () => {
-        const onCompleteStoryPractice = vi.fn(async () => undefined);
-        const { screen, actions } = render('s3e06-two-schedules', { onCompleteStoryPractice });
+    it('renders the verified Season 3-4 event art instead of leaving generated files orphaned', () => {
+        const cases = [
+            ['s3e10-empty-microphone', 'event__empty-microphone-rehearsal__v001.png'],
+            ['s4e08-last-revision', 'event__withheld-panel-handoff__v001.png'],
+            ['s4e11-atlas-closes', 'event__atlas-finale-next-page__v001.png'],
+        ] as const;
 
-        advance(screen, 3);
-        screen.querySelector<HTMLButtonElement>('[data-story-practice-option="mark-pending"]')?.click();
-        await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledWith(
-            'activity:story-n3:conditional-schedule', 'pass',
-        ));
-        await vi.waitFor(() => expect(screen.querySelector('.academy-vn-primary-action')).not.toBeNull());
-        advance(screen);
-        screen.querySelector<HTMLButtonElement>('[data-story-option-id="option:schedules:mark-pending"]')?.click();
-        advance(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-story-next')?.click();
+        for (const [episodeId, filename] of cases) {
+            const { screen } = render(episodeId);
+            const image = screen.querySelector<HTMLImageElement>('.academy-vn-plate img');
+            expect(image?.getAttribute('src'), episodeId).toContain(`/academy/art/events/${filename}`);
+        }
+    });
+
+    it('returns to the episode list only after the authored graduation chapter', async () => {
+        const { screen, actions } = render('s4e12-next-page');
+        await finishAuthoredArc(screen);
+        screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
 
         expect(actions.onReturnToEpisodes).toHaveBeenCalledOnce();
         expect(actions.onOpenReviewCalendar).not.toHaveBeenCalled();
@@ -278,11 +272,28 @@ function advance(screen: HTMLElement, count = 1): void {
 }
 
 function advanceTo(screen: HTMLElement, selector: string): void {
-    for (let index = 0; index < 12; index += 1) {
+    for (let index = 0; index < 40; index += 1) {
         if (screen.querySelector(selector)) return;
-        advance(screen);
+        const choice = screen.querySelector<HTMLButtonElement>('[data-story-option-id]');
+        if (choice) choice.click();
+        else advance(screen);
     }
     throw new Error(`Story did not reach ${selector}.`);
+}
+
+async function finishAuthoredArc(screen: HTMLElement): Promise<void> {
+    for (let guard = 0; guard < 300; guard += 1) {
+        if (screen.querySelector('.academy-story-next')) return;
+        const choice = screen.querySelector<HTMLButtonElement>('[data-story-option-id]');
+        const pending = screen.querySelector<HTMLButtonElement>('.academy-story-activity-story-only');
+        const completePractice = screen.querySelector<HTMLButtonElement>('.academy-story-activity-continue');
+        const next = screen.querySelector<HTMLButtonElement>('.academy-vn-primary-action');
+        const action = choice ?? pending ?? completePractice ?? next;
+        if (!action) throw new Error(`Story stalled at ${screen.dataset.storyMoment ?? 'unknown moment'}.`);
+        action.click();
+        await Promise.resolve();
+    }
+    throw new Error('Story did not reach its completion action.');
 }
 
 function storyWithLearnerLine(): StoryRuntime {

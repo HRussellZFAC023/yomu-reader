@@ -4,7 +4,7 @@ const CLASS_WEEK_CAST_PLAN_URL = '/academy/content/curriculum/class-week-cast.v1
 
 let defaultLoad: Promise<ClassWeekCastPlan> | null = null;
 
-/** Load the planning-only 73-week class path without promoting it to playable content. */
+/** Load the planning-only class path without promoting it to playable content. */
 export function loadClassWeekCastPlan(fetcher: typeof fetch = fetch): Promise<ClassWeekCastPlan> {
     if (fetcher !== fetch) return load(fetcher);
     defaultLoad ??= load(fetcher).catch(error => {

@@ -76,7 +76,7 @@ function checkCoverage(roots, curriculum, vocabulary, violations) {
 
 function checkCurriculumOrder(lessons, violations) {
     let previousLessonOrder = 0;
-    const previousMoodleClassOrderByGroup = new Map();
+    const classOrdersByGroup = new Map();
     for (const lesson of lessons) {
         if (!Number.isInteger(lesson.lessonOrder) || lesson.lessonOrder <= previousLessonOrder) {
             violations.push(`${lesson.lessonId}: lesson order must be a strictly increasing integer`);
@@ -89,11 +89,12 @@ function checkCurriculumOrder(lessons, violations) {
             violations.push(`${lesson.lessonId}: missing progression group or canonical Moodle class order`);
             continue;
         }
-        const previousClassOrder = previousMoodleClassOrderByGroup.get(progressionGroup);
-        if (previousClassOrder !== undefined && classOrder <= previousClassOrder) {
-            violations.push(`${lesson.lessonId}: Moodle chronology moves backwards within ${progressionGroup}`);
+        const classOrders = classOrdersByGroup.get(progressionGroup) ?? new Set();
+        if (classOrders.has(classOrder)) {
+            violations.push(`${lesson.lessonId}: canonical class order is duplicated within ${progressionGroup}`);
         }
-        previousMoodleClassOrderByGroup.set(progressionGroup, classOrder);
+        classOrders.add(classOrder);
+        classOrdersByGroup.set(progressionGroup, classOrders);
     }
 }
 

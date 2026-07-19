@@ -1,0 +1,494 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e12-permission-page",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 36,
+  "title": {
+    "en": "The Permission Page",
+    "ja": "許可のページ"
+  },
+  "synopsis": "Season 3 finale. With the margin study showing that the old page was layered across several classes with no single owner, the class sits down to write the permission page: who may share which passage, for which event, and for how long. Sam leads the consent language, naming scope precisely and leaving a real exit; Angel turns the terms into a legible document of state, condition, and expiry, and Sophie codes each permission's confidence. The passages nobody can be asked for stay withheld rather than published, so the withheld material becomes an earned ethical choice and a responsible public evening becomes possible.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "sam",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sam",
+        "docs/academy/story/CAST-AND-CONSENT.md#sam"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, employer, nationality, age, or private history",
+        "persistence past a heard no reframed as success",
+        "the real early departure written as a rift or sad exit"
+      ]
+    },
+    {
+      "castId": "angel",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#angel",
+        "docs/academy/story/CAST-AND-CONSENT.md#angel"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, dropped honorific, job, or private biography",
+        "planning shown as a controlling power move rather than a shared gift"
+      ]
+    },
+    {
+      "castId": "sophie",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#sophie",
+        "docs/academy/story/CAST-AND-CONSENT.md#sophie"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "anxiety or fragility framing; real phone-number or contact-data reveal"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e11-names-in-the-margin",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "record-permission-scope-who-may-share-what-for-which-event-for-how-long"
+        }
+      ],
+      "recommendedBand": "n2",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-six-permission-page-neutral-cast"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:permission-page:who-may-share",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Sit the class down to author the permission page and reach the point where the passages nobody can be asked for cannot honestly be marked permitted.",
+      "dramaticQuestion": "When a passage has no contributor to ask, will the class invent an owner to fill the page or withhold it on purpose?",
+      "learnerNeed": "A formal-writing task where sorting each passage by whether consent actually stands matters more than filling every cell of the page.",
+      "curriculum": {
+        "sectionId": "author-the-permission-page",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:permission-page:records-and-blank-sheet",
+          "beatId": "beat:permission-page:arrival-image",
+          "cueId": "cue:provenance-records-beside-blank-permission-sheet",
+          "description": "On the long classroom table the margin-study records are laid out: paper folds, ink shades, and the marker's positions across several successive classes, showing a page layered by many hands with no single owner. Beside them lies a blank sheet headed 「公開の許可」 with three empty columns — who may share, for which event, and until when. A short stack of passages sits apart under a paper slip reading 「保留」, the lines no contributor could be named for. A group-chat note left open on a phone reminds the room, in Nanako's words, that any request they send must carry an easy way to say no."
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sam-frame",
+          "beatId": "beat:permission-page:host-want",
+          "speakerId": "sam",
+          "intent": "Name exactly what the page must record — who may share which passage, for which event, and for how long — and build in that any contributor can decline any part in a single word.",
+          "attentionTarget": "the three empty columns on the permission sheet",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、今日はこの『公開の許可』のページを作りましょう。誰が、どの文を、どの催しで、いつまで見せていいか。一つずつ決めて書いていきます。どこでも『今回は出さないでおく』って言える形にしておきたいんです。",
+              "reading": "じゃあ、きょうはこの『こうかいのきょか』のページをつくりましょう。だれが、どのぶんを、どのもよおしで、いつまでみせていいか。ひとつずつきめてかいていきます。どこでも『こんかいはださないでおく』っていえるかたちにしておきたいんです。",
+              "english": "All right, today let's build this \"permission to publish\" page. Who may show which line, for which event, and until when. We decide and write it one at a time. I want it set up so that anywhere, anyone can say \"let's leave this one out this time.\""
+            },
+            "n2": {
+              "japanese": "では、この『公開許可』のページをまとめましょう。誰が、どの一文を、どの催しで、いつまで公開してよいか——それを一件ずつ記していきます。どの箇所についても『今回は控えておく』と言える。そういう形にしておきたくて。",
+              "reading": "では、この『こうかいきょか』のページをまとめましょう。だれが、どのいちぶんを、どのもよおしで、いつまでこうかいしてよいか——それをいっけんずつしるしていきます。どのかしょについても『こんかいはひかえておく』といえる。そういうかたちにしておきたくて。",
+              "english": "Then let's put together this \"publication permission\" page. Who may make which line public, for which event, and until when — we'll record it case by case. About any passage, one can say \"I'll refrain this time.\" I'd like it set up that way."
+            },
+            "n1": {
+              "japanese": "では、この公開許可のページを、一件ずつまとめていきましょう。誰が、どの一文を、どの催しで、そしていつまで公開してよいのか。——どの箇所であれ、『今回は控えたい』と一言で言える。無理に埋めずに済む。そういう作りにしておきたいんです。",
+              "reading": "では、このこうかいきょかのページを、いっけんずつまとめていきましょう。だれが、どのいちぶんを、どのもよおしで、そしていつまでこうかいしてよいのか。——どのかしょであれ、『こんかいはひかえたい』とひとことでいえる。むりにうめずにすむ。そういうつくりにしておきたいんです。",
+              "english": "Then let's assemble this publication-permission page, one entry at a time. Who, which line, for which event, and until when it may be made public. — Whatever the passage, one can decline in a single word: \"I'd rather hold this one back this time.\" No forcing it filled. That's the build I want."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:angel-format-and-wall",
+          "beatId": "beat:permission-page:obstruction",
+          "speakerId": "angel",
+          "intent": "Turn the terms into a legible document of state, condition, and expiry, then name the wall — the passages with no identifiable contributor have no one to ask, so they cannot be marked permitted.",
+          "attentionTarget": "the withheld slip and the empty who-may-share column",
+          "variants": {
+            "n3": {
+              "japanese": "書き方は決めてあります。『状態・条件・期限』の三つ。誰の許可が取れたか、どの催しの範囲か、いつまでか。……でも、こっちの保留の分は、書けないんです。誰が書いたか分からないから、許可を取る相手がいない。取ってないものは、許可済みにはできません。",
+              "reading": "かきかたはきめてあります。『じょうたい・じょうけん・きげん』のみっつ。だれのきょかがとれたか、どのもよおしのはんいか、いつまでか。……でも、こっちのほりゅうのぶんは、かけないんです。だれがかいたかわからないから、きょかをとるあいてがいない。とってないものは、きょかずみにはできません。",
+              "english": "I've already set the format — three fields: state, condition, expiry. Whose permission we obtained, which event's scope, until when. …But these withheld ones, I can't fill in. We don't know who wrote them, so there's no one to ask. What we haven't obtained, we can't mark as permitted."
+            },
+            "n2": {
+              "japanese": "書式はもう組んであります。状態・条件・期限の三欄。誰の許可が取れているか、どの催しの範囲か、いつまで有効か。……ただ、この保留分だけは、埋めようがなくて。書き手が特定できない以上、許可を求める相手がいない。取れていないものを『許可済み』にはできないんです。",
+              "reading": "しょしきはもうくんであります。じょうたい・じょうけん・きげんのさんらん。だれのきょかがとれているか、どのもよおしのはんいか、いつまでゆうこうか。……ただ、このほりゅうぶんだけは、うめようがなくて。かきてがとくていできないいじょう、きょかをもとめるあいてがいない。とれていないものを『きょかずみ』にはできないんです。",
+              "english": "I've already built the format — three columns: state, condition, expiry. Whose permission stands, which event's scope, how long it's valid. …Only, these withheld ones, there's no way to fill them. As long as the writer can't be identified, there's no one to ask permission of. What hasn't been obtained, we can't set down as \"permitted.\""
+            },
+            "n1": {
+              "japanese": "書式は組んであります——状態・条件・期限の三欄で。誰の許可が取れているか、どの催しの範囲でか、いつまで有効か。……ただ、この保留の分だけは、どうにも埋めようがなくて。書き手が特定できない以上、そもそも許可を求める相手がいない。取れていない許可を、取れたことにはできませんから。",
+              "reading": "しょしきはくんであります——じょうたい・じょうけん・きげんのさんらんで。だれのきょかがとれているか、どのもよおしのはんいでか、いつまでゆうこうか。……ただ、このほりゅうのぶんだけは、どうにもうめようがなくて。かきてがとくていできないいじょう、そもそもきょかをもとめるあいてがいない。とれていないきょかを、とれたことにはできませんから。",
+              "english": "The format's built — three columns, state, condition, expiry. Whose permission stands, within which event's scope, valid until when. …Only these withheld ones, there's simply no filling them. As long as the writer can't be identified, there's no one to ask in the first place. A permission not obtained can't be written up as though it were."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sam-propose-rule",
+          "beatId": "beat:permission-page:trial-attempt",
+          "speakerId": "sam",
+          "intent": "Propose the page's rule — record who/event/expiry only where consent stands; where there is no one to ask or the answer is a soft not-yet, the passage stays withheld rather than published, and the plan changes to fit that.",
+          "attentionTarget": "the two growing groups, permitted and withheld",
+          "variants": {
+            "n3": {
+              "japanese": "なら、こうしましょう。許可が取れた文だけ、誰・どの催し・いつまで、で書く。相手がいない文と、『今回はまだ』って言われた文は、保留のまま出さない。埋まらない所は、無理に埋めない。それでいいと思うんです。",
+              "reading": "なら、こうしましょう。きょかがとれたぶんだけ、だれ・どのもよおし・いつまで、でかく。あいてがいないぶんと、『こんかいはまだ』っていわれたぶんは、ほりゅうのままださない。うまらないところは、むりにうめない。それでいいとおもうんです。",
+              "english": "Then let's do this. Only the lines we have permission for get written up — who, which event, until when. The lines with no one to ask, and the lines where someone said \"not this time yet,\" stay withheld, not published. Where it won't fill, we don't force it. I think that's fine."
+            },
+            "n2": {
+              "japanese": "なら、こうしませんか。許可の取れた文だけ、誰が・どの催しで・いつまで、と記す。尋ねる相手のいない文、それに『今回はまだ』と返ってきた文は、保留のまま公開しない。埋まらない欄は、無理に埋めない。——それでいいはずです。",
+              "reading": "なら、こうしませんか。きょかのとれたぶんだけ、だれが・どのもよおしで・いつまで、としるす。たずねるあいてのいないぶん、それに『こんかいはまだ』とかえってきたぶんは、ほりゅうのままこうかいしない。うまらないらんは、むりにうめない。——それでいいはずです。",
+              "english": "Then how about this. Only the lines with permission get recorded — who, for which event, until when. Lines with no one to ask, and lines that came back \"not yet this time,\" stay withheld, unpublished. Columns that won't fill, we don't force. — That should be fine."
+            },
+            "n1": {
+              "japanese": "なら、こう決めませんか。許可の取れた文だけを、誰が・どの催しで・いつまで、と記す。尋ねる相手のいない文も、『今回はまだ』と返ってきた文も——保留のまま、公開しない。埋まらない欄は、埋まらないままに。無理に一つで塞がずに。……それで、いいはずなんです。",
+              "reading": "なら、こうきめませんか。きょかのとれたぶんだけを、だれが・どのもよおしで・いつまで、としるす。たずねるあいてのいないぶんも、『こんかいはまだ』とかえってきたぶんも——ほりゅうのまま、こうかいしない。うまらないらんは、うまらないままに。むりにひとつでふさがずに。……それで、いいはずなんです。",
+              "english": "Then let's decide it this way. Only the lines we have permission for get recorded — who, for which event, until when. The lines with no one to ask, and the lines that came back \"not yet this time\" — both stay withheld, unpublished. The columns that won't fill, left unfilled. Not forced shut with a single answer. …And that, I'm sure, is fine."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:permission-page:before-sort",
+          "beatId": "beat:permission-page:trial-attempt",
+          "resume": "The blank permission page and the withheld slip both stay on the table. The learner steps in to sort each passage — recording who may share it, for which event, and until when only where consent actually stands, and leaving the rest withheld."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:permission-page:scope-trial",
+          "beatId": "beat:permission-page:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e12-permission-page-scope-trial"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e12-permission-page-scope-trial"
+          },
+          "resumeContext": "The provenance records show a page layered across several classes with no single owner. The learner drafts the permission page: for each passage with standing consent, record who may share it (scope), for which event (condition), and until when (expiry); for passages with no identifiable contributor or a soft \"not yet\" answer, mark them withheld rather than filling in a permission that was never given.",
+          "onReady": "checkpoint:permission-page:after-sort",
+          "onRepair": "node:permission-page:sort-repair",
+          "onDefer": "checkpoint:permission-page:before-sort"
+        },
+        {
+          "kind": "stage",
+          "id": "node:permission-page:sort-repair",
+          "beatId": "beat:permission-page:trial-repair",
+          "cueId": "cue:permitted-and-withheld-side-by-side",
+          "description": "The passages are set out in two groups: a permitted column carrying who / which event / until when, and the withheld slip holding the rest, unlabelled by any invented owner. Only the passage that was sorted into the wrong group returns for another pass; the correctly sorted ones stay where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:permission-page:after-sort",
+          "beatId": "beat:permission-page:trial-response",
+          "resume": "Each passage now sits under the terms consent actually supports, and the rest stay withheld. Sam looks at the split page, the withheld slip still closed, and does not reach to fill it."
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sam-withholding-is-a-choice",
+          "beatId": "beat:permission-page:contribution",
+          "speakerId": "sam",
+          "intent": "Name that withholding what cannot be consented is a chosen, honest act rather than a failure to finish, and that with it the public evening can go ahead responsibly.",
+          "attentionTarget": "the sealed withheld slip and the completed permission column",
+          "variants": {
+            "n3": {
+              "japanese": "これで出せます。……全部載せられたわけじゃない。載せない、って決めた文がある。でもそれは、埋められなかったんじゃなくて、埋めない方を選んだんです。許可のある分だけで、ちゃんと催しはできる。むしろ、この方が人前に出せる。",
+              "reading": "これでだせます。……ぜんぶのせられたわけじゃない。のせない、ってきめたぶんがある。でもそれは、うめられなかったんじゃなくて、うめないほうをえらんだんです。きょかのあるぶんだけで、ちゃんともよおしはできる。むしろ、このほうがひとまえにだせる。",
+              "english": "Now we can present it. …Not everything made it on. There are lines we decided not to include. But that isn't us failing to fill them — it's us choosing not to. With only the permitted lines, the event works fine. If anything, this is the version we can put in front of people."
+            },
+            "n2": {
+              "japanese": "これで公開できます。……すべてを載せたわけではありません。載せない、と決めた文がある。ただそれは、埋められなかったのではなく、埋めない方を選んだということで。許可の取れた分だけでも、催しは十分成り立ちます。むしろ、この形だからこそ人前に出せる。",
+              "reading": "これでこうかいできます。……すべてをのせたわけではありません。のせない、ときめたぶんがある。ただそれは、うめられなかったのではなく、うめないほうをえらんだということで。きょかのとれたぶんだけでも、もよおしはじゅうぶんなりたちます。むしろ、このかたちだからこそひとまえにだせる。",
+              "english": "Now we can publish. …We didn't put everything on. There are lines we decided to leave off. But that's not that we couldn't fill them — it's that we chose not to. Even with only the permitted lines, the event holds up fully. If anything, it's precisely this form we can put before people."
+            },
+            "n1": {
+              "japanese": "これで、公開できます。……何もかも載せた、というわけではない。載せない、と決めた文が残っている。ただ、それは埋められなかったのではなく、埋めない方を選び取った、というだけの話で。許可の取れた分だけでも、催しは十分に成り立つ。いえ、この形だからこそ、はじめて人前に出せるんです。",
+              "reading": "これで、こうかいできます。……なにもかものせた、というわけではない。のせない、ときめたぶんがのこっている。ただ、それはうめられなかったのではなく、うめないほうをえらびとった、というだけのはなしで。きょかのとれたぶんだけでも、もよおしはじゅうぶんになりたつ。いえ、このかたちだからこそ、はじめてひとまえにだせるんです。",
+              "english": "Now, we can publish. …It isn't that we put everything on. There remain lines we decided to leave off. Only, that's not that we couldn't fill them — it's simply that we chose to leave them unfilled. Even with only the permitted lines, the event holds up fully. No — it's precisely in this form that we can, for the first time, put it before people."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:permission-page:page-and-sealed-slip",
+          "beatId": "beat:permission-page:changed-image",
+          "cueId": "cue:permission-column-filled-withheld-sealed",
+          "description": "The permission page now carries a filled column of consented passages — each with a name, an event, and a date — and a sealed withheld section holding the rest, marked only 「保留」 with no invented author. A short line at the foot points to the contributors' terms. The public version is, for the first time, safe to show."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:permission-page:for-how-long"
+      }
+    },
+    {
+      "id": "scene:permission-page:for-how-long",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-night",
+      "goal": "Let the class settle how long each permission holds and how sure it is, so the page is both usable and honest, and close the season without inventing a permanent yes.",
+      "dramaticQuestion": "Can a page that names its own expiry and confidence carry more trust than one that claims a flat forever?",
+      "learnerNeed": "A stance choice about whether a permission should be recorded as permanent or as a term that names its confidence and expiry.",
+      "curriculum": {
+        "sectionId": "for-which-event-for-how-long",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:permission-page:page-beside-notebook",
+          "beatId": "beat:permission-page:regroup-image",
+          "cueId": "cue:permission-page-with-confidence-margin",
+          "description": "The permission page lies open beside the class's number notebook, with its two columns of claims kept alongside their context. Sophie sets three coloured marks down the page's margin: one for a permission that is certain, one for a term that should be re-confirmed later, and one for the withheld passages that stay closed."
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sophie-confidence-and-expiry",
+          "beatId": "beat:permission-page:record-want",
+          "speakerId": "sophie",
+          "intent": "Frame each term as carrying a confidence and an expiry, so the page is honest — a permission that names its limits is stronger than one stated flat.",
+          "attentionTarget": "the three coloured margin marks",
+          "variants": {
+            "n3": {
+              "japanese": "許可の中身だけじゃなくて、どのくらい確かか、いつまでか、も書いておきたいんです。はっきり許可が取れた分と、あとでもう一度確かめた方がいい分。色を分けて。期限をつけた許可は、弱い許可じゃなくて、正直な許可なんです。",
+              "reading": "きょかのなかみだけじゃなくて、どのくらいたしかか、いつまでか、もかいておきたいんです。はっきりきょかがとれたぶんと、あとでもういちどたしかめたほうがいいぶん。いろをわけて。きげんをつけたきょかは、よわいきょかじゃなくて、しょうじきなきょかなんです。",
+              "english": "Not just what the permission covers, but how certain it is and until when — I want those written down too. The clearly obtained ones, and the ones better re-checked later. Split by colour. A permission with an expiry isn't a weak permission; it's an honest one."
+            },
+            "n2": {
+              "japanese": "許可の中身に加えて、どの程度確かか、いつまで有効か、も残しておきたくて。確実に取れた分と、いずれ再確認すべき分を、色で分けておく。期限つきの許可は、弱いのではなく、正直なんです。",
+              "reading": "きょかのなかみにくわえて、どのていどたしかか、いつまでゆうこうか、ものこしておきたくて。かくじつにとれたぶんと、いずれさいかくにんすべきぶんを、いろでわけておく。きげんつきのきょかは、よわいのではなく、しょうじきなんです。",
+              "english": "On top of what the permission covers, I want to keep how certain it is and how long it holds. Split by colour: the ones firmly obtained, and the ones to re-confirm in time. A permission with an expiry isn't weaker — it's honest."
+            },
+            "n1": {
+              "japanese": "許可の中身に加えて——どの程度確かなのか、いつまで有効なのか。そこまで残しておきたいんです。確実に取れた分と、いずれ確かめ直すべき分とを、色で分けて。期限つきの許可というのは、弱いのではなく、むしろ正直な許可なんですよ。",
+              "reading": "きょかのなかみにくわえて——どのていどたしかなのか、いつまでゆうこうなのか。そこまでのこしておきたいんです。かくじつにとれたぶんと、いずれたしかめなおすべきぶんとを、いろでわけて。きげんつきのきょかというのは、よわいのではなく、むしろしょうじきなきょかなんですよ。",
+              "english": "Beyond what the permission covers — how certain it is, how long it holds. I want to keep even that. Split by colour: the firmly obtained, and those to verify again in time. A permission with an expiry isn't weak — if anything, it's the honest kind."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:permission-page:how-to-hold-terms",
+          "beatId": "beat:permission-page:record-stance",
+          "question": "How should the permission page record each term?",
+          "options": [
+            {
+              "id": "option:permission-page:expiry-and-review",
+              "action": "Give each permission an explicit expiry and a date to re-ask, so consent is renewed rather than assumed permanent.",
+              "japaneseByBand": {
+                "n3": "一つ一つに期限をつけて、いつまた確かめるかも書いておきましょう。許可は、ずっとじゃなくて、その都度もらい直す形で。",
+                "n2": "各項目に期限を設けて、いつ再確認するかも併記しておきましょう。許可は恒久ではなく、その都度取り直す形で。",
+                "n1": "項目ごとに期限を切って、いつ確かめ直すかまで添えておきましょう。許可は永続ではなく、その都度もらい直すものとして。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:permission-page:before-close"
+            },
+            {
+              "id": "option:permission-page:confidence-beside-permission",
+              "action": "Mark each permission's confidence beside it — certain, or to be re-confirmed — and keep the withheld passages plainly closed.",
+              "japaneseByBand": {
+                "n3": "許可の横に、どれくらい確かかを印でつけましょう。確実な分と、もう一度確かめる分。保留の分は、閉じたままはっきり分けて。",
+                "n2": "各許可の脇に、確度を印で示しておきましょう。確実な分と、再確認を要する分。保留分は、閉じたものとして明確に分けて。",
+                "n1": "許可ごとに、その確かさを脇へ印で示しておきましょう。確実な分と、いずれ確かめ直すべき分と。保留の分は、閉じたものとしてはっきり分けたうえで。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:permission-page:before-close"
+            }
+          ],
+          "convergence": "checkpoint:permission-page:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:permission-page:before-close",
+          "beatId": "beat:permission-page:record-attempt",
+          "resume": "The learner has chosen how the page will hold each term. Sophie writes the terms in with their colours, and says what the record is for."
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sophie-honest-not-flat",
+          "beatId": "beat:permission-page:repair",
+          "speakerId": "sophie",
+          "intent": "Reframe precision as marking a term's limits — expiry and confidence — rather than claiming a flat permanent yes, and name it as the page's practice going forward.",
+          "attentionTarget": "the filled permission page with its coloured confidence marks",
+          "variants": {
+            "n3": {
+              "japanese": "一つの『ずっとOK』にしなくていいんです。この分は確実、この分は来月もう一度、保留はそのまま閉じておく。そう書けば、見る人も安心して使える。正確さって、こういう形で保つものだと思うんです。",
+              "reading": "ひとつの『ずっとオーケー』にしなくていいんです。このぶんはかくじつ、このぶんはらいげつもういちど、ほりゅうはそのままとじておく。そうかけば、みるひともあんしんしてつかえる。せいかくさって、こういうかたちでたもつものだとおもうんです。",
+              "english": "We don't have to make it one blanket \"okay forever.\" This part certain, this part re-checked next month, the withheld ones left closed. Written that way, whoever reads it can use it with confidence. Precision, I think, is kept in exactly this shape."
+            },
+            "n2": {
+              "japanese": "一律の『ずっと可』にまとめなくていいんです。ここは確実、ここは来月に再確認、保留はそのまま閉じておく。そう記しておけば、読む側も安心して使える。正確さというのは、むしろこうやって保たれるものだと思うんです。",
+              "reading": "いちりつの『ずっとか』にまとめなくていいんです。ここはかくじつ、ここはらいげつにさいかくにん、ほりゅうはそのままとじておく。そうしるしておけば、よむがわもあんしんしてつかえる。せいかくさというのは、むしろこうやってたもたれるものだとおもうんです。",
+              "english": "We don't have to round it into a uniform \"permitted forever.\" Here certain, here re-confirm next month, the withheld left closed. Recorded that way, the reader too can use it with confidence. Precision, I'd say, is kept precisely like this."
+            },
+            "n1": {
+              "japanese": "一律に『恒久的に可』とまとめてしまわなくていいんです。ここは確実、ここは来月あらためて確認、保留はそのまま閉じておく。——そう書き分けておけば、読む側も安心して使える。正確さというのは、一つに丸めないことでこそ、かえって保たれるものなんですよ。",
+              "reading": "いちりつに『こうきゅうてきにか』とまとめてしまわなくていいんです。ここはかくじつ、ここはらいげつあらためてかくにん、ほりゅうはそのままとじておく。——そうかきわけておけば、よむがわもあんしんしてつかえる。せいかくさというのは、ひとつにまるめないことでこそ、かえってたもたれるものなんですよ。",
+              "english": "We don't have to collapse it into a flat \"permitted in perpetuity.\" Here certain, here confirmed anew next month, the withheld left closed. — Sorted out that way, the reader too can use it with confidence. Precision, if anything, is kept precisely by not rounding it into one."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:permission-page:sam-close-season",
+          "beatId": "beat:permission-page:exit-line",
+          "speakerId": "sam",
+          "intent": "Close by naming what the page makes possible — a public evening on consented material only — and leave the door open for contributors to extend their terms later, asking once and not pressing anyone now.",
+          "attentionTarget": "the completed page and the pointer to contributor terms",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、これで公開できますね。載せるのは、許可の取れた分だけ。うちのものじゃない文は、ページに出さない。それは、埋め損ねたんじゃなくて、僕らが選んだことです。……もし後で『これも出していい』って人が出てきたら、その時にまた足せばいい。今は、聞くだけ聞いて、あとは待ちます。",
+              "reading": "じゃあ、これでこうかいできますね。のせるのは、きょかのとれたぶんだけ。うちのものじゃないぶんは、ページにださない。それは、うめそこねたんじゃなくて、ぼくらがえらんだことです。……もしあとで『これもだしていい』ってひとがでてきたら、そのときにまたたせばいい。いまは、きくだけきいて、あとはまちます。",
+              "english": "So, now we can publish. What goes on is only the permitted lines. The lines that aren't ours stay off the page. That's not us fumbling it — it's what we chose. …If someone later comes forward with \"you may show this one too,\" we add it then. For now, we ask once, and after that, we wait."
+            },
+            "n2": {
+              "japanese": "これで、公開できます。載せるのは許可の取れた分だけ。私たちのものでない文は、ページに出さない。それは埋め損ねたのではなく、私たちが選んだことです。……後日『これも出してよい』という方が現れれば、その時に加えればいい。今はひとまず尋ねるだけ尋ねて、あとは待ちます。",
+              "reading": "これで、こうかいできます。のせるのはきょかのとれたぶんだけ。わたしたちのものでないぶんは、ページにださない。それはうめそこねたのではなく、わたしたちがえらんだことです。……ごじつ『これもだしてよい』というかたがあらわれれば、そのときにくわえればいい。いまはひとまずたずねるだけたずねて、あとはまちます。",
+              "english": "With this, we can publish. What goes on is only the permitted lines. The lines that aren't ours stay off the page. That isn't a slip — it's what we chose. …If someday someone comes forward with \"you may show this too,\" we add it then. For now we simply ask, once, and after that we wait."
+            },
+            "n1": {
+              "japanese": "これで、公開できます。載せるのは、許可の取れた分だけ。私たちのものでない文は、ページには出さない。——埋め損ねたのではなく、私たちが選び取ったことです。……いつか『これも出してかまわない』という方が現れれば、その折に加えればいい。今はただ、一度だけ尋ねて、あとは急かさずに待つ。それでいいんです。",
+              "reading": "これで、こうかいできます。のせるのは、きょかのとれたぶんだけ。わたしたちのものでないぶんは、ページにはださない。——うめそこねたのではなく、わたしたちがえらびとったことです。……いつか『これもだしてかまわない』というかたがあらわれれば、そのおりにくわえればいい。いまはただ、いちどだけたずねて、あとはせかさずにまつ。それでいいんです。",
+              "english": "With this, we can publish. What goes on is only the permitted lines. The lines that aren't ours won't go on the page. — Not a slip, but something we chose. …If someday someone comes forward with \"you may show this one too,\" we add it then. For now we simply ask, once, and after that wait without pressing. And that's enough."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:permission-page:complete-page",
+          "beatId": "beat:permission-page:exit-image",
+          "cueId": "cue:permission-page-complete-withheld-sealed",
+          "description": "The permission page is complete: consented passages each carry a name, an event, an expiry, and a coloured confidence mark; the withheld section stays sealed under 「保留」 with no invented owner; a foot-line points to the contributors' terms. Nothing has been assigned to a person who did not agree, and the public evening is now possible."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:permission-page:public-version-possible",
+      "kind": "story",
+      "description": "The class authors and publishes a permission page recording who may share which passage, for which event, and until when. Only passages with standing consent are published; passages with no identifiable contributor or a soft not-yet answer are withheld, which makes a responsible public evening possible on consented material alone."
+    },
+    {
+      "id": "outcome:permission-page:withheld-is-a-choice",
+      "kind": "story",
+      "description": "The withheld passages are recorded as an earned ethical choice rather than an unfinished gap; no author is invented for the layered-stewardship material, keeping the finale fact that provenance resolves to many hands with no single owner and the paper is ordinary."
+    },
+    {
+      "id": "outcome:permission-page:sam-asks-once",
+      "kind": "bond",
+      "castId": "sam",
+      "chapter": 36,
+      "beat": "finale-behavior",
+      "description": "Season-3 finale demonstration of Sam's inclusion-as-one-clear-ask growth (not a scheduled matrix continuity beat): he names the permission scope precisely, builds an easy decline into the request, asks once, and accepts a not-yet by withholding the passage rather than re-asking or filling it with an invented owner."
+    },
+    {
+      "id": "outcome:permission-page:transfer-return",
+      "kind": "curriculum-return",
+      "description": "The permission-scope and provenance-comparison transfer function returns through the authored transfer activity activity:s3e12-permission-page-scope-trial; the story emits no lesson-completion command, since Season 3 N2 packages are not yet registered."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:angel-drafts-the-document-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-scope-trial"
+    ],
+    "withdrawnContentFallback": "Use the same author-the-permission-page and for-how-long beats with neutral nameplates and a generic pair who record who-may-share / which-event / until-when only where consent stands, withholding the unattributable passages rather than inventing an owner."
+  }
+}

@@ -1,0 +1,557 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e09-rehearsal-for-leaving",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 45,
+  "title": {
+    "en": "Rehearsal for Leaving",
+    "ja": "いなくても、回るように"
+  },
+  "synopsis": "The class rehearses the public evening and the goodbye in the same room. Henry has a tested, documented projection setup and wants to hand it to someone who can run it without him, adapter cable and all. The learner finishes the run-sheet that makes it someone else's to run; Christian offers his own tested fix and lets it go, and Shaun is asked for the one register-check that is his to give.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "henry",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, employer, job title, or invented work history",
+        "the Japan/HelloTalk relationship dramatized as class romance or another person's private detail"
+      ]
+    },
+    {
+      "castId": "christian",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#christian",
+        "docs/academy/story/CAST-AND-CONSENT.md#christian"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "the unexplained recorder given a backstory the class agreed never to ask about"
+      ]
+    },
+    {
+      "castId": "shaun",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shaun",
+        "docs/academy/story/CAST-AND-CONSENT.md#shaun"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "any learning specialty or private biography beyond a bounded register observation"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e08-last-revision",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "n1-mastery-aware-production",
+          "family": "plans-under-uncertainty-and-handover-register"
+        }
+      ],
+      "recommendedBand": "n1",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-five-handoff-henry"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:rehearsal-for-leaving:tested-setup",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-warm",
+      "goal": "Meet Henry mid-rehearsal handing over a tested, documented projection setup and reach the point where it must become someone else's to run.",
+      "dramaticQuestion": "Can a setup that only its builder understands be handed over so it runs without him in the room?",
+      "learnerNeed": "A run-sheet that turns a private, tested setup into instructions another person can follow under uncertainty.",
+      "curriculum": {
+        "sectionId": "hand-over-a-tested-setup",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:rehearsal-for-leaving:setup-on-the-desk",
+          "beatId": "beat:rehearsal-for-leaving:arrival-image",
+          "cueId": "cue:labeled-box-and-run-sheet",
+          "description": "Rehearsal is running at the far end of the room. On the front desk sits a taped-shut cardboard box with a projector inside, a labeled run-sheet clipped to its lid, and a small electric fan pushed to one side. Beside the box, an unlabeled handheld recorder that nobody reaches for."
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:henry-frame-handoff",
+          "beatId": "beat:rehearsal-for-leaving:host-want",
+          "speakerId": "henry",
+          "intent": "Present the tested, documented projection setup and say plainly that he wants it to run on the night without him, qualifying his own certainty late.",
+          "attentionTarget": "the run-sheet clipped to the box lid",
+          "variants": {
+            "n3": {
+              "japanese": "投影の合図、全部メモにしておきました。順番も、つかない時のことも。だから、僕がいなくても大丈夫だと思います。たぶん。",
+              "reading": "とうえいのあいず、ぜんぶメモにしておきました。じゅんばんも、つかないときのことも。だから、ぼくがいなくてもだいじょうぶだとおもいます。たぶん。",
+              "english": "The projection cues, I wrote them all in a memo. The order, and what to do if one won't light. So it's fine without me. Probably."
+            },
+            "n2": {
+              "japanese": "投影の合図、ぜんぶ手順にまとめておきました。回す順番も、つかない時にどうするかも。だから当日は、僕がいなくても動かせると思います。…たぶん、ですけど。",
+              "reading": "とうえいのあいず、ぜんぶてじゅんにまとめておきました。まわすじゅんばんも、つかないときにどうするかも。だからとうじつは、ぼくがいなくてもうごかせるとおもいます。…たぶん、ですけど。",
+              "english": "The projection cues — I've written all of them up into steps. The order to run them in, and what to do if one won't light. So on the night it'll run without me. …Probably, anyway."
+            },
+            "n1": {
+              "japanese": "投影のキューは、一通り手順書に落としておいたんです。回す順番も、光らなかった場合の対処も。なので当日は、僕がいなくても回せるようにしてあります。…まあ、たぶん、ですが。",
+              "reading": "とうえいのキューは、ひととおりてじゅんしょにおとしておいたんです。まわすじゅんばんも、ひからなかったばあいのたいしょも。なのでとうじつは、ぼくがいなくてもまわせるようにしてあります。…まあ、たぶん、ですが。",
+              "english": "The projection cues, I've got them all down in a run-sheet. The order to run them in, and what to do if one doesn't light. So on the night, it's set up to run without me there. …Well — probably, anyway."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:christian-lets-it-go",
+          "beatId": "beat:rehearsal-for-leaving:support-shown",
+          "speakerId": "christian",
+          "intent": "Offer his own already-tested fix for the room, and this time hand it to someone else to run instead of owning it, leaving the fan behind for the next class.",
+          "attentionTarget": "the small fan pushed to the side of the desk",
+          "variants": {
+            "n3": {
+              "japanese": "暑くなったら、これ。扇風機、もう試しました。今回は僕がやるんじゃなくて、誰かにやってもらいます。扇風機は、次のクラスに置いていきます。",
+              "reading": "あつくなったら、これ。せんぷうき、もうためしました。こんかいはぼくがやるんじゃなくて、だれかにやってもらいます。せんぷうきは、つぎのクラスにおいていきます。",
+              "english": "If it gets hot, this. The fan, I already tested it. This time I won't do it myself — someone else will. I'll leave the fan for the next class."
+            },
+            "n2": {
+              "japanese": "熱がこもったら、これ。扇風機、もう試してあります。今回は僕が回すんじゃなくて、誰かにやってもらおうと思って。これ、次のクラスにも置いていきます。",
+              "reading": "ねつがこもったら、これ。せんぷうき、もうためしてあります。こんかいはぼくがまわすんじゃなくて、だれかにやってもらおうとおもって。これ、つぎのクラスにもおいていきます。",
+              "english": "If the heat builds up, this. The fan — I've already tested it. This time, instead of running it myself, I thought I'd have someone else do it. I'm leaving it for the next class too."
+            },
+            "n1": {
+              "japanese": "部屋がこもってきたら、これで。扇風機のほう、ちゃんと通してありますから。今回は自分で抱えるんじゃなくて、誰かに任せてみようかと。…扇風機は、次のクラスに残していきますよ。",
+              "reading": "へやがこもってきたら、これで。せんぷうきのほう、ちゃんととおしてありますから。こんかいはじぶんでかかえるんじゃなくて、だれかにまかせてみようかと。…せんぷうきは、つぎのクラスにのこしていきますよ。",
+              "english": "If the room gets stuffy, use this. The fan, I've run it through properly, so. This time, rather than carry it myself, I thought I'd hand it to someone. …I'll leave the fan for the next class."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:henry-angel-legible",
+          "beatId": "beat:rehearsal-for-leaving:obstruction",
+          "speakerId": "henry",
+          "intent": "Credit Angel's off-scene work making the plan readable to anyone, and name what it takes for a setup to keep running when its builder is gone.",
+          "attentionTarget": "the run-sheet's plain, numbered steps",
+          "variants": {
+            "n2": {
+              "japanese": "アンジェルが、この計画を誰が見ても分かるように直してくれたんです。だから、僕の頭の中じゃなくて、紙の上で回る。…人がいなくても動くって、たぶんそういうことで。",
+              "reading": "アンジェルが、このけいかくをだれがみてもわかるようになおしてくれたんです。だから、ぼくのあたまのなかじゃなくて、かみのうえでまわる。…ひとがいなくてもうごくって、たぶんそういうことで。",
+              "english": "Angel fixed the plan so anyone can read it. So it runs on paper now, not just inside my head. …Something running even when a person's gone — I think this is what that means."
+            },
+            "n1": {
+              "japanese": "アンジェルが、この段取りを誰にでも読める形に直してくれて。おかげで、僕の頭の中じゃなく、紙の上だけで回るようになったんです。…誰かがいなくても動くっていうのは、たぶん、こういうことなんでしょうね。",
+              "reading": "アンジェルが、このだんどりをだれにでもよめるかたちになおしてくれて。おかげで、ぼくのあたまのなかじゃなく、かみのうえだけでまわるようになったんです。…だれかがいなくてもうごくっていうのは、たぶん、こういうことなんでしょうね。",
+              "english": "Angel reworked the sequence so anyone can read it. Thanks to that, it runs on the page alone now, not inside my head. …Something that keeps running when a person is gone — I suppose this is what that looks like."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:rehearsal-for-leaving:before-runsheet",
+          "beatId": "beat:rehearsal-for-leaving:handoff-attempt",
+          "resume": "The tested setup sits documented on the desk. The learner steps in to finish the run-sheet so another person can run the projection on the night — the pre-set step, the branch for when it does not light, and the line that asks someone to run it."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:rehearsal-for-leaving:handover-runsheet",
+          "beatId": "beat:rehearsal-for-leaving:handoff-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s4e09-rehearsal-for-leaving-handover-runsheet"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e09-rehearsal-for-leaving-handover-runsheet"
+          },
+          "resumeContext": "The setup is tested; the run-sheet is nearly done. The learner completes it as production another person can follow without Henry: the pre-set step (設定を通しておく), a plans-under-uncertainty branch for failure (光らない場合は〜/〜たら), and a handover request (当日は〜ていただけますか). The point is instructions legible to someone who is not the builder, not a cleverer setup.",
+          "onReady": "checkpoint:rehearsal-for-leaving:after-runsheet",
+          "onRepair": "node:rehearsal-for-leaving:runsheet-repair",
+          "onDefer": "checkpoint:rehearsal-for-leaving:before-runsheet"
+        },
+        {
+          "kind": "stage",
+          "id": "node:rehearsal-for-leaving:runsheet-repair",
+          "beatId": "beat:rehearsal-for-leaving:handoff-repair",
+          "cueId": "cue:runsheet-step-and-branch-side-by-side",
+          "description": "The run-sheet is laid open to two lines: a pre-set step and the branch that follows when the light stays dark. Only the line that another person could not yet follow comes back for a second pass; the parts that already read clearly stay put."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:rehearsal-for-leaving:after-runsheet",
+          "beatId": "beat:rehearsal-for-leaving:handoff-response",
+          "resume": "The run-sheet now reads for someone who is not Henry: set this, if it does not light do that, then run it. Henry reads it over once and does not add a step."
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:henry-connector-included",
+          "beatId": "beat:rehearsal-for-leaving:contribution",
+          "speakerId": "henry",
+          "intent": "Include the one connector he was famous for forgetting, taped to the box, and name honestly that this time it goes over attached.",
+          "attentionTarget": "the adapter cable taped to the side of the box",
+          "variants": {
+            "n3": {
+              "japanese": "あと、これも。ケーブル、箱にテープでつけておきました。いつも忘れる僕が言うのも変ですけど、今回は一緒に入れておきます。つかない時は、ここを挿し直してください。",
+              "reading": "あと、これも。ケーブル、はこにテープでつけておきました。いつもわすれるぼくがいうのもへんですけど、こんかいはいっしょにいれておきます。つかないときは、ここをさしなおしてください。",
+              "english": "And this too. The cable, I taped it to the box. Coming from the guy who always forgets, but — this time it goes in with it. If it won't light, plug this back in here."
+            },
+            "n2": {
+              "japanese": "あと、これ。変換ケーブル、箱にテープで留めておきました。毎回これを忘れる人が言うのも変ですけど…今回は、ちゃんと一緒に。光らない場合は、まずここを挿し直してください。",
+              "reading": "あと、これ。へんかんケーブル、はこにテープでとめておきました。まいかいこれをわすれるひとがいうのもへんですけど…こんかいは、ちゃんといっしょに。ひからないばあいは、まずここをさしなおしてください。",
+              "english": "And this. The adapter cable — I taped it to the box. Coming from the guy who forgets it every single time… this time it stays with the setup. If it doesn't light, plug this back in first."
+            },
+            "n1": {
+              "japanese": "それと、これを。変換ケーブル、箱にテープで留めておいたんです。毎週これだけ忘れてきた僕が言うのもなんですが…今回は、付けたまま渡します。もし光らなかったら、まずここを挿し直していただければ。",
+              "reading": "それと、これを。へんかんケーブル、はこにテープでとめておいたんです。まいしゅうこれだけわすれてきたぼくがいうのもなんですが…こんかいは、つけたままわたします。もしひからなかったら、まずここをさしなおしていただければ。",
+              "english": "And this. The adapter cable, I taped it onto the box. Coming from the man who forgot exactly this every week… this time it goes over still attached. If it doesn't light, just plug this back in first."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:rehearsal-for-leaving:box-labeled-cable-taped",
+          "beatId": "beat:rehearsal-for-leaving:changed-image",
+          "cueId": "cue:box-labeled-cable-taped-fan-set-aside",
+          "description": "The box now carries a label anyone could read, the adapter cable taped to its side under the words for it. The fan sits apart with a note that it stays for the next class. The run-sheet ends on a line addressed to whoever runs it, not to Henry."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:rehearsal-for-leaving:run-it-without-me"
+      }
+    },
+    {
+      "id": "scene:rehearsal-for-leaving:run-it-without-me",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-warm",
+      "goal": "Let the class rehearse the goodbye alongside the event and settle how Henry hands the setup over to be run without him.",
+      "dramaticQuestion": "Is a handoff a set of steps to follow exactly, or a thing given over for the next person to change?",
+      "learnerNeed": "A stance choice about whether the run-sheet binds the next runner to it or is handed over as theirs to adjust.",
+      "curriculum": {
+        "sectionId": "rehearse-the-leaving",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:rehearsal-for-leaving:rehearse-goodbye-open-chair",
+          "beatId": "beat:rehearsal-for-leaving:regroup-image",
+          "cueId": "cue:goodbye-rehearsal-open-chair",
+          "description": "The class runs the closing of the evening once through, the part where they thank the room and step back. Everyone has taken a seat except one; a beat after the rest, someone pulls out the open chair and turns it toward Shaun."
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:henry-names-ask",
+          "beatId": "beat:rehearsal-for-leaving:record-want",
+          "speakerId": "henry",
+          "intent": "Say out loud that he will not be in the room on the night and ask the class to run the setup themselves, with a contact left for anything unexpected.",
+          "attentionTarget": "the run-sheet passing from his hands to the desk",
+          "variants": {
+            "n2": {
+              "japanese": "本番の日、僕はここにいないかもしれないので。設定は通しておいたので、当日は皆さんで進めていただけますか。何かあったら、手順書の最後に連絡先も書いておきました。",
+              "reading": "ほんばんのひ、ぼくはここにいないかもしれないので。せっていはとおしておいたので、とうじつはみなさんですすめていただけますか。なにかあったら、てじゅんしょのさいごにれんらくさきもかいておきました。",
+              "english": "On the night, I might not be here. I've run the setup through, so — could you all carry it on that day? If anything comes up, I've put a contact at the end of the run-sheet."
+            },
+            "n1": {
+              "japanese": "当日、僕はもうこの教室にはいない予定なので。設定はこちらで通しておきましたから、あとは皆さんで回していただけますか。何かあった場合の連絡先も、手順書の最後に載せておきました。",
+              "reading": "とうじつ、ぼくはもうこのきょうしつにはいないよていなので。せっていはこちらでとおしておきましたから、あとはみなさんでまわしていただけますか。なにかあったばあいのれんらくさきも、てじゅんしょのさいごにのせておきました。",
+              "english": "On the night, I'm not planning to be in this classroom anymore. I've run the setup through from my end, so — could you all take it from there? I've also put a contact for anything that comes up at the end of the run-sheet."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:shaun-register-check",
+          "beatId": "beat:rehearsal-for-leaving:record-stance",
+          "speakerId": "shaun",
+          "intent": "Give the one bounded register-check that is his to give — the reception sign should read to guests, not to the class — and mark that this is the extent of his part.",
+          "attentionTarget": "the reception sign propped by the door",
+          "variants": {
+            "n3": {
+              "japanese": "あ、それなら一つだけ。受付の紙、「やってます」ですけど、お客さんには「開催しております」のほうが合うかも。…それくらいですけど。",
+              "reading": "あ、それならひとつだけ。うけつけのかみ、「やってます」ですけど、おきゃくさんには「かいさいしております」のほうがあうかも。…それくらいですけど。",
+              "english": "Oh — then just one thing. The reception sign says \"we're doing it,\" but for guests, \"now being held\" might fit better. …That's about all, though."
+            },
+            "n2": {
+              "japanese": "一つだけ、いいですか。受付の張り紙、「やってます」のままですけど、お客さん相手なら「開催しております」くらいのほうが。…まあ、僕が言えるのはその辺だけですけど。",
+              "reading": "ひとつだけ、いいですか。うけつけのはりがみ、「やってます」のままですけど、おきゃくさんあいてなら「かいさいしております」くらいのほうが。…まあ、ぼくがいえるのはそのへんだけですけど。",
+              "english": "Just one thing, can I? The reception sign's still \"we're doing it,\" but with guests, something like \"now being held\" would sit better. …That's about the only part I can speak to, though."
+            },
+            "n1": {
+              "japanese": "一点だけ、いいですか。受付の張り紙、「やってます」のままなんですけど、お客さん向けだと「開催しております」くらいに直しておいたほうが。…僕が言えるの、そのへんだけなんですけどね。",
+              "reading": "いってんだけ、いいですか。うけつけのはりがみ、「やってます」のままなんですけど、おきゃくさんむけだと「かいさいしております」くらいになおしておいたほうが。…ぼくがいえるの、そのへんだけなんですけどね。",
+              "english": "Just the one point, if I may. The reception sign's still \"we're doing it,\" but for guests you'd want it nudged to something like \"now being held.\" …That's the only part I can really speak to, mind."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:rehearsal-for-leaving:how-to-hand-over",
+          "beatId": "beat:rehearsal-for-leaving:handover-stance",
+          "question": "How should Henry hand the setup over?",
+          "options": [
+            {
+              "id": "option:rehearsal-for-leaving:run-as-written",
+              "action": "Ask them to run it exactly as documented, with the if-then steps for anything that goes wrong.",
+              "japaneseByBand": {
+                "n3": "書いたとおりに動かしてください。困ったら、手順書のとおりに。",
+                "n2": "基本は、手順書のとおりに進めてください。迷ったら、書いてある順番で大丈夫です。",
+                "n1": "まずは書いたとおりに回していただければ。何か起きても、手順のとおりに一つずつ当てていけば戻せるようにしてあります。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:rehearsal-for-leaving:before-handover"
+            },
+            {
+              "id": "option:rehearsal-for-leaving:yours-to-change",
+              "action": "Hand it over as theirs to adjust — the run-sheet as a starting point, not a rule.",
+              "japaneseByBand": {
+                "n3": "これはたたき台なので、変えてもらって大丈夫です。皆さんのやりやすいように。",
+                "n2": "これはあくまで下敷きなので、当日やりやすいように変えてもらって構いません。決まりじゃなくて、出発点として。",
+                "n1": "これは僕のやり方であって、決まりじゃないので。当日、皆さんのやりやすいように直してもらって構いません。手順書は、縛るためのではなく、渡すためのものなので。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:rehearsal-for-leaving:before-handover"
+            }
+          ],
+          "convergence": "checkpoint:rehearsal-for-leaving:before-handover"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:rehearsal-for-leaving:before-handover",
+          "beatId": "beat:rehearsal-for-leaving:handover-attempt",
+          "resume": "The learner has chosen how the setup passes to the next runner. Henry sets the run-sheet down and makes the ask that lets it go."
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:henry-hands-over",
+          "beatId": "beat:rehearsal-for-leaving:repair",
+          "speakerId": "henry",
+          "intent": "Make the honorific request to run it, and admit that at this point the setup already belongs to the class more than to him — support given before it is called that.",
+          "attentionTarget": "the run-sheet now on the desk, no longer in his hands",
+          "variants": {
+            "n2": {
+              "japanese": "じゃあ、これで。当日、これを回していただけますか。…ここまで来たら、もう僕がいてもいなくても同じで。ちゃんと、皆さんのものになってるので。",
+              "reading": "じゃあ、これで。とうじつ、これをまわしていただけますか。…ここまできたら、もうぼくがいてもいなくてもおなじで。ちゃんと、みなさんのものになってるので。",
+              "english": "Then — here. On the night, would you run this? …At this point it's the same whether I'm here or not. It's properly yours now."
+            },
+            "n1": {
+              "japanese": "では、お願いします。当日は、これを回していただけますか。…正直、ここまで来たら、僕がいてもいなくても変わらなくて。もう、皆さんの手で回るものになっているので。",
+              "reading": "では、おねがいします。とうじつは、これをまわしていただけますか。…しょうじき、ここまできたら、ぼくがいてもいなくてもかわらなくて。もう、みなさんのてでまわるものになっているので。",
+              "english": "Then — please. On the night, would you run this? …Honestly, at this point it makes no difference whether I'm here. It runs in your hands now."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:rehearsal-for-leaving:shaun-closing",
+          "beatId": "beat:rehearsal-for-leaving:exit-line",
+          "speakerId": "shaun",
+          "intent": "Accept the setup and take on the one bounded part that is his, without reaching for anything larger.",
+          "attentionTarget": "the reception sign he named",
+          "variants": {
+            "n2": {
+              "japanese": "はい、預かります。…その受付のところは、僕が見ておきますね。",
+              "reading": "はい、あずかります。…そのうけつけのところは、ぼくがみておきますね。",
+              "english": "Right, I'll take it. …That reception part — I'll keep an eye on it."
+            },
+            "n1": {
+              "japanese": "はい、確かに。…受付のあの辺は、僕が見ておきます。それくらいなら、ちゃんと。",
+              "reading": "はい、たしかに。…うけつけのあのへんは、ぼくがみておきます。それくらいなら、ちゃんと。",
+              "english": "Right, got it. …That corner of the reception, I'll watch. That much, at least, properly."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:rehearsal-for-leaving:fan-set-aside-closing",
+          "beatId": "beat:rehearsal-for-leaving:exit-image",
+          "cueId": "cue:setup-passed-fan-stays",
+          "description": "The run-sheet stays on the desk, the box beside it with the cable taped on and a label anyone could read. The fan sits apart, kept for the next class. Henry's hands are empty; the setup is where the class can reach it. The recorder is picked up once, held, and set down again, unexplained."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:wrong-charger",
+      "state": "payoff",
+      "ownerIds": [
+        "henry",
+        "angel"
+      ],
+      "meaningNow": "Henry hands another person a tested, documented setup — the adapter cable he was famous for forgetting now taped to the box and named in the run-sheet — and asks them to run it on the night without him, with Angel's rewrite making the plan legible enough to run when its builder is gone.",
+      "priorUse": {
+        "packageId": "s3e08-right-screen-wrong-draft",
+        "sceneId": "scene:right-screen-wrong-draft:contained-incident",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 4,
+      "optionalFallback": "Henry simply leaves a legible, tested run-sheet with the needed cable attached and asks the class to run the setup without him, no earlier gag required to follow it."
+    },
+    {
+      "id": "callback:hot-room-solution",
+      "state": "payoff",
+      "ownerIds": [
+        "christian"
+      ],
+      "meaningNow": "Christian offers his tested fix for a stuffy room but, instead of owning every step as he once did with the lantern cards, hands it to someone else to run and leaves the fan behind for the next class.",
+      "priorUse": {
+        "packageId": "s1e10-instructions-for-a-cloud",
+        "sceneId": "scene:instructions-for-a-cloud:blown-out-of-order",
+        "state": "seed"
+      },
+      "useNumber": 2,
+      "maximumUses": 3,
+      "optionalFallback": "Christian tests a fix for the room's heat and, this time, lets another person run it and keep the fan, without needing the earlier lantern scene to land."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:rehearsal-for-leaving:setup-handed-over",
+      "kind": "story",
+      "description": "The class's projection setup is handed over as a labeled, tested run-sheet another person can run on the night — cable included, contact noted, and a stance recorded on whether it is run as written or adjusted freely; the fan is left for the next class."
+    },
+    {
+      "id": "outcome:rehearsal-for-leaving:henry-future",
+      "kind": "bond",
+      "castId": "henry",
+      "chapter": 45,
+      "beat": "future",
+      "description": "Henry closes his arc on the anchor: the builder who kept private, only-he-can-run-it systems now delivers a mechanism understandable to others and asks someone to run it without him, adapter cable and all, keeping his own future open off-stage."
+    },
+    {
+      "id": "outcome:rehearsal-for-leaving:christian-future",
+      "kind": "bond",
+      "castId": "christian",
+      "chapter": 45,
+      "beat": "future",
+      "description": "Christian gives up sole ownership of a practical fix: he offers a tested solution, lets someone else run it, and leaves the fan for the next class — the inverse of the lantern instructions he could not release."
+    },
+    {
+      "id": "outcome:rehearsal-for-leaving:angel-future",
+      "kind": "bond",
+      "castId": "angel",
+      "chapter": 45,
+      "beat": "future",
+      "description": "Angel's off-scene rework makes Henry's plan readable to anyone, so it runs on paper rather than in one person's head; the planner's most generous move is a handoff that still works when she is not there."
+    },
+    {
+      "id": "outcome:rehearsal-for-leaving:shaun-return",
+      "kind": "bond",
+      "castId": "shaun",
+      "chapter": 45,
+      "beat": "return",
+      "description": "Shaun is asked for his one bounded register-check as a normal backstage job and takes it on; the class saves him the open chair a beat late, and he is part of the work without being overauthored."
+    },
+    {
+      "id": "outcome:rehearsal-for-leaving:transfer-return",
+      "kind": "curriculum-return",
+      "transferId": "activity:s4e09-rehearsal-for-leaving-handover-runsheet",
+      "description": "N1 mastery-aware production returns through the authored transfer activity — plans-under-uncertainty and handover register in a run-sheet another person can follow; the story emits no lesson-completion command."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:christian-hands-off-the-fan"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-handover-runsheet"
+    ],
+    "withdrawnContentFallback": "Use the same tested-setup handoff and run-it-without-me beats with neutral nameplates and a generic builder who leaves a legible run-sheet, the needed connector attached, for the class to run without them."
+  }
+}

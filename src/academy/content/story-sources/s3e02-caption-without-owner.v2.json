@@ -1,0 +1,516 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e02-caption-without-owner",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 26,
+  "title": {
+    "en": "A Caption Without an Owner",
+    "ja": "持ち主のいないキャプション"
+  },
+  "synopsis": "Rose peels back the atlas backing and reveals an old caption the projection never showed — a full sentence with the line for a name left blank. Henry hunts for a reliable author field, finds none anywhere, and reaches for the reflex of adding one; Rose holds the line that the material proves the object but never its maker. The learner writes a description that names what the record is and marks its author as unknown without inventing one, and the class turns provenance-as-absence into a record it can keep rather than a puzzle to shortcut.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "rose",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rose",
+        "docs/academy/story/CAST-AND-CONSENT.md#rose"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "practical evidence used to authorize another person's story or name an author the record cannot support",
+        "dramatized backstory inferred from having lived in Japan or done farm work"
+      ]
+    },
+    {
+      "castId": "henry",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#henry",
+        "docs/academy/story/CAST-AND-CONSENT.md#henry"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "a technical workaround framed as resolving a provenance gap that has no owner"
+      ]
+    },
+    {
+      "castId": "shin",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#shin",
+        "docs/academy/story/CAST-AND-CONSENT.md#shin"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "component/reading expertise framed as knowing an author or meaning it cannot source"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e01-after-the-applause",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "activityIds": [
+            "activity:s3e02-caption-without-owner-describe-source"
+          ],
+          "function": "nominalize-content-and-describe-a-source-that-has-no-owner"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-six-rose-reveals-caption"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:caption-without-owner:under-the-backing",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-evening",
+      "goal": "Reveal the ownerless caption Rose found under the atlas backing and reach the point where no reliable author can be recovered.",
+      "dramaticQuestion": "When a found sentence has no author to name, does the class invent an owner to close the gap, or describe the gap as it is?",
+      "learnerNeed": "A way to describe a found record — nominalizing what it says and marking its author as unknown — without inventing the source it does not have.",
+      "curriculum": {
+        "sectionId": "describe-a-source-without-an-owner",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:peeled-corner",
+          "beatId": "beat:caption-without-owner:arrival-image",
+          "cueId": "cue:peeled-backing-caption-no-signature",
+          "description": "In the library, the exhibition atlas lies face-down on the worktable, its cloth backing peeled back at one corner. On the old paper underneath, a single caption is written in faded ink — a complete sentence — and above it, where a signature line would sit, there is nothing. Rose's fingers rest at the peeled corner. In the margin beside the caption, Shin has already penciled the reading over every character; the author line stays blank."
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:rose-reveal",
+          "beatId": "beat:caption-without-owner:host-want",
+          "speakerId": "rose",
+          "intent": "Reveal the physically found caption by describing the material exactly — the different paper, the old ink, where it sat under the backing — and stop before its meaning or its maker.",
+          "attentionTarget": "the faded caption and the blank line above it",
+          "variants": {
+            "n3": {
+              "japanese": "裏の布をめくったら、下からこれが出てきたんです。紙が表とは別物で、インクの色も古い。書いてあること自体は、ちゃんと読めます。ただ、その上の、名前を書くところが、最初から空いたままで。",
+              "reading": "うらのぬのをめくったら、したからこれがでてきたんです。かみがおもてとはべつもので、インクのいろもふるい。かいてあることじたいは、ちゃんとよめます。ただ、そのうえの、なまえをかくところが、さいしょからあいたままで。",
+              "english": "When I peeled back the cloth on the underside, this came out from below. The paper's a different stock from the front, and the ink's color is old too. What's written — that part reads fine. It's just that above it, the place for a name has been left blank from the start."
+            },
+            "n2": {
+              "japanese": "裏地をめくってみたら、下からこれが。紙も、表のものとは明らかに別で、インクの色もかなり古い。書かれていること自体は、問題なく読めるんです。ただ、その上、本来なら名前が入るはずの欄が、最初から空いたままで。",
+              "reading": "うらじをめくってみたら、したからこれが。かみも、おもてのものとはあきらかにべつで、インクのいろもかなりふるい。かかれていることじたいは、もんだいなくよめるんです。ただ、そのうえ、ほんらいならなまえがはいるはずのらんが、さいしょからあいたままで。",
+              "english": "When I tried peeling back the lining, this was underneath. The paper too is plainly different from the front, and the ink's color is quite old. What's written on it reads without any trouble. It's only that above it, the space where a name ought to go has been left blank from the very start."
+            },
+            "n1": {
+              "japanese": "裏地をめくってみたら、下からこれが出てきまして。紙も、表のものとは明らかに別物、インクの色にしてもかなり古い。書かれている中身のほうは、まず問題なく読めるんです。ただ、その上——本来なら書き手の名前が入るはずのところが、初めから空いたままでしてね。",
+              "reading": "うらじをめくってみたら、したからこれがでてきまして。かみも、おもてのものとはあきらかにべつもの、インクのいろにしてもかなりふるい。かかれているなかみのほうは、まずもんだいなくよめるんです。ただ、そのうえ——ほんらいならかきてのなまえがはいるはずのところが、はじめからあいたままでしてね。",
+              "english": "When I peeled back the lining, this came out from underneath. The paper's plainly a different stock from the front, and even the ink's color is quite old. The content that's written — that, at least, reads without any real trouble. It's just that above it — the spot where the writer's name ought to have gone has been left blank from the very beginning."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:henry-search-field",
+          "beatId": "beat:caption-without-owner:obstruction",
+          "speakerId": "henry",
+          "intent": "Reach for a reliable author field — a signature, a date, a mark, some record of the maker — run the whole backing for it, and find nothing, the workaround reflex hitting a wall.",
+          "attentionTarget": "the blank line and the backing, hunting for any trace of authorship",
+          "variants": {
+            "n3": {
+              "japanese": "ちょっと待って、どこかに書いた人の記録、ないんですか。署名でも、日付でも、隅の印でも。ふつう、こういうのって、作った人の欄がどこかにあるはずで。…裏まで全部見たけど、それらしいもの、何もない。たぶん、最初から無い。",
+              "reading": "ちょっとまって、どこかにかいたひとのきろく、ないんですか。しょめいでも、ひづけでも、すみのしるしでも。ふつう、こういうのって、つくったひとのらんがどこかにあるはずで。…うらまでぜんぶみたけど、それらしいもの、なにもない。たぶん、さいしょからない。",
+              "english": "Hold on — isn't there a record anywhere of who wrote it? A signature, a date, a mark in the corner. Normally, something like this ought to have a field for the maker somewhere. …I checked the whole back, and there's nothing like it. Probably there never was one."
+            },
+            "n2": {
+              "japanese": "待ってください、どこかに書いた人の記録は残ってないんですか。署名でも、日付でも、隅の判でもいい。普通、この手のものには、作成者を記す欄がどこかにあるはずなんです。…裏側まで一通り当たったんですが、それらしいものは一つも出てこない。たぶん、端から無いんでしょうね。",
+              "reading": "まってください、どこかにかいたひとのきろくはのこってないんですか。しょめいでも、ひづけでも、すみのはんでもいい。ふつう、このてのものには、さくせいしゃをしるすらんがどこかにあるはずなんです。…うらがわまでひととおりあたったんですが、それらしいものはひとつもでてこない。たぶん、はなからないんでしょうね。",
+              "english": "Wait — is there really no record left anywhere of who wrote it? A signature, a date, even a stamp in the corner. Normally, this kind of thing should have a field noting the creator somewhere. …I went over the whole reverse side, and not one such thing turns up. Probably there was none to begin with."
+            },
+            "n1": {
+              "japanese": "いや、待ってください——どこかに書き手の記録くらい、残っていないものなんですか。署名なり、日付なり、隅の判なり。普通、この種のものには、作成者を記すための欄が、どこかしらあってしかるべきなんです。…裏側まで一通り当たってはみたんですが、それらしきものは、ついに一つも出てこない。おそらく、端から存在しないんでしょうね。",
+              "reading": "いや、まってください——どこかにかきてのきろくくらい、のこっていないものなんですか。しょめいなり、ひづけなり、すみのはんなり。ふつう、このしゅのものには、さくせいしゃをしるすためのらんが、どこかしらあってしかるべきなんです。…うらがわまでひととおりあたってはみたんですが、それらしきものは、ついにひとつもでてこない。おそらく、はなからそんざいしないんでしょうね。",
+              "english": "No, wait — surely there's at least some record of the writer left somewhere? A signature, a date, a stamp in the corner. Normally, this sort of thing ought to have a field for noting the creator somewhere or other. …I did go over the whole reverse side, but in the end not a single such thing turns up. In all likelihood, it never existed at all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:rose-material-not-author",
+          "beatId": "beat:caption-without-owner:boundary",
+          "speakerId": "rose",
+          "intent": "State the exact limit of the material evidence — the paper and ink are provable, the author is not — and refuse to fill a name they do not have, the refusal that will force the plan to change rather than a technical fix.",
+          "attentionTarget": "the border between what the object proves and what it cannot",
+          "variants": {
+            "n3": {
+              "japanese": "私が言えるのは、ここまでです。紙が古いことも、インクが表と違うことも、触れば分かる。でも、それは『誰が書いたか』とは別の話で。証拠があるのは、物のほうだけなんですよ。無い名前を、こっちで埋めるわけにはいかない。",
+              "reading": "わたしがいえるのは、ここまでです。かみがふるいことも、インクがおもてとちがうことも、さわればわかる。でも、それは『だれがかいたか』とはべつのはなしで。しょうこがあるのは、もののほうだけなんですよ。ないなまえを、こっちでうめるわけにはいかない。",
+              "english": "What I can say only goes this far. That the paper is old, that the ink differs from the front — I can tell by touch. But that's a separate matter from 'who wrote it.' The only thing there's evidence for is the object itself. We can't go filling in a name that isn't there ourselves."
+            },
+            "n2": {
+              "japanese": "私に言えるのは、ここまでなんです。紙が古いのも、インクが表と違うのも、触れば確かめられる。ただ、それと『誰が書いたのか』とは、まったく別の話で。証拠があるのは、あくまで物のほうだけ。無い名前を、こちらの都合で埋めてしまうわけにはいかないんです。",
+              "reading": "わたしにいえるのは、ここまでなんです。かみがふるいのも、インクがおもてとちがうのも、さわればたしかめられる。ただ、それと『だれがかいたのか』とは、まったくべつのはなしで。しょうこがあるのは、あくまでもののほうだけ。ないなまえを、こちらのつごうでうめてしまうわけにはいかないんです。",
+              "english": "What I can say only reaches this far. That the paper's old, that the ink differs from the front — I can verify those by touch. But that, and 'who wrote it,' are entirely separate matters. The only thing there's evidence for is, when it comes down to it, the object. We can't go and fill in a name that isn't there just because it suits us."
+            },
+            "n1": {
+              "japanese": "私に言えるのは、ここまでなんですよ。紙が古いことも、インクが表と違うことも、手で触れれば確かめられる。ただ、それと『誰が書いたのか』というのとは、まるきり別の話で。証拠があるのは、あくまで物のほうだけ。無い名前を、こちらの都合で埋めてしまうというわけには、どうしてもいかないんです。",
+              "reading": "わたしにいえるのは、ここまでなんですよ。かみがふるいことも、インクがおもてとちがうことも、てでふれればたしかめられる。ただ、それと『だれがかいたのか』というのとは、まるきりべつのはなしで。しょうこがあるのは、あくまでもののほうだけ。ないなまえを、こちらのつごうでうめてしまうというわけには、どうしてもいかないんです。",
+              "english": "What I can say only reaches this far, you see. That the paper's old, that the ink differs from the front — I can verify by touch. But that, and the question of 'who wrote it,' are wholly separate matters. The only thing there's evidence for is the object, and no more. To go filling in a name that isn't there, just because it suits us — that we simply cannot do."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:caption-without-owner:before-describe",
+          "beatId": "beat:caption-without-owner:describe-attempt",
+          "resume": "The caption stays face-up on the table, its author line blank. Rose has drawn the line between what the object proves and what it cannot. The learner steps in to write a description of the caption — naming what it is and that its writer is unknown — without inventing an author."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:caption-without-owner:describe-source",
+          "beatId": "beat:caption-without-owner:describe-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e02-caption-without-owner-describe-source"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e02-caption-without-owner-describe-source"
+          },
+          "resumeContext": "The caption reads clearly but has no author line. The learner writes a description of it, nominalizing the content (書かれたこと / ここに書かれているの / 〜という一文) and using source-description grammar for its origin — marking the author as unknown with an embedded question (誰が書いたか分からない, 出所が分からない) rather than asserting or inventing one, and distinguishing what the record shows from what it cannot support.",
+          "onReady": "checkpoint:caption-without-owner:after-describe",
+          "onRepair": "node:caption-without-owner:describe-repair",
+          "onDefer": "checkpoint:caption-without-owner:before-describe"
+        },
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:describe-repair",
+          "beatId": "beat:caption-without-owner:describe-repair",
+          "cueId": "cue:two-descriptions-named-vs-sourceless",
+          "description": "Two description cards are set out side by side: one that assigns a maker — 『◯◯によって書かれた』 with the name space still empty — and one that nominalizes the content and states plainly that the author is unknown. Only the card that reached past the evidence into naming returns for another try; the honest description stays where it is."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:caption-without-owner:after-describe",
+          "beatId": "beat:caption-without-owner:describe-response",
+          "resume": "The caption now has a description beside it that says what it is and that its author is unknown. Henry looks at the still-blank line and stops reaching for a field to fill."
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:henry-redesign",
+          "beatId": "beat:caption-without-owner:contribution",
+          "speakerId": "henry",
+          "intent": "Accept that no author field will fix this, drop the shortcut, and redesign the record to state the absence honestly instead of inventing an owner — his late qualifier defending the impulse a beat before he changes the action.",
+          "attentionTarget": "the blank author line, no longer a gap to fill",
+          "variants": {
+            "n3": {
+              "japanese": "…そうか。名前の欄を足せば済む話じゃ、ないんだ。埋めれば、書いた人がいたことにしてしまう。それは記録じゃなくて、作り話だ。…うん。じゃあ、欄は空けたまま、『誰が書いたか分からない』って、そのまま書いておく。分からないことを、分からないって残すほうが、正確なんですよね。",
+              "reading": "…そうか。なまえのらんをたせばすむはなしじゃ、ないんだ。うめれば、かいたひとがいたことにしてしまう。それはきろくじゃなくて、つくりばなしだ。…うん。じゃあ、らんはあけたまま、『だれがかいたかわからない』って、そのままかいておく。わからないことを、わからないってのこすほうが、せいかくなんですよね。",
+              "english": "…I see. It's not something you fix by adding a name field. Fill it in, and you've made it so a writer existed. That's not a record — it's a fabrication. …Right. So we leave the field blank, and just write 'we don't know who wrote this,' as is. Leaving what we don't know as 'unknown' — that's the more accurate thing, isn't it."
+            },
+            "n2": {
+              "japanese": "…なるほど。名前の欄を足せば片づく、って話じゃないんだ。埋めた時点で、書き手が実在したことにしてしまう。それはもう記録じゃなくて、こっちの作り話です。…ええ。なら、欄は空けたまま、『誰が書いたのかは分からない』と、そのまま記しておく。分からないことを分からないと残すほうが、かえって正確なんですよね。",
+              "reading": "…なるほど。なまえのらんをたせばかたづく、ってはなしじゃないんだ。うめたじてんで、かきてがじつざいしたことにしてしまう。それはもうきろくじゃなくて、こっちのつくりばなしです。…ええ。なら、らんはあけたまま、『だれがかいたのかはわからない』と、そのまましるしておく。わからないことをわからないとのこすほうが、かえってせいかくなんですよね。",
+              "english": "…I see. It isn't something that gets settled by adding a name field. The moment you fill it in, you've made it so a writer really existed. That's no longer a record — it's our own fabrication. …Yes. Then we leave the field blank and note, as is, 'who wrote it is unknown.' Leaving what we don't know marked as unknown is, if anything, the more accurate thing, isn't it."
+            },
+            "n1": {
+              "japanese": "…なるほど、そういうことか。名前の欄を一つ足せば片づく、という話じゃないんですね。埋めたその時点で、書き手が実在したことにしてしまう。それはもう記録じゃなくて、こちらのこしらえた作り話だ。…ええ。なら、欄は空けたまま、『誰が書いたのかは分からない』と、ありのまま記しておきましょう。分からないことを分からないまま残すほうが、かえって正確さは保てる。",
+              "reading": "…なるほど、そういうことか。なまえのらんをひとつたせばかたづく、というはなしじゃないんですね。うめたそのじてんで、かきてがじつざいしたことにしてしまう。それはもうきろくじゃなくて、こちらのこしらえたつくりばなしだ。…ええ。なら、らんはあけたまま、『だれがかいたのかはわからない』と、ありのまましるしておきましょう。わからないことをわからないままのこすほうが、かえってせいかくさはたもてる。",
+              "english": "…I see, so that's it. It isn't a matter of settling it by adding one name field. The moment you fill it in, you've made it so a writer really existed. That's no longer a record — it's a fabrication we've built ourselves. …Yes. Then let's leave the field blank and note it just as it is: 'who wrote this is unknown.' Leaving what we don't know as unknown is, if anything, what keeps the accuracy intact."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:described-not-named",
+          "beatId": "beat:caption-without-owner:changed-image",
+          "cueId": "cue:caption-described-author-unknown",
+          "description": "The caption lies face-up with its author line still blank. Beside it, a description card now reads what the sentence is and that its writer is unknown — no name invented, no owner assigned. Shin's full reading sits in the margin, every character legible, the author still nobody."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:caption-without-owner:what-the-record-holds"
+      }
+    },
+    {
+      "id": "scene:caption-without-owner:what-the-record-holds",
+      "mode": "live",
+      "locationId": "location:library",
+      "timeState": "evening",
+      "weatherState": "spring-evening",
+      "goal": "Start a record that keeps the caption with its source marked as absent, and widen from the one caption to how the whole atlas holds many hands.",
+      "dramaticQuestion": "Can 'the source is unknown' be recorded as a fact worth keeping, rather than a blank that must be filled?",
+      "learnerNeed": "A stance on how a record should hold a found thing whose author cannot be recovered.",
+      "curriculum": {
+        "sectionId": "keep-an-absence-as-a-record",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:record-sheet",
+          "beatId": "beat:caption-without-owner:regroup-image",
+          "cueId": "cue:record-sheet-what-and-source",
+          "description": "On the worktable, the atlas backing lies open beside the described caption. A fresh record sheet is ruled with two headings: one for what the caption is, one for where it came from. The what-heading has the sentence under it already. The source line is still empty."
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:henry-record-want",
+          "beatId": "beat:caption-without-owner:record-want",
+          "speakerId": "henry",
+          "intent": "Frame the record as holding two things — what the caption is and where it came from — with no name guessed, and name the absence itself as real information.",
+          "attentionTarget": "the empty source line",
+          "variants": {
+            "n3": {
+              "japanese": "この記録には、二つだけ書きます。何が書いてあるか。そして、それがどこから来たか。名前は入れない。『出所は分からない』——それも、立派な一つの情報なんですよね。",
+              "reading": "このきろくには、ふたつだけかきます。なにがかいてあるか。そして、それがどこからきたか。なまえはいれない。『しゅっしょはわからない』——それも、りっぱなひとつのじょうほうなんですよね。",
+              "english": "In this record we'll write only two things. What is written. And where it came from. No name goes in. 'The source is unknown' — that too is a perfectly real piece of information, isn't it."
+            },
+            "n2": {
+              "japanese": "この記録に書くのは、二つだけです。何が書かれているか。それが、どこから来たものか。名前は入れません。『出所は分からない』——それ自体が、一つの立派な情報なので。",
+              "reading": "このきろくにかくのは、ふたつだけです。なにがかかれているか。それが、どこからきたものか。なまえはいれません。『しゅっしょはわからない』——それじたいが、ひとつのりっぱなじょうほうなので。",
+              "english": "There are only two things we write in this record. What is written. And where it came from. We don't put in a name. 'The source is unknown' — that in itself is a solid piece of information."
+            },
+            "n1": {
+              "japanese": "この記録に書き込むのは、二つきりです。何が書かれているのか。そして、それがどこから来たものなのか。名前は入れません。『出所は分からない』——それそのものが、れっきとした一つの情報なんですよ。",
+              "reading": "このきろくにかきこむのは、ふたつきりです。なにがかかれているのか。そして、それがどこからきたものなのか。なまえはいれません。『しゅっしょはわからない』——それそのものが、れっきとしたひとつのじょうほうなんですよ。",
+              "english": "There are just two things we set down in this record. What is written. And where it came from. We don't put in a name. 'The source is unknown' — that itself is a bona fide piece of information."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:caption-without-owner:how-to-record",
+          "beatId": "beat:caption-without-owner:record-stance",
+          "question": "How should the record hold a caption with no author?",
+          "options": [
+            {
+              "id": "option:caption-without-owner:state-unknown",
+              "action": "Record the content as content and mark the author plainly unknown — what is written here, and that who wrote it cannot be known.",
+              "japaneseByBand": {
+                "n3": "ここに書かれていることは、そのまま記す。作者については、『誰が書いたか分からない』と、はっきり書いておきましょう。",
+                "n2": "ここに書かれている内容は、そのまま記録する。書き手については、『誰が書いたのかは分からない』と、はっきり明記しておきましょう。",
+                "n1": "ここに書かれている内容のほうは、そのまま記録に残す。書き手に関しては、『誰が書いたのかは分からない』と、はっきり明記しておきましょう。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:caption-without-owner:before-record"
+            },
+            {
+              "id": "option:caption-without-owner:describe-layers",
+              "action": "Describe only what the material shows — paper, ink, placement — and conclude just that several hands passed through it, naming none.",
+              "japaneseByBand": {
+                "n3": "紙とインクと、貼られた場所。見て分かることだけ書いて、『何人かの手が通ったらしい』というところまでにしておきましょう。名前は出さないで。",
+                "n2": "紙、インク、貼られていた位置——見て取れることだけを記して、『複数の手を経てきたようだ』というところで止めておきましょう。名前までは踏み込まずに。",
+                "n1": "紙、インク、貼られていた位置——目に見えることだけを記して、『複数の手を経てきたらしい』という手前で止めておきましょう。名前にまでは踏み込まずに。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:caption-without-owner:before-record"
+            }
+          ],
+          "convergence": "checkpoint:caption-without-owner:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:caption-without-owner:before-record",
+          "beatId": "beat:caption-without-owner:record-attempt",
+          "resume": "The learner has chosen how the record will hold a caption with no author. Rose names why the described gap, not a filled one, is the accurate move."
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:rose-reframe",
+          "beatId": "beat:caption-without-owner:repair",
+          "speakerId": "rose",
+          "intent": "Reframe precision as marking exactly how far the evidence reaches and no further, using her farm register — the deliberately empty line is the accurate part — and set it as how the class reads found things from now on.",
+          "attentionTarget": "the deliberately empty author line",
+          "variants": {
+            "n3": {
+              "japanese": "畑と同じなんですよ。去年その畑で何が育ったかは、土を見れば分かる。でも、そこに種をまいた人の名前まではね、土は教えてくれない。だから、分かるところまで書いて、その先は空けておく。埋めずに残した空欄が、実はいちばん正確なんです。これから出てくる物も、そうやって扱いましょう。",
+              "reading": "はたけとおなじなんですよ。きょねんそのはたけでなにがそだったかは、つちをみればわかる。でも、そこにたねをまいたひとのなまえまではね、つちはおしえてくれない。だから、わかるところまでかいて、そのさきはあけておく。うめずにのこしたくうらんが、じつはいちばんせいかくなんです。これからでてくるものも、そうやってあつかいましょう。",
+              "english": "It's the same as a field. What grew in that field last year, you can tell by looking at the soil. But the name of whoever sowed the seed there — that, the soil won't tell you. So you write down as far as you can tell, and leave the rest blank. The blank you left unfilled is, in fact, the most accurate part. Let's handle whatever turns up from here the same way."
+            },
+            "n2": {
+              "japanese": "畑と同じなんです。去年その畑で何が育ったかなら、土を見れば読み取れる。でも、そこに種をまいた人の名前までは、土は何も教えてくれない。だから、分かる範囲までを書いて、その先は空けておく。埋めずに残したその空欄こそが、いちばん正確な部分なんですよ。これから出てくるものも、そうやって扱っていきましょう。",
+              "reading": "はたけとおなじなんです。きょねんそのはたけでなにがそだったかなら、つちをみればよみとれる。でも、そこにたねをまいたひとのなまえまでは、つちはなにもおしえてくれない。だから、わかるはんいまでをかいて、そのさきはあけておく。うめずにのこしたそのくうらんこそが、いちばんせいかくなぶぶんなんですよ。これからでてくるものも、そうやってあつかっていきましょう。",
+              "english": "It's the same as a field. As for what grew in that field last year, you can read it off the soil. But the name of whoever sowed the seed there — of that the soil tells you nothing. So you write down as far as you can make out, and leave the rest open. That very blank, left unfilled, is the most accurate part. Let's go on handling whatever surfaces from here in that way."
+            },
+            "n1": {
+              "japanese": "畑と同じなんですよ。去年その畑で何が育ったかくらいなら、土を見れば読み取れる。ただ、そこに種をまいた人の名前まではね、土はついぞ教えてくれない。だから、読み取れる範囲までを書いて、その先は空けたままにしておく。埋めずに残したその空欄こそが、実のところ、いちばん正確な一画なんです。これから出てくるものも、そうやって扱っていきたいんですよ。",
+              "reading": "はたけとおなじなんですよ。きょねんそのはたけでなにがそだったかくらいなら、つちをみればよみとれる。ただ、そこにたねをまいたひとのなまえまではね、つちはついぞおしえてくれない。だから、よみとれるはんいまでをかいて、そのさきはあけたままにしておく。うめずにのこしたそのくうらんこそが、じつのところ、いちばんせいかくないっかくなんです。これからでてくるものも、そうやってあつかっていきたいんですよ。",
+              "english": "It's the same as a field, you see. What grew in that field last year, at least, you can read off the soil. Only, the name of whoever sowed the seed there — that the soil never once tells you. So you write down as far as you can read, and leave what's beyond it open. That very blank, left unfilled, is in truth the single most accurate stroke of it. Whatever surfaces from here, I'd like us to handle it that way too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:source-line-filled",
+          "beatId": "beat:caption-without-owner:record-response",
+          "cueId": "cue:source-line-filled-with-absence",
+          "description": "Henry writes on the source line: the caption, and beside it 'source — unknown; passed through several hands, no name.' The what-line is full; the source line now carries a described absence rather than a guess. Nothing is entered where the author would be."
+        },
+        {
+          "kind": "line",
+          "id": "line:caption-without-owner:rose-many-hands",
+          "beatId": "beat:caption-without-owner:changed-action",
+          "speakerId": "rose",
+          "intent": "Widen slowly from the one caption to the whole atlas — it was never one person's; it holds many hands laid in over time, so 'whose is it' was the wrong question, and keeping the hands without erasing them is all it needs.",
+          "attentionTarget": "the whole atlas and its layered backing",
+          "variants": {
+            "n3": {
+              "japanese": "…考えてみたら、このアトラス自体がそうなんですよね。一人が作ったものじゃない。何人もの手が、順番に足していったもの。だから『誰のものか』って聞き方が、そもそも合ってなかった。持ち主を決めるんじゃなくて、通ってきた手を、消さずに残していく。それだけでいいんです。",
+              "reading": "…かんがえてみたら、このアトラスじたいがそうなんですよね。ひとりがつくったものじゃない。なんにんものてが、じゅんばんにたしていったもの。だから『だれのものか』ってききかたが、そもそもあってなかった。もちぬしをきめるんじゃなくて、とおってきたてを、けさずにのこしていく。それだけでいいんです。",
+              "english": "…Come to think of it, this atlas itself is like that. It's not something one person made. It's something many hands added to, in turn. So the very way of asking 'whose is it' was off from the start. Not deciding on an owner — just keeping the hands that passed through it, without erasing them. That's all it needs."
+            },
+            "n2": {
+              "japanese": "…考えてみれば、このアトラス自体が、まさにそうなんです。誰か一人が作り上げたものじゃない。何人もの手が、順に重ねていったもの。だから『これは誰のものか』という問いの立て方が、そもそもずれていた。持ち主を一人に決めるんじゃなくて、通ってきた手を、消さずに残していく——必要なのは、それだけなんですよ。",
+              "reading": "…かんがえてみれば、このアトラスじたいが、まさにそうなんです。だれかひとりがつくりあげたものじゃない。なんにんものてが、じゅんにかさねていったもの。だから『これはだれのものか』というといのたてかたが、そもそもずれていた。もちぬしをひとりにきめるんじゃなくて、とおってきたてを、けさずにのこしていく——ひつようなのは、それだけなんですよ。",
+              "english": "…When you think about it, this atlas itself is exactly that. It's not something any one person built. It's something many hands layered on, in turn. So the way of framing the question 'whose is this' was off to begin with. Not settling on a single owner — but keeping the hands that passed through, without erasing them. That's all that's needed."
+            },
+            "n1": {
+              "japanese": "…考えてみれば、このアトラスそのものが、まさにそうなんですよね。誰か一人が仕上げたものじゃない。何人もの手が、順ぐりに重ねてきたもの。だから『これは誰のものなのか』という、その問いの立て方自体が、はじめからずれていた。持ち主を一人に決めてかかるんじゃなくて、通ってきた手を、消さずにそのまま残していく——要るのは、ただそれだけなんです。",
+              "reading": "…かんがえてみれば、このアトラスそのものが、まさにそうなんですよね。だれかひとりがしあげたものじゃない。なんにんものてが、じゅんぐりにかさねてきたもの。だから『これはだれのものなのか』という、そのといのたてかたじたいが、はじめからずれていた。もちぬしをひとりにきめてかかるんじゃなくて、とおってきたてを、けさずにそのままのこしていく——いるのは、ただそれだけなんです。",
+              "english": "…When you think about it, this atlas itself is exactly that, isn't it. It's not something any one person finished. It's something many hands have layered on, one after another. So the very framing of the question 'whose is this' was off from the start. Rather than presuming a single owner — you keep the hands that passed through it, without erasing them, just as they are. That's all it takes."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:caption-without-owner:kept-blank",
+          "beatId": "beat:caption-without-owner:exit-image",
+          "cueId": "cue:caption-kept-author-line-blank",
+          "description": "The caption stays face-up, its author line blank on purpose. The record sheet reads what the sentence is and that its source is unknown — several hands, no name. Nothing is invented, nothing is crossed out. The atlas backing is laid flat again over its many layers."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [],
+  "outcomes": [
+    {
+      "id": "outcome:caption-without-owner:record-keeps-absence",
+      "kind": "story",
+      "description": "The class records the found caption with what it says and that its source is unknown — several hands, no name — leaving the author line blank on purpose and inventing no owner, so provenance-as-absence becomes a kept record rather than a puzzle to shortcut. The atlas is treated as many hands layered over time, consistent with a later resolution of layered stewardship and no single owner, with no magical explanation."
+    },
+    {
+      "id": "outcome:caption-without-owner:rose-contribution",
+      "kind": "bond",
+      "castId": "rose",
+      "chapter": 26,
+      "beat": "contribution",
+      "description": "Rose physically reveals the old unattributed caption the tooling missed, and her competence delivers without tipping into authority over the story: she proves the paper and ink but holds the line that material evidence is not authorship and refuses to fill a name the record cannot support. Her first collision with her own consent note becomes the class's method of writing only as far as the evidence reaches."
+    },
+    {
+      "id": "outcome:caption-without-owner:henry-limit",
+      "kind": "bond",
+      "castId": "henry",
+      "chapter": 26,
+      "beat": "limit",
+      "description": "Henry's find-the-workaround reflex hits provenance-as-absence: there is no reliable author field anywhere, and adding one would invent ownership. He accepts the gap instead of engineering around it and redesigns the record to state 'the author is unknown' honestly — his limit is that no technical shortcut wins here."
+    },
+    {
+      "id": "outcome:caption-without-owner:shin-limit",
+      "kind": "bond",
+      "castId": "shin",
+      "chapter": 26,
+      "beat": "limit",
+      "description": "Shin can read every character in the caption and still cannot say who wrote it or why; for the first time decoding cannot break the wall. His running 「簡単だよ」 stays suspended across the beat because calling this easy would be a lie, and his fully legible margin reading makes legibility-is-not-authorship visible without a spoken line."
+    },
+    {
+      "id": "outcome:caption-without-owner:transfer-return",
+      "kind": "curriculum-return",
+      "activityId": "activity:s3e02-caption-without-owner-describe-source",
+      "description": "Nominalization-and-source-description evidence returns through the authored transfer activity; the learner describes an ownerless record by nominalizing its content and marking its author as unknown. The story emits no lesson-completion command and references no registered reservoir, since Season 3 lessons are not yet registered."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:henry-searches-for-the-author-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-describe-source"
+    ],
+    "withdrawnContentFallback": "Use the same describe-a-source-without-an-owner and keep-the-absence beats with neutral nameplates: a generic finder reveals an unattributed caption, a generic tool-minded classmate looks for an author field and finds none, and the pair record what it says and that its author is unknown without inventing one."
+  }
+}

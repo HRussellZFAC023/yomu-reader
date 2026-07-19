@@ -1,0 +1,535 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e06-two-schedules",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 30,
+  "title": {
+    "en": "Two Schedules, One Promise",
+    "ja": "二つの予定表"
+  },
+  "synopsis": "The exhibition event needs a date, and Alex and Angel each arrive holding a complete, defensible version of the plan — his hand-set timetable says Thursday, her fully-listed spreadsheet says Friday. Neither document is a verdict on who was right. Angel wants to win by having the tighter list; Alex's timetable-calm risks reading as false certainty. The class separates what was confirmed from what was only heard, states the load-bearing assumption aloud, and records a plan that keeps its date provisional and assigns who confirms the change, rather than crowning a winner.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "alex",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#alex",
+        "docs/academy/story/CAST-AND-CONSENT.md#alex"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, employer, or private history",
+        "understatement staged as certainty rather than named uncertainty",
+        "departure or leaving framed as the brave or correct outcome",
+        "voice opened into eloquent vulnerability under pressure"
+      ]
+    },
+    {
+      "castId": "angel",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#angel",
+        "docs/academy/story/CAST-AND-CONSENT.md#angel"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "a completed list treated as authority over an unaudited premise",
+        "correction framed as anxiety or a confidence deficit"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s3e05-chair-not-reserved",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "separate-confirmed-evidence-from-hearsay-across-two-conflicting-plans-and-state-the-assumption",
+          "activityId": "activity:s3e06-two-schedules-sort-claims"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-thirty-two-schedules-limit"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:two-schedules:tabled-plans",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-dusk",
+      "goal": "Set two complete, conflicting event schedules beside each other and reach the point where 'whose list is better' can no longer decide the date.",
+      "dramaticQuestion": "When two plans are both defensible, will the class rank one document over the other, or separate what was confirmed from what was only heard?",
+      "learnerNeed": "A way to sort each claim in two schedules into confirmed evidence, heard hearsay, and sequence, and to state aloud the assumption the whole disagreement rests on.",
+      "curriculum": {
+        "sectionId": "sort-sequence-hearsay-evidence",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-schedules:tabled-schedules",
+          "beatId": "beat:two-schedules:arrival-image",
+          "cueId": "cue:two-schedules-side-by-side",
+          "description": "On the classroom table, two versions of the exhibition-event plan lie side by side. One is Alex's hand-ruled timetable, headed 木曜 (Thursday). One is Angel's printed spreadsheet, every row filled, headed 金曜 (Friday). Times, roles, and order run down both. Neither is crossed out."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:alex-thursday",
+          "beatId": "beat:two-schedules:host-want",
+          "speakerId": "alex",
+          "intent": "State his version flatly as Thursday, but immediately mark the seam himself: he confirmed it once, then heard it may have changed, so 'Thursday' is not yet a certainty.",
+          "attentionTarget": "the Thursday heading on his hand-ruled timetable",
+          "variants": {
+            "n3": {
+              "japanese": "僕のほうは、木曜で組んでます。一度、自分で確認したので。ただ、あとで変わったらしい、とも聞きました。だから、木曜と言い切るのは、たぶんまだ早い。",
+              "reading": "ぼくのほうは、もくようでくんでます。いちど、じぶんでかくにんしたので。ただ、あとでかわったらしい、ともききました。だから、もくようといいきるのは、たぶんまだはやい。",
+              "english": "On my side, I've got it set for Thursday. I confirmed it once, myself. But I also heard, afterward, that it apparently changed. So calling it Thursday for certain is probably still too early."
+            },
+            "n2": {
+              "japanese": "僕のほうは、一応木曜で組んであります。前に一度、自分で確認したので。ただ、そのあと変わったらしい、という話も聞いていて。だから、木曜だと言い切ってしまうのは、まだ早い気がするんです。",
+              "reading": "ぼくのほうは、いちおうもくようでくんであります。まえにいちど、じぶんでかくにんしたので。ただ、そのあとかわったらしい、というはなしもきいていて。だから、もくようだといいきってしまうのは、まだはやいきがするんです。",
+              "english": "On my side, I've got it provisionally set for Thursday. I confirmed it myself once, earlier. Only, I've also heard talk that it apparently changed afterward. So I feel it's still too early to state Thursday as settled."
+            },
+            "n1": {
+              "japanese": "僕のほうは、ひとまず木曜で組んであるだけなんです。前に一度、自分の目で確認はしたので。ただ、そのあと変わったらしい、という話も耳に入っていて。だから、木曜だと断じてしまうのは、たぶんまだ早い。",
+              "reading": "ぼくのほうは、ひとまずもくようでくんであるだけなんです。まえにいちど、じぶんのめでかくにんはしたので。ただ、そのあとかわったらしい、というはなしもみみにはいっていて。だから、もくようだとだんじてしまうのは、たぶんまだはやい。",
+              "english": "On my side, it's only that I've got it set for Thursday for now. I did confirm it once with my own eyes, earlier. Only, word that it apparently changed afterward has reached me too. So to pronounce it Thursday outright is, probably, still too early."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:angel-friday-list",
+          "beatId": "beat:two-schedules:obstruction",
+          "speakerId": "angel",
+          "intent": "Present her spreadsheet as the settled, gapless plan for Friday and treat the completeness of the list as reason enough to proceed, without auditing where the Friday itself came from.",
+          "attentionTarget": "the fully filled rows of her Friday spreadsheet",
+          "variants": {
+            "n3": {
+              "japanese": "私のほうは、金曜で全部リストにしてあるよ。時間も、担当も、順番も、ぜんぶ。抜けはないと思う。だから、こっちで進めれば大丈夫じゃない？",
+              "reading": "わたしのほうは、きんようでぜんぶリストにしてあるよ。じかんも、たんとうも、じゅんばんも、ぜんぶ。ぬけはないとおもう。だから、こっちですすめればだいじょうぶじゃない？",
+              "english": "On my side, I've got the whole thing listed out for Friday. The times, who's in charge, the order — all of it. I don't think there are any gaps. So if we just go with mine, it should be fine, right?"
+            },
+            "n2": {
+              "japanese": "私のほうは、金曜のほうで全部リストにしてあるんだよね。時間も、担当も、順番も、ひと通り埋めてある。抜けはないはず。だから、こっちで進めちゃえば、まず問題ないと思うんだけど。",
+              "reading": "わたしのほうは、きんようのほうでぜんぶリストにしてあるんだよね。じかんも、たんとうも、じゅんばんも、ひととおりうめてある。ぬけはないはず。だから、こっちですすめちゃえば、まずもんだいないとおもうんだけど。",
+              "english": "On my side, I've got everything listed out for Friday. Times, who's in charge, the order — I've filled it all in, more or less. There shouldn't be any gaps. So if we just go ahead with mine, there'll be no real problem, I'd think."
+            },
+            "n1": {
+              "japanese": "私のほうは、金曜で全部リストに落とし込んであるんだよね。時間も担当も順番も、ひと通りは埋めてあって、抜けもないはず。だから、正直こっちで進めてしまえば、まず問題は出ないと思うんだけど。",
+              "reading": "わたしのほうは、きんようでぜんぶリストにおとしこんであるんだよね。じかんもたんとうもじゅんばんも、ひととおりはうめてあって、ぬけもないはず。だから、しょうじきこっちですすめてしまえば、まずもんだいはでないとおもうんだけど。",
+              "english": "On my side, I've got the whole thing distilled into a list for Friday. Times, who's in charge, the order — it's all filled in, more or less, and there shouldn't be any gaps either. So honestly, if we just proceed with mine, I don't think any problem will come up."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:alex-name-the-premise",
+          "beatId": "beat:two-schedules:trial-attempt",
+          "speakerId": "alex",
+          "intent": "Take the disagreement off the 'which list is better' axis and onto its real seam: his Thursday is confirmed evidence, her Friday rests on a heard change, and the two are lumped together under one word. Propose separating confirmed from heard before deciding, with no winner.",
+          "attentionTarget": "the gap between what was verified and what was only heard",
+          "variants": {
+            "n3": {
+              "japanese": "どっちが良いリストか、って話じゃないと思うんです。問題は、日付のもと。僕の木曜は、自分で確認したもの。Angelさんの金曜は、たぶん「変わった」って聞いた話がもと。同じ「予定」でも、確かめたことと、聞いた話が、混ざってる。まず、そこだけ分けませんか。",
+              "reading": "どっちがいいリストか、ってはなしじゃないとおもうんです。もんだいは、ひづけのもと。ぼくのもくようは、じぶんでかくにんしたもの。エンジェルさんのきんようは、たぶん「かわった」ってきいたはなしがもと。おなじ「よてい」でも、たしかめたことと、きいたはなしが、まざってる。まず、そこだけわけませんか。",
+              "english": "I don't think it's a question of whose list is better. The problem is where the date comes from. My Thursday is something I verified myself. Your Friday, Angel, probably rests on the 'it changed' that someone heard. Even under the same word 'schedule,' what was verified and what was only heard are mixed together. Shall we just separate those first?"
+            },
+            "n2": {
+              "japanese": "どっちのリストが優れてるか、っていう話じゃないんですよね。肝心なのは、その日付が何をもとにしてるか。僕の木曜は、自分で確かめた事実。Angelさんの金曜は、おそらく「変わったらしい」という伝聞がもと。同じ予定表に見えても、確認したことと、聞いただけのことが、一緒くたになってる。まずそこを、分けてみませんか。",
+              "reading": "どっちのリストがすぐれてるか、っていうはなしじゃないんですよね。かんじんなのは、そのひづけがなにをもとにしてるか。ぼくのもくようは、じぶんでたしかめたじじつ。エンジェルさんのきんようは、おそらく「かわったらしい」というでんぶんがもと。おなじよていひょうにみえても、かくにんしたことと、きいただけのことが、いっしょくたになってる。まずそこを、わけてみませんか。",
+              "english": "It isn't a matter of which list is superior. What matters is what the date is based on. My Thursday is a fact I verified myself. Your Friday, Angel, most likely rests on the hearsay that 'it apparently changed.' Even though they look like the same schedule, what was verified and what was merely heard are lumped together. Shall we try separating those first?"
+            },
+            "n1": {
+              "japanese": "どちらのリストが出来がいいか、という話ではないと思うんです。要は、その日付が何を根拠にしているか。僕の木曜は、自分の目で確かめた事実のほう。Angelさんの金曜は、おそらく「変わったらしい」という伝聞が根拠。同じ予定表の顔をしていても、確認したことと、又聞きしたことが、一つに溶け込んでしまっている。まずは、そこだけでも分けてみませんか。",
+              "reading": "どちらのリストができがいいか、というはなしではないとおもうんです。ようは、そのひづけがなにをこんきょにしているか。ぼくのもくようは、じぶんのめでたしかめたじじつのほう。エンジェルさんのきんようは、おそらく「かわったらしい」というでんぶんがこんきょ。おなじよていひょうのかおをしていても、かくにんしたことと、またぎきしたことが、ひとつにとけこんでしまっている。まずは、そこだけでもわけてみませんか。",
+              "english": "I don't think it's a question of which list is better made. The point is what the date rests on as grounds. My Thursday is the side that's a fact I checked with my own eyes. Your Friday, Angel, most likely has the hearsay 'it apparently changed' as its grounds. Even wearing the face of the same schedule, what was verified and what was heard secondhand have melted into one. Shall we, at least just there, try to separate them?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-schedules:before-sort",
+          "beatId": "beat:two-schedules:sort-attempt",
+          "resume": "Both schedules stay on the table, neither ranked. The learner steps in to sort each claim across the two plans — Alex's confirmed Thursday, Angel's listed-but-heard Friday, the heard 'it changed,' the ordered steps — into confirmed evidence, hearsay, and sequence, and to state aloud the assumption the whole disagreement rests on."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:two-schedules:sort-claims",
+          "beatId": "beat:two-schedules:sort-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e06-two-schedules-sort-claims"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e06-two-schedules-sort-claims"
+          },
+          "resumeContext": "Two schedules are on the table: 木曜（本人が確認した）and 金曜（「変わったらしい」と聞いた話がもと）. The learner tags each claim as confirmed evidence (Alex saw it), hearsay (〜らしい / 〜と聞いた / 〜そうだ), or sequence (〜てから / 〜前に / 〜後で for the ordered steps), then states the single load-bearing assumption — that the heard change is true — that Angel's Friday quietly depends on. The learner names the assumption aloud rather than declaring either person right.",
+          "onReady": "checkpoint:two-schedules:after-sort",
+          "onRepair": "node:two-schedules:sort-repair",
+          "onDefer": "checkpoint:two-schedules:before-sort"
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-schedules:sort-repair",
+          "beatId": "beat:two-schedules:sort-repair",
+          "cueId": "cue:one-claim-returns-untagged",
+          "description": "The three columns — confirmed, heard, and sequence — stand where they were filled. Only the one claim that was tagged to the wrong column slides back out for another read; the correctly sorted rows stay put, and the stated assumption remains written at the top."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-schedules:after-sort",
+          "beatId": "beat:two-schedules:sort-response",
+          "resume": "Each claim now sits under confirmed, heard, or sequence, and the load-bearing assumption is written where both can see it. Angel looks at where her Friday landed — under 'heard,' not 'confirmed.'"
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:angel-audits-premise",
+          "beatId": "beat:two-schedules:contribution",
+          "speakerId": "angel",
+          "intent": "Accept, without collapse, that her list was gapless in its contents but rested on a Friday premise she never audited — she treated a heard change as fact and built on it. Name the assumption plainly; the list is still good, its foundation was assumed.",
+          "attentionTarget": "the top row of her spreadsheet, now tagged 'heard'",
+          "variants": {
+            "n3": {
+              "japanese": "……あー。そっか。私、リストはきれいに埋めたけど、金曜っていう前提そのものは、確かめてなかった。「変わったらしい」を、本当ってことにして組んでた。抜けがなかったのは、下のほうだけ。一番上が、聞いた話のままだったんだ。",
+              "reading": "……あー。そっか。わたし、リストはきれいにうめたけど、きんようっていうぜんていそのものは、たしかめてなかった。「かわったらしい」を、ほんとうってことにしてくんでた。ぬけがなかったのは、したのほうだけ。いちばんうえが、きいたはなしのままだったんだ。",
+              "english": "…Ah. I see. I filled the list in neatly, but the premise itself — that it's Friday — I never checked. I built it treating 'it apparently changed' as if it were true. The part with no gaps was only the lower rows. The very top was still just something I heard."
+            },
+            "n2": {
+              "japanese": "……あー、なるほど。私、リストの中身はきれいに埋めたけど、金曜っていう前提そのものは、一度も確かめてなかったんだ。「変わったらしい」を、事実ってことにして全部組んでた。抜けがなかったのは、あくまで中身の話で。一番肝心の日付が、聞いた話のまま残ってた。",
+              "reading": "……あー、なるほど。わたし、リストのなかみはきれいにうめたけど、きんようっていうぜんていそのものは、いちどもたしかめてなかったんだ。「かわったらしい」を、じじつってことにしてぜんぶくんでた。ぬけがなかったのは、あくまでなかみのはなしで。いちばんかんじんのひづけが、きいたはなしのままのこってた。",
+              "english": "…Ah, I see. I filled in the contents of the list neatly, but the premise itself — that it's Friday — I never once checked. I built the whole thing treating 'it apparently changed' as fact. The no-gaps part was only the contents. The most crucial thing, the date, was left standing as just something heard."
+            },
+            "n1": {
+              "japanese": "……あー、そういうことか。私、リストの中身は隙なく埋めたつもりでいたけど、金曜っていう前提そのものは、結局一度も確かめてなかったんだよね。「変わったらしい」を、いつのまにか事実扱いにして、その上に全部積み上げてた。抜けがなかったのは中身だけで、肝心の土台が、聞いた話のまま宙に浮いてた。",
+              "reading": "……あー、そういうことか。わたし、リストのなかみはすきなくうめたつもりでいたけど、きんようっていうぜんていそのものは、けっきょくいちどもたしかめてなかったんだよね。「かわったらしい」を、いつのまにかじじつあつかいにして、そのうえにぜんぶつみあげてた。ぬけがなかったのはなかみだけで、かんじんのどだいが、きいたはなしのままちゅうにういてた。",
+              "english": "…Ah, so that's it. I thought I'd filled in the contents of the list without a gap, but the premise itself — that it's Friday — in the end I never once checked. Before I knew it I was treating 'it apparently changed' as fact, and stacked everything on top of that. The no-gaps part was only the contents; the crucial foundation was left hanging, still just something heard."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-schedules:source-column-added",
+          "beatId": "beat:two-schedules:changed-image",
+          "cueId": "cue:both-schedules-tagged-by-source",
+          "description": "Both schedules stay on the table, still neither crossed out. A new narrow column has been added down each — headed もと (basis) — and every row now carries a tag: 確認 (confirmed) or 聞いた (heard). The two dates, Thursday and Friday, sit at the top of columns that no longer pretend to be the same kind of thing."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:two-schedules:one-promise"
+      }
+    },
+    {
+      "id": "scene:two-schedules:one-promise",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "clear-dusk",
+      "goal": "Draft one clarified plan that states its assumption, keeps the date provisional, and assigns who confirms the heard change — without declaring either schedule the winner.",
+      "dramaticQuestion": "Can a plan hold two defensible dates by naming its condition, instead of overwriting one into a single 'correct' schedule?",
+      "learnerNeed": "A stance on how a clarified plan should hold the two dates — as a written condition, or as a provisional pair with one assigned confirmation step.",
+      "curriculum": {
+        "sectionId": "write-a-clarified-plan-that-names-its-assumption",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:two-schedules:clarified-sheet",
+          "beatId": "beat:two-schedules:regroup-image",
+          "cueId": "cue:third-sheet-with-assumptions-column",
+          "description": "A third, blank sheet lies between the two tagged schedules. It is ruled into the same rows but carries an extra column headed 前提 (assumption). The two original plans stay beside it, unchanged; this one is meant to hold what they were both quietly resting on."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:angel-name-owner",
+          "beatId": "beat:two-schedules:record-want",
+          "speakerId": "angel",
+          "intent": "Frame the clarified plan so the assumption is written openly and the date-decision is handed to whoever can confirm the change with the source, rather than her completed list silently deciding it. End on a real consent check.",
+          "attentionTarget": "the 前提 (assumption) column on the fresh sheet",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、こう書こう。「日にちは、変更が本当かどうか確認できるまで、仮」。そのうえで、確認する人を一人だけ決めておく。私のリストが勝手に金曜って決めるんじゃなくて、決めるのは、聞いた話を確かめた人。……それで、いい？",
+              "reading": "じゃあ、こうかこう。「ひにちは、へんこうがほんとうかどうかかくにんできるまで、かり」。そのうえで、かくにんするひとをひとりだけきめておく。わたしのリストがかってにきんようってきめるんじゃなくて、きめるのは、きいたはなしをたしかめたひと。……それで、いい？",
+              "english": "Then let's write it like this: 'The date is provisional until we can confirm whether the change is real.' And on top of that, we decide on just one person to check. Instead of my list deciding Friday on its own, the one who decides is whoever verifies the thing we heard. …Is that okay?"
+            },
+            "n2": {
+              "japanese": "じゃあ、こう書いておこう。「日程は、変更が事実かどうか確認が取れるまでは仮」。そのうえで、確認する担当を一人だけ決めておく。私のリストが勝手に金曜に決めちゃうんじゃなくて、決めるのは、あくまで聞いた話の裏を取った人。……それで、どうかな。",
+              "reading": "じゃあ、こうかいておこう。「にっていは、へんこうがじじつかどうかかくにんがとれるまではかり」。そのうえで、かくにんするたんとうをひとりだけきめておく。わたしのリストがかってにきんようにきめちゃうんじゃなくて、きめるのは、あくまできいたはなしのうらをとったひと。……それで、どうかな。",
+              "english": "Then let's write this down: 'The schedule is provisional until we can get confirmation of whether the change is fact.' On top of that, let's decide on just one person in charge of checking. Rather than my list deciding on Friday by itself, the one who decides is, strictly, whoever backs up the thing we heard. …How's that?"
+            },
+            "n1": {
+              "japanese": "じゃあ、こう書き留めておこう。「日程は、変更が事実かどうか裏が取れるまで、あくまで仮」。そのうえで、確認する役を一人だけ立てておく。私のリストがなし崩しに金曜へ決めてしまうんじゃなくて、日にちを決めるのは、聞いた話を実際に確かめた人。……それで、いいかな。",
+              "reading": "じゃあ、こうかきとめておこう。「にっていは、へんこうがじじつかどうかうらがとれるまで、あくまでかり」。そのうえで、かくにんするやくをひとりだけたてておく。わたしのリストがなしくずしにきんようへきめてしまうんじゃなくて、ひにちをきめるのは、きいたはなしをじっさいにたしかめたひと。……それで、いいかな。",
+              "english": "Then let's note it down like this: 'The schedule stays provisional until we can back up whether the change is fact.' On top of that, let's appoint just one person to the checking role. Rather than my list deciding on Friday by default, the one who decides the date is whoever actually verifies the thing we heard. …Would that be okay?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:two-schedules:how-to-hold",
+          "beatId": "beat:two-schedules:record-stance",
+          "question": "How should the clarified plan hold the two dates?",
+          "options": [
+            {
+              "id": "option:two-schedules:both-conditional",
+              "action": "Write both dates as one condition with the assumption attached — if the change is confirmed, Friday; if not, Thursday — and cross out neither.",
+              "japaneseByBand": {
+                "n3": "両方、条件つきで書いておこう。「変更が確認できたら金曜、できなければ木曜」。どっちも消さないで、前提のほうを書き添える。",
+                "n2": "両方、条件つきで残しておこう。「変更の確認が取れたら金曜、取れなければ木曜」って。どちらも消さずに、前提のほうを書き添えておくの。",
+                "n1": "いっそ両方、条件つきで残しておかない？「変更の裏が取れれば金曜、取れなければ木曜」と。どちらも消さずに、前提のほうを但し書きにして添えておく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:two-schedules:before-close"
+            },
+            {
+              "id": "option:two-schedules:confirm-first",
+              "action": "Keep both dates provisional and do the one confirmation step first — assign who backs up the heard change with the source — before fixing any date.",
+              "japaneseByBand": {
+                "n3": "日にちはどっちも仮のまま、先に「聞いた話を確かめる」一手だけ、担当を決めてやってしまおう。日付を決めるのは、そのあと。",
+                "n2": "日程はどちらも仮のままにして、まず「聞いた話の裏を取る」一手だけ、担当を決めて先に片づけよう。日付を確定させるのは、そのあとで。",
+                "n1": "日程はどちらも仮に置いたまま、まずは「聞いた話の裏を取る」という一手だけ、担当を決めて先に済ませてしまおう。日付を確定させるのは、その確認が取れてから。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:two-schedules:before-close"
+            }
+          ],
+          "convergence": "checkpoint:two-schedules:before-close"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:two-schedules:before-close",
+          "beatId": "beat:two-schedules:close-attempt",
+          "resume": "The learner has chosen how the clarified plan will hold the two dates. Alex reads it over and says what the record does — and does not — decide."
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:alex-no-verdict",
+          "beatId": "beat:two-schedules:repair",
+          "speakerId": "alex",
+          "intent": "Reframe the plan as no verdict on who was right — his calm Thursday was not more true, only differently sourced. Name the class practice plainly: write the assumption, decline to declare a winner. His growth narrows him to fewer, flatter words, not eloquence.",
+          "attentionTarget": "the clarified sheet with its assumption written in",
+          "variants": {
+            "n3": {
+              "japanese": "これで、どっちが正しかった、って話じゃなくなる。僕の木曜が本当だったわけでも、Angelさんが間違ってたわけでもない。ただ、もとが違っただけ。予定表は、勝ち負けを決める紙じゃない。前提を書いておいて、決めつけない。……これを、やり方にすればいい。",
+              "reading": "これで、どっちがただしかった、ってはなしじゃなくなる。ぼくのもくようがほんとうだったわけでも、エンジェルさんがまちがってたわけでもない。ただ、もとがちがっただけ。よていひょうは、かちまけをきめるかみじゃない。ぜんていをかいておいて、きめつけない。……これを、やりかたにすればいい。",
+              "english": "This way, it stops being about who was right. It's not that my Thursday was the true one, nor that you were wrong, Angel. The basis was just different, that's all. A schedule isn't a paper for deciding a winner. Write the assumption down, and don't pronounce a verdict. …We just make this the way we do it."
+            },
+            "n2": {
+              "japanese": "これなら、どっちが正しかったか、なんて話にはならない。僕の木曜が真実だったわけでも、Angelさんが間違っていたわけでもなくて。ただ、根拠が違っていただけ。予定表っていうのは、勝ち負けを裁く紙じゃないんです。前提を書き添えておいて、一つに断じない。……それを、このクラスのやり方にすればいい。",
+              "reading": "これなら、どっちがただしかったか、なんてはなしにはならない。ぼくのもくようがしんじつだったわけでも、エンジェルさんがまちがっていたわけでもなくて。ただ、こんきょがちがっていただけ。よていひょうっていうのは、かちまけをさばくかみじゃないんです。ぜんていをかきそえておいて、ひとつにだんじない。……それを、このクラスのやりかたにすればいい。",
+              "english": "This way, it doesn't become a matter of who was right. It's not that my Thursday was the truth, nor that you were mistaken, Angel — only that the grounds were different. A schedule isn't a paper for judging a winner. Write the assumption alongside it, and don't pronounce it down to one. …We just make that the way this class works."
+            },
+            "n1": {
+              "japanese": "これなら、どっちが正しかったのか、なんて問い自体が消える。僕の木曜が真実だったわけでも、Angelさんが誤っていたわけでもない。ただ、拠って立つもとが違った、それだけのことで。予定表は、勝ち負けを裁くための紙じゃないんです。前提を但し書きにして残しておいて、無理に一つへ断じない。……これを、そのままこのクラスの流儀にすればいい。",
+              "reading": "これなら、どっちがただしかったのか、なんてといじたいがきえる。ぼくのもくようがしんじつだったわけでも、エンジェルさんがあやまっていたわけでもない。ただ、よってたつもとがちがった、それだけのことで。よていひょうは、かちまけをさばくためのかみじゃないんです。ぜんていをただしがきにしてのこしておいて、むりにひとつへだんじない。……これを、そのままこのクラスのりゅうぎにすればいい。",
+              "english": "This way, the very question of who was right disappears. It's not that my Thursday was the truth, nor that you were in error, Angel — only that the ground we each stood on was different, that's all. A schedule isn't a paper for judging a winner. Keep the assumption noted as a caveat, and don't force it down to one. …We just make this, as is, the way of this class."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:angel-atlas-holds-both",
+          "beatId": "beat:two-schedules:changed-action",
+          "speakerId": "angel",
+          "intent": "Widen from this one schedule to the atlas: like the plan, it need not be overwritten into a single correct version — it can carry its conditions and its not-yet-confirmed parts openly. Name her own turn: leaving the provisional provisional is as proper as filling everything in.",
+          "attentionTarget": "the rebuilt atlas and its layered, unfinished records",
+          "variants": {
+            "n3": {
+              "japanese": "それ、いいね。……考えてみたら、このアトラスも同じかも。誰か一人が正しい版に上書きするんじゃなくて、条件も、まだ確かめてないことも、そのまま抱えていける。私、ずっと「埋めきる」ことがちゃんとだと思ってた。でも、仮のところを仮のまま残すのも、ちゃんとなんだね。",
+              "reading": "それ、いいね。……かんがえてみたら、このアトラスもおなじかも。だれかひとりがただしいはんにうわがきするんじゃなくて、じょうけんも、まだたしかめてないことも、そのままかかえていける。わたし、ずっと「うめきる」ことがちゃんとだとおもってた。でも、かりのところをかりのままのこすのも、ちゃんとなんだね。",
+              "english": "That's good. …Come to think of it, this atlas might be the same. Rather than one person overwriting it into the correct version, it can carry the conditions, and the things not yet checked, just as they are. I always thought 'filling it all in' was the proper thing. But leaving the provisional parts provisional is proper too, isn't it."
+            },
+            "n2": {
+              "japanese": "それ、いいね。……よく考えたら、このアトラスも同じなんだ。誰か一人が「正しい版」に上書きしていくんじゃなくて、条件も、まだ裏の取れてないことも、そのまま並べて抱えていける。私、埋めきることこそがちゃんとしてる、ってずっと思ってた。でも、仮のところを仮のまま残しておくのも、同じくらいちゃんとしてるんだね。",
+              "reading": "それ、いいね。……よくかんがえたら、このアトラスもおなじなんだ。だれかひとりが「ただしいはん」にうわがきしていくんじゃなくて、じょうけんも、まだうらのとれてないことも、そのままならべてかかえていける。わたし、うめきることこそがちゃんとしてる、ってずっとおもってた。でも、かりのところをかりのままのこしておくのも、おなじくらいちゃんとしてるんだね。",
+              "english": "That's good. …Thinking about it, this atlas is the same. Rather than one person overwriting it into 'the correct version,' it can hold the conditions, and the things not yet backed up, lined up just as they are. I always thought that filling it all in was what being proper meant. But leaving the provisional parts provisional is just as proper, isn't it."
+            },
+            "n1": {
+              "japanese": "それ、いいね。……よくよく考えたら、このアトラスだって同じなんだよね。誰か一人が「正しい版」へ塗り替えていくんじゃなくて、条件も、まだ裏の取れていないことも、並べたまま抱えておける。私はずっと、隙なく埋めきることこそがちゃんとしたやり方だと思い込んでた。でも、仮のところを仮のまま残しておくのも、それと同じだけ、ちゃんとしたやり方なんだね。",
+              "reading": "それ、いいね。……よくよくかんがえたら、このアトラスだっておなじなんだよね。だれかひとりが「ただしいはん」へぬりかえていくんじゃなくて、じょうけんも、まだうらのとれていないことも、ならべたままかかえておける。わたしはずっと、すきなくうめきることこそがちゃんとしたやりかただとおもいこんでた。でも、かりのところをかりのままのこしておくのも、それとおなじだけ、ちゃんとしたやりかたなんだね。",
+              "english": "That's good. …Thinking it over, this atlas is no different, really. Rather than one person repainting it into 'the correct version,' it can hold the conditions, and the things not yet backed up, side by side as they are. I always convinced myself that filling it in without a gap was the proper way. But leaving the provisional parts provisional is, just as much, a proper way too."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:two-schedules:alex-leave-it-open",
+          "beatId": "beat:two-schedules:exit-line",
+          "speakerId": "alex",
+          "intent": "Close the evening flat and few-worded: leave the date open and provisional, ask once to regather after the confirmation, and let the plan stand without a winner. The calmest possible delivery carries the whole resolution.",
+          "attentionTarget": "the open date line and the single confirmation step beside it",
+          "variants": {
+            "n3": {
+              "japanese": "じゃあ、日にちはまだ空けておく。仮のまま。……確認が取れたら、またここで集まりませんか。それで、いいと思う。",
+              "reading": "じゃあ、ひにちはまだあけておく。かりのまま。……かくにんがとれたら、またここであつまりませんか。それで、いいとおもう。",
+              "english": "Then we'll leave the date open still. Provisional. …Once we get the confirmation, shall we gather here again? That'll do, I think."
+            },
+            "n2": {
+              "japanese": "じゃあ、日程のところは、まだ空けておきます。仮のまま。……裏が取れたら、そのときまた集まりませんか。それで、十分だと思う。",
+              "reading": "じゃあ、にっていのところは、まだあけておきます。かりのまま。……うらがとれたら、そのときまたあつまりませんか。それで、じゅうぶんだとおもう。",
+              "english": "Then the schedule part, we'll leave open still. Provisional. …Once we back it up, shall we gather again then? That's enough, I think."
+            },
+            "n1": {
+              "japanese": "じゃあ、日程のところは、ひとまず空けたままにしておきます。仮のまま。……裏が取れたら、そのときまた集まりませんか。——それで、十分でしょう。",
+              "reading": "じゃあ、にっていのところは、ひとまずあけたままにしておきます。かりのまま。……うらがとれたら、そのときまたあつまりませんか。——それで、じゅうぶんでしょう。",
+              "english": "Then the schedule part, I'll leave open for now. Provisional. …Once we back it up, shall we gather again then? …That'll be plenty."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:two-schedules:plan-kept-open",
+          "beatId": "beat:two-schedules:exit-image",
+          "cueId": "cue:clarified-sheet-date-provisional",
+          "description": "The two original schedules stay on the table, neither crossed out. Between them the clarified sheet holds the assumption in its own column and the date line left open, marked 仮 (provisional), with one name beside a single step: confirm the heard change. Nothing declares a winner; the plan simply names what it is still waiting on."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:overbuilt-schedule",
+      "state": "transform",
+      "ownerIds": [
+        "sam",
+        "angel",
+        "robert"
+      ],
+      "meaningNow": "The overbuilt plan stops being one person's sprawl that needs trimming and becomes two separately-defensible schedules: the failure is no longer too many options but an unaudited premise. The class transforms the callback by separating confirmed evidence from hearsay, writing the load-bearing assumption into the plan, keeping the date provisional, and assigning who owns the confirmation — decision ownership stated aloud instead of a winner crowned.",
+      "priorUse": {
+        "packageId": "s1e13-dinner-by-if",
+        "sceneId": "scene:dinner-by-if:the-sequence",
+        "state": "echo"
+      },
+      "useNumber": 3,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply notes that both event schedules rest on different information, keeps the date provisional, and names one person to confirm the change before fixing it."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:two-schedules:plan-not-verdict",
+      "kind": "story",
+      "description": "The class keeps both conflicting event schedules, tags every row by whether it was confirmed or heard, and drafts a clarified plan that states its assumption, keeps the date provisional, and assigns one person to confirm the heard change — resolving the conflict without treating either document as a verdict or crowning a winner."
+    },
+    {
+      "id": "outcome:two-schedules:alex-limit",
+      "kind": "bond",
+      "castId": "alex",
+      "chapter": 30,
+      "beat": "limit",
+      "description": "Alex's timetable-calm is put under pressure and shown to risk reading as false certainty; his growth is to narrow further into plain words that name his own uncertainty ('I confirmed Thursday, but I heard it changed') and to refuse to let the flatter, calmer plan pass as the truer one. He models sequence-and-hearsay separation and declines to declare a winner."
+    },
+    {
+      "id": "outcome:two-schedules:angel-limit",
+      "kind": "bond",
+      "castId": "angel",
+      "chapter": 30,
+      "beat": "limit",
+      "description": "Angel's gift for optimizing a plan into a gapless list meets its limit: she audited the contents but never the premise, treating a heard change as fact. Her growth is to name the unaudited assumption aloud, let the completed list stay useful without standing as authority, and hand the date-decision to whoever confirms the source."
+    },
+    {
+      "id": "outcome:two-schedules:transfer-return",
+      "kind": "curriculum-return",
+      "description": "Separate-confirmed-evidence-from-hearsay-across-two-conflicting-plans-and-state-the-assumption evidence returns through the authored Season-3 transfer activity activity:s3e06-two-schedules-sort-claims; the story emits no lesson-completion command and references no registered lesson reservoir."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:angel-audits-her-own-premise-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-sort-claims"
+    ],
+    "withdrawnContentFallback": "Use the same sort-sequence-hearsay-evidence and clarified-plan beats with neutral nameplates and a generic pair who hold two defensible event schedules, tag each claim by how it was known, and keep the date provisional with one assigned confirmation instead of choosing a winner."
+  }
+}

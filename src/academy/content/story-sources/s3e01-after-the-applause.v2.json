@@ -1,0 +1,568 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s3e01-after-the-applause",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 3,
+  "chapter": 25,
+  "title": {
+    "en": "After the Applause",
+    "ja": "拍手のあとで"
+  },
+  "synopsis": "The morning after the first exhibition, one visitor's parting line — 「……けっこうです」 — sits on the whiteboard, and Francis, who took it for praise, opens the floor instead of closing it. Mika heard a long pause before the phrase and nearly takes his read back, but holds it as evidence; Peter's client-email ear names the same words carrying three intents. The learner sorts praise, doubt, and refusal into separate readings, and the class records the phrase in the visitor's own register rather than rounding it into a compliment.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "francis",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#francis",
+        "docs/academy/story/CAST-AND-CONSENT.md#francis"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "fan enthusiasm delivered as an unchallengeable verdict rather than a marked opinion",
+        "proprietary media content reproduced in a worked-on task"
+      ]
+    },
+    {
+      "castId": "mika",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#mika",
+        "docs/academy/story/CAST-AND-CONSENT.md#mika"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "quiet pacing framed as timidity to be cured or a confidence deficit"
+      ]
+    },
+    {
+      "castId": "peter",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#peter",
+        "docs/academy/story/CAST-AND-CONSENT.md#peter"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "sparse questions used to imply a hidden biography rather than reframe the task"
+      ]
+    },
+    {
+      "castId": "ruparna",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#ruparna",
+        "docs/academy/story/CAST-AND-CONSENT.md#ruparna"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, job, or private history",
+        "cinematic framing presented as certain fact rather than a preserved alternate reading"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s1e24-lanterns-return",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "function": "infer-intent-from-one-polite-phrase-and-report-it-preserving-register"
+        }
+      ],
+      "recommendedBand": "n3",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-twenty-five-after-the-applause"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:after-applause:one-phrase-three-readings",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "spring-clear",
+      "goal": "Meet the class the day after the exhibition arguing over what one polite parting phrase meant, and reach the point where hearing every word is not the same as knowing the intent.",
+      "dramaticQuestion": "When a phrase is heard perfectly and still means three things, will the class vote one reading true or keep all three with their evidence?",
+      "learnerNeed": "A way to name the several intents one polite phrase can carry while keeping the words and pause that were heard apart from the intent being inferred.",
+      "curriculum": {
+        "sectionId": "one-phrase-several-readings",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:after-applause:folded-booth",
+          "beatId": "beat:after-applause:arrival-image",
+          "cueId": "cue:visitor-line-under-old-tag",
+          "description": "The classroom the day after the first exhibition. The booth banner lies folded over a desk. In the corner of the whiteboard, last term's small tag still hangs — 「聞こえた／未確認 — 約7割」. Ruparna, leaning by the door, taps it once and says nothing. Beneath it Francis has written a single line: 「……けっこうです」, the last thing one visitor said on the way out."
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:francis-reports",
+          "beatId": "beat:after-applause:host-want",
+          "speakerId": "francis",
+          "intent": "Report the visitor's parting phrase in reported speech, mark his own read of it as praise as an opinion rather than a verdict, frame it as an ambiguous final panel, and open the floor.",
+          "attentionTarget": "the single line 「……けっこうです」 on the board",
+          "variants": {
+            "n3": {
+              "japanese": "展示のあと、見に来てくれた人が、最後に一言だけ。「……けっこうです」って言ってたんですよ。僕はてっきり、褒めてくれたんだと思ったんですけど。マンガの最後のコマみたいで——受け取る側が意味を決める、みたいな。みなさんには、どう聞こえました？",
+              "reading": "てんじのあと、みにきてくれたひとが、さいごにひとことだけ。「……けっこうです」っていってたんですよ。ぼくはてっきり、ほめてくれたんだとおもったんですけど。マンガのさいごのコマみたいで——うけとるがわがいみをきめる、みたいな。みなさんには、どうきこえました？",
+              "english": "After the exhibition, one visitor left just a single line. They said, \"…that's fine.\" I was sure it was praise. But it's like the last panel of a manga — the meaning is decided by whoever receives it. How did it sound to the rest of you?"
+            },
+            "n2": {
+              "japanese": "展示のあと、見に来てくださった方が、帰りぎわに一言だけ残していかれて。「……けっこうです」と。僕はてっきり褒め言葉だと受け取ったんですけど、いま思えば、そう聞きたかっただけかもしれなくて。ちょうど、マンガの最後の一コマみたいなものですよね——読む側が何を持ち込むかで、意味のほうが決まる。あの一言、みなさんにはどう聞こえていました？",
+              "reading": "てんじのあと、みにきてくださったかたが、かえりぎわにひとことだけのこしていかれて。「……けっこうです」と。ぼくはてっきりほめことばだとうけとったんですけど、いまおもえば、そうききたかっただけかもしれなくて。ちょうど、マンガのさいごのひとコマみたいなものですよね——よむがわがなにをもちこむかで、いみのほうがきまる。あのひとこと、みなさんにはどうきこえていました？",
+              "english": "After the exhibition, one of the people who came to see it left just a single line on their way out. \"…That's fine.\" I took it for granted as praise, but thinking about it now, maybe that's only what I wanted to hear. It's just like the final panel of a manga, isn't it — the meaning is decided by what the reader brings to it. That one line — how did it sound to the rest of you?"
+            },
+            "n1": {
+              "japanese": "展示のあと、見にいらした方が、帰りぎわにぽつりと一言だけ。「……けっこうです」と、それきりで。僕はてっきり褒めていただいたものとばかり受け取っていたんですが——まあ、そう受け取りたかっただけ、という話なのかもしれず。ちょうど、マンガの最後の一コマのようなもので、読み手が何を持ち込むかで、意味のほうが後から決まってしまう。あの一言、みなさんの耳にはどう届いていたのか、うかがってみたくて。",
+              "reading": "てんじのあと、みにいらしたかたが、かえりぎわにぽつりとひとことだけ。「……けっこうです」と、それきりで。ぼくはてっきりほめていただいたものとばかりうけとっていたんですが——まあ、そううけとりたかっただけ、というはなしなのかもしれず。ちょうど、マンガのさいごのひとコマのようなもので、よみてがなにをもちこむかで、いみのほうがあとからきまってしまう。あのひとこと、みなさんのみみにはどうとどいていたのか、うかがってみたくて。",
+              "english": "After the exhibition, a visitor, on their way out, murmured just one line. \"…That's fine\" — and nothing more. I'd simply taken it as a compliment, but, well, perhaps that's only what I wanted to take it as. It's rather like the final panel of a manga: the meaning settles afterward, according to what the reader brings. How that one line reached the rest of you — that's what I wanted to ask."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:mika-pause",
+          "beatId": "beat:after-applause:obstruction",
+          "speakerId": "mika",
+          "intent": "Offer his timing read — a long pause sat before the phrase, unlike a praising pause — then start to yield the floor by suggesting he might have misheard.",
+          "attentionTarget": "the length of the silence before 「けっこうです」",
+          "variants": {
+            "n3": {
+              "japanese": "……僕は、少し違って聞こえました。「けっこうです」の前に、間が、けっこう長かったんです。半拍、いや、それ以上。あの止まり方だと、褒めるときの間じゃない気がして。……いや、聞き間違いかもしれないですけど。",
+              "reading": "……ぼくは、すこしちがってきこえました。「けっこうです」のまえに、まが、けっこうながかったんです。はんぱく、いや、それいじょう。あのとまりかただと、ほめるときのまじゃないきがして。……いや、ききまちがいかもしれないですけど。",
+              "english": "…I heard it a little differently. Before \"that's fine,\" the pause was quite long. Half a beat — no, longer. With a pause like that, it doesn't feel like the pause you make when you're praising something. …Though, well, maybe I misheard."
+            },
+            "n2": {
+              "japanese": "……僕には、少し違って聞こえていて。「けっこうです」の前に、間が、ずいぶん長かったんです。半拍どころじゃなく。あの止め方は、褒めるときの間とは、ちょっと違う気がして。……まあ、僕の聞き違いかもしれませんけど。",
+              "reading": "……ぼくには、すこしちがってきこえていて。「けっこうです」のまえに、まが、ずいぶんながかったんです。はんぱくどころじゃなく。あのとめかたは、ほめるときのまとは、ちょっとちがうきがして。……まあ、ぼくのききちがいかもしれませんけど。",
+              "english": "…To me it sounded a little different. Before \"that's fine,\" the pause was awfully long. Well past half a beat. That way of stopping feels a bit unlike the pause you make when you praise something. …Well, I could be mishearing it."
+            },
+            "n1": {
+              "japanese": "……僕の耳には、少し違って残っていて。「けっこうです」の、その手前の間が、妙に長かったんです。半拍どころの話じゃなく。ああいう止まり方は、何かを褒めるときの間とは、どうも質が違う気がして。……まあ、こちらの聞き違いという線も、消せませんけど。",
+              "reading": "……ぼくのみみには、すこしちがってのこっていて。「けっこうです」の、そのてまえのまが、みょうにながかったんです。はんぱくどころのはなしじゃなく。ああいうとまりかたは、なにかをほめるときのまとは、どうもしつがちがうきがして。……まあ、こちらのききちがいというせんも、けせませんけど。",
+              "english": "…It stayed with me a little differently. The pause just before \"that's fine\" was strangely long. Nowhere near just half a beat. A way of stopping like that feels, somehow, different in kind from the pause you'd make praising something. …Though, well, I can't rule out that I simply misheard."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:francis-hosts",
+          "beatId": "beat:after-applause:trial-attempt",
+          "speakerId": "francis",
+          "intent": "Refuse to let Mika's read drop, name the pause itself as evidence and part of the same panel, and propose laying out each person's heard reading side by side instead of choosing one.",
+          "attentionTarget": "Mika's pause and Francis's praise as two readings, not a contest",
+          "variants": {
+            "n3": {
+              "japanese": "いや、聞き間違いじゃないと思う。ミカさんが聞いた「間」も、ちゃんと証拠ですよ。それも、あのコマの一部です。だから、どっちが正解か決めなくていい。僕が聞いた「褒め」と、ミカさんが聞いた「ためらい」、両方そのまま並べませんか。何を聞いたか、一人ずつ。",
+              "reading": "いや、ききまちがいじゃないとおもう。ミカさんがきいた「ま」も、ちゃんとしょうこですよ。それも、あのコマのいちぶです。だから、どっちがせいかいかきめなくていい。ぼくがきいた「ほめ」と、ミカさんがきいた「ためらい」、りょうほうそのままならべませんか。なにをきいたか、ひとりずつ。",
+              "english": "No — I don't think you misheard. The pause you caught is evidence too. It's part of the same panel. So we don't have to decide which reading is right. My \"praise\" and your \"hesitation\" — let's lay both out as they are. What each of us actually heard, one at a time."
+            },
+            "n2": {
+              "japanese": "いや、聞き違いじゃないと思います。ミカさんが拾った「間」も、立派な証拠ですよ。それも含めて、あの一コマなんです。だから、どっちが正解かを決める必要はなくて。僕が聞いた「褒め」と、ミカさんが聞いた「ためらい」、両方そのまま並べてみませんか。何をどう聞いたか、一人ずつ。",
+              "reading": "いや、ききちがいじゃないとおもいます。ミカさんがひろった「ま」も、りっぱなしょうこですよ。それもふくめて、あのひとコマなんです。だから、どっちがせいかいかをきめるひつようはなくて。ぼくがきいた「ほめ」と、ミカさんがきいた「ためらい」、りょうほうそのままならべてみませんか。なにをどうきいたか、ひとりずつ。",
+              "english": "No, I don't think you misheard. The pause you picked up is solid evidence too. That's part of the same panel. So there's no need to decide which reading is the right one. My \"praise\" and your \"hesitation\" — shall we lay both out just as they are? What each of us heard, and how, one at a time."
+            },
+            "n1": {
+              "japanese": "いや、聞き違いなんかじゃない。ミカさんが拾った、あの「間」こそ、れっきとした証拠ですよ。それも引っくるめて一コマなんです。どちらが正しいか、無理に決めることはない。僕が受け取った「褒め」と、ミカさんが受け取った「ためらい」——両方、そのまま並べておきませんか。誰が何を、どう聞いたのか、一人ずつ。",
+              "reading": "いや、ききちがいなんかじゃない。ミカさんがひろった、あの「ま」こそ、れっきとしたしょうこですよ。それもひっくるめてひとコマなんです。どちらがただしいか、むりにきめることはない。ぼくがうけとった「ほめ」と、ミカさんがうけとった「ためらい」——りょうほう、そのままならべておきませんか。だれがなにを、どうきいたのか、ひとりずつ。",
+              "english": "No — it's nothing of the sort. That pause you caught is precisely the evidence. It's all one panel, that included. There's no need to force a decision on which is right. The \"praise\" I took away, and the \"hesitation\" you took away — let's set both out, just as they are. Who heard what, and how — one at a time."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:after-applause:before-readings",
+          "beatId": "beat:after-applause:trial-attempt",
+          "resume": "The one phrase 「……けっこうです」 and its long preceding pause are both on the board. The learner steps in to name what the phrase could mean — praise, doubt, or refusal — keeping the words and pause that were actually heard apart from the intent being inferred."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:after-applause:three-readings",
+          "beatId": "beat:after-applause:trial-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "exerciseId": "activity:s3e01-after-the-applause-three-readings"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s3e01-after-the-applause-three-readings"
+          },
+          "resumeContext": "The phrase is 「……けっこうです」, preceded by a long pause. The learner reports it three ways — praise (「よくできている、と言っていたのかもしれない」), doubt (「まあいい、というくらいの意味だったみたいだ」), refusal (「やんわり断られたのかもしれない／断られたそうだ」) — using reported speech and evidential hedges, and tags each claim as heard (the words, the pause, the falling tone) or inferred (the intent), rather than reporting the single phrase as praise at full confidence.",
+          "onReady": "checkpoint:after-applause:after-readings",
+          "onRepair": "node:after-applause:readings-repair",
+          "onDefer": "checkpoint:after-applause:before-readings"
+        },
+        {
+          "kind": "stage",
+          "id": "node:after-applause:readings-repair",
+          "beatId": "beat:after-applause:trial-repair",
+          "cueId": "cue:three-reading-cards-one-returns",
+          "description": "Three blank reading-cards are set out — 褒め / ためらい / お断り. Only the reading that went untagged returns for another pass, its evidence line still empty; the readings already backed by the words, the pause, or the tone stay where they are."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:after-applause:after-readings",
+          "beatId": "beat:after-applause:trial-response",
+          "resume": "The three readings stand, each tagged with the evidence that fed it. Mika looks at his own — the pause — and this time does not take it back."
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:mika-holds",
+          "beatId": "beat:after-applause:contribution",
+          "speakerId": "mika",
+          "intent": "Hold his timing read as expertise instead of yielding it — cite the near-second pause as data — and ask that his reading be recorded as one of the three, not the loser of a vote.",
+          "attentionTarget": "the pause on his reading-card, no longer withdrawn",
+          "variants": {
+            "n3": {
+              "japanese": "……分かりました。じゃあ、引っ込めないでおきます。あの間は、たぶん一秒近くありました。褒めるときは、もっと早く出る。だから僕は、あれは「ためらい」か、やんわりした「お断り」に聞こえた——そう記録しておいてください。三つのうちの、一つとして。",
+              "reading": "……わかりました。じゃあ、ひっこめないでおきます。あのまは、たぶんいちびょうちかくありました。ほめるときは、もっとはやくでる。だからぼくは、あれは「ためらい」か、やんわりした「おことわり」にきこえた——そうきろくしておいてください。みっつのうちの、ひとつとして。",
+              "english": "…All right. Then I won't take it back. That pause was close to a second, I think. Praise comes out faster than that. So to me it sounded like \"hesitation,\" or a soft \"no, thank you\" — please record it that way. As one of the three."
+            },
+            "n2": {
+              "japanese": "……分かりました。じゃあ、引っ込めません。あの間は、たぶん一秒近くありました。褒めるときは、もっと早く出るものなんです。だから僕には、あれは「ためらい」か、やんわりした「お断り」に聞こえた——そう記録しておいてください。三つある読みの、一つとして。",
+              "reading": "……わかりました。じゃあ、ひっこめません。あのまは、たぶんいちびょうちかくありました。ほめるときは、もっとはやくでるものなんです。だからぼくには、あれは「ためらい」か、やんわりした「おことわり」にきこえた——そうきろくしておいてください。みっつあるよみの、ひとつとして。",
+              "english": "…All right. Then I won't take it back. That pause was close to a second, I'd say. When you praise something, it comes out faster than that. So to me it sounded like \"hesitation,\" or a gentle \"no, thank you\" — please record it that way. As one of the three readings."
+            },
+            "n1": {
+              "japanese": "……分かりました。なら、引っ込めずにおきます。あの間は、おそらく一秒近くあった。人が褒めるときの間は、あんなに置かない。だから僕の耳には、あれは「ためらい」——あるいは、やんわりした「お断り」——に聞こえた。そう、記録に残してください。三つ並ぶ読みの、そのうちの一つとして。",
+              "reading": "……わかりました。なら、ひっこめずにおきます。あのまは、おそらくいちびょうちかくあった。ひとがほめるときのまは、あんなにおかない。だからぼくのみみには、あれは「ためらい」——あるいは、やんわりした「おことわり」——にきこえた。そう、きろくにのこしてください。みっつならぶよみの、そのうちのひとつとして。",
+              "english": "…All right. Then I'll leave it standing. That pause was close to a second, most likely. People don't leave a pause that long when they're praising. So to my ear it sounded like \"hesitation\" — or a gentle \"no, thank you.\" Please put that on the record. As one of the three readings set side by side."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:after-applause:three-readings-board",
+          "beatId": "beat:after-applause:changed-image",
+          "cueId": "cue:three-readings-with-evidence",
+          "description": "Three readings now stand side by side on the board — 褒め, ためらい, お断り — each with the evidence that fed it: the words, the length of the pause, the fall of the voice. None is crossed out. The visitor's line stays written exactly as it was said."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:after-applause:register-and-record"
+      }
+    },
+    {
+      "id": "scene:after-applause:register-and-record",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "spring-clear",
+      "goal": "Decide how to write the feedback down so it keeps three intents and the speaker's own register instead of rounding into a clean compliment.",
+      "dramaticQuestion": "Should the record smooth the phrase into praise, or hold the visitor's exact words with their three possible intents kept apart?",
+      "learnerNeed": "A stance on whether a record repairs only the listener's mishearing or rewrites the speaker's words, and how to keep register while separating said from meant.",
+      "curriculum": {
+        "sectionId": "record-register-not-compliment",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:after-applause:board-and-seat",
+          "beatId": "beat:after-applause:regroup-image",
+          "cueId": "cue:readings-and-the-unchecked-seat",
+          "description": "The three readings are still on the board. Peter has turned up in the seat by the side wall that nobody had thought to check, notebook already open. The visitor's line waits below, unrounded."
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:peter-register",
+          "beatId": "beat:after-applause:human-want",
+          "speakerId": "peter",
+          "intent": "Bring a register-reading ear from years of client email: the same phrase carries three implications, so copying the words alone is not enough — which implication it was said with has to be kept.",
+          "attentionTarget": "the gap between the words and the implication they carried",
+          "variants": {
+            "n3": {
+              "japanese": "なるほど。仕事で客先のメールを読んでると、同じ「けっこうです」でも、三通りに化けるんですよ。「よくできてる」か、「まあ、いいでしょう」か、「いや、遠慮します」か。言葉は一つでも、含みが三つある。だから、言葉だけ写しても足りない。どの含みで言ったか、そこまで残さないと。",
+              "reading": "なるほど。しごとできゃくさきのメールをよんでると、おなじ「けっこうです」でも、さんとおりにばけるんですよ。「よくできてる」か、「まあ、いいでしょう」か、「いや、えんりょします」か。ことばはひとつでも、ふくみがみっつある。だから、ことばだけうつしてもたりない。どのふくみでいったか、そこまでのこさないと。",
+              "english": "I see. Reading client emails for work, the very same \"that's fine\" turns into three different things — \"well done,\" or \"well, I suppose it'll do,\" or \"no, I'll pass.\" One set of words, three implications. So just copying down the words isn't enough. We have to keep which implication it was meant with."
+            },
+            "n2": {
+              "japanese": "なるほど。仕事柄、客先のメールばかり読んでいると、同じ「けっこうです」が、三通りに化けるんですよ。「よくできている」か、「まあ、いいでしょう」か、あるいは「いえ、遠慮します」か。言葉は一つでも、含みは三つある。ですから、言葉だけ写しても足りないんです。どの含みで言われたのか、そこまで残さないと。",
+              "reading": "なるほど。しごとがら、きゃくさきのメールばかりよんでいると、おなじ「けっこうです」が、さんとおりにばけるんですよ。「よくできている」か、「まあ、いいでしょう」か、あるいは「いえ、えんりょします」か。ことばはひとつでも、ふくみはみっつある。ですから、ことばだけうつしてもたりないんです。どのふくみでいわれたのか、そこまでのこさないと。",
+              "english": "I see. In my line of work, reading nothing but client emails, the very same \"that's fine\" shape-shifts three ways — \"well done,\" or \"well, it'll do, I suppose,\" or else \"no, I'll pass.\" One set of words, three implications. Which is why copying down the words alone won't do. We have to keep which implication it was said with."
+            },
+            "n1": {
+              "japanese": "なるほど。仕事柄、客先からのメールばかり読まされていると、同じ「けっこうです」の一言が、平気で三通りに化けるんですよ。「よくできている」か、「まあ、いいでしょう」か、それとも「いえ、遠慮させていただきます」か。言葉としては一つでも、そこに乗る含みは三つ。ですから、字面だけ書き写したのでは、まるで足りない。どの含みに乗せて言われたのか——そこまで含めて、初めて記録なんです。",
+              "reading": "なるほど。しごとがら、きゃくさきからのメールばかりよまされていると、おなじ「けっこうです」のひとことが、へいきでさんとおりにばけるんですよ。「よくできている」か、「まあ、いいでしょう」か、それとも「いえ、えんりょさせていただきます」か。ことばとしてはひとつでも、そこにのるふくみはみっつ。ですから、じづらだけかきうつしたのでは、まるでたりない。どのふくみにのせていわれたのか——そこまでふくめて、はじめてきろくなんです。",
+              "english": "I see. In my line of work, forever reading client emails, that same single \"that's fine\" will quite happily turn into three things — \"well done,\" or \"well, it'll do,\" or else \"no, I'll respectfully decline.\" As words it's one; the implications riding on it are three. So merely transcribing the surface won't remotely do. Which implication it was placed upon when spoken — only with that included is it a record at all."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:francis-agree",
+          "beatId": "beat:after-applause:regroup-want",
+          "speakerId": "francis",
+          "intent": "Agree through the ambiguous-panel frame and name the temptation — rounding the phrase into praise is easiest but makes the visitor say what they didn't — then open the question of how to record it honestly.",
+          "attentionTarget": "the easy, dishonest option of writing it down as praise",
+          "variants": {
+            "n3": {
+              "japanese": "それそれ。まさに、そのコマなんですよ。だから、褒めの意味に丸めて書いちゃうと——たぶん、いちばん楽なんですけど——その人が言ってないことを、言ったことにしちゃう。どう書き残すのが、いちばん正直ですかね？",
+              "reading": "それそれ。まさに、そのコマなんですよ。だから、ほめのいみにまるめてかいちゃうと——たぶん、いちばんらくなんですけど——そのひとがいってないことを、いったことにしちゃう。どうかきのこすのが、いちばんしょうじきですかね？",
+              "english": "Exactly — that's the panel, right there. So if we round it off and write it down as praise — which is probably the easiest thing — we make them say something they didn't say. What's the most honest way to write it down?"
+            },
+            "n2": {
+              "japanese": "そう、それです。まさに、その一コマなんですよ。だから、褒めの意味に丸めて書いてしまうと——正直、それがいちばん楽なんですが——その人が言っていないことを、言ったことにしてしまう。どう書き残すのが、いちばん正直なんでしょうね。",
+              "reading": "そう、それです。まさに、そのひとコマなんですよ。だから、ほめのいみにまるめてかいてしまうと——しょうじき、それがいちばんらくなんですが——そのひとがいっていないことを、いったことにしてしまう。どうかきのこすのが、いちばんしょうじきなんでしょうね。",
+              "english": "Yes, exactly that. It really is that one panel. So if we round it off and write it down as praise — honestly, that's the easiest option — we make them say something they never said. What's the most honest way to keep it on record, I wonder."
+            },
+            "n1": {
+              "japanese": "そう、それなんですよ。まさしく、その一コマで。だから、褒めの意味へと丸めて書き留めてしまうと——正直に言えば、それがいちばん手間のかからない道なんですが——その人が言ってもいないことを、言ったことにしてしまう。さて、どう書き残すのが、いちばん正直でいられるんでしょうね。",
+              "reading": "そう、それなんですよ。まさしく、そのひとコマで。だから、ほめのいみへとまるめてかきとめてしまうと——しょうじきにいえば、それがいちばんてまのかからないみちなんですが——そのひとがいってもいないことを、いったことにしてしまう。さて、どうかきのこすのが、いちばんしょうじきでいられるんでしょうね。",
+              "english": "Yes — that's it exactly. That very panel. So if we round it off and set it down as praise — in all honesty, that's the path of least effort — we end up making them say what they never even said. Now then: what way of writing it down lets us stay the most honest?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:after-applause:how-to-record",
+          "beatId": "beat:after-applause:record-stance",
+          "question": "How should the feedback be written down?",
+          "options": [
+            {
+              "id": "option:after-applause:three-with-evidence",
+              "action": "Record all three readings side by side, each with the evidence that made it audible — the words, the pause, the tone — and cross out none.",
+              "japaneseByBand": {
+                "n3": "三つとも並べて書きましょう。「褒め」「ためらい」「お断り」、それぞれ、何を根拠にそう聞こえたか——言葉、間、声の調子——を添えて。どれも消さないで。",
+                "n2": "三つとも、並べて残しましょう。「褒め」「ためらい」「お断り」、それぞれ、どこからそう読み取れるのか——言葉と、間の長さと、声の調子——を添えて。どれも一つに絞らずに。",
+                "n1": "いっそ三つとも、並べたまま残しませんか。「褒め」「ためらい」「お断り」——それぞれ、何を根拠にそう聞こえたのか、言葉と、間と、声の調子まで但し書きにして。どれ一つ、消してしまわずに。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:after-applause:before-record"
+            },
+            {
+              "id": "option:after-applause:verbatim-then-inferences",
+              "action": "Write the exact words with the pause as the observed fact, then hang the three intents beneath it as separate, hedged inferences.",
+              "japaneseByBand": {
+                "n3": "まず、言われた言葉をそのまま——「……けっこうです」、前の間も含めて——事実として書きましょう。その下に、「褒めかも」「ためらいかも」「お断りかも」って、推測として分けてぶら下げる。",
+                "n2": "まず、実際に言われた言葉を、間ごとそのまま事実として記録しましょう。「……けっこうです」と。その下に、「褒めかもしれない」「ためらいかもしれない」「断りかもしれない」と、あくまで推測として分けて添える。",
+                "n1": "まずは、言われたとおりの言葉を——あの間も含めて——動かせない事実として書き留めましょう。「……けっこうです」と。そのうえで、「褒めか」「ためらいか」「断りか」は、こちらの推測として、下に分けてぶら下げておく。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:after-applause:before-record"
+            }
+          ],
+          "convergence": "checkpoint:after-applause:before-record"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:after-applause:before-record",
+          "beatId": "beat:after-applause:record-attempt",
+          "resume": "The learner has chosen how the feedback will be written down. Peter adds the one rule that keeps it honest before Francis closes the evening."
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:peter-keep-register",
+          "beatId": "beat:after-applause:repair",
+          "speakerId": "peter",
+          "intent": "Set the boundary that turns editing into honesty: fix only the listeners' own mishearing, and leave the visitor's words in the visitor's register — tidying it into a clean compliment would be speaking in their place.",
+          "attentionTarget": "the visitor's phrasing, left untouched",
+          "variants": {
+            "n3": {
+              "japanese": "それがいい。……一つだけ。あの人の言葉は、あの人の言い方のまま置いておきましょう。きれいな褒め言葉に直したくなるけど、それをやると、こっちが代わりに喋ったことになる。直すのは、こっちの聞き間違いだけ。向こうの言い方は、動かさない。",
+              "reading": "それがいい。……ひとつだけ。あのひとのことばは、あのひとのいいかたのままおいておきましょう。きれいなほめことばになおしたくなるけど、それをやると、こっちがかわりにしゃべったことになる。なおすのは、こっちのききまちがいだけ。むこうのいいかたは、うごかさない。",
+              "english": "That's good. …One thing. Let's leave that person's words in their own way of saying it. It's tempting to tidy it into a clean compliment, but if we do that, we end up speaking in their place. The only thing we fix is our own mishearing. Their phrasing, we leave untouched."
+            },
+            "n2": {
+              "japanese": "それがいい。……一つだけ。あの方の言葉は、あの方の言い回しのまま置いておきましょう。つい、きれいな褒め言葉に直したくなりますが、それをやった時点で、こちらが代わりに喋ったことになる。直していいのは、こちらの聞き違いだけ。向こうの言い方には、手を入れない。",
+              "reading": "それがいい。……ひとつだけ。あのかたのことばは、あのかたのいいまわしのままおいておきましょう。つい、きれいなほめことばになおしたくなりますが、それをやったじてんで、こちらがかわりにしゃべったことになる。なおしていいのは、こちらのききちがいだけ。むこうのいいかたには、てをいれない。",
+              "english": "That's good. …Just one thing. Let's leave that person's words in their own turn of phrase. It's tempting to tidy it into a clean compliment, but the moment we do, we've spoken in their place. The only thing we may fix is our own mishearing. Their way of saying it, we don't touch."
+            },
+            "n1": {
+              "japanese": "それがいい。……一点だけ。あの方の言葉は、あの方の言い回しのまま、そっと置いておきましょう。どうしても、耳ざわりのいい褒め言葉に直したくなる。ですが、そこへ手を入れた時点で、こちらが本人の代わりに喋ったのと同じことになる。直していいのは、あくまでこちらの聞き違いだけ。向こうの言い方そのものには、指一本触れない。",
+              "reading": "それがいい。……いってんだけ。あのかたのことばは、あのかたのいいまわしのまま、そっとおいておきましょう。どうしても、みみざわりのいいほめことばになおしたくなる。ですが、そこへてをいれたじてんで、こちらがほんにんのかわりにしゃべったのとおなじことになる。なおしていいのは、あくまでこちらのききちがいだけ。むこうのいいかたそのものには、ゆびいっぽんふれない。",
+              "english": "That's good. …Just one point. Let's leave that person's words, in their own phrasing, gently where they are. One does badly want to smooth it into an easy-on-the-ear compliment. But the instant we touch it, it amounts to our having spoken in their stead. The only thing we may correct is our own mishearing. Their manner of saying it — we don't lay a finger on it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:after-applause:francis-close",
+          "beatId": "beat:after-applause:exit-line",
+          "speakerId": "francis",
+          "intent": "Close by tying the open record back to the class's seventy-percent principle — hearing all of it is not understanding all of it — and hand the floor back with his signature question.",
+          "attentionTarget": "the old 約7割 tag now beside the visitor's line",
+          "variants": {
+            "n3": {
+              "japanese": "うん、それでいきましょう。……こうやって書いておけば、あの「けっこうです」は、開いたまま残る。前に「七割で十分」ってやったやつと、同じですね。全部聞こえても、意味が全部分かるわけじゃない。分かったところと、まだ分からないところを、分けて置いておけばいい。——僕はここまで。みなさんは、どう聞こえました？",
+              "reading": "うん、それでいきましょう。……こうやってかいておけば、あの「けっこうです」は、ひらいたままのこる。まえに「しちわりでじゅうぶん」ってやったやつと、おなじですね。ぜんぶきこえても、いみがぜんぶわかるわけじゃない。わかったところと、まだわからないところを、わけておいておけばいい。——ぼくはここまで。みなさんは、どうきこえました？",
+              "english": "Yeah, let's go with that. …Written this way, that \"that's fine\" stays open. It's the same as the \"seventy percent is enough\" thing we did before. Even if you hear all of it, that doesn't mean you understand all of it. Keep what you got and what you still don't, side by side. —That's where I'm at. How did it sound to the rest of you?"
+            },
+            "n2": {
+              "japanese": "ええ、それでいきましょう。……こう書いておけば、あの「けっこうです」は、開いたまま残せる。前に「七割つかめれば十分」ってやりましたよね。あれと同じで、全部聞こえたからって、意味まで全部分かるわけじゃない。分かったところと、まだ分からないところを、分けたまま置いておけばいいんです。——僕はここまで。みなさんには、どう聞こえていましたか？",
+              "reading": "ええ、それでいきましょう。……こうかいておけば、あの「けっこうです」は、ひらいたままのこせる。まえに「しちわりつかめればじゅうぶん」ってやりましたよね。あれとおなじで、ぜんぶきこえたからって、いみまでぜんぶわかるわけじゃない。わかったところと、まだわからないところを、わけたままおいておけばいいんです。——ぼくはここまで。みなさんには、どうきこえていましたか？",
+              "english": "Yes, let's go with that. …Written this way, that \"that's fine\" can stay open. Remember when we did the \"grasp seventy percent and that's enough\" thing? Same as that — hearing all of it doesn't mean you understand all of it. Just keep what you got and what you still don't, side by side. —That's where I'm at. How did it sound to the rest of you?"
+            },
+            "n1": {
+              "japanese": "ええ、それでいきましょう。……こうして書いておけば、あの「けっこうです」は、開いたまま残しておける。ほら、前に「七割つかめれば、それでもう十分」ってやったでしょう。あれと同じ理屈で、耳に全部届いたからといって、意味まで残らず分かるわけじゃない。分かったところと、まだ分からないところ——その二つを、分けたまま置いておけばいい。——と、僕はここまでで。さて、みなさんの耳には、どう聞こえていましたか？",
+              "reading": "ええ、それでいきましょう。……こうしてかいておけば、あの「けっこうです」は、ひらいたままのこしておける。ほら、まえに「しちわりつかめれば、それでもうじゅうぶん」ってやったでしょう。あれとおなじりくつで、みみにぜんぶとどいたからといって、いみまでのこらずわかるわけじゃない。わかったところと、まだわからないところ——そのふたつを、わけたままおいておけばいい。——と、ぼくはここまでで。さて、みなさんのみみには、どうきこえていましたか？",
+              "english": "Yes, let's go with that. …Kept this way, that \"that's fine\" can stay open. Remember, we once did the \"grasp seventy percent and that's already enough\" thing? By the same logic, just because all of it reached your ears doesn't mean the meaning came through entire. What you grasped, and what you still don't — keep those two side by side. —And that's as far as I've got. So: how did it sound to the rest of you?"
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:after-applause:record-left-open",
+          "beatId": "beat:after-applause:exit-image",
+          "cueId": "cue:phrase-verbatim-three-tagged-intents",
+          "description": "The record now reads the phrase verbatim — 「……けっこうです」, pause and all — with three intents tagged beneath it as separate inferences. Beside it the old 約7割 tag has a line added: 全部聞こえても、全部は分からない. Nothing has been smoothed into a compliment; the visitor's words stay in the visitor's register."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:seventy-percent",
+      "state": "echo",
+      "ownerIds": [
+        "ruparna",
+        "sophie"
+      ],
+      "priorUse": {
+        "packageId": "s1e19-seventy-percent-door",
+        "sceneId": "scene:seventy-percent-door:subtitles-drop",
+        "state": "seed"
+      },
+      "meaningNow": "The seventy-percent principle moves from incomplete audio to complete audio: the class heard every word of one polite phrase and still cannot fix its intent, so praise, doubt, and refusal stand together as several readings, none at full confidence, and the undetermined intent is left marked rather than rounded up to praise.",
+      "useNumber": 2,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply keeps a fully-heard polite phrase written verbatim, with its three possible intents listed as separate hedged inferences, instead of recording it as praise."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:after-applause:record-not-rounded",
+      "kind": "story",
+      "description": "After the first exhibition, the class records one ambiguous parting phrase in the visitor's own register, keeping praise, doubt, and refusal as three separately evidenced readings rather than rounding the line into a compliment or voting one intent true."
+    },
+    {
+      "id": "outcome:after-applause:francis-contribution",
+      "kind": "bond",
+      "castId": "francis",
+      "chapter": 25,
+      "beat": "contribution",
+      "description": "Francis moves from taking his own read of the feedback as praise to marking it as one account among several; he frames the disagreement as an ambiguous final panel and hosts the floor open instead of closing it to a verdict, his first turn from fan verdict toward personal criticism."
+    },
+    {
+      "id": "outcome:after-applause:mika-limit",
+      "kind": "bond",
+      "castId": "mika",
+      "chapter": 25,
+      "beat": "limit",
+      "description": "Mika hits the limit of his ear — a phrase heard perfectly can still be ambiguous — and his pattern of yielding the floor bites; he nearly withdraws his timing read, then holds the near-second pause before 「けっこうです」 as real evidence and asks that his reading be recorded as one of three."
+    },
+    {
+      "id": "outcome:after-applause:peter-contribution",
+      "kind": "bond",
+      "castId": "peter",
+      "chapter": 25,
+      "beat": "contribution",
+      "description": "Peter contributes a register-reading ear from years of decoding client email: he names that one polite phrase carries three implications and sets the rule that the record must fix only the listeners' mishearing, leaving the speaker's words in the speaker's register."
+    },
+    {
+      "id": "outcome:after-applause:transfer-return",
+      "kind": "curriculum-return",
+      "transferActivityId": "activity:s3e01-after-the-applause-three-readings",
+      "description": "Infer-intent-from-one-polite-phrase-and-report-it-preserving-register evidence returns through the authored transfer activity; the story emits no lesson-completion command and references no registered N3 reservoir."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:mika-hears-the-pause-first"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-three-readings"
+    ],
+    "withdrawnContentFallback": "Use the same infer-intent and register-preserving-record beats with neutral nameplates and a generic host and register-reader who keep one ambiguous polite phrase verbatim with three hedged readings after a long pause is heard before it."
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "schema": "yomu-academy.n1-opening-sequence-package/v1",
+  "revision": "n1-opening-sequence-01/2026-07-18.2",
+  "package": {
+    "id": "n1-opening-sequence-01",
+    "band": "N1",
+    "activityId": "activity:n1-opening-sequence",
+    "activityKind": "academy-n1-opening-sequence",
+    "pedagogy": "exact-source-anchor-then-n-plus-one-transfer",
+    "phases": [
+      "n2-prerequisite-refresh-unassessed",
+      "exact-shin-kanzen-contrast-reading",
+      "original-yomu-transfer-reading",
+      "exact-shin-kanzen-time-relation-examples",
+      "exact-so-matome-n1-information-listening",
+      "original-yomu-transfer-listening",
+      "constrained-written-recommendation"
+    ],
+    "grammarForms": ["〜が早いか", "〜や／〜や否や", "〜なり"],
+    "assessment": {
+      "mcqJudgments": { "reading": 5, "grammar": 3, "listening": 3 },
+      "stimulusRoles": {
+        "sourceReading": 2,
+        "transferReading": 3,
+        "grammar": 3,
+        "sourceListening": 1,
+        "transferListening": 2
+      },
+      "productionChecks": 4,
+      "totalChecks": 15,
+      "passThreshold": { "passChecks": 13, "totalChecks": 15 },
+      "modalityFloors": { "reading": 4, "grammar": 2, "listening": 2, "production": 3 },
+      "floorFailureIsLapse": true,
+      "answerVisibility": "after-attempt-persistent-through-retries",
+      "sourceTranscriptVisibility": "after-attempt-persistent-through-retries",
+      "grading": "deterministic-option-ids-plus-constrained-production-rubric",
+      "productionGrading": "constrained-deterministic-check-not-general-writing-assessment"
+    }
+  },
+  "readerSrs": {
+    "readerSurfaceCount": 11,
+    "readingSurfacesAtMount": 6,
+    "grammarSurfacesAtMount": 3,
+    "transcriptSurfacesAtReveal": 2,
+    "reviewTargetCount": 8,
+    "miningRequestCount": 5,
+    "sourceAttribution": "per-surface-and-per-mining-request",
+    "transcriptGate": "after-attempt",
+    "answerKeyGate": "after-attempt-persistent-through-retries"
+  },
+  "rights": {
+    "state": "user-directed-package-local-short-excerpts-and-exact-track",
+    "sourceText": "short-excerpts-delivered",
+    "sourcePdf": "not-delivered",
+    "sourceImage": "not-delivered",
+    "sourceAudio": "exact-track-delivered",
+    "learnerActivityText": "mixed-exact-source-excerpts-and-original-yomu-transfer",
+    "playback": "exact-source-audio-and-synthetic-transfer"
+  },
+  "audio": {
+    "track": "CD1-55",
+    "packageUrl": "/academy/content/n1-opening-sequence/audio/nihongo-somatome-n1-cd1-track-55.mp3",
+    "sha256": "cd51361d718bc376d09ae3fd360f95719238cd2081fb3b6e8c2999acdb09081a",
+    "byteLength": 1175094,
+    "durationSeconds": 73.139375,
+    "codec": { "format": "mp3", "sampleRateHz": 44100, "channels": 2, "bitrateKbps": 128 }
+  },
+  "offline": {
+    "packageAudioRequestsOnPlay": 1,
+    "sourceMediaBundled": true,
+    "activityData": "embedded-in-academy-app",
+    "audioAvailability": "network-or-browser-cache",
+    "transferPlayback": "host-pronunciation-or-browser-speech-synthesis",
+    "manifestPath": "/academy/content/n1-opening-sequence/package.v1.json",
+    "serviceWorker": "deferred-not-registered"
+  },
+  "registration": {
+    "sharedActivityRegistry": "registered",
+    "hook": "n1OpeningSequencePlugin is imported and present in ACADEMY_ACTIVITY_PLUGINS in src/academy/minigames/index.ts",
+    "trancheBoundary": "the N1 source-package tranche does not own or modify the shared registry"
+  }
+}

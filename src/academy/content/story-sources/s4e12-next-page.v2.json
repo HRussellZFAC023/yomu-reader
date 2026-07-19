@@ -1,0 +1,653 @@
+{
+  "schema": "yomu-academy.story-package.v2",
+  "id": "s4e12-next-page",
+  "revision": "2026-07-18.1",
+  "canonicality": "canon",
+  "season": 4,
+  "chapter": 48,
+  "title": {
+    "en": "The Next Page",
+    "ja": "次のページ"
+  },
+  "synopsis": "The atlas is closed. On the last evening the class leaves one blank page for whoever comes next, under the terms it agreed: one bounded contribution each if they want it, and no one assigned to fill the rest. Jenny drapes a finished scarf over a chair she leaves empty on purpose; Peter says an open question can be an ending. The learner writes or records one thing — thanks, a piece of advice, a question, or a small mark — and the page stays open, unlit, and valid. Someone else locks up while Rie, for once, drinks her tea before it cools.",
+  "sourceSafety": {
+    "originalYomu": true,
+    "externalDialogueUsed": false,
+    "privateChatUsed": false,
+    "fictionalComposite": true,
+    "realEventClaim": false
+  },
+  "cast": [
+    {
+      "castId": "rie",
+      "role": "lead",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie",
+        "docs/academy/story/dossiers/rie.md"
+      ],
+      "forbiddenClaims": [
+        "private biography beyond the approved teacher role",
+        "husband detail treated as fact rather than her own volunteered gag",
+        "over-extension framed as martyrdom",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "jenny",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#jenny",
+        "docs/academy/story/CAST-AND-CONSENT.md#jenny",
+        "docs/academy/story/dossiers/jenny.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "stepping back framed as a confidence deficit or a problem to solve for her",
+        "second tea callback seeded on her (tea belongs to Rie; her prop is the scarf)",
+        "real-event claim"
+      ]
+    },
+    {
+      "castId": "peter",
+      "role": "support",
+      "portrayal": "name-only",
+      "evidenceRefs": [
+        "src/academy/domain/cast-registry.ts#peter",
+        "docs/academy/story/CAST-AND-CONSENT.md#peter",
+        "docs/academy/story/dossiers/peter.md"
+      ],
+      "forbiddenClaims": [
+        "portrait or inferred likeness",
+        "surname, guessed kana name, nationality, or private history",
+        "sparse question framed as hidden biography",
+        "JLPT horizon framed as a ranked achievement or a brave choice others are measured against",
+        "real-event claim"
+      ]
+    }
+  ],
+  "entry": {
+    "story": {
+      "after": "s4e11-atlas-closes",
+      "requiresSeen": [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      "forbidsAfterGraduation": false,
+      "graduationEvent": true,
+      "canonicalOnce": true
+    },
+    "curriculum": {
+      "anyOfEvidence": [
+        {
+          "kind": "transfer-function",
+          "family": "n1-graduation-composition",
+          "function": "produce-one-bounded-final-contribution-in-a-chosen-tone-under-the-class-permission-terms"
+        }
+      ],
+      "recommendedBand": "n1",
+      "missingEvidenceRoute": "play-bridge"
+    },
+    "relationship": {
+      "fallbackVariant": "variant:chapter-forty-eight-graduation-open-page"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene:next-page:the-terms-of-the-page",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Turn from the closed atlas to the one blank page the class will leave, and state the terms under which it stays open.",
+      "dramaticQuestion": "Now that the atlas is closed, what does the class leave for whoever comes next, and on whose terms?",
+      "learnerNeed": "A stance on how to approach writing a bounded final page when every tone is accepted and no one is assigned to fill it.",
+      "curriculum": {
+        "sectionId": "state-the-terms-of-the-page",
+        "order": 1
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:next-page:last-evening",
+          "beatId": "beat:next-page:arrival-image",
+          "cueId": "cue:closed-atlas-blank-page-and-tea",
+          "description": "The classroom on the last evening, chairs pushed into a loose ring. On the wall the atlas holds a steady, ordinary light, every route settled. On Rie's desk lies one blank page, and at her elbow a fresh cup of tea, a thin line of steam still coming off it. Nobody is standing at the front."
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:rie-states-the-terms",
+          "beatId": "beat:next-page:human-want",
+          "speakerId": "rie",
+          "intent": "Name graduation plainly — not a test, not a closing speech — and set the terms: each person may leave one thing on the page if they want, then it stays open for the next class, with no one obliged to fill it.",
+          "attentionTarget": "the single blank page and the closed atlas behind it",
+          "variants": {
+            "n3": {
+              "japanese": "はい、地図はこれで閉じました。で、卒業なんですけど、テストじゃないんです。この一枚に、書きたい人が、書きたいことをひとつ置いていくだけ。残りは次のクラスのために、開けたままにしておきます。埋めなきゃいけない人はいませんよ。",
+              "reading": "はい、ちずはこれでとじました。で、そつぎょうなんですけど、テストじゃないんです。このいちまいに、かきたいひとが、かきたいことをひとつおいていくだけ。のこりはつぎのクラスのために、あけたままにしておきます。うめなきゃいけないひとはいませんよ。",
+              "english": "Right, the map's closed now. So — graduation. It isn't a test. On this one page, whoever wants to just leaves one thing they want to leave. The rest we keep open, for the next class. Nobody has to fill it."
+            },
+            "n2": {
+              "japanese": "はい、これで地図は閉じました。……で、卒業なんですけど、テストでも、締めくくりのスピーチでもないんですよ。この一枚に、書きたい人が、書きたいことをひとつだけ置いていく。それだけ。あとは次のクラスのために、開けたまま置いておきます。埋めなきゃいけない人は、いません。",
+              "reading": "はい、これでちずはとじました。……で、そつぎょうなんですけど、テストでも、しめくくりのスピーチでもないんですよ。このいちまいに、かきたいひとが、かきたいことをひとつだけおいていく。それだけ。あとはつぎのクラスのために、あけたままおいておきます。うめなきゃいけないひとは、いません。",
+              "english": "Right — the map's closed now. …So, graduation. It isn't a test, and it isn't a closing speech either. On this one page, whoever wants to leaves just one thing they want to leave. That's all. And the rest we keep open, for the next class. Nobody's obliged to fill it."
+            },
+            "n1": {
+              "japanese": "はい、地図はこれで閉じました。……で、卒業なんですけどね、別に試験でもなければ、立派な締めの言葉でもなくて。このたった一枚に、書きたい方が、書きたいことをひとつだけ置いていく——ええ、それだけのことなんです。あとは次のクラスのために、開けたまま残しておく。誰かが埋めなきゃいけない、なんてことは、ひとつもありませんから。",
+              "reading": "はい、ちずはこれでとじました。……で、そつぎょうなんですけどね、べつにしけんでもなければ、りっぱなしめのことばでもなくて。このたったいちまいに、かきたいかたが、かきたいことをひとつだけおいていく——ええ、それだけのことなんです。あとはつぎのクラスのために、あけたままのこしておく。だれかがうめなきゃいけない、なんてことは、ひとつもありませんから。",
+              "english": "Yes — the map is closed now. …So, graduation. It's not an exam, and it's not some grand closing speech either. On this one page, anyone who'd like to leaves just one thing they want to leave — yes, that's all it is. The rest we leave open, for the next class. There's no such thing here as someone being obliged to fill it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:jenny-leaves-the-chair",
+          "beatId": "beat:next-page:obstruction",
+          "speakerId": "jenny",
+          "intent": "Drape the just-finished scarf over one chair and leave the chair empty on purpose, naming that leaving a place open is a whole choice, not a gap, with a plan held lightly.",
+          "attentionTarget": "the empty chair and the finished scarf she sets over it",
+          "variants": {
+            "n3": {
+              "japanese": "……これ、やっと編み終わった。誰の、ってわけじゃないよ。ここ、掛けとくね。椅子は空けたまま。埋めなくていい席も、あっていいと思うんだ。いつか誰か座ったらいいな、くらいで。",
+              "reading": "……これ、やっとあみおわった。だれの、ってわけじゃないよ。ここ、かけとくね。いすはあけたまま。うめなくていいせきも、あっていいとおもうんだ。いつかだれかすわったらいいな、くらいで。",
+              "english": "…This, I finally finished knitting it. Not that it's for anyone. I'll hang it here. The chair stays empty. A seat you don't have to fill is fine to have too, I think. If someone sits there someday, that'd be nice — about that much."
+            },
+            "n2": {
+              "japanese": "……これ、やっと編み終わったんだ。誰の、とかじゃなくて。ここ、掛けとくね。椅子は、空けたまま。……埋めなくていい席って、あっていいと思うんだよね。いつか誰か座ったら、いいなあ、くらいで。",
+              "reading": "……これ、やっとあみおわったんだ。だれの、とかじゃなくて。ここ、かけとくね。いすは、あけたまま。……うめなくていいせきって、あっていいとおもうんだよね。いつかだれかすわったら、いいなあ、くらいで。",
+              "english": "…This — I finally finished it. Not for anyone in particular. I'll just drape it here. The chair stays empty. …A seat you don't have to fill — I think it's fine for one of those to exist. If someone sits there someday, that'd be nice. About that much."
+            },
+            "n1": {
+              "japanese": "……これ、ようやく編み上がってさ。誰にあげる、とかでもないんだけど。ここに、掛けとくね。椅子はこのまま、空けておく。……無理に埋めなくていい席って、ひとつくらいあってもいいでしょ。いつか、誰かがふらっと座ってくれたらいいな——まあ、それくらいの気持ちで。",
+              "reading": "……これ、ようやくあみあがってさ。だれにあげる、とかでもないんだけど。ここに、かけとくね。いすはこのまま、あけておく。……むりにうめなくていいせきって、ひとつくらいあってもいいでしょ。いつか、だれかがふらっとすわってくれたらいいな——まあ、それくらいのきもちで。",
+              "english": "…This, I finally got it finished. Not that it's for anyone to have. I'll drape it here. The chair I'll leave as is — empty. …A seat nobody has to fill, there ought to be at least one of those. If someone drifts in and sits there someday, that'd be nice — well, about that much feeling behind it."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:peter-open-question",
+          "beatId": "beat:next-page:attempt",
+          "speakerId": "peter",
+          "intent": "From the overlooked seat, reframe the page: you can leave a question instead of an answer and still finish, and model his own undecided December exam as exactly that kind of open ending.",
+          "attentionTarget": "the blank page and the chair Jenny left empty",
+          "variants": {
+            "n3": {
+              "japanese": "いい席ですね、それ。……僕、前から思ってたんです。最後に答えを置いていかなきゃいけない、ってわけじゃないでしょう。問いをひとつ、開けたまま残す。それでも、ちゃんと終われるんですよ。僕も、十二月の試験を受けるか、まだ決めてなくて。決めないまま、置いていきます。……それで、いいと思う。",
+              "reading": "いいせきですね、それ。……ぼく、まえからおもってたんです。さいごにこたえをおいていかなきゃいけない、ってわけじゃないでしょう。といをひとつ、あけたままのこす。それでも、ちゃんとおわれるんですよ。ぼくも、じゅうにがつのしけんをうけるか、まだきめてなくて。きめないまま、おいていきます。……それで、いいとおもう。",
+              "english": "That's a good seat, that. …I've thought so for a while. It's not that you have to leave an answer at the end. Leave one question, open. You can still finish properly. I haven't decided whether I'll sit the December exam either. I'll leave it undecided. …And I think that's fine."
+            },
+            "n2": {
+              "japanese": "いい席ですね、それ。……僕、前から思ってたんですけどね。最後に必ず答えを置いていく、ってものでもないでしょう。問いをひとつ、開けたまま残していく。それでも、ちゃんと終われるんですよ。僕自身、十二月の試験を受けるかどうか、まだ決めてなくて。決めないまま、置いていきます。……それで、悪くない。",
+              "reading": "いいせきですね、それ。……ぼく、まえからおもってたんですけどね。さいごにかならずこたえをおいていく、ってものでもないでしょう。といをひとつ、あけたままのこしていく。それでも、ちゃんとおわれるんですよ。ぼくじしん、じゅうにがつのしけんをうけるかどうか、まだきめてなくて。きめないまま、おいていきます。……それで、わるくない。",
+              "english": "That's a good seat, that one. …I've thought this for a while, you know. It's not as though you must leave an answer at the end. Leave one question, open. You can still finish properly. Myself, I haven't decided whether I'll sit the December exam. I'll leave it undecided. …And that's not bad."
+            },
+            "n1": {
+              "japanese": "いい席じゃないですか、それ。……前々から思っていたんですがね。終わりに、必ずしも答えを置いていく必要はないでしょう。問いをひとつ、開けたまま残していく——それで、ちゃんと終われるものなんですよ。現に僕も、十二月の試験を受けるかどうか、いまだに決めかねていましてね。決めないまま、ここに置いていくつもりです。……ええ、それで、案外わるくない。",
+              "reading": "いいせきじゃないですか、それ。……まえまえからおもっていたんですがね。おわりに、かならずしもこたえをおいていくひつようはないでしょう。といをひとつ、あけたままのこしていく——それで、ちゃんとおわれるものなんですよ。げんにぼくも、じゅうにがつのしけんをうけるかどうか、いまだにきめかねていましてね。きめないまま、ここにおいていくつもりです。……ええ、それで、あんがいわるくない。",
+              "english": "That's rather a good seat, isn't it. …I've thought so for a long while, you know. At the end, you don't necessarily have to leave an answer behind. Leave one question, open — and you can still finish, properly. As it happens, I still can't decide whether I'll sit the December exam myself. I mean to leave it undecided, right here. …Yes, and it's surprisingly not bad that way."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:next-page:how-to-approach",
+          "beatId": "beat:next-page:stance",
+          "question": "The page is open and the terms are set. How do you come at your own contribution?",
+          "options": [
+            {
+              "id": "option:next-page:write-plainly",
+              "action": "Write the one thing you mean, plainly, without polishing it into a speech.",
+              "japaneseByBand": {
+                "n3": "じゃあ、飾らないで、思ったことをひとつだけ書きます。",
+                "n2": "じゃあ、飾らずに、いま思っていることをひとつだけ置いていきます。",
+                "n1": "じゃあ、下手に飾らず、いま思っていることをひとつだけ、そのまま置いていきます。"
+              },
+              "records": [
+                "stance",
+                "support-style"
+              ],
+              "next": "checkpoint:next-page:before-response"
+            },
+            {
+              "id": "option:next-page:read-the-room-first",
+              "action": "Look around the room once — see what the others are leaving — then decide what to put down.",
+              "japaneseByBand": {
+                "n3": "その前に、一回みんなを見てから決めます。何を置いていくのか、見てから。",
+                "n2": "その前に、ひとまわり見てから決めます。みんなが何を置いていくのか、見てから。",
+                "n1": "書く前に、ひとまわりだけ見せてください。みんなが何を残していくのか、見届けてから決めます。"
+              },
+              "records": [
+                "stance",
+                "information"
+              ],
+              "next": "checkpoint:next-page:before-response"
+            }
+          ],
+          "convergence": "checkpoint:next-page:before-response"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:next-page:before-response",
+          "beatId": "beat:next-page:response",
+          "resume": "The learner has chosen how to approach the page. Rie answers with the one thing she wants them to hear before they write."
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:rie-no-wrong-page",
+          "beatId": "beat:next-page:repair",
+          "speakerId": "rie",
+          "intent": "Give the one usable reassurance before explanation: whatever tone they pick the page is accepted, there is no best answer, and she is deliberately not drawing a hanamaru because this page is not graded.",
+          "attentionTarget": "the learner and the blank page, and the pen she is not marking",
+          "variants": {
+            "n3": {
+              "japanese": "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、ひとことでも、問いでも、音でも——どれを置いても、ちゃんと受け取ります。花丸は、今日はなし。点をつける紙じゃないからね。",
+              "reading": "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、ひとことでも、といでも、おとでも——どれをおいても、ちゃんとうけとります。はなまるは、きょうはなし。てんをつけるかみじゃないからね。",
+              "english": "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word, a question, a sound — whichever you leave, we take it, properly. No hanamaru today. It's not a page you put a mark on."
+            },
+            "n2": {
+              "japanese": "うん、どっちでもいいんですよ。……ひとつだけ言っておくね。ここに『正解』はないの。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いても、この授業はちゃんと受け取ります。花丸は、今日はつけません。点数をつける紙じゃ、ないので。",
+              "reading": "うん、どっちでもいいんですよ。……ひとつだけいっておくね。ここに『せいかい』はないの。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいても、このじゅぎょうはちゃんとうけとります。はなまるは、きょうはつけません。てんすうをつけるかみじゃ、ないので。",
+              "english": "Yeah, either's fine. …Just one thing I'll say. There's no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this class takes it, properly. No hanamaru today. This isn't a page you put a score on."
+            },
+            "n1": {
+              "japanese": "ええ、どちらでも構いませんよ。……ひとつだけ、先に言っておきますね。ここに『正解』は、ないんです。お礼でも、誰かへのひとことでも、問いでも、音でも——どれを置いてくださっても、この教室はちゃんと受け取ります。花丸は、今日はなし。点をつけるための紙じゃ、ありませんから。",
+              "reading": "ええ、どちらでもかまいませんよ。……ひとつだけ、さきにいっておきますね。ここに『せいかい』は、ないんです。おれいでも、だれかへのひとことでも、といでも、おとでも——どれをおいてくださっても、このきょうしつはちゃんとうけとります。はなまるは、きょうはなし。てんをつけるためのかみじゃ、ありませんから。",
+              "english": "Yes, either way is fine. …Just one thing, before you start. There is no 'right answer' here. Thanks, a word for someone, a question, a sound — whichever you leave, this room takes it, properly. No hanamaru today. This isn't a page for putting a mark on."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:next-page:page-to-the-middle",
+          "beatId": "beat:next-page:exit-image",
+          "cueId": "cue:page-moved-into-the-ring",
+          "description": "The blank page moves to the middle of the loose ring of chairs. Rie's tea sits at her elbow, still full, still steaming — she hasn't touched it, already turning to hand someone a pen."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": "scene:next-page:the-one-thing-left"
+      }
+    },
+    {
+      "id": "scene:next-page:the-one-thing-left",
+      "mode": "live",
+      "locationId": "location:classroom",
+      "timeState": "evening",
+      "weatherState": "summer-evening",
+      "goal": "Let the learner leave one bounded contribution in a chosen tone, and let the class close the room around it — the page left open, unlit, and valid.",
+      "dramaticQuestion": "With every tone accepted, what does the learner choose to leave, and does the page need to light to count?",
+      "learnerNeed": "An integrated N1 production: author one bounded final contribution in a chosen tone under the class's permission terms.",
+      "curriculum": {
+        "sectionId": "leave-one-bounded-contribution",
+        "order": 2
+      },
+      "checkpointOnEnter": true,
+      "nodes": [
+        {
+          "kind": "stage",
+          "id": "node:next-page:room-finishing",
+          "beatId": "beat:next-page:regroup-image",
+          "cueId": "cue:controlled-montage-around-the-page",
+          "description": "The page waits in the middle. Around it the room is quietly finishing, nobody waiting for a speech: Robert sets the last table with one seat and one dish left unchosen on purpose. Felix crouches by the window and tags one small living detail with a question mark. Stasi lays down a small, vivid drawing that leaves space at its edge. Jodi props a card with two captions for one place and crosses out neither. The rest of it goes into the journal, not onto the floor."
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:rie-hands-the-pen",
+          "beatId": "beat:next-page:production-want",
+          "speakerId": "rie",
+          "intent": "Hand the pen to the learner, name that the page will not light — the responsiveness was only people matching each other, now closed — and that it does not need to, then offer the four tones.",
+          "attentionTarget": "the pen going into the learner's hand, and the page that will not glow",
+          "variants": {
+            "n3": {
+              "japanese": "はい、どうぞ。……この一枚は、光らないよ。前は、みんなの声がそろうと道が点いたでしょ。あれ、機械でも魔法でもなくて、人が合わせてただけ。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなのを、ひとつだけ。",
+              "reading": "はい、どうぞ。……このいちまいは、ひからないよ。まえは、みんなのこえがそろうとみちがついたでしょ。あれ、きかいでもまほうでもなくて、ひとがあわせてただけ。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなのを、ひとつだけ。",
+              "english": "Here, go ahead. …This page won't light. Before, when everyone's voices lined up, the route came on, right. That was never a machine or magic — just people matching. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+            },
+            "n2": {
+              "japanese": "はい、どうぞ。……この一枚は、光りません。前は、みんなの声がそろうと道が点いたでしょう。あれ、機械でも魔法でもなくて、人が合わせてただけなんです。それも、もう閉じました。だから、この紙は点かない。点かなくて、いいの。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ。",
+              "reading": "はい、どうぞ。……このいちまいは、ひかりません。まえは、みんなのこえがそろうとみちがついたでしょう。あれ、きかいでもまほうでもなくて、ひとがあわせてただけなんです。それも、もうとじました。だから、このかみはつかない。つかなくて、いいの。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ。",
+              "english": "Here — go ahead. …This page won't light. Before, when everyone's voices lined up, the route would come on, remember. That was never a machine or magic — it was just people matching each other. And that's closed now, too. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, just one."
+            },
+            "n1": {
+              "japanese": "はい、どうぞ。……この一枚はね、光りませんよ。前は、みんなの声がそろった瞬間に道が点いた——でも、あれは機械でも魔法でもなくて、人が息を合わせていた、それだけのことだったんです。その息の合わせ方も、もう閉じました。だから、この紙は点かない。点かなくて、いいんですよ。お礼でも、助言でも、問いでも、音でも——好きなものを、ひとつだけ、置いていってください。",
+              "reading": "はい、どうぞ。……このいちまいはね、ひかりませんよ。まえは、みんなのこえがそろったしゅんかんにみちがついた——でも、あれはきかいでもまほうでもなくて、ひとがいきをあわせていた、それだけのことだったんです。そのいきのあわせかたも、もうとじました。だから、このかみはつかない。つかなくて、いいんですよ。おれいでも、じょげんでも、といでも、おとでも——すきなものを、ひとつだけ、おいていってください。",
+              "english": "Here — go ahead. …This page, you see, won't light. Before, the moment everyone's voices lined up, the route would come on — but that was never a machine or magic, it was people matching their breath, only that. And that matching, too, is closed now. So this paper won't light. And it doesn't need to. Thanks, advice, a question, a sound — whichever you like, leave just one."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "choice",
+          "id": "choice:next-page:the-one-thing",
+          "beatId": "beat:next-page:production-stance",
+          "question": "The pen is in your hand. What one thing do you leave on the page?",
+          "options": [
+            {
+              "id": "option:next-page:gratitude",
+              "action": "Leave a line of thanks — to the room that kept a chair for you before you ever arrived.",
+              "japaneseByBand": {
+                "n3": "席を空けて待っていてくれて、ありがとう。おかげで、何も持たずに入れました。",
+                "n2": "席をひとつ、空けて待っていてくれて、ありがとうございました。おかげで、何も持たずに入れました。",
+                "n1": "最初から席をひとつ空けて、待っていてくださって——おかげで、手ぶらのまま、ここに入ってこられました。ありがとうございました。"
+              },
+              "records": [
+                "stance",
+                "gratitude"
+              ],
+              "next": "checkpoint:next-page:before-page"
+            },
+            {
+              "id": "option:next-page:practical-advice",
+              "action": "Leave one usable piece of advice for whoever reads this next.",
+              "japaneseByBand": {
+                "n3": "全部直さなくていいよ。まず、いちばん言いたいことを、ひとつだけ選んで。",
+                "n2": "全部直そうとしなくて、いいです。まず、いちばん言いたいことを、ひとつだけ選んでください。",
+                "n1": "何もかも一度に直そうとしなくて、いいんです。まず、自分がいちばん言いたいことを、ひとつだけ選ぶ——そこからで、十分ですよ。"
+              },
+              "records": [
+                "stance",
+                "practical-advice"
+              ],
+              "next": "checkpoint:next-page:before-page"
+            },
+            {
+              "id": "option:next-page:open-question",
+              "action": "Leave a question, open, the way Peter does — with no answer attached.",
+              "japaneseByBand": {
+                "n3": "次に来る人へ。ここで最初に、誰に何を聞きたい?",
+                "n2": "次に来る人へ。ここで、いちばん最初に、誰に、何を聞きたいですか。",
+                "n1": "次にこの席へ来る人へ——あなたはここで、いちばん最初に、誰に、何を聞いてみたいですか。答えは、書きません。"
+              },
+              "records": [
+                "stance",
+                "open-question"
+              ],
+              "next": "checkpoint:next-page:before-page"
+            },
+            {
+              "id": "option:next-page:sound-visual",
+              "action": "Leave something to hear or see instead of read — a small mark, a hummed line — the way Stasi leaves room.",
+              "japaneseByBand": {
+                "n3": "言葉のかわりに、ひとつ。最初に点いた灯りと同じ色で、小さく印を置いていくね。",
+                "n2": "言葉のかわりに、ひとつ。……あの夜、最初に点いた灯りと同じ色で、小さく印を置いていきます。",
+                "n1": "言葉のかわりに、ひとつだけ。……はじめての夜、いちばん最初に点いた灯り——あれと同じ色で、隅に小さく、印をひとつ。読まなくて、いいので。"
+              },
+              "records": [
+                "stance",
+                "sound-visual"
+              ],
+              "next": "checkpoint:next-page:before-page"
+            }
+          ],
+          "convergence": "checkpoint:next-page:before-page"
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:next-page:before-page",
+          "beatId": "beat:next-page:production-attempt",
+          "resume": "The learner has chosen the tone of the one thing they'll leave. Now they compose it on the page in their own Japanese, at their band, under the terms the class agreed."
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:next-page:compose-final-contribution",
+          "beatId": "beat:next-page:production-attempt",
+          "hook": {
+            "componentType": "transfer",
+            "family": "n1-graduation-composition",
+            "exerciseId": "activity:s4e12-next-page-compose-final-contribution"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:s4e12-next-page-compose-final-contribution"
+          },
+          "resumeContext": "In the chosen tone — gratitude, practical advice, an open question, or a sound/visual mark — the learner composes one bounded final contribution in original Japanese at their band and leaves it on the page, keeping it to the one thing rather than a full speech, under the class's stated permission terms.",
+          "onReady": "checkpoint:next-page:after-page",
+          "onRepair": "node:next-page:one-line-again",
+          "onDefer": "checkpoint:next-page:before-page"
+        },
+        {
+          "kind": "stage",
+          "id": "node:next-page:one-line-again",
+          "beatId": "beat:next-page:production-repair",
+          "cueId": "cue:keep-one-line-drop-the-rest",
+          "description": "Only the part that ran long comes back. The learner sets down everything but the one thing they meant — keeping a single stitch and letting the rest drop. What's already on the page stays where it is."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:next-page:after-page",
+          "beatId": "beat:next-page:production-response",
+          "resume": "The one thing is on the page. The class does not read it aloud or grade it. Rie sees it set down and lets the room close around it."
+        },
+        {
+          "kind": "line",
+          "id": "line:next-page:rie-lets-the-room-close",
+          "beatId": "beat:next-page:transform",
+          "speakerId": "rie",
+          "intent": "Accept the page without reading or grading it, and — for once — let someone else lock up, naming plainly that she is sitting down while another person closes the room.",
+          "attentionTarget": "the page set down, and the still-warm cup in her own hand",
+          "variants": {
+            "n3": {
+              "japanese": "……うん、それでいい。読み上げもしないし、点もつけません。置いてくれたら、それでこの授業はおしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
+              "reading": "……うん、それでいい。よみあげもしないし、てんもつけません。おいてくれたら、それでこのじゅぎょうはおしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
+              "english": "…Yeah, that's good. I won't read it out, and I won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+            },
+            "n2": {
+              "japanese": "……うん、それでいい。読み上げも、しません。点もつけない。置いてくれたら、それでこの授業は、おしまい。……戸締まり、今日はほかの人がやってくれてて。めずらしく、私、座ってるんですよ。",
+              "reading": "……うん、それでいい。よみあげも、しません。てんもつけない。おいてくれたら、それでこのじゅぎょうは、おしまい。……とじまり、きょうはほかのひとがやってくれてて。めずらしく、わたし、すわってるんですよ。",
+              "english": "…Yeah, that's good. I won't read it out, either. Won't put a mark on it. Once you've left it, that's this class, done. …The locking-up — someone else has it tonight. For once, I'm sitting down."
+            },
+            "n1": {
+              "japanese": "……ええ、それでいいんです。読み上げたりは、しません。点もつけない。ひとつ置いてくださったら、それでこの授業は、おしまい。……戸締まりも、今日はほかの方がやってくれていてね。めずらしく、私、こうして座っているんですよ。",
+              "reading": "……ええ、それでいいんです。よみあげたりは、しません。てんもつけない。ひとつおいてくださったら、それでこのじゅぎょうは、おしまい。……とじまりも、きょうはほかのかたがやってくれていてね。めずらしく、わたし、こうしてすわっているんですよ。",
+              "english": "…Yes, that's just fine. I won't read it out. Won't put a mark on it. Once you've left one thing, that's this class, over. …The locking-up, too — someone else has it tonight. For once, I'm sitting here like this."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "stage",
+          "id": "node:next-page:room-closes",
+          "beatId": "beat:next-page:exit-image",
+          "cueId": "cue:someone-else-locks-up-rie-drinks",
+          "description": "At the door, someone else works the latch and the lights, unhurried. Rie lifts the cup at her elbow and drinks — the tea is still warm. The page sits in the middle of the ring, one thing on it, the rest open. Jenny's scarf stays over the empty chair. On the wall the closed atlas holds its steady, ordinary light. Nothing needs to come on."
+        }
+      ],
+      "exit": {
+        "checkpoint": true,
+        "next": null
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "id": "callback:open-chair",
+      "state": "payoff",
+      "ownerIds": [
+        "rie",
+        "learner"
+      ],
+      "meaningNow": "A blank page is offered under the class's permission terms with no person assigned to occupy it, and Jenny's deliberately-empty chair makes the same shape concrete: a place kept open is a complete choice, not a gap to fill.",
+      "priorUse": {
+        "packageId": "s3e05-chair-not-reserved",
+        "sceneId": "scene:chair-not-reserved:role-left-open",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "The class simply leaves one page and one chair open on purpose, with nobody assigned to fill either."
+    },
+    {
+      "id": "callback:first-lantern",
+      "state": "payoff",
+      "ownerIds": [
+        "rie"
+      ],
+      "meaningNow": "The blank page does not light and stays valid; Rie names once more that the atlas's responsiveness was people matching each other, not magic, and that mechanism is now closed, so the paper is ordinary and needs no glow to count.",
+      "priorUse": {
+        "packageId": "s4e11-atlas-closes",
+        "sceneId": "scene:atlas-closes:name-the-mechanism",
+        "state": "payoff"
+      },
+      "useNumber": 5,
+      "maximumUses": 6,
+      "optionalFallback": "Rie says plainly that the last page will not light, that the earlier glow was only the class coordinating, and that an unlit page is still a real contribution."
+    },
+    {
+      "id": "callback:cold-tea",
+      "state": "payoff",
+      "ownerIds": [
+        "rie",
+        "francis",
+        "learner"
+      ],
+      "meaningNow": "Someone else closes the room while Rie, for the first time, drinks the tea at her elbow before it cools; her habit of holding every job herself resolves into accepting a handoff.",
+      "priorUse": {
+        "packageId": "s3e10-empty-microphone",
+        "sceneId": "scene:empty-microphone:assign-jobs",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 4,
+      "optionalFallback": "Rie sits down while another person locks up, and her tea is still warm when she finally drinks it."
+    },
+    {
+      "id": "callback:one-strong-question",
+      "state": "payoff",
+      "ownerIds": [
+        "peter",
+        "learner"
+      ],
+      "meaningNow": "Leaving an open question, with no answer attached, is offered to the learner as a fully valid final contribution — Peter's method handed to the player as a legitimate way to end.",
+      "priorUse": {
+        "packageId": "s4e06-open-question",
+        "sceneId": "scene:open-question:wrong-frame",
+        "state": "transform"
+      },
+      "useNumber": 4,
+      "maximumUses": 5,
+      "optionalFallback": "Peter says an ending can be a question rather than an answer, and the learner is allowed to leave one on the page."
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome:next-page:graduation-open-page",
+      "kind": "story",
+      "description": "At graduation the closed atlas is left as it is and one blank page is offered to the next class under the terms this class agreed: one bounded contribution each if wanted, no one assigned to fill the rest, the page unlit and valid. Graduation happens once and is not undone."
+    },
+    {
+      "id": "outcome:next-page:jenny-future",
+      "kind": "bond",
+      "castId": "jenny",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Jenny's finished scarf is handed on over a chair she leaves empty on purpose, and her plan is held lightly rather than promised; the class hears the open place as a complete choice, paying off her arc of stepping back and returning on her own terms without any next possibility closed for her."
+    },
+    {
+      "id": "outcome:next-page:peter-future",
+      "kind": "bond",
+      "castId": "peter",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Peter legitimizes leaving an open question as a finished contribution and states his own undecided December exam as exactly that kind of open horizon; the peripheral observer's method is handed to the learner, his future left as one unclosed question rather than a promise."
+    },
+    {
+      "id": "outcome:next-page:robert-future",
+      "kind": "bond",
+      "castId": "robert",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Robert sets the final table with one seat and one dish left unchosen on purpose; the host who once covered every gap now leaves space deliberately, recorded in the journal rather than a spoken roll call."
+    },
+    {
+      "id": "outcome:next-page:stasi-future",
+      "kind": "bond",
+      "castId": "stasi",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Stasi's bounded contribution is visual — a small, vivid drawing that leaves space at its edge — her preference kept as an offering that makes room rather than a claim; recorded in the journal."
+    },
+    {
+      "id": "outcome:next-page:felix-future",
+      "kind": "bond",
+      "castId": "felix",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Felix spots one small living detail by the window and hands it on as a question rather than an answer; attention kept open for the next class, recorded in the journal."
+    },
+    {
+      "id": "outcome:next-page:jodi-future",
+      "kind": "bond",
+      "castId": "jodi",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Jodi leaves one card with two captions for a single place and crosses out neither, keeping memory plural to the end; recorded in the journal."
+    },
+    {
+      "id": "outcome:next-page:shaun-future",
+      "kind": "bond",
+      "castId": "shaun",
+      "chapter": 48,
+      "beat": "future",
+      "description": "Shaun is unremarkably, fully part of the graduating room with one open possibility and no set-piece speech; recorded in the journal without a spoken payoff."
+    },
+    {
+      "id": "outcome:next-page:transfer-return",
+      "kind": "curriculum-return",
+      "family": "n1-graduation-composition",
+      "description": "N1 graduation-composition evidence — one bounded self-authored contribution in a chosen tone under stated permission terms — returns through the transfer activity; the story emits no lesson-completion command and no registered lesson package is referenced."
+    }
+  ],
+  "replay": {
+    "chronologicalMemory": true,
+    "canonicalWrites": false,
+    "allowedLayers": [
+      "n3",
+      "n2",
+      "n1",
+      "ngPlus"
+    ],
+    "perspectiveVariants": [
+      "variant:the-empty-chair-from-across-the-room"
+    ],
+    "supportOverrides": [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-compose-step"
+    ],
+    "withdrawnContentFallback": "Use the same graduation-composition beats with neutral nameplates: a teacher states the page's terms, a classmate leaves a place open, another says an open question can be an ending, and the learner leaves one bounded contribution in a chosen tone on a page kept open for the next class."
+  }
+}
