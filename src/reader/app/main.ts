@@ -9354,6 +9354,10 @@ export class ReaderApp {
                 followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : undefined,
                 maxHeight: configuredPopoverMaxHeight(this.settings),
                 preferBefore: this.shouldPreferActiveHoverPopoverBefore(),
+                // The popover mounts as a loading skeleton and grows as the
+                // entry hydrates; keep whichever side the first placement
+                // chose so hydration resizes never flip it across the anchor.
+                keepPlacementSide: true,
             },
         );
         this.syncActivePopoverFixedHeight();

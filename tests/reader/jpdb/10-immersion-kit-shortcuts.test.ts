@@ -1329,7 +1329,25 @@ describe('reader helpers', () => {
     });
 
     it('keeps cursor-following hover popovers out of the next-word path when there is room above', () => {
+        withViewport(600, 500, () => {
+            const popover = sizedPopover(220, 120);
+
+            positionPopover(popover, undefined, undefined, {
+                followPoint: { x: 300, y: 400 },
+                preferBefore: true,
+            });
+
+            const top = Number.parseFloat(popover.style.top);
+            expect(top + 120).toBeLessThanOrEqual(390);
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+        });
+    });
+
+    it('plans hover placement for a loaded entry so a preferred side without room is never used', () => {
         withViewport(600, 420, () => {
+            // The cursor sits high enough that a loading skeleton (120px) fits
+            // above, but a hydrated dictionary entry would not — the popover
+            // must start below instead of flipping there after hydration.
             const popover = sizedPopover(220, 120);
 
             positionPopover(popover, undefined, undefined, {
@@ -1337,9 +1355,7 @@ describe('reader helpers', () => {
                 preferBefore: true,
             });
 
-            const top = Number.parseFloat(popover.style.top);
-            expect(top + 120).toBeLessThanOrEqual(170);
-            expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('below');
         });
     });
 
@@ -1386,6 +1402,66 @@ describe('reader helpers', () => {
             expect(Number.parseFloat(popover.style.left)).toBe(80);
             expect(Number.parseFloat(popover.style.top)).toBe(90);
             expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+        });
+    });
+
+    it('keeps the placement side stable when the popover grows after content loads', () => {
+        withViewport(600, 420, () => {
+            const popover = sizedPopover(220, 120);
+            const anchor = document.createElement('span');
+            anchor.getBoundingClientRect = () => new DOMRect(80, 70, 60, 32);
+            document.body.append(anchor);
+
+            positionPopover(popover, anchor);
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('below');
+
+            // Hydration grows the entry past the space below; a reposition with
+            // keepPlacementSide must clamp on the same side, not jump above.
+            Object.defineProperty(popover, 'offsetHeight', { configurable: true, value: 400 });
+            positionPopover(popover, anchor, undefined, { keepPlacementSide: true });
+
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('below');
+            expect(Number.parseFloat(popover.style.top)).toBe(112);
+        });
+    });
+
+    it('honors a kept placement side even when a free decision would flip it', () => {
+        withViewport(600, 600, () => {
+            const popover = sizedPopover(220, 300);
+            const anchor = document.createElement('span');
+            anchor.getBoundingClientRect = () => new DOMRect(80, 180, 60, 28);
+            document.body.append(anchor);
+
+            positionPopover(popover, anchor);
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('below');
+
+            // A mounted popover that had settled above must stay above on a
+            // keepPlacementSide reposition, clamped to the space there, even
+            // though a free decision prefers the roomier side below.
+            popover.dataset.jpdbReaderPlacementSide = 'above';
+            positionPopover(popover, anchor, undefined, { keepPlacementSide: true });
+
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+            expect(Number.parseFloat(popover.style.top)).toBe(0);
+            expect(popover.style.maxHeight).toBe('170px');
+        });
+    });
+
+    it('releases a kept placement side when its space collapses below usability', () => {
+        withViewport(600, 240, () => {
+            // After a viewport shrink the locked side below retains only 2px;
+            // the lock must yield instead of wedging the panel offscreen.
+            const popover = sizedPopover(220, 300);
+            const anchor = document.createElement('span');
+            anchor.getBoundingClientRect = () => new DOMRect(80, 200, 60, 28);
+            document.body.append(anchor);
+            popover.dataset.jpdbReaderPlacementSide = 'below';
+
+            positionPopover(popover, anchor, undefined, { keepPlacementSide: true });
+
+            expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+            expect(Number.parseFloat(popover.style.top)).toBe(0);
+            expect(popover.style.maxHeight).toBe('190px');
         });
     });
 
