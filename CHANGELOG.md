@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.235] - 2026-07-19
+
+### Fixed
+
+- Words whose dictionary entry is itself an inflected form, such as 問わず, no longer sit without a pitch underline. When the exact form is missing from the pitch dictionary, the reader deinflects it and projects the base verb's accent onto the surface — only for flat heiban bases, whose contour stays exact in every conjugation, so no word is painted with a guessed accent.
+- Pitch enrichment that resolves a word in place now records the resolved accent pattern on the rendered word together with its colour class, so the popup, mining data, and the underline can no longer disagree about a word such as 役に立つ or 学習用.
+- Bunpro lookups no longer refire a doomed cross-origin request for every hovered word on pages where the network path is blocked. A transport failure now opens a five-minute circuit breaker, and Bunpro requests may travel through the user's own configured CORS proxy, while the shared public proxy stays off-limits for authenticated calls.
+- Hover and modal word cards no longer time out their local dictionary, pitch, and frequency sections while a busy page scan is running: interactive card loads now take priority over the background pitch scan between its chunks, and a blocked dictionary-database upgrade fails fast and retries instead of hanging every local lookup forever.
+- On Firefox, the reader no longer logs Not allowed to define cross-origin object errors at page load. Values that cannot be cloned into the page world are skipped instead of written raw, and the OCR frame-request event goes through the shared cross-realm event factory.
+- Status lines in the settings dialog — the version check, live connection results, and the Bunpro token line — now receive furigana and pitch annotation like the rest of the dialog, and re-annotate whenever their text is updated.
+- Hovering an annotated word inside the settings dialog now opens the dictionary popover exactly like on ordinary pages, while buttons, links, and other interactive controls keep their native behaviour.
+- With the theme set to Auto, the reader now resolves light or dark from the page's actual paint on every site instead of trusting the operating-system colour scheme, so the popup and settings chrome no longer render white on dark apps whose shell reports a light scheme.
+
+### Changed
+
+- Grammatical particles are now deliberately accent-neutral everywhere. Previously は, に, and と could wear an underline borrowed from a same-sounding noun while を and の had none; since a particle's pitch depends on the word it attaches to, no particle carries a lexical pitch underline anymore.
+
 ## [1.6.234] - 2026-07-19
 
 ### Changed

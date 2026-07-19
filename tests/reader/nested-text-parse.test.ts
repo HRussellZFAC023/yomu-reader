@@ -312,7 +312,7 @@ describe('nested text parse plans', () => {
         expect(details.open).toBe(false);
     });
 
-    it('collects Japanese settings labels, headings, help prose, and select metadata without parsing status lines or hidden controls', () => {
+    it('collects Japanese settings labels, headings, help prose, status lines, and select metadata without parsing hidden controls', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
@@ -351,7 +351,10 @@ describe('nested text parse plans', () => {
 
         expect(texts).toContain('日本語の説明を読む');
         expect(texts).not.toContain('デスクトップAnkiの説明を読む');
-        expect(texts).not.toContain('JPDB APIキーがありません。公開検索は使えます。');
+        // Status lines are real Japanese prose (version check, connection
+        // results, Bunpro token state) and annotate like the rest of the
+        // dialog since 1.6.232.
+        expect(texts).toContain('JPDB APIキーがありません。公開検索は使えます。');
         expect(texts).toContain('よむ 設定');
         expect(texts).toContain('基本');
         expect(texts).toContain('設定言語');
@@ -475,6 +478,12 @@ describe('nested text parse plans', () => {
         expect(nestedSettingsParseAlreadyRendered(root)).toBe(false);
 
         root.querySelector('[data-help-support-copy]')!.innerHTML = '<span class="jpdb-reader-word">よむは検索、OCR、字幕、辞書、学習をまとめた無料ユーザースクリプトです。</span>';
+
+        // The status line is a parse target too now — with it still bare the
+        // panel must NOT count as fully rendered.
+        expect(nestedSettingsParseAlreadyRendered(root)).toBe(false);
+
+        root.querySelector('.jpdb-reader-status-line')!.innerHTML = '<span class="jpdb-reader-word">現在確認中です。</span>';
 
         expect(nestedSettingsParseAlreadyRendered(root)).toBe(true);
     });

@@ -571,7 +571,16 @@ describe('settings dialog keyboard dismissal', () => {
         pending[0]?.(performance.now());
 
         expect(parseSettingsJapanese).not.toHaveBeenCalled();
-        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
+        // Dynamic status writes (the help panel's version check) coalesce the
+        // deferred pass by cancelling and re-scheduling it on a fresh frame —
+        // keep pumping mocked frames until the parse actually lands.
+        await waitForCondition(() => {
+            for (const [id, frame] of Array.from(frames)) {
+                frames.delete(id);
+                frame(performance.now());
+            }
+            return parseSettingsJapanese.mock.calls.some(([target]) => target === form);
+        });
     });
 
     it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {

@@ -8359,7 +8359,6 @@ ${candidate.depth}`;
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-  const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
   const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
@@ -8410,7 +8409,7 @@ ${candidate.depth}`;
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+      mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -8442,26 +8441,6 @@ ${candidate.depth}`;
       }
       merged.push(segments[index]);
       index += 1;
-    }
-    return merged;
-  }
-  function mergeContiguousKatakanaSegments(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const first = segments[index];
-      if (!KATAKANA_SEGMENT_RE.test(first.surface)) {
-        merged.push(first);
-        index += 1;
-        continue;
-      }
-      let surface = first.surface;
-      let runEnd = index + 1;
-      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
-        surface += segments[runEnd].surface;
-        runEnd += 1;
-      }
-      merged.push(runEnd - index > 1 ? { surface, start: first.start, end: segments[runEnd - 1].end } : first);
-      index = runEnd;
     }
     return merged;
   }

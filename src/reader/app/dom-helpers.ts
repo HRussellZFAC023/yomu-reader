@@ -59,11 +59,12 @@ export function canHoverLookupReaderWordElement(word: HTMLElement, hasHoverLooku
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest('.jpdb-reader-popover')) return false;
     if (word.closest('.jpdb-reader-control-text-mirror')) return !word.closest('[data-jpdb-reader-root]') || hasHoverLookupShortcut;
-    // Interactive controls keep their native pointer behaviour; every other
-    // annotated word in the settings dialog hover-looks-up exactly like page
-    // words (it already click-looks-up — hover was gated behind a shortcut
-    // that is empty by default, so hover parity silently never applied).
-    if (isSettingsNativeControlWord(word)) return false;
+    // Interactive controls keep their native pointer behaviour unless the
+    // user explicitly holds their hover-lookup shortcut; every other annotated
+    // word in the settings dialog hover-looks-up exactly like page words (it
+    // already click-looks-up — hover used to be gated behind that shortcut,
+    // which is empty by default, so hover parity silently never applied).
+    if (isSettingsNativeControlWord(word)) return hasHoverLookupShortcut;
     if (isSettingsReaderWord(word)) return true;
     if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== 'true') return false;
     if (!word.closest('[data-jpdb-reader-root]')) return true;
