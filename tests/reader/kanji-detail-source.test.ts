@@ -27,6 +27,7 @@ function makeSource(settingsRef: { current: ReaderSettings }) {
     const rtk = vi.fn(async (_kanji: string): Promise<unknown> => ({ keyword: 'what' }));
     const vg = vi.fn(async (_kanji: string): Promise<unknown> => ({ paths: ['m0,0'] }));
     const local = vi.fn(async (_kanji: string): Promise<unknown[]> => [{ entry: 1 }]);
+    const origin = vi.fn(async (_kanji: string): Promise<unknown> => ({ kanjiAliveKeyword: 'what' }));
     const deps: KanjiDetailSourceDeps = {
         getSettings: () => settingsRef.current,
         jpdbKanji: { lookup: jpdb } as unknown as JpdbKanjiClient,
@@ -34,9 +35,10 @@ function makeSource(settingsRef: { current: ReaderSettings }) {
         rtk: { lookup: rtk } as unknown as RtkClient,
         kanjiVG: { lookup: vg } as unknown as KanjiVGClient,
         dictionaries: { lookupKanji: local } as unknown as YomitanDictionaryStore,
+        kanjiOrigin: { lookup: origin } as unknown as NonNullable<KanjiDetailSourceDeps['kanjiOrigin']>,
         localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => promise.catch(() => fallback),
     };
-    return { source: new KanjiDetailSource(deps), spies: { jpdb, jiten, rtk, vg, local } };
+    return { source: new KanjiDetailSource(deps), spies: { jpdb, jiten, rtk, vg, local, origin } };
 }
 
 describe('KanjiDetailSource.load', () => {
@@ -46,11 +48,13 @@ describe('KanjiDetailSource.load', () => {
     it('fans out to every enabled source and reports ok states', async () => {
         const { source, spies } = makeSource(ref);
         const bundle = await source.load('何');
-        expect(bundle.sourceStates).toEqual({ jpdb: 'ok', jiten: 'ok', rtk: 'ok', vg: 'ok', local: 'ok' });
+        expect(bundle.sourceStates).toEqual({ jpdb: 'ok', jiten: 'ok', rtk: 'ok', vg: 'ok', local: 'ok', origin: 'ok' });
         expect(bundle.jpdb).toEqual({ kanji: '何' });
         expect(bundle.local).toEqual([{ entry: 1 }]);
+        expect(bundle.sourceInfo).toEqual({ kanjiAliveKeyword: 'what' });
         for (const spy of [spies.jpdb, spies.jiten, spies.rtk, spies.vg]) expect(spy).toHaveBeenCalledWith('何');
         expect(spies.local).toHaveBeenCalledWith('何', 6, expect.anything());
+        expect(spies.origin).toHaveBeenCalledWith('何', ref.current);
     });
 
     it('marks a disabled source disabled and never calls its lookup', async () => {
@@ -68,6 +72,15 @@ describe('KanjiDetailSource.load', () => {
         const bundle = await source.load('何');
         expect(spies.vg).toHaveBeenCalledTimes(1);
         expect(bundle.sourceStates.vg).toBe('ok');
+    });
+
+    it('does not load origin keyword data when the origin source is disabled', async () => {
+        ref.current = settings({ kanjiOriginsEnabled: false });
+        const { source, spies } = makeSource(ref);
+        const bundle = await source.load('何');
+        expect(bundle.sourceStates.origin).toBe('disabled');
+        expect(bundle.sourceInfo).toBeNull();
+        expect(spies.origin).not.toHaveBeenCalled();
     });
 
     it('treats jiten as disabled without a jiten credential', async () => {

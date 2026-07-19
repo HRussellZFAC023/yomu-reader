@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { renderKanjiKeywordChips } from '../../src/reader/popup/kanji-keyword-line';
+import { renderKanjiKeywordLine } from '../../src/reader/popup/rtk-info';
+import { renderJitenKanjiKeywordLine } from '../../src/reader/jiten/jiten-kanji-info-render';
+import type { JpdbKanjiInfo } from '../../src/reader/jpdb/jpdb-kanji';
+import type { JitenKanjiInfo } from '../../src/reader/dictionaries/jiten';
+import type { RtkInfo } from '../../src/reader/kanji/rtk';
 
 function parse(html: string): HTMLElement {
     const host = document.createElement('div');
@@ -32,6 +37,47 @@ describe('renderKanjiKeywordChips', () => {
         const chips = root.querySelectorAll('.jpdb-reader-kanji-keyword');
         expect(chips[0]?.hasAttribute('data-canonical')).toBe(true);
         expect(chips[1]?.hasAttribute('data-canonical')).toBe(false);
+    });
+
+    it('adds a distinct Kanji Alive primary gloss after JPDB and RTK', () => {
+        const root = parse(renderKanjiKeywordLine(
+            { keyword: 'birth' } as unknown as JpdbKanjiInfo,
+            { keyword: 'live' } as unknown as RtkInfo,
+            [],
+            'en',
+            { kanjiAliveKeyword: 'life' },
+        ));
+        const chips = Array.from(root.querySelectorAll('.jpdb-reader-kanji-keyword'));
+        expect(chips.map(chip => chip.querySelector('.jpdb-reader-kanji-keyword-text')?.textContent)).toEqual(['birth', 'live', 'life']);
+        expect(chips[2]?.querySelector('.jpdb-reader-kanji-keyword-source')?.textContent).toBe('Kanji Alive');
+        expect(chips[2]?.hasAttribute('data-canonical')).toBe(false);
+    });
+
+    it('merges an agreeing Kanji Alive gloss into the canonical primary chip', () => {
+        const root = parse(renderKanjiKeywordLine(
+            { keyword: 'Life' } as unknown as JpdbKanjiInfo,
+            null,
+            [],
+            'en',
+            { kanjiAliveKeyword: 'life' },
+        ));
+        const chip = root.querySelector('.jpdb-reader-kanji-keyword');
+        expect(root.querySelectorAll('.jpdb-reader-kanji-keyword')).toHaveLength(1);
+        expect(chip?.querySelector('.jpdb-reader-kanji-keyword-source')?.textContent).toBe('JPDB/Kanji Alive');
+        expect(chip?.hasAttribute('data-canonical')).toBe(true);
+    });
+
+    it('uses the same Kanji Alive source in the Japanese Jiten row without untranslated copy', () => {
+        const root = parse(renderJitenKanjiKeywordLine(
+            { meanings: ['birth'] } as unknown as JitenKanjiInfo,
+            null,
+            [],
+            'ja',
+            { kanjiAliveKeyword: 'life' },
+        ));
+        expect(root.textContent).toContain('Kanji Alive');
+        expect(root.textContent).toContain('life');
+        expect(root.textContent).not.toContain('未翻訳');
     });
 
     it('caps visible chips at five and renders an overflow chip listing the rest', () => {

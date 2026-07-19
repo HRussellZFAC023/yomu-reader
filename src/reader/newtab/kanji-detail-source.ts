@@ -4,6 +4,7 @@ import type { JitenApiClient, JitenKanjiInfo } from '../dictionaries/jiten';
 import type { YomitanDictionaryStore, YomitanKanjiEntry } from '../dictionaries/yomitan';
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
+import type { KanjiOriginClient, KanjiSourceInfo } from '../kanji/origin';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { hasJitenApiCredential } from '../settings/api-credential';
 import { NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS } from './controller-config';
@@ -16,6 +17,7 @@ export interface KanjiDetailSourceStates {
     rtk: KanjiDetailSourceState;
     vg: KanjiDetailSourceState;
     local: KanjiDetailSourceState;
+    origin?: KanjiDetailSourceState;
 }
 
 export interface KanjiDetailBundle {
@@ -24,6 +26,7 @@ export interface KanjiDetailBundle {
     rtk: RtkInfo | null;
     vg: KanjiVGInfo | null;
     local: YomitanKanjiEntry[];
+    sourceInfo?: KanjiSourceInfo | null;
     sourceStates: KanjiDetailSourceStates;
 }
 
@@ -34,6 +37,7 @@ export interface KanjiDetailSourceDeps {
     rtk: RtkClient;
     kanjiVG: KanjiVGClient;
     dictionaries: YomitanDictionaryStore;
+    kanjiOrigin?: Pick<KanjiOriginClient, 'lookup'>;
     localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => Promise<T>;
 }
 
@@ -50,14 +54,15 @@ interface KanjiDetailCacheEntry {
     rtk?: Promise<KanjiDetailSourceResult<RtkInfo | null>>;
     vg?: Promise<KanjiDetailSourceResult<KanjiVGInfo | null>>;
     local?: Promise<KanjiDetailSourceResult<YomitanKanjiEntry[]>>;
+    origin?: Promise<KanjiDetailSourceResult<KanjiSourceInfo | null>>;
 }
 
 function sourceResult<T>(value: T, state: KanjiDetailSourceState): KanjiDetailSourceResult<T> {
     return { value, state };
 }
 
-// The kanji panel fans out to up to five sources (JPDB, Jiten, RTK, KanjiVG,
-// local Yomitan), each settings-gated and time-boxed, then memoizes the merged
+// The kanji panel fans out to up to six sources (JPDB, Jiten, RTK, KanjiVG,
+// local Yomitan, origin data), each settings-gated and time-boxed, then memoizes the merged
 // bundle per kanji until the relevant settings change.
 export class KanjiDetailSource {
     private readonly cache = new Map<string, KanjiDetailCacheEntry>();
@@ -90,6 +95,7 @@ export class KanjiDetailSource {
         this.primeRtk(cache, kanji, settings);
         this.primeKanjiVg(cache, kanji, settings);
         this.primeLocal(cache, kanji, settings);
+        this.primeOrigin(cache, kanji, settings);
     }
 
     private primeJpdb(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
@@ -136,6 +142,14 @@ export class KanjiDetailSource {
         ));
     }
 
+    private primeOrigin(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
+        if (!this.shouldLoadOrigin(settings) || !this.deps.kanjiOrigin || cache.origin) return;
+        cache.origin = this.remoteResult(
+            promiseWithTimeout(this.deps.kanjiOrigin.lookup(kanji, settings), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'Kanji origin lookup timed out.'),
+            null,
+        );
+    }
+
     private resolveBundle(cache: KanjiDetailCacheEntry, settings: ReaderSettings): Promise<KanjiDetailBundle> {
         return Promise.all([
             settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
@@ -143,18 +157,21 @@ export class KanjiDetailSource {
             settings.rtkEnabled ? cache.rtk ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
             this.shouldLoadKanjiVg(settings) ? cache.vg ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
             this.shouldLoadLocal(settings) ? cache.local ?? Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'unavailable')) : Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'disabled')),
-        ]).then(([jpdb, jiten, rtk, vg, local]) => ({
+            this.shouldLoadOrigin(settings) ? cache.origin ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
+        ]).then(([jpdb, jiten, rtk, vg, local, origin]) => ({
             jpdb: jpdb.value,
             jiten: jiten.value,
             rtk: rtk.value,
             vg: vg.value,
             local: local.value,
+            sourceInfo: origin.value,
             sourceStates: {
                 jpdb: jpdb.state,
                 jiten: jiten.state,
                 rtk: rtk.state,
                 vg: vg.state,
                 local: local.state,
+                origin: origin.state,
             },
         }));
     }
@@ -192,10 +209,15 @@ export class KanjiDetailSource {
             settings.rtkEnabled,
             this.shouldLoadKanjiVg(settings),
             this.shouldLoadLocal(settings),
+            this.shouldLoadOrigin(settings),
         ].map(Boolean).join(':');
     }
 
     private shouldLoadLocal(settings: ReaderSettings): boolean {
         return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
+    }
+
+    private shouldLoadOrigin(settings: ReaderSettings): boolean {
+        return settings.kanjiOriginsEnabled && settings.kanjiOriginKanjiMapEnabled;
     }
 }

@@ -64,7 +64,6 @@ import type { CardRenderData } from '../cards/render-data';
 import type { JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { JitenKanjiInfo, JitenVocabularyInfo } from '../dictionaries/jiten';
-import type { KanjiVGInfo } from '../kanji/vg';
 import type { RtkInfo } from '../kanji/rtk';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { ReaderParser } from '../lookup/parser';
@@ -124,11 +123,7 @@ export interface NewTabSearchControllerDeps {
     renderKanjiDetails(
         card: JPDBCard,
         kanji: string,
-        info: JpdbKanjiInfo | null,
-        jitenInfo: JitenKanjiInfo | null,
-        rtk: RtkInfo | null,
-        vg: KanjiVGInfo | null,
-        localEntries: YomitanKanjiEntry[],
+        details: KanjiDetailBundle,
     ): HTMLElement;
     keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, jiten: JitenKanjiInfo | null, rtk: RtkInfo | null): string;
     renderNewTabUchisen(root: HTMLElement, kanji: string): void;
@@ -818,12 +813,14 @@ export class NewTabSearchController {
                 rtk: null,
                 vg: null,
                 local: [],
+                sourceInfo: null,
                 sourceStates: {
                     jpdb: 'unavailable',
                     jiten: 'unavailable',
                     rtk: 'unavailable',
                     vg: 'unavailable',
                     local: 'unavailable',
+                    origin: 'unavailable',
                 },
             } satisfies KanjiDetailBundle;
         });
@@ -1120,11 +1117,7 @@ export class NewTabSearchController {
         const kanjiDetail = this.deps.renderKanjiDetails(
             kanjiCard,
             item.kanji,
-            item.details.jpdb,
-            item.details.jiten,
-            item.details.rtk,
-            item.details.vg,
-            item.details.local,
+            item.details,
         );
         const itemRoot = el('section', {
             class: 'jpdb-reader-newtab-search-kanji-item',
@@ -1150,7 +1143,7 @@ export class NewTabSearchController {
             const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji);
             const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
             card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
-            replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+            replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
             this.deps.renderNewTabUchisen(existing, kanji);
             this.deps.renderNewTabKanjiImmersion(existing, kanji);
             void this.deps.getDependencies().parseContent?.(existing);

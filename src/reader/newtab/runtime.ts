@@ -58,6 +58,7 @@ import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
+import type { KanjiSourceInfo } from '../kanji/origin';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
 import {
@@ -213,6 +214,7 @@ interface KanjiLookupDetailPromises {
     kanjiEntries: Promise<YomitanKanjiEntry[]>;
     rtkInfo: Promise<RtkInfo | null>;
     kanjiVGInfo: Promise<KanjiVGInfo | null>;
+    kanjiSourceInfo: Promise<KanjiSourceInfo | null>;
 }
 
 interface LookupPopoverScrollState {
@@ -286,6 +288,7 @@ export class NewTabRuntime {
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiCompanion = yomuKanjiStudyCompanion();
     private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
+    private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
@@ -639,6 +642,7 @@ export class NewTabRuntime {
             jiten: this.jiten,
             jpdbKanji: this.jpdbKanji,
             kanjiVG: this.kanjiVG,
+            kanjiOrigin: this.kanjiOrigin ?? undefined,
             rtk: this.rtk,
             immersionKit: this.immersionKit,
             jpdbVocabulary: this.jpdbVocabulary,
@@ -1278,6 +1282,7 @@ export class NewTabRuntime {
         let jitenInfo: JitenKanjiInfo | null = null;
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
+        let sourceInfo: KanjiSourceInfo | null = null;
         let kanjiEntries: YomitanKanjiEntry[] = [];
         const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo)
             ?? noopKanjiPracticeDoodle();
@@ -1291,8 +1296,8 @@ export class NewTabRuntime {
             if (!this.isCurrentLookupRender(popover, requestId)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
             if (mount?.isConnected) setInnerHtml(mount, jitenInfo
-                ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage)
-                : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+                ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo)
+                : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo));
         };
         // Merge each provider's own KANJI frequency into the heading pills
         // (Jiten's kanji API rank, JPDB's "Top 300-400" band) once it arrives.
@@ -1394,9 +1399,13 @@ export class NewTabRuntime {
                 renderKanjiVG();
                 practiceDoodle.reassess();
             }),
+            detailPromises.kanjiSourceInfo.then(info => {
+                sourceInfo = info;
+                renderKeyword();
+            }),
         ]);
         if (!this.isCurrentLookupRender(popover, requestId)) return;
-        this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries);
+        this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
         void this.parseNewTabContent(popover);
         this.repositionLookupPopover();
     }
@@ -1425,6 +1434,7 @@ export class NewTabRuntime {
             kanjiVGInfo: this.shouldLoadKanjiVGInfo()
                 ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, 'KanjiVG lookup timed out.')
                 : Promise.resolve(null),
+            kanjiSourceInfo: this.kanjiOrigin?.lookup(kanji, this.settings) ?? Promise.resolve(null),
         };
     }
 
@@ -1445,14 +1455,15 @@ export class NewTabRuntime {
         rtkInfo: RtkInfo | null,
         kanjiVGInfo: KanjiVGInfo | null,
         kanjiEntries: YomitanKanjiEntry[],
+        sourceInfo: KanjiSourceInfo | null,
     ): void {
         const mount = this.kanjiLookupOriginMount(popover, requestId);
         if (!mount) return;
         const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
         setInnerHtml(mount, renderKanjiOrigins(
-            buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries),
-            this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries),
-            null,
+            buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries, sourceInfo),
+            this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo),
+            sourceInfo,
             this.settings,
             this.settings.interfaceLanguage,
             this.dictionarySourceState.isOpen(sourceStateKey),
@@ -1476,9 +1487,10 @@ export class NewTabRuntime {
         rtkInfo: RtkInfo | null,
         kanjiVGInfo: KanjiVGInfo | null,
         kanjiEntries: YomitanKanjiEntry[],
+        sourceInfo: KanjiSourceInfo | null,
     ): ReturnType<typeof buildKanjiOriginGraph> | null {
         return this.settings.kanjiOriginGraphEnabled
-            ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, null, kanjiVGInfo)
+            ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo)
             : null;
     }
 

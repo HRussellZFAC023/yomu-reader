@@ -8,6 +8,7 @@ import type { JitenKanjiInfo, JitenKanjiWordsPage, JitenVocabularyWordSummary } 
 import type { RtkInfo } from '../kanji/rtk';
 import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 import type { JpdbKanjiVocabulary } from '../jpdb/jpdb-kanji';
+import type { KanjiSourceInfo } from '../kanji/origin';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 const JITEN_KANJI_WORD_PAGE_SIZE = 9;
@@ -164,10 +165,12 @@ export function renderJitenKanjiKeywordLine(
     rtkInfo: RtkInfo | null,
     entries: YomitanKanjiEntry[],
     language: InterfaceLanguage = 'en',
+    sourceInfo: KanjiSourceInfo | null = null,
 ): string {
     return renderKanjiKeywordChips([
         { text: jitenKanjiKeyword(info), label: 'Jiten', canonical: true },
         { text: rtkInfo?.keyword, label: 'RTK' },
+        { text: sourceInfo?.kanjiAliveKeyword, label: 'Kanji Alive' },
         ...entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(meaning => ({ text: meaning, label: uiText(language, 'dict') })),
     ], language);
 }

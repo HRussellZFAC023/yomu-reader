@@ -1286,6 +1286,7 @@ describe('new tab review — search mode', () => {
                     rtk: null;
                     vg: null;
                     local: [];
+                    sourceInfo?: { kanjiAliveKeyword: string };
                 };
             }): HTMLElement;
         };
@@ -1319,6 +1320,7 @@ describe('new tab review — search mode', () => {
                 rtk: null,
                 vg: null,
                 local: [],
+                sourceInfo: { kanjiAliveKeyword: 'interpret' },
             },
         });
         const take = internals.renderSearchWordKanjiItem(sourceWord, {
@@ -1359,7 +1361,8 @@ describe('new tab review — search mode', () => {
         expect(read.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
         expect(take.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
         expect(read.querySelector('.jpdb-reader-kanji-facts')?.textContent).toContain('Keywordread');
-        expect(read.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword')).toBeNull();
+        expect(read.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword-text')?.textContent).toBe('interpret');
+        expect(read.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword-source')?.textContent).toBe('Kanji Alive');
         expect(mount.textContent).not.toContain('to read and take in');
     });
 

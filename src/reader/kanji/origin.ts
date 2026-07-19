@@ -9,6 +9,7 @@ import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 export { buildKanjiOriginGraph } from './origin-graph-build';
 
 const KANJI_MAP_KANJI_BASE = 'https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji';
+const KANJI_ALIVE_PRIMARY_GLOSSES_URL = 'https://yomureader.com/data/kanji-alive-primary-glosses.json';
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('KanjiOrigin');
 
@@ -85,10 +86,12 @@ export interface KanjiMapKanjiInfo {
 
 export interface KanjiSourceInfo {
     kanjiMap?: KanjiMapKanjiInfo;
+    kanjiAliveKeyword?: string;
 }
 
 export class KanjiOriginClient {
     private cache = new Map<string, Promise<KanjiSourceInfo | null>>();
+    private kanjiAliveGlosses?: Promise<Record<string, string>>;
 
     // Called through the nullable kanji-study companion slot (app/main.ts).
     // fallow-ignore-next-line unused-class-member
@@ -109,15 +112,26 @@ export class KanjiOriginClient {
 
     private async fetchInfo(kanji: string, settings: ReaderSettings): Promise<KanjiSourceInfo | null> {
         const done = log.time('Kanji origin lookup', { kanji });
-        const kanjiMap = settings.kanjiOriginKanjiMapEnabled
-            ? await fetchKanjiMapInfo(kanji).catch(error => {
-                log.warn('Kanji Map origin lookup failed', { kanji, error });
-                return undefined;
-            })
-            : undefined;
-        const result = kanjiMap ? { kanjiMap } : null;
+        const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled
+            ? await Promise.all([
+                fetchKanjiMapInfo(kanji).catch(error => {
+                    log.warn('Kanji Map origin lookup failed', { kanji, error });
+                    return undefined;
+                }),
+                this.lookupKanjiAliveKeyword(kanji).catch(error => {
+                    log.warn('Kanji Alive keyword lookup failed', { kanji, error });
+                    return undefined;
+                }),
+            ])
+            : [undefined, undefined];
+        const result = kanjiMap || kanjiAliveKeyword ? { kanjiMap, kanjiAliveKeyword } : null;
         done();
         return result;
+    }
+
+    private async lookupKanjiAliveKeyword(kanji: string): Promise<string | undefined> {
+        this.kanjiAliveGlosses ??= fetchKanjiAlivePrimaryGlosses();
+        return (await this.kanjiAliveGlosses)[kanji];
     }
 }
 
@@ -661,6 +675,15 @@ function parseJson(value: string): unknown {
     } catch {
         return null;
     }
+}
+
+async function fetchKanjiAlivePrimaryGlosses(): Promise<Record<string, string>> {
+    const payload = asRecord(parseJson(await requestReaderText(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+    const meanings = asRecord(payload?.meanings);
+    if (!meanings) return {};
+    return Object.fromEntries(Object.entries(meanings)
+        .map(([kanji, meaning]) => [kanji, stringValue(meaning)] as const)
+        .filter((entry): entry is [string, string] => Boolean(entry[1])));
 }
 
 function requestText(url: string): Promise<string> {

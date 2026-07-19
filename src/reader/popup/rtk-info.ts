@@ -5,6 +5,7 @@ import type { RtkInfo } from '../kanji/rtk';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from '../kanji/rtk-elements';
 import type { InterfaceLanguage } from '../app/types';
 import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
+import type { KanjiSourceInfo } from '../kanji/origin';
 import { isKanjiCharacter } from './pitch';
 import { renderKanjiKeywordChips } from './kanji-keyword-line';
 import { sourceStateAttribute } from './source-state';
@@ -30,10 +31,17 @@ export function buildRtkComponentSummaries(rtkInfo: RtkInfo | null, jpdbInfo: Jp
     return summaries;
 }
 
-export function renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage = 'en'): string {
+export function renderKanjiKeywordLine(
+    jpdbInfo: JpdbKanjiInfo | null,
+    rtkInfo: RtkInfo | null,
+    entries: YomitanKanjiEntry[],
+    language: InterfaceLanguage = 'en',
+    sourceInfo: KanjiSourceInfo | null = null,
+): string {
     return renderKanjiKeywordChips([
         { text: jpdbInfo?.keyword, label: 'JPDB', canonical: true },
         { text: rtkInfo?.keyword, label: 'RTK' },
+        { text: sourceInfo?.kanjiAliveKeyword, label: 'Kanji Alive' },
         ...entries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(meaning => ({ text: meaning, label: uiText(language, 'dict') })),
     ], language);
 }

@@ -1538,6 +1538,117 @@ describe('reader helpers', () => {
         }
     });
 
+    it('adds a late Kanji Alive gloss to the reader popup keyword row', async () => {
+        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const origin = deferred<{ kanjiAliveKeyword: string } | null>();
+
+        try {
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                jiten: Partial<JitenApiClient>;
+                jpdbKanji: { lookup: (kanji: string) => Promise<null> };
+                kanjiOrigin: { lookup: () => Promise<{ kanjiAliveKeyword: string } | null> };
+                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jitenApiKey: 'ak_jiten-key',
+                jpdbKanjiEnabled: true,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                uchisenEnabled: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: true,
+                kanjiOriginKanjiMapEnabled: true,
+                kanjiOriginGraphEnabled: false,
+                similarKanjiWords: false,
+                immersionKitEnabled: false,
+            };
+            internals.jiten = { lookupKanji: vi.fn(async () => ({
+                character: '生',
+                onReadings: ['セイ'],
+                kunReadings: ['い.きる'],
+                meanings: ['birth'],
+                strokeCount: 5,
+                jlptLevel: 4,
+                grade: 1,
+                frequencyRank: 29,
+                groupingTags: { kanken: null, wanikani: null, rtk: null, klc: null, tmw: null },
+                topWords: [],
+                wordsByReading: [],
+            })) };
+            internals.jpdbKanji = { lookup: vi.fn(async () => null) };
+            internals.kanjiOrigin = { lookup: vi.fn(() => origin.promise) };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            const render = internals.showKanjiCard({ ...card, spelling: '生活', reading: 'せいかつ' }, '生', '生活です。');
+            await waitForExpect(() => expect(document.querySelector('[data-kanji-keyword-mount]')?.textContent).toContain('birth'));
+            expect(document.querySelector('[data-kanji-keyword-mount]')?.textContent).not.toContain('Kanji Alive');
+
+            origin.resolve({ kanjiAliveKeyword: 'life' });
+            await render;
+
+            await waitForExpect(() => {
+                const chips = Array.from(document.querySelectorAll<HTMLElement>('[data-kanji-keyword-mount] .jpdb-reader-kanji-keyword'));
+                expect(chips.map(chip => chip.querySelector('.jpdb-reader-kanji-keyword-text')?.textContent)).toEqual(['birth', 'life']);
+                expect(chips[1]?.querySelector('.jpdb-reader-kanji-keyword-source')?.textContent).toBe('Kanji Alive');
+            });
+        } finally {
+            restoreAnimationFrame();
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not write a late Kanji Alive gloss into a disconnected reader popup', async () => {
+        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const origin = deferred<{ kanjiAliveKeyword: string } | null>();
+
+        try {
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                kanjiOrigin: { lookup: () => Promise<{ kanjiAliveKeyword: string } | null> };
+                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                jpdbKanjiEnabled: false,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                uchisenEnabled: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: true,
+                kanjiOriginKanjiMapEnabled: true,
+                kanjiOriginGraphEnabled: false,
+                similarKanjiWords: false,
+                immersionKitEnabled: false,
+            };
+            internals.kanjiOrigin = { lookup: vi.fn(() => origin.promise) };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            const render = internals.showKanjiCard({ ...card, spelling: '生活', reading: 'せいかつ' }, '生', '生活です。');
+            await waitForExpect(() => expect(document.querySelector<HTMLElement>('.jpdb-reader-popover')).not.toBeNull());
+            const detached = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            detached.remove();
+            origin.resolve({ kanjiAliveKeyword: 'life' });
+            await render;
+
+            expect(detached.textContent).not.toContain('Kanji Alive');
+            expect(detached.textContent).not.toContain('life');
+        } finally {
+            restoreAnimationFrame();
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('renders enabled Uchisen in page-reader kanji drilldown popovers', async () => {
         const { app, restoreAnimationFrame } = testSynchronousReaderApp();
         const proxyUrl = 'https://yomu-proxy.example/fetch';

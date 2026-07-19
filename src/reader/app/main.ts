@@ -7052,6 +7052,7 @@ export class ReaderApp {
         let kanjiEntries: YomitanKanjiEntry[] = [];
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
+        let sourceInfo: KanjiSourceInfo | null = null;
         const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo)
             ?? noopKanjiPracticeDoodle();
         const keywordMount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
@@ -7065,8 +7066,8 @@ export class ReaderApp {
         const renderKeyword = () => {
             if (!popover.isConnected || !keywordMount?.isConnected) return;
             setInnerHtml(keywordMount, jitenInfo
-                ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language)
-                : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language));
+                ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language, sourceInfo)
+                : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language, sourceInfo));
             this.repositionActivePopover();
         };
         // Merge each provider's own KANJI frequency into the heading pills
@@ -7152,23 +7153,20 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             practiceDoodle.reassess();
         });
-
         await Promise.all([jpdbInfoPromise, jitenInfoPromise, kanjiEntriesPromise, rtkInfoPromise, kanjiVGInfoPromise]);
+        sourceInfo = await this.kanjiOrigin?.lookup(kanji, this.settings).catch(() => null) ?? null;
+        renderKeyword();
         if (!popover.isConnected) return;
-        const resolvedJpdbInfo = jpdbInfo as JpdbKanjiInfo | null;
-        const resolvedJitenInfo = jitenInfo as JitenKanjiInfo | null;
-        const resolvedRtkInfo = rtkInfo as RtkInfo | null;
-        const resolvedKanjiVGInfo = kanjiVGInfo as KanjiVGInfo | null;
 
         if (this.settings.kanjiOriginsEnabled) {
-            void this.renderKanjiOriginsInto(popover, kanji, resolvedJpdbInfo, resolvedJitenInfo, resolvedRtkInfo, resolvedKanjiVGInfo, kanjiEntries);
+            this.renderKanjiOriginsInto(popover, kanji, jpdbInfo as JpdbKanjiInfo | null, jitenInfo as JitenKanjiInfo | null, rtkInfo as RtkInfo | null, kanjiVGInfo as KanjiVGInfo | null, kanjiEntries, sourceInfo);
         }
         void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
         this.repositionActivePopover();
     }
 
-    private renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage): string {
-        return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries, language)
+    private renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage, sourceInfo: KanjiSourceInfo | null): string {
+        return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries, language, sourceInfo)
             ?? `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiDetailsUnavailable'))}</div>`;
     }
 
@@ -7259,21 +7257,12 @@ export class ReaderApp {
         return { stage, ghost, help };
     }
 
-    private async renderKanjiOriginsInto(popover: HTMLElement, kanji: string, jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null, rtkInfo: RtkInfo | null, kanjiVGInfo: KanjiVGInfo | null, kanjiEntries: YomitanKanjiEntry[]): Promise<void> {
+    private renderKanjiOriginsInto(popover: HTMLElement, kanji: string, jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null, rtkInfo: RtkInfo | null, kanjiVGInfo: KanjiVGInfo | null, kanjiEntries: YomitanKanjiEntry[], sourceInfo: KanjiSourceInfo | null): void {
         const mount = popover.querySelector<HTMLElement>('[data-kanji-origin-mount]');
         if (!mount) return;
-        const sourceInfo = await this.lookupKanjiOriginSourceInfo(kanji);
         if (!this.canRenderKanjiOriginMount(popover, mount)) return;
         this.renderKanjiOriginMount(mount, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
         this.installKanjiOriginImageFallbacks(mount);
-    }
-
-    private async lookupKanjiOriginSourceInfo(kanji: string): Promise<KanjiSourceInfo | null> {
-        if (!this.kanjiOrigin) return null;
-        return await this.kanjiOrigin.lookup(kanji, this.settings).catch((error: unknown) => {
-            log.warn('Kanji origin lookup failed', { kanji }, error);
-            return null;
-        });
     }
 
     private canRenderKanjiOriginMount(popover: HTMLElement, mount: HTMLElement): boolean {

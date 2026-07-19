@@ -50,7 +50,6 @@ import {
     jitenKanjiFactRows,
     jitenKanjiReadingRows,
     renderJitenKanjiInfoWithAttributes,
-    renderJitenKanjiKeywordLine,
 } from '../jiten/jiten-kanji-info-render';
 import {
     filterJitenKanjiWords as filterSharedJitenKanjiWords,
@@ -62,7 +61,7 @@ import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, ty
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { buildKanjiFacts, buildKanjiOriginGraph } from '../kanji/origin';
+import { buildKanjiFacts, buildKanjiOriginGraph, type KanjiOriginClient, type KanjiSourceInfo } from '../kanji/origin';
 import { installKanjiDoodle } from '../kanji/doodle';
 import { renderAnkiRenderedCardStudyBody } from '../anki/render';
 import { assessKanjiStrokes, SHAPE_PASS_SCORE, type KanjiStrokeAssessment } from '../kanji/stroke-grader';
@@ -80,10 +79,10 @@ import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
-    renderKanjiKeywordLine,
     renderKanjiOrigins,
     renderRtkInfo,
 } from '../popup/render';
+import { renderKanjiKeywordChips, type KanjiKeywordSource } from '../popup/kanji-keyword-line';
 import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
 import { speakerIcon } from '../ui/icons';
 import {
@@ -385,6 +384,7 @@ export interface NewTabControllerDependencies {
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
+    kanjiOrigin?: Pick<KanjiOriginClient, 'lookup'>;
     immersionKit: ImmersionKitClient;
     jpdbVocabulary?: Pick<JpdbVocabularyClient, 'lookup'> & Partial<Pick<JpdbVocabularyClient, 'search'>>;
     jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
@@ -440,10 +440,6 @@ function readerWordSurfaceText(word: HTMLElement): string {
     const clone = word.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('rt, rp').forEach(node => node.remove());
     return clone.textContent ?? '';
-}
-
-function normalizedKeywordText(value: string): string {
-    return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
 function shouldResolveInitialWordIndex(poolChanged: boolean, preferStoredWord: boolean): boolean {
@@ -534,6 +530,7 @@ interface NewTabKanjiSourceRenderContext {
     jitenInfo: JitenKanjiInfo | null;
     rtk: RtkInfo | null;
     vg: KanjiVGInfo | null;
+    sourceInfo: KanjiSourceInfo | null;
     localEntries: YomitanKanjiEntry[];
     settings: ReaderSettings;
     excludeFactLabels: Set<string>;
@@ -789,7 +786,7 @@ export class NewTabController {
         language: () => this.language(),
         hasLocalDictionaries: () => this.hasLocalDictionaries(),
         loadKanjiDetails: character => this.loadKanjiDetails(character),
-        renderKanjiDetails: (card, kanji, info, jitenInfo, rtk, vg, localEntries) => this.renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries),
+        renderKanjiDetails: (card, kanji, details) => this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null),
         keywordFromDetails: (card, jpdb, jiten, rtk) => this.keywordFromDetails(card, jpdb, jiten, rtk),
         renderNewTabUchisen: (root, kanji) => this.renderNewTabUchisen(root, kanji),
         renderNewTabKanjiImmersion: (root, kanji) => this.renderNewTabKanjiImmersion(root, kanji),
@@ -950,6 +947,7 @@ export class NewTabController {
             jiten: this.dependencies.jiten,
             rtk: this.dependencies.rtk,
             kanjiVG: this.dependencies.kanjiVG,
+            kanjiOrigin: this.dependencies.kanjiOrigin,
             dictionaries: this.dependencies.dictionaries,
             localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => this.localSearchWithTimeout(promise, fallback),
         });
@@ -7825,7 +7823,7 @@ export class NewTabController {
         details: KanjiDetailBundle,
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
-        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+        replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null));
         this.renderNewTabUchisen(slots.meaning, kanji);
         this.renderNewTabKanjiImmersion(slots.meaning, kanji);
         void this.dependencies.parseContent?.(slots.meaning);
@@ -7967,6 +7965,7 @@ export class NewTabController {
         rtk: RtkInfo | null,
         vg: KanjiVGInfo | null,
         localEntries: YomitanKanjiEntry[],
+        sourceInfo: KanjiSourceInfo | null,
     ): HTMLElement {
         const settings = this.dependencies.getSettings();
         const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
@@ -7984,6 +7983,7 @@ export class NewTabController {
             jitenInfo,
             rtk,
             vg,
+            sourceInfo,
             localEntries,
             settings,
             excludeFactLabels: new Set(facts.map(([label]) => label)),
@@ -7995,12 +7995,15 @@ export class NewTabController {
         );
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
         if (keywordMount) {
-            const keywordLine = jitenInfo
-                ? this.suppressDuplicateKanjiKeywordLine(
-                    renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage),
-                    jitenInfo.meanings[0] ?? '',
-                )
-                : this.renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, settings.interfaceLanguage);
+            const displayedKeyword = jitenInfo?.meanings[0] ?? this.newTabKanjiDisplayedKeyword(facts, settings.interfaceLanguage);
+            const keywordLine = this.renderNewTabKanjiKeywordLine(
+                { text: jitenInfo?.meanings[0] ?? fullInfo?.keyword, label: jitenInfo ? 'Jiten' : 'JPDB', canonical: true },
+                rtk,
+                localEntries,
+                displayedKeyword,
+                settings.interfaceLanguage,
+                sourceInfo,
+            );
             if (keywordLine) setInnerHtml(keywordMount, keywordLine);
             else keywordMount.remove();
         }
@@ -8050,7 +8053,7 @@ export class NewTabController {
             return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, key => this.sourceAttributes(key), this.kanjiFactSourceTitle('jpdb'), context.settings.interfaceLanguage) : null;
         }
         if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
-        if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
+        if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.sourceInfo, context.settings, context.excludeFactLabels);
         return undefined;
     }
 
@@ -8122,17 +8125,18 @@ export class NewTabController {
         rtk: RtkInfo | null,
         vg: KanjiVGInfo | null,
         localEntries: YomitanKanjiEntry[],
+        sourceInfo: KanjiSourceInfo | null,
         settings: ReaderSettings,
         excludeFactLabels: Set<string> = new Set(),
     ): HTMLElement | null {
         if (!settings.kanjiOriginsEnabled || !settings.kanjiOriginGraphEnabled) return null;
-        const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
-        const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, null, vg);
+        const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries, sourceInfo);
+        const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, sourceInfo, vg);
         if (!graph) return null;
         const section = htmlToFirstElement(renderKanjiOrigins(
             factsForOrigins,
             graph,
-            null,
+            sourceInfo,
             settings,
             settings.interfaceLanguage,
             this.isSourceOpen(kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID)),
@@ -8165,29 +8169,21 @@ export class NewTabController {
     }
 
     private renderNewTabKanjiKeywordLine(
-        fullInfo: JpdbKanjiInfo | null,
+        primary: KanjiKeywordSource,
         rtk: RtkInfo | null,
         localEntries: YomitanKanjiEntry[],
-        facts: [string, string][],
+        displayedKeyword: string,
         language: ReaderSettings['interfaceLanguage'],
+        sourceInfo: KanjiSourceInfo | null,
     ): string {
-        const line = renderKanjiKeywordLine(fullInfo, rtk, localEntries, language);
-        const displayedKeyword = this.newTabKanjiDisplayedKeyword(facts, language);
-        return this.suppressDuplicateKanjiKeywordLine(line, displayedKeyword);
-    }
-
-    private suppressDuplicateKanjiKeywordLine(line: string, displayedKeyword: string): string {
-        if (!displayedKeyword) return line;
-        const root = htmlToFirstElement(line);
-        if (!root || root.classList.contains('jpdb-reader-help')) return line;
-        const duplicateKey = normalizedKeywordText(displayedKeyword);
-        root.querySelectorAll<HTMLElement>('.jpdb-reader-kanji-keyword').forEach(chip => {
-            const text = Array.from(chip.children)
-                .find(child => child.tagName.toLowerCase() === 'span')
-                ?.textContent ?? '';
-            if (normalizedKeywordText(text) === duplicateKey) chip.remove();
-        });
-        return root.querySelector('.jpdb-reader-kanji-keyword') ? root.outerHTML : '';
+        const keywordKey = (text: string | undefined) => text?.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('en') ?? '';
+        const displayedKey = keywordKey(displayedKeyword);
+        return renderKanjiKeywordChips([
+            primary,
+            { text: rtk?.keyword, label: 'RTK' },
+            { text: sourceInfo?.kanjiAliveKeyword, label: 'Kanji Alive' },
+            ...localEntries.flatMap(entry => entry.meanings).filter(Boolean).slice(0, 3).map(text => ({ text, label: uiText(language, 'dict') })),
+        ].filter(source => keywordKey(source.text) !== displayedKey), language);
     }
 
     private sourceAttributes(sourceStateKey: string, initiallyExpanded = true): string {
