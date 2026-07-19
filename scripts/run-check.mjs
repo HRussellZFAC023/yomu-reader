@@ -93,11 +93,20 @@ try {
     process.exit(1);
 }
 
+// Release-path academy scope (owner rule): the release gate runs
+// build:academy:prevalidated below, NOT the full academy test suite. The
+// suite depends on local-only corpora (yomu-academy:moodle-raw-manifest
+// lives outside the repository), so on a CI tag build it can never pass —
+// including it failed every Release workflow since v1.6.241 and silently
+// stopped GitHub release publishing while Deploy Docs kept shipping.
+// Local `npm run check` keeps the full suite.
+const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
+
 const lanes = [
     lane(stage('typecheck', 'npm run -s typecheck')),
     lane(
         testStage('test:ci', 'npm run -s test:ci'),
-        testStage('test:academy', 'npm run -s test:academy'),
+        ...(releaseCheck ? [] : [testStage('test:academy', 'npm run -s test:academy')]),
     ),
     lane(
         stage('build', 'npm run -s build'),
