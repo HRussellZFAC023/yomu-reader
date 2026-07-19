@@ -1,18 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
     createDeterministicZip,
-    validateReleaseVersions,
+    validateReleaseVersionValues,
 } from '../../scripts/build-amo-source-package.mjs';
-
-const temporaryDirectories: string[] = [];
-
-afterEach(async () => {
-    await Promise.all(temporaryDirectories.splice(0).map(directory => rm(directory, { recursive: true, force: true })));
-});
 
 describe('Firefox reviewer source packaging', () => {
     it('creates byte-identical ZIPs regardless of input insertion order', () => {
@@ -35,25 +26,12 @@ describe('Firefox reviewer source packaging', () => {
         ]))).toThrow(/Unsafe or generated path/);
     });
 
-    it('requires the tag, package, Chrome, and Firefox versions to agree', async () => {
-        const directory = await mkdtemp(path.join(tmpdir(), 'yomu-amo-source-test-'));
-        temporaryDirectories.push(directory);
-        const packageJson = path.join(directory, 'package.json');
-        const chromePackage = path.join(directory, 'chrome.zip');
-        const firefoxPackage = path.join(directory, 'firefox.xpi');
-        await writeFile(packageJson, JSON.stringify({ version: '1.2.3' }));
-        await writeFile(chromePackage, createDeterministicZip(new Map([
-            ['manifest.json', new Uint8Array(Buffer.from(JSON.stringify({ version: '1.2.3' })))],
-        ])));
-        await writeFile(firefoxPackage, createDeterministicZip(new Map([
-            ['manifest.json', new Uint8Array(Buffer.from(JSON.stringify({ version: '1.2.4' })))],
-        ])));
-
-        await expect(validateReleaseVersions({
-            releaseTag: 'v1.2.3',
-            packageJson,
-            chromePackage,
-            firefoxPackage,
-        })).rejects.toThrow(/firefox=1\.2\.4/);
+    it('requires the tag, package, Chrome, and Firefox versions to agree', () => {
+        expect(() => validateReleaseVersionValues({
+            tag: '1.2.3',
+            package: '1.2.3',
+            chrome: '1.2.3',
+            firefox: '1.2.4',
+        })).toThrow(/firefox=1\.2\.4/);
     });
 });

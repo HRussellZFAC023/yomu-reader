@@ -362,7 +362,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     showFloatingButton: true,
-    // Legacy browser-extension preference retained for settings migration. The
+    // Historical browser-extension preference retained for settings migration. The
     // main extension no longer overrides the browser new-tab page.
     newTabEnabled: false,
     newTabAnkiEnabled: false,

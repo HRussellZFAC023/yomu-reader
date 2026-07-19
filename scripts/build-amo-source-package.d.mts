@@ -19,4 +19,16 @@ export function validateReleaseVersions(
     options: ReleaseVersionValidationOptions,
 ): Promise<ReleaseVersionValidation>;
 
+export interface ReleaseVersionValues {
+    tag: string;
+    package: string;
+    chrome: string;
+    firefox: string;
+}
+
+export function validateReleaseVersionValues(
+    versions: ReleaseVersionValues,
+    manifests?: ReleaseVersionValidation['manifests'],
+): { version: string; manifests: ReleaseVersionValidation['manifests'] | undefined };
+
 export function createDeterministicZip(files: Map<string, Uint8Array>): Uint8Array;

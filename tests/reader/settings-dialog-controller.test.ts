@@ -842,12 +842,14 @@ describe('settings dialog keyboard dismissal', () => {
         );
 
         dependencies.toast.mockClear();
+        const settingsFile = form.querySelector<HTMLInputElement>('input[data-file="settings"]')!;
+        const openFilePicker = vi.spyOn(settingsFile, 'click');
         form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!.click();
         await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
         expect(dependencies.toast).toHaveBeenCalledWith(
             'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
         );
-        expect(form.querySelector('input[type="file"]')).toBeNull();
+        expect(openFilePicker).not.toHaveBeenCalled();
     });
 
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {

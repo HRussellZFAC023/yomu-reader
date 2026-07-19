@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.241] - 2026-07-19
+
+### Changed
+
+- The browser extension now leaves the browser's new-tab page completely alone. Study opens deliberately from Yomu instead, and a fresh standalone Study session begins at the Word step for a more recognition-first flow before returning to the learner's configured sequence.
+- Extension settings now describe webpage scanning in plain language: leave pages unchanged, scan Japanese automatically, or scan only when asked.
+- Chrome and Firefox store copy now describes Yomu as providing "a study page," and the extension icon has been re-centred at every generated size.
+
+### Fixed
+
+- Firefox now asks for its built-in website-content and optional account-data consent in the correct extension-owned context before reading or storing account credentials, and fails closed when that consent cannot be requested.
+- Store packages now carry their reader CSS and third-party notices locally, while the Firefox source bundle and browser archives build reproducibly for review. Major-version publishing is prepared automatically but remains behind a protected human release checkpoint.
+
 ## [1.6.240] - 2026-07-19
 
 ### Fixed

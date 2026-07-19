@@ -112,12 +112,16 @@ export async function validateReleaseVersions({ releaseTag, packageJson, chromeP
         chrome: await manifestFromZip(chromePackage),
         firefox: await manifestFromZip(firefoxPackage),
     };
-    const versions = {
+    return validateReleaseVersionValues({
         tag: tagVersion,
         package: String(pkg.version ?? ''),
         chrome: String(manifests.chrome.version ?? ''),
         firefox: String(manifests.firefox.version ?? ''),
-    };
+    }, manifests);
+}
+
+export function validateReleaseVersionValues(versions, manifests = undefined) {
+    const tagVersion = String(versions.tag ?? '');
     const mismatches = Object.entries(versions).filter(([, version]) => version !== tagVersion);
     if (mismatches.length) {
         const detail = Object.entries(versions).map(([name, version]) => `${name}=${version || '<missing>'}`).join(', ');
