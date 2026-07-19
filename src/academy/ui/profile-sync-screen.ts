@@ -16,6 +16,7 @@ export interface ProfileSyncScreenOptions {
     readonly onExport: () => Promise<void>;
     readonly onSignOut: () => Promise<void>;
     readonly onDelete: (scope: 'profile' | 'account') => Promise<void>;
+    readonly onClassBoard?: () => void;
     /** Present only when this screen is completing first access onboarding. */
     readonly onContinue?: () => void;
 }
@@ -161,6 +162,12 @@ function appendSessionActions(actions: HTMLElement, screen: HTMLElement, options
         actions.append(actionButton(localize(options.language, 'Export encrypted data', '暗号化データを書き出す'), async () => options.onExport()));
     }
     if ((profile || account) && phase !== 'sign-in' && phase !== 'signed-out') {
+        if (account?.classes.length && options.onClassBoard) {
+            actions.append(actionButton(
+                localize(options.language, 'Open Class Board', 'クラスボードを開く'),
+                async () => options.onClassBoard?.(),
+            ));
+        }
         if (account) actions.append(actionButton(localize(options.language, 'Sign out', 'サインアウト'), async () => options.onSignOut()));
         actions.append(deleteButton(options, account ? 'account' : 'profile'));
     }

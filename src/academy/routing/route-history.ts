@@ -30,6 +30,7 @@ const ACADEMY_ROUTE_DEFINITIONS = {
     review: 'canonical-study',
     journal: 'world',
     'profile-sync': 'world',
+    'class-board': 'world',
     'day-end': 'world',
 } as const;
 

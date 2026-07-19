@@ -40,6 +40,47 @@ export interface AcademyClassBoardView {
     readonly members: readonly AcademyClassBoardMember[];
 }
 
+export type AcademyClassLeaderboardMetricId = 'streak' | 'review-activity' | 'known-words' | 'lesson-progress';
+
+export interface AcademyClassLeaderboardMetric {
+    readonly id: AcademyClassLeaderboardMetricId;
+    readonly meaning: string;
+    readonly unit: 'days' | 'words' | 'lessons';
+    readonly window: 'current-streak' | 'rolling-7-utc-days' | 'all-time';
+    readonly startsOn?: string;
+    readonly endsOn?: string;
+    readonly asOf?: string;
+}
+
+export interface AcademyClassLeaderboardEntry {
+    readonly rank: number;
+    readonly accountId: string;
+    readonly displayTag: string;
+    readonly avatarKey?: string;
+    readonly role: YomuClassRole;
+    readonly value: number;
+    readonly updatedAt: number | null;
+}
+
+export interface AcademyClassLeaderboardView {
+    readonly classId: string;
+    readonly metric: AcademyClassLeaderboardMetric;
+    readonly entries: readonly AcademyClassLeaderboardEntry[];
+    readonly me: AcademyClassLeaderboardEntry | null;
+    readonly pagination: {
+        readonly page: number;
+        readonly limit: number;
+        readonly visibleEntries: number;
+        readonly pages: number;
+    };
+    readonly updatedAt: number | null;
+    readonly freshness: {
+        readonly generatedAt: number;
+        readonly mode: 'server-snapshot';
+        readonly realTime: false;
+    };
+}
+
 export interface AcademyProfileView {
     readonly profileId: string;
     readonly deviceId: string;
@@ -136,6 +177,34 @@ export function parseAcademyClassBoardView(value: unknown): AcademyClassBoardVie
     return {
         classId: classId(record.classId),
         members: array(record.members, 'members').map(parseBoardMember),
+    };
+}
+
+/** Strict ranking projection: private progress detail has no client field. */
+export function parseAcademyClassLeaderboardView(value: unknown): AcademyClassLeaderboardView {
+    const record = object(value, 'Class leaderboard');
+    const pagination = object(record.pagination, 'pagination');
+    const freshness = object(record.freshness, 'freshness');
+    if (freshness.mode !== 'server-snapshot' || freshness.realTime !== false) {
+        throw new TypeError('Class leaderboard freshness is invalid.');
+    }
+    return {
+        classId: classId(record.classId),
+        metric: parseLeaderboardMetric(record.metric),
+        entries: array(record.entries, 'entries').map(parseLeaderboardEntry),
+        me: record.me === null ? null : parseLeaderboardEntry(record.me),
+        pagination: {
+            page: integer(pagination.page, 'pagination.page', 1, 1_000),
+            limit: integer(pagination.limit, 'pagination.limit', 1, 50),
+            visibleEntries: count(pagination.visibleEntries, 'pagination.visibleEntries'),
+            pages: count(pagination.pages, 'pagination.pages'),
+        },
+        updatedAt: nullableTimestamp(record.updatedAt, 'updatedAt'),
+        freshness: {
+            generatedAt: integer(freshness.generatedAt, 'freshness.generatedAt', 0, Number.MAX_SAFE_INTEGER),
+            mode: 'server-snapshot',
+            realTime: false,
+        },
     };
 }
 
@@ -262,6 +331,71 @@ function parseBoardMember(value: unknown): AcademyClassBoardMember {
         },
         lessons: { completed: completedLessons, total: totalLessons },
     };
+}
+
+function parseLeaderboardMetric(value: unknown): AcademyClassLeaderboardMetric {
+    const record = object(value, 'metric');
+    const id = oneOf(record.id, ['streak', 'review-activity', 'known-words', 'lesson-progress'] as const, 'metric.id');
+    const unit = oneOf(record.unit, ['days', 'words', 'lessons'] as const, 'metric.unit');
+    const window = oneOf(record.window, ['current-streak', 'rolling-7-utc-days', 'all-time'] as const, 'metric.window');
+    const expected = {
+        streak: { unit: 'days', window: 'current-streak' },
+        'review-activity': { unit: 'days', window: 'rolling-7-utc-days' },
+        'known-words': { unit: 'words', window: 'all-time' },
+        'lesson-progress': { unit: 'lessons', window: 'all-time' },
+    } as const;
+    if (unit !== expected[id].unit || window !== expected[id].window) {
+        throw new TypeError('metric metadata does not match metric.id.');
+    }
+    const startsOn = record.startsOn === undefined ? undefined : isoDay(record.startsOn, 'metric.startsOn');
+    const endsOn = record.endsOn === undefined ? undefined : isoDay(record.endsOn, 'metric.endsOn');
+    const asOf = record.asOf === undefined ? undefined : isoDay(record.asOf, 'metric.asOf');
+    if ((id === 'streak' && (!asOf || startsOn || endsOn))
+        || (id === 'review-activity' && (!startsOn || !endsOn || asOf))
+        || ((id === 'known-words' || id === 'lesson-progress') && (startsOn || endsOn || asOf))) {
+        throw new TypeError('metric date metadata does not match metric.id.');
+    }
+    return {
+        id,
+        meaning: text(record.meaning, 'metric.meaning'),
+        unit,
+        window,
+        ...(startsOn === undefined ? {} : { startsOn }),
+        ...(endsOn === undefined ? {} : { endsOn }),
+        ...(asOf === undefined ? {} : { asOf }),
+    };
+}
+
+function parseLeaderboardEntry(value: unknown): AcademyClassLeaderboardEntry {
+    const record = object(value, 'leaderboard entry');
+    return {
+        rank: integer(record.rank, 'rank', 1, Number.MAX_SAFE_INTEGER),
+        accountId: uuid(record.accountId, 'accountId'),
+        displayTag: validDisplayTag(record.displayTag),
+        ...(record.avatarKey === undefined ? {} : { avatarKey: avatar(record.avatarKey) }),
+        role: role(record.role),
+        value: count(record.value, 'value'),
+        updatedAt: nullableTimestamp(record.updatedAt, 'entry.updatedAt'),
+    };
+}
+
+function nullableTimestamp(value: unknown, field: string): number | null {
+    return value === null ? null : integer(value, field, 0, Number.MAX_SAFE_INTEGER);
+}
+
+function isoDay(value: unknown, field: string): string {
+    const day = text(value, field);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
+    const at = match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : Number.NaN;
+    if (!match || Number.isNaN(at) || new Date(at).toISOString().slice(0, 10) !== day) {
+        throw new TypeError(`${field} is invalid.`);
+    }
+    return day;
+}
+
+function oneOf<const Values extends readonly string[]>(value: unknown, values: Values, field: string): Values[number] {
+    if (typeof value !== 'string' || !values.includes(value)) throw new TypeError(`${field} is invalid.`);
+    return value as Values[number];
 }
 
 function validDisplayTag(value: unknown): string {

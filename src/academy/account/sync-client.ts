@@ -1,5 +1,6 @@
 import {
     parseAcademyAccountView,
+    parseAcademyClassLeaderboardView,
     parseAcademyEntitlementView,
     parseAcademyPairingClaim,
     parseAcademyPairingTicket,
@@ -7,6 +8,8 @@ import {
     parseAcademySyncPage,
     parseAcademySyncPushResult,
     type AcademyAccountView,
+    type AcademyClassLeaderboardMetricId,
+    type AcademyClassLeaderboardView,
     type AcademyEncryptedSyncEventInput,
     type AcademyEntitlementView,
     type AcademyPairingKeyEnvelope,
@@ -65,6 +68,12 @@ export interface AcademySyncStorage {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
     removeItem(key: string): void;
+}
+
+export interface AcademyClassBoardProfileUpdate {
+    readonly displayName: string;
+    readonly boardVisible: boolean;
+    readonly shareAvatar: boolean;
 }
 
 interface StoredSyncState {
@@ -343,6 +352,35 @@ export class AcademySyncClient {
         return response.blob();
     }
 
+    async updateClassBoardProfile(update: AcademyClassBoardProfileUpdate): Promise<AcademyAccountView> {
+        if (!this.account) throw new Error('Sign in before changing the Class Board profile.');
+        const epoch = this.sessionEpoch;
+        const account = parseAcademyAccountView(await this.json('/academy/api/account', {
+            method: 'PATCH',
+            body: update,
+        }));
+        if (epoch !== this.sessionEpoch || this.phase === 'signed-out') {
+            throw new Error('The session changed before the Class Board profile was saved.');
+        }
+        this.account = account;
+        return account;
+    }
+
+    async loadClassLeaderboard(
+        classId: string,
+        metric: AcademyClassLeaderboardMetricId,
+        page = 1,
+        limit = 20,
+    ): Promise<AcademyClassLeaderboardView> {
+        if (!this.account?.classes.some(item => item.classId === classId)) {
+            throw new Error('This class is not available to your account.');
+        }
+        const query = new URLSearchParams({ metric, page: String(page), limit: String(limit) });
+        return parseAcademyClassLeaderboardView(await this.json(
+            `/academy/api/classes/${encodeURIComponent(classId)}/leaderboard?${query}`,
+        ));
+    }
+
     async signOut(): Promise<void> {
         // Start revocation immediately instead of waiting behind sync. The
         // Worker revokes the stable session family, while this epoch makes any
@@ -373,6 +411,7 @@ export class AcademySyncClient {
     }
 
     disconnect(): void {
+        this.sessionEpoch += 1;
         this.state = null;
         this.account = null;
         this.entitlement = null;

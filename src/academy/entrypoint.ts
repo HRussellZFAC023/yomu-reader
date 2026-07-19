@@ -15,6 +15,7 @@ import './styles/tube-platform-world.css';
 import './styles/bookshop-world.css';
 import './styles/japan-centre-world.css';
 import './styles/profile-sync.css';
+import './styles/class-board.css';
 import './styles/vn-performance.css';
 import './styles/vn-stage.css';
 import './styles/story-vn.css';

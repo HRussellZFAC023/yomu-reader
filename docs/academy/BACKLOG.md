@@ -395,6 +395,7 @@ Acceptance: one source per bus as authored, no overlap/drone/autoplay loop, and 
 - [x] Seed `<PRIVATE_CLASS_INVITE>` through the authenticated admin endpoint using available secrets; never store plaintext codes.
 - [x] Verify authenticated/anonymous protected-media HEAD and range behavior; live Royal Days and Shinday playback pass.
 - [x] Add the authenticated, class-isolated leaderboard backend over existing board consent, moderation hiding, Yomu progress snapshots, and synced study days: bounded metric/page queries, deterministic tie ranks, off-page self placement, optional shared avatars, explicit snapshot freshness, and no raw events, answers, failed items, word lists, Google identity, email, client-supplied score, global rank, or competitive reward.
+- [x] Expose that private class board to learners through Profile & Sync with explicit name/listing/avatar controls, class and metric selection, server-owned ranks, off-page self placement, honest snapshot age, responsive keyboard-safe pagination, and no XP, prizes, loss framing, or client-side score calculation.
 - [ ] Verify live logout, expiry, revocation, offline merge, and cross-device link.
 - [x] Activate the owner-authorized live Stripe Checkout path and create one uncharged £2 `cs_live_…` smoke session.
 - [x] Implement signed/idempotent webhook and claim contracts plus the concise generated-code return UX with bounded polling, URL scrubbing, copy, and retry.
