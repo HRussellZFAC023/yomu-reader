@@ -41167,7 +41167,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.230".trim() ? "1.6.230".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.231".trim() ? "1.6.231".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -65791,10 +65791,6 @@ ${component.reading}`;
     if (!attributes) return;
     info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
     info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list) => ({ list, rank: numberValue$1(attributes[`frequency_${list}`]) })).filter((entry) => entry.rank > 0);
-    info.wordAudioUrls = uniqueText$1([
-      bunproHttpsUrl(textValue(attributes.female_audio_url)),
-      bunproHttpsUrl(textValue(attributes.male_audio_url))
-    ]);
     info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
     info.caution = stripBunproMarkup(textValue(attributes.caution));
     info.register = textValue(attributes.register);
@@ -66020,7 +66016,7 @@ ${component.reading}`;
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-                ${renderBunproHeadword(card, info, language)}
+                ${renderBunproHeadword(card, info)}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
                 ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
                 ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
@@ -66032,18 +66028,15 @@ ${component.reading}`;
         </details>
     `;
   }
-  function renderBunproHeadword(card, info, language) {
-    const audioUrl = info.wordAudioUrls[0] ?? "";
-    const audioLabel = uiText(language, "playAudio");
-    const audio = audioUrl ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml$1(info.expression)}" data-audio-url="${escapeHtml$1(audioUrl)}" title="${escapeHtml$1(audioLabel)}" aria-label="${escapeHtml$1(audioLabel)}">${speakerIcon()}</button>` : "";
-    if (repeatsLookupHeadword(card, info)) return audio ? `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}</div>` : "";
+  function renderBunproHeadword(card, info, _language) {
+    if (repeatsLookupHeadword(card, info)) return "";
     const reference = renderPassiveReference({
       text: info.expression,
       reading: info.reading,
       dictionary: "Bunpro",
       className: "jpdb-reader-bunpro-headword-target"
     });
-    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
+    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
   }
   function renderBunproGlossText(value) {
     if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
@@ -66204,7 +66197,6 @@ ${component.reading}`;
       examplesUnavailableReason: "",
       pitchAccentStress: "",
       frequencies: [],
-      wordAudioUrls: [],
       relatedWords: [],
       caution: "",
       register: "",
