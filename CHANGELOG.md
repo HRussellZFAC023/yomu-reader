@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.240] - 2026-07-19
+
+### Fixed
+
+- The yomu wordmark in the Study and new-tab navigation now leaves enough line-box space for the lowercase y, so its descender is no longer clipped.
+
 ## [1.6.239] - 2026-07-19
 
 ### Fixed

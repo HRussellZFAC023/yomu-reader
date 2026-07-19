@@ -13,6 +13,7 @@ describe('Reader Study UI contract', () => {
         expect(newTabCss).toContain('color-mix(in srgb, var(--jpdb-reader-study-pass) 62%, transparent)');
         expect(newTabCss).toContain('[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="left"]::before');
         expect(newTabCss).toContain('[data-newtab-swipe-mode="nav"][data-newtab-swipe-direction="right"]::after');
+        expect(newTabCss).toContain('.jpdb-reader-newtab-brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }');
         expect(newTabCss).not.toContain('[data-newtab-swipe-mode="nav"]::before { background:');
         expect(newTabCss).toContain('button[data-grade="fail"], .jpdb-reader-newtab-controls button[data-grade="nothing"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-study-fail); }');
         expect(newTabCss).toContain('button[data-grade="pass"], .jpdb-reader-newtab-controls button[data-grade="okay"] { --jpdb-newtab-grade-accent: var(--jpdb-reader-study-pass); }');

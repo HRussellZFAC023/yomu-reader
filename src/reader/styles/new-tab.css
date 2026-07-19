@@ -387,6 +387,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
 }
 
 .jpdb-reader-newtab .jpdb-reader-newtab-overflow {
