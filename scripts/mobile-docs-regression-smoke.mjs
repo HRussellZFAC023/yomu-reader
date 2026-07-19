@@ -159,7 +159,7 @@ function exactFixtureRoute(pathname) {
 function serveDocsFixture(response) {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(`<!doctype html>
-<html lang="ja">
+<html lang="ja" data-yomu-annotation-scope="surface">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -186,7 +186,7 @@ function serveDocsFixture(response) {
       <section class="yomu-demo" aria-labelledby="yomu-demo-title">
         <div class="yomu-demo-copy">
           <h2 id="yomu-demo-title">Look up words without leaving the sentence</h2>
-          <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
+          <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
             <p class="yomu-try-me-label">${TRY_ME_LABEL}</p>
             <p data-smoke-try-me-sentence>${TRY_ME_SENTENCE}</p>
           </div>
@@ -230,7 +230,6 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
     const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, MOBILE_CONTEXT_OPTIONS);
     try {
         await loadDocsPageWithYomu(page, fixtureServer);
-        await page.waitForFunction(() => document.querySelectorAll('[data-smoke-docs-text] .jpdb-reader-word').length >= 3, null, { timeout: 12_000 });
         await page.waitForFunction(targetExpression => {
             const words = [...document.querySelectorAll('.yomu-demo .yomu-try-me-text [data-smoke-try-me-sentence] .jpdb-reader-word')];
             return words.length >= 5 && words.some(word => word.getAttribute('data-expression') === targetExpression);
@@ -238,7 +237,7 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
 
         const snapshot = await page.evaluate(docsTryMeSnapshotFromDom, TRY_ME_TARGET_EXPRESSION);
         assertMobileTouchEnvironment(snapshot.environment);
-        assertParsedSurface(snapshot.docs, 'docs Japanese text');
+        assert(snapshot.docs.summary.count === 0, 'Docs prose was annotated outside the declared Reader Surface', snapshot.docs);
         assertParsedSurface(snapshot.tryMe, 'Try me text');
         assertTryMeFixtureSnapshot(snapshot);
 

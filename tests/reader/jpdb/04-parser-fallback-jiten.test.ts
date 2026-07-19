@@ -664,7 +664,7 @@ describe('reader helpers', () => {
             await app.init({ showWelcome: false });
             expect(scanVisiblePage).not.toHaveBeenCalled();
 
-            document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture">青空の下で本を読む</div></div></main>';
+            document.body.innerHTML = '<main><div class="vp-doc"><div class="hosted-text-fixture" data-yomu-runtime-surface>青空の下で本を読む</div></div></main>';
 
             await expectSilentPageScan(scanVisiblePage);
         } finally {
@@ -674,7 +674,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('scans hosted homepage Japanese surfaces after route changes expose them without Try Me', async () => {
+    it('does not schedule a hosted scan when route changes expose only translated site copy', async () => {
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Docs feature page</main>');
         stubLocalHostedReaderLocation();
 
@@ -689,7 +689,8 @@ describe('reader helpers', () => {
                     <div class="vp-doc"><p>文脈で理解しながら読み続けます。</p></div>
                 </main>
             `;
-            await expectSilentPageScan(scanVisiblePage);
+            await new Promise(resolve => window.setTimeout(resolve, 50));
+            expect(scanVisiblePage).not.toHaveBeenCalled();
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -708,7 +709,7 @@ describe('reader helpers', () => {
 
             document.querySelector('main')!.innerHTML = `
                 <div class="vp-doc">
-                    <div class="hosted-text-fixture">
+                    <div class="hosted-text-fixture" data-yomu-runtime-surface>
                         <h3>青空の下で本を読む</h3>
                         <p>今日は静かな喫茶店で新しい本を読みました。</p>
                     </div>
@@ -732,7 +733,7 @@ describe('reader helpers', () => {
         }));
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>
-                <div class="hosted-text-fixture">
+                <div class="hosted-text-fixture" data-yomu-runtime-surface>
                     <h3>青空の下で本を読む</h3>
                     <p>今日は静かな喫茶店で新しい本を読みました。</p>
                 </div>
@@ -758,6 +759,7 @@ describe('reader helpers', () => {
     it('keeps collecting hosted docs text until all Japanese surface text is parsed', () => {
         const rectSpy = mockElementBoundingClientRect();
         const hostedBlock = document.createElement('div');
+        hostedBlock.setAttribute('data-yomu-runtime-surface', '');
         document.body.innerHTML = '<main><div class="vp-doc"></div></main>';
         document.querySelector('.vp-doc')!.append(hostedBlock);
 
@@ -787,7 +789,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('covers the VitePress hosted hero heading and tagline via the passive residual pass', () => {
+    it('keeps the VitePress hero and docs copy plain while collecting a declared Reader Surface', () => {
         const rectSpy = mockElementBoundingClientRect({ height: 240 });
         document.body.innerHTML = `
             <section class="VPHero has-image">
@@ -799,19 +801,16 @@ describe('reader helpers', () => {
                 </div>
             </section>
             <div class="vp-doc"><p>今日は静かな喫茶店で新しい本を読みました。</p></div>
+            <section data-yomu-runtime-surface><p>青空の下で本を読む。</p></section>
         `;
 
         try {
             const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
             const texts = targets.map(target => target.text);
-            // The homepage hero is covered passively — no visible Japanese stays bare.
-            expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(true);
-            expect(texts.some(text => text.includes('どこでも単語をタップし'))).toBe(true);
-            for (const target of targets) {
-                if (target.text.includes('好きなものを読んで')) expect(target.passiveInteraction).toBe(true);
-            }
-            // Real docs prose stays reading material.
-            expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
+            expect(texts.some(text => text.includes('好きなものを読んで日本語を学ぶ'))).toBe(false);
+            expect(texts.some(text => text.includes('どこでも単語をタップし'))).toBe(false);
+            expect(texts).not.toContain('今日は静かな喫茶店で新しい本を読みました。');
+            expect(texts).toContain('青空の下で本を読む。');
         } finally {
             rectSpy.mockRestore();
             document.body.replaceChildren();

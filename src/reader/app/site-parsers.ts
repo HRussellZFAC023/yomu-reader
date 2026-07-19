@@ -10,6 +10,7 @@ import {
     type ScanTextTarget,
 } from '../dom/index';
 import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfReaderPage } from './pages';
+import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
 
 export interface SiteParserProfile {
     id: string;
@@ -312,15 +313,14 @@ const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
 const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
-// Only real docs prose is a curated scan root here. Homepage/site chrome
-// (hero, nav, install panel, "next step" link grid, overflow menu) is kept
-// out of the prose scan below and reaches readers through the passive
-// residual pass instead: passive targets keep click-through navigation and
-// the per-element layout guards (compact chrome, ruby-room growth) decide
-// decoration, so the chrome is annotated without the destructive rewrites
-// that once broke the tablet layout. No Japanese text stays bare.
+// Hosted docs deliberately annotate only declared Reader Surfaces. The docs
+// theme translates its own navigation, prose, hero, and install chrome; mass
+// annotating that site copy produced multi-second long tasks and a ~14s cold
+// first hover in Japanese mode. The page-owned annotation scope below keeps
+// this profile and the generic fallback pipeline on the same boundary.
 const YOMU_HOSTED_DOCS_ROOTS = [
-    '.vp-doc',
+    '[data-yomu-runtime-surface]',
+    '.yomu-try-me-text',
 ];
 const YOMU_HOSTED_DOCS_EXCLUDE = [
     COMMON_EXCLUDE,
@@ -535,14 +535,12 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         heading: true,
         minLength: 1,
-        // Hosted documentation prose is fully covered by `.vp-doc`; the
-        // generic prose scan stays off so the curated root keeps priority.
-        // Site chrome (nav, hero, install panel, CTA grids) is covered by the
-        // passive residual pass — same contract as every other profile site:
-        // no visible Japanese stays bare, passive interaction preserves link
-        // navigation, and decoration is bounded by the per-element layout
-        // guards rather than excluded wholesale.
+        // The page translates its own chrome and prose. Only explicit demo or
+        // reading surfaces are study material, so neither the generic scan nor
+        // the residual whole-body pass may escape this profile boundary.
         disableGenericDomScan: true,
+        suppressResidualVisibleScan: true,
+        includePassiveInteractionRoots: false,
         visibleOnly: false,
         matches: url => isYomuHostedPassivePage(url.href),
     },
@@ -1317,7 +1315,7 @@ function* profilePassiveInteractionTargetSteps(profile: SiteParserProfile, conte
 }
 
 function queryProfilePassiveInteractionRoots(profile: SiteParserProfile): HTMLElement[] {
-    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(PASSIVE_INTERACTION_ROOTS))
+    return uniqueSpecificVisibleRoots(queryWithinAnnotationScope<HTMLElement>(PASSIVE_INTERACTION_ROOTS)
         .filter(root => isUsefulProfilePassiveInteractionRoot(profile, root)));
 }
 
@@ -1632,6 +1630,9 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
     if (broadWithResidual.length) return broadWithResidual;
+    // An active page-owned scope with no remaining target means "scan
+    // nothing", not "escape to the legacy global visible-text fallback".
+    if (annotationScopeActive()) return [];
     return collectVisibleTextTargets(effectiveLimit);
 }
 
@@ -1698,7 +1699,7 @@ function collectResidualVisibleJapaneseTargets(
     };
     const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
     const nonDestructiveProfile = profiles.some(profile => profile.nonDestructive);
-    const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
+    const collected = scanScopeRoots().flatMap(root => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
         includeUiChrome: true,
         includeFormChrome: true,
@@ -1718,7 +1719,7 @@ function collectResidualVisibleJapaneseTargets(
         // collection policy.
         allowShortCenteredHeadings: nonDestructiveProfile,
         minLength: 1,
-    });
+    }));
     for (const target of collected) {
         // Class E coverage bookkeeping: silent scans skip residual hosts whose
         // mirror already renders this exact text (same rule as the profile
@@ -1781,7 +1782,7 @@ function effectiveScanTargetLimit(profiles: SiteParserProfile[], requestedLimit:
 }
 
 function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
-    const targets = collectFragmentTextTargetsIn(document.body, limit, true, '', {
+    const targets = scanScopeRoots().flatMap(root => collectFragmentTextTargetsIn(root, limit, true, '', {
         allowUiText: true,
         includeUiChrome: true,
         includeFormChrome: true,
@@ -1789,7 +1790,7 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
         includePassiveInteractions: true,
         heading: true,
         minLength: 1,
-    });
+    })).slice(0, limit);
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
 }
 
@@ -1855,9 +1856,9 @@ function collectSafeFormControlTextTargets(
     collection: GenericProseCollection,
     extraExclude = '',
 ): void {
-    const targets = collectFormControlTextTargetsIn(document.body, genericProseRemaining(collection), true, {
+    const targets = scanScopeRoots().flatMap(root => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
         excludeSelector: extraExclude,
-    });
+    }));
     for (const target of targets) {
         collection.targets.push(target);
         if (genericProseCollectionFull(collection)) break;
@@ -1878,12 +1879,12 @@ function collectSafeUiChromeRootTargets(
 }
 
 function safeUiChromeRoots(): HTMLElement[] {
-    return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_UI_CHROME_ROOTS))
+    return uniqueSpecificVisibleRoots(queryWithinAnnotationScope<HTMLElement>(SAFE_UI_CHROME_ROOTS)
         .filter(root => isUsefulSafeUiChromeRoot(root)));
 }
 
 function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
-    const roots = Array.from(document.querySelectorAll<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS))
+    const roots = queryWithinAnnotationScope<HTMLElement>(PROFILE_SAFE_UI_CHROME_ROOTS)
         .filter(root => isUsefulSafeUiChromeRoot(root));
     if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
     return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));
@@ -1932,7 +1933,7 @@ function collectSafeFormChromeRootTargets(
 }
 
 function safeFormChromeRoots(): HTMLElement[] {
-    return uniqueVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(SAFE_FORM_CHROME_ROOTS))
+    return uniqueVisibleRoots(queryWithinAnnotationScope<HTMLElement>(SAFE_FORM_CHROME_ROOTS)
         .filter(root => isUsefulSafeFormChromeRoot(root)));
 }
 
@@ -1972,7 +1973,7 @@ function collectPassiveChromeTargetsFromRoot(
 }
 
 function genericProseRoots(): HTMLElement[] {
-    return Array.from(document.querySelectorAll<HTMLElement>(GENERIC_PROSE_ROOTS))
+    return queryWithinAnnotationScope<HTMLElement>(GENERIC_PROSE_ROOTS)
         .filter(root => isUsefulGenericProseRoot(root));
 }
 
@@ -2163,7 +2164,7 @@ function queryParserRoots(profile: SiteParserProfile, rootQueryCache?: Map<strin
 function queryRootsBySelector(selector: string, rootQueryCache?: Map<string, HTMLElement[]>): HTMLElement[] {
     const cached = rootQueryCache?.get(selector);
     if (cached) return cached;
-    const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    const elements = queryWithinAnnotationScope<HTMLElement>(selector);
     rootQueryCache?.set(selector, elements);
     return elements;
 }
@@ -2235,4 +2236,3 @@ function safeElementMatches(element: HTMLElement, selector: string): boolean {
         return false;
     }
 }
-

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.219
+// @version 1.6.220
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.3e8b5bd61563.user.js#sha256=Potb1hVjybQZIgVl7JD34X4QK5X2FCSdhS1fPNaV98I=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.a8fb41146c42.user.js#sha256=qPtBFGxCeLcC2QvNBBO3JtWTTSQWLZSIfdtUyouONGM=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.83f839f10203.user.js#sha256=g/g58QIDM8WueCCF56tc/G/7FGqPyVQ9gQKZbXqPIfo=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.2d84216207d6.user.js#sha256=LYQhYgfWzewcp7bQEoA1Ras1T1jD6vVQ9pO4ouqcfYU=
 // @require https://yomureader.com/greasyfork/yomu-video.f7eb4cdbfe62.user.js#sha256=9+tM2/5i0ntAFQU/yb31V9VsV9ChrhLfvKy2CtLnwFQ=
 // @resource yomuCss  https://yomureader.com/yomu.61f72cee06a9.css#sha256=Yfcs7gapn0H5xP6evy4xTKeYeT/Nly1Pqy2w7YCeuSQ=
 // @connect api.jiten.moe
@@ -29646,6 +29646,36 @@ function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rub
 function pointInsideExpandedRect(rect, x, y, pad) {
   return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
 }
+const ANNOTATION_SCOPE_ATTRIBUTE = "data-yomu-annotation-scope";
+const ANNOTATION_SCOPE_SURFACE_VALUE = "surface";
+const ANNOTATION_SCOPE_SURFACE_SELECTOR = "[data-yomu-runtime-surface], .yomu-try-me-text";
+function annotationScopeActive() {
+  return document.documentElement?.getAttribute(ANNOTATION_SCOPE_ATTRIBUTE) === ANNOTATION_SCOPE_SURFACE_VALUE;
+}
+function annotationScopeRoots() {
+  if (!annotationScopeActive()) return null;
+  const matches = Array.from(document.querySelectorAll(ANNOTATION_SCOPE_SURFACE_SELECTOR));
+  const matchSet = new Set(matches);
+  return matches.filter((element2) => {
+  const ancestor = element2.parentElement?.closest(ANNOTATION_SCOPE_SURFACE_SELECTOR);
+  return !ancestor || !matchSet.has(ancestor);
+  });
+}
+function scanScopeRoots(fallback = document.body) {
+  const roots = annotationScopeRoots();
+  if (roots) return roots;
+  return fallback ? [fallback] : [];
+}
+function queryWithinAnnotationScope(selector) {
+  const roots = annotationScopeRoots();
+  if (!roots) return Array.from(document.querySelectorAll(selector));
+  const seen = new Set();
+  for (const root of roots) {
+  if (root.matches(selector)) seen.add(root);
+  for (const element2 of root.querySelectorAll(selector)) seen.add(element2);
+  }
+  return [...seen];
+}
 const STRUCTURAL_EXCLUDE_ENTRIES = [
   "[data-jpdb-reader-root]",
   ".jpdb-reader-text-mirror",
@@ -29884,7 +29914,8 @@ const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = "yomu-hosted-docs-parser";
 const JPDB_PARSER_ID = "jpdb-parser";
 const YOMU_HOSTED_DOCS_ROOTS = [
-  ".vp-doc"
+  "[data-yomu-runtime-surface]",
+  ".yomu-try-me-text"
 ];
 const YOMU_HOSTED_DOCS_EXCLUDE = [
   COMMON_EXCLUDE,
@@ -30086,6 +30117,8 @@ const SITE_PARSER_PROFILES = [
   heading: true,
   minLength: 1,
   disableGenericDomScan: true,
+  suppressResidualVisibleScan: true,
+  includePassiveInteractionRoots: false,
   visibleOnly: false,
   matches: (url) => isYomuHostedPassivePage(url.href)
   },
@@ -30683,7 +30716,7 @@ function* profilePassiveInteractionTargetSteps(profile, context) {
   }
 }
 function queryProfilePassiveInteractionRoots(profile) {
-  return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(PASSIVE_INTERACTION_ROOTS)).filter((root) => isUsefulProfilePassiveInteractionRoot(profile, root)));
+  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(PASSIVE_INTERACTION_ROOTS).filter((root) => isUsefulProfilePassiveInteractionRoot(profile, root)));
 }
 function isUsefulProfilePassiveInteractionRoot(profile, root) {
   const exclude = siteScanPassiveInteractionExcludeSelector(profile);
@@ -30908,6 +30941,7 @@ function* scanTargetPhaseSteps(limit, href, options) {
   const broadTargets = collectWholePageScanTargets(effectiveLimit);
   const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles, options);
   if (broadWithResidual.length) return broadWithResidual;
+  if (annotationScopeActive()) return [];
   return collectVisibleTextTargets(effectiveLimit);
 }
 function markTargetsPassive(targets, options = {}) {
@@ -30951,7 +30985,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   };
   const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
   const nonDestructiveProfile = profiles.some((profile) => profile.nonDestructive);
-  const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
+  const collected = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
   allowUiText: true,
   includeUiChrome: true,
   includeFormChrome: true,
@@ -30961,7 +30995,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   heading: true,
   allowShortCenteredHeadings: nonDestructiveProfile,
   minLength: 1
-  });
+  }));
   for (const target of collected) {
   if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
   appendResidualVisibleTarget(collection.targets, collection.seen, {
@@ -31008,7 +31042,7 @@ function effectiveScanTargetLimit(profiles, requestedLimit) {
   return Math.max(1, profileLimit);
 }
 function collectWholePageScanTargets(limit) {
-  const targets = collectFragmentTextTargetsIn(document.body, limit, true, "", {
+  const targets = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
   allowUiText: true,
   includeUiChrome: true,
   includeFormChrome: true,
@@ -31016,7 +31050,7 @@ function collectWholePageScanTargets(limit) {
   includePassiveInteractions: true,
   heading: true,
   minLength: 1
-  });
+  })).slice(0, limit);
   return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
 }
 function collectGenericProseTargets(limit, existingTargets = []) {
@@ -31062,9 +31096,9 @@ function collectSafeUiChromeTargets(limit, existingTargets = []) {
   return collection.targets;
 }
 function collectSafeFormControlTextTargets(collection, extraExclude = "") {
-  const targets = collectFormControlTextTargetsIn(document.body, genericProseRemaining(collection), true, {
+  const targets = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
   excludeSelector: extraExclude
-  });
+  }));
   for (const target of targets) {
   collection.targets.push(target);
   if (genericProseCollectionFull(collection)) break;
@@ -31077,10 +31111,10 @@ function collectSafeUiChromeRootTargets(roots, collection, extraExclude = "", pa
   }
 }
 function safeUiChromeRoots() {
-  return uniqueSpecificVisibleRoots(Array.from(document.querySelectorAll(SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root)));
+  return uniqueSpecificVisibleRoots(queryWithinAnnotationScope(SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root)));
 }
 function profileSafeUiChromeRoots(extraExclude = "") {
-  const roots = Array.from(document.querySelectorAll(PROFILE_SAFE_UI_CHROME_ROOTS)).filter((root) => isUsefulSafeUiChromeRoot(root));
+  const roots = queryWithinAnnotationScope(PROFILE_SAFE_UI_CHROME_ROOTS).filter((root) => isUsefulSafeUiChromeRoot(root));
   if (!extraExclude) return uniqueSpecificVisibleRoots(roots);
   return uniqueSpecificVisibleRoots(roots.filter((root) => !root.closest(extraExclude)));
 }
@@ -31107,7 +31141,7 @@ function collectSafeFormChromeRootTargets(roots, collection, parserId = "safe-ui
   }
 }
 function safeFormChromeRoots() {
-  return uniqueVisibleRoots(Array.from(document.querySelectorAll(SAFE_FORM_CHROME_ROOTS)).filter((root) => isUsefulSafeFormChromeRoot(root)));
+  return uniqueVisibleRoots(queryWithinAnnotationScope(SAFE_FORM_CHROME_ROOTS).filter((root) => isUsefulSafeFormChromeRoot(root)));
 }
 function collectSafeFormChromeTargetsFromRoot(root, collection, parserId = "safe-ui-chrome-parser", nonDestructive = false) {
   collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, nonDestructive, {
@@ -31131,7 +31165,7 @@ function collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId
   }
 }
 function genericProseRoots() {
-  return Array.from(document.querySelectorAll(GENERIC_PROSE_ROOTS)).filter((root) => isUsefulGenericProseRoot(root));
+  return queryWithinAnnotationScope(GENERIC_PROSE_ROOTS).filter((root) => isUsefulGenericProseRoot(root));
 }
 function collectGenericProseTargetsFromRoot(root, collection) {
   const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
@@ -31274,7 +31308,7 @@ function queryParserRoots(profile, rootQueryCache) {
 function queryRootsBySelector(selector, rootQueryCache) {
   const cached = rootQueryCache?.get(selector);
   if (cached) return cached;
-  const elements = Array.from(document.querySelectorAll(selector));
+  const elements = queryWithinAnnotationScope(selector);
   rootQueryCache?.set(selector, elements);
   return elements;
 }
@@ -37249,8 +37283,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.219"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.219"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.220"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.220"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37370,7 +37404,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.219"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.220"}`;
   } catch {
   return null;
   }
@@ -39969,12 +40003,19 @@ class ReaderApp {
   const setScrollDrive = (on) => {
     if (on === scrollDriveAttached) return;
     scrollDriveAttached = on;
-    const bind = (on ? document.addEventListener : document.removeEventListener).bind(document);
-    bind("touchstart", onScrollDragStart, { capture: true, passive: true });
-    bind("touchmove", onScrollDragMove, { capture: true, passive: false });
-    bind("touchend", endScrollDrag, { capture: true, passive: true });
-    bind("touchcancel", endScrollDrag, { capture: true, passive: true });
-    bind("wheel", onScrollWheel, { capture: true, passive: false });
+    if (on) {
+      document.addEventListener("touchstart", onScrollDragStart, { capture: true, passive: true });
+      document.addEventListener("touchmove", onScrollDragMove, { capture: true, passive: false });
+      document.addEventListener("touchend", endScrollDrag, { capture: true, passive: true });
+      document.addEventListener("touchcancel", endScrollDrag, { capture: true, passive: true });
+      document.addEventListener("wheel", onScrollWheel, { capture: true, passive: false });
+      return;
+    }
+    document.removeEventListener("touchstart", onScrollDragStart, true);
+    document.removeEventListener("touchmove", onScrollDragMove, true);
+    document.removeEventListener("touchend", endScrollDrag, true);
+    document.removeEventListener("touchcancel", endScrollDrag, true);
+    document.removeEventListener("wheel", onScrollWheel, true);
   };
   const syncScrollDrive = () => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
   const scrollDriveObserver = new MutationObserver(syncScrollDrive);

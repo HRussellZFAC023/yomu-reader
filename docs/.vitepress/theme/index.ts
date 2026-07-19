@@ -211,6 +211,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'On yomureader.com, よむ now annotates only declared demos and reading surfaces instead of translated navigation and documentation copy. Japanese interface mode stays responsive while the Try Me and other intentional reader surfaces retain furigana, pitch, and lookups.': 'yomureader.comでは、翻訳済みのナビゲーションやドキュメント本文ではなく、明示されたデモと読書面だけをよむが注釈するようになりました。Try Meなどの意図的なリーダー面では、ふりがな・ピッチ・単語検索を保ちながら、日本語インターフェースモードの応答性を維持します。',
     'Rendered exact one-mora pitch accents as a valid single-point graph instead of rejecting graphs with fewer than two morae, so 自（じ） now shows its high atamadaka point and one-mora heiban words show their low point.': '1モーラの完全一致するピッチアクセントを、2モーラ未満として拒否せず、有効な1点グラフで描画するようにしました。「自（じ）」は高い頭高型の点を表示し、1モーラの平板型語は低い点を表示します。',
     'Reused the matching visible Study card for parsed-word popovers when a portable card has neither a provider lookup target nor a parser cache entry, preventing 自（じ） from falling through to a fresh pitchless text lookup.': '共有用カードに提供元の検索対象もパーサーキャッシュもない場合、解析済み単語のポップオーバーには一致する表示中のStudyカードを再利用するようにしました。「自（じ）」がピッチなしの新しい文字検索へフォールスルーすることを防ぎます。',
     'Kept short annotated labels inside their native ellipsis boxes, fixing the stray': '短い注釈付きラベルをページ本来の省略表示ボックス内に収め、余計な省略記号が表示される問題を修正しました。',
@@ -3635,7 +3636,12 @@ function browserPrefersJapanese(): boolean {
     return languages.some(language => language?.toLowerCase().startsWith('ja'));
 }
 
+function declareHostedAnnotationScope(): void {
+    document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+}
+
 function installHostedDocsEnhancements(): void {
+    declareHostedAnnotationScope();
     registerHostedDocsServiceWorker();
     syncLandmarks();
     installHostedLanguageToggle();
@@ -3662,6 +3668,7 @@ function installHostedDocsEnhancements(): void {
         scheduleHostedDocsLocalization({ resetReaderWords: true });
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
+        declareHostedAnnotationScope();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
@@ -3673,6 +3680,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
+        declareHostedAnnotationScope();
         syncLandmarks();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
@@ -4136,6 +4144,7 @@ function scheduleIdleHostedYomuRuntimeLoad(): void {
 function findHostedYomuRuntimeTargets(): HTMLElement[] {
     const explicit = Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-runtime-surface], .yomu-try-me-text'));
     if (explicit.length) return explicit;
+    if (document.documentElement.getAttribute('data-yomu-annotation-scope') === 'surface') return [];
     const fallback = Array.from(document.querySelectorAll<HTMLElement>(HOSTED_RUNTIME_TARGET_SELECTOR))
         .find(element => !element.closest('.VPContent.is-home') && HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
     return fallback ? [fallback] : [];

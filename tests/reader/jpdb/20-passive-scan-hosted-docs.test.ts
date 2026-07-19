@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     registerReaderHelpersCleanup,
     AUTO_SCAN_OBSERVER_OPTIONS,
@@ -34,6 +34,7 @@ import type {
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+afterEach(() => document.documentElement.removeAttribute('data-yomu-annotation-scope'));
 
 describe('reader helpers', () => {
     it('scans Google Docs menubar entries as passive ruby targets', () => {
@@ -157,8 +158,9 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('つづ');
     });
 
-    it('collects hosted .vp-doc prose and Try Me content in page order with chrome covered passively', () => {
+    it('collects only declared Try Me content on hosted docs', () => {
         const rectSpy = mockElementBoundingClientRect();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <main>
                 <section class="VPHero has-image">
@@ -188,7 +190,7 @@ describe('reader helpers', () => {
                 <p>よむ runs inside your browser. Point it at Japanese text and it opens a clean popup.</p>
                 <div class="yomu-try-me">
                     <strong>Try me</strong>
-                    <div class="yomu-try-me-text">
+                    <div class="yomu-try-me-text" data-yomu-runtime-surface>
                         <h3>青空の下で本を読む</h3>
                         <p>今日は静かな喫茶店で新しい本を読みました。</p>
                     </div>
@@ -202,27 +204,17 @@ describe('reader helpers', () => {
         const texts = targets.map(target => target.text);
         // Collection never wraps text in place.
         expect(document.querySelector('.yomu-try-me .jpdb-reader-word')).toBeNull();
-        // Homepage hero and the install panel are chrome — kept out of the
-        // curated prose scan but covered by the passive residual pass, so
-        // their Japanese is annotated without destructive rewrites.
-        const chromeSamples = ['好きなものを読んで日本語を学ぶ', 'Install よむ as a userscript'];
+        const chromeSamples = ['好きなものを読んで日本語を学ぶ', 'Install よむ as a userscript', 'よむ runs inside your browser'];
         for (const sample of chromeSamples) {
-            const target = targets.find(item => item.text.includes(sample));
-            expect(target, `chrome text "${sample}" must be scanned`).toBeDefined();
-            expect(target?.passiveInteraction, `chrome text "${sample}" must stay passive`).toBe(true);
+            expect(texts.some(text => text.includes(sample)), `site copy "${sample}" must not be scanned`).toBe(false);
         }
-        // Real `.vp-doc` prose and the Try Me sample stay covered, in page order.
-        expect(texts.some(text => text.includes('よむ runs inside your browser'))).toBe(true);
         expect(texts).toContain('青空の下で本を読む');
         expect(texts).toContain('今日は静かな喫茶店で新しい本を読みました。');
-        const proseIndex = texts.findIndex(text => text.includes('よむ runs inside your browser'));
-        const tryMeIndex = texts.indexOf('青空の下で本を読む');
-        expect(proseIndex).toBeGreaterThanOrEqual(0);
-        expect(proseIndex).toBeLessThan(tryMeIndex);
     });
 
-    it('collects Japanese text on hosted docs pages without a Try Me block', () => {
+    it('collects nothing on hosted docs pages without a declared Reader Surface', () => {
         const rectSpy = mockElementBoundingClientRect();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <main>
                 <div class="vp-doc">
@@ -245,11 +237,9 @@ describe('reader helpers', () => {
 
         const texts = targets.map(target => target.text);
         expect(targets.some(target => 'parserId' in target && target.parserId === 'generic-prose-parser')).toBe(false);
-        expect(texts).toContain('機能');
-        expect(texts.some(text => text.includes('よむは日本語テキスト'))).toBe(true);
-        const linkTarget = targets.find(target => target.text.includes('よむを学習に使う'));
-        expect(linkTarget).toBeTruthy();
-        expect('passiveInteraction' in linkTarget! && linkTarget.passiveInteraction).toBe(true);
+        expect(texts).not.toContain('機能');
+        expect(texts.some(text => text.includes('よむは日本語テキスト'))).toBe(false);
+        expect(targets.some(target => target.text.includes('よむを学習に使う'))).toBe(false);
         expect(activeAppParsers.map(parser => parser.id)).not.toContain('yomu-demo-lookup-parser');
         expect(activeAppParsers.map(parser => parser.id)).toContain('yomu-video-player-parser');
     });
@@ -257,9 +247,7 @@ describe('reader helpers', () => {
     it('lets annotated hosted docs card links wrap while staying passive', () => {
         const rectSpy = mockElementBoundingClientRect();
         const copy = 'ユーザースクリプト管理拡張を入れ、よむを追加して、最初の検索を試します。';
-        // A content link-grid inside `.vp-doc` (NOT the homepage `.yomu-next-grid`
-        // chrome, which is excluded): its card copy is reading material and wraps
-        // as a passive lookup target.
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <main>
                 <div class="vp-doc">
@@ -276,12 +264,17 @@ describe('reader helpers', () => {
         const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
         rectSpy.mockRestore();
 
-        const cardTarget = targets.find(target => target.text.includes(copy));
-        expect(cardTarget).toBeTruthy();
-        expect('passiveInteraction' in cardTarget! && cardTarget.passiveInteraction).toBe(true);
+        expect(targets.some(target => target.text.includes(copy))).toBe(false);
+        const host = document.querySelector<HTMLElement>('.yomu-link-card span')!;
+        const cardTarget: ScanTextTarget = {
+            node: host.firstChild as Text,
+            parent: host,
+            text: copy,
+            passiveInteraction: true,
+        };
 
-        const sentence = cardTarget!.text;
-        applyTokensToScanTarget(cardTarget!, [
+        const sentence = cardTarget.text;
+        applyTokensToScanTarget(cardTarget, [
             hostedDocsCardToken(sentence, 'ユーザースクリプト管理拡張', 'ゆーざーすくりぷとかんりかくちょう'),
             hostedDocsCardToken(sentence, '追加', 'ついか'),
             hostedDocsCardToken(sentence, '検索', 'けんさく'),
@@ -319,8 +312,9 @@ describe('reader helpers', () => {
         expect(words[1]?.querySelector('rt')?.textContent).toBe('どくしょ');
     });
 
-    it('covers the hosted docs overflow menu passively', () => {
+    it('leaves hosted docs overflow chrome and prose unannotated', () => {
         const rectSpy = mockElementBoundingClientRect();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <main><div class="vp-doc"><p>今日は本を読みます。</p></div></main>
             <div class="yomu-hosted-overflow-group">
@@ -333,16 +327,10 @@ describe('reader helpers', () => {
         rectSpy.mockRestore();
 
         const texts = targets.map(target => target.text);
-        // The "more" overflow menu is navigation chrome — covered by the
-        // passive residual pass so its labels get lookups while click-through
-        // navigation is preserved.
         for (const label of ['設定', '動画プレイヤー']) {
-            const target = targets.find(item => item.text.includes(label));
-            expect(target, `overflow label "${label}" must be scanned`).toBeDefined();
-            expect(target?.passiveInteraction, `overflow label "${label}" must stay passive`).toBe(true);
+            expect(targets.some(item => item.text.includes(label)), `overflow label "${label}" must not be scanned`).toBe(false);
         }
-        // Real `.vp-doc` prose is still covered.
-        expect(texts).toContain('今日は本を読みます。');
+        expect(texts).not.toContain('今日は本を読みます。');
     });
 
     it('scans hosted video-player Japanese empty-state and control text', () => {
@@ -381,15 +369,16 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps scanning hosted docs outside an already tokenized Try Me block', () => {
+    it('stops rescanning a tokenized Try Me surface without escaping to surrounding prose', () => {
         const rectSpy = mockElementBoundingClientRect();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <main>
                 <div class="vp-doc">
                     <p>好きなものを読んで日本語を学ぶ</p>
                     <div class="yomu-try-me">
 	                    <strong>Try me</strong>
-	                    <div class="yomu-try-me-text">
+	                    <div class="yomu-try-me-text" data-yomu-runtime-surface>
 	                        <h3>青空</h3>
 	                        <p>読書</p>
 	                    </div>
@@ -401,7 +390,7 @@ describe('reader helpers', () => {
 	        try {
 	            const targets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
 	            const tryMeTargets = targets.filter(target => target.parent.closest('.yomu-try-me'));
-	            expect(targets.map(target => target.text)).toContain('好きなものを読んで日本語を学ぶ');
+	            expect(targets.map(target => target.text)).not.toContain('好きなものを読んで日本語を学ぶ');
 	            expect(tryMeTargets.map(target => target.text)).toEqual(['青空', '読書']);
 	            tryMeTargets.forEach(target => {
 	                const reading = target.text === '青空' ? 'あおぞら' : 'どくしょ';
@@ -419,7 +408,7 @@ describe('reader helpers', () => {
             expect(document.querySelectorAll('.yomu-try-me .jpdb-reader-word')).toHaveLength(2);
             expect(document.querySelectorAll('.yomu-try-me rt').length).toBeGreaterThan(0);
             const remainingTargets = collectScanTargets(20, 'http://127.0.0.1:5178/yomu-reader/');
-            expect(remainingTargets.map(target => target.text)).toContain('好きなものを読んで日本語を学ぶ');
+            expect(remainingTargets.map(target => target.text)).not.toContain('好きなものを読んで日本語を学ぶ');
             expect(remainingTargets.some(target => target.parent.closest('.yomu-try-me'))).toBe(false);
         } finally {
             rectSpy.mockRestore();

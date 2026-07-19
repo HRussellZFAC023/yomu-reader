@@ -286,6 +286,20 @@ async function assertHomepageDemo(page, label) {
     await page.waitForFunction(() => (
         document.querySelector('.jpdb-subtitle-player.jpdb-subtitle-has-lines .jpdb-subtitle-primary .jpdb-reader-word')
     ), null, { timeout: 10000 });
+    await page.waitForFunction(() => {
+        const image = document.querySelector('.yomu-manga-image');
+        const layer = [...document.querySelectorAll('.jpdb-ocr-layer')]
+            .find(candidate => candidate.querySelector('.jpdb-ocr-line'));
+        if (!(image instanceof HTMLElement) || !(layer instanceof HTMLElement)) return false;
+        const imageRect = image.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
+        return Math.max(
+            Math.abs(imageRect.left - layerRect.left),
+            Math.abs(imageRect.top - layerRect.top),
+            Math.abs(imageRect.width - layerRect.width),
+            Math.abs(imageRect.height - layerRect.height),
+        ) <= 1;
+    }, null, { timeout: 5000 });
     const snapshot = await page.evaluate(() => {
         const text = selector => document.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
         const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) ?? '';
@@ -306,7 +320,9 @@ async function assertHomepageDemo(page, label) {
         const ocrLines = [...document.querySelectorAll('.jpdb-ocr-layer .jpdb-ocr-line, .yomu-manga-figure .jpdb-ocr-line')];
         const ocrText = ocrLines.map(line => line.getAttribute('aria-label') || line.getAttribute('data-ocr-text') || line.textContent || '').join(' ');
         const mangaImageRect = document.querySelector('.yomu-manga-image')?.getBoundingClientRect();
-        const ocrLayerRect = document.querySelector('.jpdb-ocr-layer')?.getBoundingClientRect();
+        const ocrLayerRect = [...document.querySelectorAll('.jpdb-ocr-layer')]
+            .find(layer => layer.querySelector('.jpdb-ocr-line'))
+            ?.getBoundingClientRect();
         const hasSubtitlePlayer = Boolean(subtitlePlayer);
         const subtitleWords = document.querySelectorAll('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').length;
         const subtitleRailStyle = subtitlePlayer
@@ -505,6 +521,12 @@ async function assertOcrToolPage(page, label) {
 }
 
 async function installDocsAuditNetworkMocks(context) {
+    for (const proxy of [
+        /^https:\/\/edge\.yomureader\.com\//,
+        /^https:\/\/yomu-jpdb-public-proxy\.henry-robert-christopher-russell\.workers\.dev\//,
+    ]) {
+        await context.route(proxy, route => fulfillDocsAuditProxyRequest(route));
+    }
     await context.route(/^https:\/\/jpdb\.io\//, route => {
         const url = new URL(route.request().url());
         const isApiRequest = url.pathname.startsWith('/api/');
@@ -526,6 +548,18 @@ async function installDocsAuditNetworkMocks(context) {
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: '',
     }));
+}
+
+function fulfillDocsAuditProxyRequest(route) {
+    const proxyUrl = new URL(route.request().url());
+    const targetUrl = new URL(proxyUrl.searchParams.get('url') ?? 'https://jpdb.io/');
+    const isApiRequest = targetUrl.hostname === 'api.jiten.moe' || targetUrl.pathname.startsWith('/api/');
+    return route.fulfill({
+        status: 200,
+        contentType: isApiRequest ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: isApiRequest ? '{"tokens":[],"vocabulary":[]}' : '<!doctype html><html><body></body></html>',
+    });
 }
 
 function errorMessage(error) {

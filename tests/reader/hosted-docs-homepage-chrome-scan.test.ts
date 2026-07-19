@@ -6,24 +6,22 @@ const YOMU_HOMEPAGE_URL = 'https://yomureader.com/';
 
 afterEach(() => {
     document.body.innerHTML = '';
+    document.documentElement.removeAttribute('data-yomu-annotation-scope');
 });
 
-// The hosted docs homepage chrome (nav/hero/install panel/next-step grid)
-// must be covered like any other site: no visible Japanese stays bare. It is
-// NOT prose — it arrives via the passive residual pass (click-through
-// navigation preserved, per-element layout guards bound the decoration)
-// while `.vp-doc` remains the curated prose root. An earlier release
-// excluded the chrome wholesale to protect the tablet layout, which shipped
-// a homepage whose own hero/install copy had no annotations in Japanese
-// mode — that exclusion must not come back.
+// Hosted docs annotate only declared Reader Surfaces. Navigation, hero,
+// install chrome, link grids, and docs prose are translated site copy; mass
+// annotating them caused long tasks and a very slow first hover in Japanese
+// mode. Pages that do not declare this scope retain ordinary scanning.
 describe('hosted docs homepage chrome scan boundary', () => {
     it('matches the hosted-docs parser on the homepage', () => {
         const profiles = getMatchingSiteParsers(YOMU_HOMEPAGE_URL);
         expect(profiles.map(profile => profile.id)).toContain('yomu-hosted-docs-parser');
     });
 
-    it('covers VPNav, VPHero/VPHomeHero, the install panel, and the next-step grid via the passive residual pass', () => {
+    it('does not scan translated chrome or docs prose', () => {
         const restoreRects = mockVisibleElementRects();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <header class="VPNav">
                 <div class="VPNavBar">
@@ -64,35 +62,42 @@ describe('hosted docs homepage chrome scan boundary', () => {
         `;
 
         try {
-            // Exercise the production pipeline end to end: the chrome must be
-            // reached by the residual pass, and every chrome target must be
-            // passive (click-through) rather than a destructive prose rewrite.
             const targets = collectScanTargets(80, YOMU_HOMEPAGE_URL);
             const texts = targets.map(target => target.text);
-            const chromeSamples = ['はじめる', '更新履歴', 'よむ', 'ページを離れずに', '準備完了', '学習'];
+            const chromeSamples = ['はじめる', '更新履歴', 'よむ', 'ページを離れずに', '準備完了', '学習', '今日は静かな喫茶店'];
             for (const sample of chromeSamples) {
-                expect(texts.some(text => text.includes(sample)), `chrome text "${sample}" must be scanned`).toBe(true);
+                expect(texts.some(text => text.includes(sample)), `site copy "${sample}" must not be scanned`).toBe(false);
             }
-            for (const target of targets) {
-                if (chromeSamples.some(sample => target.text.includes(sample))) {
-                    expect(target.passiveInteraction, `chrome target "${target.text}" must stay passive`).toBe(true);
-                }
-            }
-            // Real docs prose stays covered as regular (non-passive) prose.
-            const prose = targets.find(target => target.text.includes('今日は静かな喫茶店'));
-            expect(prose).toBeDefined();
-            expect(prose?.passiveInteraction).not.toBe(true);
         } finally {
             restoreRects();
         }
     });
 
-    it('still covers the intentional pre-rendered .yomu-try-me-text sample', () => {
+    it('scans a declared reading surface and nothing around it', () => {
         const restoreRects = mockVisibleElementRects();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+        document.body.innerHTML = `
+            <div class="VPHero"><p>ページを離れずに日本語を読む</p></div>
+            <figure data-yomu-runtime-surface><figcaption>吾輩は猫である。名前はまだ無い。</figcaption></figure>
+            <article class="vp-doc"><p>今日は静かな喫茶店で新しい本を読みました。</p></article>
+        `;
+        try {
+            const texts = collectScanTargets(80, YOMU_HOMEPAGE_URL).map(target => target.text);
+            expect(texts.some(text => text.includes('吾輩は猫である'))).toBe(true);
+            expect(texts.some(text => text.includes('ページを離れずに'))).toBe(false);
+            expect(texts.some(text => text.includes('今日は静かな喫茶店'))).toBe(false);
+        } finally {
+            restoreRects();
+        }
+    });
+
+    it('does not reparse the intentional pre-rendered Try Me sample', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
         document.body.innerHTML = `
             <div class="VPContent is-home">
                 <section class="yomu-demo">
-                    <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
+                    <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
                         <p class="yomu-try-me-label">Try me</p>
                         <p class="yomu-try-me-sample" lang="ja" data-jpdb-reader-surface-ignore="true">
                             今日は静かな喫茶店で新しい本を読みました。
@@ -103,12 +108,6 @@ describe('hosted docs homepage chrome scan boundary', () => {
         `;
 
         try {
-            // The sample is pre-rendered with its own inline ruby markup and is
-            // self-tagged with the runtime's hard scan boundary
-            // (data-jpdb-reader-surface-ignore) so the live scanner never
-            // re-parses it — it is not, and never was, covered via a hosted-docs
-            // scan root. Confirm it keeps its boundary and stays out of the
-            // active scan (which would otherwise double-annotate it).
             const sample = document.querySelector('.yomu-try-me-sample');
             expect(sample?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
             const texts = collectScanTargets(80, YOMU_HOMEPAGE_URL).map(target => target.text);

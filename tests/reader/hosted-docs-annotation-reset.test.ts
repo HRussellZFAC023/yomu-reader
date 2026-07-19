@@ -68,11 +68,10 @@ describe('hosted docs annotation reset gating', () => {
 describe('hosted docs reader scan boundary', () => {
     const theme = readProjectFile('docs/.vitepress/theme/index.ts');
 
-    it('never stamps homepage chrome with the hard scan boundary', () => {
-        // Homepage chrome (nav/hero/install panel/next grid) is covered by the
-        // passive residual pass; stamping data-jpdb-reader-surface-ignore on it
-        // shipped a homepage whose own Japanese copy had no annotations. The
-        // theme must not reintroduce the stamp.
+    it('uses the page-owned scope instead of stamping individual chrome nodes ignored', () => {
+        // The document-level scope and explicit Reader Surfaces keep translated
+        // site UI out of scans without mutating every VitePress chrome node.
+        expect(theme).toContain("document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface')");
         expect(theme).not.toContain('stampHostedSurfaceIgnoreChrome');
         expect(theme).not.toContain("element.setAttribute('data-jpdb-reader-surface-ignore', 'true');");
     });

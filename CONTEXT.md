@@ -5,6 +5,7 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 ## Core Terms
 
 - Reader Surface: Any page area Yomu can scan, annotate, or use as lookup context.
+- Annotation Scope: A page-owned boundary that restricts Yomu's generic scan to explicitly declared Reader Surfaces; pages that do not declare one retain whole-document scanning.
 - Lookup: Turning Japanese text at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
 - Mining Context: The sentence, source title, source URL, and optional image captured with a card for JPDB or Anki.
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.

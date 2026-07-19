@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.220] - 2026-07-19
+
+### Changed
+
+- On yomureader.com, よむ now annotates only declared demos and reading surfaces instead of translated navigation and documentation copy. Japanese interface mode stays responsive while the Try Me and other intentional reader surfaces retain furigana, pitch, and lookups.
+
 ## [1.6.219] - 2026-07-19
 
 ### Fixed

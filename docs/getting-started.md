@@ -138,7 +138,7 @@ Choose **Use without API key**, then try a lookup:
 
 <div class="yomu-try-me">
   <strong>Try me — look up a word</strong>
-  <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
+  <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
     <p>青空の下で、静かに本を読む。</p>
   </div>
 </div>

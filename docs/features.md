@@ -111,6 +111,8 @@ YouTube page text uses the same generic scanner and web-component boundaries as 
 
 On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate Safari's per-site full-page view scale. Their text, touch targets, anchors, and screen-edge placement stay at the intended physical size without resizing Reddit content. Inline readings, subtitles, and OCR remain in the page's coordinate space so they stay aligned; normal-scale Reddit, other browsers, and other sites are left unchanged.
 
+On yomureader.com itself, translated navigation and documentation copy are interface text rather than reading material. よむ annotates only the site's declared demos and reading surfaces, avoiding a whole-site scan when Japanese interface mode is active.
+
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
 
 The separate **Prefer Japanese site language and location** setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies, `hreflang` alternates, existing locale query hints such as `locale=en-US`, and common URL patterns such as `en.example.com` or `/en`. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.

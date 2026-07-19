@@ -2480,12 +2480,19 @@ export class ReaderApp {
         const setScrollDrive = (on: boolean): void => {
             if (on === scrollDriveAttached) return;
             scrollDriveAttached = on;
-            const bind = (on ? document.addEventListener : document.removeEventListener).bind(document);
-            bind('touchstart', onScrollDragStart as EventListener, { capture: true, passive: true });
-            bind('touchmove', onScrollDragMove as EventListener, { capture: true, passive: false });
-            bind('touchend', endScrollDrag, { capture: true, passive: true });
-            bind('touchcancel', endScrollDrag, { capture: true, passive: true });
-            bind('wheel', onScrollWheel as EventListener, { capture: true, passive: false });
+            if (on) {
+                document.addEventListener('touchstart', onScrollDragStart, { capture: true, passive: true });
+                document.addEventListener('touchmove', onScrollDragMove, { capture: true, passive: false });
+                document.addEventListener('touchend', endScrollDrag, { capture: true, passive: true });
+                document.addEventListener('touchcancel', endScrollDrag, { capture: true, passive: true });
+                document.addEventListener('wheel', onScrollWheel, { capture: true, passive: false });
+                return;
+            }
+            document.removeEventListener('touchstart', onScrollDragStart, true);
+            document.removeEventListener('touchmove', onScrollDragMove, true);
+            document.removeEventListener('touchend', endScrollDrag, true);
+            document.removeEventListener('touchcancel', endScrollDrag, true);
+            document.removeEventListener('wheel', onScrollWheel, true);
         };
         // Overlays mount as document.body children; attach the scroll driver only while
         // one carrying a scroll body is present (cheap querySelector, run only when body's
