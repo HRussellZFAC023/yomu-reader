@@ -31,7 +31,7 @@ import {
     type SubtitlePlayerControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
-import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT } from './constants';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
@@ -324,6 +324,7 @@ import {
 } from '../dom/rendered-word-state';
 import {
     DEFAULT_SETTINGS,
+    loadSettings,
     matchesShortcut,
     saveSettings,
     shortcutIsPressed,
@@ -370,7 +371,7 @@ import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
-import { addWindowEventListener } from '../platform/window-events';
+import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 import type {
     YomitanKanjiEntry,
     YomitanMetaEntry,
@@ -1231,10 +1232,26 @@ export class ReaderApp {
 
     private installSettingsStorageSubscription(): void {
         this.unsubscribeSettingsStorageChanges?.();
-        this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges(settings => {
+        const unsubscribeStoredChanges = subscribeToSettingsStorageChanges(settings => {
             if (this.isDestroyed) return;
             void this.applyRemoteSettings(settings);
         });
+        // A late-injecting userscript (iPad Safari) can install the GM storage
+        // bridge after this hosted instance already loaded settings from the
+        // localStorage fallback. Re-load through the bridge so the shared GM
+        // settings (plus stranded-value recovery) apply without a page reload.
+        const onStorageBridgeReady = (): void => {
+            if (this.isDestroyed) return;
+            void loadSettings().then(settings => {
+                if (this.isDestroyed) return;
+                return this.applyRemoteSettings(settings);
+            });
+        };
+        addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+        this.unsubscribeSettingsStorageChanges = () => {
+            unsubscribeStoredChanges();
+            removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+        };
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {

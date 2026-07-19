@@ -6,7 +6,8 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
@@ -1611,12 +1612,48 @@ export async function loadSettings(): Promise<ReaderSettings> {
             recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
         }
 
+        const strandedRecord = strandedHostedLocalSettingsRecord();
+        if (strandedRecord) {
+            const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+            settings = recovery.settings;
+            recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+        }
+
         if (recoveredLegacySettings) await persistSettings(settings);
         return settings;
     } catch (error) {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+// Hosted pages (yomureader.com and friends) historically had no GM backend, so
+// settings edited there fell back to that origin's localStorage and never
+// reached the shared GM store the userscript reads on every other site. Once a
+// GM backend (usually the userscript storage bridge) is available, fold those
+// stranded values back in — but only where the shared settings still sit at
+// their defaults, so the installed copy's explicit choices always win.
+function strandedHostedLocalSettingsRecord(): Partial<ReaderSettings> | null {
+    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
+    return settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
+}
+
+function recoverStrandedHostedSettings(current: ReaderSettings, stranded: ReaderSettings): { settings: ReaderSettings; changed: boolean } {
+    let settings = current;
+    let changed = false;
+
+    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof ReaderSettings>) {
+        // The docs site force-enables demo-player settings in its localStorage
+        // copy; those writes are not user intent and must never replicate.
+        if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
+        if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+        if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
+
+        settings = { ...settings, [key]: stranded[key] };
+        changed = true;
+    }
+
+    return { settings, changed };
 }
 
 function recoverLegacySettings(current: ReaderSettings, legacy: ReaderSettings): { settings: ReaderSettings; changed: boolean } {

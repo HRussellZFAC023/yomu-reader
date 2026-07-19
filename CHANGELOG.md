@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.250] - 2026-07-19
+
+### Fixed
+
+- Settings saved on yomureader.com, such as the Jiten API key and the site theme, now reach the shared settings store the installed userscript reads on every other site: the storage bridge covers the whole yomureader.com site instead of only the app pages, and the site theme and language toggles write through it too.
+- Settings that earlier versions stranded in yomureader.com's own browser storage are recovered on the next visit with the userscript active: values chosen there fill in wherever the shared store still holds its default, while choices made on other sites keep priority, and homepage demo staging values are never copied into real settings.
+- When the userscript attaches late on yomureader.com, the page now switches to the shared settings as soon as its storage bridge connects instead of showing the site-local copy until the next reload.
+
 ## [1.6.249] - 2026-07-19
 
 ### Changed

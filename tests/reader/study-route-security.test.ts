@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isYomuHostedAppUrl, isYomuPrivilegedHostedAppUrl } from '../../src/reader/app/pages';
+import { isYomuHostedAppUrl, isYomuPrivilegedHostedAppUrl, isYomuStorageBridgeHostedUrl } from '../../src/reader/app/pages';
 import { isYomuNewTabUrl, isYomuStudyRoutePath } from '../../src/reader/newtab/url';
 import {
     installUserscriptHttpBridge,
@@ -51,6 +51,7 @@ describe('trusted Study route', () => {
         expect(isYomuNewTabUrl(value)).toBe(false);
         expect(isYomuHostedAppUrl(value)).toBe(false);
         expect(isYomuPrivilegedHostedAppUrl(value)).toBe(false);
+        expect(isYomuStorageBridgeHostedUrl(value)).toBe(false);
     });
 
     it('does not mistake path tricks on the trusted docs origin for the Study route', () => {
@@ -76,7 +77,7 @@ describe('trusted Study route', () => {
         expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBeUndefined();
     });
 
-    it('does not expose bridges to a non-app page even on the trusted docs origin', () => {
+    it('keeps the HTTP bridge off docs pages but lets the managed storage bridge cover the trusted origin', () => {
         vi.stubGlobal('location', new URL('https://yomureader.com/elsewhere/study/'));
         vi.stubGlobal('GM_xmlhttpRequest', vi.fn());
         vi.stubGlobal('GM_getValue', vi.fn());
@@ -85,8 +86,12 @@ describe('trusted Study route', () => {
         installUserscriptHttpBridge();
         installUserscriptGmStorageBridge();
 
+        // The HTTP bridge stays restricted to executable app routes. The
+        // storage bridge proxies managed Yomu keys only and must reach every
+        // trusted docs page, or settings edited on yomureader.com strand in
+        // that origin's localStorage instead of the shared GM store.
         expect(document.documentElement.dataset.yomuUserscriptHttpBridge).toBeUndefined();
-        expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBeUndefined();
+        expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBe('true');
     });
 });
 

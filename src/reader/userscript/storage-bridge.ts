@@ -1,4 +1,4 @@
-import { isYomuPrivilegedHostedAppUrl } from '../app/pages';
+import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { isManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail } from './bridge-detail';
@@ -208,7 +208,11 @@ function directGmListValues(): GmListValues | null {
 
 function shouldInstallUserscriptStorageBridge(): boolean {
     try {
-        return typeof location !== 'undefined' && isYomuPrivilegedHostedAppUrl(location.href);
+        // Broader than the HTTP bridge on purpose: every trusted hosted page
+        // (including the docs/reader site where the settings dialog lives) may
+        // reach the shared GM store, otherwise settings edited there strand in
+        // that origin's localStorage and never follow the user to other sites.
+        return typeof location !== 'undefined' && isYomuStorageBridgeHostedUrl(location.href);
     } catch {
         return false;
     }

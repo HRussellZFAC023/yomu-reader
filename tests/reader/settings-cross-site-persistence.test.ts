@@ -53,6 +53,78 @@ describe('settings persist across sites (message-based GM store)', () => {
     });
 });
 
+// Settings edited on yomureader.com historically fell back to that origin's
+// localStorage (no GM backend on docs pages before the storage bridge covered
+// them), so the jiten key or theme chosen there never followed the user to
+// other sites. Once a GM backend is reachable, loadSettings folds those
+// stranded values into the shared store — except demo-player staging keys the
+// docs theme force-writes, which are not user intent.
+describe('stranded hosted settings recovery (yomureader.com localStorage)', () => {
+    const hostedLocation = {
+        href: 'https://yomureader.com/',
+        hostname: 'yomureader.com',
+        pathname: '/',
+        origin: 'https://yomureader.com',
+    };
+
+    afterEach(() => {
+        localStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    it('folds stranded jiten key and theme into an existing shared store, ignoring demo staging keys', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { onboardingSeen: true });
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
+            jitenApiKey: 'stranded-key',
+            theme: 'dark',
+            subtitleControlsMode: 'always',
+        }));
+
+        const settings = await loadSettings();
+        expect(settings.jitenApiKey).toBe('stranded-key');
+        expect(settings.theme).toBe('dark');
+        expect(settings.subtitleControlsMode).toBe('auto');
+
+        const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
+        expect(shared.jitenApiKey).toBe('stranded-key');
+        expect(shared.theme).toBe('dark');
+        expect(shared.onboardingSeen).toBe(true);
+    });
+
+    it('keeps the shared store authoritative for values the user set elsewhere', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { theme: 'dark', jitenApiKey: 'real-key' });
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ jitenApiKey: 'stale-old-key' }));
+
+        const settings = await loadSettings();
+        expect(settings.theme).toBe('dark');
+        expect(settings.jitenApiKey).toBe('real-key');
+    });
+
+    it('strips demo staging keys when promoting a whole stranded blob into an empty shared store', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
+            jitenApiKey: 'stranded-key',
+            subtitleControlsMode: 'always',
+        }));
+
+        const settings = await loadSettings();
+        expect(settings.jitenApiKey).toBe('stranded-key');
+        expect(settings.subtitleControlsMode).toBe('auto');
+
+        const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
+        expect(shared.jitenApiKey).toBe('stranded-key');
+        expect(shared.subtitleControlsMode).not.toBe('always');
+    });
+});
+
 // Until 1.6.140 the YouTube filter notice's "hide" button silently persisted
 // youtubeShowFilterNotice=false — the only in-page path writing that key.
 // The one-time marker migration restores it; deliberate settings-dialog

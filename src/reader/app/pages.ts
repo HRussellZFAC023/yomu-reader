@@ -1,6 +1,7 @@
 export {
     isYomuHostedAppUrl,
     isYomuPrivilegedHostedAppUrl,
+    isYomuStorageBridgeHostedUrl,
     isYomuHostedPassivePage,
     isYomuHostedVideoPlayerPage,
     isYomuHostedPdfReaderPage,

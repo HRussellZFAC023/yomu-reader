@@ -25,6 +25,21 @@ export function isYomuPrivilegedHostedAppUrl(value: string): boolean {
         || isExactHostedAppPath(appUrl, 'academy');
 }
 
+/**
+ * Trust gate for the GM *storage* bridge only. Unlike the HTTP bridge, the
+ * storage bridge proxies managed Yomu keys exclusively, and every hosted
+ * yomureader.com / github-pages page already holds those values in same-origin
+ * localStorage via the hosted mirror — so exposing the shared GM store there
+ * adds no new surface, while withholding it strands settings edited on the
+ * docs/reader pages in per-origin localStorage.
+ */
+export function isYomuStorageBridgeHostedUrl(value: string): boolean {
+    const appUrl = readTrustedYomuUrl(value);
+    if (!appUrl) return false;
+    if (appUrl.originKind === 'docs' || appUrl.originKind === 'github-pages') return true;
+    return isYomuPrivilegedHostedAppUrl(value);
+}
+
 export function isYomuHostedPassivePage(value: string): boolean {
     const appUrl = readTrustedYomuUrl(value);
     return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;

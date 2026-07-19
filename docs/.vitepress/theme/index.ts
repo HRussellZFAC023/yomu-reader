@@ -12,6 +12,8 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
+import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
+import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
 import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import './custom.css';
@@ -166,21 +168,6 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 };
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-    showFurigana: true,
-    furiganaMode: 'all',
-    showPitchAccent: true,
-    wordUnderlineColorSource: 'pitch',
-    subtitlePlayerEnabled: true,
-    subtitleAutoDetect: true,
-    subtitleOverlayVisible: true,
-    subtitleControlsMode: 'always',
-    subtitleTranscriptVisible: false,
-    ocrEnabled: true,
-    ocrVideoPauseFrames: true,
-    ocrProvider: 'google-lens',
-    ocrOverlayTheme: 'auto',
-} as const;
 const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: 'ファントムハイヴ', spelling: 'ファントムハイヴ', reading: 'ファントムハイヴ', pitchPosition: 1 },
     { surface: '家', spelling: '家', reading: 'け', pitchPosition: 1 },
@@ -1747,6 +1734,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Slightly larger default popup typography for readability, especially on iPad: popup and dialog base text moves from 14 to 15 pixels, definitions and example sentences from 13 to 14 pixels, the headword from 24 to 26 pixels, the kana reading row from 15 to 16 pixels, and the default popup Japanese font weight from 400 to 450. Settings body text and in-page content sizes are unchanged, so existing layouts keep their geometry.': '特にiPadでの読みやすさのため、ポップアップの既定文字サイズをわずかに拡大しました。ポップアップとダイアログの基本文字は14pxから15pxへ、語義と例文は13pxから14pxへ、見出し語は24pxから26pxへ、かな読み行は15pxから16pxへ、ポップアップの日本語フォントの既定ウェイトは400から450になります。設定画面の本文とページ内コンテンツのサイズは変わらないため、既存のレイアウトはそのまま保たれます。',
     'Word-status highlighting from a connected Jiten, JPDB, or Anki source now shows by default on every content word, including words wrapped in links such as the cards and guides on yomureader.com. Previously linked words revealed their status colour only while hovered and otherwise looked like plain page links; interface chrome such as navigation bars, buttons, and tabs still stays uncoloured until hover.': '接続済みのJiten・JPDB・Ankiソースによる単語状態のハイライトが、yomureader.comのカードやガイドのようなリンクに包まれた単語を含む、すべての本文単語に既定で表示されるようになりました。これまでリンク内の単語はホバー中にだけ状態色を見せ、それ以外では通常のページリンクのように見えていました。ナビゲーションバー、ボタン、タブなどのインターフェースクロームは、引き続きホバーするまで色が付きません。',
     'The homepage Try me sample no longer fakes account word-status colours for visitors without a connected dictionary account: in a fresh or incognito browser it now shows exactly what a keyless install renders, furigana and pitch underlines, and the known/due/new status boxes appear only when the viewer really has a status source connected.': 'ホームページのTry meサンプルは、辞書アカウントを接続していない訪問者に対してアカウント由来の単語状態色を装わなくなりました。新規またはシークレットブラウザーでは、キーなしインストールが実際に描画するもの（ふりがなとピッチ下線）だけを表示し、既知・復習期限・新規の状態ボックスは、閲覧者が本当に状態ソースを接続している場合にのみ表示されます。',
+    'Settings saved on yomureader.com, such as the Jiten API key and the site theme, now reach the shared settings store the installed userscript reads on every other site: the storage bridge covers the whole yomureader.com site instead of only the app pages, and the site theme and language toggles write through it too.': 'yomureader.comで保存した設定（Jiten APIキーやサイトテーマなど）は、インストール済みユーザースクリプトが他のすべてのサイトで読む共有設定ストアに届くようになりました。ストレージブリッジがアプリページだけでなくyomureader.com全体をカバーし、サイトのテーマ切り替えや言語切り替えもブリッジ経由で書き込みます。',
+    'Settings that earlier versions stranded in yomureader.com\'s own browser storage are recovered on the next visit with the userscript active: values chosen there fill in wherever the shared store still holds its default, while choices made on other sites keep priority, and homepage demo staging values are never copied into real settings.': '以前のバージョンがyomureader.com自身のブラウザーストレージに取り残していた設定は、ユーザースクリプトが有効な次回訪問時に回収されます。そこで選んだ値は共有ストアがまだ既定値のままの項目にだけ反映され、他のサイトで行った選択が優先されます。ホームページのデモ用ステージング値が実際の設定へコピーされることはありません。',
+    'When the userscript attaches late on yomureader.com, the page now switches to the shared settings as soon as its storage bridge connects instead of showing the site-local copy until the next reload.': 'ユーザースクリプトがyomureader.comで遅れて起動した場合でも、ストレージブリッジが接続され次第ページは共有設定に切り替わり、次のリロードまでサイトローカルのコピーを表示し続けることはなくなりました。',
     'Clamped multi-line text rows that can grow in place, such as search-result snippets and description rows on many sites, now keep their furigana visible at rest: each line makes room for the reading naturally instead of hiding it until hover.': '検索結果のスニペットや多くのサイトの説明行のように、その場で高さを広げられる複数行の省略表示行では、ふりがなが常時表示されるようになりました。ホバーするまで読みを隠す代わりに、各行が自然に高さを広げて読みの場所を確保します。',
     'On browsers that cannot make room for furigana inside a clamped snippet row, the readings now stay tucked away instead of pushing the row\'s own text out of view. Rows that can grow keep their always-visible furigana.': '省略表示された行の中でふりがなの場所を確保できないブラウザーでは、行本来のテキストを押し出してしまう代わりに、読みを隠したままにするようになりました。高さを広げられる行では、常時表示のふりがなを維持します。',
     'Words that wrap across a line break now keep their pitch or word-state underline on every line, not only the first.': '行の折り返しをまたぐ単語は、最初の行だけでなくすべての行でピッチや単語状態の下線を保つようになりました。',
@@ -3171,10 +3161,7 @@ function readInterfaceLanguage(): string {
 }
 
 function saveInterfaceLanguage(language: InterfaceLanguage): void {
-    const settings = readStoredSettings();
-    settings.interfaceLanguage = language;
-    hostedSettingsEventPatch = { ...hostedSettingsEventPatch, interfaceLanguage: language };
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    writeStoredSettingsPatch({ interfaceLanguage: language });
     window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { language } }));
 }
 
@@ -3574,11 +3561,28 @@ function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, 
     return patch;
 }
 
-function writeStoredSettingsPatch(patch: Record<string, any>): Record<string, any> {
+function writeStoredSettingsPatch(patch: Record<string, any>, options: { shared?: boolean } = {}): Record<string, any> {
     const settings = { ...readStoredSettings(), ...patch };
     hostedSettingsEventPatch = { ...hostedSettingsEventPatch, ...patch };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    if (options.shared !== false) propagateSettingsPatchToSharedStorage(patch);
     return settings;
+}
+
+// The localStorage write above only reaches this origin. When the userscript's
+// storage bridge is active, patch the shared GM settings as well so docs-chrome
+// edits (theme toggle, HUD language) follow the user to every other site.
+// Read-modify-write against the shared copy so a stale hosted blob never
+// clobbers settings saved elsewhere.
+function propagateSettingsPatchToSharedStorage(patch: Record<string, any>): void {
+    void (async () => {
+        try {
+            const shared = await gmStorageGet<Record<string, any> | null>(SETTINGS_STORAGE_KEY, null);
+            await gmStorageSet(SETTINGS_STORAGE_KEY, { ...(shared ?? {}), ...patch });
+        } catch {
+            // Bridge unavailable: the localStorage copy stays authoritative here.
+        }
+    })();
 }
 
 function readStoredThemePreference(): HostedThemePreference {
@@ -4421,7 +4425,8 @@ function hostedPointerEvent(type: string, init: PointerEventInit): Event {
 
 function prepareHostedDemoVideoSettings(): void {
     if (!document.querySelector('[data-yomu-demo-player]')) return;
-    writeStoredSettingsPatch(HOSTED_DEMO_VIDEO_SETTINGS_PATCH);
+    // Demo-player staging only: never replicate these into the shared GM store.
+    writeStoredSettingsPatch(HOSTED_DEMO_VIDEO_SETTINGS_PATCH, { shared: false });
 }
 
 function prepareHostedMangaOcrDemo(): void {

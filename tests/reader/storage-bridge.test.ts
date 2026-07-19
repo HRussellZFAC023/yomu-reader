@@ -78,6 +78,19 @@ describe('userscript GM storage bridge', () => {
         await expect(storage.setValue('evil-site-token', 'changed')).rejects.toThrow();
     });
 
+    it('installs on the yomureader.com docs origin so settings edited there reach the shared store', () => {
+        vi.stubGlobal('location', {
+            href: 'https://yomureader.com/',
+            hostname: 'yomureader.com',
+            pathname: '/',
+            origin: 'https://yomureader.com',
+        });
+        stubGmStore(new Map());
+        installUserscriptGmStorageBridge();
+        expect(document.documentElement.dataset.yomuUserscriptStorageBridge).toBe('true');
+        expect(getUserscriptGmStorage()).toBeDefined();
+    });
+
     it('does not install on a non-hosted origin', () => {
         vi.stubGlobal('location', { href: 'https://jpdb.io/learn', hostname: 'jpdb.io', pathname: '/learn', origin: 'https://jpdb.io' });
         stubGmStore(new Map());

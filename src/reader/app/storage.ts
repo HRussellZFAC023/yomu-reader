@@ -1,4 +1,5 @@
 import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
+import { HOSTED_DEMO_SETTINGS_KEYS } from './hosted-demo-settings';
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
@@ -62,6 +63,19 @@ export interface FactoryResetSignalSource {
     transport: 'gm-storage' | 'broadcast-channel' | 'web-storage';
 }
 
+// True when reads/writes reach a shared GM store (direct GM_* APIs or the
+// hosted storage bridge) rather than falling back to per-origin localStorage.
+export function hasAsyncGmStorageBackend(): boolean {
+    return asyncGmGetValue() !== null;
+}
+
+// Raw read of this origin's localStorage fallback copy, bypassing GM. Used to
+// recover values a bridge-less session stranded here before the GM backend
+// became available.
+export function localFallbackStoredValue<T>(key: string, fallback: T): T {
+    return localStorageGet(key, fallback);
+}
+
 export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -70,8 +84,9 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
             if (!isMissingSentinel(value)) return value as T;
             const migrated = localStorageGet<T>(key, MISSING as T);
             if (!isMissingSentinel(migrated)) {
-                await gmStorageSet(key, migrated);
-                return migrated;
+                const promoted = sanitizedStrandedLocalValue(key, migrated);
+                await gmStorageSet(key, promoted);
+                return promoted;
             }
             return fallback;
         } catch (error) {
@@ -105,8 +120,26 @@ function gmStorageSyncRead<T>(key: string, getValue: GmGetValue): SyncStorageRea
 function migratedLocalStorageSyncValue<T>(key: string): SyncStorageRead<T> {
     const migrated = localStorageGet<T>(key, MISSING as T);
     if (isMissingSentinel(migrated)) return { kind: 'fallback' };
-    void gmStorageSet(key, migrated);
-    return { kind: 'found', value: migrated };
+    const promoted = sanitizedStrandedLocalValue(key, migrated);
+    void gmStorageSet(key, promoted);
+    return { kind: 'found', value: promoted };
+}
+
+// Mirrors SETTINGS_STORAGE_KEY in settings/index.ts; the settings module
+// depends on this one, so the literal cannot be imported from there.
+const HOSTED_SETTINGS_BLOB_KEY = 'jpdb-popup-reader-settings';
+
+// A hosted page's localStorage settings copy includes demo-player staging
+// values the docs theme force-writes. Promoting a stranded copy into the
+// shared GM store must drop those keys so visiting the homepage can never
+// flip the user's real settings everywhere. (Stranded-settings field recovery
+// in settings/index.ts applies the same exclusion.)
+function sanitizedStrandedLocalValue<T>(key: string, value: T): T {
+    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const record = { ...(value as Record<string, unknown>) };
+    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
+    return record as T;
 }
 
 export async function gmStorageSet(key: string, value: unknown): Promise<void> {
@@ -592,7 +625,7 @@ function shouldMirrorManagedValueToHostedStorage(key: string): boolean {
     return isManagedStorageKey(key) && isHostedYomuOrigin();
 }
 
-function isHostedYomuOrigin(): boolean {
+export function isHostedYomuOrigin(): boolean {
     try {
         const host = location.hostname;
         const path = location.pathname;
