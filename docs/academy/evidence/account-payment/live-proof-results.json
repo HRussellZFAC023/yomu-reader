@@ -1,0 +1,54 @@
+{
+  "origin": "https://yomureader.com",
+  "ranAt": "2026-07-19T10:32:38.363Z",
+  "results": [
+    {
+      "step": "worker health",
+      "outcome": "pass",
+      "detail": "",
+      "at": "2026-07-19T10:31:04.509Z"
+    },
+    {
+      "step": "checkout session created (test mode, £2)",
+      "outcome": "pass",
+      "detail": "status 200, host+mode checkout.stripe.com cs_test_",
+      "at": "2026-07-19T10:31:08.089Z"
+    },
+    {
+      "step": "HttpOnly claim cookie bound to this browser",
+      "outcome": "pass",
+      "detail": "value …(43 chars, redacted)",
+      "at": "2026-07-19T10:31:08.090Z"
+    },
+    {
+      "step": "cancel return scrubbed from address bar",
+      "outcome": "pass",
+      "detail": "cancel param seen: false",
+      "at": "2026-07-19T10:31:10.066Z"
+    },
+    {
+      "step": "Stripe test payment redirected to success URL",
+      "outcome": "pass",
+      "detail": "session_id cs_test_…(66 chars, redacted)",
+      "at": "2026-07-19T10:31:21.422Z"
+    },
+    {
+      "step": "success/session_id scrubbed from address bar",
+      "outcome": "pass",
+      "detail": "",
+      "at": "2026-07-19T10:31:21.434Z"
+    },
+    {
+      "step": "signed webhook fulfilled and claim returned the paid code",
+      "outcome": "fail",
+      "detail": "claim ended as null",
+      "at": "2026-07-19T10:32:38.267Z"
+    },
+    {
+      "step": "runner aborted",
+      "outcome": "fail",
+      "detail": "No paid code claimed; aborting dependent steps.",
+      "at": "2026-07-19T10:32:38.268Z"
+    }
+  ]
+}

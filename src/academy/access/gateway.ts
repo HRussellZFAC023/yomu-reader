@@ -61,6 +61,34 @@ export function sessionCanResume(session: InviteSession, now: number, online: bo
     return online ? session.expiresAt > now : session.offlineResumeUntil > now;
 }
 
+/**
+ * Rotate the HttpOnly session cookie through the Worker while the fixed
+ * 30-day offline-resume window is still valid. Returns the refreshed session
+ * contract, or null when the Worker refuses (revoked, unknown, or beyond the
+ * resume window) or cannot be reached — callers fall back to the invite
+ * screen either way, so failures stay deterministic and silent.
+ */
+export async function resumeInviteSession(
+    request: typeof fetch = (...args) => fetch(...args),
+): Promise<InviteSession | null> {
+    let response: Response;
+    try {
+        response = await request('/academy/api/session/resume', {
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+        });
+    } catch {
+        return null;
+    }
+    if (!response.ok) return null;
+    try {
+        return normalizeSession(await response.json(), 'cloudflare');
+    } catch {
+        return null;
+    }
+}
+
 function normalizeCode(code: string): string {
     const normalized = code.trim().toUpperCase();
     if (!/^[A-Z0-9-]{4,64}$/.test(normalized)) throw new AccessError('invalid', 'Invitation code is malformed.');

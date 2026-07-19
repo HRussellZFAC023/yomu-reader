@@ -2,7 +2,7 @@ import { hmacSha256Hex, randomToken } from './crypto';
 import type { Clock, Env } from './env';
 import { clearHostCookie, hostCookie, HttpError, jsonResponse, readCookie, readJsonBody, requireSameOriginMutation } from './http';
 import { inviteCodeHash, normalizeInviteCode } from './invites';
-import { clientSubject, enforceRateLimit, OAUTH_RATE, SESSION_RATE } from './rate-limit';
+import { clientSubject, enforceRateLimit, OAUTH_RATE, RESUME_RATE, SESSION_RATE } from './rate-limit';
 
 const SESSION_COOKIE = '__Host-academy_session';
 const SESSION_TTL_MS = 8 * 60 * 60_000;
@@ -134,7 +134,7 @@ export async function handleGetSession(request: Request, env: Env, clock: Clock)
 export async function handleResumeSession(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
-    await enforceRateLimit(env, await clientSubject(request, env), SESSION_RATE, now);
+    await enforceRateLimit(env, await clientSubject(request, env), RESUME_RATE, now);
     const oldToken = readCookie(request, SESSION_COOKIE);
     if (!oldToken) throw new HttpError(401, 'No resumable session.');
     const newToken = randomToken(32);

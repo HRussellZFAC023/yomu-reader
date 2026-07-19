@@ -110,6 +110,10 @@ export class AcademySyncClient {
     private phase: AcademySyncPhase = 'local';
     private error: string | null = null;
     private pending = Promise.resolve();
+    /** Single-flight cookie rotation shared by concurrent 401 responses. */
+    private sessionResume: Promise<boolean> | null = null;
+    /** A definitive refusal stops further automatic attempts until a new session succeeds. */
+    private sessionResumeRefused = false;
     private readonly queuedLocalEventIds = new Set<string>();
 
     constructor(private readonly options: AcademySyncClientOptions) {
@@ -332,18 +336,24 @@ export class AcademySyncClient {
     async exportData(): Promise<Blob> {
         await this.connect();
         const endpoint = this.account ? '/academy/api/account/export' : '/academy/api/profile/export';
-        const response = await this.request(endpoint, { credentials: 'same-origin' });
+        const response = await this.authorizedRequest(endpoint, { credentials: 'same-origin' });
         if (!response.ok) throw await responseError(response);
         return response.blob();
     }
 
-    async signOut(): Promise<void> {
-        await this.json('/academy/api/logout', { method: 'POST' });
-        this.account = null;
-        this.entitlement = null;
-        this.awaitingPairProfile = null;
-        this.phase = 'signed-out';
-        this.error = null;
+    signOut(): Promise<void> {
+        // Serialized behind any in-flight sync so a 401-triggered cookie
+        // rotation cannot interleave with the revoke and leave the rotated
+        // server session alive after the learner chose to sign out.
+        return this.enqueue(async () => {
+            await this.json('/academy/api/logout', { method: 'POST' });
+            this.sessionResumeRefused = true;
+            this.account = null;
+            this.entitlement = null;
+            this.awaitingPairProfile = null;
+            this.phase = 'signed-out';
+            this.error = null;
+        });
     }
 
     async deleteRemoteData(scope: 'profile' | 'account'): Promise<void> {
@@ -462,7 +472,7 @@ export class AcademySyncClient {
             if (!entries.length) return;
             // Push returns its result body on both 200 (all merged) and 409
             // (byte conflict on at least one id); other statuses are failures.
-            const response = await this.request('/academy/api/srs/push', {
+            const response = await this.authorizedRequest('/academy/api/srs/push', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -586,7 +596,7 @@ export class AcademySyncClient {
     }
 
     private async json(path: string, init: { method?: string; body?: unknown } = {}): Promise<unknown> {
-        const response = await this.request(path, {
+        const response = await this.authorizedRequest(path, {
             method: init.method ?? 'GET',
             credentials: 'same-origin',
             headers: init.body === undefined ? undefined : { 'content-type': 'application/json' },
@@ -594,6 +604,44 @@ export class AcademySyncClient {
         });
         if (!response.ok) throw await responseError(response);
         return response.json();
+    }
+
+    /**
+     * Authorized requests recover an expired short session exactly once: the
+     * Worker rotates the HttpOnly cookie while the 30-day offline-resume
+     * window holds, so a long-lived tab crossing the eight-hour authorization
+     * boundary keeps its account, profile, and entitlement without replaying
+     * an invite. A refused rotation surfaces the original 401 unchanged.
+     */
+    private async authorizedRequest(path: string, init: RequestInit): Promise<Response> {
+        const response = await this.request(path, init);
+        if (response.ok) this.sessionResumeRefused = false;
+        if (response.status !== 401 || this.sessionResumeRefused) return response;
+        if (!(await this.resumeExpiredSession())) return response;
+        return this.request(path, init);
+    }
+
+    private resumeExpiredSession(): Promise<boolean> {
+        this.sessionResume ??= (async () => {
+            try {
+                const rotated = await this.request('/academy/api/session/resume', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                });
+                // A refused rotation (revoked or beyond the 30-day window) is
+                // final for this session; do not burn further attempts on it.
+                if (rotated.status === 401 || rotated.status === 403) this.sessionResumeRefused = true;
+                return rotated.ok;
+            } catch {
+                return false;
+            } finally {
+                // Later expiries in this tab may rotate again; concurrent
+                // callers of this attempt already share the same promise.
+                setTimeout(() => { this.sessionResume = null; }, 0);
+            }
+        })();
+        return this.sessionResume;
     }
 
     private requireState(): StoredSyncState {

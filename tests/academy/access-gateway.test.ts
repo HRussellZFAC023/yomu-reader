@@ -1,6 +1,7 @@
 import {
     AccessError,
     HttpAccessGateway,
+    resumeInviteSession,
     sessionCanResume,
 } from '../../src/academy/access/gateway';
 
@@ -59,6 +60,30 @@ describe('Academy access gateway', () => {
         }), { status: 200, headers: { 'content-type': 'application/json' } }));
         await expect(new HttpAccessGateway('/academy/api/session', request as typeof fetch).exchange('CLASS-TEST-2026'))
             .rejects.toMatchObject({ code: 'malformed' });
+    });
+
+    it('rotates a resumable session through the resume endpoint with the cookie attached', async () => {
+        const now = Date.now();
+        const request = vi.fn(async () => new Response(JSON.stringify({
+            sessionId: 'session-rotated',
+            expiresAt: now + 60_000,
+            offlineResumeUntil: now + 120_000,
+            accountRequired: true,
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+        const session = await resumeInviteSession(request as typeof fetch);
+        expect(session).toMatchObject({ sessionId: 'session-rotated', accountRequired: true, source: 'cloudflare' });
+        expect(request).toHaveBeenCalledWith('/academy/api/session/resume', expect.objectContaining({
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+        }));
+    });
+
+    it('returns null when the resume window closed, the network failed, or the contract is malformed', async () => {
+        await expect(resumeInviteSession(vi.fn(async () => new Response(JSON.stringify({ error: 'No resumable session.' }), { status: 401 })) as typeof fetch)).resolves.toBeNull();
+        await expect(resumeInviteSession(vi.fn(async () => { throw new Error('offline'); }) as typeof fetch)).resolves.toBeNull();
+        await expect(resumeInviteSession(vi.fn(async () => new Response(JSON.stringify({ sessionId: 'x', expiresAt: Date.now() - 1, offlineResumeUntil: 0, accountRequired: true }), { status: 200 })) as typeof fetch)).resolves.toBeNull();
     });
 
     it('allows bounded offline resume without inspecting the invitation code', () => {

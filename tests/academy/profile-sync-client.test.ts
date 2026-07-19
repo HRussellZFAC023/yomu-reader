@@ -79,6 +79,47 @@ describe('Academy encrypted profile sync client', () => {
         expect(JSON.stringify(request.mock.calls)).not.toContain('googleToken');
     });
 
+    it('rotates an expired session cookie once and restores the account instead of demanding a new invite', async () => {
+        const api = fakeApi({ accountId: ACCOUNT_ID });
+        let expired = true;
+        const request = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+            if (String(path) === '/academy/api/session/resume') {
+                expect(init?.method).toBe('POST');
+                expired = false;
+                return response({
+                    sessionId: 'rotated-session',
+                    expiresAt: Date.now() + 60_000,
+                    offlineResumeUntil: Date.now() + 120_000,
+                    accountRequired: true,
+                });
+            }
+            if (expired) return response({ error: 'No active session.' }, 401);
+            return api(path, init);
+        });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+
+        const status = await client.connect();
+
+        expect(status.phase).toBe('pair');
+        expect(status.account?.identity.label).toBe('Aakash#419213');
+        expect(request.mock.calls.filter(([path]) => String(path) === '/academy/api/session/resume')).toHaveLength(1);
+    });
+
+    it('surfaces the sign-in gate unchanged when the resume window has closed', async () => {
+        const request = vi.fn(async (path: RequestInfo | URL) => String(path) === '/academy/api/session/resume'
+            ? response({ error: 'No resumable session.' }, 401)
+            : response({ error: 'No active session.' }, 401));
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+
+        expect((await client.connect()).phase).toBe('sign-in');
+        expect(request.mock.calls.filter(([path]) => String(path) === '/academy/api/session/resume')).toHaveLength(1);
+
+        // The refusal is remembered: reconnecting does not burn another
+        // rotation attempt on a session that is definitively gone.
+        expect((await client.connect()).phase).toBe('sign-in');
+        expect(request.mock.calls.filter(([path]) => String(path) === '/academy/api/session/resume')).toHaveLength(1);
+    });
+
     it('requires explicit first-device setup before an account can mint its sync key', async () => {
         const request = fakeApi({ accountId: ACCOUNT_ID });
         const client = new AcademySyncClient({

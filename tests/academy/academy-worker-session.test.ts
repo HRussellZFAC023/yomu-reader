@@ -3,6 +3,7 @@ import worker from '../../workers/yomu-academy/src/index';
 import { inviteCodeHash } from '../../workers/yomu-academy/src/invites';
 import type { Env } from '../../workers/yomu-academy/src/env';
 import { createFakeAcademy, jsonRequest, type FakeAcademy } from './helpers/fake-academy-env';
+import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
 const ctx = { waitUntil: () => undefined };
 
@@ -118,6 +119,32 @@ describe('Academy Worker sessions', () => {
         // A different client subject is unaffected.
         const other = jsonRequest('/academy/api/session', { code: 'WRONG-CODE' }, { 'cf-connecting-ip': '198.51.100.9' });
         expect((await dispatch(academy.env, other)).status).toBe(403);
+    });
+
+    it('keeps automatic cookie rotation out of the human invite-exchange rate budget', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            academy.db.rows(
+                'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
+                + "VALUES ('rate-invite', ?, 3, 'seed', ?, NULL, NULL, 1) RETURNING id",
+                await inviteCodeHash(academy.env, 'OPEN2026'), Date.now() - 1,
+            );
+            const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
+            const cookie = sessionCookie(created);
+
+            // Exhaust the invite-exchange bucket for this client subject.
+            for (let attempt = 0; attempt < 11; attempt += 1) {
+                await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'WRONG-CODE' }));
+            }
+            expect((await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }))).status).toBe(429);
+
+            // Rotation still succeeds: it draws from its own resume bucket.
+            const resumed = await dispatch(academy.env, jsonRequest('/academy/api/session/resume', {}, { cookie }));
+            expect(resumed.status).toBe(200);
+            expect(sessionCookie(resumed)).not.toBe(cookie);
+        } finally {
+            academy.close();
+        }
     });
 
     it('logs out by revoking the session and clearing the cookie', async () => {

@@ -1,7 +1,7 @@
 import type { AcademyLanguage } from '../reader/app/academy-copy';
 import { ACADEMY_ACCOUNT_ACTION_EVENT, academyAccountActionDetail } from './account/actions';
 import { AcademySyncClient, createSyncingLearnerEventRepository } from './account/sync-client';
-import { createAccessGateway, type AccessGateway } from './access/gateway';
+import { createAccessGateway, resumeInviteSession, sessionCanResume, type AccessGateway } from './access/gateway';
 import { AudioDirector } from './audio/director';
 import { createAuthorizedAcademyAudioDirector } from './audio/runtime';
 import { WorkerTtsPronunciationService } from './audio/worker-tts';
@@ -138,7 +138,8 @@ export class AcademyApp {
             audio: this.audio,
             sync: this.sync,
         });
-        const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+        let restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+        restoredCheckpoint = await this.refreshExpiredSession(restoredCheckpoint);
         // Account evidence must be settled before the resume checkpoint is
         // normalized: an invite session alone never reopens Academy routes.
         const returnedFromGoogle = await this.sync.completeGoogleReturn();
@@ -156,6 +157,31 @@ export class AcademyApp {
         this.shell.setPresentationMode(this.checkpoint.presentationMode);
         this.bindLifecycle();
         await this.render();
+    }
+
+    /**
+     * Rotate an expired Worker session cookie before the resume checkpoint is
+     * normalized. Within the fixed 30-day offline-resume window the Worker
+     * re-issues an eight-hour authorization without spending an invite, so a
+     * linked learner returning after the short session lapsed lands back in
+     * Academy instead of the invite screen. Refusals leave the checkpoint
+     * untouched and fall through to the existing access gate.
+     */
+    private async refreshExpiredSession(checkpoint: AcademyCheckpoint): Promise<AcademyCheckpoint> {
+        const session = checkpoint.session;
+        const now = Date.now();
+        if (
+            !session
+            || session.source !== 'cloudflare'
+            || !navigator.onLine
+            || sessionCanResume(session, now, true)
+            || session.offlineResumeUntil <= now
+        ) return checkpoint;
+        const refreshed = await resumeInviteSession();
+        if (!refreshed) return checkpoint;
+        const refreshedCheckpoint = { ...checkpoint, session: refreshed, updatedAt: Date.now() };
+        await this.persistence.checkpoint.save(refreshedCheckpoint).catch(() => undefined);
+        return refreshedCheckpoint;
     }
 
     dispose(): void {
