@@ -40375,7 +40375,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.212".trim() ? "1.6.212".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.213".trim() ? "1.6.213".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -64393,14 +64393,14 @@ ${component.reading}`;
     return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
   }
   function selectExactBunproDefinition(candidates, expression, reading) {
-    const normalizedExpression = normalizedLookupText$1(expression);
-    const exactExpression = candidates.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
+    const normalizedExpression = normalizedLookupText$2(expression);
+    const exactExpression = candidates.filter((item) => normalizedLookupText$2(item.expression) === normalizedExpression);
     if (!exactExpression.length) return noBunproMatch("expression-mismatch");
     return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
   }
   function selectExactBunproReading(candidates, reading) {
-    const normalizedReading = normalizedLookupText$1(reading);
-    const exactReading = candidates.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
+    const normalizedReading = normalizedLookupText$2(reading);
+    const exactReading = candidates.filter((item) => normalizedLookupText$2(item.reading) === normalizedReading);
     return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
   }
   function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
@@ -64518,7 +64518,7 @@ ${component.reading}`;
     if (type === "vocabulary" || type === "grammar") return type;
     return void 0;
   }
-  function normalizedLookupText$1(value) {
+  function normalizedLookupText$2(value) {
     return value.normalize("NFKC").trim();
   }
   function normalizeBunproJlptLevel(value) {
@@ -65278,6 +65278,9 @@ ${component.reading}`;
   }
   function emptyAnkiLookupResult() {
     return { state: "not-in-deck", notes: [], primary: null };
+  }
+  function normalizedLookupText$1(text2) {
+    return text2.replace(/\s+/g, " ").trim();
   }
   function isRubyAnnotation(element) {
     return element.tagName === "RT" || element.tagName === "RP";
@@ -74702,6 +74705,30 @@ ${options.version}`;
     if (value > max2) return value - max2;
     return 0;
   }
+  function renderedWordCacheMatches(word, card) {
+    const expression = normalizedLookupText$1(word.dataset.expression ?? "");
+    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
+    if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
+    return true;
+  }
+  function cardMatchesRenderedLookupValue(card, value) {
+    return normalizedLookupText$1(card.spelling) === value || normalizedLookupText$1(card.reading) === value;
+  }
+  function renderedWordCardForLookup(word, cachedCard) {
+    if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
+    if (!cachedCard) return void 0;
+    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
+    const explicitSpelling = normalizedLookupText$1(word.dataset.expression || "");
+    if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
+    if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
+    if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
+    return cachedCard;
+  }
+  function renderedWordPitchAccent(value) {
+    return value.split("|").map((pattern) => pattern.trim()).filter((pattern) => /^[HL]+$/u.test(pattern));
+  }
   function eventTargetElement(target) {
     if (target instanceof HTMLElement) return target;
     if (target instanceof Element) return closestHtmlAncestor(target);
@@ -82050,7 +82077,8 @@ ${entry.url}`),
     }
     cachedCardForRenderedWord(word) {
       const getCachedCard = this.dependencies.parser.getCachedCard;
-      return typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
+      const cachedCard = typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
+      return renderedWordCardForLookup(word, cachedCard);
     }
     handlePromptLookupClick(root, target, event) {
       const request = this.promptLookupRequest(root, target);
@@ -88324,6 +88352,7 @@ ${entry.url}`),
           vid: card.vid,
           sid: card.sid,
           pitchClass,
+          pitchAccent: card.pitchAccent.join("|"),
           sentence
         },
         tabIndex: -1

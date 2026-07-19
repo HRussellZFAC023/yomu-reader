@@ -222813,6 +222813,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       sid: scope2.dataset.cardHighlightSid
     };
   }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   function compactReading(value) {
@@ -222893,6 +222897,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function unannotatedPronunciationText$1(value) {
     return Array.from(value).filter((character) => !KANJI_RE$2.test(character)).join("");
+  }
+  function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
+    const classified = segments.map((segment) => ({
+      segment,
+      pitchClass: segment.pitch ? getPitchClass([segment.pitch.pitch], segment.pitch.reading) : ""
+    }));
+    if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return "";
+    return classified.map(({ segment, pitchClass }) => {
+      if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
+      const { text: text2, reading } = segment.pitch;
+      const content = renderCardSpellingWithFurigana({
+        ...card,
+        spelling: text2,
+        reading,
+        wordWithReading: null
+      }, settings, kanjiNavigation);
+      return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$1(pitchClass)}">${content}</span>`;
+    }).join("");
   }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
@@ -230433,41 +230455,55 @@ ${entry2.reading || ""}`;
     const characters = Array.from(component.text);
     return characters.length > 0 && component.text === component.reading && characters.every((character) => EXPRESSION_CONNECTIVE_KANA.has(character));
   }
-  function alignedExpressionComponentPitches(card, components2, componentPitches) {
-    if (!components2.length) return [];
+  function alignExpressionComponentSegments(card, components2, componentPitches) {
+    if (!components2.length) return null;
     const spellingChars = Array.from(card.spelling.trim());
     const readingChars = Array.from(cardPronunciationReading(card));
-    const aligned = [];
+    const segments = [];
     let spellingCursor = 0;
     let readingCursor = 0;
-    let skippedConnectives = 0;
+    let hadSkippedConnective = false;
     const skipConnectives = (next) => {
+      let run = "";
       while (spellingCursor < spellingChars.length && spellingChars[spellingCursor] === readingChars[readingCursor] && EXPRESSION_CONNECTIVE_KANA.has(spellingChars[spellingCursor]) && !(next && matchesAt(spellingChars, spellingCursor, next.text) && matchesAt(readingChars, readingCursor, next.reading))) {
+        run += spellingChars[spellingCursor];
         spellingCursor += 1;
         readingCursor += 1;
-        skippedConnectives += 1;
+        hadSkippedConnective = true;
       }
+      if (run) segments.push({ text: run, pitch: null });
     };
     for (const component of components2) {
       skipConnectives(component);
-      if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return [];
+      if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
+      const text2 = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
       spellingCursor += Array.from(component.text).length;
       readingCursor += Array.from(component.reading).length;
       const pitch = componentPitches.find((candidate2) => candidate2.text === component.text && candidate2.reading === component.reading);
       if (pitch) {
-        aligned.push(pitch);
+        segments.push({ text: text2, pitch });
         continue;
       }
       if (isConnectiveKanaOnly(component)) {
-        skippedConnectives += 1;
+        hadSkippedConnective = true;
+        segments.push({ text: text2, pitch: null });
         continue;
       }
-      return [];
+      return null;
     }
     skipConnectives();
-    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return [];
-    if (!aligned.length || aligned.length < 2 && !skippedConnectives) return [];
-    return aligned;
+    if (spellingCursor !== spellingChars.length || readingCursor !== readingChars.length) return null;
+    const aligned = segments.filter((segment) => segment.pitch);
+    if (!aligned.length || aligned.length < 2 && !hadSkippedConnective) return null;
+    return segments;
+  }
+  function alignedExpressionComponentPitches(card, components2, componentPitches) {
+    const segments = alignExpressionComponentSegments(card, components2, componentPitches);
+    if (!segments) return [];
+    return segments.map((segment) => segment.pitch).filter((pitch) => Boolean(pitch));
+  }
+  function headwordComponentPitchSegments(card, components2, componentPitches) {
+    return alignExpressionComponentSegments(card, components2, componentPitches) ?? [];
   }
   function renderExpressionComponentPitches(components2) {
     const graphs = components2.map((component) => ({
@@ -230684,10 +230720,6 @@ ${entry2.reading || ""}`;
     const fuzzy = tokens.find((token) => selected2.includes(token.card.spelling) || token.card.spelling.includes(selected2));
     return fuzzy;
   }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
   function bunproDefinitionStatusAttributes(status) {
     if (!status) return "";
     const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$1(status.reason)}"` : "";
@@ -230759,7 +230791,7 @@ ${entry2.reading || ""}`;
     renderHeader(card, data, view, trigger) {
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
-                ${this.renderTitleRow(card, view)}
+                ${this.renderTitleRow(card, data, view)}
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
@@ -230768,12 +230800,16 @@ ${entry2.reading || ""}`;
             </div>
         </div>`;
     }
-    renderTitleRow(card, view) {
+    renderTitleRow(card, data, view) {
       const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
+      const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
+      const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
+      const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
+      const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -231702,14 +231738,14 @@ ${component.reading}`;
     return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
   }
   function selectExactBunproDefinition(candidates, expression, reading) {
-    const normalizedExpression = normalizedLookupText$1(expression);
-    const exactExpression = candidates.filter((item2) => normalizedLookupText$1(item2.expression) === normalizedExpression);
+    const normalizedExpression = normalizedLookupText$2(expression);
+    const exactExpression = candidates.filter((item2) => normalizedLookupText$2(item2.expression) === normalizedExpression);
     if (!exactExpression.length) return noBunproMatch("expression-mismatch");
     return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
   }
   function selectExactBunproReading(candidates, reading) {
-    const normalizedReading = normalizedLookupText$1(reading);
-    const exactReading = candidates.filter((item2) => normalizedLookupText$1(item2.reading) === normalizedReading);
+    const normalizedReading = normalizedLookupText$2(reading);
+    const exactReading = candidates.filter((item2) => normalizedLookupText$2(item2.reading) === normalizedReading);
     return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
   }
   function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
@@ -231827,7 +231863,7 @@ ${component.reading}`;
     if (type === "vocabulary" || type === "grammar") return type;
     return void 0;
   }
-  function normalizedLookupText$1(value) {
+  function normalizedLookupText$2(value) {
     return value.normalize("NFKC").trim();
   }
   function normalizeBunproJlptLevel(value) {
@@ -234010,6 +234046,9 @@ ${component.reading}`;
   }
   function emptyAnkiLookupResult() {
     return { state: "not-in-deck", notes: [], primary: null };
+  }
+  function normalizedLookupText$1(text2) {
+    return text2.replace(/\s+/g, " ").trim();
   }
   function isRubyAnnotation(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";
@@ -243719,6 +243758,30 @@ ${options.version}`;
     if (value > max2) return value - max2;
     return 0;
   }
+  function renderedWordCacheMatches(word, card) {
+    const expression = normalizedLookupText$1(word.dataset.expression ?? "");
+    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
+    if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
+    return true;
+  }
+  function cardMatchesRenderedLookupValue(card, value) {
+    return normalizedLookupText$1(card.spelling) === value || normalizedLookupText$1(card.reading) === value;
+  }
+  function renderedWordCardForLookup(word, cachedCard) {
+    if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
+    if (!cachedCard) return void 0;
+    const reading = normalizedLookupText$1(word.dataset.reading ?? "");
+    const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
+    const explicitSpelling = normalizedLookupText$1(word.dataset.expression || "");
+    if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
+    if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
+    if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
+    return cachedCard;
+  }
+  function renderedWordPitchAccent(value) {
+    return value.split("|").map((pattern) => pattern.trim()).filter((pattern) => /^[HL]+$/u.test(pattern));
+  }
   function eventTargetElement(target) {
     if (target instanceof HTMLElement) return target;
     if (target instanceof Element) return closestHtmlAncestor(target);
@@ -251642,7 +251705,8 @@ ${entry2.url}`),
     }
     cachedCardForRenderedWord(word) {
       const getCachedCard = this.dependencies.parser.getCachedCard;
-      return typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
+      const cachedCard = typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
+      return renderedWordCardForLookup(word, cachedCard);
     }
     handlePromptLookupClick(root, target, event) {
       const request2 = this.promptLookupRequest(root, target);
@@ -257916,6 +257980,7 @@ ${entry2.url}`),
           vid: card.vid,
           sid: card.sid,
           pitchClass,
+          pitchAccent: card.pitchAccent.join("|"),
           sentence
         },
         tabIndex: -1

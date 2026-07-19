@@ -26,6 +26,7 @@ import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } fro
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { pointInElementClientRects } from '../dom/pointer-geometry';
+import { renderedWordCardForLookup } from '../main/rendered-word-lookup';
 import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
@@ -2277,9 +2278,10 @@ export class NewTabController {
 
     private cachedCardForRenderedWord(word: HTMLElement): JPDBCard | undefined {
         const getCachedCard = (this.dependencies.parser as ReaderParser & { getCachedCard?: (vid: number, sid: number) => JPDBCard | undefined }).getCachedCard;
-        return typeof getCachedCard === 'function'
+        const cachedCard = typeof getCachedCard === 'function'
             ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid))
             : undefined;
+        return renderedWordCardForLookup(word, cachedCard);
     }
 
     private handlePromptLookupClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
@@ -9811,6 +9813,7 @@ export class NewTabController {
                 vid: card.vid,
                 sid: card.sid,
                 pitchClass,
+                pitchAccent: card.pitchAccent.join('|'),
                 sentence,
             },
             tabIndex: -1,

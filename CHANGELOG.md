@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.213] - 2026-07-19
+
+### Fixed
+
+- Preserved exact pitch contours across the rendered Study-word lookup boundary, so clicking 自（じ） reuses the pitch already resolved for Listen/Speak instead of reopening a pitch-empty cached card and claiming “Exact pitch unavailable”.
+
 ## [1.6.212] - 2026-07-19
 
 ### Fixed
