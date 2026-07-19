@@ -12308,6 +12308,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isManagedStorageKey(key2) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
   }
+  const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+    showFurigana: true,
+    furiganaMode: "all",
+    showPitchAccent: true,
+    wordUnderlineColorSource: "pitch",
+    subtitlePlayerEnabled: true,
+    subtitleAutoDetect: true,
+    subtitleOverlayVisible: true,
+    subtitleControlsMode: "always",
+    subtitleTranscriptVisible: false,
+    ocrEnabled: true,
+    ocrVideoPauseFrames: true,
+    ocrProvider: "google-lens",
+    ocrOverlayTheme: "auto"
+  };
+  const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
   function delay(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
@@ -13047,6 +13063,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // reset owns it via the '__yomu' prefix, but backups must not replay it.
     "__yomu_cloud_settings_sync_pending_action"
   ]);
+  function hasAsyncGmStorageBackend() {
+    return asyncGmGetValue() !== null;
+  }
+  function localFallbackStoredValue(key2, fallback) {
+    return localStorageGet(key2, fallback);
+  }
   async function gmStorageGet(key2, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
@@ -13055,8 +13077,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         if (!isMissingSentinel(value)) return value;
         const migrated = localStorageGet(key2, MISSING);
         if (!isMissingSentinel(migrated)) {
-          await gmStorageSet(key2, migrated);
-          return migrated;
+          const promoted = sanitizedStrandedLocalValue(key2, migrated);
+          await gmStorageSet(key2, promoted);
+          return promoted;
         }
         return fallback;
       } catch (error) {
@@ -13087,8 +13110,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function migratedLocalStorageSyncValue(key2) {
     const migrated = localStorageGet(key2, MISSING);
     if (isMissingSentinel(migrated)) return { kind: "fallback" };
-    void gmStorageSet(key2, migrated);
-    return { kind: "found", value: migrated };
+    const promoted = sanitizedStrandedLocalValue(key2, migrated);
+    void gmStorageSet(key2, promoted);
+    return { kind: "found", value: promoted };
+  }
+  const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+  function sanitizedStrandedLocalValue(key2, value) {
+    if (key2 !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const record2 = { ...value };
+    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+    return record2;
   }
   async function gmStorageSet(key2, value) {
     const setValue = asyncGmSetValue();
@@ -18159,12 +18191,34 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
+      const strandedRecord = strandedHostedLocalSettingsRecord();
+      if (strandedRecord) {
+        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+        settings = recovery.settings;
+        recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+      }
       if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
       log$v.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  function strandedHostedLocalSettingsRecord() {
+    if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
+    return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+  }
+  function recoverStrandedHostedSettings(current, stranded) {
+    let settings = current;
+    let changed = false;
+    for (const key2 of Object.keys(DEFAULT_SETTINGS)) {
+      if (HOSTED_DEMO_SETTINGS_KEYS.has(key2)) continue;
+      if (!settingsValueEquals(settings[key2], DEFAULT_SETTINGS[key2])) continue;
+      if (settingsValueEquals(stranded[key2], DEFAULT_SETTINGS[key2])) continue;
+      settings = { ...settings, [key2]: stranded[key2] };
+      changed = true;
+    }
+    return { settings, changed };
   }
   function recoverLegacySettings(current, legacy) {
     let settings = current;
@@ -19705,11 +19759,18 @@ ${spelling}`);
     }
     if (!shadowBranchHasJapanese(shadowRoot, SHADOW_SCAN_MAX_DEPTH - state.shadowDepth)) return;
     flushFragmentTextTarget(state);
-    if (fragmentCollectionComplete(state)) return;
+    if (fragmentCollectionComplete(state)) {
+      deferDepthCappedShadowHost(element2);
+      return;
+    }
     state.shadowDepth += 1;
-    for (const child of Array.from(shadowRoot.childNodes)) {
-      visitFragmentNode(child, state, false);
-      if (fragmentCollectionComplete(state)) break;
+    const shadowChildren = Array.from(shadowRoot.childNodes);
+    for (let index = 0; index < shadowChildren.length; index += 1) {
+      visitFragmentNode(shadowChildren[index], state, false);
+      if (fragmentCollectionComplete(state)) {
+        deferBudgetTruncatedChildren(shadowChildren, index + 1);
+        break;
+      }
     }
     flushFragmentTextTarget(state);
     state.shadowDepth -= 1;
@@ -19805,11 +19866,15 @@ ${spelling}`);
     return rect.width <= 0 || rect.height <= 0;
   }
   function hasVisibleJapaneseFragmentDescendant(element2) {
-    if (!HAS_JAPANESE$2.test(element2.textContent ?? "")) return false;
+    const shadowBudget = { inspectedElements: 0, exhausted: false };
+    const lightJapanese = HAS_JAPANESE$2.test(element2.textContent ?? "");
+    if (element2.shadowRoot && isVisible(element2) && shadowBranchHasJapanese(element2.shadowRoot, 2, shadowBudget)) return true;
     const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node2 = walker.nextNode()) {
       const descendant = node2;
-      if (HAS_JAPANESE$2.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+      if (lightJapanese && HAS_JAPANESE$2.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+      const shadow = descendant.shadowRoot;
+      if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
     }
     return false;
   }
@@ -19838,10 +19903,34 @@ ${spelling}`);
     if (isBlock) flushFragmentTextTarget(state);
   }
   function visitFragmentElementChildren(element2, state, hasNativeRuby) {
-    for (const child of Array.from(element2.childNodes)) {
-      visitFragmentNode(child, state, hasNativeRuby);
-      if (fragmentCollectionComplete(state)) break;
+    const children = Array.from(element2.childNodes);
+    for (let index = 0; index < children.length; index += 1) {
+      visitFragmentNode(children[index], state, hasNativeRuby);
+      if (fragmentCollectionComplete(state)) {
+        deferBudgetTruncatedChildren(children, index + 1);
+        break;
+      }
     }
+  }
+  const TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT = 128;
+  function deferBudgetTruncatedChildren(children, fromIndex) {
+    for (let index = fromIndex; index < children.length; index += 1) {
+      const child = children[index];
+      if (child instanceof HTMLElement && subtreeMayHostOpenShadowRoot(child)) {
+        deferDepthCappedShadowHost(child);
+      }
+    }
+  }
+  function subtreeMayHostOpenShadowRoot(element2) {
+    if (isPotentialOpenShadowHostElement(element2)) return true;
+    const walker = element2.ownerDocument.createTreeWalker(element2, NodeFilter.SHOW_ELEMENT);
+    for (let inspected = 0, node2 = walker.nextNode(); node2 && inspected < TRUNCATED_SHADOW_HOST_LOOKAHEAD_LIMIT; inspected += 1, node2 = walker.nextNode()) {
+      if (isPotentialOpenShadowHostElement(node2)) return true;
+    }
+    return walker.nextNode() !== null;
+  }
+  function isPotentialOpenShadowHostElement(element2) {
+    return Boolean(element2.shadowRoot) || element2.localName.includes("-");
   }
   function nextFragmentRubyState(element2, hasNativeRuby) {
     return hasNativeRuby || element2.tagName === "RUBY" || element2.tagName === "RB";
@@ -21705,7 +21794,7 @@ ${spelling}`);
     if (decoration === "interactive-passive") return true;
     if (inPlace) {
       const clipRow = closestRubyFragileConstrainedRow(parent);
-      if (clipRow && !clampRowAllowsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? void 0, clipRow)) return true;
+      if (clipRow && !clampRowKeepsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? void 0, clipRow)) return true;
     }
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
@@ -22119,7 +22208,7 @@ ${spelling}`);
     {
       const clipRow = closestRubyFragileConstrainedRow(target2.parent);
       if (clipRow) {
-        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowAllowsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
+        clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow) || clampRowKeepsInFlowRestRuby(renderTarget.decoration, clipRow) ? "content" : "true";
       }
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target2.parent), sentence);
@@ -22455,7 +22544,10 @@ ${spelling}`);
     if (target2.suppressRuby) return true;
     const clipRow = closestRubyFragileConstrainedRow(target2.parent);
     if (!clipRow) return false;
-    return !clampRowAllowsInFlowRestRuby(target2.decoration ?? decorationStateForWord(target2.parent) ?? void 0, clipRow);
+    return !clampRowKeepsInFlowRestRuby(target2.decoration ?? decorationStateForWord(target2.parent) ?? void 0, clipRow);
+  }
+  function clampRowKeepsInFlowRestRuby(decoration, clipRow) {
+    return !clampRowGrowthFailed(clipRow) && clampRowAllowsInFlowRestRuby(decoration, clipRow);
   }
   function isInsideOwnedReaderRoot(element2) {
     const readerRoot = element2.closest(READER_ROOT_SELECTOR);
@@ -23197,6 +23289,10 @@ ${spelling}`);
     if (isLikelyProseLink(link, element2)) return false;
     const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
     return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
+  }
+  const CLAMP_GROWTH_FAILED_ATTRIBUTE = "data-yomu-clamp-growth";
+  function clampRowGrowthFailed(clipRow) {
+    return clipRow.getAttribute(CLAMP_GROWTH_FAILED_ATTRIBUTE) === "failed";
   }
   const SVG_PATH_TOKEN = /[MmZzLlHhVvCcSsQqTtAa]|[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi;
   const CURVE_STEPS = 10;
@@ -260651,12 +260747,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     positionAnchoredPopover(popover, anchor, frame2);
   }
+  const POPOVER_PLANNING_HEIGHT = 540;
+  const MIN_LOCKED_SIDE_SPACE = 160;
   function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
     const viewport = getPopoverViewport();
     const viewportHeight = viewport.bottom - viewport.top;
     const viewportWidth = viewport.right - viewport.left;
     popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-    popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
+    const maxFrameHeight = popoverMaxFrameHeight(viewportHeight, options);
+    popover.style.maxHeight = `${maxFrameHeight}px`;
+    const height = popover.offsetHeight;
     return {
       scrollTop: popover.scrollTop,
       sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
@@ -260664,8 +260764,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       viewportWidth,
       viewportHeight,
       width: popover.offsetWidth,
-      height: popover.offsetHeight,
-      preferBefore: Boolean(options.preferBefore)
+      height,
+      planningHeight: Math.max(height, Math.min(maxFrameHeight, options.maxHeight ?? POPOVER_PLANNING_HEIGHT)),
+      preferBefore: Boolean(options.preferBefore),
+      keepPlacementSide: Boolean(options.keepPlacementSide)
     };
   }
   function popoverMaxFrameHeight(viewportHeight, options) {
@@ -260681,7 +260783,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function positionAnchoredPopover(popover, anchor, frame2) {
     const writingMode = getPopoverWritingMode(anchor);
-    const position = getYomitanLikePopoverPosition(frame2.sourceRects, writingMode, frame2.viewport, frame2.width, frame2.height, frame2.preferBefore);
+    const forcedAfter = frame2.keepPlacementSide ? forcedAfterForPlacementSide(writingMode, popover.dataset.jpdbReaderPlacementSide) : void 0;
+    const position = getYomitanLikePopoverPosition(frame2.sourceRects, writingMode, frame2.viewport, frame2.width, frame2.height, frame2.planningHeight, frame2.preferBefore, forcedAfter);
     popover.style.maxWidth = `${Math.max(0, position.width)}px`;
     popover.style.maxHeight = `${Math.max(0, position.height)}px`;
     popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
@@ -260776,15 +260879,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const normalized2 = writingMode;
     return SUPPORTED_POPOVER_WRITING_MODES.has(normalized2) ? normalized2 : DEFAULT_POPOVER_WRITING_MODE;
   }
-  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, preferBefore) {
+  function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, planningHeight, preferBefore, forcedAfter) {
     const horizontal = isHorizontalPopoverMode(writingMode);
-    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
-    return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
+    const layout = popoverWritingLayout(writingMode, horizontal, preferBefore, forcedAfter);
+    return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, planningHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
   }
-  function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) {
+  function forcedAfterForPlacementSide(writingMode, side) {
+    if (writingMode === "horizontal-tb") {
+      if (side === "below") return true;
+      if (side === "above") return false;
+      return void 0;
+    }
+    if (side === "right") return true;
+    if (side === "left") return false;
+    return void 0;
+  }
+  function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, planningHeight, layout) {
     let best = null;
     for (const candidate2 of popoverSourceRectCandidates(sourceRects)) {
-      const result = getPositionForWritingMode(candidate2.rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
+      const result = getPositionForWritingMode(candidate2.rect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout);
       if (!canUsePopoverPosition(candidate2, result, sourceRects)) continue;
       best = tallerPopoverPosition(best, result);
       if (result.height >= frameHeight) break;
@@ -260797,11 +260910,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function fallbackPopoverPosition(viewport, frameWidth, frameHeight) {
     return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
   }
-  function popoverWritingLayout(writingMode, horizontal, preferBefore) {
+  function popoverWritingLayout(writingMode, horizontal, preferBefore, forcedAfter) {
+    const preferAfter = horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore);
     return {
       horizontalOffset: horizontal ? 0 : 10,
       verticalOffset: horizontal ? 10 : 0,
-      preferAfter: horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore)
+      preferAfter: forcedAfter ?? preferAfter,
+      lockAfter: forcedAfter !== void 0
     };
   }
   function verticalTextPrefersAfter(writingMode, preferBefore) {
@@ -260818,40 +260933,44 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
     return sourceRects.length > 1 ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }] : candidates;
   }
-  function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) {
-    return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
+  function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout) {
+    return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, planningHeight, viewport, layout) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, layout);
   }
-  function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferBelow) {
+  function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, planningHeight, viewport, layout) {
     const [left, width, after] = getConstrainedPosition(
-      sourceRect.right - horizontalOffset,
-      sourceRect.left + horizontalOffset,
+      sourceRect.right - layout.horizontalOffset,
+      sourceRect.left + layout.horizontalOffset,
       frameWidth,
       viewport.left,
       viewport.right,
       true
     );
     const [top, height, below] = getConstrainedPositionBinary(
-      sourceRect.top - verticalOffset,
-      sourceRect.bottom + verticalOffset,
+      sourceRect.top - layout.verticalOffset,
+      sourceRect.bottom + layout.verticalOffset,
       frameHeight,
       viewport.top,
       viewport.bottom,
-      preferBelow
+      layout.preferAfter,
+      planningHeight,
+      layout.lockAfter
     );
     return { left, top, width, height, after, below };
   }
-  function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferRight) {
+  function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, layout) {
     const [left, width, after] = getConstrainedPositionBinary(
-      sourceRect.left - horizontalOffset,
-      sourceRect.right + horizontalOffset,
+      sourceRect.left - layout.horizontalOffset,
+      sourceRect.right + layout.horizontalOffset,
       frameWidth,
       viewport.left,
       viewport.right,
-      preferRight
+      layout.preferAfter,
+      frameWidth,
+      layout.lockAfter
     );
     const [top, height, below] = getConstrainedPosition(
-      sourceRect.bottom - verticalOffset,
-      sourceRect.top + verticalOffset,
+      sourceRect.bottom - layout.verticalOffset,
+      sourceRect.top + layout.verticalOffset,
       frameHeight,
       viewport.top,
       viewport.bottom,
@@ -260871,18 +260990,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return [position, size, after];
   }
-  function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
-    const overflowBefore = minLimit - (positionBefore - size);
-    const overflowAfter = positionAfter + size - maxLimit;
-    if (overflowAfter > 0 || overflowBefore > 0) {
-      after = overflowAfter < overflowBefore;
+  function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after, planningSize = size, lockSide = false) {
+    const spaceBefore = positionBefore - minLimit;
+    const spaceAfter = maxLimit - positionAfter;
+    const lockedSpace = after ? spaceAfter : spaceBefore;
+    const keepLockedSide = lockSide && lockedSpace >= Math.min(MIN_LOCKED_SIDE_SPACE, size);
+    if (!keepLockedSide && (planningSize > spaceAfter || planningSize > spaceBefore)) {
+      after = spaceAfter > spaceBefore;
     }
     let position;
     if (after) {
-      size -= Math.max(0, overflowAfter);
+      size = Math.max(0, Math.min(size, spaceAfter));
       position = Math.max(minLimit, positionAfter);
     } else {
-      size -= Math.max(0, overflowBefore);
+      size = Math.max(0, Math.min(size, spaceBefore));
       position = Math.min(maxLimit, positionBefore) - size;
     }
     return [position, size, after];
