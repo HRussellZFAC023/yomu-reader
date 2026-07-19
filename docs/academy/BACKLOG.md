@@ -26,7 +26,7 @@ This is the short operational order inside the queue above. The detailed catalog
 - [x] Recover, validate, compile, and list all 48 four-season story chapters; later chapters remain playable while unregistered practice is labelled honestly.
 - [x] Restore the deterministic desktop/phone Browser gate through onboarding, world navigation, Lesson 0, Study, placement, the finite journal, Class, the `l1-l01` source sheet, and its teaching-first seam; self-confirm furigana persistence and remove the journal's duplicated Replay overflow.
 - [x] Prove the real learner golden path in Browser: onboarding → `l1-l01` teaching → committed lapse → earned repair hint → canonical due SRS card → independent correction → inline story memory → classroom return → visible journal line on desktop and phone; the finite journal and furigana checks remain green.
-- [ ] Persist authored-week teaching/activity position so leaving after a saved attempt resumes at that activity instead of replaying all lesson notes.
+- [x] Persist authored-week teaching/activity position so leaving after a saved attempt resumes at that activity instead of replaying all lesson notes.
 - [x] Integrate Moodle Lesson 10 as canonical `l3plus-l10`, including its handouts, listening, homework, runtime route, source ledger, and focused reachability tests.
 - [ ] Verify Lessons 1-10 source, handout, listening, homework, and runtime coverage against the Moodle inventory as one release audit.
 - [ ] Finish N3-N1 lesson packages and bind every Season 3-4 practice hook to a real lesson, varied activity, deterministic evidence, and SRS consequence.
@@ -36,7 +36,7 @@ This is the short operational order inside the queue above. The detailed catalog
 - [x] Make Yomu's scheduler queue authoritative for due repair and advance Course/daily recommendations from the learner's selected-band floor and completed class-week evidence, including Lesson 10 → Kanji 7.
 - [x] Complete the learner-motivation pass for the daily route: one clear start, competence cue, warm return without loss, the learner's own reason, relationship/world payoff, and a clean stopping point.
 - [x] Ship the first cross-surface psychological slice: recognize a repaired answer as competence, retain both attempts, schedule the exact repair, turn it into one natural Stasi memory, make that memory visible after returning through the world, and stop repeating the full story header above every assessed question.
-- [ ] Apply the psychological-elements pass across lesson, repair, SRS, story, world, and journal: meaningful learner goals, immediate competence feedback, open-loop narrative anticipation, earned relationship/world payoffs, memorable return cues, and satisfying stopping points.
+- [ ] Apply the psychological-elements pass across lesson, repair, SRS, story, world, and journal: meaningful learner goals, immediate competence feedback, open-loop narrative anticipation, earned relationship/world payoffs, memorable return cues, and satisfying stopping points. Use adapted IRAE as Intrigue → Rapport → Attraction to the story/learning → Empowerment, with escalating trust and anticipation resolving into learner competence and agency rather than dependency.
 - [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
 - [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
 
@@ -369,8 +369,9 @@ Reference patterns: [KanaDojo](https://github.com/lingdojo/kanadojo) for four-wa
 - [x] Give the daily Course route one dominant action, stable reading order, restrained motion, and gaze-efficient action/payoff grouping with no competing points, streaks, counters, or badges.
 - [ ] Apply the same visual-attention audit to every active lesson, review, story, and minigame surface at phone, tablet, and desktop sizes.
 - [ ] Add a learner-controlled low-energy route (listen, recognize, one recall) and deep-focus route (lesson, production, transfer) without changing the underlying mastery standard.
-- [ ] Add a transparent weekly reflection showing what became independently usable across reading, listening, speaking, and writing; avoid leaderboards, public streaks, arbitrary XP, and comparative pressure.
-- [ ] Expose a privacy-safe JSON answer-check contract for optional LLM feedback: task context, learner response, allowed rubric/evidence, structured verdict, uncertainty, and suggested repair; never send answer keys, private journal text, credentials, or unrelated history.
+- [ ] Add a transparent weekly reflection showing what became independently usable across reading, listening, speaking, and writing; avoid global/public leaderboards, public streaks, arbitrary XP, and compulsory comparative pressure. The separate opt-in class board may offer private class-relative aggregate views without rewards or loss framing.
+- [x] Expose a privacy-safe JSON answer-check contract for optional LLM feedback: task context, learner response, allowed rubric/evidence, structured verdict, uncertainty, and suggested repair; never send answer keys, private journal text, credentials, or unrelated history. The authenticated Worker boundary rejects unknown/private fields, validates provider output, isolates rate budgets per keyed session, persists no response text, and returns an explicit provider-unavailable result instead of fabricated feedback.
+- [ ] Configure an answer-check provider adapter and complete live privacy, failure, uncertainty, and response-quality acceptance before presenting LLM feedback in the learner UI.
 - [ ] Add a reading-resilience mode that rotates through reviewed Japanese font families at controlled difficulty, records per-font confusion evidence, keeps furigana/zoom available, and never changes the underlying answer or surprise-switches fonts mid-item.
 - [ ] Measure success by retained recall, transfer, returning voluntarily, and reduced support use; do not optimize session length, notification opens, or screen time.
 
@@ -393,6 +394,7 @@ Acceptance: one source per bus as authored, no overlap/drone/autoplay loop, and 
 - [ ] Complete idempotent learner-event sync and offline merge against the live Worker.
 - [x] Seed `<PRIVATE_CLASS_INVITE>` through the authenticated admin endpoint using available secrets; never store plaintext codes.
 - [x] Verify authenticated/anonymous protected-media HEAD and range behavior; live Royal Days and Shinday playback pass.
+- [x] Add the authenticated, class-isolated leaderboard backend over existing board consent, moderation hiding, Yomu progress snapshots, and synced study days: bounded metric/page queries, deterministic tie ranks, off-page self placement, optional shared avatars, explicit snapshot freshness, and no raw events, answers, failed items, word lists, Google identity, email, client-supplied score, global rank, or competitive reward.
 - [ ] Verify live logout, expiry, revocation, offline merge, and cross-device link.
 - [x] Activate the owner-authorized live Stripe Checkout path and create one uncharged £2 `cs_live_…` smoke session.
 - [x] Implement signed/idempotent webhook and claim contracts plus the concise generated-code return UX with bounded polling, URL scrubbing, copy, and retry.

@@ -15,6 +15,7 @@ import { handleClaimPairing, handleCompletePairing, handleCreatePairing, pruneEx
 import { handleSyncPull, handleSyncPush } from './sync';
 import { handleAccountExport, handleDeleteAccount, handleDeleteProfile, handleProfileExport } from './lifecycle';
 import { handleGetEntitlement, handleRedeemEntitlement } from './entitlements';
+import { handleAnswerCheck } from './answer-check';
 
 const clock = (): number => Date.now();
 
@@ -92,6 +93,8 @@ export default {
                     return await handleSyncPull(request, env, clock);
                 case 'POST /academy/api/progress/sync':
                     return await handleProgressSync(request, env, clock);
+                case 'POST /academy/api/answer-check':
+                    return await handleAnswerCheck(request, env, clock);
                 case 'GET /academy/api/health':
                     return jsonResponse({ ok: true });
                 default:
