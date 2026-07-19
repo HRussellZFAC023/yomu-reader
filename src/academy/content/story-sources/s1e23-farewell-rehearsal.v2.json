@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e23-farewell-rehearsal",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 2,
   "chapter": 23,
@@ -9,7 +9,7 @@
     "en": "The Farewell Rehearsal",
     "ja": "お別れのリハーサル"
   },
-  "synopsis": "Nanako's time guiding the class ends today, and the farewell meal they planned in careful order collapses when the cooking will not fit before she has to go. Shaun flips the sequence, the learner states the revised intention aloud, and the round of thank-yous the class meant to give is only half said. Nanako accepts the unfinished gratitude and leaves the rest of the words held over for a next time.",
+  "synopsis": "Nanako's London visit is ending, and the farewell meal her friends planned in careful order collapses when the cooking will not fit before she has to go. Shaun flips the sequence, the learner states the revised intention aloud, and the round of thank-yous the group meant to give is only half said. Nanako accepts the unfinished gratitude and leaves the rest of the words held over for a next time.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -87,8 +87,8 @@
       "locationId": "location:cafe",
       "timeState": "evening",
       "weatherState": "winter-dark",
-      "goal": "Meet Nanako on her last evening guiding the class and watch the ordered farewell plan meet a clock it cannot beat.",
-      "dramaticQuestion": "When the plan will not fit, does the class force the order or change what has to happen first?",
+      "goal": "Meet Nanako on the last evening of her London visit and watch the ordered farewell plan meet a clock it cannot beat.",
+      "dramaticQuestion": "When the plan will not fit, does the group force the order or change what has to happen first?",
       "learnerNeed": "A changed-plan production where stating a revised intention and its before/after order matters more than keeping the original sequence.",
       "curriculum": {
         "sectionId": "state-intention-and-reorder",
@@ -101,40 +101,40 @@
           "id": "node:farewell-rehearsal:laid-plan",
           "beatId": "beat:farewell-rehearsal:arrival-image",
           "cueId": "cue:cafe-board-timeline-and-clock",
-          "description": "A hand-drawn timeline runs across the cafe board: 作る → 食べる → お礼. Beside it hangs a clock. The kitchen behind the counter is still busy with someone else's order; the first step has not begun, and the last step is the one the class circled twice."
+          "description": "A hand-drawn timeline runs across the cafe board: 作る → 食べる → お礼. Beside it hangs a clock. The kitchen behind the counter is still busy with someone else's order; the first step has not begun, and the last step is the one the group circled twice."
         },
         {
           "kind": "line",
           "id": "line:farewell-rehearsal:nanako-intention",
           "beatId": "beat:farewell-rehearsal:host-want",
           "speakerId": "nanako",
-          "intent": "Tell the class her time guiding them ends today, and lay out the ordered thing she had meant to do before leaving: cook one dish together, eat, then thank each of them.",
+          "intent": "Tell the group this is the last time she can see them on this visit, and lay out the ordered thing she had meant to do before leaving: cook one dish together, eat, then thank each of them.",
           "attentionTarget": "the timeline on the board, read left to right",
           "variants": {
             "n5": {
-              "japanese": "みなさん、今日でわたしの役目は終わりです。帰る前に、いっしょに一つ、料理を作りたかったんです。作って、食べて、それからお礼を言うつもりでした。",
-              "reading": "みなさん、きょうでわたしのやくめはおわりです。かえるまえに、いっしょにひとつ、りょうりをつくりたかったんです。つくって、たべて、それからおれいをいうつもりでした。",
-              "english": "Everyone, my role here ends today. Before I go, I wanted to make one dish together with you. Make it, eat it, and after that say my thanks — that was the plan."
+              "japanese": "みなさん、今回会えるのは今日が最後です。帰る前に、いっしょに一つ、料理を作りたかったんです。作って、食べて、それからお礼を言うつもりでした。",
+              "reading": "みなさん、こんかいあえるのはきょうがさいごです。かえるまえに、いっしょにひとつ、りょうりをつくりたかったんです。つくって、たべて、それからおれいをいうつもりでした。",
+              "english": "Everyone, this is the last time I can see you on this visit. Before I go, I wanted to make one dish together. Make it, eat it, then say my thanks. That was the plan."
             },
             "n4": {
-              "japanese": "みなさん、案内役は今日で終わりなんです。帰る前に、一品だけみんなで作って、食べてから、ちゃんと一人ずつお礼を言うつもりでした。",
-              "reading": "みなさん、あんないやくはきょうでおわりなんです。かえるまえに、いっぴんだけみんなでつくって、たべてから、ちゃんとひとりずつおれいをいうつもりでした。",
-              "english": "Everyone, my guide role ends today. Before I leave, I meant to make just one dish all together, and after we ate, to thank each of you properly, one by one."
+              "japanese": "みなさん、今回の滞在で会えるのは今日が最後なんです。帰る前に、一品だけみんなで作って、食べてから、ちゃんと一人ずつお礼を言うつもりでした。",
+              "reading": "みなさん、こんかいのたいざいであえるのはきょうがさいごなんです。かえるまえに、いっぴんだけみんなでつくって、たべてから、ちゃんとひとりずつおれいをいうつもりでした。",
+              "english": "Everyone, this is the last time I can see you during this visit. Before I leave, I meant to make one dish together, then thank each of you after we ate."
             },
             "n3": {
-              "japanese": "みなさん、わたしが案内する役目、今日でおしまいなんです。帰る前に、みんなで一品作って、食べてから、順番にお礼を言おうと思っていました。",
-              "reading": "みなさん、わたしがあんないするやくめ、きょうでおしまいなんです。かえるまえに、みんなでいっぴんつくって、たべてから、じゅんばんにおれいをいおうとおもっていました。",
-              "english": "Everyone, my role guiding you finishes today. Before I go, I'd been meaning to make one dish together, and after we ate, to thank each of you in turn."
+              "japanese": "みなさん、今回ロンドンで会えるのは、今日でおしまいなんです。帰る前に、みんなで一品作って、食べてから、順番にお礼を言おうと思っていました。",
+              "reading": "みなさん、こんかいロンドンであえるのは、きょうでおしまいなんです。かえるまえに、みんなでいっぴんつくって、たべてから、じゅんばんにおれいをいおうとおもっていました。",
+              "english": "Everyone, today's the last time I can see you on this London visit. Before I go, I'd meant to make one dish together and thank each of you after we ate."
             },
             "n2": {
-              "japanese": "みなさん、案内役を務めるのも今日が最後で。帰る前に、一品だけみんなで仕上げて、食べ終えてから、一人ずつにお礼を言うつもりでいたんです。",
-              "reading": "みなさん、あんないやくをつとめるのもきょうがさいごで。かえるまえに、いっぴんだけみんなでしあげて、たべおえてから、ひとりずつにおれいをいうつもりでいたんです。",
-              "english": "Everyone, today's my last serving as your guide. Before I leave, I'd fully intended to finish one dish with you all, and once we'd eaten, to thank each of you one by one."
+              "japanese": "みなさん、今回の滞在中に会えるのは今日が最後で。帰る前に、一品だけみんなで仕上げて、食べ終えてから、一人ずつにお礼を言うつもりでいたんです。",
+              "reading": "みなさん、こんかいのたいざいちゅうにあえるのはきょうがさいごで。かえるまえに、いっぴんだけみんなでしあげて、たべおえてから、ひとりずつにおれいをいうつもりでいたんです。",
+              "english": "Everyone, this is the last time I can see you during this visit. Before leaving, I'd intended to finish one dish together and then thank each of you once we'd eaten."
             },
             "n1": {
-              "japanese": "みなさん、案内役をお引き受けするのも、今日かぎりになりまして。帰る前に、せめて一品だけでもみんなで仕上げて、食べ終えてから、お一人ずつにお礼を、と——そのつもりでいたんですけどね。",
-              "reading": "みなさん、あんないやくをおひきうけするのも、きょうかぎりになりまして。かえるまえに、せめていっぴんだけでもみんなでしあげて、たべおえてから、おひとりずつにおれいを、と——そのつもりでいたんですけどね。",
-              "english": "Everyone, my time taking on the guide role comes to an end just today. Before I go, I'd meant to at least finish one dish together, and once we'd eaten, to give each of you my thanks, one by one — that was the plan, at any rate."
+              "japanese": "みなさん、今回の滞在でお会いできるのも、今日かぎりになりまして。帰る前に、せめて一品だけでもみんなで仕上げて、食べ終えてから、お一人ずつにお礼を、と——そのつもりでいたんですけどね。",
+              "reading": "みなさん、こんかいのたいざいでおあいできるのも、きょうかぎりになりまして。かえるまえに、せめていっぴんだけでもみんなでしあげて、たべおえてから、おひとりずつにおれいを、と——そのつもりでいたんですけどね。",
+              "english": "Everyone, this is the last time I can see you during this visit. Before going, I'd meant to finish at least one dish together and then thank each of you after we'd eaten. That was the plan, anyway."
             }
           },
           "support": {
@@ -195,7 +195,7 @@
           "id": "line:farewell-rehearsal:nanako-takes-flip",
           "beatId": "beat:farewell-rehearsal:attempt",
           "speakerId": "nanako",
-          "intent": "Accept that the dish itself may not get made, note that the thanks work without it, and hand the exact new order to the class to state.",
+          "intent": "Accept that the dish itself may not get made, note that the thanks work without it, and hand the exact new order to the group to state.",
           "attentionTarget": "the crossed-out cooking step, and the room waiting for a plan",
           "variants": {
             "n5": {
@@ -326,7 +326,7 @@
       "locationId": "location:cafe",
       "timeState": "evening",
       "weatherState": "winter-dark",
-      "goal": "Run the reordered thank-you round and let it not finish, so the class decides what to do with the words that go unsaid.",
+      "goal": "Run the reordered thank-you round and let it not finish, so the group decides what to do with the words that go unsaid.",
       "dramaticQuestion": "Can a farewell count the half-said thanks as enough, or must every word be forced out before she goes?",
       "learnerNeed": "A stance choice about unfinished gratitude: compress it into one line now, or leave it deliberately unfinished and held over.",
       "curriculum": {
@@ -340,40 +340,40 @@
           "id": "node:farewell-rehearsal:half-blank-cards",
           "beatId": "beat:farewell-rehearsal:regroup-image",
           "cueId": "cue:name-cards-half-turned",
-          "description": "The name cards lie in a row, one per classmate, each meant for a single line of thanks. A few are turned face up and spoken; most are still face down. The clock has crept close to the time Nanako has to leave."
+          "description": "The name cards lie in a row, one per friend at the table, each meant for a single line of thanks. A few are turned face up and spoken; most are still face down. The clock has crept close to the time Nanako has to leave."
         },
         {
           "kind": "line",
           "id": "line:farewell-rehearsal:nanako-gratitude",
           "beatId": "beat:farewell-rehearsal:host-want-two",
           "speakerId": "nanako",
-          "intent": "Take the first turn herself and thank the class for making a place for her, framing the thanks through what she could not have done without them.",
-          "attentionTarget": "the row of faces around the table, not the cards",
+          "intent": "Take the first turn herself and thank the group for keeping a place for her whenever she returns to London.",
+          "attentionTarget": "the familiar table and the row of faces around it, not the cards",
           "variants": {
             "n5": {
-              "japanese": "みなさんのおかげで、毎週たのしかったです。ここにいれてくれて、ありがとう。",
-              "reading": "みなさんのおかげで、まいしゅうたのしかったです。ここにいれてくれて、ありがとう。",
-              "english": "Thanks to all of you, every week was fun. Thank you for letting me be here."
+              "japanese": "ロンドンに来ると、いつも会ってくれて、ありがとう。このテーブルにまた来られて、よかったです。",
+              "reading": "ロンドンにくると、いつもあってくれて、ありがとう。このテーブルにまたこられて、よかったです。",
+              "english": "Thank you for meeting me whenever I come to London. I'm glad I got to come back to this table."
             },
             "n4": {
-              "japanese": "みなさんのおかげで、この教室、毎週楽しみでした。仲間に入れてくれて、本当にありがとう。",
-              "reading": "みなさんのおかげで、このきょうしつ、まいしゅうたのしみでした。なかまにいれてくれて、ほんとうにありがとう。",
-              "english": "Thanks to all of you, I looked forward to this class every week. Thank you, really, for letting me be one of you."
+              "japanese": "ロンドンに来るたび、こうして同じテーブルを空けて待っていてくれて、本当にありがとう。またここに来られて、よかったです。",
+              "reading": "ロンドンにくるたび、こうしておなじテーブルをあけてまっていてくれて、ほんとうにありがとう。またここにこられて、よかったです。",
+              "english": "Every time I come to London, you keep a place for me at the same table. Thank you. I'm glad I got to come back here."
             },
             "n3": {
-              "japanese": "みなさんがいてくれたおかげで、毎週ここに来るのが楽しみで。こんなふうに輪に入れてくれて、感謝してます。",
-              "reading": "みなさんがいてくれたおかげで、まいしゅうここにくるのがたのしみで。こんなふうにわにいれてくれて、かんしゃしてます。",
-              "english": "Because you were all here, I looked forward to coming every week. Thank you for letting me into the circle like this."
+              "japanese": "ロンドンに戻るたび、同じテーブルに私の分まで席を作ってくれて。久しぶりでも、すぐ話の続きに戻れるのがうれしかったです。ありがとう。",
+              "reading": "ロンドンにもどるたび、おなじテーブルにわたしのぶんまでせきをつくってくれて。ひさしぶりでも、すぐはなしのつづきにもどれるのがうれしかったです。ありがとう。",
+              "english": "Whenever I came back to London, you made room for me at the same table. Even after a while away, we could pick the conversation straight back up. Thank you."
             },
             "n2": {
-              "japanese": "みなさんがいてくださったおかげで、毎週ここへ来るのが本当に楽しみで。こうして輪の中に入れてもらえて、心から感謝しています。",
-              "reading": "みなさんがいてくださったおかげで、まいしゅうここへくるのがほんとうにたのしみで。こうしてわのなかにいれてもらえて、こころからかんしゃしています。",
-              "english": "Because you were all here, I truly looked forward to coming each week. Being let into the circle like this — I'm grateful from the heart."
+              "japanese": "ロンドンに戻るたび、同じテーブルに私の席まで空けて待っていてくださって。間が空いても、そのまま話の続きに戻れたこと、本当に感謝しています。",
+              "reading": "ロンドンにもどるたび、おなじテーブルにわたしのせきまであけてまっていてくださって。あいだがあいても、そのままはなしのつづきにもどれたこと、ほんとうにかんしゃしています。",
+              "english": "Whenever I returned to London, you kept my place open at the same table. Even after time apart, we could return to the conversation where we left it. Thank you."
             },
             "n1": {
-              "japanese": "みなさんがいてくださったからこそ、毎週ここへ足を運ぶのが、なにより楽しみでした。こうして輪の中に迎え入れていただけたこと、ほんとうに、感謝の言葉もないくらいで。",
-              "reading": "みなさんがいてくださったからこそ、まいしゅうここへあしをはこぶのが、なによりたのしみでした。こうしてわのなかにむかえいれていただけたこと、ほんとうに、かんしゃのことばもないくらいで。",
-              "english": "It's precisely because you were all here that coming here each week was, more than anything, what I looked forward to. To have been welcomed into the circle like this — truly, I can hardly find the words to thank you."
+              "japanese": "ロンドンに戻るたび、同じテーブルに私の席まで空けて待っていてくださって。どれだけ間が空いても、前の話の続きから始められたこと、本当にありがたかったです。",
+              "reading": "ロンドンにもどるたび、おなじテーブルにわたしのせきまであけてまっていてくださって。どれだけあいだがあいても、まえのはなしのつづきからはじめられたこと、ほんとうにありがたかったです。",
+              "english": "Whenever I returned to London, you kept my place open at the same table. No matter how long it had been, we could begin with the rest of the conversation. I was grateful for that."
             }
           },
           "support": {
@@ -528,33 +528,33 @@
           "id": "line:farewell-rehearsal:nanako-parting",
           "beatId": "beat:farewell-rehearsal:exit",
           "speakerId": "nanako",
-          "intent": "Leave on a sentence she does not finish, handing the unsaid words to the class to hold until a next meeting.",
+          "intent": "Leave on a sentence she does not finish, keeping the rest available for a next meeting without promising when it must happen.",
           "attentionTarget": "the doorway, and the room she is leaving mid-sentence",
           "variants": {
             "n5": {
-              "japanese": "じゃあ、行きますね。今日は、本当に——。また、ね。",
-              "reading": "じゃあ、いきますね。きょうは、ほんとうに——。また、ね。",
-              "english": "Well, I'll be off. Today was, truly——. See you."
+              "japanese": "じゃあ、行きますね。今日は、本当に——。また会えたら、つづきを。",
+              "reading": "じゃあ、いきますね。きょうは、ほんとうに——。またあえたら、つづきを。",
+              "english": "Well, I'll be off. Today was, truly——. If we meet again, I'll finish that thought."
             },
             "n4": {
-              "japanese": "じゃあ、そろそろ。今日は本当に、なんて言えばいいか——。また、会いましょうね。",
-              "reading": "じゃあ、そろそろ。きょうはほんとうに、なんていえばいいか——。また、あいましょうね。",
-              "english": "Well, I'd better go. Today was, truly — how do I put it —. Let's meet again."
+              "japanese": "じゃあ、そろそろ。今日は本当に、なんて言えばいいか——。また会えた時に、続きを聞いてください。",
+              "reading": "じゃあ、そろそろ。きょうはほんとうに、なんていえばいいか——。またあえたときに、つづきをきいてください。",
+              "english": "Well, I'd better go. Today was, truly — how do I put it —. When we meet again, you can hear the rest."
             },
             "n3": {
-              "japanese": "じゃあ、そろそろ行きますね。今日は本当に、うまく言えないんですけど——。また、必ず。",
-              "reading": "じゃあ、そろそろいきますね。きょうはほんとうに、うまくいえないんですけど——。また、かならず。",
-              "english": "Well, I'll head off now. Today was, truly — I can't put it well, but —. Again, without fail."
+              "japanese": "じゃあ、そろそろ行きますね。今日は本当に、うまく言えないんですけど——。また会えた時に、この続きを。",
+              "reading": "じゃあ、そろそろいきますね。きょうはほんとうに、うまくいえないんですけど——。またあえたときに、このつづきを。",
+              "english": "Well, I'll head off. Today was, truly — I can't put it well, but —. When we meet again, I'll finish this."
             },
             "n2": {
-              "japanese": "じゃあ、そろそろ失礼します。今日は本当に、なんと言ったらいいのか——。続きは、また今度、必ず。",
-              "reading": "じゃあ、そろそろしつれいします。きょうはほんとうに、なんといったらいいのか——。つづきは、またこんど、かならず。",
-              "english": "Well, I'd best be going. Today was, truly — I don't know quite what to say —. The rest, next time, without fail."
+              "japanese": "じゃあ、そろそろ失礼します。今日は本当に、なんと言ったらいいのか——。続きは、また会えた時にでも。",
+              "reading": "じゃあ、そろそろしつれいします。きょうはほんとうに、なんといったらいいのか——。つづきは、またあえたときにでも。",
+              "english": "Well, I'd best be going. Today was, truly — I don't know quite what to say —. The rest, perhaps when we meet again."
             },
             "n1": {
-              "japanese": "じゃあ、そろそろお暇しますね。今日は本当に、なんと言ったものか——。この続きは、また会えたときに、必ず。それまで、預けておきますね。",
-              "reading": "じゃあ、そろそろおいとましますね。きょうはほんとうに、なんといったものか——。このつづきは、またあえたときに、かならず。それまで、あずけておきますね。",
-              "english": "Well, I ought to take my leave. Today was, truly — how should I put it —. The rest of this, when we can meet again, without fail. Until then, I'll leave it in your keeping."
+              "japanese": "じゃあ、そろそろお暇しますね。今日は本当に、なんと言ったものか——。この続きは、また会えたときにでも。それまで、ここに置いておきますね。",
+              "reading": "じゃあ、そろそろおいとましますね。きょうはほんとうに、なんといったものか——。このつづきは、またあえたときにでも。それまで、ここにおいておきますね。",
+              "english": "Well, I ought to take my leave. Today was, truly — how should I put it —. The rest, perhaps when we meet again. Until then, I'll leave it here."
             }
           },
           "support": {
@@ -582,7 +582,7 @@
     {
       "id": "outcome:farewell-rehearsal:held-over-thanks",
       "kind": "story",
-      "description": "The class reorders the farewell so thanks come before cooking, then lets the round go unfinished on purpose; the unsaid gratitude is treated as held over for a next meeting rather than a failure."
+      "description": "The group reorders the farewell so thanks come before cooking, then lets the round go unfinished on purpose; the unsaid gratitude is treated as held over for a next meeting rather than a failure."
     },
     {
       "id": "outcome:farewell-rehearsal:nanako-arrival",
@@ -590,7 +590,7 @@
       "castId": "nanako",
       "chapter": 23,
       "beat": "arrival",
-      "description": "Nanako is introduced through concise bilingual warmth and clean-closing exchanges on her last evening guiding the class; she establishes that she would rather leave words unfinished and held over than force a plan to completion."
+      "description": "Nanako is introduced on the last evening of her London visit through concise warmth and a clean closing; as a returning friend in Henry's orbit, she leaves words held over rather than forcing the farewell to completion."
     },
     {
       "id": "outcome:farewell-rehearsal:shaun-contribution",
@@ -598,7 +598,7 @@
       "castId": "shaun",
       "chapter": 23,
       "beat": "contribution",
-      "description": "Shaun's one bounded suggestion to flip the order — thanks first, cooking last — reorders the whole farewell, and his plain naming of the unfinished round puts the choice about the unsaid thanks on the table; his light, register-bounded contribution is established as something the class can lean on."
+      "description": "Shaun's one bounded suggestion to flip the order — thanks first, cooking last — reorders the whole farewell, and his plain naming of the unfinished round puts the choice about the unsaid thanks on the table; his light, register-bounded contribution is established as something the group can lean on."
     },
     {
       "id": "outcome:farewell-rehearsal:transfer-return",

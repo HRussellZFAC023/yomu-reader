@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e06-invitation-chain",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 1,
   "chapter": 6,
@@ -493,38 +493,38 @@
           "id": "line:invitation-chain:sam-honors-it",
           "beatId": "beat:invitation-chain:repair",
           "speakerId": "sam",
-          "intent": "Accept the soft refusal as a complete answer, resist adding options or asking again, and reframe inclusion as asking once and honoring the reply.",
-          "attentionTarget": "Robert, and the open door of the plan",
+          "intent": "Accept the soft refusal as a complete answer, write it on the card without adding options, and turn his attention back to the people already at the table.",
+          "attentionTarget": "Robert's answer, the card, and the drinks already on the table",
           "variants": {
             "foundation": {
-              "japanese": "はい。土曜日は また こんど、ですね。だいじょうぶ。一回 聞いて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
-              "reading": "はい。どようびは また こんど、ですね。だいじょうぶ。いっかい きいて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
-              "english": "Yes. Saturday's another time, then. It's okay. Ask once, hear the answer. That's enough. A friend is still a friend even so."
+              "japanese": "はい。土曜日は また こんど、ですね。わかりました。カードに、そう 書きます。今の お茶、かえましょうか。",
+              "reading": "はい。どようびは また こんど、ですね。わかりました。カードに、そう かきます。いまの おちゃ、かえましょうか。",
+              "english": "Yes. Saturday's another time, then. Got it. I'll write that on the card. Shall I replace this tea?"
             },
             "n5": {
-              "japanese": "はい、土曜日は また こんど ですね。もう 一回は 聞きません。一回 聞いて、こたえを ちゃんと きく。それで いいんだ。また 来られる ときに、ぜひ。",
-              "reading": "はい、どようびは また こんど ですね。もう いっかいは ききません。いっかい きいて、こたえを ちゃんと きく。それで いいんだ。また こられる ときに、ぜひ。",
-              "english": "Yes, Saturday's another time, then. I won't ask a second time. Ask once, and take the answer properly. That's enough. Whenever you can come, please do."
+              "japanese": "はい、土曜日は また こんど ですね。わかりました。カードには、そう 書いておきます。今の 飲み物、かえましょうか。",
+              "reading": "はい、どようびは また こんど ですね。わかりました。カードには、そう かいておきます。いまの のみもの、かえましょうか。",
+              "english": "Yes, Saturday's another time, then. Got it. I'll put that on the card. Shall I replace your drink?"
             },
             "n4": {
-              "japanese": "はい、土曜はまた今度ですね。二回は聞きません。一回ちゃんと聞いて、返事をちゃんと受け取る。……それでいいんだ。来られるとき、いつでもどうぞ。",
-              "reading": "はい、どようはまたこんどですね。にかいはききません。いっかいちゃんときいて、へんじをちゃんとうけとる。……それでいいんだ。こられるとき、いつでもどうぞ。",
-              "english": "Yes, Saturday's another time. I won't ask twice. Ask once properly, and receive the reply properly. ...That's enough. Whenever you can come, you're welcome."
+              "japanese": "はい、土曜はまた今度ですね。了解です。カードには、そのまま書いておきます。今いる人の飲み物、先に替えましょうか。",
+              "reading": "はい、どようはまたこんどですね。りょうかいです。カードには、そのままかいておきます。いまいるひとののみもの、さきにかえましょうか。",
+              "english": "Right, Saturday's another time. Got it. I'll write exactly that on the card. Shall I refresh the drinks for the people here?"
             },
             "n3": {
-              "japanese": "はい、土曜はまた今度、了解です。もう一回は聞きませんよ。一回きちんと誘って、返ってきた答えをそのまま受け取る。……それでよかったんですね。ドアは開けとくので、いつでも。",
-              "reading": "はい、どようはまたこんど、りょうかいです。もういっかいはききませんよ。いっかいきちんとさそって、かえってきたこたえをそのままうけとる。……それでよかったんですね。ドアはあけとくので、いつでも。",
-              "english": "Yes, Saturday's another time — got it. I won't ask again. Invite once, properly, and take the answer that comes back as it is. ...So that was all it needed. I'll leave the door open, so anytime."
+              "japanese": "はい、土曜はまた今度。了解です。ロバートさんの欄は、そのまま「また今度」で。今いる人のグラス、先に替えますね。",
+              "reading": "はい、どようはまたこんど。りょうかいです。ロバートさんのらんは、そのまま「またこんど」で。いまいるひとのグラス、さきにかえますね。",
+              "english": "Right, Saturday's another time. Got it. Robert's line stays exactly that: 'another time.' I'll refresh the glasses for the people here first."
             },
             "n2": {
-              "japanese": "はい、今回はまた今度、ですね。もう一度は聞きません。一度きちんと誘って、返ってきた答えを、そのまま受け取る。……それでよかったんだなあ。席はいつでも空けておきますから、気が向いたら。",
-              "reading": "はい、こんかいはまたこんど、ですね。もういちどはききません。いちどきちんとさそって、かえってきたこたえを、そのままうけとる。……それでよかったんだなあ。せきはいつでもあけておきますから、きがむいたら。",
-              "english": "Yes, this time it's another time. I won't ask a second time. Invite once, properly, and receive the answer that comes back, just as it is. ...So that was enough all along. I'll keep a seat open anytime, so if you feel like it."
+              "japanese": "はい、今回はまた今度、ですね。了解しました。ロバートさんの欄は、それ以上足さずに「また今度」で。今いる人のグラス、先に替えますね。",
+              "reading": "はい、こんかいはまたこんど、ですね。りょうかいしました。ロバートさんのらんは、それいじょうたさずに「またこんど」で。いまいるひとのグラス、さきにかえますね。",
+              "english": "Right, this time it's another time. Understood. Robert's line stays 'another time,' with nothing added. I'll refresh the glasses for the people here first."
             },
             "n1": {
-              "japanese": "はい、今回はまた今度、ですね。二度は聞きませんよ。一度ちゃんと誘って、返ってきた答えを、そのまま受け取る。……なんだ、それでよかったんですね。こっちはいつでも席を空けておきますから、その気になったら、ふらっとどうぞ。",
-              "reading": "はい、こんかいはまたこんど、ですね。にどはききませんよ。いちどちゃんとさそって、かえってきたこたえを、そのままうけとる。……なんだ、それでよかったんですね。こっちはいつでもせきをあけておきますから、そのきになったら、ふらっとどうぞ。",
-              "english": "Yes, this time it's another time. I won't ask twice. Invite once, properly, and take the answer that comes back just as it is. ...Huh, so that was all it needed. I'll keep a seat open here anytime, so if the mood takes you, just drop by."
+              "japanese": "はい、今回はまた今度、ですね。承知しました。ロバートさんの欄は、それ以上書き足さずに「また今度」で。さて、今いる人のグラスを先に替えますね。",
+              "reading": "はい、こんかいはまたこんど、ですね。しょうちしました。ロバートさんのらんは、それいじょうかきたさずに「またこんど」で。さて、いまいるひとのグラスをさきにかえますね。",
+              "english": "Right, this time it's another time. Understood. Robert's line stays 'another time,' with nothing else written in. Now, I'll refresh the glasses for the people here."
             }
           },
           "support": {
@@ -557,19 +557,19 @@
               "english": "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever you feel like it. I'll leave the door open."
             },
             "n3": {
-              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで大丈夫です。テニスのあとも、よかったらぜひ。無理はなしで、来たくなったら来てください。",
-              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけでだいじょうぶです。テニスのあとも、よかったらぜひ。むりはなしで、きたくなったらきてください。",
-              "english": "Then Saturday, okonomiyaki at my place, just whoever can come is fine. Tennis after too, if you'd like. No pressure — come if you feel like coming."
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあとからでも大丈夫です。人数は金曜に一度、確認しますね。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあとからでもだいじょうぶです。にんずうはきんようにいちど、かくにんしますね。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can come. After tennis is fine too. I'll check numbers once on Friday."
             },
             "n2": {
-              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあともやってますから、気が向いたらいつでも。誘うのは一回、あとは来たくなったときに、どうぞ。",
-              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあともやってますから、きがむいたらいつでも。さそうのはいっかい、あとはきたくなったときに、どうぞ。",
-              "english": "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever the mood takes you. I ask once; after that, come whenever you feel like it."
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあとからでも大丈夫です。人数は金曜に一度だけ、確認しますね。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあとからでもだいじょうぶです。にんずうはきんようにいちどだけ、かくにんしますね。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can come. After tennis is fine too. I'll check the numbers once on Friday."
             },
             "n1": {
-              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで気楽に。テニスのあともやってますから、その気になったら、ふらっとどうぞ。誘うのは一度きり、あとは来たくなったときにでも、ね。",
-              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけできらくに。テニスのあともやってますから、そのきになったら、ふらっとどうぞ。さそうのはいちどきり、あとはきたくなったときにでも、ね。",
-              "english": "Then Saturday, okonomiyaki at my place, just whoever can make it, nice and easy. There's tennis after too, so if the mood takes you, just drop by. I ask once, and after that — come whenever you feel like it, yeah?"
+              "japanese": "じゃあ、土曜はうちでおこのみやき、来られる人だけで気楽に。テニスのあとからでも構いません。人数の確認は、金曜に一度だけにしておきますね。",
+              "reading": "じゃあ、どようはうちでおこのみやき、こられるひとだけできらくに。テニスのあとからでもかまいません。にんずうのかくにんは、きんようにいちどだけにしておきますね。",
+              "english": "Then Saturday, okonomiyaki at my place, just whoever can make it. After tennis is fine. I'll keep the head-count check to once on Friday."
             }
           },
           "support": {

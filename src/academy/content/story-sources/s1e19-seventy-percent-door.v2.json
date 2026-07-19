@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e19-seventy-percent-door",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 2,
   "chapter": 19,
@@ -383,40 +383,40 @@
           "kind": "checkpoint",
           "id": "checkpoint:seventy-percent-door:before-repair",
           "beatId": "beat:seventy-percent-door:back-attempt",
-          "resume": "The learner has taken a stance on continuing from seventy percent. Ruparna answers by reframing what 'ready' was supposed to mean."
+          "resume": "The learner has taken a stance on continuing from seventy percent. Ruparna answers by choosing what to do with the marked gap."
         },
         {
           "kind": "line",
           "id": "line:seventy-percent-door:ruparna-door-opens",
           "beatId": "beat:seventy-percent-door:repair",
           "speakerId": "ruparna",
-          "intent": "Accept that partial comprehension is a graduated door rather than a pass/fail gate, and commit to choosing slightly harder clips carefully, together.",
-          "attentionTarget": "the seventy percent as an opening, not a shortfall",
+          "intent": "Treat the certain seventy percent as enough for one next scene, leave the rest visibly unconfirmed, and keep the next viewing optional.",
+          "attentionTarget": "the next frame and the unconfirmed mark still under this one",
           "variants": {
             "n5": {
-              "japanese": "そうか。分かる、分からない、じゃないんですね。七割で、ドアが開く。次も、少し難しいのを、みんなで見ましょう。慎重に。",
-              "reading": "そうか。わかる、わからない、じゃないんですね。しちわりで、ドアがひらく。つぎも、すこしむずかしいのを、みんなでみましょう。しんちょうに。",
-              "english": "I see. It isn't 'understand' or 'don't.' At seventy percent, a door opens. Next time too, let's watch something a little hard, together. Carefully."
+              "japanese": "七割あれば、次まで見られますね。分からない三割は、この印のままで。次も少し難しいのを持ってきます。見るかは、また決めましょう。",
+              "reading": "しちわりあれば、つぎまでみられますね。わからないさんわりは、このしるしのままで。つぎもすこしむずかしいのをもってきます。みるかは、またきめましょう。",
+              "english": "With seventy percent, we can watch the next part. The thirty we don't know stays marked. I'll bring something a little harder next time too. We can decide then whether to watch it."
             },
             "n4": {
-              "japanese": "なるほど。『分かる』か『分からない』か、の二択じゃないんだ。七割でも、ちゃんとドアは開くんですね。じゃあ次も、少しだけ背伸びしたやつを、みんなで慎重に見ましょう。",
-              "reading": "なるほど。『わかる』か『わからない』か、のにたくじゃないんだ。しちわりでも、ちゃんとドアはひらくんですね。じゃあつぎも、すこしだけせのびしたやつを、みんなでしんちょうにみましょう。",
-              "english": "I see. It's not a choice between 'understand' and 'don't.' Even at seventy percent, the door really does open. So next time too, let's pick something just a bit of a stretch and watch it carefully, together."
+              "japanese": "七割あれば、次の場面までは行けるんですね。分からない三割は、この印のまま置いておく。次も少しだけ難しいのを持ってきます。続けるかは、その時また決めましょう。",
+              "reading": "しちわりあれば、つぎのばめんまではいけるんですね。わからないさんわりは、このしるしのままおいておく。つぎもすこしだけむずかしいのをもってきます。つづけるかは、そのときまたきめましょう。",
+              "english": "With seventy percent, we can make it to the next scene. The thirty we don't know stays marked. I'll bring something just a little harder next time too. We can decide then whether to continue."
             },
             "n3": {
-              "japanese": "そうか。準備できてる・できてないの二択じゃないんですね。七割分かれば、それはもうドアが開いてる。次も、ちょっと上のを選びます。ただし、みんなで慎重に。",
-              "reading": "そうか。じゅんびできてる・できてないのにたくじゃないんですね。しちわりわかれば、それはもうドアがひらいてる。つぎも、ちょっとうえのをえらびます。ただし、みんなでしんちょうに。",
-              "english": "I see. It's not a two-way switch between ready and not ready. If you understand seventy percent, the door is already open. Next time I'll pick something a notch higher too. But carefully, all of us together."
+              "japanese": "七割あれば、次の場面へ進める。残りは推測で埋めず、この印のまま。次も少し上のを持ってきます。見るかどうかは、その場でまた決めましょう。",
+              "reading": "しちわりあれば、つぎのばめんへすすめる。のこりはすいそくでうめず、このしるしのまま。つぎもすこしうえのをもってきます。みるかどうかは、そのばでまたきめましょう。",
+              "english": "Seventy percent gets us to the next scene. The rest stays marked instead of being filled with guesses. I'll bring something a little above us next time too. We can decide on the spot whether to watch it."
             },
             "n2": {
-              "japanese": "なるほどね。『分かる』か『分からない』かの、白黒だけじゃないんだ。七割つかめれば、そこはもうドアが開いてるってことか。じゃあ次も少し上を選びます。ただ、あくまで慎重に、みんなで。",
-              "reading": "なるほどね。『わかる』か『わからない』かの、しろくろだけじゃないんだ。しちわりつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもすこしうえをえらびます。ただ、あくまでしんちょうに、みんなで。",
-              "english": "I see. It isn't just black-and-white between 'understand' and 'don't.' If you grasp seventy percent, that already means the door is open. So next time I'll pick something a step up too. But strictly carefully, all together."
+              "japanese": "七割つかめていれば、次の場面までは進めるんですね。残りは無理に埋めず、未確認の印を残しておく。次も少し上を持ってきます。続けるかどうかは、その場で決めましょう。",
+              "reading": "しちわりつかめていれば、つぎのばめんまではすすめるんですね。のこりはむりにうめず、みかくにんのしるしをのこしておく。つぎもすこしうえをもってきます。つづけるかどうかは、そのばできめましょう。",
+              "english": "If we've grasped seventy percent, we can move to the next scene. We leave the rest unfilled and marked unconfirmed. I'll bring something a little above us next time. We can decide there whether to continue."
             },
             "n1": {
-              "japanese": "なるほど…。『分かる』か『分からない』かっていう、白か黒かの話じゃないんですね。七割さえつかめれば、そこはもうドアが開いてるってことか。じゃあ次もまた、ほんの少し背伸びしたのを選びます。ただし、あくまで慎重に、みんなでね。",
-              "reading": "なるほど…。『わかる』か『わからない』かっていう、しろかくろかのはなしじゃないんですね。しちわりさえつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもまた、ほんのすこしせのびしたのをえらびます。ただし、あくまでしんちょうに、みんなでね。",
-              "english": "I see… It isn't a matter of black or white, of 'understand' versus 'don't,' is it. As long as you grasp even seventy percent, that already means the door is open. So next time again I'll choose something just a touch of a reach. But carefully, mind — all of us together."
+              "japanese": "七割つかめていれば、次の場面へは進める。残りをこちらの推測で埋めず、未確認の印を残しておけばいいんですね。次も少し背伸びしたのを持ってきます。再生するかは、その場でまた決めましょう。",
+              "reading": "しちわりつかめていれば、つぎのばめんへはすすめる。のこりをこちらのすいそくでうめず、みかくにんのしるしをのこしておけばいいんですね。つぎもすこしせのびしたのをもってきます。さいせいするかは、そのばでまたきめましょう。",
+              "english": "If we've grasped seventy percent, we can move to the next scene. We just leave the rest marked unconfirmed instead of filling it with our own guesses. I'll bring another slight stretch next time. We can decide there whether to play it."
             }
           },
           "support": {
@@ -430,7 +430,7 @@
           "id": "node:seventy-percent-door:door-left-open",
           "beatId": "beat:seventy-percent-door:exit-image",
           "cueId": "cue:blank-caption-marked-not-filled",
-          "description": "The blank subtitle bar stays blank under the last frame, but now a small tag beside it reads 'unconfirmed' instead of nothing. The unknown thirty percent is left standing in plain view, a door held ajar rather than a gap to paper over."
+          "description": "The blank subtitle bar stays blank under the last frame. A small tag beside it reads 'unconfirmed'. Under the tag, Ruparna writes one short note: 「次の場面へ」."
         }
       ],
       "exit": {

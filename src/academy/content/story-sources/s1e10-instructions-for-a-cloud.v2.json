@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e10-instructions-for-a-cloud",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 1,
   "chapter": 10,
@@ -362,7 +362,7 @@
           "kind": "choice",
           "id": "choice:instructions-for-a-cloud:how-to-hand-off",
           "beatId": "beat:instructions-for-a-cloud:stance",
-          "question": "How do you help the last step belong to the room, not just Christian?",
+          "question": "How do you put the last step into the room's hands?",
           "options": [
             {
               "id": "option:instructions-for-a-cloud:name-the-order",
@@ -412,38 +412,38 @@
           "id": "line:instructions-for-a-cloud:christian-hands-it-back",
           "beatId": "beat:instructions-for-a-cloud:repair",
           "speakerId": "christian",
-          "intent": "Accept guiding without taking over: name his over-build reflex against the too-hot-room, hand the sequence to the room as a request with a reason, and coordinate rather than own it.",
+          "intent": "Pass the final card to the room with its order and reason, then take one bounded job instead of running the whole sequence.",
           "attentionTarget": "the last card, and the people around the lantern",
           "variants": {
             "foundation": {
-              "japanese": "そうだね。ぼく、いつも大きく作りすぎる。前に暑い部屋のときもそうだった。今日は、順番だけ渡します。まず押して、つぎに置いて。みんなでやりましょう。",
-              "reading": "そうだね。ぼく、いつもおおきくつくりすぎる。まえにあついへやのときもそうだった。きょうは、じゅんばんだけわたします。まずおして、つぎにおいて。みんなでやりましょう。",
-              "english": "You're right. I always build too big. Same thing back with the hot room. Today, I'll just hand over the order. First press, next place. Let's do it together."
+              "japanese": "じゃあ、このカードをどうぞ。まずボタンを押して、つぎに置いてください。最後のカードだから。ぼくは扇風機を止めます。",
+              "reading": "じゃあ、このカードをどうぞ。まずボタンをおして、つぎにおいてください。さいごのカードだから。ぼくはせんぷうきをとめます。",
+              "english": "Then this card is yours. First press the button, then place it, because it's the last card. I'll switch off the fan."
             },
             "n5": {
-              "japanese": "そうですね。ぼく、いつも大きく作りすぎるんだ。前の暑い教室のときも、扇風機で大がかりにやろうとしたし。今日は順番だけ渡します。「まず押して、つぎに置いてください」って。みんなでやりましょう。",
-              "reading": "そうですね。ぼく、いつもおおきくつくりすぎるんだ。まえのあついきょうしつのときも、せんぷうきでおおがかりにやろうとしたし。きょうはじゅんばんだけわたします。「まずおして、つぎにおいてください」って。みんなでやりましょう。",
-              "english": "You're right. I always build too big. Back with that hot classroom too, I tried to do the whole big thing with the fan. Today I'll just hand over the order — 'first press, next place, please.' Let's do it together."
+              "japanese": "じゃあ、この最後のカード、お願いします。まずボタンを押して、つぎに置いてください。雲が順番に光るから。ぼくは扇風機を止めますね。",
+              "reading": "じゃあ、このさいごのカード、おねがいします。まずボタンをおして、つぎにおいてください。くもがじゅんばんにひかるから。ぼくはせんぷうきをとめますね。",
+              "english": "Then please take this last card. First press the button, then place it, because that makes the cloud light in order. I'll switch off the fan."
             },
             "n4": {
-              "japanese": "あー、そうか。ぼく、問題を見るとすぐ大きくしちゃうんだよなあ。前の暑い教室のときも、扇風機で当番まで作ろうとしたし。今日は全部やらないで、順番だけ渡します。「まず押して、つぎに置いてください」。あとはみんなで回しましょう。",
-              "reading": "あー、そうか。ぼく、もんだいをみるとすぐおおきくしちゃうんだよなあ。まえのあついきょうしつのときも、せんぷうきでとうばんまでつくろうとしたし。きょうはぜんぶやらないで、じゅんばんだけわたします。「まずおして、つぎにおいてください」。あとはみんなでまわしましょう。",
-              "english": "Ah, I see. I really do see a problem and immediately make it bigger. Back in that hot classroom too, I tried to build a whole fan rota. Today I won't do all of it — I'll just hand over the order: 'first press, next place, please.' The rest, let's run together."
+              "japanese": "じゃあ、この最後のカード、お願いします。「まずボタンを押して、つぎに置いてください」。雲が順番に光るからです。ぼくは扇風機のほうを止めますね。",
+              "reading": "じゃあ、このさいごのカード、おねがいします。「まずボタンをおして、つぎにおいてください」。くもがじゅんばんにひかるからです。ぼくはせんぷうきのほうをとめますね。",
+              "english": "Then please take this last card. 'First press the button, then place it,' because that makes the cloud light in order. I'll deal with switching off the fan."
             },
             "n3": {
-              "japanese": "あー、なるほどなあ。ぼく、問題を見るとすぐ全体を大きく組みたくなるんだよ。前の暑い教室のときも、窓を開ければいいのに扇風機で当番表まで作ろうとしてさ。今日はやめとく。順番だけ言葉で渡します——「まず押して、つぎに置いてください、こうだから」って。あとはみんなで回しましょう。",
-              "reading": "あー、なるほどなあ。ぼく、もんだいをみるとすぐぜんたいをおおきくくみたくなるんだよ。まえのあついきょうしつのときも、まどをあければいいのにせんぷうきでとうばんひょうまでつくろうとしてさ。きょうはやめとく。じゅんばんだけことばでわたします——「まずおして、つぎにおいてください、こうだから」って。あとはみんなでまわしましょう。",
-              "english": "Ah, I see. Whenever I see a problem I want to rebuild the whole thing bigger. Back in that hot classroom too — you could just open a window, but I went and tried to build a whole fan-duty roster. Not today. I'll just hand over the order in words: 'first press, next place, please, because of this.' The rest, let's run together."
+              "japanese": "じゃあ、この最後の一枚、お願いします。「まずボタンを押して、つぎに置いてください」。そこで置けば、雲が順番に光るので。ぼくは扇風機を止めて、クリップだけ押さえます。",
+              "reading": "じゃあ、このさいごのいちまい、おねがいします。「まずボタンをおして、つぎにおいてください」。そこでおけば、くもがじゅんばんにひかるので。ぼくはせんぷうきをとめて、クリップだけおさえます。",
+              "english": "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in order. I'll switch off the fan and just hold the clip."
             },
             "n2": {
-              "japanese": "あー、なるほど、そういうことか。ぼく、問題を見るとつい全体を大きく組み直しにいっちゃうんですよね。前の暑い教室のときも、窓を一つ開ければ済むのに、扇風機で当番表まで作ろうとして。今日はそれ、やめときます。順番だけ言葉で渡す——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回しましょう。そのほうが、崩れても直せる。",
-              "reading": "あー、なるほど、そういうことか。ぼく、もんだいをみるとついぜんたいをおおきくくみなおしにいっちゃうんですよね。まえのあついきょうしつのときも、まどをひとつあければすむのに、せんぷうきでとうばんひょうまでつくろうとして。きょうはそれ、やめときます。じゅんばんだけことばでわたす——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしましょう。そのほうが、くずれてもなおせる。",
-              "english": "Ah, I see, so that's it. I tend to see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too — you could just open one window, but I went and tried to build a whole fan-duty roster. Not today; I'll drop that. I'll just hand over the order in words — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even if it falls apart, anyone can fix it."
+              "japanese": "では、この最後の一枚をお願いします。「まずボタンを押して、つぎに置いてください」。そこで置くと、雲が順番に光るので。ぼくは扇風機を止めて、クリップだけ押さえます。",
+              "reading": "では、このさいごのいちまいをおねがいします。「まずボタンをおして、つぎにおいてください」。そこでおくと、くもがじゅんばんにひかるので。ぼくはせんぷうきをとめて、クリップだけおさえます。",
+              "english": "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in order. I'll switch off the fan and hold only the clip."
             },
             "n1": {
-              "japanese": "あー、なるほど、そういうことか。ぼく、問題を目にすると、つい全体を大きく組み直しにいっちゃう質でしてね。前の暑い教室のときも、窓を一つ開ければ済む話なのに、扇風機を据えて当番表まで作ろうとしたくらいで。今日はそれ、封印しときます。渡すのは順番だけ——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回してもらいましょう。そのほうが、ぼくがいなくても、崩れたところから直せますからね。",
-              "reading": "あー、なるほど、そういうことか。ぼく、もんだいをめにすると、ついぜんたいをおおきくくみなおしにいっちゃうたちでしてね。まえのあついきょうしつのときも、まどをひとつあければすむはなしなのに、せんぷうきをすえてとうばんひょうまでつくろうとしたくらいで。きょうはそれ、ふういんしときます。わたすのはじゅんばんだけ——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしてもらいましょう。そのほうが、ぼくがいなくても、くずれたところからなおせますからね。",
-              "english": "Ah, I see, so that's it. I've got this streak — I see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too, all it needed was one open window, but I went and set up a fan and tried to build a whole duty roster. Today, I'll seal that away. All I'll hand over is the order — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even without me, they can fix it right from wherever it broke."
+              "japanese": "では、この最後の一枚をお願いします。「まずボタンを押して、つぎに置いてください」。そこで置けば、雲が順を追って光るので。ぼくは扇風機を止めて、クリップだけ押さえておきます。",
+              "reading": "では、このさいごのいちまいをおねがいします。「まずボタンをおして、つぎにおいてください」。そこでおけば、くもがじゅんをおってひかるので。ぼくはせんぷうきをとめて、クリップだけおさえておきます。",
+              "english": "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in sequence. I'll switch off the fan and hold only the clip."
             }
           },
           "support": {
@@ -457,38 +457,38 @@
           "id": "line:instructions-for-a-cloud:angel-closes",
           "beatId": "beat:instructions-for-a-cloud:changed-action",
           "speakerId": "angel",
-          "intent": "Affirm that a plan you can hand off — order plus reason — outlasts a plan only one person can run, and quietly turn the lesson on herself.",
-          "attentionTarget": "the card passing from Christian's hand toward the others",
+          "intent": "Receive the handoff, add the reason to the card, and assign the next concrete jobs around the lantern.",
+          "attentionTarget": "the card margin, the fan, and the loose clip",
           "variants": {
             "foundation": {
-              "japanese": "うん、それがいい。一人でしか回せない計画より、渡せる計画のほうが強いです。理由があれば、みんなが続けられます。",
-              "reading": "うん、それがいい。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいです。りゆうがあれば、みんながつづけられます。",
-              "english": "Yes, that's good. A plan only you can run is weaker than one you can hand off. With the reason there, everyone can keep it going."
+              "japanese": "はい、受け取りました。理由もカードに書きます。クリスチャンさんは扇風機、わたしはクリップ。もう一度、いきましょう。",
+              "reading": "はい、うけとりました。りゆうもカードにかきます。クリスチャンさんはせんぷうき、わたしはクリップ。もういちど、いきましょう。",
+              "english": "Got it. I'll write the reason on the card too. Christian takes the fan; I'll take the clip. Let's run it again."
             },
             "n5": {
-              "japanese": "うん、それがいいと思います。一人でしか回せない計画より、渡せる計画のほうが強いんですよ。理由さえついていれば、あとはみんなが続けられますから。",
-              "reading": "うん、それがいいとおもいます。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいんですよ。りゆうさえついていれば、あとはみんながつづけられますから。",
-              "english": "Yes, I think that's good. A plan only one person can run is weaker than a plan you can hand off. As long as the reason is attached, everyone else can carry it on."
+              "japanese": "はい、受け取りました。理由もカードの横に書きますね。クリスチャンさんは扇風機を止めて、わたしはクリップを押さえます。もう一度やりましょう。",
+              "reading": "はい、うけとりました。りゆうもカードのよこにかきますね。クリスチャンさんはせんぷうきをとめて、わたしはクリップをおさえます。もういちどやりましょう。",
+              "english": "Got it. I'll write the reason beside the step. Christian switches off the fan; I'll hold the clip. Let's run it again."
             },
             "n4": {
-              "japanese": "うん、それがいいですね。一人で全部抱える計画より、人に渡せる計画のほうが、結局は強い。理由がついていれば、途中で崩れても誰かが続けられますから。……わたしも、覚えておきます。",
-              "reading": "うん、それがいいですね。ひとりでぜんぶかかえるけいかくより、ひとにわたせるけいかくのほうが、けっきょくはつよい。りゆうがついていれば、とちゅうでくずれてもだれかがつづけられますから。……わたしも、おぼえておきます。",
-              "english": "Yes, that's good. A plan you carry all alone is, in the end, weaker than one you can hand to others. If the reason is attached, then even if it breaks partway, someone can carry on. …I'll remember that too."
+              "japanese": "うん、受け取りました。理由はカードの余白に足しておきます。クリスチャンさんは扇風機を止める、わたしはクリップ。では、もう一回。",
+              "reading": "うん、うけとりました。りゆうはカードのよはくにたしておきます。クリスチャンさんはせんぷうきをとめる、わたしはクリップ。では、もういっかい。",
+              "english": "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I take the clip. Right, once more."
             },
             "n3": {
-              "japanese": "うん、いいと思う。一人で全部抱える計画って、その人が抜けたら止まるんですよね。渡せる計画は、途中で崩れても誰かが拾って続けられる。理由さえ一緒に渡してあれば。……これ、わたしにも刺さるなあ。",
-              "reading": "うん、いいとおもう。ひとりでぜんぶかかえるけいかくって、そのひとがぬけたらとまるんですよね。わたせるけいかくは、とちゅうでくずれてもだれかがひろってつづけられる。りゆうさえいっしょにわたしてあれば。……これ、わたしにもささるなあ。",
-              "english": "Yeah, I think it's good. A plan one person carries alone just stops the moment they step away. A plan you can hand off — someone can pick it up and keep going even if it breaks partway, as long as the reason travels with it. …That one hits home for me too."
+              "japanese": "うん、受け取ります。理由はカードの余白に書き足しておきますね。クリスチャンさんは扇風機、わたしはクリップ。次に風が来ても、この一枚から戻せます。",
+              "reading": "うん、うけとります。りゆうはカードのよはくにかきたしておきますね。クリスチャンさんはせんぷうき、わたしはクリップ。つぎにかぜがきても、このいちまいからもどせます。",
+              "english": "Got it. I'll add the reason in the card's margin. Christian takes the fan; I'll take the clip. If the wind comes again, we restart from this card."
             },
             "n2": {
-              "japanese": "うん、それがいいと思います。一人で全部抱え込む計画は、結局その人が抜けた瞬間に止まってしまう。でも渡せる計画なら、途中で崩れても、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直、これはわたし自身に言い聞かせたい話でもあるんですけど。",
-              "reading": "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくは、けっきょくそのひとがぬけたしゅんかんにとまってしまう。でもわたせるけいかくなら、とちゅうでくずれても、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじき、これはわたしじしんにいいきかせたいはなしでもあるんですけど。",
-              "english": "Yes, I think that's good. A plan someone hoards entirely to themselves just stops the instant that person steps away. But a plan you can hand off — someone can pick it up and carry on even if it breaks partway, as long as the reason is handed over with it. …Honestly, this is something I need to tell myself, too."
+              "japanese": "うん、受け取ります。理由はカードの余白に追記しておきますね。クリスチャンさんは扇風機を止める、わたしはクリップを押さえる。次に風が来ても、この一枚から復旧できます。",
+              "reading": "うん、うけとります。りゆうはカードのよはくについきしておきますね。クリスチャンさんはせんぷうきをとめる、わたしはクリップをおさえる。つぎにかぜがきても、このいちまいからふっきゅうできます。",
+              "english": "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I hold the clip. If the wind comes again, we can recover from this card."
             },
             "n1": {
-              "japanese": "うん、それがいいと思います。一人で全部抱え込む計画って、結局その本人が抜けた途端に止まってしまうんですよね。でも渡せる計画なら、途中で崩れたところから、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直に言うと、これ、わたし自身に一番言い聞かせなきゃいけない話なんですけど。",
-              "reading": "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくって、けっきょくそのほんにんがぬけたとたんにとまってしまうんですよね。でもわたせるけいかくなら、とちゅうでくずれたところから、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじきにいうと、これ、わたしじしんにいちばんいいきかせなきゃいけないはなしなんですけど。",
-              "english": "Yes, I think that's good. A plan someone hoards entirely to themselves ends up stopping the instant that person steps away. But a plan you can hand off — someone can pick it up right from where it broke and keep going, as long as the reason is handed over with it. …Honestly, this is the thing I most need to tell myself, of all people."
+              "japanese": "うん、受け取ります。理由はカードの余白に追記しておきますね。クリスチャンさんは扇風機を止める、わたしはクリップを押さえる。次に風が来ても、この一枚を起点に復旧できます。",
+              "reading": "うん、うけとります。りゆうはカードのよはくについきしておきますね。クリスチャンさんはせんぷうきをとめる、わたしはクリップをおさえる。つぎにかぜがきても、このいちまいをきてんにふっきゅうできます。",
+              "english": "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I hold the clip. If the wind comes again, this card is our recovery point."
             }
           },
           "support": {
