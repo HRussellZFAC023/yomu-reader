@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.231] - 2026-07-19
+
+### Changed
+
+- The word popup header now uses one consistent layout everywhere: the pitch-accent graph sits along the top next to the play button, and the dictionary and frequency pills always occupy a full-width row beneath the headword instead of wrapping inside a squeezed column. Genuinely narrow popups move multi-graph pitch evidence to its own full-width row under the title so nothing crushes the headword.
+- The Bunpro section no longer renders a word-audio button on a line of its own. Bunpro word pronunciation now plays through the shared audio pipeline like Jiten and JPDB: enable the Bunpro source under Settings → Audio to include its recordings in the popup's main play button. Example-sentence audio buttons are unchanged.
+
 ## [1.6.230] - 2026-07-19
 
 ### Added
