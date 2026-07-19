@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.224
+// @version 1.6.225
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.38b2480ba66a.user.js#sha256=OLJIC6ZqtUhgw3suFbjz7hqraRM2e5rY4FuOMvNOxnc=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.6ddef4d063d3.user.js#sha256=bd700GPT6n2/+sR6Wz5aVeGCpz1IoRi7MN6B899qKoE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.ed731aecd3e0.user.js#sha256=7XMa7NPgvRptuWKWy6OJfOEnv0c2gzQQF8SpqgTxc8w=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.3850eb6db414.user.js#sha256=OFDrbbQUOdbNwPI/n5jVzDt9PD/UT8+Q5oKZTQ/l/ZQ=
 // @require https://yomureader.com/greasyfork/yomu-video.b64ea15cff66.user.js#sha256=tk6hXP9mqQZkzAIHL5+sVsaAzA/+48YmGq8Wu1GAjwA=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
@@ -30597,10 +30597,6 @@ const YOMU_HOSTED_DOCS_ROOTS = [
 const YOMU_HOSTED_DOCS_EXCLUDE = [
   COMMON_EXCLUDE,
   ".VPNav",
-  ".VPHero",
-  ".VPHomeHero",
-  ".yomu-install-panel",
-  ".yomu-next-grid",
   ".yomu-hosted-overflow-group"
 ].join(",");
 const YOMU_VIDEO_PLAYER_ROOTS = [
@@ -37454,8 +37450,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.224"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.224"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.225"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.225"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37575,7 +37571,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.224"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.225"}`;
   } catch {
   return null;
   }

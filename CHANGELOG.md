@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.225] - 2026-07-19
+
+### Fixed
+
+- Switching the yomureader.com interface language to Japanese now annotates the site's own text. The whole content column becomes a declared reading surface, so furigana, pitch colours, and word lookups work on the hero, install steps, and link cards exactly like on any other Japanese website, with an installed userscript or with the built-in page runtime. Navigation chrome stays unannotated, and English mode keeps the demo-only scope introduced in 1.6.220.
+- Hosted docs localization no longer rewrites unchanged text nodes on every pass, which previously queued needless mutation records for the annotating reader to re-inspect in Japanese mode.
+
+### Testing
+
+- The Japanese-docs performance smoke now proves the content column annotates at volume while long tasks stay under 200ms and the first Try-me hover stays under one second, and unit coverage pins that a declared content column scans while navigation chrome does not.
+
 ## [1.6.224] - 2026-07-19
 
 ### Fixed

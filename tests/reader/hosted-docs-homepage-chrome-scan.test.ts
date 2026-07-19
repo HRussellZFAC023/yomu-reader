@@ -91,6 +91,29 @@ describe('hosted docs homepage chrome scan boundary', () => {
         }
     });
 
+    // Japanese mode: the theme stamps data-yomu-runtime-surface on #VPContent,
+    // turning the whole content column into ordinary Japanese reading material
+    // while navigation chrome outside it stays untouched.
+    it('scans the whole content column when Japanese mode declares it a surface', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+        document.body.innerHTML = `
+            <header class="VPNav"><a href="/changelog">更新履歴を見る</a></header>
+            <div class="VPContent is-home" id="VPContent" data-yomu-runtime-surface>
+                <div class="VPHero"><p>ページを離れずに日本語を読む</p></div>
+                <article class="vp-doc"><p>今日は静かな喫茶店で新しい本を読みました。</p></article>
+            </div>
+        `;
+        try {
+            const texts = collectScanTargets(80, YOMU_HOMEPAGE_URL).map(target => target.text);
+            expect(texts.some(text => text.includes('ページを離れずに'))).toBe(true);
+            expect(texts.some(text => text.includes('今日は静かな喫茶店'))).toBe(true);
+            expect(texts.some(text => text.includes('更新履歴を見る'))).toBe(false);
+        } finally {
+            restoreRects();
+        }
+    });
+
     it('does not reparse the intentional pre-rendered Try Me sample', () => {
         const restoreRects = mockVisibleElementRects();
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');

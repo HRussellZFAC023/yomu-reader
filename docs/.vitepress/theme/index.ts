@@ -1727,6 +1727,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Added a separate Video setting for pausing on subtitle hover lookup. Clicked/tapped subtitle lookups still pause by default, while hover pause can now be turned off independently.': '字幕ホバールックアップ時に一時停止するための個別の動画設定を追加しました。クリックまたはタップした字幕ルックアップはこれまで通り既定で一時停止し、ホバーによる一時停止だけを独立してオフにできます。',
     'Expanded the hosted homepage and localized metadata copy to describe SRS practice, Japanese site versions, and YouTube Japanese-content filtering as part of Yomu\'s immersion environment.': 'ホスト版ホームページとローカライズ済みメタデータの文言を広げ、SRSでの練習、日本語版サイト、YouTubeの日本語コンテンツ絞り込みを、Yomuの没入環境の一部として説明するようにしました。',
     'Fixed': '修正',
+    'Switching the yomureader.com interface language to Japanese now annotates the site\'s own text. The whole content column becomes a declared reading surface, so furigana, pitch colours, and word lookups work on the hero, install steps, and link cards exactly like on any other Japanese website, with an installed userscript or with the built-in page runtime. Navigation chrome stays unannotated, and English mode keeps the demo-only scope introduced in 1.6.220.': 'yomureader.comの表示言語を日本語に切り替えると、サイト自身のテキストに注釈が付くようになりました。コンテンツ欄全体が読書サーフェスとして宣言されるため、ヒーロー、インストール手順、リンクカードでも、他の日本語サイトと同じように、ふりがな・ピッチの色・単語ルックアップが、インストール済みユーザースクリプトでも内蔵のページランタイムでも機能します。ナビゲーションには注釈が付かず、英語表示では1.6.220で導入したデモ限定のスコープを維持します。',
+    'Hosted docs localization no longer rewrites unchanged text nodes on every pass, which previously queued needless mutation records for the annotating reader to re-inspect in Japanese mode.': 'ホスト版ドキュメントのローカライズが、変更のないテキストノードを毎回書き直さなくなりました。以前は日本語表示で、注釈を付けるリーダーが再検査する必要のないミューテーションレコードを積み上げていました。',
+    'The Japanese-docs performance smoke now proves the content column annotates at volume while long tasks stay under 200ms and the first Try-me hover stays under one second, and unit coverage pins that a declared content column scans while navigation chrome does not.': '日本語ドキュメントのパフォーマンススモークが、ロングタスクを200ms未満、最初のTry-meホバーを1秒未満に保ちながらコンテンツ欄が大量に注釈されることを証明するようになり、ユニットテストは宣言されたコンテンツ欄がスキャンされ、ナビゲーションはスキャンされないことを固定します。',
     'Payment and wallet buttons, such as Apple Pay on Stripe-powered checkouts, no longer disappear or fail on Firefox while Yomu is enabled. The open shadow root discovery bridge previously replaced the page\'s attachShadow with a sandboxed function that page scripts were not permitted to call, so any web component attaching its UI crashed; the bridge now only patches the page realm with a function the page can actually call and otherwise falls back to bounded polling.': 'Stripeを利用したチェックアウトのApple Payなど、支払い・ウォレットボタンが、Yomu有効時のFirefoxで消えたり動かなくなったりしなくなりました。オープンShadow Root検出ブリッジが、ページのattachShadowをページスクリプトから呼び出せないサンドボックス関数に置き換えていたため、UIをシャドウDOMに取り付けるあらゆるWebコンポーネントがクラッシュしていました。ブリッジは、ページが実際に呼び出せる関数だけでページ側を書き換え、それができない場合は回数制限付きのポーリングにフォールバックするようになりました。',
     'Remote parser fragments are now replaced only when an enabled local dictionary supplies an exact longer expression and reading across their boundary. This repairs evidence-backed splits such as': 'リモート解析で分割された語は、有効なローカル辞書が境界をまたぐ、より長い完全一致の見出し語と読みを返した場合だけ置き換えるようになりました。これにより、たとえば',
     'without a': 'を',
@@ -3246,7 +3249,11 @@ function translateTextNodes(root: ParentNode, language: InterfaceLanguage): void
         // current text before accepting that cached fallback.
         const original = canonicalHostedDocsSourceString(current, textNodeOriginals.get(node));
         textNodeOriginals.set(node, original);
-        node.nodeValue = translateHostedDocsString(original, language);
+        const translated = translateHostedDocsString(original, language);
+        // Same-value writes still queue characterData mutation records, and in
+        // Japanese mode the annotating reader observes this whole subtree —
+        // every localization pass would otherwise trigger a pointless rescan.
+        if (node.nodeValue !== translated) node.nodeValue = translated;
     }
 }
 
@@ -3650,6 +3657,20 @@ function browserPrefersJapanese(): boolean {
 
 function declareHostedAnnotationScope(): void {
     document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+    syncHostedContentAnnotationSurface();
+}
+
+// In Japanese mode the docs are themselves Japanese immersion content, so the
+// whole content column becomes a declared Reader Surface and annotates like
+// any other Japanese site — for the hosted demo runtime and an installed
+// userscript alike. English mode keeps the demo-only scope: outside the demo
+// surfaces the chrome holds no meaningful Japanese, and scanning it is what
+// made Japanese mode drag before the scope existed.
+function syncHostedContentAnnotationSurface(): void {
+    const content = document.getElementById('VPContent');
+    if (!content) return;
+    if (effectiveInterfaceLanguage() === 'ja') content.setAttribute('data-yomu-runtime-surface', '');
+    else content.removeAttribute('data-yomu-runtime-surface');
 }
 
 function installHostedDocsEnhancements(): void {
@@ -3673,11 +3694,16 @@ function installHostedDocsEnhancements(): void {
     hostedAppliedAnnotationSettings ??= hostedAnnotationSettingsFingerprint(readStoredSettings());
     window.addEventListener(SETTINGS_CHANGE_EVENT, syncHostedLanguageFromSettingsEvent);
     window.addEventListener(LANGUAGE_EVENT, () => {
+        syncHostedContentAnnotationSurface();
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
         syncHostedMobileNavSettings();
         installHostedSupportBanner();
         scheduleHostedDocsLocalization({ resetReaderWords: true });
+        // Entering Japanese turns the content column into a runtime surface;
+        // rebind intent targets (and the near-viewport boot check) to it so a
+        // reader runtime loads without requiring a pointer over a demo.
+        prepareHostedYomuRuntime();
     });
     window.addEventListener('hashchange', () => window.requestAnimationFrame(() => {
         declareHostedAnnotationScope();

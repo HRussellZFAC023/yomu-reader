@@ -67,10 +67,19 @@ const vocabulary = [
     ['新しい', '新しい', 'あたらしい', 'new', ['adj-i'], 650, ['learning'], ['LHHHH']],
     ['本', '本', 'ほん', 'book', ['n'], 200, ['known'], ['LH']],
     ['読みました', '読む', 'よみました', 'read', ['v5m'], 500, ['known'], ['LH']],
+    ['学習', '学習', 'がくしゅう', 'study', ['n'], 300, ['known'], ['LHHHH']],
+    ['始める', '始める', 'はじめる', 'to begin', ['v1'], 400, ['known'], ['LHHH']],
+    ['保存', '保存', 'ほぞん', 'saving', ['n'], 900, ['new'], ['LHH']],
+    ['単語', '単語', 'たんご', 'word', ['n'], 350, ['known'], ['LHH']],
+    ['統計', '統計', 'とうけい', 'statistics', ['n'], 2200, ['new'], ['LHHH']],
+    ['確認', '確認', 'かくにん', 'confirmation', ['n'], 450, ['known'], ['LHHH']],
+    ['調べて', '調べる', 'しらべて', 'to look up', ['v1'], 600, ['learning'], ['LHHH']],
+    ['勉強', '勉強', 'べんきょう', 'study', ['n'], 250, ['known'], ['LHHH']],
 ];
 
-// Enough translated copy to expose an accidental whole-body scan (the
-// pre-fix homepage produced hundreds of annotated chrome words).
+// The 2026-07-19 contract: in Japanese mode the docs content column is itself
+// a declared Reader Surface, so this copy MUST annotate — while staying inside
+// the long-task budget. Sixty rows approximate the real homepage volume.
 const CHROME_ROWS = Array.from({ length: 60 }, (_, index) => `
     <a class="yomu-link-card" href="/page-${index}">
         <strong>学習を始める ${index}</strong>
@@ -113,21 +122,23 @@ function serveDocsFixture(response) {
   </style>
 </head>
 <body>
-  <header class="VPNav"><a href="/getting-started">はじめる</a> <a href="/changelog">更新履歴を見る</a></header>
-  <div class="VPHero VPHomeHero">
-    <h1><span class="name">よむ</span> <span class="text">ページを離れずに日本語を読む</span></h1>
-    <p class="tagline">ウェブページで単語を調べて、勉強のために例文を保存しましょう。</p>
+  <header class="VPNav"><a href="/getting-started">学習を始める</a> <a href="/changelog">更新履歴を見る</a></header>
+  <div class="VPContent is-home" id="VPContent" data-yomu-runtime-surface>
+    <div class="VPHero VPHomeHero">
+      <h1><span class="name">よむ</span> <span class="text">ページを離れずに日本語を読む</span></h1>
+      <p class="tagline">ウェブページで単語を調べて、勉強のために例文を保存しましょう。</p>
+    </div>
+    <main>
+      <article class="vp-doc">
+        <p data-chrome-prose>よむは日本語テキスト、字幕、漫画画像を同じポップアップで読めます。</p>
+        <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
+          <p class="yomu-try-me-label">Try me</p>
+          <p data-try-me-sentence>${TRY_ME_SENTENCE}</p>
+        </div>
+        <div class="yomu-link-grid">${CHROME_ROWS}</div>
+      </article>
+    </main>
   </div>
-  <main>
-    <article class="vp-doc">
-      <p data-chrome-prose>よむは日本語テキスト、字幕、漫画画像を同じポップアップで読めます。</p>
-      <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
-        <p class="yomu-try-me-label">Try me</p>
-        <p data-try-me-sentence>${TRY_ME_SENTENCE}</p>
-      </div>
-      <div class="yomu-link-grid">${CHROME_ROWS}</div>
-    </article>
-  </main>
 </body>
 </html>`);
 }
@@ -185,11 +196,27 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
             }));
             throw new Error(`Try Me annotation timed out: ${JSON.stringify({ diagnostic, requests })}`, { cause: error });
         }
+        // Japanese mode declares the content column itself as a surface, so
+        // the link-grid copy must annotate too — wait for that scan to settle
+        // instead of sampling a fixed instant.
+        try {
+            await page.waitForFunction(() => {
+                const content = document.getElementById('VPContent');
+                if (!content) return false;
+                return [...content.querySelectorAll('.jpdb-reader-word')]
+                    .filter(word => !word.closest('.yomu-try-me-text, [data-jpdb-reader-root]')).length >= 120;
+            }, undefined, { timeout: 20_000 });
+        } catch (error) {
+            const partial = await page.evaluate(auditFromDom, runtimeStart);
+            throw new Error(`Content-column annotation never reached volume: ${JSON.stringify(partial)}`, { cause: error });
+        }
         await page.waitForTimeout(1500);
 
         const audit = await page.evaluate(auditFromDom, runtimeStart);
-        assert(audit.chromeWordCount === 0,
-            `Chrome/prose outside the declared surface was annotated (${audit.chromeWordCount} words)`, audit);
+        assert(audit.navWordCount === 0,
+            `Navigation chrome outside the declared surfaces was annotated (${audit.navWordCount} words)`, audit);
+        assert(audit.contentWordCount >= 120,
+            `Content column under-annotated (${audit.contentWordCount} words)`, audit);
         assert(audit.tryMeWordCount >= 4, 'Try Me surface did not annotate', audit);
         const overBudget = audit.longTasks.filter(task => task.duration > LONG_TASK_BUDGET_MS);
         assert(overBudget.length === 0,
@@ -209,12 +236,16 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
 
 function auditFromDom(runtimeStart) {
     const allWords = [...document.querySelectorAll('.jpdb-reader-word')];
-    const inSurface = word => Boolean(word.closest('[data-yomu-runtime-surface], .yomu-try-me-text, [data-jpdb-reader-root]'));
+    const content = document.getElementById('VPContent');
     const longTasks = (window.__yomuLongTasks ?? []).filter(task => task.startTime >= runtimeStart);
     return {
         totalWordCount: allWords.length,
         tryMeWordCount: document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word').length,
-        chromeWordCount: allWords.filter(word => !inSurface(word)).length,
+        contentWordCount: content
+            ? [...content.querySelectorAll('.jpdb-reader-word')]
+                .filter(word => !word.closest('.yomu-try-me-text, [data-jpdb-reader-root]')).length
+            : 0,
+        navWordCount: document.querySelectorAll('.VPNav .jpdb-reader-word').length,
         longTasks: longTasks.map(task => ({ duration: Math.round(task.duration), startTime: Math.round(task.startTime) })),
     };
 }

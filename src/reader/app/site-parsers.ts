@@ -316,11 +316,12 @@ const SAFE_UI_CHROME_MAX_COMPACT_LENGTH = 160;
 const SAFE_FORM_CHROME_MAX_COMPACT_LENGTH = 80;
 const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
-// Hosted docs deliberately annotate only declared Reader Surfaces. The docs
-// theme translates its own navigation, prose, hero, and install chrome; mass
-// annotating that site copy produced multi-second long tasks and a ~14s cold
-// first hover in Japanese mode. The page-owned annotation scope below keeps
-// this profile and the generic fallback pipeline on the same boundary.
+// Hosted docs annotate only declared Reader Surfaces. In English mode those
+// are just the demo surfaces; in Japanese mode the theme also declares the
+// whole #VPContent column, whose translated hero, install, and link-grid copy
+// is then ordinary Japanese reading material. Navigation chrome stays outside
+// every surface — mass annotating it produced multi-second long tasks and a
+// ~14s cold first hover before the page-owned annotation scope existed.
 const YOMU_HOSTED_DOCS_ROOTS = [
     '[data-yomu-runtime-surface]',
     '.yomu-try-me-text',
@@ -328,10 +329,6 @@ const YOMU_HOSTED_DOCS_ROOTS = [
 const YOMU_HOSTED_DOCS_EXCLUDE = [
     COMMON_EXCLUDE,
     '.VPNav',
-    '.VPHero',
-    '.VPHomeHero',
-    '.yomu-install-panel',
-    '.yomu-next-grid',
     '.yomu-hosted-overflow-group',
 ].join(',');
 const YOMU_VIDEO_PLAYER_ROOTS = [
