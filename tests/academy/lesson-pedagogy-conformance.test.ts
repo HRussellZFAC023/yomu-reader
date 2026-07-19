@@ -118,7 +118,9 @@ describe('reachable lesson pedagogy gate', () => {
         screen.element.querySelector<HTMLButtonElement>('[data-choice-id="right"]')!.click();
         await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-next')).not.toBeNull());
         screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
-        expect(onComplete).toHaveBeenCalledOnce();
+        // Completion is asynchronous by design since the mobile resume-safety
+        // work: finish() flushes the pending position write before onComplete.
+        await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
         screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')!.click();
         expect(screen.element.querySelector('.academy-lesson-teaching-support')).not.toBeNull();
 
