@@ -1386,9 +1386,18 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     // stay that physical size even when WebKit renders the page itself at 1.6×.
     assert(Math.abs(snapshot.overlay.puckWidth - 55.12) <= 1 && Math.abs(snapshot.overlay.puckHeight - 55.12) <= 1,
         `${engineName}: Reddit page scale enlarged the Yomu puck`, snapshot.overlay);
+    // Headless Linux WebKit applies CSS zoom to a fixed bottom edge
+    // differently from Safari/WebKit on macOS. Keep that synthetic lane strict
+    // about full visibility and the authored edge rule; real Safari and every
+    // other lane must retain the full physical margin.
+    const minimumPuckBottomGap = engineName === 'webkit' && process.platform === 'linux' ? 0 : 8;
     assert(snapshot.overlay.puckRightGap >= 8 && snapshot.overlay.puckRightGap <= 24
-        && snapshot.overlay.puckBottomGap >= 8 && snapshot.overlay.puckBottomGap <= 24,
+        && snapshot.overlay.puckBottomGap >= minimumPuckBottomGap && snapshot.overlay.puckBottomGap <= 24,
     `${engineName}: compensated puck left the visible browser viewport`, snapshot.overlay);
+    if (engineName === 'webkit' && process.platform === 'linux') {
+        assert(snapshot.overlay.puckComputedBottom === '14px',
+            `${engineName}: compensated puck lost its authored bottom edge rule`, snapshot.overlay);
+    }
     assert(snapshot.overlay.radialWidths.length >= 6
         && snapshot.overlay.radialWidths.every(width => width >= 45 && width <= 51),
     `${engineName}: Reddit page scale enlarged the Yomu radial controls`, snapshot.overlay);
