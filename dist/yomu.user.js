@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.242
+// @version 1.6.243
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.c52af5b61b7f.user.js#sha256=xSr1tht/IWqfe9fgqmJhgHOMxQMdhvdA6frFbFXTuvU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.f640ed2769a4.user.js#sha256=9kDtJ2mkHwNR84D6tsuFv17OhvVS+PSy79vInP/qo2U=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.1e783979b02c.user.js#sha256=Hng5ebAs14MLsACteUlrpnXVb4LYnSGX3+Nvd8AUMdM=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.e74b1f17976b.user.js#sha256=50sfF5drTH7PTjmRrB6fzFZNjWOwB5OuXAvcGeSz/qQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.2ca842d6bb5c.user.js#sha256=LKhC1rtcVspUg4EtGfjwW2VTUXh7YIlzzmxCuv2XdFY=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.f1bf470046b7.user.js#sha256=8b9HAEa3hkTjPMq503BAmGYWZobq25PitQS9hiOAtCQ=
 // @require https://yomureader.com/greasyfork/yomu-video.fc88aa1909de.user.js#sha256=/IiqGQne+2uMyG+xBjkwbclzJh6a2xcMUpUDMzFKYf8=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
@@ -33681,8 +33681,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.242"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.242"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.243"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.243"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -33802,7 +33802,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.242"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.243"}`;
   } catch {
   return null;
   }
@@ -36510,6 +36510,7 @@ class ReaderApp {
     if (this.handleOcrReaderWordPointerDown(event)) return;
     this.beginTapLookup(event);
     this.beginLinkPressLookup(event);
+    this.pinHoverPopoverForInsidePointer(event);
     this.dismissModalPopoverForOutsidePointer(event);
     this.dismissHoverPopoverForOutsidePointer(event);
     this.beginPressLookup(event);
@@ -37066,6 +37067,13 @@ class ReaderApp {
   this.pinActiveHoverPopoverForPendingModalLookup();
   this.cancelHoverClose();
   this.primeLookupAudioFromGesture();
+  }
+  pinHoverPopoverForInsidePointer(event) {
+  if (this.activePopoverMode !== "hover" || !this.activePopover) return;
+  if (!this.isInsideActivePopover(event.target)) return;
+  this.cancelPendingHoverLookup();
+  this.cancelHoverClose();
+  this.pinActiveHoverPopoverForPendingModalLookup();
   }
   pinActiveHoverPopoverForPendingModalLookup() {
   if (this.activePopoverMode !== "hover" || !this.activePopover) return;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.243] - 2026-07-19
+
+### Fixed
+
+- Tapping anywhere inside the open dictionary popover now pins it in sticky mode, so interacting with it no longer lets it close as a transient hover popup; it stays open until a tap outside dismisses it.
+
 ## [1.6.242] - 2026-07-19
 
 ### Fixed

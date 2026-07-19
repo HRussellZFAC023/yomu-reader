@@ -2711,6 +2711,7 @@ export class ReaderApp {
             if (this.handleOcrReaderWordPointerDown(event)) return;
             this.beginTapLookup(event);
             this.beginLinkPressLookup(event);
+            this.pinHoverPopoverForInsidePointer(event);
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
@@ -3468,6 +3469,18 @@ export class ReaderApp {
         this.pinActiveHoverPopoverForPendingModalLookup();
         this.cancelHoverClose();
         this.primeLookupAudioFromGesture();
+    }
+
+    // A press anywhere inside a hover popover is the user engaging with it
+    // (scrolling, selecting, tapping controls), so it must stop behaving as a
+    // transient hover popup: pin it to sticky/modal mode so it stays open
+    // until an outside press dismisses it.
+    private pinHoverPopoverForInsidePointer(event: PointerEvent): void {
+        if (this.activePopoverMode !== 'hover' || !this.activePopover) return;
+        if (!this.isInsideActivePopover(event.target as Node | null)) return;
+        this.cancelPendingHoverLookup();
+        this.cancelHoverClose();
+        this.pinActiveHoverPopoverForPendingModalLookup();
     }
 
     private pinActiveHoverPopoverForPendingModalLookup(): void {
