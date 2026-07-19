@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.253
+// @version 1.6.254
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,7 +15,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.e6f97a66bde0.user.js#sha256=5vl6Zr3g7R0V1BqzG0ZMrE4Ywgjsx4VGVT/Y+FZ3UC8=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.4a633c717de9.user.js#sha256=SmM8cX3pEcp4vEejssUh8YJIHcrk1myMZ6iLip4dqmo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.2c7a8069a057.user.js#sha256=LHqAaaBXo9Gj6efb+djuLUZ1B6zIzOFYKcjkfk2b0nU=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.3bf16690164c.user.js#sha256=O/FmkBZMCd2N/znNJY5JjW3NNovPhQ8r3T8bxWTcWXg=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.a6c53dc298c8.user.js#sha256=psU9wpjIzzxlyY9uc13Mh68Bz95t0JgxKLYyDFDWrqc=
 // @require https://yomureader.com/greasyfork/yomu-video.dcaba0bd8888.user.js#sha256=3KugvYiIgno+TCFtyOmwqMj4zIwFaF7lHOta8dsJvjk=
 // @resource yomuCss  https://yomureader.com/yomu.5eb026abadb4.css#sha256=XrAmq620sfwFUMhy20nGiSK3exWPP4WGGt9v9tMamE0=
@@ -18733,7 +18733,7 @@ class CardPopoverRenderer {
   }, data.ankiFieldTargetPlan);
   }
   renderActions(view) {
-  const hasMiningPanel = Boolean(view.miningActions);
+  const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
   const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : "";
   const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
   const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
@@ -19153,6 +19153,9 @@ function expressionComponentRubyToken(text, reading, pitchClass) {
 function renderProviderToggle(nextProvider, language, content = "") {
   const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
   return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
+}
+function canExpandMiningDrawer() {
+  return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
 }
 function renderMiningGutter(miningActions, language) {
   const label = uiText(language, "showMiningActions");
@@ -34034,8 +34037,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.253"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.253"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.254"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.254"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34155,7 +34158,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.253"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.254"}`;
   } catch {
   return null;
   }
@@ -35239,14 +35242,48 @@ class ReaderApp {
   };
   jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
   jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-  kanjiCompanion = yomuKanjiStudyCompanion();
-  jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
+  get kanjiCompanion() {
+  return yomuKanjiStudyCompanion();
+  }
+  jpdbKanjiInstance = null;
+  get jpdbKanji() {
+  const companion = this.kanjiCompanion;
+  if (!this.jpdbKanjiInstance && companion) this.jpdbKanjiInstance = new companion.JpdbKanjiClient(() => this.settings.corsProxyUrl);
+  return this.jpdbKanjiInstance;
+  }
+  set jpdbKanji(value) {
+  this.jpdbKanjiInstance = value;
+  }
   jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
   jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
   jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
-  kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
-  kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
-  immersionKit = this.kanjiCompanion ? new this.kanjiCompanion.ImmersionKitClient() : null;
+  kanjiVGInstance = null;
+  get kanjiVG() {
+  const companion = this.kanjiCompanion;
+  if (!this.kanjiVGInstance && companion) this.kanjiVGInstance = new companion.KanjiVGClient();
+  return this.kanjiVGInstance;
+  }
+  set kanjiVG(value) {
+  this.kanjiVGInstance = value;
+  }
+  kanjiOriginInstance = null;
+  get kanjiOrigin() {
+  const companion = this.kanjiCompanion;
+  if (!this.kanjiOriginInstance && companion) this.kanjiOriginInstance = new companion.KanjiOriginClient();
+  return this.kanjiOriginInstance;
+  }
+  set kanjiOrigin(value) {
+  this.kanjiOriginInstance = value;
+  }
+  immersionKitInstance = null;
+  get immersionKit() {
+  const companion = this.kanjiCompanion;
+  if (!this.immersionKitInstance && companion) this.immersionKitInstance = new companion.ImmersionKitClient();
+  return this.immersionKitInstance;
+  }
+  set immersionKit(value) {
+  this.immersionKitInstance = value;
+  }
   audio = new AudioPlayer(() => this.settings);
   anki = new AnkiConnectClient(() => this.settings);
   bunproCompanion = yomuBunproCompanion();
@@ -35258,7 +35295,15 @@ class ReaderApp {
   bunproSrs = this.bunproCompanion && this.bunpro ? this.bunproCompanion.createBunproSrsAdapter(this.bunpro) : null;
   bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
   yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
-  rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
+  rtkInstance = null;
+  get rtk() {
+  const companion = this.kanjiCompanion;
+  if (!this.rtkInstance && companion) this.rtkInstance = new companion.RtkClient();
+  return this.rtkInstance;
+  }
+  set rtk(value) {
+  this.rtkInstance = value;
+  }
   dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
   cardRenderData = new CardRenderDataLoader({
   getSettings: () => this.settings,
@@ -35341,19 +35386,30 @@ class ReaderApp {
   onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
   onApiCardStateChanged: (card) => this.applyPublicVocabularyToRenderedWords(card, card)
   });
-  immersionPopover = this.kanjiCompanion && this.immersionKit ? new this.kanjiCompanion.ImmersionPopoverController({
-  getSettings: () => this.settings,
-  client: this.immersionKit,
-  audio: this.audio,
-  parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
-  canParseJapanese: () => this.canParseJapanese(),
-  parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
-  enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-  enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
-  repositionPopover: () => this.repositionActivePopover(),
-  setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
-  toast: (message) => this.toast(message)
-  }) : null;
+  immersionPopoverInstance = null;
+  get immersionPopover() {
+  const companion = this.kanjiCompanion;
+  const immersionKit = this.immersionKit;
+  if (!this.immersionPopoverInstance && companion && immersionKit) {
+    this.immersionPopoverInstance = new companion.ImmersionPopoverController({
+      getSettings: () => this.settings,
+      client: immersionKit,
+      audio: this.audio,
+      parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
+      canParseJapanese: () => this.canParseJapanese(),
+      parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
+      enrichPitchWords: (tokens) => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
+      enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
+      repositionPopover: () => this.repositionActivePopover(),
+      setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
+      toast: (message) => this.toast(message)
+    });
+  }
+  return this.immersionPopoverInstance;
+  }
+  set immersionPopover(value) {
+  this.immersionPopoverInstance = value;
+  }
   audioActions = new ReaderAudioActions({
   audio: this.audio,
   getSettings: () => this.settings,
