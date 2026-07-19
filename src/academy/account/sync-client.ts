@@ -114,6 +114,8 @@ export class AcademySyncClient {
     private sessionResume: Promise<boolean> | null = null;
     /** A definitive refusal stops further automatic attempts until a new session succeeds. */
     private sessionResumeRefused = false;
+    /** Invalidates delayed rotation work as soon as sign-out starts. */
+    private sessionEpoch = 0;
     private readonly queuedLocalEventIds = new Set<string>();
 
     constructor(private readonly options: AcademySyncClientOptions) {
@@ -341,13 +343,21 @@ export class AcademySyncClient {
         return response.blob();
     }
 
-    signOut(): Promise<void> {
-        // Serialized behind any in-flight sync so a 401-triggered cookie
-        // rotation cannot interleave with the revoke and leave the rotated
-        // server session alive after the learner chose to sign out.
-        return this.enqueue(async () => {
-            await this.json('/academy/api/logout', { method: 'POST' });
-            this.sessionResumeRefused = true;
+    async signOut(): Promise<void> {
+        // Start revocation immediately instead of waiting behind sync. The
+        // Worker revokes the stable session family, while this epoch makes any
+        // already-started rotation ineligible to retry protected requests.
+        this.sessionEpoch += 1;
+        this.sessionResumeRefused = true;
+        const logout = this.request('/academy/api/logout', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: '{}',
+        });
+        const response = await logout;
+        if (!response.ok) throw await responseError(response);
+        await this.enqueue(async () => {
             this.account = null;
             this.entitlement = null;
             this.awaitingPairProfile = null;
@@ -614,34 +624,53 @@ export class AcademySyncClient {
      * an invite. A refused rotation surfaces the original 401 unchanged.
      */
     private async authorizedRequest(path: string, init: RequestInit): Promise<Response> {
+        const epoch = this.sessionEpoch;
         const response = await this.request(path, init);
-        if (response.ok) this.sessionResumeRefused = false;
-        if (response.status !== 401 || this.sessionResumeRefused) return response;
-        if (!(await this.resumeExpiredSession())) return response;
+        if (response.ok && epoch === this.sessionEpoch) this.sessionResumeRefused = false;
+        if (response.status !== 401 || this.sessionResumeRefused || epoch !== this.sessionEpoch) return response;
+
+        // `/profile` intentionally returns 401 for a healthy session that has
+        // not linked Google yet. Probe the session contract before rotating so
+        // that ordinary sign-in gates do not consume a resume or change cookies.
+        const session = await this.request('/academy/api/session', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+        });
+        if (epoch !== this.sessionEpoch) return response;
+        if (session.ok) {
+            this.sessionResumeRefused = false;
+            return response;
+        }
+        if (session.status !== 401 || !(await this.resumeExpiredSession(epoch))) return response;
+        if (epoch !== this.sessionEpoch) return response;
         return this.request(path, init);
     }
 
-    private resumeExpiredSession(): Promise<boolean> {
-        this.sessionResume ??= (async () => {
+    private resumeExpiredSession(epoch: number): Promise<boolean> {
+        if (this.sessionResume) return this.sessionResume;
+        const attempt = (async () => {
             try {
                 const rotated = await this.request('/academy/api/session/resume', {
                     method: 'POST',
                     credentials: 'same-origin',
                     cache: 'no-store',
                 });
+                if (epoch !== this.sessionEpoch) return false;
                 // A refused rotation (revoked or beyond the 30-day window) is
                 // final for this session; do not burn further attempts on it.
                 if (rotated.status === 401 || rotated.status === 403) this.sessionResumeRefused = true;
+                if (rotated.ok) this.sessionResumeRefused = false;
                 return rotated.ok;
             } catch {
                 return false;
-            } finally {
-                // Later expiries in this tab may rotate again; concurrent
-                // callers of this attempt already share the same promise.
-                setTimeout(() => { this.sessionResume = null; }, 0);
             }
         })();
-        return this.sessionResume;
+        this.sessionResume = attempt;
+        void attempt.finally(() => {
+            if (this.sessionResume === attempt) this.sessionResume = null;
+        });
+        return attempt;
     }
 
     private requireState(): StoredSyncState {

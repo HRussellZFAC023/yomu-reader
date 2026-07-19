@@ -2,11 +2,22 @@ import { hmacSha256Hex, randomToken } from './crypto';
 import type { Clock, Env } from './env';
 import { clearHostCookie, hostCookie, HttpError, jsonResponse, readCookie, readJsonBody, requireSameOriginMutation } from './http';
 import { inviteCodeHash, normalizeInviteCode } from './invites';
-import { clientSubject, enforceRateLimit, OAUTH_RATE, RESUME_RATE, SESSION_RATE } from './rate-limit';
+import {
+    clientSubject,
+    enforceRateLimit,
+    OAUTH_RATE,
+    RESUME_ABUSE_RATE,
+    RESUME_RATE,
+    SESSION_RATE,
+} from './rate-limit';
 
 const SESSION_COOKIE = '__Host-academy_session';
 const SESSION_TTL_MS = 8 * 60 * 60_000;
 const OFFLINE_RESUME_MS = 30 * 24 * 60 * 60_000;
+const SESSION_COOKIE_VERSION = 'v2';
+const COOKIE_PART_PATTERN = '[A-Za-z0-9_-]{43}';
+const VERSIONED_SESSION_COOKIE = new RegExp(`^${SESSION_COOKIE_VERSION}(${COOKIE_PART_PATTERN})(${COOKIE_PART_PATTERN})$`);
+const LEGACY_SESSION_COOKIE = new RegExp(`^${COOKIE_PART_PATTERN}$`);
 export const ACCOUNT_RECOVERY_INVITE_ID = 'system_google_recovery_v1';
 const RECOVERY_INVITE_PREIMAGE = '\u0000GOOGLE-ACCOUNT-RECOVERY\u0000';
 
@@ -38,6 +49,53 @@ async function tokenHash(env: Env, token: string): Promise<string> {
     return hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `session:${token}`);
 }
 
+async function familyHash(env: Env, familySecret: string): Promise<string> {
+    return hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `session-family:${familySecret}`);
+}
+
+interface SessionCookieParts {
+    readonly familySecret: string;
+    readonly token: string;
+    readonly legacy: boolean;
+}
+
+function createSessionCookie(): { readonly value: string; readonly parts: SessionCookieParts } {
+    const familySecret = randomToken(32);
+    const token = randomToken(32);
+    return {
+        value: `${SESSION_COOKIE_VERSION}${familySecret}${token}`,
+        parts: { familySecret, token, legacy: false },
+    };
+}
+
+function parseSessionCookie(value: string | null): SessionCookieParts | null {
+    if (!value) return null;
+    const versioned = VERSIONED_SESSION_COOKIE.exec(value);
+    if (versioned) return { familySecret: versioned[1], token: versioned[2], legacy: false };
+    if (LEGACY_SESSION_COOKIE.test(value)) {
+        // The former rotating token becomes the stable family secret during its
+        // first resume. A captured legacy cookie can therefore still revoke the
+        // upgraded row, while it can no longer authenticate or rotate it.
+        return { familySecret: value, token: value, legacy: true };
+    }
+    return null;
+}
+
+async function storedTokenHash(env: Env, parts: SessionCookieParts): Promise<string> {
+    const digest = await tokenHash(env, parts.token);
+    if (parts.legacy) return digest;
+    return `${await familyHash(env, parts.familySecret)}.${digest}`;
+}
+
+async function familyRateSubject(env: Env, familySecret: string): Promise<string> {
+    return hmacSha256Hex(env.ACADEMY_RATE_HMAC_KEY, `session-family:${familySecret}`);
+}
+
+async function rejectInvalidResume(request: Request, env: Env, now: number): Promise<never> {
+    await enforceRateLimit(env, await clientSubject(request, env), RESUME_ABUSE_RATE, now);
+    throw new HttpError(401, 'No resumable session.');
+}
+
 /**
  * POST /academy/api/session — exchange an invite code for a session.
  * Same-origin only and rate-limited per HMACed client subject. Seed uses are
@@ -53,7 +111,7 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
 
     const body = await readJsonBody(request);
     const code = normalizeInviteCode(body.code);
-    const token = randomToken(32);
+    const credential = createSessionCookie();
     const row = {
         public_id: crypto.randomUUID(),
         expires_at: now + SESSION_TTL_MS,
@@ -69,7 +127,7 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
             + "(SELECT 1 FROM purchases p WHERE p.id = invites.purchase_id AND p.status = 'paid' "
             + 'AND p.redeemed_at IS NULL))) '
             + 'AND (expires_at IS NULL OR expires_at > ?3) RETURNING public_id',
-        ).bind(await tokenHash(env, token), row.public_id, now, row.expires_at, row.offline_resume_until, codeHash),
+        ).bind(await storedTokenHash(env, credential.parts), row.public_id, now, row.expires_at, row.offline_resume_until, codeHash),
         env.ACADEMY_DB.prepare(
             'UPDATE invites SET uses_remaining = uses_remaining - 1 '
             + "WHERE code_hash = ?1 AND kind = 'seed' AND uses_remaining > 0 AND revoked_at IS NULL "
@@ -81,7 +139,7 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
     }
 
     return jsonResponse(sessionContract(row), 200, {
-        'set-cookie': hostCookie(SESSION_COOKIE, token, OFFLINE_RESUME_MS / 1000),
+        'set-cookie': hostCookie(SESSION_COOKIE, credential.value, OFFLINE_RESUME_MS / 1000),
     });
 }
 
@@ -98,7 +156,7 @@ export async function handleCreateRecoverySession(request: Request, env: Env, cl
     const body = await readJsonBody(request, 256);
     if (Object.keys(body).length !== 0) throw new HttpError(400, 'Recovery request must be empty.');
 
-    const token = randomToken(32);
+    const credential = createSessionCookie();
     const row = {
         public_id: crypto.randomUUID(),
         expires_at: now + SESSION_TTL_MS,
@@ -112,11 +170,11 @@ export async function handleCreateRecoverySession(request: Request, env: Env, cl
         'INSERT INTO sessions (token_hash, public_id, invite_id, created_at, expires_at, offline_resume_until) '
         + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING public_id',
     ).bind(
-        await tokenHash(env, token), row.public_id, ACCOUNT_RECOVERY_INVITE_ID, now, row.expires_at, row.offline_resume_until,
+        await storedTokenHash(env, credential.parts), row.public_id, ACCOUNT_RECOVERY_INVITE_ID, now, row.expires_at, row.offline_resume_until,
     ).run();
     if ((inserted.meta.changes ?? 0) !== 1) throw new HttpError(500, 'Account recovery could not be started.');
     return jsonResponse(sessionContract(row), 201, {
-        'set-cookie': hostCookie(SESSION_COOKIE, token, OFFLINE_RESUME_MS / 1000),
+        'set-cookie': hostCookie(SESSION_COOKIE, credential.value, OFFLINE_RESUME_MS / 1000),
     });
 }
 
@@ -134,34 +192,52 @@ export async function handleGetSession(request: Request, env: Env, clock: Clock)
 export async function handleResumeSession(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
-    await enforceRateLimit(env, await clientSubject(request, env), RESUME_RATE, now);
-    const oldToken = readCookie(request, SESSION_COOKIE);
-    if (!oldToken) throw new HttpError(401, 'No resumable session.');
-    const newToken = randomToken(32);
+    const current = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    if (!current) return rejectInvalidResume(request, env, now);
+    const currentHash = await storedTokenHash(env, current);
+    const resumable = await env.ACADEMY_DB.prepare(
+        'SELECT public_id, expires_at, offline_resume_until FROM sessions '
+        + 'WHERE token_hash = ?1 AND revoked_at IS NULL AND offline_resume_until > ?2',
+    ).bind(currentHash, now).first<Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>>();
+    if (!resumable) return rejectInvalidResume(request, env, now);
+
+    await enforceRateLimit(env, await familyRateSubject(env, current.familySecret), RESUME_RATE, now);
+    const nextToken = randomToken(32);
+    const next: SessionCookieParts = { familySecret: current.familySecret, token: nextToken, legacy: false };
     const row = await env.ACADEMY_DB.prepare(
         'UPDATE sessions SET token_hash = ?1, expires_at = MIN(?2, offline_resume_until) '
         + 'WHERE token_hash = ?3 AND revoked_at IS NULL AND offline_resume_until > ?4 '
         + 'RETURNING public_id, expires_at, offline_resume_until',
     ).bind(
-        await tokenHash(env, newToken),
+        await storedTokenHash(env, next),
         now + SESSION_TTL_MS,
-        await tokenHash(env, oldToken),
+        currentHash,
         now,
     ).first<Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>>();
     if (!row) throw new HttpError(401, 'No resumable session.');
     return jsonResponse(sessionContract(row), 200, {
-        'set-cookie': hostCookie(SESSION_COOKIE, newToken, (row.offline_resume_until - now) / 1000),
+        'set-cookie': hostCookie(
+            SESSION_COOKIE,
+            `${SESSION_COOKIE_VERSION}${current.familySecret}${nextToken}`,
+            (row.offline_resume_until - now) / 1000,
+        ),
     });
 }
 
 /** POST /academy/api/logout — revoke the session and clear the cookie. */
 export async function handleLogout(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
-    const token = readCookie(request, SESSION_COOKIE);
-    if (token) {
+    const credential = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    if (credential) {
+        const exactHash = await storedTokenHash(env, credential);
+        const stableFamilyHash = await familyHash(env, credential.familySecret);
         await env.ACADEMY_DB
-            .prepare('UPDATE sessions SET revoked_at = ?1 WHERE token_hash = ?2 AND revoked_at IS NULL')
-            .bind(clock(), await tokenHash(env, token))
+            .prepare(
+                'UPDATE sessions SET revoked_at = ?1 WHERE revoked_at IS NULL AND '
+                + "(token_hash = ?2 OR (length(token_hash) = 129 AND substr(token_hash, 65, 1) = '.' "
+                + 'AND substr(token_hash, 1, 64) = ?3))',
+            )
+            .bind(clock(), exactHash, stableFamilyHash)
             .run();
     }
     return jsonResponse({ ok: true }, 200, { 'set-cookie': clearSessionCookie() });
@@ -173,14 +249,14 @@ export function clearSessionCookie(): string {
 
 /** Shared auth gate for media routes; returns null instead of throwing. */
 export async function activeSession(request: Request, env: Env, now: number): Promise<ActiveSession | null> {
-    const token = readCookie(request, SESSION_COOKIE);
-    if (!token) return null;
+    const credential = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    if (!credential) return null;
     return env.ACADEMY_DB
         .prepare(
             'SELECT s.public_id, s.invite_id, s.account_id, '
             + 's.expires_at, s.offline_resume_until FROM sessions s '
             + 'WHERE s.token_hash = ?1 AND s.revoked_at IS NULL AND s.expires_at > ?2',
         )
-        .bind(await tokenHash(env, token), now)
+        .bind(await storedTokenHash(env, credential), now)
         .first<ActiveSession>();
 }

@@ -20,6 +20,27 @@ const LOCAL_PROGRESS_AT = Date.now();
 const provider = new TestGoogleOidcProvider();
 
 describe('Academy access client and Worker integration', () => {
+    it('does not rotate a healthy unlinked session when profile access asks for Google', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            await seedClassInvite(academy.env);
+            const browser = new AcademyAccessBrowser(worker, academy.env);
+            const gateway = new HttpAccessGateway('/academy/api/session', browser.request);
+            await gateway.exchange('OPEN2026');
+            const before = academy.db.rows<{ token_hash: string }>('SELECT token_hash FROM sessions')[0]!.token_hash;
+            const client = syncClient(browser, createMemoryLearnerEventRepository(), memoryStorage());
+
+            expect((await client.connect()).phase).toBe('sign-in');
+
+            expect(academy.db.rows<{ token_hash: string }>('SELECT token_hash FROM sessions')[0]!.token_hash).toBe(before);
+            expect(academy.db.rows<{ count: number }>(
+                "SELECT COUNT(*) AS count FROM rate_limits WHERE bucket = 'session-resume'",
+            )[0]?.count).toBe(0);
+        } finally {
+            academy.close();
+        }
+    });
+
     it('gates the reusable class invite on Google sign-in and retains local encrypted progress across reload', async () => {
         const academy = createSqliteAcademy();
         try {

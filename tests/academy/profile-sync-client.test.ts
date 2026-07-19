@@ -148,13 +148,16 @@ describe('Academy encrypted profile sync client', () => {
 
     it('gates paid profiles on Google sign-in while a server-designated invite can connect anonymously', async () => {
         const navigate = vi.fn();
+        const paidRequest = fakeApi({ profileStatus: 401, profileError: 'Sign in with Google to use an Academy profile.' });
         const paid = new AcademySyncClient({
             events: createMemoryLearnerEventRepository(),
-            request: fakeApi({ profileStatus: 401, profileError: 'Sign in with Google to use an Academy profile.' }),
+            request: paidRequest,
             navigate,
         });
 
         expect((await paid.connect()).phase).toBe('sign-in');
+        expect(paidRequest.mock.calls.filter(([path]) => path === '/academy/api/session')).toHaveLength(1);
+        expect(paidRequest.mock.calls.filter(([path]) => path === '/academy/api/session/resume')).toHaveLength(0);
         paid.beginGoogleLink();
         expect(navigate).toHaveBeenCalledWith('/academy/api/auth/google/start');
 
@@ -415,6 +418,40 @@ describe('Academy encrypted profile sync client', () => {
             storage,
         });
         expect((await recovered.connect()).phase).toBe('ready');
+    });
+
+    it('keeps delayed resume work invalid after logout has reached the server', async () => {
+        let releaseResume!: (response: Response) => void;
+        let markResumeStarted!: () => void;
+        const resumeStarted = new Promise<void>(resolve => { markResumeStarted = resolve; });
+        const delayedResume = new Promise<Response>(resolve => { releaseResume = resolve; });
+        const request = vi.fn(async (path: RequestInfo | URL) => {
+            const url = String(path);
+            if (url === '/academy/api/session/resume') {
+                markResumeStarted();
+                return delayedResume;
+            }
+            if (url === '/academy/api/logout') return response({ ok: true });
+            return response({ error: 'No active session.' }, 401);
+        });
+        const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
+
+        const connecting = client.connect();
+        await resumeStarted;
+        const signingOut = client.signOut();
+        await vi.waitFor(() => expect(
+            request.mock.calls.some(([path]) => path === '/academy/api/logout'),
+        ).toBe(true));
+        releaseResume(response({
+            sessionId: 'too-late',
+            expiresAt: Date.now() + 60_000,
+            offlineResumeUntil: Date.now() + 120_000,
+            accountRequired: true,
+        }));
+        await Promise.all([connecting, signingOut]);
+
+        expect(client.status).toMatchObject({ phase: 'signed-out', account: null, entitlement: null });
+        expect(request.mock.calls.filter(([path]) => path === '/academy/api/profile')).toHaveLength(1);
     });
 
     it('keeps post-sign-out learning queued without attempting the revoked session', async () => {
@@ -804,6 +841,14 @@ function fakeApi(options: {
         if (url === '/academy/api/profile' && init?.method !== 'DELETE') {
             if (options.profileStatus) return response({ error: options.profileError ?? 'Profile unavailable.' }, options.profileStatus);
             return response({ profileId: options.profileId ?? PROFILE_ID, deviceId: DEVICE_ID, accountId: options.accountId ?? null, keyVersion: 1, createdAt: 1 });
+        }
+        if (url === '/academy/api/session') {
+            return response({
+                sessionId: 'live-session',
+                expiresAt: Date.now() + 60_000,
+                offlineResumeUntil: Date.now() + 120_000,
+                accountRequired: true,
+            });
         }
         if (url === '/academy/api/account') {
             if (options.accountStatus) return response({ error: 'Account unavailable.' }, options.accountStatus);

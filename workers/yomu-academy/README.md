@@ -25,7 +25,10 @@ deterministic code claim, and one-account redemption without those credentials.
    binding; the session only authorizes beginning Google OIDC.
 2. `POST /academy/api/session/resume` rotates that cookie without spending an
    invite while its fixed 30-day offline-resume window remains valid. Active
-   authorization is still renewed in eight-hour windows.
+   authorization is still renewed in eight-hour windows. Cookies carry a stable
+   random family secret and a separate rotating token; D1 retains only their
+   HMAC digests. Any cookie from that family can revoke the current row, while
+   only the exact current token can authenticate or rotate it.
 3. Every seed, paid, and recovery session requires Google before any media,
    profile, pairing, sync, or profile lifecycle route. There is no anonymous
    invite exception.
@@ -232,12 +235,16 @@ after pairing or account linking, reset the pull cursor to zero.
 
 ## Rate limits
 
-D1 fixed-window counters use an HMAC of the Cloudflare client IP; raw IPs are
-never stored. Current per-subject limits are:
+D1 fixed-window counters never retain raw IPs or cookie secrets. Human and
+invalid-traffic buckets use an HMAC of the Cloudflare client IP. A resume is
+validated before its HMACed session-family budget is charged, so learners
+behind a shared school or workplace NAT keep independent limits.
 
 | Bucket | Limit |
 |---|---:|
-| Session/invite and resume | 10 per 10 minutes |
+| Session/invite exchange (per client IP) | 10 per 10 minutes |
+| Valid session resume (per session family) | 30 per 10 minutes |
+| Invalid resume traffic (coarse client-IP protection) | 30 per 10 minutes |
 | Google OAuth/recovery | 20 per 10 minutes |
 | Checkout | 5 per 10 minutes |
 | Payment claim | 30 per 10 minutes |
@@ -265,3 +272,5 @@ never stored. Current per-subject limits are:
   database guard allowing only one account-free invite.
 - `0008_all_invites_require_account.sql`: withdraws the account-free exception;
   every invite requires an authenticated account.
+- `0009_session_rotation.sql`: indexes the HMACed family prefix used for
+  race-safe rotation and family-wide logout; legacy cookies upgrade on resume.

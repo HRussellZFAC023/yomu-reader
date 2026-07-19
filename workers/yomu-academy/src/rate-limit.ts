@@ -15,6 +15,8 @@ export const SESSION_RATE: RateRule = { bucket: 'session', limit: 10, windowMs: 
  * background resumes were refused still deserves their ten code attempts.
  */
 export const RESUME_RATE: RateRule = { bucket: 'session-resume', limit: 30, windowMs: 10 * 60_000 };
+/** Invalid resume traffic is bounded by IP without charging any valid session family. */
+export const RESUME_ABUSE_RATE: RateRule = { bucket: 'session-resume-invalid', limit: 30, windowMs: 10 * 60_000 };
 export const CHECKOUT_RATE: RateRule = { bucket: 'checkout', limit: 5, windowMs: 10 * 60_000 };
 export const CLAIM_RATE: RateRule = { bucket: 'payment-claim', limit: 30, windowMs: 10 * 60_000 };
 export const OAUTH_RATE: RateRule = { bucket: 'google-oauth', limit: 20, windowMs: 10 * 60_000 };
