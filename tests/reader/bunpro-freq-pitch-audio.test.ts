@@ -142,7 +142,24 @@ describe('Bunpro pitch accent stress', () => {
         expect(c.pitchAccent).toEqual([]);
 
         publicPitch.resolve(['LHHH']);
-        await load.pitchAccent;
+        await expect(load.pitchAccent).resolves.toEqual(['LHHH', 'HLLL']);
+        expect(c.pitchAccent).toEqual(['LHHH', 'HLLL']);
+    });
+
+    it('resolves Bunpro-only pitch so deferred headers repaint after a public miss', async () => {
+        const c = card('人間', 'にんげん');
+        const load = bunproLoader({ bunproDefinitionsEnabled: true, showPitchAccent: true }).load(c);
+
+        await expect(load.pitchAccent).resolves.toEqual(['HLLL']);
+        expect(c.pitchAccent).toEqual(['HLLL']);
+    });
+
+    it('resolves a pre-existing local pattern together with a supplemental Bunpro variant', async () => {
+        const c = card('人間', 'にんげん');
+        c.pitchAccent = ['LHHH'];
+        const load = bunproLoader({ bunproDefinitionsEnabled: true, showPitchAccent: true }).load(c);
+
+        await expect(load.pitchAccent).resolves.toEqual(['LHHH', 'HLLL']);
         expect(c.pitchAccent).toEqual(['LHHH', 'HLLL']);
     });
 
@@ -160,6 +177,34 @@ describe('Bunpro pitch accent stress', () => {
             await vi.advanceTimersByTimeAsync(4_001);
             await expect(load.pitchAccent).resolves.toEqual(['LHHH']);
             expect(c.pitchAccent).toEqual(['LHHH']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('applies Bunpro pitch when the uncapped detail arrives after the fast channel timed out', async () => {
+        vi.useFakeTimers();
+        try {
+            const pendingBunpro = deferred<unknown>();
+            const c = card('人間', 'にんげん');
+            const load = bunproLoader(
+                { bunproDefinitionsEnabled: true, showPitchAccent: true },
+                async () => [],
+                () => pendingBunpro.promise,
+            ).load(c);
+
+            await vi.advanceTimersByTimeAsync(4_001);
+            await expect(load.pitchAccent).resolves.toEqual([]);
+            expect(c.pitchAccent).toEqual([]);
+
+            pendingBunpro.resolve({
+                data: { attributes: { pitch_accent_stress: 'HLLL' } },
+                included: [],
+            });
+            await expect(load.hydrateBunproDefinitionResult?.()).resolves.toMatchObject({
+                info: { pitchAccentStress: 'HLLL' },
+            });
+            expect(c.pitchAccent).toEqual(['HLLL']);
         } finally {
             vi.useRealTimers();
         }

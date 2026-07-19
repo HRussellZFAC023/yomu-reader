@@ -47,7 +47,7 @@ Parsing itself is local-first: with term dictionaries imported, よむ segments 
 
 The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten and optional JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
 
-When Bunpro is connected, its definitions use the same compact example rows as Jiten and JPDB. よむ removes Bunpro's inline full-width kana brackets before display, then applies its own furigana and pitch annotations to the Japanese text. Bunpro's General, Anime, Novels, Netflix, and Dictionary ranks remain separately labelled because they describe different corpora. Bunpro pronunciation is also available in the audio-source list, disabled by default; enabling it makes direct runtime requests to Bunpro's public audio CDN.
+When Bunpro is connected, its definitions use the same compact example rows as Jiten and JPDB. よむ removes Bunpro's inline full-width kana brackets before display, then applies its own furigana and pitch annotations to the Japanese text. Bunpro's General, Anime, Novels, Netflix, and Dictionary ranks remain separately labelled because they describe different corpora. Bunpro pronunciation is also available in the audio-source list, disabled by default. Its recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
 
 Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 

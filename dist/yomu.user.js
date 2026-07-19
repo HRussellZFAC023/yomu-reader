@@ -7995,7 +7995,7 @@ function scanFragmentAllowsRuby(hasNativeRuby) {
   return !hasNativeRuby;
 }
 function targetUsesDetachedReadings(target) {
-  if (isInsideOwnedReaderRoot(target.parent) && target.parent.closest(".jpdb-reader-example-sentence")) return Boolean(target.suppressRuby);
+  if (isInsideOwnedReaderRoot(target.parent) && target.parent.closest("[data-provider-example-sentence]")) return Boolean(target.suppressRuby);
   return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
 }
 function isInsideOwnedReaderRoot(element2) {
@@ -15950,7 +15950,7 @@ function renderProviderExample(example) {
         <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
             ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
             <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}">${example.sentenceHtml}</div>
+                <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
                 ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
             </div>
         </div>
@@ -17910,12 +17910,12 @@ function renderBunproDefinitionSource(card, sourceAttributes, info, language, ti
   const details = [
   info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
   ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`),
-  registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : "",
-  ...info.frequencies.map((entry) => `<span class="jpdb-reader-dict-tag jpdb-reader-bunpro-frequency-tag">${escapeHtml$1(`${bunproFrequencyLabel(entry.list, language)} #${entry.rank}`)}</span>`)
+  registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : ""
   ].filter(Boolean).join("");
   const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
   const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
   const glosses = distinctBunproGlosses(info);
+  const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
   return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
@@ -17927,10 +17927,8 @@ function renderBunproDefinitionSource(card, sourceAttributes, info, language, ti
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
                 ${renderBunproStructures(info, language)}
                 ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$1(info.caution)}</div></div>` : ""}
-                ${renderBunproExamples(info, sourceAttributes, language)}
-                ${renderBunproRelatedWords(info, sourceAttributes, language)}
-                ${renderBunproRelatedGrammar(info, sourceAttributes, language)}
             </article>
+            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
         </details>
     `;
 }
@@ -17946,18 +17944,6 @@ function renderBunproHeadword(card, info, language) {
   className: "jpdb-reader-bunpro-headword-target"
   });
   return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
-}
-function bunproFrequencyLabel(list, language) {
-  const japanese = resolveUiLanguage(language) === "ja";
-  const labels = {
-  general: ["General", "一般"],
-  anime: ["Anime", "アニメ"],
-  novels: ["Novels", "小説"],
-  netflix: ["Netflix", "Netflix"],
-  dictionary: ["Dictionary", "辞書"]
-  };
-  const label = labels[list];
-  return label ? label[japanese ? 1 : 0] : list;
 }
 function renderBunproGlossText(value) {
   if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
@@ -19818,6 +19804,13 @@ class CardRenderDataLoader {
   const bunproDefinitionRequested = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
   const bunproDataRequested = bunproDefinitionRequested || liveFrequencyEnabled(settings, "bunpro");
   const bunproDataLookup = this.lookupBunproDataResult(card, bunproDataRequested);
+  const boundedBunproPitchData = this.withFallback(
+    card,
+    CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
+    "Bunpro pitch evidence",
+    bunproDataLookup,
+    { info: null, status: { state: "timeout" } }
+  );
   const bunproDefinitionLookup = bunproDefinitionRequested ? bunproDataLookup : Promise.resolve({
     info: null,
     status: {
@@ -19826,7 +19819,7 @@ class CardRenderDataLoader {
     }
   });
   const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
-  const pitchAccent = Promise.all([basePitchAccent, bunproDataLookup]).then(([publicPitch, result]) => {
+  const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
     if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
     return publicPitch;
   });

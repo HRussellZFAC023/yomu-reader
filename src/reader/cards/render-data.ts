@@ -218,8 +218,15 @@ export class CardRenderDataLoader {
             bunproDataLookup,
             { info: null, status: { state: 'timeout' } } as BunproDefinitionHydrationResult,
         );
+        // Keep a second, uncapped pitch path for slow mobile responses. Both
+        // paths wait for primary local/JPDB evidence before appending Bunpro,
+        // so a fast Bunpro response can never suppress the public lookup.
+        const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
+            if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+            return result;
+        });
         const bunproDefinitionLookup = bunproDefinitionRequested
-            ? bunproDataLookup
+            ? hydratedBunproPitchData
             : Promise.resolve({
                 info: null,
                 status: {
@@ -232,8 +239,13 @@ export class CardRenderDataLoader {
         // has had its normal priority window, then append Bunpro variants so a
         // fast Bunpro response can never make the public lookup skip itself.
         const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
-            if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
-            return publicPitch;
+            if (!settings.showPitchAccent) return publicPitch;
+            applyBunproPitchToCard(card, result.info);
+            // Deferred renderers use the resolved array as their repaint
+            // signal. Return the effective post-merge evidence, not just the
+            // public lookup result, so Bunpro-only and supplemental variants
+            // both trigger a header refresh.
+            return [...card.pitchAccent];
         });
         const bunproDefinitionResult = this.withFallback(
             card,
@@ -259,6 +271,7 @@ export class CardRenderDataLoader {
             [] as ExpressionComponentPitch[],
         );
         void pitchAccent.catch(() => undefined);
+        void hydratedBunproPitchData.catch(() => undefined);
         void jpdbDeckMembership.catch(() => undefined);
         void jitenVocabularyInfo.catch(() => undefined);
         void frequencyRankLoad.initial.catch(() => undefined);
