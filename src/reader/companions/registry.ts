@@ -105,6 +105,12 @@ interface YomuCompanionRegistry {
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
         YoutubeImmersionFilter: YoutubeImmersionFilterClass;
+        // Japanese-site-language preference (spoofing + redirects) rides in
+        // the video companion as a sibling immersion feature; absent
+        // companion means the preference is inert.
+        installPreferredJapaneseSiteLanguageFromStoredSettings?: typeof import('../app/preferred-site-language-impl').installPreferredJapaneseSiteLanguageFromStoredSettings;
+        applyPreferredJapaneseSiteLanguage?: typeof import('../app/preferred-site-language-impl').applyPreferredJapaneseSiteLanguage;
+        preferredJapaneseSiteUrl?: typeof import('../app/preferred-site-language-impl').preferredJapaneseSiteUrl;
     };
     ocr?: {
         ImageOcrController: ImageOcrControllerClass;
@@ -203,6 +209,10 @@ export function yomuOnboardingController(): OnboardingControllerClass | undefine
 
 export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> | undefined {
     return yomuCompanions().anki;
+}
+
+export function yomuVideoCompanionSlot(): YomuCompanionRegistry['video'] | undefined {
+    return yomuCompanions().video;
 }
 
 export function yomuSubtitlePlayerController(): SubtitlePlayerControllerClass | undefined {

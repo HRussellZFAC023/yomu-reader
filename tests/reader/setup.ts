@@ -2,7 +2,7 @@
 // self-contained build; populate the companion registry up front.
 import '../../src/reader/companions/register-build-companions';
 import { afterAll, afterEach, beforeEach, vi } from 'vitest';
-import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language';
+import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language-impl';
 import { resetMediaActivationForTests } from '../../src/reader/audio/media-activation';
 import { resetOcrCacheStoreForTests } from '../../src/reader/ocr/ocr-cache-store';
 import { recaptureInitialWindowMethodsForTests } from '../../src/reader/platform/window-events';

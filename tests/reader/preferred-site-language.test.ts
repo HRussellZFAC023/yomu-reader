@@ -3,7 +3,7 @@ import {
     applyPreferredJapaneseSiteLanguage,
     installPreferredJapaneseSiteLanguageFromStoredSettings,
     preferredJapaneseSiteUrl,
-} from '../../src/reader/app/preferred-site-language';
+} from '../../src/reader/app/preferred-site-language-impl';
 import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 
 describe('preferred Japanese site language', () => {
