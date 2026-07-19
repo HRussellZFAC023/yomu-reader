@@ -22,6 +22,17 @@ const docsUrl = 'https://yomureader.com/';
 // dist/yomu.css is final.
 const rawReaderCssUrl = `${docsUrl}yomu.css?v=${encodeURIComponent(pkg.version)}`;
 const userscriptIcon = `${docsUrl}favicon-32x32.png`;
+// Update checks must not ride the browser cache Cloudflare puts in front of
+// yomureader.com (max-age=14400). With several releases landing in one day, a
+// manager that fetched yomu.user.js keeps re-offering the version it cached
+// hours ago — the reported "still installs 1.6.241 when 1.6.244 is out".
+// Greasy Fork's update endpoints answer must-revalidate, so the version probe
+// is always fresh; the hosted copy stays the install entry point.
+const greasyForkScriptId = 581653;
+const greasyForkScriptSlug = encodeURIComponent('よむ');
+const greasyForkUpdateBase = `https://update.greasyfork.org/scripts/${greasyForkScriptId}/${greasyForkScriptSlug}`;
+const userscriptUpdateUrl = `${greasyForkUpdateBase}.meta.js`;
+const userscriptDownloadUrl = `${greasyForkUpdateBase}.user.js`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // Required for user-configured audio, OCR, proxy, dictionary,
 // AnkiConnect-compatible, Tailnet, and local service URLs. Keep high-volume
@@ -122,7 +133,12 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         'run-at': 'document-start',
         license: 'MIT',
         icon: userscriptIcon,
-        ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),
+        // Only the distributed userscript carries these. The self-contained
+        // build feeds the extension compiler, and a stray update URL there
+        // becomes a browser-extension update channel the stores reject.
+        ...(splitCompanions
+            ? { updateURL: userscriptUpdateUrl, downloadURL: userscriptDownloadUrl, require: greasyForkLibraryUrls() }
+            : {}),
         resource: {
             yomuCss: rawReaderCssUrl,
         },

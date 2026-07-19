@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.246] - 2026-07-19
+
+### Fixed
+
+- Userscript updates no longer install a version that is hours out of date. The script now declares explicit update and download endpoints that always revalidate, so a manager that had cached the hosted copy for several hours stops re-offering an older release such as 1.6.241 while a newer one is published.
+
 ## [1.6.245] - 2026-07-19
 
 ### Fixed
