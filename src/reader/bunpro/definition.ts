@@ -6,7 +6,6 @@ import { formatPartOfSpeech } from '../lookup/pos';
 import { definitionSourceStateKey } from '../sources/definition-render';
 import { renderProviderExamples, type ProviderCollection, type ProviderExampleView } from '../sources/provider-examples';
 import { renderPassiveReference } from '../sources/passive-reference';
-import { speakerIcon } from '../ui/icons';
 import { BunproApiError, type BunproClient } from './bunpro';
 import { LruCache } from '../core/lru-cache';
 
@@ -61,7 +60,6 @@ export interface BunproDefinitionInfo {
     // Reviewable-detail enrichment (empty until the detail payload loads).
     pitchAccentStress: string;
     frequencies: Array<{ list: string; rank: number }>;
-    wordAudioUrls: string[];
     relatedWords: BunproRelatedWord[];
     caution: string;
     register: string;
@@ -139,10 +137,6 @@ function applyBunproReviewableDetail(info: BunproDefinitionInfo, raw: unknown): 
     info.frequencies = BUNPRO_FREQUENCY_LISTS
         .map(list => ({ list, rank: numberValue(attributes[`frequency_${list}`]) }))
         .filter(entry => entry.rank > 0);
-    info.wordAudioUrls = uniqueText([
-        bunproHttpsUrl(textValue(attributes.female_audio_url)),
-        bunproHttpsUrl(textValue(attributes.male_audio_url)),
-    ]);
     info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
     info.caution = stripBunproMarkup(textValue(attributes.caution));
     info.register = textValue(attributes.register);
@@ -484,22 +478,18 @@ export function renderBunproDefinitionSource(
 }
 
 // Headword mirrors the Jiten headword: a passive, parseable reader-word (so
-// our annotation/lookup machinery applies) plus a word-audio button when the
-// detail payload carries recordings.
-function renderBunproHeadword(card: JPDBCard, info: BunproDefinitionInfo, language: InterfaceLanguage): string {
-    const audioUrl = info.wordAudioUrls[0] ?? '';
-    const audioLabel = uiText(language, 'playAudio');
-    const audio = audioUrl
-        ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml(info.expression)}" data-audio-url="${escapeHtml(audioUrl)}" title="${escapeHtml(audioLabel)}" aria-label="${escapeHtml(audioLabel)}">${speakerIcon()}</button>`
-        : '';
-    if (repeatsLookupHeadword(card, info)) return audio ? `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}</div>` : '';
+// our annotation/lookup machinery applies). Word audio is not a per-section
+// button; Bunpro pronunciation is a regular Settings → Audio source feeding
+// the card's shared audio control.
+function renderBunproHeadword(card: JPDBCard, info: BunproDefinitionInfo, _language: InterfaceLanguage): string {
+    if (repeatsLookupHeadword(card, info)) return '';
     const reference = renderPassiveReference({
         text: info.expression,
         reading: info.reading,
         dictionary: 'Bunpro',
         className: 'jpdb-reader-bunpro-headword-target',
     });
-    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
+    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
 }
 
 // Japanese gloss text (the nuance) carries inline 漢字（かな） annotations;
@@ -696,7 +686,6 @@ function definitionInfo(value: unknown, kind: BunproDefinitionInfo['kind']): Bun
         examplesUnavailableReason: '',
         pitchAccentStress: '',
         frequencies: [],
-        wordAudioUrls: [],
         relatedWords: [],
         caution: '',
         register: '',

@@ -303,7 +303,7 @@ describe('Bunpro example sentences', () => {
         expect(html).toContain('<div>A unit classified as a component of a language.</div>');
     });
 
-    it('renders the headword as a passive parseable reference with word audio from the detail payload', async () => {
+    it('renders the headword as a passive parseable reference without a section-local audio button', async () => {
         const client = {
             search: async () => ({ vocabs: { data: [{ id: 42, attributes: { id: 42, title: '言葉', kana: 'ことば', slug: '言葉', meaning: 'word' } }] } }),
             getVocab: async () => ({
@@ -330,9 +330,10 @@ describe('Bunpro example sentences', () => {
         expect(html).toContain('jpdb-reader-bunpro-headword-target');
         expect(html).toContain('data-expression="言葉"');
         expect(html).toContain('data-reading="ことば"');
-        // Word audio button hot-links the detail recording.
-        expect(html).toContain('data-action="bunpro-audio"');
-        expect(html).toContain('data-audio-url="https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/tts/female.mp3"');
+        // Word audio is served by the shared Settings → Audio bunpro source,
+        // never a Bunpro-only button beside the headword.
+        expect(html).not.toContain('data-action="bunpro-audio"');
+        expect(html).not.toContain('jpdb-reader-bunpro-audio');
         // Frequency is owned by the shared word-pill row, not duplicated as
         // provider-specific tags inside the Bunpro definition card.
         expect(html).not.toContain('General #157');

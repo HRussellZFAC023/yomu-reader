@@ -236,20 +236,34 @@
   background: var(--jpdb-reader-accent);
 }
 
+/* One header layout everywhere: title left, pitch + audio pinned to the top
+   row on the right, and the pill row always spanning the full popup width
+   below. The old flex layout let the pills wrap inside a squeezed left column
+   while pitch placement changed with graph count and container width. */
 .jpdb-reader-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0 10px;
 }
 .jpdb-reader-heading {
-  min-width: 0;
-  flex: 1 1 auto;
+  display: contents;
+}
+.jpdb-reader-header .jpdb-reader-title-row {
+  grid-column: 1;
+  grid-row: 1;
 }
 .jpdb-reader-card-tools {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-left: auto;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+.jpdb-reader-header .jpdb-reader-word-pills {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 .jpdb-reader-pitch-missing {
   align-self: center;
@@ -1055,20 +1069,10 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   display: none;
 }
 
-/* Wide sheets keep multi-accent/component graphs in the otherwise-unused
-   upper-right tools area. Only a genuinely narrow popup needs a full-width
-   second row; the old unconditional grid wasted most of an iPad header. */
+/* Wide sheets keep multi-accent/component graphs in the top-right tools area
+   next to the audio button. Only a genuinely narrow popup demotes the wide
+   multi-graph block to its own full-width row (pills drop to row 3). */
 @container (max-width: 520px) {
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 8px 10px;
-  }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-heading {
-    grid-column: 1;
-    grid-row: 1;
-  }
   .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
     display: contents;
   }
@@ -1076,28 +1080,21 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
-    margin-block: 0;
+    margin-block: 4px 0;
   }
   .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
     grid-column: 2;
     grid-row: 1;
-    margin-left: auto;
+    justify-self: end;
+  }
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-word-pills {
+    grid-row: 3;
   }
 }
 
 @container (max-width: 340px) {
   .jpdb-reader-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
     gap: 0 8px;
-  }
-  .jpdb-reader-heading {
-    display: contents;
-  }
-  .jpdb-reader-title-row {
-    grid-column: 1;
-    grid-row: 1;
   }
   .jpdb-reader-card-tools {
     display: contents;
@@ -1110,12 +1107,10 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   .jpdb-reader-audio-control {
     grid-column: 2;
     grid-row: 1;
-    margin-left: auto;
+    justify-self: end;
   }
-  .jpdb-reader-word-pills {
-    grid-column: 1 / -1;
+  .jpdb-reader-header .jpdb-reader-word-pills {
     grid-row: 3;
-    width: 100%;
     gap: 4px;
     margin-top: 2px;
     overscroll-behavior-inline: contain;

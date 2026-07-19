@@ -1075,7 +1075,6 @@ describe('new tab review — search mode', () => {
             examplesUnavailableReason: '' as const,
             pitchAccentStress: '',
             frequencies: [],
-            wordAudioUrls: [],
             relatedWords: [],
             caution: '',
             register: '',
