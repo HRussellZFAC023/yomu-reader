@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.249
+// @version 1.6.250
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,13 +11,13 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.5f1d09857fdd.user.js#sha256=Xx0JhX/dMhmGby99YAf+cU4rIGd/VZ45EEHY6r6u8TU=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.d394d6bb0c7a.user.js#sha256=05TWuwx6bx6dd/jYoaFw2W1E1NM9gT86+ikwgK1x5/8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.80cc3c56d6cf.user.js#sha256=gMw8VtbP6XGevz5cKuA2rlXLQwienW9+AnKWsYVsEAU=
+// @require https://yomureader.com/greasyfork/yomu-anki.b29d4313b3d1.user.js#sha256=sp1DE7PRKHsRbwVZBRPltGKnTueXMjek4QFVevcRGrw=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.e6f97a66bde0.user.js#sha256=5vl6Zr3g7R0V1BqzG0ZMrE4Ywgjsx4VGVT/Y+FZ3UC8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.4a633c717de9.user.js#sha256=SmM8cX3pEcp4vEejssUh8YJIHcrk1myMZ6iLip4dqmo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.546e33c82f5e.user.js#sha256=VG4zyC9eVSH03lVJW9r+RE2YSNfgvSiHQBDdoY+zSRk=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.9f3e177d31a9.user.js#sha256=nz4XfTGp1TRsYeiBOd71M4Sv3HM7ptAsFELH2wtgxk8=
-// @require https://yomureader.com/greasyfork/yomu-video.4c130fa93d7a.user.js#sha256=TBMPqT16RhSoWn73+uZvAEVwcKI59+bxPr2YrKxvr1A=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.6a88b7896802.user.js#sha256=aoi3iWgCpYOYvjvKyaIdKzYgGA9olFoPL/ZJHab+c+I=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.93285661b5a1.user.js#sha256=kyhWYbWhO5mjof2mZT28pqG6jfiDF2xwQrV/51PLP18=
+// @require https://yomureader.com/greasyfork/yomu-video.dcaba0bd8888.user.js#sha256=3KugvYiIgno+TCFtyOmwqMj4zIwFaF7lHOta8dsJvjk=
 // @resource yomuCss  https://yomureader.com/yomu.5eb026abadb4.css#sha256=XrAmq620sfwFUMhy20nGiSK3exWPP4WGGt9v9tMamE0=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1921,6 +1921,22 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
+const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto"
+};
+const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -2055,6 +2071,12 @@ function isYomuPrivilegedHostedAppUrl(value) {
   const appUrl = readTrustedYomuUrl(value);
   if (!appUrl || appUrl.originKind === "extension") return false;
   return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
 }
 function isYomuHostedPassivePage(value) {
   const appUrl = readTrustedYomuUrl(value);
@@ -2347,7 +2369,7 @@ function directGmListValues() {
 }
 function shouldInstallUserscriptStorageBridge() {
   try {
-  return typeof location !== "undefined" && isYomuPrivilegedHostedAppUrl(location.href);
+  return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
   } catch {
   return false;
   }
@@ -2574,6 +2596,12 @@ const MANAGED_CACHE_NAME_PREFIXES = [
   "yomu-video-player-",
   "yomu-docs-shell-"
 ];
+function hasAsyncGmStorageBackend() {
+  return asyncGmGetValue() !== null;
+}
+function localFallbackStoredValue(key, fallback) {
+  return localStorageGet(key, fallback);
+}
 async function gmStorageGet(key, fallback) {
   const getValue = asyncGmGetValue();
   if (getValue) {
@@ -2582,8 +2610,9 @@ async function gmStorageGet(key, fallback) {
     if (!isMissingSentinel(value)) return value;
     const migrated = localStorageGet(key, MISSING);
     if (!isMissingSentinel(migrated)) {
-      await gmStorageSet(key, migrated);
-      return migrated;
+      const promoted = sanitizedStrandedLocalValue(key, migrated);
+      await gmStorageSet(key, promoted);
+      return promoted;
     }
     return fallback;
   } catch (error) {
@@ -2614,8 +2643,17 @@ function gmStorageSyncRead(key, getValue) {
 function migratedLocalStorageSyncValue(key) {
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  void gmStorageSet(key, migrated);
-  return { kind: "found", value: migrated };
+  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  void gmStorageSet(key, promoted);
+  return { kind: "found", value: promoted };
+}
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+function sanitizedStrandedLocalValue(key, value) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = { ...value };
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
+  return record;
 }
 async function gmStorageSet(key, value) {
   const setValue = asyncGmSetValue();
@@ -5096,12 +5134,34 @@ async function loadSettings() {
     settings = recovery.settings;
     recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
   }
+  const strandedRecord = strandedHostedLocalSettingsRecord();
+  if (strandedRecord) {
+    const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+    settings = recovery.settings;
+    recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+  }
   if (recoveredLegacySettings) await persistSettings(settings);
   return settings;
   } catch (error) {
   log$f.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
+}
+function strandedHostedLocalSettingsRecord() {
+  if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
+  return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+}
+function recoverStrandedHostedSettings(current, stranded) {
+  let settings = current;
+  let changed = false;
+  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+  if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
+  if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
+  if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
+  settings = { ...settings, [key]: stranded[key] };
+  changed = true;
+  }
+  return { settings, changed };
 }
 function recoverLegacySettings(current, legacy) {
   let settings = current;
@@ -33901,8 +33961,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.249"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.249"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.250"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.250"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34022,7 +34082,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.249"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.250"}`;
   } catch {
   return null;
   }
@@ -35587,10 +35647,22 @@ class ReaderApp {
   }
   installSettingsStorageSubscription() {
   this.unsubscribeSettingsStorageChanges?.();
-  this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges((settings) => {
+  const unsubscribeStoredChanges = subscribeToSettingsStorageChanges((settings) => {
     if (this.isDestroyed) return;
     void this.applyRemoteSettings(settings);
   });
+  const onStorageBridgeReady = () => {
+    if (this.isDestroyed) return;
+    void loadSettings().then((settings) => {
+      if (this.isDestroyed) return;
+      return this.applyRemoteSettings(settings);
+    });
+  };
+  addWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+  this.unsubscribeSettingsStorageChanges = () => {
+    unsubscribeStoredChanges();
+    removeWindowEventListener(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT, onStorageBridgeReady);
+  };
   }
   async applyRemoteSettings(settings) {
   const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
