@@ -49,6 +49,7 @@ assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
 assertCompanionBuildVersions();
 assertKanjiStudySplitBoundary();
+assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
 assertLocalDictionarySplitBoundary();
 assertZipReaderBundled();
@@ -92,6 +93,24 @@ function hasMetadataValue(key, expectedValue) {
 
 function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
+
+// Jiten color state parity: shipped artifacts must not contain standalone
+// "Legacy" copy tokens. Lives here (serial, after build + sync-docs-userscript)
+// rather than in the vitest lane, which runs concurrently with the build lane
+// and raced its readFileSync of dist/yomu.user.js against the rebuild.
+function assertNoStandaloneLegacyCopy() {
+  for (const relativePath of [
+    USERSCRIPT_RELATIVE_PATH,
+    'docs/public/yomu.user.js',
+    'docs/public/study/app.js',
+    'docs/public/greasyfork/yomu-settings-surface.user.js',
+    'docs/public/greasyfork/yomu-video.user.js',
+  ]) {
+    const text = readText(join(ROOT, relativePath));
+    const matches = text.match(/\bLegacy\b/g) ?? [];
+    if (matches.length) fail(`${relativePath} ships ${matches.length} standalone Legacy copy token(s).`);
+  }
 }
 
 function assertCompanionBuildVersions() {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.224] - 2026-07-19
+
+### Fixed
+
+- Payment and wallet buttons, such as Apple Pay on Stripe-powered checkouts, no longer disappear or fail on Firefox while Yomu is enabled. The open shadow root discovery bridge previously replaced the page's attachShadow with a sandboxed function that page scripts were not permitted to call, so any web component attaching its UI crashed; the bridge now only patches the page realm with a function the page can actually call and otherwise falls back to bounded polling.
+
 ## [1.6.223] - 2026-07-19
 
 ### Fixed

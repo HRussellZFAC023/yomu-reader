@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.223
+// @version 1.6.224
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.38b2480ba66a.user.js#sha256=OLJIC6ZqtUhgw3suFbjz7hqraRM2e5rY4FuOMvNOxnc=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.6ddef4d063d3.user.js#sha256=bd700GPT6n2/+sR6Wz5aVeGCpz1IoRi7MN6B899qKoE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.125dc8d18e0e.user.js#sha256=El3I0Y4OnVbi1k9LfIMaq2ONKMzJZRk6S2aNVUi9XJk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ed731aecd3e0.user.js#sha256=7XMa7NPgvRptuWKWy6OJfOEnv0c2gzQQF8SpqgTxc8w=
 // @require https://yomureader.com/greasyfork/yomu-video.b64ea15cff66.user.js#sha256=tk6hXP9mqQZkzAIHL5+sVsaAzA/+48YmGq8Wu1GAjwA=
 // @resource yomuCss  https://yomureader.com/yomu.d04d8c3ffdc3.css#sha256=0E2MP/3DV+BOV+bFpw0i7Qir7ixn+7MmkbAp/f9P1bE=
 // @connect api.jiten.moe
@@ -1410,23 +1410,30 @@ function pollPotentialShadowHosts() {
   schedulePotentialShadowHostPoll();
 }
 function installPageOpenShadowRootDiscoveryBridge() {
-  const pageWindow = globalThis.unsafeWindow;
+  const sandbox = globalThis;
+  const pageWindow = sandbox.unsafeWindow;
   if (pageWindow) {
-  try {
-    pageOpenShadowRootDiscoveryBootstrap(
-      pageWindow,
-      OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
-      PAGE_SHADOW_DISCOVERY_KEY
-    );
-    return;
-  } catch {
+  const sameRealm = pageWindow.Object === Object;
+  const exportToPage = !sameRealm && typeof sandbox.exportFunction === "function" ? sandbox.exportFunction : void 0;
+  if (sameRealm || exportToPage) {
+    try {
+      pageOpenShadowRootDiscoveryBootstrap(
+        pageWindow,
+        OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+        PAGE_SHADOW_DISCOVERY_KEY,
+        exportToPage
+      );
+      return;
+    } catch {
+    }
   }
   }
   const parent = document.head || document.documentElement;
   if (!parent) return;
   try {
   const script = document.createElement("script");
-  const nonce = document.querySelector("script[nonce]")?.getAttribute("nonce");
+  const nonceHost = document.querySelector("script[nonce]");
+  const nonce = nonceHost?.nonce || nonceHost?.getAttribute("nonce");
   if (nonce) script.setAttribute("nonce", nonce);
   script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
   parent.append(script);
@@ -1434,22 +1441,24 @@ function installPageOpenShadowRootDiscoveryBridge() {
   } catch {
   }
 }
-function pageOpenShadowRootDiscoveryBootstrap(pageWindow, eventName, stateKey) {
+function pageOpenShadowRootDiscoveryBootstrap(pageWindow, eventName, stateKey, exportToPage) {
   const state = pageWindow;
   if (state[stateKey]) return;
   const prototype = pageWindow.Element?.prototype;
   const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, "attachShadow");
   const original = descriptor?.value;
   if (!prototype || !descriptor || typeof original !== "function") return;
+  let patched = function attachShadow(init) {
+  const root = original.call(this, init);
+  if (root.mode === "open") {
+    this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+  }
+  return root;
+  };
+  if (exportToPage) patched = exportToPage(patched, pageWindow);
   Object.defineProperty(prototype, "attachShadow", {
   ...descriptor,
-  value(init) {
-    const root = original.call(this, init);
-    if (root.mode === "open") {
-      this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
-    }
-    return root;
-  }
+  value: patched
   });
   state[stateKey] = true;
 }
@@ -37445,8 +37454,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.223"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.223"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.224"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.224"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37566,7 +37575,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.223"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.224"}`;
   } catch {
   return null;
   }

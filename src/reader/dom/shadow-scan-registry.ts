@@ -164,24 +164,44 @@ function pollPotentialShadowHosts(): void {
 // userscript runs in an isolated world. The attached host dispatches a shared
 // DOM event; the content-world listener can then read its open shadowRoot.
 export function installPageOpenShadowRootDiscoveryBridge(): void {
-    const pageWindow = (globalThis as { unsafeWindow?: PageShadowWindow }).unsafeWindow;
+    const sandbox = globalThis as {
+        unsafeWindow?: PageShadowWindow;
+        exportFunction?: <T>(fn: T, scope: object) => T;
+    };
+    const pageWindow = sandbox.unsafeWindow;
     if (pageWindow) {
-        try {
-            pageOpenShadowRootDiscoveryBootstrap(
-                pageWindow,
-                OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
-                PAGE_SHADOW_DISCOVERY_KEY,
-            );
-            return;
-        } catch {
-            // Fall through to a shared-DOM page-realm script.
+        // A raw sandbox closure defined onto the page's Element.prototype is not
+        // callable from the page realm on Firefox's Xray-wrapped managers: every
+        // page-side attachShadow() then throws "Permission denied to access
+        // object" inside the CALLER. Wallet buttons (Apple Pay, Stripe express
+        // checkout) build their UI via attachShadow in connectedCallback, so the
+        // broken patch silently deleted payment options. Patch directly only in
+        // the same realm; cross-realm needs an exportFunction bridge, otherwise
+        // fall through to the shared-DOM page-realm script.
+        const sameRealm = (pageWindow as unknown as { Object?: unknown }).Object === Object;
+        const exportToPage = !sameRealm && typeof sandbox.exportFunction === 'function'
+            ? sandbox.exportFunction
+            : undefined;
+        if (sameRealm || exportToPage) {
+            try {
+                pageOpenShadowRootDiscoveryBootstrap(
+                    pageWindow,
+                    OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+                    PAGE_SHADOW_DISCOVERY_KEY,
+                    exportToPage,
+                );
+                return;
+            } catch {
+                // Fall through to a shared-DOM page-realm script.
+            }
         }
     }
     const parent = document.head || document.documentElement;
     if (!parent) return;
     try {
         const script = document.createElement('script');
-        const nonce = document.querySelector('script[nonce]')?.getAttribute('nonce');
+        const nonceHost = document.querySelector<HTMLScriptElement>('script[nonce]');
+        const nonce = nonceHost?.nonce || nonceHost?.getAttribute('nonce');
         if (nonce) script.setAttribute('nonce', nonce);
         script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
         parent.append(script);
@@ -195,6 +215,7 @@ function pageOpenShadowRootDiscoveryBootstrap(
     pageWindow: PageShadowWindow,
     eventName: string,
     stateKey: string,
+    exportToPage?: <T>(fn: T, scope: object) => T,
 ): void {
     const state = pageWindow as unknown as Record<string, unknown>;
     if (state[stateKey]) return;
@@ -202,15 +223,18 @@ function pageOpenShadowRootDiscoveryBootstrap(
     const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
     const original = descriptor?.value;
     if (!prototype || !descriptor || typeof original !== 'function') return;
+    let patched = function attachShadow(this: Element, init: ShadowRootInit): ShadowRoot {
+        const root = original.call(this, init) as ShadowRoot;
+        if (root.mode === 'open') {
+            this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+        }
+        return root;
+    };
+    // Cross-realm callers can only invoke a function exported into their realm.
+    if (exportToPage) patched = exportToPage(patched, pageWindow);
     Object.defineProperty(prototype, 'attachShadow', {
         ...descriptor,
-        value(this: Element, init: ShadowRootInit): ShadowRoot {
-            const root = original.call(this, init) as ShadowRoot;
-            if (root.mode === 'open') {
-                this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
-            }
-            return root;
-        },
+        value: patched,
     });
     state[stateKey] = true;
 }

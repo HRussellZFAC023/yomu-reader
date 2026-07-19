@@ -888,3 +888,74 @@ describe('custom-element upgrade race wakeup', () => {
         expect(whenDefined.mock.calls.length).toBeLessThanOrEqual(64);
     });
 });
+
+// Firefox userscript managers see the page through Xray wrappers: a raw sandbox
+// closure defined onto the page's Element.prototype is NOT callable from the
+// page realm, so every page-side attachShadow() throws "Permission denied to
+// access object" inside the caller. Apple Pay / Stripe wallet buttons attach
+// their shadow UI in connectedCallback — the broken patch silently deleted
+// payment options at checkout. The direct unsafeWindow patch must only install
+// same-realm or through an exportFunction bridge.
+describe('page open-shadow-root discovery bridge realms', () => {
+    interface FakePagePrototype { attachShadow: (init: ShadowRootInit) => unknown }
+    function fakePageWindow(sameRealm: boolean): {
+        pageWindow: Record<string, unknown>;
+        prototype: FakePagePrototype;
+        originalAttachShadow: (init: ShadowRootInit) => unknown;
+    } {
+        const originalAttachShadow = vi.fn(() => ({ mode: 'open' }));
+        const prototype: FakePagePrototype = { attachShadow: originalAttachShadow };
+        const pageWindow: Record<string, unknown> = {
+            Object: sameRealm ? Object : {},
+            Element: { prototype },
+            Event: class FakeEvent {
+                type: string;
+                constructor(type: string) { this.type = type; }
+            },
+        };
+        return { pageWindow, prototype, originalAttachShadow };
+    }
+
+    const sandbox = globalThis as { unsafeWindow?: unknown; exportFunction?: unknown };
+
+    afterEach(() => {
+        delete sandbox.unsafeWindow;
+        delete sandbox.exportFunction;
+    });
+
+    it('exports the patch into a cross-realm page via exportFunction', async () => {
+        const { installPageOpenShadowRootDiscoveryBridge } = await import('../../src/reader/dom/shadow-scan-registry');
+        const { pageWindow, prototype, originalAttachShadow } = fakePageWindow(false);
+        const exported = vi.fn(<T,>(fn: T) => fn);
+        sandbox.unsafeWindow = pageWindow;
+        sandbox.exportFunction = exported;
+        installPageOpenShadowRootDiscoveryBridge();
+        expect(exported).toHaveBeenCalledTimes(1);
+        expect(prototype.attachShadow).not.toBe(originalAttachShadow);
+        const dispatched: unknown[] = [];
+        const root = prototype.attachShadow.call(
+            { dispatchEvent: (event: unknown) => { dispatched.push(event); return true; } },
+            { mode: 'open' },
+        );
+        expect(root).toEqual({ mode: 'open' });
+        expect(originalAttachShadow).toHaveBeenCalledTimes(1);
+        expect(dispatched).toHaveLength(1);
+    });
+
+    it('never defines a raw sandbox closure onto a cross-realm page without exportFunction', async () => {
+        const { installPageOpenShadowRootDiscoveryBridge } = await import('../../src/reader/dom/shadow-scan-registry');
+        const { pageWindow, prototype, originalAttachShadow } = fakePageWindow(false);
+        sandbox.unsafeWindow = pageWindow;
+        installPageOpenShadowRootDiscoveryBridge();
+        expect(prototype.attachShadow).toBe(originalAttachShadow);
+    });
+
+    it('patches a same-realm unsafeWindow directly without exportFunction', async () => {
+        const { installPageOpenShadowRootDiscoveryBridge } = await import('../../src/reader/dom/shadow-scan-registry');
+        const { pageWindow, prototype, originalAttachShadow } = fakePageWindow(true);
+        sandbox.unsafeWindow = pageWindow;
+        installPageOpenShadowRootDiscoveryBridge();
+        expect(prototype.attachShadow).not.toBe(originalAttachShadow);
+        expect(pageWindow.__yomuOpenShadowRootDiscoveryV1).toBe(true);
+    });
+});

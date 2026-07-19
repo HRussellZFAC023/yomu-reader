@@ -19705,9 +19705,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ownBase = reading.closest(".jpdb-reader-detached-ruby")?.querySelector(".jpdb-reader-ruby-base")?.getBoundingClientRect();
     const ownMirror = reading.closest(READER_TEXT_MIRROR_SELECTOR);
     const sourceHost = ownMirror?.parentElement ?? null;
-    const root = reading.getRootNode();
-    const hitRoots = [document];
-    if (root instanceof ShadowRoot) hitRoots.push(root);
+    const hitRoots = composedHitRootChain(reading);
     const inset = Math.min(2, rect.width / 4);
     const points = [rect.left + inset, (rect.left + rect.right) / 2, rect.right - inset];
     const clearanceProbe = DETACHED_READING_CLEARANCE_PX - DETACHED_READING_COLLISION_SLOP;
@@ -19721,6 +19719,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (typeof elementsFromPoint !== "function") return [];
       return rows.flatMap((y) => points.flatMap((x2) => {
         let pointHits = elementsFromPoint.call(hitRoot, x2, y).filter((element2) => element2 instanceof HTMLElement);
+        if (hitRoot instanceof ShadowRoot) {
+          pointHits = pointHits.filter((element2) => element2.getRootNode() === hitRoot);
+        }
         const opaqueBackdrop = opaqueComposedBackdropAtPoint(reading, x2, y);
         const occlusionBoundary = opaqueBackdrop ? occlusionBoundaryInHitRoot(opaqueBackdrop, hitRoot) : null;
         if (occlusionBoundary) {
@@ -19751,10 +19752,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return false;
   }
   function opaqueReadingSurfacePaintsAbove(reading, readingRect, obstacle, obstacleRect) {
-    const point = collisionProbePoint(readingRect, obstacleRect);
-    if (!point) return false;
-    const backdrop = opaqueComposedBackdropAtPoint(reading, point.x, point.y);
+    const points = collisionProbePoints(readingRect, obstacleRect);
+    if (!points.length) return false;
+    const backdrop = opaqueComposedBackdropCoveringPoints(reading, points);
     if (!backdrop || composedTreeContains(backdrop, obstacle)) return false;
+    return points.every((point) => composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point));
+  }
+  function composedSurfacePaintsAboveAtPoint(backdrop, obstacle, point) {
     for (const hitRoot of commonComposedHitRoots(backdrop, obstacle)) {
       const elementsFromPoint = hitRoot.elementsFromPoint;
       if (typeof elementsFromPoint !== "function") continue;
@@ -19773,20 +19777,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return false;
   }
-  function collisionProbePoint(readingRect, obstacleRect) {
+  function collisionProbePoints(readingRect, obstacleRect) {
     const left = Math.max(readingRect.left, obstacleRect.left);
     const right = Math.min(readingRect.right, obstacleRect.right);
-    if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return null;
+    if (right - left <= DETACHED_READING_COLLISION_SLOP || obstacleRect.height <= 0) return [];
+    const xInset = Math.min(0.5, (right - left) / 4);
+    const xs = [.../* @__PURE__ */ new Set([left + xInset, right - xInset])];
     const overlapTop = Math.max(readingRect.top, obstacleRect.top);
     const overlapBottom = Math.min(readingRect.bottom, obstacleRect.bottom);
-    let y;
+    let ys;
     if (overlapBottom > overlapTop) {
-      y = (overlapTop + overlapBottom) / 2;
+      const yInset = Math.min(0.5, (overlapBottom - overlapTop) / 4);
+      ys = [.../* @__PURE__ */ new Set([overlapTop + yInset, overlapBottom - yInset])];
     } else {
       const inset = Math.min(0.5, obstacleRect.height / 2);
-      y = readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset;
+      ys = [readingRect.bottom <= obstacleRect.top ? obstacleRect.top + inset : obstacleRect.bottom - inset];
     }
-    return { x: (left + right) / 2, y };
+    return xs.flatMap((x2) => ys.map((y) => ({ x: x2, y })));
   }
   function commonComposedHitRoots(left, right) {
     const rightRoots = new Set(composedHitRootChain(right));
@@ -19820,7 +19827,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function opaqueComposedBackdropAtPoint(reading, x2, y) {
     for (let current = reading; current; current = composedAncestorElement(current)) {
       const rect = current.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0 && x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedOpacityToDocumentIsOpaque(current)) return current;
+      if (rect.width > 0 && rect.height > 0 && x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && composedBackdropIsOpaqueAtPoint(current, x2, y)) return current;
+    }
+    return null;
+  }
+  function opaqueComposedBackdropCoveringPoints(reading, points) {
+    for (let current = reading; current; current = composedAncestorElement(current)) {
+      const rect = current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && points.every((point) => point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) && cssBackgroundIsOpaque(safeComputedStyle(current).backgroundColor) && points.every((point) => composedBackdropIsOpaqueAtPoint(current, point.x, point.y))) return current;
     }
     return null;
   }
@@ -19833,22 +19847,145 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return boundary;
   }
-  function composedOpacityToDocumentIsOpaque(element2) {
+  function composedBackdropIsOpaqueAtPoint(element2, x2, y) {
     for (let current = element2; current; current = composedAncestorElement(current)) {
-      const opacity = Number.parseFloat(safeComputedStyle(current).opacity || "1");
+      const style = safeComputedStyle(current);
+      const opacity = Number.parseFloat(style.opacity || "1");
       if (Number.isFinite(opacity) && opacity < 0.999) return false;
+      if (!cssEffectIsNone(style.filter) || !cssEffectIsNone(style.maskImage) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-image")) || !cssEffectIsNone(style.getPropertyValue("mask-border-source")) || !cssEffectIsNone(style.getPropertyValue("-webkit-mask-box-image-source")) || !cssEffectIsNone(style.clipPath) || style.mixBlendMode && style.mixBlendMode !== "normal" || !cssTransformPreservesBackdropGeometry(style.transform) || !cssScaleIsOne(style.getPropertyValue("scale")) || !cssRotationIsZero(style.getPropertyValue("rotate")) || !cssZoomIsOne(style.getPropertyValue("zoom"))) return false;
+    }
+    return opaqueBackgroundPaintsAtPoint(element2, safeComputedStyle(element2), x2, y);
+  }
+  function cssEffectIsNone(value) {
+    const effect = value?.trim().toLowerCase() ?? "";
+    return !effect || effect === "none";
+  }
+  function cssTransformPreservesBackdropGeometry(value) {
+    const transform = value?.trim().toLowerCase() ?? "";
+    if (!transform || transform === "none") return true;
+    const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/);
+    if (!match) return false;
+    const values = match[2].split(",").map((part) => Number.parseFloat(part.trim()));
+    if (values.some((part) => !Number.isFinite(part))) return false;
+    const close = (left, right) => Math.abs(left - right) < 1e-4;
+    if (!match[1]) {
+      return values.length === 6 && close(values[0], 1) && close(values[1], 0) && close(values[2], 0) && close(values[3], 1);
+    }
+    const identity2 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+    return values.length === 16 && values.every((part, index) => [12, 13, 14].includes(index) || close(part, identity2[index]));
+  }
+  function cssScaleIsOne(value) {
+    const scale = value.trim().toLowerCase();
+    if (!scale || scale === "none") return true;
+    const parts = scale.split(/\s+/).map((part) => Number.parseFloat(part));
+    return parts.length > 0 && parts.length <= 3 && parts.every((part) => Number.isFinite(part) && Math.abs(part - 1) < 1e-4);
+  }
+  function cssRotationIsZero(value) {
+    const rotation = value.trim().toLowerCase();
+    return !rotation || rotation === "none" || /^0(?:deg|grad|rad|turn)?$/.test(rotation);
+  }
+  function cssZoomIsOne(value) {
+    const zoom = value.trim().toLowerCase();
+    return !zoom || zoom === "normal" || Math.abs(Number.parseFloat(zoom) - 1) < 1e-4;
+  }
+  function opaqueBackgroundPaintsAtPoint(element2, style, x2, y) {
+    const rect = element2.getBoundingClientRect();
+    const clip = (style.backgroundClip || "border-box").split(",").at(-1)?.trim() || "border-box";
+    if (!["border-box", "padding-box", "content-box"].includes(clip)) return false;
+    const border = cssBoxInsets(style, "border");
+    const padding = cssBoxInsets(style, "padding");
+    if (!border || !padding) return false;
+    const inset = clip === "border-box" ? { top: 0, right: 0, bottom: 0, left: 0 } : clip === "padding-box" ? border : {
+      top: border.top + padding.top,
+      right: border.right + padding.right,
+      bottom: border.bottom + padding.bottom,
+      left: border.left + padding.left
+    };
+    const box = {
+      left: rect.left + inset.left,
+      top: rect.top + inset.top,
+      right: rect.right - inset.right,
+      bottom: rect.bottom - inset.bottom
+    };
+    const width = box.right - box.left;
+    const height = box.bottom - box.top;
+    if (width <= 0 || height <= 0 || x2 < box.left || x2 > box.right || y < box.top || y > box.bottom) return false;
+    const corners = roundedBackgroundCorners(style, rect.width, rect.height, inset, width, height);
+    return corners ? pointInsideRoundedBox(box, corners, x2, y) : false;
+  }
+  function cssBoxInsets(style, kind) {
+    const values = (kind === "border" ? [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth] : [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]).map((value) => Number.parseFloat(value || "0"));
+    if (values.some((value) => !Number.isFinite(value))) return null;
+    return { top: values[0], right: values[1], bottom: values[2], left: values[3] };
+  }
+  function roundedBackgroundCorners(style, outerWidth, outerHeight, inset, width, height) {
+    const raw = [
+      parseCornerRadius(style.borderTopLeftRadius, outerWidth, outerHeight),
+      parseCornerRadius(style.borderTopRightRadius, outerWidth, outerHeight),
+      parseCornerRadius(style.borderBottomRightRadius, outerWidth, outerHeight),
+      parseCornerRadius(style.borderBottomLeftRadius, outerWidth, outerHeight)
+    ];
+    if (raw.some((corner) => !corner)) return null;
+    const corners = raw;
+    corners[0] = { x: Math.max(0, corners[0].x - inset.left), y: Math.max(0, corners[0].y - inset.top) };
+    corners[1] = { x: Math.max(0, corners[1].x - inset.right), y: Math.max(0, corners[1].y - inset.top) };
+    corners[2] = { x: Math.max(0, corners[2].x - inset.right), y: Math.max(0, corners[2].y - inset.bottom) };
+    corners[3] = { x: Math.max(0, corners[3].x - inset.left), y: Math.max(0, corners[3].y - inset.bottom) };
+    const ratios = [
+      width / (corners[0].x + corners[1].x || width),
+      width / (corners[3].x + corners[2].x || width),
+      height / (corners[0].y + corners[3].y || height),
+      height / (corners[1].y + corners[2].y || height)
+    ];
+    const scale = Math.min(1, ...ratios);
+    if (scale < 1) {
+      for (const corner of corners) {
+        corner.x *= scale;
+        corner.y *= scale;
+      }
+    }
+    return corners;
+  }
+  function parseCornerRadius(value, width, height) {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return { x: 0, y: 0 };
+    if (parts.length > 2) return null;
+    const x2 = parseLengthPercentage(parts[0], width);
+    const y = parseLengthPercentage(parts[1] ?? parts[0], height);
+    return x2 === null || y === null ? null : { x: x2, y };
+  }
+  function parseLengthPercentage(value, extent) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    if (value.endsWith("%")) return parsed * extent / 100;
+    return /^\d*\.?\d+(?:px)?$/.test(value) ? parsed : null;
+  }
+  function pointInsideRoundedBox(box, corners, x2, y) {
+    const centers = [
+      { x: box.left + corners[0].x, y: box.top + corners[0].y, corner: corners[0], active: x2 < box.left + corners[0].x && y < box.top + corners[0].y },
+      { x: box.right - corners[1].x, y: box.top + corners[1].y, corner: corners[1], active: x2 > box.right - corners[1].x && y < box.top + corners[1].y },
+      { x: box.right - corners[2].x, y: box.bottom - corners[2].y, corner: corners[2], active: x2 > box.right - corners[2].x && y > box.bottom - corners[2].y },
+      { x: box.left + corners[3].x, y: box.bottom - corners[3].y, corner: corners[3], active: x2 < box.left + corners[3].x && y > box.bottom - corners[3].y }
+    ];
+    for (const center of centers) {
+      if (!center.active || center.corner.x <= 0 || center.corner.y <= 0) continue;
+      const dx = (x2 - center.x) / center.corner.x;
+      const dy = (y - center.y) / center.corner.y;
+      if (dx * dx + dy * dy > 1) return false;
     }
     return true;
   }
   function cssBackgroundIsOpaque(value) {
     const color = value.trim().toLowerCase();
     if (!color || color === "transparent") return false;
-    const slashAlpha = color.match(/\/\s*(none|[\d.]+%?)\s*\)$/)?.[1];
-    const commaAlpha = color.startsWith("rgba(") ? color.match(/,\s*([\d.]+%?)\s*\)$/)?.[1] : void 0;
+    const slashMatch = color.match(/\/\s*([^)]+?)\s*\)$/);
+    const commaMatch = color.startsWith("rgba(") ? color.match(/,\s*([^)]+?)\s*\)$/) : null;
+    const slashAlpha = slashMatch?.[1].trim();
+    const commaAlpha = commaMatch?.[1].trim();
     const alphaText = slashAlpha ?? commaAlpha;
-    if (!alphaText) return true;
+    if (!alphaText) return !slashMatch && !commaMatch;
     if (alphaText === "none") return false;
-    const alpha = Number.parseFloat(alphaText) / (alphaText.endsWith("%") ? 100 : 1);
+    const alpha = Number(alphaText.endsWith("%") ? alphaText.slice(0, -1) : alphaText) / (alphaText.endsWith("%") ? 100 : 1);
     return Number.isFinite(alpha) && alpha >= 0.999;
   }
   function rectanglesWithinClearance(left, right) {
@@ -20019,8 +20156,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function closeOrphanedDetachedReadingClips(element2) {
     let current = element2;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (current.dataset.yomuDetachedReadingOverflow === "true" && !current.querySelector(".jpdb-reader-detached-furi")) {
+    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedAncestorElement(current)) {
+      if (current.dataset.yomuDetachedReadingOverflow === "true" && !queryAllInAnnotationRoots(current, ".jpdb-reader-detached-furi").length) {
         restoreDetachedReadingClip(current);
       }
     }
