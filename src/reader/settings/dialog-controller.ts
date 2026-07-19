@@ -13,7 +13,7 @@ import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
-import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
+import { mergeDictionaryPreferences, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { effectiveJpdbApiKey, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
 import {
@@ -1453,8 +1453,8 @@ export class SettingsDialogController {
     private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {
         const names = summary.dictionaries.map(item => item.title);
         const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
-        const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
-        if (merged.length === this.settings.dictionaryPreferences.length) return;
+        const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
+        if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
         this.settings.dictionaryPreferences = merged;
         await saveSettings(this.settings);
     }
@@ -2213,7 +2213,7 @@ export class SettingsDialogController {
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []);
         this.settings.localDictionariesEnabled = true;
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();
@@ -2311,7 +2311,7 @@ export class SettingsDialogController {
         const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
         const importedNames = importedSummary.dictionaries.map(item => item.title);
         const importedTypes = Object.fromEntries(importedSummary.dictionaries.map(item => [item.title, item.type]));
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
+        this.settings.dictionaryPreferences = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
     }
 }
 

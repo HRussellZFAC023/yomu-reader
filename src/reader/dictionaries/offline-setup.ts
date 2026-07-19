@@ -36,7 +36,7 @@ export async function installOfflineParsingDictionaries(options: OfflineDictiona
             const settings = options.getSettings();
             await options.applySettings({
                 ...settings,
-                dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}),
+                dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []),
                 localDictionariesEnabled: true,
             });
             result.installed.push(target.name);

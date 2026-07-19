@@ -781,12 +781,12 @@ export class YomitanDictionaryStore {
             plural: bankCount === 1 ? '' : 's',
         })}`);
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: ${uiText(language, 'dictionaryRemovingExisting')}...`);
-        await this.deleteDictionariesWithSameIdentity(dictionary);
+        const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary);
         onProgress?.(`${this.text('dictionaryImporting')} ${dictionary}: preparing storage...`);
         const db = await this.db();
         const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
-        const summary: ImportSummary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        const summary: ImportSummary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
         let clearedTermIndexesForImport = false;
         let importedTerms = false;
         const importBank = async <T>(pattern: RegExp, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>, store: StoreName, normalize: (row: unknown) => T | null) => {
@@ -1136,7 +1136,7 @@ export class YomitanDictionaryStore {
     // Re-importing "Jitendex.org [2026-06-06]" must replace the installed
     // "Jitendex.org [2026-05-05]" instead of accreting a second copy whose
     // duplicate term rows double every lookup's index scans.
-    private async deleteDictionariesWithSameIdentity(dictionary: string): Promise<void> {
+    private async deleteDictionariesWithSameIdentity(dictionary: string): Promise<string[]> {
         const identity = yomitanDictionaryIdentity(dictionary);
         let stale: string[] = [];
         try {
@@ -1150,6 +1150,7 @@ export class YomitanDictionaryStore {
         }
         if (!stale.includes(dictionary)) stale.push(dictionary);
         for (const title of stale) await this.deleteDictionary(title);
+        return stale.filter(title => title !== dictionary);
     }
 
     async deleteDictionary(dictionary: string): Promise<void> {

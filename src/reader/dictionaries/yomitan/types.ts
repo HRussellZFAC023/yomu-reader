@@ -65,6 +65,11 @@ export interface DictionarySummary {
 
 export interface ImportSummary {
     dictionaries: string[];
+    // Older same-identity revisions (e.g. "Jitendex.org [2026-05-05]" when
+    // importing "Jitendex.org [2026-06-06]") whose data this import removed.
+    // Settings must retire their preference rows or they linger as enabled
+    // sources that can never produce definitions again.
+    replacedDictionaries?: string[];
     dictionaryTypes?: Record<string, YomitanDictionaryInfo['type']>;
     entries: number;
     terms: number;

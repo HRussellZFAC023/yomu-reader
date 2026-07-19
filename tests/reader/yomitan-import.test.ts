@@ -62,10 +62,15 @@ describe('Yomitan ZIP import performance path', () => {
             'index.json': { title: 'Jitendex.org [2026-05-05]', format: 3 },
             'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read (old)'], 1, '']],
         })], 'jitendex-old.zip', { type: 'application/zip' }));
-        await store.importFile(new File([yomitanZipBlob({
+        const importSummary = await store.importFile(new File([yomitanZipBlob({
             'index.json': { title: 'Jitendex.org [2026-06-06]', format: 3 },
             'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read (new)'], 1, '']],
         })], 'jitendex-new.zip', { type: 'application/zip' }));
+
+        // Settings needs the replaced titles to retire their preference rows;
+        // without this the old revision stays listed as an enabled source that
+        // can never produce definitions again.
+        expect(importSummary.replacedDictionaries).toEqual(['Jitendex.org [2026-05-05]']);
 
         const summary = await store.summary();
         const titles = summary.dictionaries.map(info => info.title);

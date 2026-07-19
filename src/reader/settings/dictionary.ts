@@ -1,5 +1,6 @@
 import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from './values';
 import { NEW_TAB_PAGE_URL } from '../app/constants';
+import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 16;
@@ -436,18 +437,66 @@ function isSafeLookupUrlTemplate(value: string): boolean {
     }
 }
 
-export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[], types: Record<string, DictionaryPreference['type']> = {}): DictionaryPreference[] {
+export function mergeDictionaryPreferences(current: DictionaryPreference[], names: string[], types: Record<string, DictionaryPreference['type']> = {}, replaced: string[] = []): DictionaryPreference[] {
     const merged = new Map(current.map(item => [item.name, item]));
+    // Importing a newer revision of an installed dictionary deletes the old
+    // revision's data, so its preference row must retire with it — otherwise
+    // settings keeps listing an enabled source that can never render again.
+    // The new revision inherits the retired row's customization.
+    const inherited = retireReplacedDictionaryPreferences(merged, names, replaced);
     for (const name of names) {
-        mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
+        mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name), inherited.get(name));
     }
     return normalizeDictionaryPreferences([...merged.values()]);
 }
 
-function mergeDictionaryPreference(merged: Map<string, DictionaryPreference>, name: string, type: DictionaryPreference['type']): void {
+// Self-heal for installs that imported a newer dictionary revision before
+// replaced revisions retired their preference rows: a row whose dictionary has
+// no installed data is dropped when a same-identity sibling IS installed (that
+// import deleted its data). Rows without an installed sibling are kept — this
+// origin may simply never have imported anything, and preferences are global.
+export function retireStaleDictionaryPreferences(current: DictionaryPreference[], installedTitles: string[]): DictionaryPreference[] {
+    if (!installedTitles.length) return current;
+    const installed = new Set(installedTitles);
+    const installedIdentities = new Set(installedTitles.map(yomitanDictionaryIdentity));
+    return current.filter(row => installed.has(row.name)
+        || !installedIdentities.has(yomitanDictionaryIdentity(row.name)));
+}
+
+function retireReplacedDictionaryPreferences(
+    merged: Map<string, DictionaryPreference>,
+    names: string[],
+    replaced: string[],
+): Map<string, DictionaryPreference> {
+    const inherited = new Map<string, DictionaryPreference>();
+    for (const title of replaced) {
+        if (names.includes(title)) continue;
+        const row = merged.get(title);
+        if (!row) continue;
+        merged.delete(title);
+        for (const name of names) {
+            const candidate = inherited.get(name);
+            if (!candidate || row.priority < candidate.priority) inherited.set(name, row);
+        }
+    }
+    return inherited;
+}
+
+function mergeDictionaryPreference(merged: Map<string, DictionaryPreference>, name: string, type: DictionaryPreference['type'], inherit?: DictionaryPreference): void {
     const existing = merged.get(name);
     if (!existing) {
-        merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+        const defaults = defaultDictionaryPreference(name, type, merged.size);
+        merged.set(name, inherit
+            ? {
+                ...defaults,
+                // A stale alias equal to the old title is a default, not a
+                // customization — the new revision keeps its own name then.
+                alias: inherit.alias && inherit.alias !== inherit.name ? inherit.alias : name,
+                enabled: inherit.enabled,
+                priority: inherit.priority,
+                allowSecondarySearches: inherit.allowSecondarySearches ?? false,
+            }
+            : defaults);
         return;
     }
     if (!existing.type) merged.set(name, { ...existing, type });
