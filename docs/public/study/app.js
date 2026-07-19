@@ -77,6 +77,11 @@
   const SUPPORT_STATUS_URL = "https://support.yomureader.com/status";
   const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
   const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
+  const EXTENSION_STORE_URLS = {
+    chrome: `${DOCS_BASE_URL}store/chrome/`,
+    firefox: `${DOCS_BASE_URL}store/firefox/`,
+    safari: `${DOCS_BASE_URL}store/safari/`
+  };
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
   const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
@@ -2253,6 +2258,7 @@
       updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
       updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
       updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
+      updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
       updateUserscript: "Update",
       duplicateStatusSingle: "One Yomu runtime active ({kind}).",
       duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
@@ -3688,6 +3694,7 @@ updateHelpNotesManager	よむスクリプトは1つだけ有効にしてくだ�
 updateHelpNotesManagerDashboard	Chrome または Edge では、「更新」を押すと Tampermonkey の更新手順が開きます。ダッシュボードの「ユーティリティ」→「ユーザースクリプトの更新を確認」を使うため、ウェブサイトからのインストールをブロックする警告を回避できます。
 updateHelpNotesExternalManager	よむスクリプトは1つだけ有効にしてください。「更新」でスクリプトのソースが開き、ユーザースクリプトアプリが開いたタブから読み取って更新します。iPhone/iPadで更新が止まる場合は、このリンクをSafariで開いてタブを開いたままにしてください。
 updateHelpNotesNoManager	この環境ではユーザースクリプトマネージャーが検出されませんでした。ブラウザはスクリプトの直接インストールをブロックするため、「更新」ではブラウザ別の手順があるインストールガイドを開きます。
+updateHelpNotesExtensionStore	よむのブラウザ拡張機能版を実行中です。「更新」を押すとブラウザの拡張機能ストアが開きます。ストア版は自動的に更新され、手動での更新確認も行えます。
 updateUserscript	更新
 duplicateStatusSingle	有効なYomuランタイムは1つです（{kind}）。
 duplicateStatusUnknown	重複確認はできません。よむが2つ表示される場合は古いスクリプトを無効にしてください。
@@ -45091,6 +45098,14 @@ ${spelling}`);
     ImageOcrController,
     normalizeOcrRenderedText
   });
+  function runningAsBrowserExtension() {
+    const global = globalThis;
+    try {
+      return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+    } catch {
+      return false;
+    }
+  }
   const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
   const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
   const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
@@ -45115,7 +45130,13 @@ ${spelling}`);
   function isChromiumBrowser(userAgent2) {
     return /(?:Chrome|Chromium|Edg)\/\d/i.test(userAgent2);
   }
-  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab(), userAgent2 = readUserAgent()) {
+  function extensionStoreBrowser(userAgent2) {
+    if (/Firefox\/\d/i.test(userAgent2)) return "firefox";
+    if (/Safari\/\d/i.test(userAgent2) && !isChromiumBrowser(userAgent2)) return "safari";
+    return "chrome";
+  }
+  function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab(), userAgent2 = readUserAgent(), isExtensionBuild = runningAsBrowserExtension()) {
+    if (isExtensionBuild) return { kind: "extension-store", handler: "", url: EXTENSION_STORE_URLS[extensionStoreBrowser(userAgent2)] };
     if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
     const handler = scriptHandlerName(info);
     const normalizedHandler = handler.toLowerCase();
@@ -45132,6 +45153,8 @@ ${spelling}`);
         return "updateHelpNotesManagerDashboard";
       case "external-manager":
         return "updateHelpNotesExternalManager";
+      case "extension-store":
+        return "updateHelpNotesExtensionStore";
       case "no-manager":
         return "updateHelpNotesNoManager";
       case "manager":
@@ -45143,7 +45166,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.248".trim() ? "1.6.248".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.249".trim() ? "1.6.249".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -93615,14 +93638,6 @@ ${entry.url}`),
       else missing.push(target);
     }
     return missing;
-  }
-  function runningAsBrowserExtension() {
-    const global = globalThis;
-    try {
-      return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
-    } catch {
-      return false;
-    }
   }
   function parseContentCacheKey(texts, options, settings) {
     return JSON.stringify({

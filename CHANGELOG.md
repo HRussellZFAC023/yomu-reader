@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.249] - 2026-07-19
+
+### Changed
+
+- The Update button in Settings Help now sends browser-extension installs to the extension store for the current browser, with Firefox, Safari, and Chromium-family browsers each routed to their own store page. Userscript installs keep opening the hosted script or their manager's update flow as before.
+
 ## [1.6.248] - 2026-07-19
 
 ### Fixed
