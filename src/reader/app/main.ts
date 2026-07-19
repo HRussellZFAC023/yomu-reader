@@ -353,7 +353,7 @@ import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import { initialReaderCss, loadReaderCssFallback, READER_CSS, shouldLoadReaderCssFallback } from '../styles/index';
 import { setShadowReaderCss } from '../dom/shadow-styles';
-import { forEachScannedShadowRoot, installOpenShadowRootDiscovery, setShadowRootScanHook, watchUndefinedCustomElementHosts } from '../dom/shadow-scan-registry';
+import { forEachScannedShadowRoot, installOpenShadowRootDiscovery, setShadowRootScanHook } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import { VisiblePageScanner } from './visible-page-scanner';
@@ -2204,7 +2204,6 @@ export class ReaderApp {
         this.autoScanObserver?.disconnect();
         this.disposeShadowRootDiscovery?.();
         this.disposeShadowRootDiscovery = installOpenShadowRootDiscovery();
-        watchUndefinedCustomElementHosts();
         this.autoScanObserver = new MutationObserver(mutations => {
             const canScanText = this.canParseJapanese();
             const scanMutations: MutationRecord[] = [];
@@ -8684,39 +8683,24 @@ export class ReaderApp {
         roots: ParentNode[] = [document],
     ): void {
         if (!pitchClass) return;
-        const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
-        this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
-            this.renderedAnnotationRoots(roots).forEach(root => {
-                if (root instanceof HTMLElement && root.matches(selector)) {
-                    this.applyPitchClassToRenderedSurface(root, pitchClass);
-                    setRenderedWordPitchComponents(root, card);
-                    changedRoots.add(root);
-                }
-                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    this.applyPitchClassToRenderedSurface(word, pitchClass);
-                    setRenderedWordPitchComponents(word, card);
-                    changedRoots.add(word.parentElement ?? word);
-                });
-            });
-            changedRoots.forEach(root => refreshReaderWordContrast(root));
-        });
+        this.applyPitchComponentsToRenderedWords(card, roots, pitchClass);
     }
 
-    private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document]): void {
-        if (!hasResolvedPitchComponents(card)) return;
+    private applyPitchComponentsToRenderedWords(card: JPDBCard, roots: ParentNode[] = [document], pitchClass = ''): void {
+        if (!pitchClass && !hasResolvedPitchComponents(card)) return;
         const selector = `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
         this.pauseAutoScanObserver(() => {
             const changedRoots = new Set<ParentNode>();
-            roots.forEach(root => {
-                if (root instanceof HTMLElement && root.matches(selector)) {
-                    setRenderedWordPitchComponents(root, card);
-                    changedRoots.add(root);
+            const apply = (word: HTMLElement): void => {
+                if (pitchClass) {
+                    this.applyPitchClassToRenderedSurface(word, pitchClass);
                 }
-                root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    setRenderedWordPitchComponents(word, card);
-                    changedRoots.add(word.parentElement ?? word);
-                });
+                setRenderedWordPitchComponents(word, card);
+                changedRoots.add(word.parentElement ?? word);
+            };
+            this.renderedAnnotationRoots(roots).forEach(root => {
+                if (root instanceof HTMLElement && root.matches(selector)) apply(root);
+                root.querySelectorAll<HTMLElement>(selector).forEach(apply);
             });
             changedRoots.forEach(root => refreshReaderWordContrast(root));
         });

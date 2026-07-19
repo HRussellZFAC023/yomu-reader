@@ -1835,7 +1835,7 @@ function collectGenericProseTargets(
     const collection = createGenericProseCollection(limit, existingTargets, options);
 
     for (const root of roots) {
-        collectGenericProseTargetsFromRoot(root, collection);
+        collectFragmentTargetsFromRoot(root, collection, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
         if (genericProseCollectionFull(collection)) break;
     }
 
@@ -1877,8 +1877,8 @@ function collectProfileSafeUiChromeTargets(
 
     const parserId = profiles.length === 1 ? profiles[0].id : 'safe-ui-chrome-parser';
     const nonDestructive = profiles.some(profile => profile.nonDestructive);
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+    collectSafeChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, 'ui', extraExclude, parserId, nonDestructive);
+    collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form', '', parserId, nonDestructive);
     collectSafeFormControlTextTargets(collection, extraExclude);
 
     return collection.targets;
@@ -1892,8 +1892,8 @@ function collectSafeUiChromeTargets(
     if (limit <= 0) return [];
     const collection = createGenericProseCollection(limit, existingTargets, options);
 
-    collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+    collectSafeChromeRootTargets(safeUiChromeRoots(), collection, 'ui');
+    collectSafeChromeRootTargets(safeFormChromeRoots(), collection, 'form');
     collectSafeFormControlTextTargets(collection);
 
     return collection.targets;
@@ -1912,15 +1912,35 @@ function collectSafeFormControlTextTargets(
     }
 }
 
-function collectSafeUiChromeRootTargets(
+function collectSafeChromeRootTargets(
     roots: HTMLElement[],
     collection: GenericProseCollection,
+    kind: 'ui' | 'form',
     extraExclude = '',
     parserId = 'safe-ui-chrome-parser',
     nonDestructive = false,
 ): void {
     for (const root of roots) {
-        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId, nonDestructive);
+        if (kind === 'ui') {
+            const baseExclude = safeUiChromeExcludeForRoot(root);
+            collectFragmentTargetsFromRoot(root, collection, extraExclude ? `${baseExclude},${extraExclude}` : baseExclude, {
+                allowUiText: true,
+                includeUiChrome: true,
+                includeTabChrome: true,
+                includePassiveInteractions: true,
+                heading: true,
+                allowShortCenteredHeadings: true,
+                minLength: 1,
+            }, parserId, nonDestructive);
+        } else {
+            collectFragmentTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, {
+                allowUiText: true,
+                includeFormChrome: true,
+                includePassiveInteractions: true,
+                heading: true,
+                minLength: 1,
+            }, parserId, nonDestructive);
+        }
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1937,46 +1957,10 @@ function profileSafeUiChromeRoots(extraExclude = ''): HTMLElement[] {
     return uniqueSpecificVisibleRoots(roots.filter(root => !root.closest(extraExclude)));
 }
 
-function collectSafeUiChromeTargetsFromRoot(
-    root: HTMLElement,
-    collection: GenericProseCollection,
-    extraExclude = '',
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    const baseExclude = safeUiChromeExcludeForRoot(root);
-    const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, nonDestructive, {
-        allowUiText: true,
-        includeUiChrome: true,
-        includeTabChrome: true,
-        includePassiveInteractions: true,
-        heading: true,
-        // Panel/dialog headings are functional chrome even when centered and
-        // very short (for example a playback-speed submenu title). The roots
-        // here are already restricted to safe UI surfaces, so the generic page
-        // rule that protects decorative centered headings does not apply.
-        allowShortCenteredHeadings: true,
-        minLength: 1,
-    });
-}
-
 function safeUiChromeExcludeForRoot(root: HTMLElement): string {
     return root.matches(SAFE_UI_CHROME_ARIA_MENU_ROOTS) || root.matches('[role="menubar"],[class*="menubar" i],[id*="menubar" i]')
         ? SAFE_UI_CHROME_ARIA_MENU_EXCLUDE
         : SAFE_UI_CHROME_EXCLUDE;
-}
-
-function collectSafeFormChromeRootTargets(
-    roots: HTMLElement[],
-    collection: GenericProseCollection,
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    for (const root of roots) {
-        collectSafeFormChromeTargetsFromRoot(root, collection, parserId, nonDestructive);
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function safeFormChromeRoots(): HTMLElement[] {
@@ -1984,38 +1968,23 @@ function safeFormChromeRoots(): HTMLElement[] {
         .filter(root => isUsefulSafeFormChromeRoot(root)));
 }
 
-function collectSafeFormChromeTargetsFromRoot(
-    root: HTMLElement,
-    collection: GenericProseCollection,
-    parserId = 'safe-ui-chrome-parser',
-    nonDestructive = false,
-): void {
-    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, nonDestructive, {
-        allowUiText: true,
-        includeFormChrome: true,
-        includePassiveInteractions: true,
-        heading: true,
-        minLength: 1,
-    });
-}
-
-function collectPassiveChromeTargetsFromRoot(
+function collectFragmentTargetsFromRoot(
     root: HTMLElement,
     collection: GenericProseCollection,
     exclude: string,
-    parserId: string,
-    nonDestructive: boolean,
     options: Parameters<typeof collectFragmentTextTargetsIn>[4],
+    passiveParserId?: string,
+    nonDestructive = false,
 ): void {
     const collected = collectFragmentTextTargetsIn(root, genericProseCandidateLimit(collection), true, exclude, options);
     for (const target of collected) {
         if (genericProseTargetAlreadyMirrored(collection, target)) continue;
-        appendGenericProseTarget(collection.targets, collection.seen, {
+        appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
             ...target,
-            parserId,
+            parserId: passiveParserId,
             passiveInteraction: true,
             nonDestructive: nonDestructive || undefined,
-        });
+        } : target);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -2023,15 +1992,6 @@ function collectPassiveChromeTargetsFromRoot(
 function genericProseRoots(): HTMLElement[] {
     return queryWithinAnnotationScope<HTMLElement>(GENERIC_PROSE_ROOTS)
         .filter(root => isUsefulGenericProseRoot(root));
-}
-
-function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseCandidateLimit(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
-    for (const target of collected) {
-        if (genericProseTargetAlreadyMirrored(collection, target)) continue;
-        appendGenericProseTarget(collection.targets, collection.seen, target);
-        if (genericProseCollectionFull(collection)) break;
-    }
 }
 
 function genericProseRemaining(collection: GenericProseCollection): number {

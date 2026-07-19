@@ -1,6 +1,6 @@
 import { mutationInsideClosest } from '../dom/mutation';
 import { HAS_JAPANESE } from '../dom/constants';
-import { noteScannedShadowRoot, watchPotentialOpenShadowRootHost } from '../dom/shadow-scan-registry';
+import { watchPotentialOpenShadowRootHost } from '../dom/shadow-scan-registry';
 
 export const AUTO_SCAN_OBSERVER_OPTIONS: MutationObserverInit = {
     childList: true,
@@ -184,10 +184,8 @@ function enqueueOpenShadowRoot(node: Node, pendingRoots: Node[]): void {
     if (!(node instanceof HTMLElement)) return;
     // Newly inserted native hosts can attach a page-realm shadow root later,
     // just like custom elements. Poll them during the bounded bridge fallback.
-    watchPotentialOpenShadowRootHost(node, true);
-    const shadowRoot = node.shadowRoot;
+    const shadowRoot = watchPotentialOpenShadowRootHost(node, true);
     if (!shadowRoot) return;
-    noteScannedShadowRoot(shadowRoot);
     pendingRoots.push(shadowRoot);
 }
 

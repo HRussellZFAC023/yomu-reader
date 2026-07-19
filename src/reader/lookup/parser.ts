@@ -14,7 +14,6 @@ import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
-import { HAS_JAPANESE } from '../dom/constants';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -504,7 +503,8 @@ export class ReaderParser {
         // consume. A malformed or overlapping provider token used to mark its
         // Japanese range as covered here, then get discarded at render time,
         // leaving the rejected range as an unannotated raw-text hole.
-        tokens = renderableParserTokens(text, tokens);
+        tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
+            || (second.end - second.start) - (first.end - first.start)), text);
         const fallbackTokens = this.parseSegmentedText(text);
         const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
         const broad = tokens.filter(token => isBroadPublic(token)
@@ -980,7 +980,7 @@ function fallbackRepairGroupForToken(
 
 function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
     for (let index = start; index < end; index += 1) {
-        if (!HAS_JAPANESE.test(text[index] ?? '')) continue;
+        if (!JAPANESE_CHARACTER_RE.test(text[index] ?? '')) continue;
         if (!tokens.some(token => token.start <= index && index < token.end)) return true;
     }
     return false;
@@ -998,11 +998,6 @@ function fallbackTokensCoveringRange(text: string, fallbackTokens: JPDBToken[], 
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
     return a.start - b.start || b.length - a.length;
-}
-
-function renderableParserTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
-    return nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
-        || (second.end - second.start) - (first.end - first.start)), text);
 }
 
 function cardCacheKey(vid: number, sid: number): string {

@@ -82,10 +82,6 @@ interface VisiblePageCoverageAccumulator {
     unknown: number;
 }
 
-interface VisibleScanParseSummary {
-    unparsedTargets: ScanTextTarget[];
-}
-
 export interface VisiblePageScannerDependencies {
     getSettings: () => ReaderSettings;
     parseJapanese: (paragraphs: string[], options?: VisibleScanParseOptions) => Promise<JPDBToken[][]>;
@@ -315,7 +311,7 @@ export class VisiblePageScanner {
             return;
         }
 
-        const parseSummary = await this.parseAndApplyTargets(targets, generation, settings);
+        const unparsedTargets = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
         const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
         // Failed-source keys expand the next collection before exact filtering,
@@ -324,7 +320,7 @@ export class VisiblePageScanner {
         // after that successful uncapped continuation.
         if (collected.length >= effectiveCollectionLimit
             && this.canQueueContinuationScan(targets, silent)) {
-            const unparsed = new Set(parseSummary.unparsedTargets);
+            const unparsed = new Set(unparsedTargets);
             chunkGroups
                 .filter(group => group.chunks.length > 0 && group.chunks.every(chunk => unparsed.has(chunk)))
                 .forEach(group => this.continuationFailedTargetKeys.add(this.continuationTargetKey(group.source)));
@@ -400,39 +396,7 @@ export class VisiblePageScanner {
         }
     }
 
-    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
-        if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
-            return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
-        }
-        return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
-    }
-
-    private async parseAndApplyTargetsSequentially(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
-        let cursor = 0;
-        const unparsedTargets: ScanTextTarget[] = [];
-        const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
-        while (cursor < targets.length) {
-            if (this.isStaleScan(generation)) return { unparsedTargets };
-            const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
-            cursor = next.cursor;
-            if (!next.batch.length) continue;
-            const batch = next.batch;
-            const parsed = await this.parseVisibleScanBatch(batch, generation);
-            parsed.forEach((tokens, index) => {
-                if (!tokens.length && batch[index]) unparsedTargets.push(batch[index]);
-            });
-            if (this.isStaleScan(generation)) return { unparsedTargets };
-            // Keep semantic overrides, pitch/status enrichment, DOM apply, and
-            // preload identical to the prefetch path. This used to be duplicated
-            // here, which meant ordinary sequential scans skipped authored
-            // homograph evidence while large/prefetched scans respected it.
-            await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
-            if (cursor < targets.length) await waitForVisibleScanTurn();
-        }
-        return { unparsedTargets };
-    }
-
-    private async parseAndApplyTargetsWithPrefetch(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
+    private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<ScanTextTarget[]> {
         let cursor = 0;
         const unparsedTargets: ScanTextTarget[] = [];
         const pending: VisibleScanParseWork[] = [];
@@ -445,34 +409,32 @@ export class VisiblePageScanner {
                 if (!next.batch.length) continue;
                 pending.push({
                     batch: next.batch,
-                    result: this.parseVisibleScanBatch(next.batch, generation).then(parsed => ({ parsed })),
+                    result: this.parseVisibleScanBatch(next.batch, generation),
                 });
             }
         };
 
         schedule();
         while (pending.length) {
-            if (this.isStaleScan(generation)) return { unparsedTargets };
+            if (this.isStaleScan(generation)) return unparsedTargets;
             const work = pending.shift()!;
-            const result = await work.result;
-            const parsed = result.parsed;
+            const parsed = await work.result;
             parsed.forEach((tokens, index) => {
                 if (!tokens.length && work.batch[index]) unparsedTargets.push(work.batch[index]);
             });
-            if (this.isStaleScan(generation)) return { unparsedTargets };
+            if (this.isStaleScan(generation)) return unparsedTargets;
             await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
             schedule();
             if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return { unparsedTargets };
+        return unparsedTargets;
     }
 
     private async parseVisibleScanBatch(batch: ScanTextTarget[], generation: number): Promise<JPDBToken[][]> {
         const paragraphs = batch.map(target => target.text);
         const options = scanParseOptions(this.dependencies.getSettings(), batch);
         try {
-            const parsed = await this.dependencies.parseJapanese(paragraphs, options);
-            return normalizeVisibleScanParseResult(paragraphs, parsed);
+            return await this.dependencies.parseJapanese(paragraphs, options);
         } catch (error) {
             if (this.isStaleScan(generation)) return paragraphs.map(() => []);
             // A single provider/adapter failure must not abandon every later
@@ -481,8 +443,7 @@ export class VisiblePageScanner {
             // bounded and cannot create a request loop.
             log.warn('Visible page parse batch failed; retrying locally', error);
             try {
-                const parsed = await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
-                return normalizeVisibleScanParseResult(paragraphs, parsed);
+                return await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
             } catch (fallbackError) {
                 log.warn('Visible page local parse recovery failed; continuing with later batches', fallbackError);
                 return paragraphs.map(() => []);
@@ -523,11 +484,10 @@ export class VisiblePageScanner {
                 // (outside this block) still trigger legitimate rescans.
                 if (this.shouldStopApplyingTokens(generation)) return;
                 const changedRoots = new Set<ParentNode>();
-                const applyPlans = scanApplyPlans(batch, parsed, start);
-                applyPlans.forEach(({ target, tokens }) => {
+                batch.forEach((target, offset) => {
                     if (this.shouldStopApplyingTokens(generation)) return;
                     if (!isCurrentScanTarget(target)) return;
-                    applyTokensToScanTarget(target, tokens, this.dependencies.getSettings());
+                    applyTokensToScanTarget(target, parsed[start + offset] ?? [], this.dependencies.getSettings());
                     changedRoots.add(target.parent);
                 });
                 changedRoots.forEach(root => {
@@ -764,23 +724,20 @@ function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): 
     const chunkSize = visibleScanTargetTextChunkSize(settings);
     if (target.text.length <= chunkSize) return [target];
     if (scanTargetRequiresWholeSourceMirror(target)) return [target];
-    const chunks = isFragmentTextTarget(target)
-        ? chunkLongFragmentTarget(target, chunkSize)
-        : chunkLongTextTarget(target, chunkSize);
+    const fragmentTarget = isFragmentTextTarget(target);
+    const sourceRange = fragmentTarget ? null : textTargetTrimmedSourceRange(target);
+    if (!fragmentTarget && !sourceRange) return [target];
+    const chunks = chunkTextRanges(target.text, chunkSize)
+        .map(([start, end]) => fragmentTarget
+            ? fragmentTargetChunk(target, start, end)
+            : textTargetChunk(target, sourceRange!.start + start, sourceRange!.start + end))
+        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
     // These are slices of ONE deliberate paint, not repeated attempts by a
     // framework-hostile render loop. Counting identical slices independently
     // trips the four-repaint fallback mid-paragraph; that fallback mirrors only
     // the current slice and hides the rest of the host. Source-preserving
     // framework detection still dominates in applyTokensToScanTarget.
     return chunks.map(chunk => ({ ...chunk, suppressRepaintLoopMirror: true }));
-}
-
-function chunkLongTextTarget(target: TextTarget, chunkSize: number): ScanTextTarget[] {
-    const range = textTargetTrimmedSourceRange(target);
-    if (!range) return [target];
-    return chunkTextRanges(target.text, chunkSize)
-        .map(([start, end]) => textTargetChunk(target, range.start + start, range.start + end))
-        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
 }
 
 function textTargetChunk(target: TextTarget, start: number, end: number): FragmentTextTarget | null {
@@ -808,12 +765,6 @@ function textTargetChunk(target: TextTarget, start: number, end: number): Fragme
 function textTargetTrimmedSourceRange(target: TextTarget): { start: number; end: number } | null {
     const start = target.node.data.indexOf(target.text);
     return start < 0 ? null : { start, end: start + target.text.length };
-}
-
-function chunkLongFragmentTarget(target: FragmentTextTarget, chunkSize: number): ScanTextTarget[] {
-    return chunkTextRanges(target.text, chunkSize)
-        .map(([start, end]) => fragmentTargetChunk(target, start, end))
-        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
 }
 
 function fragmentTargetChunk(target: FragmentTextTarget, start: number, end: number): FragmentTextTarget | null {
@@ -877,53 +828,9 @@ function chunkBoundaryBefore(text: string, start: number, hardEnd: number, chunk
     return null;
 }
 
-interface ScanApplyPlan {
-    target: ScanTextTarget;
-    tokens: JPDBToken[];
-}
-
 interface VisibleScanParseWork {
     batch: ScanTextTarget[];
-    result: Promise<{ parsed: JPDBToken[][] }>;
-}
-
-function normalizeVisibleScanParseResult(paragraphs: string[], parsed: JPDBToken[][]): JPDBToken[][] {
-    return paragraphs.map((_paragraph, index) => parsed[index] ?? []);
-}
-
-function scanApplyPlans(batch: ScanTextTarget[], parsed: JPDBToken[][], start: number): ScanApplyPlan[] {
-    return batch
-        .map((target, offset) => ({ target, tokens: parsed[start + offset] ?? [] }))
-        .sort((a, b) => compareScanTargetsForApply(a.target, b.target));
-}
-
-function compareScanTargetsForApply(a: ScanTextTarget, b: ScanTextTarget): number {
-    const nodeA = scanTargetApplyNode(a);
-    const nodeB = scanTargetApplyNode(b);
-    if (!nodeA || !nodeB) return 0;
-    if (nodeA === nodeB) {
-        return scanTargetEndOffset(b) - scanTargetEndOffset(a)
-            || scanTargetStartOffset(b) - scanTargetStartOffset(a);
-    }
-    const position = nodeA.compareDocumentPosition(nodeB);
-    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
-    if (position & Node.DOCUMENT_POSITION_PRECEDING) return -1;
-    return 0;
-}
-
-function scanTargetApplyNode(target: ScanTextTarget): Text | null {
-    if (!isFragmentTextTarget(target)) return target.node;
-    return target.fragments[target.fragments.length - 1]?.node ?? null;
-}
-
-function scanTargetStartOffset(target: ScanTextTarget): number {
-    return isFragmentTextTarget(target) ? target.fragments[0]?.start ?? 0 : 0;
-}
-
-function scanTargetEndOffset(target: ScanTextTarget): number {
-    return isFragmentTextTarget(target)
-        ? target.fragments[target.fragments.length - 1]?.end ?? 0
-        : target.node.data.length;
+    result: Promise<JPDBToken[][]>;
 }
 
 function isFragmentTextTarget(target: ScanTextTarget): target is FragmentTextTarget {

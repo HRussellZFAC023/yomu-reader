@@ -8,7 +8,6 @@ import {
     OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
     setShadowRootScanHook,
     watchPotentialOpenShadowRootHost,
-    watchUndefinedCustomElementHosts,
 } from '../../src/reader/dom/shadow-scan-registry';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../../src/reader/app/mutation-scan';
 
@@ -139,13 +138,15 @@ describe('shadow scan registry', () => {
         shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
         const host = document.createElement('late-upgrade-component');
         document.body.append(host);
+        watchPotentialOpenShadowRootHost(host);
 
         const root = host.attachShadow({ mode: 'open' });
         root.innerHTML = '<button>ﾌｨｰﾄﾞ</button>';
+        await vi.waitFor(() => expect(discovered).toHaveBeenCalledWith(root));
+        root.append(document.createTextNode('参加'));
         await Promise.resolve();
 
         expect(discovered).toHaveBeenCalledTimes(1);
-        expect(discovered).toHaveBeenCalledWith(root);
         expect(records.some(record => mutationMayContainJapaneseText(record))).toBe(true);
         observer.disconnect();
     });
@@ -154,10 +155,9 @@ describe('shadow scan registry', () => {
         const originalAttachShadow = Element.prototype.attachShadow;
         const discovered = vi.fn();
         setShadowRootScanHook(discovered);
-        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
         const host = document.createElement('cross-realm-component');
         document.body.append(host);
-        watchUndefinedCustomElementHosts();
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
 
         // Calling the captured original simulates a page realm whose Element
         // prototype is distinct from the userscript content world.
@@ -208,35 +208,30 @@ describe('shadow scan registry', () => {
         }
     });
 
-    it('reference-counts discovery installs and restores attachShadow after cleanup', () => {
+    it('reference-counts discovery installs and stops fallback polling after cleanup', async () => {
+        vi.useFakeTimers();
         const originalAttachShadow = Element.prototype.attachShadow;
         const discovered = vi.fn();
         setShadowRootScanHook(discovered);
         const disposeFirst = installOpenShadowRootDiscovery();
-        const wrappedAttachShadow = Element.prototype.attachShadow;
         const disposeSecond = installOpenShadowRootDiscovery();
         shadowRootDiscoveryDisposers.push(disposeFirst, disposeSecond);
-
-        expect(wrappedAttachShadow).not.toBe(originalAttachShadow);
-        expect(Element.prototype.attachShadow).toBe(wrappedAttachShadow);
         disposeFirst();
-        expect(Element.prototype.attachShadow).toBe(wrappedAttachShadow);
 
         const openHost = document.createElement('open-component');
         document.body.append(openHost);
-        const openRoot = openHost.attachShadow({ mode: 'open' });
+        watchPotentialOpenShadowRootHost(openHost);
+        const openRoot = originalAttachShadow.call(openHost, { mode: 'open' });
+        await vi.advanceTimersByTimeAsync(500);
         expect(discovered).toHaveBeenCalledWith(openRoot, 'attached');
 
-        const closedHost = document.createElement('closed-component');
-        document.body.append(closedHost);
-        closedHost.attachShadow({ mode: 'closed' });
-        expect(discovered).toHaveBeenCalledTimes(1);
-
         disposeSecond();
-        expect(Element.prototype.attachShadow).toBe(originalAttachShadow);
         const afterCleanupHost = document.createElement('after-cleanup-component');
         document.body.append(afterCleanupHost);
-        afterCleanupHost.attachShadow({ mode: 'open' });
+        watchPotentialOpenShadowRootHost(afterCleanupHost);
+        originalAttachShadow.call(afterCleanupHost, { mode: 'open' });
+        await vi.advanceTimersByTimeAsync(500);
         expect(discovered).toHaveBeenCalledTimes(1);
+        vi.useRealTimers();
     });
 });
