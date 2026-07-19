@@ -42,6 +42,8 @@ const COPY = {
         settings: 'Settings',
         settingsSaved: 'Settings saved.',
         settingsSaveFailed: 'Settings save failed.',
+        firefoxAuthenticationInfoDenied: 'Those account details were not saved because Firefox permission was not granted.',
+        firefoxAuthenticationInfoExtensionPageRequired: 'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
         settingsSections: 'Settings sections',
         settingsSearch: 'Search settings',
         settingsSearchPlaceholder: 'Search settings',
@@ -152,7 +154,6 @@ const COPY = {
         diagnosticsHelp: 'Print diagnostics to the console.',
         accentColor: 'Accent color',
         newTab: 'Study',
-        newTabEnabled: 'Set Study as the new tab',
         newTabAnkiEnabled: 'Use Anki cards in Study',
         newTabAnkiReviewDecks: 'Anki review decks',
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
@@ -237,10 +238,10 @@ const COPY = {
         lookupOnHover: 'Look up on hover',
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
         showFloatingButton: 'Show settings puck',
-        pageScanMode: 'Page scanning',
-        pageScanModeOff: 'Off',
-        pageScanModeAuto: 'Auto',
-        pageScanModeManual: 'Manual',
+        pageScanMode: 'Japanese text on webpages',
+        pageScanModeOff: 'Leave pages unchanged',
+        pageScanModeAuto: 'Scan Japanese automatically',
+        pageScanModeManual: 'Scan only when I ask',
         manualScanEnabled: 'Manual page scanning',
         ocrInteractionMode: 'Image OCR scanning',
         ocrInteractionModeAuto: 'Auto',
@@ -1222,6 +1223,8 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
+firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
 sources	ソース
 localWordSingular	項目
@@ -1771,7 +1774,6 @@ diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	学習
-newTabEnabled	学習を新しいタブに設定
 newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
@@ -1856,10 +1858,10 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ページスキャン
-pageScanModeOff	オフ
-pageScanModeAuto	自動
-pageScanModeManual	手動
+pageScanMode	ウェブページの日本語
+pageScanModeOff	ページを変更しない
+pageScanModeAuto	日本語を自動で検出
+pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン

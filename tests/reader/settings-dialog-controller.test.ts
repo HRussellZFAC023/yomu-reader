@@ -806,6 +806,50 @@ describe('settings dialog keyboard dismissal', () => {
         refresh.resolve();
     });
 
+    it('keeps changed account details unsaved when Firefox consent is denied', async () => {
+        const request = vi.fn().mockResolvedValue(false);
+        const setValue = vi.fn();
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        vi.stubGlobal('GM_setValue', setValue);
+        const { dependencies, dismiss, form } = createSettingsDialog();
+        form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!.value = 'jpdb-private-key';
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
+
+        expect(request).toHaveBeenCalledWith({ data_collection: ['authenticationInfo'] });
+        expect(setValue).not.toHaveBeenCalled();
+        expect(dismiss).not.toHaveBeenCalled();
+        expect(dependencies.toast).toHaveBeenCalledWith(
+            'Those account details were not saved because Firefox permission was not granted.',
+        );
+    });
+
+    it('fails closed for account details and settings imports in a Firefox content script', async () => {
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' } });
+        const setValue = vi.fn();
+        vi.stubGlobal('GM_setValue', setValue);
+        const { dependencies, dismiss, form } = createSettingsDialog();
+        form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!.value = 'jpdb-private-key';
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
+
+        expect(setValue).not.toHaveBeenCalled();
+        expect(dismiss).not.toHaveBeenCalled();
+        expect(dependencies.toast).toHaveBeenCalledWith(
+            'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
+        );
+
+        dependencies.toast.mockClear();
+        form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-settings"]')!.click();
+        await waitForCondition(() => dependencies.toast.mock.calls.length > 0);
+        expect(dependencies.toast).toHaveBeenCalledWith(
+            'Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.',
+        );
+        expect(form.querySelector('input[type="file"]')).toBeNull();
+    });
+
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {
         const storage = deferred<void>();
         const setValue = vi.fn(() => storage.promise);

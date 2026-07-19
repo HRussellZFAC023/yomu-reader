@@ -99,6 +99,59 @@ describe('Bunpro frontend token importer', () => {
         expect(saveSettings).not.toHaveBeenCalled();
     });
 
+    it('does not read or save the Bunpro token when Firefox consent is denied', async () => {
+        const request = vi.fn().mockResolvedValue(false);
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com' }, permissions: { request } });
+        const cookieStoreGet = vi.fn(async () => ({ value: 'private-token' }));
+        const saveSettings = vi.fn(async () => undefined);
+
+        await installBunproFrontendTokenImporter({
+            getSettings: () => DEFAULT_SETTINGS,
+            setSettings: vi.fn(),
+            saveSettings,
+            href: 'https://bunpro.jp/settings/api',
+            cookieStore: { get: cookieStoreGet },
+        });
+
+        const root = document.querySelector<HTMLElement>('#jpdb-reader-bunpro-token-importer');
+        cookieStoreGet.mockClear();
+        root?.querySelector<HTMLButtonElement>('[data-action="import-bunpro-token"]')?.click();
+
+        await vi.waitFor(() => expect(root?.textContent).toContain('Nothing was saved.'));
+        expect(request).toHaveBeenCalledWith({ data_collection: ['authenticationInfo'] });
+        expect(cookieStoreGet).not.toHaveBeenCalled();
+        expect(saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('does not read a Bunpro token in a Firefox content script and opens Study settings instead', async () => {
+        const getURL = vi.fn((path: string) => `moz-extension://yomu/${path}`);
+        vi.stubGlobal('browser', { runtime: { id: 'yomu@yomureader.com', getURL } });
+        const open = vi.spyOn(window, 'open').mockReturnValue(null);
+        const cookieStoreGet = vi.fn(async () => ({ value: 'private-token' }));
+        const saveSettings = vi.fn(async () => undefined);
+
+        await installBunproFrontendTokenImporter({
+            getSettings: () => DEFAULT_SETTINGS,
+            setSettings: vi.fn(),
+            saveSettings,
+            href: 'https://bunpro.jp/settings/api',
+            cookieStore: { get: cookieStoreGet },
+        });
+
+        const root = document.querySelector<HTMLElement>('#jpdb-reader-bunpro-token-importer');
+        expect(root?.textContent).toContain('Nothing has been read yet.');
+        expect(cookieStoreGet).not.toHaveBeenCalled();
+
+        root?.querySelector<HTMLButtonElement>('[data-action="import-bunpro-token"]')?.click();
+
+        expect(open).toHaveBeenCalledWith(
+            'moz-extension://yomu/newtab/index.html#settings=api',
+            '_blank',
+            'noopener',
+        );
+        expect(saveSettings).not.toHaveBeenCalled();
+    });
+
     it('mounts after Bunpro navigates to the API settings route', async () => {
         vi.useFakeTimers();
         const saveSettings = vi.fn(async () => undefined);

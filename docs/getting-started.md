@@ -92,7 +92,7 @@ To update later, open the same link again and let Tampermonkey replace the old v
 
 ## Prefer a browser extension? (Chrome and Firefox)
 
-On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox. The extension reserves the browser's new-tab page, but Study starts **off**: new tabs stay on a quiet disabled page unless you explicitly check **Set Study as the new tab** on the welcome screen. The extension isn't in the web stores yet, so you load it yourself from a release download — a few extra clicks, but no manager needed.
+On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, with a toolbar menu and a study page. It never replaces your browser's new-tab page; open Study when you want it from the よむ toolbar icon. Store links will appear here as they are approved, and the versioned packages on GitHub Releases remain available for direct installation and testing.
 
 Grab the latest packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
 
@@ -116,19 +116,19 @@ Grab the latest packages from the [GitHub releases page](https://github.com/HRus
 4. Open a Japanese page to start reading.
 
 <div class="yomu-callout">
-  <strong>Which should I pick?</strong> The userscript is the easiest path and updates itself from one link, so it's the default recommendation. Choose the extension if you'd rather not run a userscript manager, or you want よむ on your new-tab page. On iPhone and iPad, the userscript is the only option — there's no iOS extension.
+  <strong>Which should I pick?</strong> The userscript is the easiest path and updates itself from one link, so it's the default recommendation. Choose the extension if you'd rather not run a userscript manager, or if you want quick access to Study from the browser toolbar. On iPhone and iPad, the userscript is the only option — there's no iOS extension.
 </div>
 
 ## Step 3: Your first lookup
 
-The first time よむ runs, it shows a **welcome panel**. The top half is quick setup — language, theme and accent colour, the immersion toggles (page scanning, image OCR, video subtitles), and the hover/scan shortcut fields — all pre-set to sensible defaults you can scroll straight past. Under the setup sit the two choices:
+The first time よむ runs, it shows a **welcome panel**. The top half is quick setup — language, theme and accent colour, Japanese text on webpages, image OCR, video subtitles, and the hover/scan shortcuts — all pre-set to sensible defaults you can scroll straight past. For webpage text, the three choices say exactly what they do: **Leave pages unchanged**, **Scan Japanese automatically**, or **Scan only when I ask**. Automatic scanning finds Japanese as a page loads; manual scanning waits for your shortcut or menu action. Image OCR is a separate setting. Under the setup sit the two choices:
 
 - **Use without API key** — the highlighted first button: start reading right now, no account needed. **Pick this one to begin.**
 - **Add API source** — connect Jiten, Bunpro, or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
 
 A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
 
-The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources. Browser-extension users also see **Set Study as the new tab**, unchecked by default; enable it only if you want every new tab to open Study.
+The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.
 
 Choose **Use without API key**, then try a lookup:
 
@@ -172,7 +172,7 @@ Open よむ settings with the floating よむ button to switch these on when you
 - **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards with one tap: cards carry the word, reading, meaning, the sentence you found it in, and pitch and audio when available (see [mining guide](/guides/mine-sentences-to-anki)). Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — Yomu hosted audio is on by default. Add [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) or a local server only if you want another source.
-- **Study page** — open the [Study app](/study/) for daily review. Existing `/newtab/` links continue to work.
+- **Study page** — open [Study](/study/) for daily review, or use **Open Study** from the browser-extension toolbar menu. A freshly opened standalone session starts at **Word**, a recognition-first prompt that asks you to identify the word before moving through the rest of the card.
 
 ## What to read
 

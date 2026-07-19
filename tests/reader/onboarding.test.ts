@@ -3,7 +3,7 @@ import { OnboardingController } from '../../src/reader/app/onboarding';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
-const PAGE_SCAN_LEGEND = 'Page scanning';
+const PAGE_SCAN_LEGEND = 'Japanese text on webpages';
 
 describe('OnboardingController', () => {
     afterEach(() => {
@@ -52,6 +52,9 @@ describe('OnboardingController', () => {
         expect(pageScanAuto?.checked).toBe(true);
         expect(pageScanManual?.checked).toBe(false);
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
+        expect(document.body.textContent).toContain('Leave pages unchanged');
+        expect(document.body.textContent).toContain('Scan Japanese automatically');
+        expect(document.body.textContent).toContain('Scan only when I ask');
         expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).not.toBeNull();
         expect(hoverShortcut?.type).toBe('text');
         expect(hoverShortcut?.placeholder).toBe('Blank = hover, no key');
@@ -156,56 +159,8 @@ describe('OnboardingController', () => {
         expect(settings.localDictionariesEnabled).toBe(false);
     });
 
-    it('requires an explicit welcome-screen opt-in before enabling Study for new tabs', async () => {
+    it('does not offer to replace new tabs in extension or userscript onboarding', async () => {
         vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en', newTabEnabled: true };
-        const controller = new OnboardingController({
-            getSettings: () => settings,
-            setSettings: nextSettings => {
-                settings = nextSettings;
-            },
-            showSettings: vi.fn(),
-            parseJapanese: vi.fn(),
-        });
-
-        await expect(controller.showIfNeeded()).resolves.toBe(true);
-
-        const newTabToggle = document.querySelector<HTMLInputElement>('input[name="newTabEnabled"]');
-        expect(newTabToggle).not.toBeNull();
-        expect(newTabToggle?.checked).toBe(false);
-        expect(document.body.textContent).toContain('Set Study as the new tab');
-
-        newTabToggle!.checked = true;
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
-        await settleAsyncHandlers();
-
-        expect(settings.onboardingSeen).toBe(true);
-        expect(settings.newTabEnabled).toBe(true);
-    });
-
-    it('leaves Study off when an extension user completes welcome without opting in', async () => {
-        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
-        const controller = new OnboardingController({
-            getSettings: () => settings,
-            setSettings: nextSettings => {
-                settings = nextSettings;
-            },
-            showSettings: vi.fn(),
-            parseJapanese: vi.fn(),
-        });
-
-        await controller.showIfNeeded();
-        expect(document.querySelector<HTMLInputElement>('input[name="newTabEnabled"]')?.checked).toBe(false);
-        document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')!.checked = false;
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
-        await settleAsyncHandlers();
-
-        expect(settings.onboardingSeen).toBe(true);
-        expect(settings.newTabEnabled).toBe(false);
-    });
-
-    it('hides the new-tab toggle for userscript builds (cannot override the browser new tab)', async () => {
         const settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
         const controller = new OnboardingController({
             getSettings: () => settings,
@@ -217,6 +172,7 @@ describe('OnboardingController', () => {
         await expect(controller.showIfNeeded()).resolves.toBe(true);
 
         expect(document.querySelector('input[name="newTabEnabled"]')).toBeNull();
+        expect(document.body.textContent).not.toContain('Set Study as the new tab');
     });
 });
 

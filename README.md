@@ -67,7 +67,7 @@ https://yomureader.com/yomu.user.js
 
 To update on Chrome or Edge, use **Tampermonkey Dashboard → Utilities → Check for userscript updates**. A browser warning that userscripts cannot be added is a disabled Tampermonkey permission, not a bad download host; the setup guide covers **Allow User Scripts** and Developer mode.
 
-Signed browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript and the release-page extension packages are the production install paths.
+Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The userscript and versioned extension packages on GitHub Releases remain available as direct install and testing paths.
 
 ## What It Does
 

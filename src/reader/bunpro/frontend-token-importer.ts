@@ -1,5 +1,10 @@
 import { resolveUiLanguage } from '../app/i18n';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
+import {
+    firefoxAuthenticationInfoRequiresExtensionPage,
+    firefoxAuthenticationInfoSettingsPageUrl,
+    requestFirefoxAuthenticationInfoPermission,
+} from '../settings/firefox-data-consent';
 
 const BUNPRO_FRONTEND_API_TOKEN_COOKIE = 'frontend_api_token';
 const IMPORTER_ID = 'jpdb-reader-bunpro-token-importer';
@@ -73,18 +78,26 @@ async function renderImporterForCurrentRoute(options: BunproFrontendTokenImporte
     }
 
     const language = resolveUiLanguage(options.language?.() ?? options.getSettings().interfaceLanguage);
-    const token = await readBunproFrontendToken(options);
+    const extensionPageRequired = firefoxAuthenticationInfoRequiresExtensionPage();
+    // A Firefox content script must not read an account token before consent.
+    // It cannot show the native prompt, so direct the user to bundled Study.
+    const token = extensionPageRequired ? null : await readBunproFrontendToken(options);
     const root = document.createElement('section');
     root.id = IMPORTER_ID;
     root.className = 'jpdb-reader-bunpro-token-importer';
     root.dataset.jpdbReaderRoot = 'true';
     root.setAttribute('role', 'region');
     root.setAttribute('aria-label', copy(language).title);
-    root.append(renderBunproImporterContent(token, language));
+    root.append(renderBunproImporterContent(token, language, extensionPageRequired));
     document.body.append(root);
 
     const button = root.querySelector<HTMLButtonElement>('[data-action="import-bunpro-token"]');
     button?.addEventListener('click', () => {
+        if (extensionPageRequired) {
+            const settingsUrl = firefoxAuthenticationInfoSettingsPageUrl();
+            if (settingsUrl) window.open(settingsUrl, '_blank', 'noopener');
+            return;
+        }
         void importBunproToken(options, root, language);
     });
 }
@@ -96,6 +109,15 @@ async function importBunproToken(
 ): Promise<void> {
     const ui = copy(language);
     const status = root.querySelector<HTMLElement>('[data-bunpro-import-status]');
+    // Request before reading the token: Firefox requires this native consent
+    // call to happen directly from the person's import-button gesture.
+    const consent = await requestFirefoxAuthenticationInfoPermission();
+    if (consent !== 'granted') {
+        const message = consent === 'extension-page-required' ? ui.permissionPageRequired : ui.permissionDenied;
+        if (status) status.textContent = message;
+        options.toast?.(message);
+        return;
+    }
     if (status) status.textContent = ui.reading;
     const latestToken = await readBunproFrontendToken(options);
     if (!latestToken) {
@@ -120,7 +142,7 @@ async function importBunproToken(
     }
 }
 
-function renderBunproImporterContent(token: BunproFrontendToken | null, language: 'en' | 'ja'): HTMLElement {
+function renderBunproImporterContent(token: BunproFrontendToken | null, language: 'en' | 'ja', extensionPageRequired = false): HTMLElement {
     const ui = copy(language);
     const content = document.createElement('div');
     content.className = 'jpdb-reader-bunpro-token-importer-card';
@@ -130,11 +152,11 @@ function renderBunproImporterContent(token: BunproFrontendToken | null, language
     title.textContent = ui.title;
 
     const body = document.createElement('p');
-    body.textContent = token ? ui.ready : ui.missing;
+    body.textContent = extensionPageRequired ? ui.permissionPageRequired : token ? ui.ready : ui.missing;
 
     const meta = document.createElement('div');
     meta.className = 'jpdb-reader-bunpro-token-importer-meta';
-    meta.textContent = token?.expiresAt ? ui.expires(token.expiresAt) : ui.expiryUnknown;
+    meta.textContent = extensionPageRequired ? '' : token?.expiresAt ? ui.expires(token.expiresAt) : ui.expiryUnknown;
 
     const actions = document.createElement('div');
     actions.className = 'jpdb-reader-bunpro-token-importer-actions';
@@ -142,7 +164,7 @@ function renderBunproImporterContent(token: BunproFrontendToken | null, language
     button.type = 'button';
     button.className = 'jpdb-reader-bunpro-token-importer-button';
     button.dataset.action = 'import-bunpro-token';
-    button.textContent = ui.action;
+    button.textContent = extensionPageRequired ? ui.openStudySettings : ui.action;
     const status = document.createElement('span');
     status.dataset.bunproImportStatus = 'true';
     status.setAttribute('role', 'status');
@@ -285,6 +307,9 @@ function copy(language: 'en' | 'ja'): {
     saving: string;
     saved: string;
     failed: string;
+    permissionDenied: string;
+    permissionPageRequired: string;
+    openStudySettings: string;
     reading: string;
 } {
     if (language === 'ja') {
@@ -299,6 +324,9 @@ function copy(language: 'en' | 'ja'): {
             saving: '保存中...',
             saved: 'BunproトークンをYomuに保存しました。',
             failed: '保存できませんでした。Yomuの権限を確認してください。',
+            permissionDenied: 'Firefoxの許可がなかったため、Bunproトークンは保存しませんでした。',
+            permissionPageRequired: 'Firefoxでは、Bunproトークンを読み取る前にYomuの学習ページから許可を求めます。トークンはまだ読み取っていません。',
+            openStudySettings: '学習ページの設定を開く',
         };
     }
     return {
@@ -312,5 +340,8 @@ function copy(language: 'en' | 'ja'): {
         saving: 'Saving...',
         saved: 'Bunpro token saved to Yomu.',
         failed: 'Could not save. Check your Yomu userscript permissions.',
+        permissionDenied: 'Bunpro stays off because Firefox permission was not granted. Nothing was saved.',
+        permissionPageRequired: 'Firefox asks from Yomu Study before reading a Bunpro token. Nothing has been read yet.',
+        openStudySettings: 'Open Study settings',
     };
 }

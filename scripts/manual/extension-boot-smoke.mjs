@@ -140,6 +140,9 @@ try {
 
     // 6. Action popup page renders
     if (extensionId) {
+        const manifest = await sw.evaluate(() => chrome.runtime.getManifest());
+        step('manifest leaves the browser new-tab page unchanged', !manifest.chrome_url_overrides?.newtab);
+
         const popup = await context.newPage();
         popup.on('console', message => { if (message.type() === 'error') report.consoleErrors.push('[popup] ' + message.text().slice(0, 300)); });
         const popupOk = await popup.goto(`chrome-extension://${extensionId}/popup.html`, { timeout: 15_000 })
@@ -153,34 +156,37 @@ try {
         step('action popup renders content', popupOk.ok, popupOk.text);
         await popup.screenshot({ path: path.join(ART, 'ext-popup.png') });
 
-        // 7. The shipped new-tab page starts disabled and presents the real
-        // welcome opt-in. Enabling its checkbox must switch to Study.
-        const newtab = await popup.goto(`chrome-extension://${extensionId}/newtab/index.html`, { timeout: 15_000 })
+        // 7. Study is a normal packaged page opened from Yomu. It must render
+        // without presenting a misleading new-tab takeover option, and the
+        // first card should land on the recognition-first Word step.
+        const studyPage = await popup.goto(`chrome-extension://${extensionId}/newtab/index.html`, { timeout: 15_000 })
             .then(async () => {
                 await popup.waitForSelector('.jpdb-reader-onboarding', { timeout: 15_000 });
+                await popup.waitForFunction(
+                    () => document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') === 'word',
+                    null, { timeout: 30_000 },
+                ).catch(() => undefined);
                 return await popup.evaluate(() => ({
                     rendered: document.body.childElementCount > 0 && !document.body.innerText.includes('ERR'),
-                    disabled: Boolean(document.querySelector('[data-newtab-optout]')),
-                    optInUnchecked: document.querySelector('input[name="newTabEnabled"]') instanceof HTMLInputElement
-                        && !document.querySelector('input[name="newTabEnabled"]').checked,
+                    hasStudy: Boolean(document.querySelector('[data-newtab-study]')),
+                    firstStep: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-study-step') ?? '',
+                    hasTakeoverOption: Boolean(document.querySelector('input[name="newTabEnabled"]')),
                 }));
             })
-            .catch(() => ({ rendered: false, disabled: false, optInUnchecked: false }));
-        step('bundled newtab page renders', newtab.rendered);
-        step('fresh extension keeps Study off', newtab.disabled);
-        step('welcome Study opt-in starts unchecked', newtab.optInUnchecked);
-        await popup.screenshot({ path: path.join(ART, 'ext-newtab-welcome-off.png') });
-        if (newtab.optInUnchecked) {
-            await popup.check('input[name="newTabEnabled"]');
-            const offline = popup.locator('input[name="onboardingInstallOfflineDictionaries"]');
-            if (await offline.count()) await offline.uncheck();
-            await popup.click('[data-onboarding-action="without-api"]');
-            const enabled = await popup.waitForSelector('[data-newtab-study]', { timeout: 15_000 })
-                .then(() => true)
-                .catch(() => false);
-            step('welcome opt-in enables Study', enabled);
-            await popup.screenshot({ path: path.join(ART, 'ext-newtab-study-enabled.png') });
-        }
+            .catch(() => ({ rendered: false, hasStudy: false, firstStep: '', hasTakeoverOption: true }));
+        step('bundled Study page renders', studyPage.rendered && studyPage.hasStudy);
+        step('Study opens on the Word step', studyPage.firstStep === 'word', studyPage.firstStep || 'no active step');
+        step('welcome has no new-tab takeover option', !studyPage.hasTakeoverOption);
+        await popup.screenshot({ path: path.join(ART, 'ext-study-welcome.png') });
+
+        const offline = popup.locator('input[name="onboardingInstallOfflineDictionaries"]');
+        if (await offline.count()) await offline.uncheck();
+        await popup.click('[data-onboarding-action="without-api"]');
+        const studyVisible = await popup.waitForSelector('[data-newtab-study]', { state: 'visible', timeout: 15_000 })
+            .then(() => true)
+            .catch(() => false);
+        step('Study remains available after welcome', studyVisible);
+        await popup.screenshot({ path: path.join(ART, 'ext-study.png') });
     }
 } finally {
     writeFileSync(path.join(ART, 'ext-probe-report.json'), JSON.stringify(report, null, 2));

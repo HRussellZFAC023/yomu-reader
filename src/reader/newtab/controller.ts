@@ -21,7 +21,7 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
@@ -70,7 +70,6 @@ import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStat
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
 import { BUNPRO_FSRS_REVIEW_SHORTCUTS, FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
-import { runningAsBrowserExtension } from '../app/runtime-env';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
@@ -434,6 +433,8 @@ export interface NewTabControllerOptions {
     readonly sessionClock?: StudySessionClock;
     /** Academy mounts the shared clock control in its location chrome. */
     readonly showSessionClockControl?: boolean;
+    /** One-shot step selected for the first card shown on a fresh surface. */
+    readonly initialStudyStepId?: NewTabStudyStepId;
 }
 
 function readerWordSurfaceText(word: HTMLElement): string {
@@ -837,6 +838,11 @@ export class NewTabController {
     // A hint never prints the full answer; the count folds into the reveal summary.
     private studyHintDepth = new Map<string, number>();
     private studyStepOverride: { cardKey: string; id: NewTabStudyStepId } | null = null;
+    // A freshly opened standalone Study page starts at the recognition-first
+    // Word step. The preference is consumed once: moving to another card uses
+    // the learner's normal configured step order, while rerenders of this first
+    // card keep the selected Word step stable.
+    private initialStudyStepIdPending: NewTabStudyStepId | null;
     private pinnedStudyPlan: { cardKey: string; inputs: { hasRecallCloze: boolean; pitchAvailable: boolean } } | null = null;
     private rootEventController: AbortController | undefined;
     private readonly rootClickHandlers: RootClickHandler[] = [
@@ -904,6 +910,7 @@ export class NewTabController {
         private readonly dependencies: NewTabControllerDependencies,
         private readonly options: NewTabControllerOptions = {},
     ) {
+        this.initialStudyStepIdPending = options.initialStudyStepId ?? null;
         this.statsController = new NewTabStatsController({
             getSettings: () => this.dependencies.getSettings(),
             jpdb: this.dependencies.jpdb,
@@ -992,19 +999,6 @@ export class NewTabController {
         this.bindRootEvents(root);
         root.dataset.newtabBound = 'true';
 
-        // As a browser EXTENSION the MV3 chrome_url_overrides.newtab always loads
-        // this page, so the runtime opt-out lives here: when the user turns Study
-        // off, render a minimal opt-out surface instead of the study UI and load
-        // no words. The page must NEVER flip a user's false back to true (the old
-        // force-re-enable made unchecking the setting self-revert — Arka_rg). The
-        // userscript / hosted new-tab page is not extension-gated, so it is
-        // unaffected. First-install default stays on via DEFAULT_SETTINGS.
-        if (runningAsBrowserExtension() && !settings.newTabEnabled) {
-            this.renderNewTabOptOut(root);
-            return;
-        }
-
-        delete root.dataset.newtabOptout;
         const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
         if (shouldRenderContent) {
             this.sessionClockControl?.dispose();
@@ -1032,47 +1026,6 @@ export class NewTabController {
 
         if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, true);
         else this.applyWords(root, true);
-    }
-
-    // Minimal opt-out surface shown (extension only) when the user has turned
-    // Study off for new tabs. No study UI, no word loading — just a re-enable
-    // control and a link to open Study on demand. Mirrors the settings toggle:
-    // turning it back on persists the choice and re-renders the study page.
-    private renderNewTabOptOut(root: HTMLElement): void {
-        const language = this.language();
-        delete root.dataset.standaloneNewtab;
-        delete root.dataset.newtabLanguage;
-        root.dataset.newtabOptout = 'true';
-        replaceChildrenWith(
-            root,
-            el('section', { class: 'jpdb-reader-newtab-optout', dataset: { newtabOptout: true } },
-                el('h1', { class: 'jpdb-reader-newtab-optout-title' }, newTabText(language, 'newTabOff')),
-                el('p', { class: 'jpdb-reader-newtab-optout-body' }, newTabText(language, 'newTabOffBody')),
-                el('div', { class: 'jpdb-reader-newtab-optout-actions' },
-                    el('button', {
-                        class: 'jpdb-reader-btn',
-                        type: 'button',
-                        dataset: { newtabAction: 'enable-newtab' },
-                    }, newTabText(language, 'newTabTurnOn')),
-                    el('a', {
-                        class: 'jpdb-reader-newtab-optout-link',
-                        href: NEW_TAB_PAGE_URL,
-                    }, newTabText(language, 'newTabOpenStudy')),
-                ),
-            ),
-        );
-        const enableButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="enable-newtab"]');
-        enableButton?.addEventListener('click', () => {
-            void this.enableNewTabFromOptOut();
-        });
-    }
-
-    private async enableNewTabFromOptOut(): Promise<void> {
-        const settings = this.dependencies.getSettings();
-        if (settings.newTabEnabled) return;
-        settings.newTabEnabled = true;
-        await this.dependencies.onSettingsChange();
-        await this.renderPage();
     }
 
     private ensureNewTabRoot(): { root: HTMLElement; isNew: boolean } {
@@ -4434,6 +4387,10 @@ export class NewTabController {
     }
 
     private renderWord(root: HTMLElement, card: JPDBCard): void {
+        if (this.initialStudyStepIdPending) {
+            this.setStudyStepOverrideForCard(card, this.initialStudyStepIdPending);
+            this.initialStudyStepIdPending = null;
+        }
         this.writeStoredWordKey(card);
         this.syncCardUrl(card);
         this.ensureNPlusOneStudySentence(card);

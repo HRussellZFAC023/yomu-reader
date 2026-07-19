@@ -3,9 +3,13 @@ import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 
 const BACKGROUND_FILE = 'background.js';
+const CONTENT_FILE = 'content.js';
 const MANIFEST_FILE = 'manifest.json';
+const READER_CSS_FILE = 'yomu.css';
+const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
 const SCREENSHOT_BRIDGE_MARKER = 'yomu-extension-screenshot-bridge';
 const GOOGLE_DRIVE_SYNC_BRIDGE_MARKER = 'yomu-google-drive-settings-sync-bridge';
+const PACKAGED_READER_CSS_MARKER = 'yomu-extension-packaged-reader-css';
 const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 const UNSAFE_EXTENSION_EVENT_PATTERNS = [
@@ -17,6 +21,20 @@ const UNSAFE_EXTENSION_EVENT_PATTERNS = [
     [/\bbrowser\.tabs\.onRemoved\.removeListener\(/g, 'browser.tabs?.onRemoved?.removeListener?.('],
 ];
 
+export function deterministicExtensionTimestamp(sourceDateEpoch, gitCommitEpoch) {
+    const explicitEpoch = String(sourceDateEpoch ?? '').trim();
+    const fallbackEpoch = String(gitCommitEpoch ?? '').trim();
+    const epoch = explicitEpoch || fallbackEpoch;
+    if (!/^\d+$/.test(epoch)) {
+        throw new Error('Extension build timestamp requires SOURCE_DATE_EPOCH or a Git commit epoch in whole seconds.');
+    }
+    const milliseconds = Number(epoch) * 1000;
+    if (!Number.isSafeInteger(milliseconds)) {
+        throw new Error('Extension build timestamp is outside JavaScript safe integer range.');
+    }
+    return new Date(milliseconds).toISOString();
+}
+
 export function hardenExtensionBackgroundSource(source, options = {}) {
     const hardened = UNSAFE_EXTENSION_EVENT_PATTERNS.reduce(
         (current, [pattern, replacement]) => current.replace(pattern, replacement),
@@ -26,6 +44,45 @@ export function hardenExtensionBackgroundSource(source, options = {}) {
     return options.target === 'chrome' && options.googleOAuthClientId
         ? installGoogleDriveSettingsSyncBridgeSource(withScreenshotBridge)
         : withScreenshotBridge;
+}
+
+export function hardenExtensionContentSource(source) {
+    if (source.includes(PACKAGED_READER_CSS_MARKER)) return source;
+
+    let hardened = source.replace(
+        /(function GM_getResourceURL\(name\) \{\s*)/,
+        `$1\n    // ${PACKAGED_READER_CSS_MARKER}\n    if (name === "yomuCss") return api?.runtime?.getURL?.("${READER_CSS_FILE}") || "${READER_CSS_FILE}";\n`,
+    );
+    if (hardened === source) {
+        throw new Error('Generated content.js no longer exposes the expected GM_getResourceURL resource bridge.');
+    }
+
+    // Keep GM_info useful to reviewers without leaving a remote URL that the
+    // generated compatibility runtime could accidentally request.
+    hardened = hardened.replace(
+        /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css(?:\?v=[^#"'\s]+)?(?:#sha256=[^"'\s]+)?/gi,
+        READER_CSS_FILE,
+    );
+
+    const localReaderCssExpression = `(globalThis.browser || globalThis.chrome)?.runtime?.getURL?.("${READER_CSS_FILE}") || "${READER_CSS_FILE}"`;
+    hardened = hardened.replace(
+        /const READER_CSS_RESOURCE_URL = `https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/main\/dist\/yomu\.css\?v=\$\{[^\n]+\}`;/,
+        `const READER_CSS_RESOURCE_URL = ${localReaderCssExpression};`,
+    );
+    if (!hardened.includes(`const READER_CSS_RESOURCE_URL = ${localReaderCssExpression};`)) {
+        throw new Error('Generated content.js no longer contains the expected reader CSS fallback URL declaration.');
+    }
+
+    // Hosted-page fallback is appropriate for the userscript build, but the
+    // extension has a packaged sheet and should never choose a network copy.
+    hardened = hardened.replace(
+        /function readerCssFallbackUrls\(href = safeLocationHref\(\)\) \{\s*const hostedUrl = hostedReaderCssUrl\(href\);\s*return hostedUrl \? \[hostedUrl, READER_CSS_RESOURCE_URL\] : \[READER_CSS_RESOURCE_URL\];\s*\}/,
+        `function readerCssFallbackUrls(href = safeLocationHref()) {\n      void href;\n      return [READER_CSS_RESOURCE_URL];\n    }`,
+    );
+    if (/function readerCssFallbackUrls\([^)]*\) \{\s*const hostedUrl = hostedReaderCssUrl/.test(hardened)) {
+        throw new Error('Generated content.js still prefers a hosted reader stylesheet on Yomu pages.');
+    }
+    return hardened;
 }
 
 function installExtensionScreenshotBridgeSource(source) {
@@ -39,6 +96,17 @@ function installGoogleDriveSettingsSyncBridgeSource(source) {
 }
 
 export function hardenExtensionManifest(manifest, options = {}) {
+    // A chrome_url_overrides.newtab declaration takes over every new tab as
+    // soon as the extension is enabled. Browsers expose no API that can make
+    // that takeover genuinely opt-in at runtime, so the main Yomu extension
+    // never ships it. Study remains packaged and opens as a normal page from
+    // the popup without changing the browser's own new-tab experience.
+    const {
+        browser_url_overrides: _browserUiOverride,
+        chrome_settings_overrides: _browserSettingOverride,
+        chrome_url_overrides: _newTabOverride,
+        ...manifestWithoutNewTabOverride
+    } = manifest;
     const version = Number(manifest.manifest_version || 2);
     const target = options.target ?? '';
     const googleOAuthClientId = options.googleOAuthClientId
@@ -57,10 +125,17 @@ export function hardenExtensionManifest(manifest, options = {}) {
             scopes: uniqueArray([...(manifest.oauth2?.scopes ?? []), GOOGLE_DRIVE_APPDATA_SCOPE]),
         }
         : manifest.oauth2;
+    const browserSpecificSettings = target === 'firefox'
+        ? firefoxBrowserSpecificSettings(manifest.browser_specific_settings)
+        : manifest.browser_specific_settings;
     const withPermissions = {
-        ...manifest,
+        ...manifestWithoutNewTabOverride,
         permissions,
         ...(oauth2 ? { oauth2 } : {}),
+        ...(browserSpecificSettings ? { browser_specific_settings: browserSpecificSettings } : {}),
+        ...(options.packagedReaderCss ? {
+            web_accessible_resources: withPackagedReaderCssResource(manifest.web_accessible_resources, version),
+        } : {}),
     };
     if (version >= 3) {
         return {
@@ -80,7 +155,47 @@ export function hardenExtensionManifest(manifest, options = {}) {
     };
 }
 
-export async function hardenGeneratedExtensionBackgrounds(root) {
+export function hardenExtensionSubmissionGuide(source) {
+    return String(source)
+        .replace(
+            'Safari new-tab behavior must be tested through Apple Safari Web Extension packaging because platform support differs.',
+            'The bundled Study page must be tested through Apple Safari Web Extension packaging; Yomu does not replace Safari new tabs.',
+        )
+        .replace(
+            'an extension popup menu, and a packaged new-tab page.',
+            'an extension popup menu, and a packaged Study page that opens only when the user chooses it.',
+        )
+        .replace(
+            'Keep all new-tab content packaged in the extension. Do not redirect the new tab to a remote page.',
+            'Keep all Study content packaged in the extension. Yomu does not declare a new-tab override or redirect new tabs.',
+        )
+        .replace(
+            '**Remote new tab:** keep new-tab files inside the extension package.',
+            '**Study page:** keep Study files inside the extension package; do not add a browser new-tab override.',
+        );
+}
+
+function firefoxBrowserSpecificSettings(settings = {}) {
+    return {
+        ...settings,
+        gecko: {
+            ...(settings.gecko ?? {}),
+            id: 'yomu@yomureader.com',
+            strict_min_version: '140.0',
+            data_collection_permissions: {
+                required: ['websiteContent'],
+                optional: ['authenticationInfo'],
+            },
+        },
+        gecko_android: {
+            ...(settings.gecko_android ?? {}),
+            strict_min_version: '142.0',
+        },
+    };
+}
+
+export async function hardenGeneratedExtensionBackgrounds(root, options = {}) {
+    const packageAssets = packagedAssets(options);
     const files = await collectBackgroundFiles(root);
     for (const file of files) {
         const source = await readFile(file, 'utf8');
@@ -91,12 +206,14 @@ export async function hardenGeneratedExtensionBackgrounds(root) {
         const hardened = hardenExtensionBackgroundSource(source, { target, googleOAuthClientId });
         if (hardened !== source) await writeFile(file, hardened);
     }
-    await hardenGeneratedExtensionManifests(root);
-    await hardenGeneratedReleaseArchives(root);
+    await hardenGeneratedExtensionContentScripts(root);
+    await hardenGeneratedExtensionManifests(root, { packagedReaderCss: packageAssets.size > 0 });
+    await stageGeneratedExtensionAssets(root, packageAssets);
+    await hardenGeneratedReleaseArchives(root, packageAssets, options.archiveTimestamp);
     return files;
 }
 
-async function hardenGeneratedReleaseArchives(root) {
+async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimestamp) {
     const releaseRoot = path.join(root, 'release');
     const files = await collectArchiveFiles(releaseRoot);
     for (const file of files) {
@@ -112,23 +229,50 @@ async function hardenGeneratedReleaseArchives(root) {
                     target,
                     googleOAuthClientId,
                 }));
+            } else if (name === CONTENT_FILE) {
+                entries[name] = strToU8(hardenExtensionContentSource(new TextDecoder().decode(bytes)));
             } else if (name === MANIFEST_FILE) {
                 const manifest = JSON.parse(new TextDecoder().decode(bytes));
-                entries[name] = strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, { target }), null, 2)}\n`);
+                entries[name] = strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, {
+                    target,
+                    packagedReaderCss: packageAssets.size > 0,
+                }), null, 2)}\n`);
             }
         }
-        await writeFile(file, zipSync(entries, { level: 9 }));
+        for (const [name, bytes] of packageAssets) entries[name] = bytes;
+        await writeFile(file, zipSync(zipEntriesWithTimestamp(entries, archiveTimestamp), { level: 9 }));
     }
 }
 
-async function hardenGeneratedExtensionManifests(root) {
+async function hardenGeneratedExtensionManifests(root, options = {}) {
     const files = await collectManifestFiles(root);
     for (const file of files) {
         const source = await readFile(file, 'utf8');
         const manifest = JSON.parse(source);
-        const hardened = hardenExtensionManifest(manifest, { target: extensionTargetFromPath(file, root) });
+        const hardened = hardenExtensionManifest(manifest, {
+            target: extensionTargetFromPath(file, root),
+            packagedReaderCss: options.packagedReaderCss,
+        });
         const output = `${JSON.stringify(hardened, null, 2)}\n`;
         if (output !== source) await writeFile(file, output);
+    }
+}
+
+async function hardenGeneratedExtensionContentScripts(root) {
+    const files = await collectNamedFiles(root, CONTENT_FILE);
+    for (const file of files) {
+        const source = await readFile(file, 'utf8');
+        const hardened = hardenExtensionContentSource(source);
+        if (hardened !== source) await writeFile(file, hardened);
+    }
+}
+
+async function stageGeneratedExtensionAssets(root, packageAssets) {
+    if (!packageAssets.size) return;
+    const manifests = await collectManifestFiles(root);
+    for (const manifest of manifests) {
+        const directory = path.dirname(manifest);
+        for (const [name, bytes] of packageAssets) await writeFile(path.join(directory, name), bytes);
     }
 }
 
@@ -138,27 +282,21 @@ function extensionTargetFromPath(file, root) {
 }
 
 async function collectBackgroundFiles(directory) {
-    const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
-    const files = [];
-    for (const entry of entries) {
-        const file = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-            files.push(...await collectBackgroundFiles(file));
-        } else if (entry.isFile() && entry.name === BACKGROUND_FILE) {
-            files.push(file);
-        }
-    }
-    return files;
+    return collectNamedFiles(directory, BACKGROUND_FILE);
 }
 
 async function collectManifestFiles(directory) {
+    return collectNamedFiles(directory, MANIFEST_FILE);
+}
+
+async function collectNamedFiles(directory, fileName) {
     const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
     const files = [];
     for (const entry of entries) {
         const file = path.join(directory, entry.name);
         if (entry.isDirectory()) {
-            files.push(...await collectManifestFiles(file));
-        } else if (entry.isFile() && entry.name === MANIFEST_FILE) {
+            files.push(...await collectNamedFiles(file, fileName));
+        } else if (entry.isFile() && entry.name === fileName) {
             files.push(file);
         }
     }
@@ -178,6 +316,48 @@ async function collectArchiveFiles(directory) {
 
 function uniqueArray(values) {
     return [...new Set(values.filter(Boolean))];
+}
+
+function withPackagedReaderCssResource(resources, manifestVersion) {
+    const current = Array.isArray(resources) ? resources : [];
+    if (manifestVersion < 3) return uniqueArray([...current, READER_CSS_FILE]);
+    if (current.some(resource => typeof resource === 'object' && resource?.resources?.includes(READER_CSS_FILE))) {
+        return current;
+    }
+    return [
+        ...current,
+        {
+            resources: [READER_CSS_FILE],
+            matches: ['<all_urls>'],
+        },
+    ];
+}
+
+function packagedAssets(options) {
+    const assets = new Map();
+    if (options.readerCss) assets.set(READER_CSS_FILE, asBytes(options.readerCss));
+    if (options.thirdPartyNotices) assets.set(THIRD_PARTY_NOTICES_FILE, asBytes(options.thirdPartyNotices));
+    if (assets.size !== 0 && assets.size !== 2) {
+        throw new Error('Extension packaging requires both yomu.css and THIRD_PARTY_NOTICES.txt.');
+    }
+    return assets;
+}
+
+function asBytes(value) {
+    if (value instanceof Uint8Array) return value;
+    return strToU8(String(value));
+}
+
+function zipEntriesWithTimestamp(entries, archiveTimestamp) {
+    const timestamp = new Date(archiveTimestamp || '1980-01-01T00:00:00.000Z');
+    if (Number.isNaN(timestamp.getTime())) throw new Error('Extension archive timestamp must be a valid ISO timestamp.');
+    // ZIP's DOS timestamp cannot represent dates before 1980.
+    const mtime = timestamp < new Date('1980-01-01T00:00:00.000Z')
+        ? new Date('1980-01-01T00:00:00.000Z')
+        : timestamp;
+    return Object.fromEntries(Object.entries(entries)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([name, bytes]) => [name, [bytes, { mtime }]]));
 }
 
 function extensionScreenshotBridgeSource() {

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { USER_SCRIPT_COMPILER_COMMIT } from '../../scripts/build-amo-source-package.mjs';
 
 const buildUserscriptWorkflow = readFileSync(
     join(process.cwd(), '.github/workflows/build-userscript.yml'),
@@ -67,5 +68,24 @@ describe('release workflow safety', () => {
         expect(releaseGamingWorkflow).toContain('- name: Build Yomu Gaming');
         expect(releaseGamingWorkflow).toContain('- name: Write SHA256SUMS');
         expect(releaseGamingWorkflow).toContain('gh release upload "$TAG" release-assets/* --clobber');
+    });
+
+    it('pins and submits the exact Firefox reviewer source bundle', () => {
+        expect(releaseWorkflow).toContain(`ref: ${USER_SCRIPT_COMPILER_COMMIT}`);
+        expect(releaseWorkflow).toContain('node-version: 24.14.0');
+        expect(releaseWorkflow).toContain('npm install --global npm@11.9.0');
+        expect(releaseWorkflow).toContain('node scripts/build-amo-source-package.mjs');
+        expect(releaseWorkflow).toContain('dist/extension/source/yomureader.com-firefox-source.zip');
+        expect(releaseWorkflow).toContain('--pattern yomureader.com-firefox.xpi');
+        expect(releaseWorkflow).toContain('--source-dir=browser-store-artifacts/firefox');
+        expect(releaseWorkflow).toContain('--upload-source-code=browser-store-artifacts/yomureader.com-firefox-source.zip');
+    });
+
+    it('keeps automated store submissions behind a protected human checkpoint', () => {
+        expect(releaseWorkflow).toContain('environment: browser-store-production');
+        expect(releaseWorkflow.match(/environment: browser-store-production/g)).toHaveLength(2);
+        expect(releaseWorkflow).toContain('GH_REPO: ${{ github.repository }}');
+        expect(releaseWorkflow).toContain('group: release-${{ github.ref }}');
+        expect(releaseWorkflow).toContain('TZ: UTC');
     });
 });

@@ -1,6 +1,6 @@
 ---
 title: Features
-description: Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study new-tab page.
+description: Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study page.
 ---
 
 # Features
@@ -133,7 +133,7 @@ On the YouTube home feed, when よむ hides enough English-heavy recommendations
 
 ## Anki And Mobile Handoff
 
-Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features in the new-tab page.
+Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features on the Study page.
 
 On a phone or tablet, the full Anki setup still uses desktop AnkiConnect: the phone does the reading, the computer does the Anki work. See the step-by-step phone, iPad, or Android setup in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
@@ -145,7 +145,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## Study Page
 
-Make the [Study page](/study/) your browser home or new-tab page and a Japanese review card greets you every time you open a tab. It pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. The old `/newtab/` URL remains a compatibility route.
+Open the [Study page](/study/) whenever you want a focused Japanese review session. The browser extension leaves your new tabs alone and puts **Open Study** in its toolbar menu; the hosted page can also be bookmarked, added to a Home Screen, or deliberately chosen as a home page. Study pulls words from whatever you've connected — Anki, Jiten, Bunpro, JPDB, or the local dictionary words already in your browser — so it works even with no account. A fresh standalone session begins at **Word**, then follows the rest of your configured steps. Bunpro's regular reveal reviews use Hard/Good and its FSRS reviews use Again/Hard/Good/Easy; Jiten and JPDB retain the five-point scale. The old `/newtab/` URL remains a compatibility route.
 
 Each card walks through a short set of steps, and you only grade once at the end:
 
@@ -177,6 +177,6 @@ On iPhone, iPad, and Android, the study page works well for quick daily review. 
 The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">
+  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and Study links.">
   <figcaption>Support links live inside settings.</figcaption>
 </figure>

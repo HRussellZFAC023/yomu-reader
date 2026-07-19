@@ -152,47 +152,6 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
-/* Extension opt-out surface: shown when the user turns Study off for new tabs.
-   Deliberately minimal — a mostly-blank page with one re-enable control and a
-   link to open Study on demand. No study UI, no word loading. */
-.jpdb-reader-newtab-optout {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 24px;
-  text-align: center;
-}
-
-.jpdb-reader-newtab-optout-title {
-  margin: 0;
-  font-size: clamp(20px, 3.4vw, 28px);
-  font-weight: 700;
-  color: var(--jpdb-reader-text, #17202a);
-}
-
-.jpdb-reader-newtab-optout-body {
-  margin: 0;
-  max-width: 42ch;
-  color: var(--jpdb-reader-muted, #4f5968);
-}
-
-.jpdb-reader-newtab-optout-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 6px;
-}
-
-.jpdb-reader-newtab-optout-link {
-  color: var(--jpdb-reader-accent, #5ea780);
-  text-decoration: underline;
-}
-
 .jpdb-reader-newtab-topbar {
   min-height: 42px;
   min-width: 0;

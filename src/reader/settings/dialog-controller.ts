@@ -68,6 +68,13 @@ import {
     redditOverlayViewportBounds,
     redditSourceRectToOverlay,
 } from '../ui/reddit-overlay-scale';
+import {
+    firefoxAuthenticationInfoRequiresExtensionPage,
+    requestFirefoxAuthenticationInfoForChangedSettings,
+    requestFirefoxAuthenticationInfoForSettings,
+    requestFirefoxAuthenticationInfoPermission,
+    type FirefoxAuthenticationInfoConsent,
+} from './firefox-data-consent';
 
 interface Refreshable {
     refresh: () => void;
@@ -574,9 +581,9 @@ export class SettingsDialogController {
         this.syncDictionaryOperationState(form);
         this.syncJpdbStatus(form);
         void this.refreshAnkiConnectionStatus(form);
-        void this.refreshJpdbConnectionStatus(form);
+        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
-        void this.refreshDeckControls(form);
+        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
         this.refreshSettingsJapaneseParse(form);
     }
@@ -663,13 +670,21 @@ export class SettingsDialogController {
                 return;
             }
             const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
-            this.settings = readFormSettings(new FormData(form), this.settings);
-            configureLogger({ forceEnabled: this.settings.enableLogging });
-            if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
-                this.dependencies.clearDictionarySourceOpenOverrides();
-            }
+            const nextSettings = readFormSettings(new FormData(form), this.settings);
             const saveRequestId = ++this.saveRequestId;
-            void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId))
+            // Invoke the native Firefox request synchronously from Submit. The
+            // returned promise may settle later, but the user gesture must not
+            // be separated from permissions.request() by an earlier await.
+            const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+            void credentialPermission.then(consent => {
+                if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
+                this.settings = nextSettings;
+                configureLogger({ forceEnabled: this.settings.enableLogging });
+                if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
+                    this.dependencies.clearDictionarySourceOpenOverrides();
+                }
+                return saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId));
+            })
                 .catch(error => {
                     log.error('Settings save failed', error);
                     this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'settingsSaveFailed')));
@@ -998,8 +1013,15 @@ export class SettingsDialogController {
             apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
             apiKeyInput.addEventListener('change', () => {
                 reconcileApiCredentialInputs(form);
-                void this.refreshDeckControls(form);
-                void this.refreshJpdbConnectionStatus(form);
+                const nextSettings = readFormSettings(new FormData(form), this.settings);
+                // change is a direct user gesture, so Firefox can show its
+                // native data-consent prompt before either live key probe.
+                const permission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+                void permission.then(consent => {
+                    if (!this.acceptFirefoxAuthenticationInfoConsent(consent, nextSettings.interfaceLanguage)) return;
+                    void this.refreshDeckControls(form);
+                    void this.refreshJpdbConnectionStatus(form);
+                });
             });
         }
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
@@ -1015,7 +1037,10 @@ export class SettingsDialogController {
             if (!action || action === 'cancel') return;
             event.preventDefault();
             event.stopPropagation();
-            void this.handleSettingsAction(form, action, control);
+            // Start any Firefox permission request directly in this click
+            // handler; the later async action router cannot preserve activation.
+            const credentialPermission = this.authenticationInfoPermissionForAction(form, action);
+            void this.handleSettingsAction(form, action, control, credentialPermission);
         });
         form.addEventListener('keydown', event => {
             if (this.handleAnkiTagInputKeydown(form, event)) {
@@ -1571,16 +1596,53 @@ export class SettingsDialogController {
         });
     }
 
-    private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
+    private async handleSettingsAction(
+        form: HTMLFormElement,
+        action: string,
+        control?: HTMLElement | null,
+        credentialPermission?: Promise<FirefoxAuthenticationInfoConsent>,
+    ): Promise<void> {
         const setStatus = settingsStatusSetter(form, control);
 
         try {
+            if (credentialPermission) {
+                const consent = await credentialPermission;
+                const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+                if (!this.acceptFirefoxAuthenticationInfoConsent(consent, language)) return;
+            }
             await this.runSettingsAction(form, action, control, setStatus);
         } catch (error) {
             const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
             const message = handleSettingsActionError(action, control, setStatus, error, language);
             this.dependencies.toast(message);
         }
+    }
+
+    private authenticationInfoPermissionForAction(
+        form: HTMLFormElement,
+        action: string,
+    ): Promise<FirefoxAuthenticationInfoConsent> | undefined {
+        if (action === 'sync-cloud-settings') {
+            return requestFirefoxAuthenticationInfoForSettings(readFormSettings(new FormData(form), this.settings));
+        }
+        if (action === 'restore-cloud-settings' || action === 'import-yomitan-settings') {
+            // A cloud snapshot or imported settings file may contain account
+            // keys. Ask before opening/reading it while the click is active.
+            return requestFirefoxAuthenticationInfoPermission();
+        }
+        return undefined;
+    }
+
+    private acceptFirefoxAuthenticationInfoConsent(
+        consent: FirefoxAuthenticationInfoConsent,
+        language: InterfaceLanguage,
+    ): boolean {
+        if (consent === 'granted') return true;
+        const key = consent === 'extension-page-required'
+            ? 'firefoxAuthenticationInfoExtensionPageRequired'
+            : 'firefoxAuthenticationInfoDenied';
+        this.dependencies.toast(uiText(language, key));
+        return false;
     }
 
     private async runSettingsAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {

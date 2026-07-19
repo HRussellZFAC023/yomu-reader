@@ -21,7 +21,7 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     const register = userscriptMenuCommandRegister();
     if (!register) return;
     register(`${APP_NAME} settings`, () => handlers.showSettings());
-    register(`${APP_NAME} open new tab`, () => openReaderNewTabPage(handlers.logInfo));
+    register(`${APP_NAME} open Study`, () => openReaderStudyPage(handlers.logInfo));
     register(`${APP_NAME} open video player`, () => openReaderVideoPlayer(handlers.logInfo));
     register(`${APP_NAME} annotations`, handlers.toggleAnnotations);
     register(`${APP_NAME} audio`, handlers.toggleAudio);
@@ -36,8 +36,8 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }
 
-function openReaderNewTabPage(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
-    openReaderRuntimePage(NEW_TAB_PAGE_URL, 'New tab page opened', logInfo);
+function openReaderStudyPage(logInfo: ReaderMenuCommandHandlers['logInfo']): void {
+    openReaderRuntimePage(NEW_TAB_PAGE_URL, 'Study page opened', logInfo);
 }
 
 function openReaderVideoPlayer(logInfo: ReaderMenuCommandHandlers['logInfo']): void {

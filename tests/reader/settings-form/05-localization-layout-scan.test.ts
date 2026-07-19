@@ -533,7 +533,7 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(radioValue(form, 'pageScanMode')).toBe('auto');
-        expect(labelForControl(form, 'pageScanMode')).toContain('Off');
+        expect(labelForControl(form, 'pageScanMode')).toContain('Leave pages unchanged');
         expect(form.querySelector<HTMLElement>('[data-page-scan-manual-shortcut]')?.hidden).toBe(true);
 
         form.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]')!.checked = true;

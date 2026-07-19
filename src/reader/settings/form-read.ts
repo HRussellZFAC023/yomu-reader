@@ -1,5 +1,4 @@
 import { Logger } from '../app/logger';
-import { runningAsBrowserExtension } from '../app/runtime-env';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
@@ -302,10 +301,10 @@ function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {
 function readNewTabFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     return {
-        // UT-74: the control only renders in extension builds (userscripts
-        // can't override the browser new tab) — read it there, preserve the
-        // stored value everywhere else.
-        newTabEnabled: runningAsBrowserExtension() ? has('newTabEnabled') : current.newTabEnabled,
+        // Kept in storage for backwards compatibility with older extension
+        // builds. The main extension no longer declares a new-tab override, so
+        // Settings must preserve rather than expose or mutate this legacy flag.
+        newTabEnabled: current.newTabEnabled,
         newTabAnkiEnabled: has('newTabAnkiEnabled'),
         newTabAnkiDisabledDecks: get('newTabAnkiDisabledDecks').split(',').map(deck => deck.trim()).filter(Boolean),
         newTabSource: readOption(get('newTabSource'), ['auto', 'jpdb', 'bunpro', 'yomu-local', 'anki', 'dictionary'] as const, current.newTabSource),

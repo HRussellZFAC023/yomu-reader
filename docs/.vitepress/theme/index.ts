@@ -1274,7 +1274,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     '. The hosted page can also bridge local AnkiConnect through the installed userscript on the same computer.': 'をご覧ください。ホストされたページは、同じコンピューター上にインストールされたユーザースクリプトを介して、ローカルの AnkiConnect を橋渡しすることもできます。',
     'and import a dictionary in': '次の画面で辞書をインポートします',
     'Optionally connect Jiten,': '必要に応じて Jiten、',
-    ', or Anki, then set the page as your new-tab or Home Screen shortcut.': '、または Anki を接続し、このページを新規タブやホーム画面のショートカットに設定しましょう。',
+    ', or Anki, then bookmark the page or add it as a Home Screen shortcut.': '、または Anki を接続し、このページをブックマークするか、ホーム画面のショートカットに追加しましょう。',
     'Do I need an account?': 'アカウントは必要ですか？',
     'No — it works with a local Yomitan dictionary or JMdict. Connect Jiten, JPDB, or Anki for richer review and status.': 'いいえ。ローカルの Yomitan 辞書や JMdict で動作します。より充実した復習やステータスを使うには、Jiten、JPDB、または Anki を接続してください。',
     'How does it study Anki on a phone?': 'スマートフォンではどのように Anki を学習するのですか？',

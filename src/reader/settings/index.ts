@@ -362,11 +362,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupActivationMode: 'hover',
     scanModifierKey: 'shift',
     showFloatingButton: true,
-    // First-install default: fresh browser-extension installs get Study on the
-    // new tab (the page gates on this + runningAsBrowserExtension()). The page
-    // never flips a user's explicit false back to true, so unchecking sticks.
-    // Userscript / hosted new-tab is not gated by this flag, so the default is
-    // harmless there.
+    // Legacy browser-extension preference retained for settings migration. The
+    // main extension no longer overrides the browser new-tab page.
     newTabEnabled: false,
     newTabAnkiEnabled: false,
     newTabAnkiDisabledDecks: [],

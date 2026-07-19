@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import { NewTabController } from '../../src/reader/newtab/controller';
+import { NewTabController, type NewTabControllerOptions } from '../../src/reader/newtab/controller';
 import { setInnerHtml } from '../../src/reader/dom/index';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
@@ -67,7 +67,7 @@ interface StudyInternals {
     pickListenPosition(position: number): void;
 }
 
-function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = {}, extraDeps: Record<string, unknown> = {}) {
+function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = {}, extraDeps: Record<string, unknown> = {}, options: NewTabControllerOptions = {}) {
     const playWordAudio = vi.fn(async () => undefined);
     const mergedSettings: ReaderSettings = {
         ...DEFAULT_SETTINGS,
@@ -97,7 +97,7 @@ function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = 
         toast: vi.fn(),
         playWordAudio,
         ...extraDeps,
-    } as never);
+    } as never, options);
     const internals = controller as unknown as StudyInternals;
     internals.allWords = cards.slice();
     internals.visibleWords = cards.slice();
@@ -747,79 +747,22 @@ describe('study flow: doodle first-attempt discipline', () => {
     });
 });
 
-// FIX (Arka_rg): the extension new tab could not be turned off — the page
-// force-re-enabled newTabEnabled on every render, so unchecking it in Settings
-// self-reverted. With newTabEnabled=false as a browser extension, renderPage
-// must render a minimal opt-out page (no Study UI, no words) and must NEVER
-// flip the user's false back to true.
-function optOutController(newTabEnabled: boolean) {
-    const settings: ReaderSettings = {
-        ...DEFAULT_SETTINGS,
-        interfaceLanguage: 'en',
-        newTabEnabled,
-    };
-    const onSettingsChange = vi.fn();
-    const controller = new NewTabController({
-        getSettings: () => settings,
-        anki: {} as never,
-        jpdb: {} as never,
-        jpdbKanji: {} as never,
-        kanjiVG: {} as never,
-        rtk: {} as never,
-        immersionKit: {} as never,
-        jpdbReviewBridge: { onUpdate: () => () => {}, latestStatus: () => ({ connected: false }), requestCurrent: vi.fn() } as never,
-        parser: { isJpdbBackedCard: () => false } as never,
-        dictionaries: { summary: vi.fn(async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 })), listRandomTopTerms: vi.fn(async () => []) } as never,
-        onSettingsChange,
-        applyTheme: vi.fn(),
-        showSettings: vi.fn(),
-        dismiss: vi.fn(),
-    } as never);
-    return { controller, settings, onSettingsChange };
-}
-
-describe('extension new-tab opt-out', () => {
-    afterEach(() => {
-        vi.unstubAllGlobals();
-        document.body.replaceChildren();
-    });
-
-    it('defaults fresh installs to the opt-out state', () => {
-        expect(DEFAULT_SETTINGS.newTabEnabled).toBe(false);
-    });
-
-    it('renders a minimal opt-out page and never re-enables newTabEnabled when off in an extension', async () => {
-        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        const { controller, settings, onSettingsChange } = optOutController(false);
+describe('standalone Study entry step', () => {
+    it('starts a fresh Study page at Word once, then returns to the configured order', () => {
+        const cards = [drinkCard(), drinkCard({ vid: 32, sid: 33, spelling: '読書', reading: 'どくしょ' })];
+        const { controller, internals } = studyController(cards, {}, {}, {
+            surface: 'standalone',
+            initialStudyStepId: 'word',
+        });
+        const root = studyRoot();
         try {
-            await controller.renderPage();
+            internals.state.mode = 'word';
+            internals.renderWord(root, cards[0]);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('word');
 
-            // The page must NOT force the user's choice back on.
-            expect(settings.newTabEnabled).toBe(false);
-            expect(onSettingsChange).not.toHaveBeenCalled();
-
-            // No Study UI, no word loading.
-            expect(document.querySelector('[data-newtab-study]')).toBeNull();
-            expect((controller as unknown as { allWords: JPDBCard[] }).allWords).toHaveLength(0);
-
-            // A minimal opt-out surface with a re-enable control is shown.
-            const optOut = document.querySelector('[data-newtab-optout]');
-            expect(optOut).not.toBeNull();
-            expect(optOut?.querySelector('[data-newtab-action="enable-newtab"]')).not.toBeNull();
-        } finally {
-            controller.destroy();
-        }
-    });
-
-    it('renders Study as before when newTabEnabled is on in an extension', async () => {
-        vi.stubGlobal('chrome', { runtime: { id: 'test-extension-id' } });
-        const { controller, settings, onSettingsChange } = optOutController(true);
-        try {
-            await controller.renderPage();
-            expect(settings.newTabEnabled).toBe(true);
-            expect(onSettingsChange).not.toHaveBeenCalled();
-            expect(document.querySelector('[data-newtab-study]')).not.toBeNull();
-            expect(document.querySelector('[data-newtab-optout]')).toBeNull();
+            internals.index = 1;
+            internals.renderWord(root, cards[1]);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('kanji-doodle');
         } finally {
             controller.destroy();
         }

@@ -176,7 +176,7 @@ describe('reader runtime helpers', () => {
             toggleYoutube,
         });
 
-        commands.get(`${APP_NAME} open new tab`)?.();
+        commands.get(`${APP_NAME} open Study`)?.();
         commands.get(`${APP_NAME} annotations`)?.();
         commands.get(`${APP_NAME} audio`)?.();
         commands.get(`${APP_NAME} OCR`)?.();

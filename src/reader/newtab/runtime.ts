@@ -498,6 +498,7 @@ export class NewTabRuntime {
         if (!this.options.mountHost && runningAsBrowserExtension()) {
             await this.onboarding.showIfNeeded();
         }
+        this.openRequestedSettingsPanel();
         void this.refreshDictionaryStyles();
         if (this.settings.localDictionariesEnabled) {
             window.setTimeout(() => {
@@ -781,6 +782,9 @@ export class NewTabRuntime {
             surface: this.options.mountHost ? 'academy' : 'standalone',
             sessionClock: this.options.sessionClock,
             showSessionClockControl: !this.options.mountHost,
+            // Opening the standalone Study page should feel recognition-first:
+            // land on Word, then use the configured order for later cards.
+            initialStudyStepId: this.options.mountHost ? undefined : 'word',
         });
     }
 
@@ -792,6 +796,16 @@ export class NewTabRuntime {
 
     private showSettings(panel?: string): void {
         this.settingsDialog.open(panel);
+    }
+
+    private openRequestedSettingsPanel(): void {
+        if (location.hash !== '#settings=api') return;
+        try {
+            history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+        } catch {
+            // A locked-down extension history must not block the settings UI.
+        }
+        this.showSettings('api');
     }
 
     private activeBunproFrontendApiToken(): string {

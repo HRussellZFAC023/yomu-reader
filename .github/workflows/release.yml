@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -28,6 +32,7 @@ jobs:
     # explicitly so the parallel check lanes (tests ∥ builds) never oversubscribe
     # the runner into fork OOMs.
     env:
+      TZ: UTC
       YOMU_CI_REGULAR_CONCURRENCY: 2
       YOMU_CI_MAX_WORKERS: 3
       YOMU_VITEST_FORK_HEAP_MB: 1024
@@ -41,20 +46,25 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: HRussellZFAC023/UserScript-Compiler
+          ref: 52b7fe463ae503c294421752002da568472dfe4a
           path: UserScript-Compiler
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.14.0
           cache: npm
           cache-dependency-path: |
             package-lock.json
             UserScript-Compiler/package-lock.json
+      - name: Pin npm for reproducible release builds
+        run: npm install --global npm@11.9.0
       - name: Install compiler dependencies
         working-directory: UserScript-Compiler
         run: npm ci
       - name: Install Yomu dependencies
         run: npm ci
+      - name: Set the source-date epoch from the release commit
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
       - name: Warm vitepress cache
         uses: actions/cache@v4
         with:
@@ -86,6 +96,15 @@ jobs:
         env:
           USERSCRIPT_COMPILER_CLI: UserScript-Compiler/src/cli.mjs
         run: npm run build:extension
+      - name: Validate release versions and package Firefox review source
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          node scripts/build-amo-source-package.mjs \
+            --release-tag "$TAG" \
+            --compiler-dir UserScript-Compiler \
+            --chrome-package dist/extension/release/chrome/yomureader.com-chrome.zip \
+            --firefox-package dist/extension/release/firefox/yomureader.com-firefox.xpi \
+            --output dist/extension/source/yomureader.com-firefox-source.zip
       - name: Package Safari Web Extension
         run: |
           cd dist/extension/release/safari
@@ -104,7 +123,7 @@ jobs:
           const notes = (match?.[0] ?? `## ${version}\n\nSee CHANGELOG.md for details.`)
             + '\n\nInstall/update userscript: https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js\n'
             + '\nYomu Gaming desktop apps (Linux x64 AppImage, Windows portable, macOS zips) are attached by the Release Yomu Gaming workflow and may appear shortly after this release is published.\n'
-            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, Safari Web Extension ZIP, the full compiler project bundle, a submission guide with review/audit notes, and (from the desktop build workflow) the Yomu Gaming desktop packages plus checksums.\n';
+            + '\nRelease assets include the compiled userscript, Chrome extension ZIP, Firefox XPI, its reviewer source bundle, Safari Web Extension ZIP, the full compiler project bundle, a submission guide with review/audit notes, and (from the desktop build workflow) the Yomu Gaming desktop packages plus checksums.\n';
           fs.writeFileSync('release-notes.md', notes);
           NODE
       - name: Publish GitHub release
@@ -120,6 +139,7 @@ jobs:
             dist/yomu.user.js \
             dist/extension/release/chrome/yomureader.com-chrome.zip \
             dist/extension/release/firefox/yomureader.com-firefox.xpi \
+            dist/extension/source/yomureader.com-firefox-source.zip \
             dist/extension/release/safari/yomureader.com-safari-web-extension.zip \
             dist/extension/yomureader.com-extension-project.zip \
             dist/extension/review/submission-guide.md
@@ -158,10 +178,14 @@ jobs:
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true'
     runs-on: ubuntu-latest
+    # Configure this environment with required reviewers. Major tags prepare
+    # the submission automatically but cannot cross this human checkpoint.
+    environment: browser-store-production
     permissions:
       contents: read
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
       CHROME_WEB_STORE_PUBLISHER_ID: ${{ vars.CHROME_WEB_STORE_PUBLISHER_ID }}
       CHROME_WEB_STORE_ITEM_ID: ${{ vars.CHROME_WEB_STORE_ITEM_ID }}
@@ -242,10 +266,13 @@ jobs:
     needs: release
     if: needs.release.outputs.publish_browser_stores == 'true'
     runs-on: ubuntu-latest
+    environment: browser-store-production
     permissions:
       contents: read
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TZ: UTC
       RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
       AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -255,11 +282,15 @@ jobs:
         with:
           ref: ${{ needs.release.outputs.release_tag }}
 
-      - name: Download the reviewed Firefox project
-        run: gh release download "$RELEASE_TAG" --pattern yomureader.com-extension-project.zip --dir browser-store-artifacts
+      - name: Download the reviewed Firefox package and its source
+        run: |
+          gh release download "$RELEASE_TAG" \
+            --pattern yomureader.com-firefox.xpi \
+            --pattern yomureader.com-firefox-source.zip \
+            --dir browser-store-artifacts
 
-      - name: Unpack the Firefox package source
-        run: unzip -q browser-store-artifacts/yomureader.com-extension-project.zip -d browser-store-artifacts/project
+      - name: Unpack the reviewed Firefox package
+        run: unzip -q browser-store-artifacts/yomureader.com-firefox.xpi -d browser-store-artifacts/firefox
 
       - name: Submit the Firefox package
         shell: bash
@@ -270,8 +301,9 @@ jobs:
           npx --yes web-ext@10.5.0 sign \
             --channel=listed \
             --approval-timeout=0 \
-            --source-dir=browser-store-artifacts/project/packages/extension/firefox \
+            --source-dir=browser-store-artifacts/firefox \
             --artifacts-dir=browser-store-artifacts/signed \
             --amo-metadata=config/amo-metadata.json \
+            --upload-source-code=browser-store-artifacts/yomureader.com-firefox-source.zip \
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET"

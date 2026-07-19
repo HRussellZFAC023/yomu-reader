@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { run } from './lib/ci-utils.mjs';
-import { hardenGeneratedExtensionBackgrounds } from './lib/extension-runtime-hardening.mjs';
+import {
+    deterministicExtensionTimestamp,
+    hardenGeneratedExtensionBackgrounds,
+    hardenExtensionSubmissionGuide,
+} from './lib/extension-runtime-hardening.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const execFileAsync = promisify(execFile);
 const compilerCli = resolveCompilerCli();
 
 if (!compilerCli) {
@@ -22,6 +29,7 @@ if (!compilerCli) {
 }
 
 const userscript = path.join(root, 'dist', 'yomu.user.js');
+const readerCss = path.join(root, 'dist', 'yomu.css');
 const newtab = path.join(root, 'dist', 'newtab');
 const newtabApp = path.join(newtab, 'app.js');
 const newtabIndex = path.join(newtab, 'index.html');
@@ -32,9 +40,11 @@ const publicNewtabServiceWorker = path.join(publicNewtab, 'sw.js');
 const publicIcon = path.join(root, 'public', 'yomu-icon.svg');
 const publicFaviconFiles = ['favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'];
 const publicExtensionIcons = path.join(root, 'public', 'extension-icons');
+const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
 const out = path.join(root, 'dist', 'extension');
+const generatedAt = await extensionGeneratedAt();
 
-for (const required of [userscript, newtabApp, publicNewtabIndex]) {
+for (const required of [userscript, readerCss, newtabApp, publicNewtabIndex, thirdPartyNotices]) {
     if (!existsSync(required)) {
         console.error(`Missing build artifact: ${required}`);
         console.error('Run npm run build before building extension packages.');
@@ -57,7 +67,12 @@ await run(process.execPath, [
     '--config', path.join(root, 'config', 'userscript-compiler.config.json'),
 ], { cwd: root });
 
-await hardenGeneratedExtensionBackgrounds(out);
+await hardenGeneratedExtensionBackgrounds(out, {
+    readerCss: await readFile(readerCss),
+    thirdPartyNotices: await readFile(thirdPartyNotices),
+    archiveTimestamp: generatedAt,
+});
+await hardenGeneratedSubmissionGuide();
 await run(process.execPath, [path.join(out, 'tools', 'verify.mjs')], { cwd: out });
 await verifyReleaseArtifacts();
 await verifyStoreReadiness();
@@ -76,12 +91,23 @@ async function stageNewTabShell() {
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'sw-register.js'), extensionNewTabServiceWorkerRegister());
-    await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`);
+    await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt }, null, 2)}\n`);
     await stageNewTabWebManifest();
     await stageNewTabServiceWorker(appHash);
     await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
     await stagePublicFavicons();
     await stageManifestIcons();
+}
+
+async function hardenGeneratedSubmissionGuide() {
+    const guide = path.join(out, 'review', 'submission-guide.md');
+    if (!existsSync(guide)) return;
+    const source = await readFile(guide, 'utf8');
+    const hardened = hardenExtensionSubmissionGuide(source);
+    if (/packaged new-tab page|Safari new-tab behavior|Remote new tab:/i.test(hardened)) {
+        throw new Error('Extension submission guide still positions Study as a browser new-tab override.');
+    }
+    await writeFile(guide, hardened);
 }
 
 async function stageNewTabServiceWorker(appHash) {
@@ -190,6 +216,18 @@ async function packageVersion() {
     return pkg.version || 'dev';
 }
 
+async function extensionGeneratedAt() {
+    let gitCommitEpoch = '315532800'; // 1980-01-01, the earliest ZIP timestamp.
+    try {
+        ({ stdout: gitCommitEpoch } = await execFileAsync('git', ['log', '-1', '--format=%ct'], { cwd: root }));
+    } catch {
+        // AMO reviewers build from a source archive without .git. The stable
+        // ZIP epoch keeps that rebuild deterministic when SOURCE_DATE_EPOCH
+        // was not provided explicitly.
+    }
+    return deterministicExtensionTimestamp(process.env.SOURCE_DATE_EPOCH, gitCommitEpoch);
+}
+
 async function verifyReleaseArtifacts() {
     const requiredFiles = [
         'manifest.json',
@@ -198,6 +236,8 @@ async function verifyReleaseArtifacts() {
         'popup.html',
         'popup.js',
         'popup.css',
+        'yomu.css',
+        'THIRD_PARTY_NOTICES.txt',
         'newtab/index.html',
         'newtab/app.js',
         'newtab/manifest.webmanifest',
@@ -222,10 +262,25 @@ async function verifyReleaseArtifacts() {
 async function verifyStoreReadiness() {
     await verifyStoreZip(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), 'chrome');
     await verifyStoreZip(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), 'firefox');
+    await verifyStoreDirectory(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), 'safari');
 }
 
 async function verifyStoreZip(artifact, target) {
     const entries = unzipSync(new Uint8Array(await readFile(artifact)));
+    const decode = file => new TextDecoder().decode(entries[file]);
+    verifyStorePackage(entries, target);
+}
+
+async function verifyStoreDirectory(directory, target) {
+    const fileNames = await collectDirectoryFiles(directory);
+    const entries = Object.fromEntries(await Promise.all(fileNames.map(async file => [
+        file,
+        new Uint8Array(await readFile(path.join(directory, file))),
+    ])));
+    verifyStorePackage(entries, target);
+}
+
+function verifyStorePackage(entries, target) {
     const decode = file => new TextDecoder().decode(entries[file]);
     const manifest = JSON.parse(decode('manifest.json'));
     const permissions = manifest.permissions ?? [];
@@ -241,16 +296,52 @@ async function verifyStoreZip(artifact, target) {
     if (String(manifest.description ?? '').length > 132) {
         throw new Error(`${target} manifest description exceeds Chrome Web Store's 132-character limit.`);
     }
+    if (manifest.chrome_url_overrides || manifest.browser_url_overrides || manifest.chrome_settings_overrides) {
+        throw new Error(`${target} store package must not override browser pages, search, or home settings.`);
+    }
+    if (!entries['yomu.css']) {
+        throw new Error(`${target} store package is missing the local reader stylesheet.`);
+    }
+    if (!entries['THIRD_PARTY_NOTICES.txt'] || !decode('THIRD_PARTY_NOTICES.txt').includes('fflate')) {
+        throw new Error(`${target} store package is missing the bundled fflate license notice.`);
+    }
+    const readerCssSource = decode('yomu.css');
+    if (!readerCssSource.includes('.jpdb-reader-popover') || !readerCssSource.includes('.jpdb-subtitle-player')) {
+        throw new Error(`${target} store package does not contain the full built reader stylesheet.`);
+    }
+    const exposedResources = (manifest.web_accessible_resources ?? []).flatMap(resource => (
+        typeof resource === 'string' ? [resource] : resource.resources ?? []
+    ));
+    if (!exposedResources.includes('yomu.css')) {
+        throw new Error(`${target} store package does not expose its local reader stylesheet to the content script.`);
+    }
     if (target === 'firefox') {
-        const geckoId = manifest.browser_specific_settings?.gecko?.id ?? manifest.applications?.gecko?.id;
+        const gecko = manifest.browser_specific_settings?.gecko;
+        const geckoId = gecko?.id ?? manifest.applications?.gecko?.id;
         if (geckoId !== 'yomu@yomureader.com') {
             throw new Error(`Firefox store package must use the stable yomu@yomureader.com add-on ID.`);
+        }
+        if (gecko?.strict_min_version !== '140.0'
+            || manifest.browser_specific_settings?.gecko_android?.strict_min_version !== '142.0') {
+            throw new Error('Firefox store package must declare the minimum versions required for built-in data consent.');
+        }
+        const dataPermissions = gecko?.data_collection_permissions;
+        if (!dataPermissions?.required?.includes('websiteContent')
+            || !dataPermissions?.optional?.includes('authenticationInfo')) {
+            throw new Error('Firefox store package must disclose website content and request optional account credential consent.');
         }
     }
     const executableSource = Object.entries(entries)
         .filter(([file]) => file.endsWith('.js') || file.endsWith('.html'))
         .map(([file, bytes]) => `${file}\n${new TextDecoder().decode(bytes)}`)
         .join('\n');
+    if (!executableSource.includes('yomu-extension-packaged-reader-css')) {
+        throw new Error(`${target} store package does not route reader CSS loading to its packaged asset.`);
+    }
+    if (/https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/[^\s"'`]*yomu\.css/i.test(executableSource)
+        || /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css/i.test(executableSource)) {
+        throw new Error(`${target} store package still contains a hosted reader stylesheet fetch path.`);
+    }
     if (executableSource.includes('https://accounts.google.com/gsi/client')) {
         throw new Error(`${target} store package contains the hosted Google Identity Services script URL.`);
     }
@@ -261,6 +352,17 @@ async function verifyStoreZip(artifact, target) {
     if (popupSource.includes('video-player/index.html')) {
         throw new Error(`${target} store popup references a video-player page that is not packaged.`);
     }
+}
+
+async function collectDirectoryFiles(directory, relative = '') {
+    const entries = await readdir(path.join(directory, relative), { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+        const child = path.join(relative, entry.name);
+        if (entry.isDirectory()) files.push(...await collectDirectoryFiles(directory, child));
+        else if (entry.isFile()) files.push(child.split(path.sep).join('/'));
+    }
+    return files;
 }
 
 async function verifyZipArtifact(artifact, requiredFiles) {
