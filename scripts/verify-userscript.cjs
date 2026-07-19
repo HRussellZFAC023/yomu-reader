@@ -53,8 +53,17 @@ assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
 assertLocalDictionarySplitBoundary();
 assertZipReaderBundled();
-if (code.includes('// @downloadURL')) fail('Greasy Fork build should not advertise an alternate download URL.');
-if (code.includes('// @updateURL')) fail('Greasy Fork build should not advertise an alternate update URL.');
+// Update/download metadata may point ONLY at Greasy Fork's own
+// must-revalidate endpoints (1.6.246: stops cached hosted copies re-offering
+// an older release). Any other host remains an "alternate" URL Greasy Fork
+// rejects.
+const greasyForkUpdateBase = 'https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80';
+if (code.includes('// @downloadURL') && !hasMetadataValue('downloadURL', `${greasyForkUpdateBase}.user.js`)) {
+  fail('Greasy Fork build should not advertise an alternate download URL.');
+}
+if (code.includes('// @updateURL') && !hasMetadataValue('updateURL', `${greasyForkUpdateBase}.meta.js`)) {
+  fail('Greasy Fork build should not advertise an alternate update URL.');
+}
 if (code.includes('function inflateSync(') && !code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) fail('bundled dependency source/version notice is missing.');
 if (!fileExists(DIST_READER_CSS_PATH)) fail(`${READER_CSS_RELATIVE_PATH} is missing; docs and extension builds still ship the reader stylesheet as a local asset.`);
 const cssResource = readText(DIST_READER_CSS_PATH);
