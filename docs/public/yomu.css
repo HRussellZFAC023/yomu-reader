@@ -473,6 +473,22 @@
   white-space: normal;
 }
 
+/* A token that wraps across line boxes cannot be underlined by the single
+   absolutely-positioned ::after overlay — it anchors to the word's border
+   box, so continuation lines lost their pitch/status underline entirely.
+   Wrapped words (stamped data-yomu-wrapped by the post-apply sweep) switch to
+   the native text-decoration, which paints on every line fragment; the
+   underline line/style/thickness/offset are already declared on every reader
+   word above with a transparent colour, so only the colour switches on.
+   Multi-component pitch gradients cannot fragment — wrapped component words
+   fall back to the same solid underline colour. */
+.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-wrapped="true"] {
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-word.jpdb-reader-scan-word[data-yomu-wrapped="true"]::after {
+  display: none;
+}
+
 /* The mirror is a full duplicate of the host text (the host keeps its own real
    text, hidden or transparent). Exclude the whole mirror from selection so
    Cmd+A/copy grabs only the clean original host text, never a doubled/garbled

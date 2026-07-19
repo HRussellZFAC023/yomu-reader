@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.244] - 2026-07-19
+
+### Changed
+
+- Clamped multi-line text rows that can grow in place, such as search-result snippets and description rows on many sites, now keep their furigana visible at rest: each line makes room for the reading naturally instead of hiding it until hover.
+
+### Fixed
+
+- Words that wrap across a line break now keep their pitch or word-state underline on every line, not only the first.
+- A word that the parser recognised but the page renderer had to drop, for example when other page content interrupts its text, is now re-annotated by the built-in segmenter instead of being left as plain unmarked text between annotated neighbours.
+
 ## [1.6.243] - 2026-07-19
 
 ### Fixed
