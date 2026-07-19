@@ -6855,6 +6855,96 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function booleanValue(value, fallback) {
     return typeof value === "boolean" ? value : fallback;
   }
+  const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function splitTags(value) {
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
+  }
+  function countYomitanZipBanks(entries2) {
+    return entries2.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+  }
+  function yomitanZipDictionaryName(index, filename) {
+    return index.title?.trim() || filename.replace(/\.zip$/i, "");
+  }
+  function yomitanDictionaryIdentity(title) {
+    return title.replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, "").replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, "").replace(/\s+v\d+(?:\.\d+)*\s*$/u, "").trim().toLowerCase() || title.trim().toLowerCase();
+  }
+  function yomitanZipVersion(index) {
+    return index.format ?? index.version ?? 3;
+  }
+  function imageMimeType(path) {
+    const lower = path.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+    return "image/png";
+  }
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 32768;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      const chunk = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
+  function normalizeZipTermRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
+    if (typeof expression !== "string") return null;
+    return {
+      expression,
+      reading: zipTermReading(reading, expression),
+      definitionTags: zipStringField(definitionTags),
+      rules: zipStringField(rules),
+      score: zipNumberField(score, 0),
+      glossary: zipGlossaryField(glossary),
+      sequence: zipOptionalNumberField(sequence),
+      termTags: zipStringField(termTags),
+      dictionary
+    };
+  }
+  function zipTermReading(value, expression) {
+    return typeof value === "string" && value ? value : expression;
+  }
+  function zipStringField(value) {
+    return typeof value === "string" ? value : "";
+  }
+  function zipNumberField(value, fallback) {
+    return typeof value === "number" ? value : fallback;
+  }
+  function zipOptionalNumberField(value) {
+    return typeof value === "number" ? value : void 0;
+  }
+  function zipGlossaryField(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function normalizeZipKanjiRow(row, dictionary, version) {
+    if (!Array.isArray(row)) return null;
+    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
+    if (typeof character !== "string") return null;
+    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
+    return {
+      character,
+      onyomi: splitTags(onyomi),
+      kunyomi: splitTags(kunyomi),
+      tags: splitTags(tags),
+      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
+      stats,
+      dictionary
+    };
+  }
+  function normalizeZipTermMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, mode, data] = row;
+    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
+  }
+  function normalizeZipKanjiMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [character, mode, data] = row;
+    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
+  }
   const MAX_DICTIONARY_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -7206,17 +7296,47 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return false;
     }
   }
-  function mergeDictionaryPreferences(current, names, types = {}) {
+  function mergeDictionaryPreferences(current, names, types = {}, replaced = []) {
     const merged = new Map(current.map((item) => [item.name, item]));
+    const inherited = retireReplacedDictionaryPreferences(merged, names, replaced);
     for (const name of names) {
-      mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
+      mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name), inherited.get(name));
     }
     return normalizeDictionaryPreferences([...merged.values()]);
   }
-  function mergeDictionaryPreference(merged, name, type) {
+  function retireStaleDictionaryPreferences(current, installedTitles) {
+    if (!installedTitles.length) return current;
+    const installed = new Set(installedTitles);
+    const installedIdentities = new Set(installedTitles.map(yomitanDictionaryIdentity));
+    return current.filter((row) => installed.has(row.name) || !installedIdentities.has(yomitanDictionaryIdentity(row.name)));
+  }
+  function retireReplacedDictionaryPreferences(merged, names, replaced) {
+    const inherited = /* @__PURE__ */ new Map();
+    for (const title of replaced) {
+      if (names.includes(title)) continue;
+      const row = merged.get(title);
+      if (!row) continue;
+      merged.delete(title);
+      for (const name of names) {
+        const candidate = inherited.get(name);
+        if (!candidate || row.priority < candidate.priority) inherited.set(name, row);
+      }
+    }
+    return inherited;
+  }
+  function mergeDictionaryPreference(merged, name, type, inherit) {
     const existing = merged.get(name);
     if (!existing) {
-      merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+      const defaults = defaultDictionaryPreference(name, type, merged.size);
+      merged.set(name, inherit ? {
+        ...defaults,
+        // A stale alias equal to the old title is a default, not a
+        // customization — the new revision keeps its own name then.
+        alias: inherit.alias && inherit.alias !== inherit.name ? inherit.alias : name,
+        enabled: inherit.enabled,
+        priority: inherit.priority,
+        allowSecondarySearches: inherit.allowSecondarySearches ?? false
+      } : defaults);
       return;
     }
     if (!existing.type) merged.set(name, { ...existing, type });
@@ -13391,7 +13511,7 @@ ${candidate.depth}`;
     const record = value;
     return record.frequency ?? record.value ?? record.displayValue;
   }
-  const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function readIndexRequestValues(index, query, limit, resolve, reject) {
     if (typeof index.getAll === "function") {
       const request2 = index.getAll(query, limit);
@@ -13415,7 +13535,7 @@ ${candidate.depth}`;
     request.onerror = () => reject(request.error);
   }
   function isSearchableJapaneseSurface(surface) {
-    return JAPANESE_RE$3.test(surface) && !/\s/.test(surface);
+    return JAPANESE_RE$2.test(surface) && !/\s/.test(surface);
   }
   function sortedTermMatchExpressions(candidates) {
     return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
@@ -14482,11 +14602,6 @@ ${scopedInner}
     }
     return start;
   }
-  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  function splitTags(value) {
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
-  }
   function importEntryStores() {
     return ["terms", "kanji", "termMeta", "kanjiMeta"];
   }
@@ -14762,7 +14877,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -15099,91 +15213,6 @@ ${scopedInner}
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
-  function countYomitanZipBanks(entries2) {
-    return entries2.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
-  }
-  function yomitanZipDictionaryName(index, filename) {
-    return index.title?.trim() || filename.replace(/\.zip$/i, "");
-  }
-  function yomitanDictionaryIdentity(title) {
-    return title.replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, "").replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, "").replace(/\s+v\d+(?:\.\d+)*\s*$/u, "").trim().toLowerCase() || title.trim().toLowerCase();
-  }
-  function yomitanZipVersion(index) {
-    return index.format ?? index.version ?? 3;
-  }
-  function imageMimeType(path) {
-    const lower = path.toLowerCase();
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-    if (lower.endsWith(".webp")) return "image/webp";
-    if (lower.endsWith(".gif")) return "image/gif";
-    if (lower.endsWith(".svg")) return "image/svg+xml";
-    return "image/png";
-  }
-  function bytesToBase64(bytes) {
-    let binary = "";
-    const chunkSize = 32768;
-    for (let index = 0; index < bytes.length; index += chunkSize) {
-      const chunk = bytes.subarray(index, index + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    return btoa(binary);
-  }
-  function normalizeZipTermRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
-    if (typeof expression !== "string") return null;
-    return {
-      expression,
-      reading: zipTermReading(reading, expression),
-      definitionTags: zipStringField(definitionTags),
-      rules: zipStringField(rules),
-      score: zipNumberField(score, 0),
-      glossary: zipGlossaryField(glossary),
-      sequence: zipOptionalNumberField(sequence),
-      termTags: zipStringField(termTags),
-      dictionary
-    };
-  }
-  function zipTermReading(value, expression) {
-    return typeof value === "string" && value ? value : expression;
-  }
-  function zipStringField(value) {
-    return typeof value === "string" ? value : "";
-  }
-  function zipNumberField(value, fallback) {
-    return typeof value === "number" ? value : fallback;
-  }
-  function zipOptionalNumberField(value) {
-    return typeof value === "number" ? value : void 0;
-  }
-  function zipGlossaryField(value) {
-    return Array.isArray(value) ? value : [];
-  }
-  function normalizeZipKanjiRow(row, dictionary, version) {
-    if (!Array.isArray(row)) return null;
-    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
-    if (typeof character !== "string") return null;
-    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
-    return {
-      character,
-      onyomi: splitTags(onyomi),
-      kunyomi: splitTags(kunyomi),
-      tags: splitTags(tags),
-      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
-      stats,
-      dictionary
-    };
-  }
-  function normalizeZipTermMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, mode, data] = row;
-    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
-  }
-  function normalizeZipKanjiMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [character, mode, data] = row;
-    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
-  }
   function normalizeDexieTermRow(row) {
     const record = dexieRowRecord(row);
     if (!record) return null;
@@ -15338,7 +15367,7 @@ ${scopedInner}
   }
   function isRandomListTerm(entry, rank) {
     if (!entry.expression) return false;
-    if (!JAPANESE_RE$2.test(entry.expression)) return false;
+    if (!JAPANESE_RE$3.test(entry.expression)) return false;
     if (entry.expression.length > 6) return false;
     return dictionaryEnabled(entry.dictionary, rank);
   }
@@ -15391,7 +15420,7 @@ ${entry.reading}`;
     return isCommonDictionaryTermCandidate(entry, rank) && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
   }
   function isCommonDictionaryTermCandidate(entry, rank) {
-    return Boolean(entry.expression && JAPANESE_RE$2.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
+    return Boolean(entry.expression && JAPANESE_RE$3.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
   }
   function hasCommonDictionaryTags(entry) {
     return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
@@ -15919,7 +15948,7 @@ ${entry.reading}`;
       const candidates = /* @__PURE__ */ new Map();
       const maxLength = Math.min(18, source.length);
       for (let start = 0; start < source.length; start++) {
-        if (!JAPANESE_RE$2.test(source[start])) continue;
+        if (!JAPANESE_RE$3.test(source[start])) continue;
         this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
       }
       return candidates;
@@ -15933,7 +15962,7 @@ ${entry.reading}`;
     }
     addDeinflectedTermCandidates(surface, start, candidates) {
       for (const deinflected of deinflectJapaneseTerm(surface)) {
-        if (!JAPANESE_RE$2.test(deinflected.term)) continue;
+        if (!JAPANESE_RE$3.test(deinflected.term)) continue;
         const positions = candidates.get(deinflected.term) ?? [];
         positions.push({ start, end: start + surface.length, surface, deinflected });
         candidates.set(deinflected.term, positions);
@@ -16200,11 +16229,11 @@ ${entry.reading}`;
         plural: bankCount === 1 ? "" : "s"
       })}`);
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryRemovingExisting")}...`);
-      await this.deleteDictionariesWithSameIdentity(dictionary);
+      const replacedDictionaries = await this.deleteDictionariesWithSameIdentity(dictionary);
       onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
       const db = await this.db();
       const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
-      const summary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      const summary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
       let clearedTermIndexesForImport = false;
       let importedTerms = false;
       const importBank = async (pattern, label, store, normalize) => {
@@ -16545,6 +16574,7 @@ ${entry.reading}`;
       }
       if (!stale.includes(dictionary)) stale.push(dictionary);
       for (const title of stale) await this.deleteDictionary(title);
+      return stale.filter((title) => title !== dictionary);
     }
     async deleteDictionary(dictionary) {
       const done = log$D.time("Dictionary delete", { dictionary });
@@ -17234,7 +17264,7 @@ ${glossaryKey}`;
     return value.replace(/\s+/g, " ").trim().slice(0, 80);
   }
   function shouldSearchTermGlossaries(query) {
-    return !JAPANESE_RE$2.test(query);
+    return !JAPANESE_RE$3.test(query);
   }
   function termSearchIndexToken(query) {
     return glossaryWords(normalizeGlossarySearchText(query)).find((word) => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? "";
@@ -41189,7 +41219,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.232".trim() ? "1.6.232".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.233".trim() ? "1.6.233".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -46943,8 +46973,8 @@ ${spelling}`);
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);
       const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
-      const merged = mergeDictionaryPreferences(this.settings.dictionaryPreferences, names, types);
-      if (merged.length === this.settings.dictionaryPreferences.length) return;
+      const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
+      if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings.dictionaryPreferences = merged;
       await saveSettings(this.settings);
     }
@@ -47602,7 +47632,7 @@ ${spelling}`);
       });
     }
     async persistDictionaryImport(summary) {
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {});
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []);
       this.settings.localDictionariesEnabled = true;
       await saveSettings(this.settings);
       await this.dependencies.refreshDictionaryStyles();
@@ -47681,7 +47711,7 @@ ${spelling}`);
       const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
       const importedNames = importedSummary.dictionaries.map((item) => item.title);
       const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, importedNames, importedTypes);
+      this.settings.dictionaryPreferences = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
     }
   }
   function isDictionarySourceOrderAction(action) {

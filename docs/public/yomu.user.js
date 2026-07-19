@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.232
+// @version 1.6.233
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.ae31c27aded7.user.js#sha256=rjHCet7XeCBtCk8zPdrwc8BsG/IyLJtiwsjso9d0r98=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.2912ecb2030c.user.js#sha256=KRLssgMMUZtxORf7u0pmG9/X9K3Tble7POZsPajKzsc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.ca9e1247edcc.user.js#sha256=yp4SR+3MYMkvRBif/9rgo16AMNsOlZro6z0Ty3Cd50c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.5bd06da55328.user.js#sha256=W9BtpVMobpDnD0Ec8cwtWbtNtBJouI80BboNX+MTD+I=
 // @require https://yomureader.com/greasyfork/yomu-video.f38176d1952c.user.js#sha256=84F20ZUsNLicHKoVXqFao6TH3gEkbmUz67wDnH/ota4=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
@@ -3608,17 +3608,39 @@ function isSafeLookupUrlTemplate(value) {
   return false;
   }
 }
-function mergeDictionaryPreferences(current, names, types = {}) {
+function mergeDictionaryPreferences(current, names, types = {}, replaced = []) {
   const merged = new Map(current.map((item) => [item.name, item]));
+  const inherited = retireReplacedDictionaryPreferences(merged, names, replaced);
   for (const name of names) {
-  mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name));
+  mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name), inherited.get(name));
   }
   return normalizeDictionaryPreferences([...merged.values()]);
 }
-function mergeDictionaryPreference(merged, name, type) {
+function retireReplacedDictionaryPreferences(merged, names, replaced) {
+  const inherited = new Map();
+  for (const title of replaced) {
+  if (names.includes(title)) continue;
+  const row = merged.get(title);
+  if (!row) continue;
+  merged.delete(title);
+  for (const name of names) {
+    const candidate = inherited.get(name);
+    if (!candidate || row.priority < candidate.priority) inherited.set(name, row);
+  }
+  }
+  return inherited;
+}
+function mergeDictionaryPreference(merged, name, type, inherit) {
   const existing = merged.get(name);
   if (!existing) {
-  merged.set(name, defaultDictionaryPreference(name, type, merged.size));
+  const defaults = defaultDictionaryPreference(name, type, merged.size);
+  merged.set(name, inherit ? {
+    ...defaults,
+    alias: inherit.alias && inherit.alias !== inherit.name ? inherit.alias : name,
+    enabled: inherit.enabled,
+    priority: inherit.priority,
+    allowSecondarySearches: inherit.allowSecondarySearches ?? false
+  } : defaults);
   return;
   }
   if (!existing.type) merged.set(name, { ...existing, type });
@@ -27099,7 +27121,7 @@ async function installOfflineParsingDictionaries(options) {
     const settings = options.getSettings();
     await options.applySettings({
       ...settings,
-      dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}),
+      dictionaryPreferences: mergeDictionaryPreferences(settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []),
       localDictionariesEnabled: true
     });
     result.installed.push(target.name);
@@ -37552,8 +37574,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.232"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.232"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.233"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.233"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37673,7 +37695,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.232"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.233"}`;
   } catch {
   return null;
   }
