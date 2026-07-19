@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.252
+// @version 1.6.253
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,8 +15,8 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.e6f97a66bde0.user.js#sha256=5vl6Zr3g7R0V1BqzG0ZMrE4Ywgjsx4VGVT/Y+FZ3UC8=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.4a633c717de9.user.js#sha256=SmM8cX3pEcp4vEejssUh8YJIHcrk1myMZ6iLip4dqmo=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.68a87e7ace78.user.js#sha256=aKh+es54Ssw5BDXuRy3Dfep6KSuewMzFhx7QuY8ZPA8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.42977abd220f.user.js#sha256=Qpd6vSIPyY4UHStseJPS2nYgb+An9FyZq79iLfByf7E=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.93285661b5a1.user.js#sha256=kyhWYbWhO5mjof2mZT28pqG6jfiDF2xwQrV/51PLP18=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.063df456437e.user.js#sha256=Bj30VkN+JEKkGpokz8er7Tani8MlOWUA1b/+je7RQMM=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.a6c53dc298c8.user.js#sha256=psU9wpjIzzxlyY9uc13Mh68Bz95t0JgxKLYyDFDWrqc=
 // @require https://yomureader.com/greasyfork/yomu-video.dcaba0bd8888.user.js#sha256=3KugvYiIgno+TCFtyOmwqMj4zIwFaF7lHOta8dsJvjk=
 // @resource yomuCss  https://yomureader.com/yomu.5eb026abadb4.css#sha256=XrAmq620sfwFUMhy20nGiSK3exWPP4WGGt9v9tMamE0=
 // @connect api.jiten.moe
@@ -20468,13 +20468,10 @@ class CardRenderDataLoader {
   };
   }
   lookupBunproDataResult(card, included) {
-  const settings = this.settings();
   if (!included) return Promise.resolve({ info: null, status: { state: "disabled", reason: "load-excluded" } });
   if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
   const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
   if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
-  if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
-  if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
   const startedAt = performance.now();
   log$b.debug("Bunpro definition lookup started", { term: card.spelling });
   return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
@@ -29884,7 +29881,9 @@ function renderLookupLinkPill(options, context, language, query, link, mergedLiv
   const url = lookupLinkPillUrl(options, context, link);
   if (!url) return "";
   const rank = linkPillLiveRank(link, mergedLiveRanks);
-  const title = lookupLinkPillTitle(options, language, link);
+  const baseTitle = lookupLinkPillTitle(options, language, link);
+  const title = rank?.detail ? `${baseTitle}
+${rank.detail}` : baseTitle;
   const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
   if (options.inert) {
   return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
@@ -29892,7 +29891,7 @@ function renderLookupLinkPill(options, context, language, query, link, mergedLiv
   return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</a>`;
 }
 function linkPillLiveRank(link, mergedLiveRanks) {
-  const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : null;
+  const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : link.id === "bunpro" ? "bunpro" : null;
   return provider ? mergedLiveRanks.get(provider) ?? null : null;
 }
 const BUNPRO_FREQUENCY_LIST_LABELS = {
@@ -29902,16 +29901,13 @@ const BUNPRO_FREQUENCY_LIST_LABELS = {
   netflix: ["Netflix", "Netflix"],
   dictionary: ["Dictionary", "辞書"]
 };
-function renderBunproFrequencyPills(state, language, lists) {
+function bunproFrequencyDetail(language, lists) {
   const japanese = language === "ja";
-  const style = lookupPillStyle("bunpro");
-  for (const entry of lists) {
+  return lists.map((entry) => {
   const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
   const corpus = label ? label[japanese ? 1 : 0] : entry.list;
-  const value = `#${entry.rank.toLocaleString("en-US")}`;
-  const accessible = `Bunpro ${corpus} ${value}`;
-  state.pills.set(`bunpro-frequency:${entry.list}`, `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-bunpro-frequency-pill" data-dictionary="Bunpro" data-frequency-source="bunpro" data-frequency-list="${escapeHtml$1(entry.list)}"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(accessible)}" aria-label="${escapeHtml$1(accessible)}">${escapeHtml$1(corpus)} ${escapeHtml$1(value)}</span>`);
-  }
+  return `${corpus} #${entry.rank.toLocaleString("en-US")}`;
+  }).join(" · ");
 }
 function renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks) {
   if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? "";
@@ -30036,11 +30032,11 @@ function mergeLiveFrequencyRanks(options, state, mergeIntoLinkPill, enabledLinkI
   if (!rank) continue;
   if (kanjiQuery ? rank.source !== "kanji" || rank.spelling !== kanjiQuery : rank.source === "kanji") continue;
   if (!mergeIntoLinkPill || !enabledLinkIds.has(provider)) continue;
-  if (provider === "bunpro" && rank.lists?.length) {
-    renderBunproFrequencyPills(state, options.settings.interfaceLanguage, rank.lists);
-    continue;
-  }
-  state.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
+  state.mergedLiveRanks.set(provider, {
+    rank: rank.rank,
+    display: rank.display,
+    detail: provider === "bunpro" && rank.lists?.length ? bunproFrequencyDetail(options.settings.interfaceLanguage, rank.lists) : void 0
+  });
   }
 }
 function localFrequencyEnabled(settings, dictionary) {
@@ -34038,8 +34034,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.252"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.252"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.253"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.253"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -34159,7 +34155,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.252"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.253"}`;
   } catch {
   return null;
   }

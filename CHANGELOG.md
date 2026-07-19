@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.253] - 2026-07-19
+
+### Fixed
+
+- Bunpro word frequency, pitch accent, and dictionary entries no longer require a fresh Bunpro login. This data is public, yet the popup silently dropped all of it whenever the stored Bunpro session token was missing or expired, which is why the Bunpro frequency evidence could vanish entirely on devices that had never captured a token. Public lookups now attach the login only when one is available and retry anonymously when Bunpro rejects a stale token; review state and grading still require the account.
+- The Bunpro frequency rank now shows inline on the Bunpro pill, matching the Jiten and JPDB pills, instead of adding one pill per corpus to the row. The full per-corpus breakdown, such as General, Anime, Novels, Netflix, and Dictionary, moves into the pill tooltip.
+
 ## [1.6.252] - 2026-07-19
 
 ### Fixed

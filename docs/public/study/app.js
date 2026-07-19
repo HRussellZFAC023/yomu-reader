@@ -24630,14 +24630,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return this.frontend("/user_stats/review_activity");
     }
     getVocab(slugOrId) {
-      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`);
+      return this.frontend(`/reviewables/vocab/${encodeURIComponent(String(slugOrId))}`, { auth: "optional" });
     }
     getGrammarPoint(id) {
-      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`);
+      return this.frontend(`/reviewables/grammar_point/${encodeURIComponent(String(id))}`, { auth: "optional" });
     }
     async search(query, options = {}) {
       return this.frontend("/search/reviewables_v1_1", {
         method: "POST",
+        // Definition/frequency lookups read public reviewable data; only a
+        // search that asks for the learner's review state needs the token.
+        auth: options.includeReviews ? "required" : "optional",
         body: {
           query,
           options: {
@@ -24681,19 +24684,30 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async frontend(path, options = {}) {
       const token = this.getFrontendToken().trim();
-      if (!token) throw new BunproApiError("Bunpro frontend token is not set.");
+      const optionalAuth = options.auth === "optional";
+      if (!token && !optionalAuth) throw new BunproApiError("Bunpro frontend token is not set.");
+      let response;
+      try {
+        response = await this.frontendRequest(path, options, token);
+      } catch (error) {
+        const status = error instanceof BunproApiError ? error.status : errorStatus$1(error);
+        if (!optionalAuth || !token || status !== 401 && status !== 403) throw error;
+        response = await this.frontendRequest(path, options, "");
+      }
+      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
+    }
+    frontendRequest(path, options, token) {
       const url = urlWithQuery(`${this.frontendBaseUrl}${path}`, options.query);
-      const response = await this.requestJson(url, {
+      return this.requestJson(url, {
         method: options.method ?? "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...token ? { Authorization: `Bearer ${token}` } : {},
           Accept: "application/json",
           "Content-Type": "application/json"
         },
         data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
         statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
       });
-      return options.trimLimit ? trimBunproSearchResponse(response, options.trimLimit) : response;
     }
     legacy(path) {
       const apiKey = this.getLegacyApiKey().trim();
@@ -45280,7 +45294,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.252".trim() ? "1.6.252".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.253".trim() ? "1.6.253".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -70715,13 +70729,10 @@ ${component.reading}`;
       };
     }
     lookupBunproDataResult(card, included) {
-      const settings = this.settings();
       if (!included) return Promise.resolve({ info: null, status: { state: "disabled", reason: "load-excluded" } });
       if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
       const lookupBunproDefinitionResult2 = yomuBunproCompanion()?.lookupBunproDefinitionResult;
       if (!lookupBunproDefinitionResult2) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
-      if (!hasBunproFrontendCredential(settings)) return Promise.resolve({ info: null, status: { state: "auth-missing" } });
-      if (isBunproFrontendCredentialExpired(settings)) return Promise.resolve({ info: null, status: { state: "auth-expired" } });
       const startedAt = performance.now();
       log$e.debug("Bunpro definition lookup started", { term: card.spelling });
       return lookupBunproDefinitionResult2(this.dependencies.bunpro, card).then((result) => {
@@ -93911,7 +93922,9 @@ ${entry.url}`),
     const url = lookupLinkPillUrl(options, context, link);
     if (!url) return "";
     const rank = linkPillLiveRank(link, mergedLiveRanks);
-    const title = lookupLinkPillTitle(options, language, link);
+    const baseTitle = lookupLinkPillTitle(options, language, link);
+    const title = rank?.detail ? `${baseTitle}
+${rank.detail}` : baseTitle;
     const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
     if (options.inert) {
       return `<span class="${lookupLinkPillClass(link.id)}" role="link" aria-disabled="true" tabindex="-1"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</span>`;
@@ -93919,7 +93932,7 @@ ${entry.url}`),
     return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${query}`)}">${escapeHtml$1(label)} ${externalLinkIcon()}</a>`;
   }
   function linkPillLiveRank(link, mergedLiveRanks) {
-    const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : null;
+    const provider = link.id === "jiten" ? "jiten" : link.id === "jpdb" ? "jpdb" : link.id === "bunpro" ? "bunpro" : null;
     return provider ? mergedLiveRanks.get(provider) ?? null : null;
   }
   const BUNPRO_FREQUENCY_LIST_LABELS = {
@@ -93929,16 +93942,13 @@ ${entry.url}`),
     netflix: ["Netflix", "Netflix"],
     dictionary: ["Dictionary", "辞書"]
   };
-  function renderBunproFrequencyPills(state2, language, lists) {
+  function bunproFrequencyDetail(language, lists) {
     const japanese = language === "ja";
-    const style = lookupPillStyle("bunpro");
-    for (const entry of lists) {
+    return lists.map((entry) => {
       const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
       const corpus = label ? label[japanese ? 1 : 0] : entry.list;
-      const value = `#${entry.rank.toLocaleString("en-US")}`;
-      const accessible = `Bunpro ${corpus} ${value}`;
-      state2.pills.set(`bunpro-frequency:${entry.list}`, `<span class="jpdb-reader-pill jpdb-reader-frequency-pill jpdb-reader-bunpro-frequency-pill" data-dictionary="Bunpro" data-frequency-source="bunpro" data-frequency-list="${escapeHtml$1(entry.list)}"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(accessible)}" aria-label="${escapeHtml$1(accessible)}">${escapeHtml$1(corpus)} ${escapeHtml$1(value)}</span>`);
-    }
+      return `${corpus} #${entry.rank.toLocaleString("en-US")}`;
+    }).join(" · ");
   }
   function renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks) {
     if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? "";
@@ -94058,11 +94068,13 @@ ${entry.url}`),
       if (!rank) continue;
       if (kanjiQuery ? rank.source !== "kanji" || rank.spelling !== kanjiQuery : rank.source === "kanji") continue;
       if (!mergeIntoLinkPill || !enabledLinkIds.has(provider)) continue;
-      if (provider === "bunpro" && rank.lists?.length) {
-        renderBunproFrequencyPills(state2, options.settings.interfaceLanguage, rank.lists);
-        continue;
-      }
-      state2.mergedLiveRanks.set(provider, { rank: rank.rank, display: rank.display });
+      state2.mergedLiveRanks.set(provider, {
+        rank: rank.rank,
+        display: rank.display,
+        // Bunpro's per-corpus ranks stay one pill wide: the primary rank
+        // renders inline and the breakdown rides in the tooltip.
+        detail: provider === "bunpro" && rank.lists?.length ? bunproFrequencyDetail(options.settings.interfaceLanguage, rank.lists) : void 0
+      });
     }
   }
   function localFrequencyEnabled(settings, dictionary) {
