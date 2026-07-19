@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.238] - 2026-07-19
+
+### Changed
+
+- The Japanese-site-language preference (locale spoofing, preference cookies, and redirects to Japanese site versions) now ships in the Yomu Video companion, freeing core userscript space under Greasy Fork's 2 MB limit. Installs without the companion simply leave the preference inactive.
+
 ## [1.6.237] - 2026-07-19
 
 ### Changed
