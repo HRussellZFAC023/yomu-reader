@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e05-left-unsaid",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 41,
@@ -95,7 +95,7 @@
           "id": "node:left-unsaid:rehearsal-set",
           "beatId": "beat:left-unsaid:arrival-image",
           "cueId": "cue:taped-stage-line-and-weighted-script",
-          "description": "The classroom is set for a run-through of the public evening: chairs turned toward a taped line on the floor that stands in for the stage edge, a printed script weighted flat on the front desk. Nanako stands just inside the door, a bag still on her shoulder. She doesn't move toward a chair."
+          "description": "The classroom door opens on Henry's phrase 'the truth is.' Nanako stops with her bag still on her shoulder. On the stage script, the next sentence says the earlier writer left town; unlike every other claim on the page, it has no source mark or permission note."
         },
         {
           "kind": "line",
@@ -106,19 +106,19 @@
           "attentionTarget": "the taped stage line and the script, seen from the doorway rather than a desk",
           "variants": {
             "n3": {
-              "japanese": "ごめんね、ちょっとだけ遅れちゃった。座らないで、後ろから見てるだけにするね。続けてて。",
-              "reading": "ごめんね、ちょっとだけおくれちゃった。すわらないで、うしろからみてるだけにするね。つづけてて。",
-              "english": "Sorry, I'm a little late. I won't sit down — I'll just watch from the back. Keep going."
+              "japanese": "ごめん、少し遅れた。続けて。……でも今の『街を離れた』って行だけ、あとで見せてね。",
+              "reading": "ごめん、すこしおくれた。つづけて。……でもいまの『まちをはなれた』ってぎょうだけ、あとでみせてね。",
+              "english": "Sorry, I'm a little late. Keep going. …But show me the line about 'leaving town' afterward, all right?"
             },
             "n2": {
-              "japanese": "ごめんね、少し遅れちゃった。私は座らずに、後ろで見てるだけにするから。気にしないで続けて。",
-              "reading": "ごめんね、すこしおくれちゃった。わたしはすわらずに、うしろでみてるだけにするから。きにしないでつづけて。",
-              "english": "Sorry, I'm a bit late. I'll stay at the back and just watch — don't mind me, keep going."
+              "japanese": "ごめんね、少し遅れちゃった。続けてて。……ただ、今の『街を離れた』って一行だけ、あとで見せて。",
+              "reading": "ごめんね、すこしおくれちゃった。つづけてて。……ただ、いまの『まちをはなれた』っていちぎょうだけ、あとでみせて。",
+              "english": "Sorry, I'm a bit late. Keep going. …Only, show me that one line about 'leaving town' afterward."
             },
             "n1": {
-              "japanese": "ごめんね、少し遅れちゃって。私は座らずに、後ろで見せてもらうだけにするから。どうぞ気にせず、そのまま続けて。",
-              "reading": "ごめんね、すこしおくれちゃって。わたしはすわらずに、うしろでみせてもらうだけにするから。どうぞきにせず、そのままつづけて。",
-              "english": "Sorry I'm a little late. I'll keep to the back and just let myself watch — please don't mind me, carry right on."
+              "japanese": "ごめんね、少し遅れちゃって。どうぞ、そのまま続けて。……ただ、今の『街を離れた』という一行だけ、あとで見せてもらえる?",
+              "reading": "ごめんね、すこしおくれちゃって。どうぞ、そのままつづけて。……ただ、いまの『まちをはなれた』といういちぎょうだけ、あとでみせてもらえる?",
+              "english": "Sorry I'm a little late. Please carry right on. …Only, may I see that one line about 'leaving town' afterward?"
             }
           },
           "support": {
@@ -136,14 +136,14 @@
           "attentionTarget": "the printed script line and the imagined audience, more than the people in the room",
           "variants": {
             "n2": {
-              "japanese": "じゃあ最後の説明、読むね。「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きをどうしても書けなかったんです。だから――」……このくらい言わないと、なんで空いてるのか、伝わらないと思って。",
-              "reading": "じゃあさいごのせつめい、よむね。「このいっくかくは、あえてあけてあります。じつは、かいたひとがそのごこのまちをはなれることになって、つづきをどうしてもかけなかったんです。だから――」……このくらいいわないと、なんであいてるのか、つたわらないとおもって。",
-              "english": "Okay, I'll read the closing note. \"This one section is left blank on purpose. The truth is, the person who wrote it ended up leaving the town afterward, and couldn't bring themselves to finish it. So—\" …I figured if we don't say at least this much, no one gets why it's empty."
+              "japanese": "じゃあ最後の説明、読むね。『この一区画は、あえて空けてあります。資料をつなぐと、書いた人はその後この街を離れて、続きを書けなかったと考えられます。だから――』……理由までないと、お客さんが迷うかなと思って。",
+              "reading": "じゃあさいごのせつめい、よむね。『このいっくかくは、あえてあけてあります。しりょうをつなぐと、かいたひとはそのごこのまちをはなれて、つづきをかけなかったとかんがえられます。だから――』……りゆうまでないと、おきゃくさんがまようかなとおもって。",
+              "english": "Okay, I'll read the closing note. 'This section is left blank on purpose. Taken together, the records suggest that its writer later left town and could not continue. And so—' …I thought the audience might get lost without the reason."
             },
             "n1": {
-              "japanese": "じゃあ締めの説明、読むよ。「この一区画は、あえて空けてあります。実は、書いた本人がその後この街を離れることになりまして、どうしても続きが書けなかった。ですから――」……ここまで言っておかないと、なぜ空白なのか、お客さんには伝わらない気がして。",
-              "reading": "じゃあしめのせつめい、よむよ。「このいっくかくは、あえてあけてあります。じつは、かいたほんにんがそのごこのまちをはなれることになりまして、どうしてもつづきがかけなかった。ですから――」……ここまでいっておかないと、なぜくうはくなのか、おきゃくさんにはつたわらないきがして。",
-              "english": "Okay, reading the closing note. \"This section is left blank on purpose. In fact, the one who wrote it ended up leaving the town afterward, and simply couldn't write the rest. And so—\" …I feel like unless we spell it out this far, the audience won't understand why it's blank."
+              "japanese": "じゃあ締めの説明、読むよ。『この一区画は、あえて空けてあります。複数の資料をつなぐと、書いた本人はその後この街を離れ、続きを書けなかったと考えられます。ですから――』……理由まで示さないと、なぜ空白なのか、お客さんには伝わらない気がして。",
+              "reading": "じゃあしめのせつめい、よむよ。『このいっくかくは、あえてあけてあります。ふくすうのしりょうをつなぐと、かいたほんにんはそのごこのまちをはなれ、つづきをかけなかったとかんがえられます。ですから――』……りゆうまでしめさないと、なぜくうはくなのか、おきゃくさんにはつたわらないきがして。",
+              "english": "Okay, reading the closing note. 'This section is left blank on purpose. Taken together, several records suggest that the writer later left town and could not continue. Therefore—' …I feel the audience won't understand the blank unless we give the reason too."
             }
           },
           "support": {
@@ -161,14 +161,14 @@
           "attentionTarget": "the one clause about the writer leaving, and the gap it was meant to explain",
           "variants": {
             "n2": {
-              "japanese": "……ねえ、その「実は」のところ。合ってるんだけど、そこ、舞台で言うことかな。空けてあるって分かれば、お客さんはちゃんと受け取るよ。理由まで全部は……言わなくても、伝わると思う。",
-              "reading": "……ねえ、その「じつは」のところ。あってるんだけど、そこ、ぶたいでいうことかな。あけてあるってわかれば、おきゃくさんはちゃんとうけとるよ。りゆうまでぜんぶは……いわなくても、つたわるとおもう。",
-              "english": "…Hey, that \"the truth is\" part. It's accurate — but is it something to say on stage? If they can see it was left open, the audience takes it in fine. The whole reason, though… you don't have to say it for it to land."
+              "japanese": "……その人から、『街を離れた』って舞台で話していいと確認した? してないなら、その行は公開の台本に置けないよ。言えるのは、『あえて空けてあります』まで。そこで一度、読んでみよう。",
+              "reading": "……そのひとから、『まちをはなれた』ってぶたいではなしていいとかくにんした? してないなら、そのぎょうはこうかいのだいほんにおけないよ。いえるのは、『あえてあけてあります』まで。そこでいちど、よんでみよう。",
+              "english": "…Did that person confirm that we may say on stage that they left town? If not, that line cannot go in a public script. What we can say ends at 'left blank on purpose.' Let's read it once, stopping there."
             },
             "n1": {
-              "japanese": "……ねえ、その「実は」から先。間違ってはいないの。ただ、それ、舞台に上げることかな、って。空けてあるとだけ分かれば、お客さんのほうで受け取ってくれる。理由を最後まで並べなくても……ちゃんと、伝わると思う。",
-              "reading": "……ねえ、その「じつは」からさき。まちがってはいないの。ただ、それ、ぶたいにあげることかな、って。あけてあるとだけわかれば、おきゃくさんのほうでうけとってくれる。りゆうをさいごまでならべなくても……ちゃんと、つたわるとおもう。",
-              "english": "…Hey, from that \"the truth is\" onward. It isn't wrong. It's just — is that something to put on stage? If they only know it was left open, the audience meets it halfway. Without laying the whole reason out… I think it still reaches them."
+              "japanese": "……その本人から、『街を離れた』という事情を舞台で話してよいと確認した? 確認していないなら、その一節は公開の台本には置けない。言えるのは、『あえて空けてあります』まで。まず、そこで止めて読んでみよう。",
+              "reading": "……そのほんにんから、『まちをはなれた』というじじょうをぶたいではなしてよいとかくにんした? かくにんしていないなら、そのいっせつはこうかいのだいほんにはおけない。いえるのは、『あえてあけてあります』まで。まず、そこでとめてよんでみよう。",
+              "english": "…Did the person themselves confirm that we may describe on stage the circumstances of leaving town? If not, that clause cannot go in a public script. What we can say ends at 'left blank on purpose.' First, let's read it and stop there."
             }
           },
           "support": {
@@ -195,7 +195,7 @@
             "kind": "activity-passed",
             "activityId": "activity:s4e05-left-unsaid-trim-the-line"
           },
-          "resumeContext": "The draft closing note reads 「この一区画は、あえて空けてあります。実は、書いた人がその後この街を離れることになって、続きを書けなかったんです。だから――」. The learner rewrites it so the deliberate blank still reads as chosen — trimming the private reason and letting an unfinished 〜けど… or a trailing pause do the work — rather than spelling out why the writer stopped.",
+          "resumeContext": "The draft closing note reads 「この一区画は、あえて空けてあります。複数の資料をつなぐと、書いた本人はその後この街を離れ、続きを書けなかったと考えられます。ですから――」, but the inferred private circumstance has no publication permission. The learner rewrites it so the deliberate blank still reads as chosen — trimming the private reason and letting an unfinished 〜けど… or a trailing pause do the work — rather than publishing why the writer may have stopped.",
           "onReady": "checkpoint:left-unsaid:after-trim",
           "onRepair": "node:left-unsaid:trim-repair",
           "onDefer": "checkpoint:left-unsaid:before-trim"
@@ -222,14 +222,14 @@
           "attentionTarget": "the trailing end of the trimmed line and the silence after it",
           "variants": {
             "n2": {
-              "japanese": "うん、これでいい。「あえて空けてあります」――そこで止まってるでしょ。この止まってるところが、いちばん喋ってる。昔の私なら、全部言葉にして、英語まで付けて、誰も取りこぼさないようにしてた。でもね、わざと残す空白も、ちゃんと書いたものなんだよ。",
-              "reading": "うん、これでいい。「あえてあけてあります」――そこでとまってるでしょ。このとまってるところが、いちばんしゃべってる。むかしのわたしなら、ぜんぶことばにして、えいごまでつけて、だれもとりこぼさないようにしてた。でもね、わざとのこすくうはくも、ちゃんとかいたものなんだよ。",
-              "english": "Yeah, this is right. \"Left blank on purpose\" — and it stops there, see? That stopping point is what speaks loudest. The old me would have put all of it into words, English and all, so no one got left behind. But a blank you leave on purpose — that's something you wrote too."
+              "japanese": "うん。じゃあ、舞台の線から読んでみて。……『あえて空けてあります』。そこで三秒。……届いたよ、後ろまで。理由のない説明じゃなくて、許可のある説明になった。",
+              "reading": "うん。じゃあ、ぶたいのせんからよんでみて。……『あえてあけてあります』。そこでさんびょう。……とどいたよ、うしろまで。りゆうのないせつめいじゃなくて、きょかのあるせつめいになった。",
+              "english": "Good. Now read it from the stage line. …'Left blank on purpose.' Three seconds there. …It reached the back. This isn't an explanation without a reason; it's an explanation we have leave to give."
             },
             "n1": {
-              "japanese": "うん、これでいい。「あえて空けてあります」――そこで、ふっと切れてるでしょう。その切れ目が、いちばん物を言ってる。昔の私だったら、何もかも言葉にして、英語まで添えて、誰一人取りこぼさないようにしてたと思う。……でも、わざと残した余白っていうのも、れっきとした、書かれたものなんだよね。",
-              "reading": "うん、これでいい。「あえてあけてあります」――そこで、ふっときれてるでしょう。そのきれめが、いちばんものをいってる。むかしのわたしだったら、なにもかもことばにして、えいごまでそえて、だれひとりとりこぼさないようにしてたとおもう。……でも、わざとのこしたよはくっていうのも、れっきとした、かかれたものなんだよね。",
-              "english": "Yeah, this is right. \"Left blank on purpose\" — and there it just cuts off, see? That cut is what says the most. The old me would have turned every last thing into words, added the English too, so not one person got left behind. …But a margin you leave on purpose — that's a written thing in its own right, isn't it."
+              "japanese": "うん。では、舞台の線から読んでみて。……『あえて空けてあります』。そこで三秒。……後ろまで届いたよ。理由を欠いた説明ではなく、許可の範囲で完結した説明になった。",
+              "reading": "うん。では、ぶたいのせんからよんでみて。……『あえてあけてあります』。そこでさんびょう。……うしろまでとどいたよ。りゆうをかいたせつめいではなく、きょかのはんいでかんけつしたせつめいになった。",
+              "english": "Good. Now read it from the stage line. …'Left blank on purpose.' Three seconds there. …It reached the back. This isn't an explanation missing its reason; it is a complete explanation within the permission we have."
             }
           },
           "support": {
@@ -243,7 +243,7 @@
           "id": "node:left-unsaid:blank-left-blank",
           "beatId": "beat:left-unsaid:changed-image",
           "cueId": "cue:closing-note-ends-with-space-after-it",
-          "description": "The script's closing note now ends at 「あえて空けてあります」 with a short trailing dash and clear space after it. Beside the taped stage line, the fuller draft lies face down. The blank on the page is left blank."
+          "description": "Henry reads the shorter line from behind the tape and lets the marked three-second pause run. Nanako hears it from the back row without moving closer. The unpermitted clause is covered by a removable strip on the public copy, while the source draft remains intact and face-down."
         }
       ],
       "exit": {
@@ -312,14 +312,14 @@
           "attentionTarget": "the underlined personal clause, kept for him rather than handed to the room",
           "variants": {
             "n2": {
-              "japanese": "その理由はね、あなたのものだよ。お客さんに要るのは、「本気で作った」って伝わることで、なんで本気だったかまでじゃない。理由は、知ってる人の間にだけあればいい。舞台の言葉は、みんなに渡せる分だけ乗せて。",
-              "reading": "そのりゆうはね、あなたのものだよ。おきゃくさんにいるのは、「ほんきでつくった」ってつたわることで、なんでほんきだったかまでじゃない。りゆうは、しってるひとのあいだにだけあればいい。ぶたいのことばは、みんなにわたせるぶんだけのせて。",
-              "english": "That reason — it's yours. What the audience needs is to feel you meant it, not why you meant it. The reason can live just between the people who already know. On the stage, put only the part that's yours to hand to everyone."
+              "japanese": "その下線、一度、知らない人の前で読めるか考えてみて。少しでも迷うなら、公開版から外そう。『本気で作った』は、声と間で伝わる。理由は、自分用のメモに残せばいい。",
+              "reading": "そのかせん、いちど、しらないひとのまえでよめるかかんがえてみて。すこしでもまようなら、こうかいばんからはずそう。『ほんきでつくった』は、こえとまでつたわる。りゆうは、じぶんようのメモにのこせばいい。",
+              "english": "Look at that underlined clause and ask whether you can read it in front of strangers. If you hesitate at all, take it out of the public copy. 'I meant this work' will come through in your voice and the pause. Keep the reason in your own notes."
             },
             "n1": {
-              "japanese": "その理由は、あなたのものでいいんだよ。お客さんに伝わればいいのは、「本気で作った」ということで、なぜ本気だったのか、まではいらない。理由のほうは、知っている者の間にだけ、そっとあればいい。舞台に乗せる言葉は、誰に渡してもいい分だけで足りるの。",
-              "reading": "そのりゆうは、あなたのものでいいんだよ。おきゃくさんにつたわればいいのは、「ほんきでつくった」ということで、なぜほんきだったのか、まではいらない。りゆうのほうは、しっているもののあいだにだけ、そっとあればいい。ぶたいにのせることばは、だれにわたしてもいいぶんだけでたりるの。",
-              "english": "That reason can stay yours. What needs to reach the audience is that you meant it — not why you meant it. The reason can rest quietly just among the people who already know. The words you put on stage only need to be the part you can hand to anyone."
+              "japanese": "その下線を、面識のない人の前でも読めるか、一度考えてみて。わずかでも迷うなら、公開版から外そう。『本気で作った』ことは、声と間で伝えられる。理由そのものは、自分用の注記に残せばいい。",
+              "reading": "そのかせんを、めんしきのないひとのまえでもよめるか、いちどかんがえてみて。わずかでもまようなら、こうかいばんからはずそう。『ほんきでつくった』ことは、こえとまでつたえられる。りゆうそのものは、じぶんようのちゅうきにのこせばいい。",
+              "english": "Consider once whether you could read that underlined clause in front of people you have never met. If you hesitate even slightly, remove it from the public copy. Your voice and pause can convey that you meant the work. Keep the reason itself in your private notes."
             }
           },
           "support": {
@@ -380,14 +380,14 @@
           "attentionTarget": "the trimmed script, and the door she came in by",
           "variants": {
             "n2": {
-              "japanese": "うん、それでいい。全部言い切らなくても、ちゃんと終われるんだよ。前に、言えないまま終わった言葉があったでしょ。あれもね、失敗じゃなかった。人前で片づけなくていいことって、あるの。……じゃ、私はこのへんで。続き、頑張って。",
-              "reading": "うん、それでいい。ぜんぶいいきらなくても、ちゃんとおわれるんだよ。まえに、いえないままおわったことばがあったでしょ。あれもね、しっぱいじゃなかった。ひとまえでかたづけなくていいことって、あるの。……じゃ、わたしはこのへんで。つづき、がんばって。",
-              "english": "Yeah, that's good. You can end something properly without saying all of it. Remember the words that once went unsaid, back then? Those weren't a failure either. Some things don't have to be settled in front of everyone. …Okay, I'll head off here. Good luck with the rest."
+              "japanese": "うん、今の一回で足りる。全部言わなくても、ちゃんと終われるね。二人の間に残しておくことは、書き忘れじゃない。残すと決めた部分。……私は最終電車があるから、ここまで。じゃあ、当日に。",
+              "reading": "うん、いまのいっかいでたりる。ぜんぶいわなくても、ちゃんとおわれるね。ふたりのあいだにのこしておくことは、かきわすれじゃない。のこすときめたぶぶん。……わたしはさいしゅうでんしゃがあるから、ここまで。じゃあ、とうじつに。",
+              "english": "Yes, that one run is enough. We can finish without saying everything. What we choose to leave between two people isn't something we forgot to write. It is the part we chose to keep. …I have a last train, so this is where I stop. See you on the night."
             },
             "n1": {
-              "japanese": "うん、それでいい。何もかも言い切らなくたって、人はちゃんと終われるんだよ。ほら、前に、言えないまま流れてしまった言葉があったでしょう。あれも、失敗なんかじゃなかった。人前で決着をつけなくていいことっていうのは、ちゃんとあるの。……さ、私はこのへんで。あとは、頑張って。",
-              "reading": "うん、それでいい。なにもかもいいきらなくたって、ひとはちゃんとおわれるんだよ。ほら、まえに、いえないままながれてしまったことばがあったでしょう。あれも、しっぱいなんかじゃなかった。ひとまえでけっちゃくをつけなくていいことっていうのは、ちゃんとあるの。……さ、わたしはこのへんで。あとは、がんばって。",
-              "english": "Yeah, that's good. People can end things properly without saying every last part. Remember — there were words, before, that slipped by unsaid? Those weren't a failure either. There really are things you don't have to settle in front of everyone. …Right, I'll head off here. The rest is yours — good luck."
+              "japanese": "うん、今の一回で十分。全部を言い切らなくても、きちんと終われるね。二人の間に残すと決めたことは、書き漏らしじゃない。それも書き手の選択だから。……私は最終電車があるので、ここまでにします。じゃあ、当日に。",
+              "reading": "うん、いまのいっかいでじゅうぶん。ぜんぶをいいきらなくても、きちんとおわれるね。ふたりのあいだにのこすときめたことは、かきもらしじゃない。それもかきてのせんたくだから。……わたしはさいしゅうでんしゃがあるので、ここまでにします。じゃあ、とうじつに。",
+              "english": "Yes, that one run is enough. We can finish cleanly without saying everything. What we decide to leave between two people isn't an omission by mistake. That, too, is an author's choice. …I have a last train, so I'll stop here. See you on the night."
             }
           },
           "support": {
@@ -405,19 +405,19 @@
           "attentionTarget": "the shortened line, and the fact that it still sounds like him",
           "variants": {
             "n3": {
-              "japanese": "……うん、分かった。全部言わなくても、これ、ちゃんと僕の言葉だ。……来てくれてありがとう。",
-              "reading": "……うん、わかった。ぜんぶいわなくても、これ、ちゃんとぼくのことばだ。……きてくれてありがとう。",
-              "english": "…Yeah, got it. Even without saying all of it, this still sounds like me. …Thanks for coming."
+              "japanese": "……了解。『舞台用』と『自分用』。今、二つに分ける。止めてくれて、ありがとう。",
+              "reading": "……りょうかい。『ぶたいよう』と『じぶんよう』。いま、ふたつにわける。とめてくれて、ありがとう。",
+              "english": "…Got it. 'Stage copy' and 'my notes.' I'll split them now. Thanks for stopping me."
             },
             "n2": {
-              "japanese": "……うん、分かった。全部乗せなくても、これ、ちゃんと僕の言葉だ。ありがとう、来てくれて。",
-              "reading": "……うん、わかった。ぜんぶのせなくても、これ、ちゃんとぼくのことばだ。ありがとう、きてくれて。",
-              "english": "…Yeah, got it. Even without all of it on there, this still sounds like me. Thanks for coming."
+              "japanese": "……了解。『舞台用』と『自分用の注記』。今、別ファイルにする。気づいてくれて、ありがとう。",
+              "reading": "……りょうかい。『ぶたいよう』と『じぶんようのちゅうき』。いま、べつファイルにする。きづいてくれて、ありがとう。",
+              "english": "…Got it. 'Stage copy' and 'my private notes.' I'll make them separate files now. Thanks for catching that."
             },
             "n1": {
-              "japanese": "……うん、分かったよ。全部を乗せなくても、これはちゃんと、僕の言葉のままだ。……来てくれて、ありがとう。",
-              "reading": "……うん、わかったよ。ぜんぶをのせなくても、これはちゃんと、ぼくのことばのままだ。……きてくれて、ありがとう。",
-              "english": "…Yeah, got it. Even without all of it on there, this is still my own line. …Thanks for coming."
+              "japanese": "……了解。『舞台用』と『自分用の注記』に分けて、今、別々に保存する。気づいてくれて、ありがとう。",
+              "reading": "……りょうかい。『ぶたいよう』と『じぶんようのちゅうき』にわけて、いま、べつべつにほぞんする。きづいてくれて、ありがとう。",
+              "english": "…Got it. I'll divide them into 'stage copy' and 'my private notes,' and save them separately now. Thanks for catching that."
             }
           },
           "support": {
@@ -431,7 +431,7 @@
           "id": "node:left-unsaid:script-and-door",
           "beatId": "beat:left-unsaid:exit-image",
           "cueId": "cue:closing-lines-stop-short-note-pocketed",
-          "description": "The script's closing lines stop short on purpose, a clean space where the reasons used to run on. Henry folds the private note and puts it in his pocket, off the page. Nanako, her bag still on her shoulder, slips out the way she came in. The taped stage line stays where it is; nothing on the page is crossed out."
+          "description": "Two filenames appear on Henry's screen: STAGE and PRIVATE NOTES. The public line keeps its three-second pause; the personal clause remains untouched in the private copy. Nanako checks the train time, lifts one hand from the doorway, and is gone before Henry can reopen either file."
         }
       ],
       "exit": {

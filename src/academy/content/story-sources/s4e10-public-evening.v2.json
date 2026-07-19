@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e10-public-evening",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 46,
@@ -281,7 +281,7 @@
           "id": "node:public-evening:three-column-board",
           "beatId": "beat:public-evening:regroup-image",
           "cueId": "cue:heard-inferred-not-yet-sayable",
-          "description": "Beside the atlas, on a board Ruparna set up before the doors opened, three columns wait: 聞こえたこと, 推測, まだ言えないこと — heard, inferred, not-yet-sayable. Until tonight it was a rehearsal prop. Now the whole courtyard can read it, the third column and all."
+          "description": "Ruparna turns the board toward the courtyard. Its three columns now hold three source cards: Rie's bounded memory, the former learner's letter, and the later contribution record. A final row, uninterrupted chain of stewardship, has no supporting card."
         },
         {
           "kind": "line",
@@ -292,19 +292,19 @@
           "attentionTarget": "the room, and the three columns on the board",
           "variants": {
             "n3": {
-              "japanese": "じゃあ、正直に答えますね。全部分かってるわけじゃないんです。分かってること、たぶんそうだと思うこと、まだ言えないこと、分けて話します。",
-              "reading": "じゃあ、しょうじきにこたえますね。ぜんぶわかってるわけじゃないんです。わかってること、たぶんそうだとおもうこと、まだいえないこと、わけてはなします。",
-              "english": "So, honestly, then. It's not that we know all of it. What we know, what we think is probably so, what we still can't say — we'll keep those separate."
+              "japanese": "では、三つの資料を順に見ます。リエさんの記憶、前の学習者の手紙、その後の寄与記録です。どの資料が何を言っているか、分けて答えます。",
+              "reading": "では、みっつのしりょうをじゅんにみます。リエさんのきおく、まえのがくしゅうしゃのてがみ、そのごのきよきろくです。どのしりょうがなにをいっているか、わけてこたえます。",
+              "english": "Then we'll take the three records in order: Rie's memory, the earlier learner's letter, and the later contribution record. We'll answer by separating what each source says."
             },
             "n2": {
-              "japanese": "じゃあ、正直にお答えしますね。全部が分かっているわけじゃないんです。分かっていること、たぶんそうだと思うこと、まだ言えないこと――これ、分けてお話しします。",
-              "reading": "じゃあ、しょうじきにおこたえしますね。ぜんぶがわかっているわけじゃないんです。わかっていること、たぶんそうだとおもうこと、まだいえないこと――これ、わけておはなしします。",
-              "english": "So, we'll answer you honestly. It isn't that all of it is known. What we know, what we think is likely so, what we still can't say — we'll lay those out separately."
+              "japanese": "では、三つの資料を順に確認します。リエさんの記憶、以前の学習者の手紙、それ以降の寄与記録です。どの資料が、どこまで支えるかを分けてお答えします。",
+              "reading": "では、みっつのしりょうをじゅんにかくにんします。リエさんのきおく、いぜんのがくしゅうしゃのてがみ、それいこうのきよきろくです。どのしりょうが、どこまでささえるかをわけておこたえします。",
+              "english": "Then we'll check the three records in order: Rie's memory, the earlier learner's letter, and the subsequent contribution record. We'll answer by separating how far each source supports the account."
             },
             "n1": {
-              "japanese": "では、分かる範囲で、正直にお答えします。実のところ、すべてが判明しているわけではありません。確かなこと、おそらくそうだろうということ、そしてまだ何とも言えないこと――そこは、はっきり分けてお伝えします。",
-              "reading": "では、わかるはんいで、しょうじきにおこたえします。じつのところ、すべてがはんめいしているわけではありません。たしかなこと、おそらくそうだろうということ、そしてまだなんともいえないこと――そこは、はっきりわけておつたえします。",
-              "english": "So, we'll answer honestly, as far as we can. In truth, not all of it has been established. What's certain, what is probably the case, and what we still can't say either way — we'll keep those clearly apart for you."
+              "japanese": "では、三つの資料を順に確認します。リエさん自身が確認できる範囲の記憶、以前の学習者から届いた手紙、それ以降の寄与記録です。それぞれが、どの範囲まで証言しているかを分けてお答えします。",
+              "reading": "では、みっつのしりょうをじゅんにかくにんします。リエさんじしんがかくにんできるはんいのきおく、いぜんのがくしゅうしゃからとどいたてがみ、それいこうのきよきろくです。それぞれが、どのはんいまでしょうげんしているかをわけておこたえします。",
+              "english": "Then we'll examine three records in order: Rie's bounded memory, the letter received from an earlier learner, and the subsequent contribution record. We'll answer by distinguishing the extent to which each one testifies."
             }
           },
           "support": {
@@ -322,19 +322,19 @@
           "attentionTarget": "the three columns, and the empty third one",
           "variants": {
             "n3": {
-              "japanese": "分かってるのは、ここまでです。最初の白い地図は、先生が授業のために作った。そのあと誰かが最初の道を足した――これはたぶん。そこから先は、まだ分かりません。でも、その空きは、埋めなくていいと思ってます。",
-              "reading": "わかってるのは、ここまでです。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。そのあとだれかがさいしょのみちをたした――これはたぶん。そこからさきは、まだわかりません。でも、そのあきは、うめなくていいとおもってます。",
-              "english": "What we know reaches this far. The first blank map — the teacher made it, for class. After that, someone added the first route — that's a maybe. Past that, we don't know yet. But I think that gap doesn't need filling."
+              "japanese": "リエさんが確認できるのは、白い台紙を渡したことです。手紙には、『最初の道を一本作り、その先を空けておいた』とあります。後の記録には、何人かが直した内容が残っています。だから、時期の違う人たちが守ってきた、と考えられます。でも、全部の印を誰が加えたか、その順番までは分かりません。",
+              "reading": "リエさんがかくにんできるのは、しろいだいしをわたしたことです。てがみには、『さいしょのみちをいっぽんつくり、そのさきをあけておいた』とあります。あとのきろくには、なんにんかがなおしたないようがのこっています。だから、じきのちがうひとたちがまもってきた、とかんがえられます。でも、ぜんぶのしるしをだれがくわえたか、そのじゅんばんまではわかりません。",
+              "english": "Rie can confirm that she handed over a blank backing sheet. The letter says, 'I made the first route and left the space beyond it open.' Later records preserve some people's revisions. From that, we can infer that people at different times kept it going. But we do not know who added every mark, or in what order."
             },
             "n2": {
-              "japanese": "聞こえたのは、ここまで。最初の白い地図は、先生が授業のために作った。……たぶん、そのあと誰かが最初の道を足した。ここは、推測です。それより後のことは――正直、まだ分かりません。でも、分からないままで、いいと思ってて。",
-              "reading": "きこえたのは、ここまで。さいしょのしろいちずは、せんせいがじゅぎょうのためにつくった。……たぶん、そのあとだれかがさいしょのみちをたした。ここは、すいそくです。それよりあとのことは――しょうじき、まだわかりません。でも、わからないままで、いいとおもってて。",
-              "english": "What we actually caught reaches this far. The first blank map — the teacher made it, for class. …Probably, someone added the first route after that. That part's a guess. Anything later than that — honestly, we still don't know. But I think it's fine left unknown."
+              "japanese": "確認できるのは、リエさんが白い台紙を渡したことです。手紙に書かれているのは、以前の学習者が最初の道を一本作り、その先を意図して空けたこと。後の寄与記録には、誰が何を直したかが一部残っています。そこから、異なる時期の複数の人が守ってきたと推測できます。ただし、すべての印の作者と途切れのない全順序は分かりません。",
+              "reading": "かくにんできるのは、リエさんがしろいだいしをわたしたことです。てがみにかかれているのは、いぜんのがくしゅうしゃがさいしょのみちをいっぽんつくり、そのさきをいとしてあけたこと。あとのきよきろくには、だれがなにをなおしたかがいちぶのこっています。そこから、ことなるじきのふくすうのひとがまもってきたとすいそくできます。ただし、すべてのしるしのさくしゃととぎれのないぜんじゅんじょはわかりません。",
+              "english": "What we can confirm is that Rie handed over a blank backing sheet. The letter says that an earlier learner made the first route and deliberately left the space beyond it open. Later contribution records preserve some of who revised what. From that, we can infer that several people at different times kept it going. We still cannot establish the maker of every mark or a complete uninterrupted sequence."
             },
             "n1": {
-              "japanese": "はっきりしているのは、ここまでなんです。最初の白紙の地図は、先生が授業用に用意した。……そのあと、誰かが最初の一本を書き足した――ここはもう、推測になります。それ以降は、正直、まだ何とも。ただ、その『まだ言えない』を、無理に埋めないでおきたくて。",
-              "reading": "はっきりしているのは、ここまでなんです。さいしょのはくしのちずは、せんせいがじゅぎょうようによういした。……そのあと、だれかがさいしょのいっぽんをかきたした――ここはもう、すいそくになります。それいこうは、しょうじき、まだなんとも。ただ、その『まだいえない』を、むりにうめないでおきたくて。",
-              "english": "What's clear only reaches this far. The first blank map — the teacher prepared it, for class. …After that, someone wrote in the first line — that's already a guess. Anything past that, honestly, we can't say. I'd just rather not force that 'not-yet-sayable' full."
+              "japanese": "確認できるのは、リエさんが白紙の台紙を渡したことです。以前の学習者の手紙には、自分が最初の道を一本作り、その先を意図的に空けたとある。その後の寄与記録には、誰が何を修正したかが一部残っています。そこから、異なる時期の複数の人が守ってきたと推定できます。ただし、すべての印の帰属と、途切れのない全順序を確定できる資料はありません。",
+              "reading": "かくにんできるのは、リエさんがはくしのだいしをわたしたことです。いぜんのがくしゅうしゃのてがみには、じぶんがさいしょのみちをいっぽんつくり、そのさきをいとてきにあけたとある。そのごのきよきろくには、だれがなにをしゅうせいしたかがいちぶのこっています。そこから、ことなるじきのふくすうのひとがまもってきたとすいていできます。ただし、すべてのしるしのきぞくと、とぎれのないぜんじゅんじょをかくていできるしりょうはありません。",
+              "english": "What we can confirm is that Rie handed over a blank backing sheet. An earlier learner's letter states that they made the first route and deliberately left the space beyond it open. Subsequent contribution records preserve some of who revised what. From that, we can infer that several people at different times kept it going. No source, however, can establish the attribution of every mark or a complete uninterrupted sequence."
             }
           },
           "support": {
@@ -351,11 +351,11 @@
           "options": [
             {
               "id": "option:public-evening:hold-the-line",
-              "action": "Answer only to what's confirmed and leave the not-yet-sayable column visibly empty rather than filling it for the audience.",
+              "action": "State the exact evidentiary limit aloud: the records do not identify who made the first route, then move the public inquiry to its next question.",
               "japaneseByBand": {
-                "n3": "今日は、確かなことだけ話します。空いてるところは、そのままにしておきます。今埋めるのは早いので。",
-                "n2": "今日は、確かなことだけお話しします。空いているところは、空いたままで。埋めるのは、まだ早いと思うので。",
-                "n1": "今夜は、確かなところだけをお伝えします。その空欄は、あえて空けたまま残します。ここを今埋めてしまうのは、まだ早い気がするので。"
+                "n3": "今日は、資料で分かることだけ話します。最初の道を作った人は、今の資料では決められません。では、次の質問へ進みます。",
+                "n2": "今夜は、資料で確認できることだけをお話しします。最初の道を作った人は、現在の資料からは特定できません。では、次の質問へ進みます。",
+                "n1": "今夜お伝えするのは、資料で裏づけられる事実までです。最初の道を作った人物は、現存する資料からは特定できません。では、次のご質問へ進みます。"
               },
               "records": [
                 "stance",
@@ -365,11 +365,11 @@
             },
             {
               "id": "option:public-evening:open-the-record",
-              "action": "Invite whoever in the room has kept the atlas going to add what they know, so the third column fills in their words, not the panel's guess.",
+              "action": "Invite anyone with first-hand involvement to leave an attributed follow-up note after the event; add nothing live until the account and publication permission are checked.",
               "japaneseByBand": {
-                "n3": "よかったら、この地図を守ってきた人に、知ってることを足してもらえませんか。三つ目の欄は、私たちの推測より、その人の言葉で埋まったほうがいいので。",
-                "n2": "もしよかったら、この地図を守ってきた方に、知っていることを足していただけませんか。三つ目の欄は、私たちの推測より、その方の言葉で埋まったほうがいいと思うので。",
-                "n1": "もしよろしければ、この地図を守ってこられた方に、ご存じのことを書き足していただけないでしょうか。三つ目の欄は、私たちの推測でではなく、その方ご自身の言葉で埋まるほうが、ずっといい気がするので。"
+                "n3": "この地図に自分で関わった方がいたら、終わったあと、名前つきのメモを残してもらえますか。今ここでは足しません。内容と、公開していいかを確認してから、記録に入れます。",
+                "n2": "この地図に直接関わった方がいらしたら、終了後、記名したメモを残していただけますか。今この場では書き足しません。内容と公開の許可を確認した上で、寄与記録に加えます。",
+                "n1": "この地図に直接関わった方がいらっしゃいましたら、終了後に、記名した証言をお預けいただけないでしょうか。今この場では追記せず、内容と公開許可を確認した上で、寄与記録へ加えます。"
               },
               "records": [
                 "stance",
@@ -425,19 +425,19 @@
           "attentionTarget": "the audience, and the unfinished column left in plain sight",
           "variants": {
             "n3": {
-              "japanese": "今日は、来てくれてありがとうございました。うまく答えられなかったところもありました。でも、それも含めて、今の私たちです。それを見てもらえたなら、よかったです。",
-              "reading": "きょうは、きてくれてありがとうございました。うまくこたえられなかったところもありました。でも、それもふくめて、いまのわたしたちです。それをみてもらえたなら、よかったです。",
-              "english": "Thanks for coming today. There were parts we couldn't answer well. But that included, that's us right now. If you got to see that, then good."
+              "japanese": "今日は、来てくれてありがとうございました。それから、質問をもう一度言ってくれて、ありがとうございます。聞き直したあとの答えのほうが、ちゃんと質問に合いました。今日は、その直した答えで終わります。",
+              "reading": "きょうは、きてくれてありがとうございました。それから、しつもんをもういちどいってくれて、ありがとうございます。ききなおしたあとのこたえのほうが、ちゃんとしつもんにあいました。きょうは、そのなおしたこたえでおわります。",
+              "english": "Thank you for coming today. And thank you for asking the question again. The answer after we listened again actually fit what you asked. We'll end tonight with that repaired answer."
             },
             "n2": {
-              "japanese": "今日は、来てくださってありがとうございました。うまく答えられなかったところも、ありました。でも、それも含めて、今の私たちなので。……今夜は、それを見ていただけたなら。",
-              "reading": "きょうは、きてくださってありがとうございました。うまくこたえられなかったところも、ありました。でも、それもふくめて、いまのわたしたちなので。……こんやは、それをみていただけたなら。",
-              "english": "Thank you all for coming today. There were places we couldn't answer cleanly. But that included, this is who we are now. …Tonight, if you got to see that, then."
+              "japanese": "今日は、来てくださってありがとうございました。そして、質問を言い直してくださって、ありがとうございます。聞き直したあとの答えのほうが、きちんとご質問に合いました。今夜は、その修正した答えで閉じます。",
+              "reading": "きょうは、きてくださってありがとうございました。そして、しつもんをいいなおしてくださって、ありがとうございます。ききなおしたあとのこたえのほうが、きちんとごしつもんにあいました。こんやは、そのしゅうせいしたこたえでとじます。",
+              "english": "Thank you for coming today, and thank you for restating the question. The answer after we listened again properly matched what you asked. Tonight, we'll close with that repaired answer."
             },
             "n1": {
-              "japanese": "本日は、お越しいただき、ありがとうございました。うまく答えきれなかったところも、正直ありました。ただ、その分からないところも含めて、今の私たちなんだと思います。……それを見ていただけたのなら、それで。",
-              "reading": "ほんじつは、おこしいただき、ありがとうございました。うまくこたえきれなかったところも、しょうじきありました。ただ、そのわからないところもふくめて、いまのわたしたちなんだとおもいます。……それをみていただけたのなら、それで。",
-              "english": "Thank you for coming this evening. There were places we couldn't quite answer, honestly. But the not-knowing included, I think that's who we are right now. …If you got to see that, then that's enough."
+              "japanese": "本日は、お越しいただき、ありがとうございました。また、質問を改めてお聞かせくださったことにも、感謝いたします。聞き直した後の答えで、ようやくご質問に正面からお応えできました。今夜は、その修正された答えをもって閉会とします。",
+              "reading": "ほんじつは、おこしいただき、ありがとうございました。また、しつもんをあらためておきかせくださったことにも、かんしゃいたします。ききなおしたあとのこたえで、ようやくごしつもんにしょうめんからおこたえできました。こんやは、そのしゅうせいされたこたえをもってへいかいとします。",
+              "english": "Thank you for joining us this evening. We are also grateful that you let us hear the question again. Only after listening again did we answer what you had actually asked. We will close tonight on that repaired answer."
             }
           },
           "support": {
@@ -455,19 +455,19 @@
           "attentionTarget": "the class, and the beat they all just held together",
           "variants": {
             "n3": {
-              "japanese": "……ねえ。さっきの間、みんな待ってくれたね。前は、僕が黙ると気まずかったのに。はじめての夜、おぼえてる? あの『もう一回』。今のと同じだよ。",
-              "reading": "……ねえ。さっきのま、みんなまってくれたね。まえは、ぼくがだまるときまずかったのに。はじめてのよる、おぼえてる? あの『もういっかい』。いまのとおなじだよ。",
-              "english": "…Hey. That pause just now — everyone waited. There was a time my going quiet just made it awkward. Remember the first evening? That 'one more time.' Same thing, this."
+              "japanese": "……さっきの間、長さはちょうどよかった。フランシスが待ったから、質問が戻ってきた。……うん。あれでよかった。",
+              "reading": "……さっきのま、ながさはちょうどよかった。フランシスがまったから、しつもんがもどってきた。……うん。あれでよかった。",
+              "english": "…That pause was exactly long enough. Francis waited, so the question came back. …Yes. That was right."
             },
             "n2": {
-              "japanese": "……ねえ。さっきの間、みんな、ちゃんと待ってくれた。前は、僕が黙ると気まずかったのに。……はじめての夜、おぼえてる? あの『もう一回』。あれ、今のと同じやつ。",
-              "reading": "……ねえ。さっきのま、みんな、ちゃんとまってくれた。まえは、ぼくがだまるときまずかったのに。……はじめてのよる、おぼえてる? あの『もういっかい』。あれ、いまのとおなじやつ。",
-              "english": "…Hey. That pause just now — everyone actually waited it out. There was a time my going quiet just made things awkward. …Remember the first evening? That 'one more time.' Same one as just now."
+              "japanese": "……さっきの間、長さはちょうどよかった。フランシスが急がずに待ったから、質問が戻ってきた。……うん。あれで合ってた。",
+              "reading": "……さっきのま、ながさはちょうどよかった。フランシスがいそがずにまったから、しつもんがもどってきた。……うん。あれであってた。",
+              "english": "…That pause was exactly long enough. Francis waited without rushing, so the question came back. …Yes. That was the right timing."
             },
             "n1": {
-              "japanese": "……ねえ。さっきの一拍、誰も埋めなかったでしょ。前は、僕が黙るとみんな気まずそうだったのに。……はじめての夜、おぼえてる? あの『もう一回、いいですか』。あれ、結局、今のと同じなんだよね。",
-              "reading": "……ねえ。さっきのいっぱく、だれもうめなかったでしょ。まえは、ぼくがだまるとみんなきまずそうだったのに。……はじめてのよる、おぼえてる? あの『もういっかい、いいですか』。あれ、けっきょく、いまのとおなじなんだよね。",
-              "english": "…Hey. That one beat just now — nobody rushed to fill it, did they. There was a time my going quiet had everyone looking uneasy. …Remember the first evening? That 'one more time, is that okay?' In the end, it's the same thing as just now."
+              "japanese": "……さっきの一拍、長さはちょうどよかった。フランシスが先回りせずに待ったから、質問が正しい形で戻ってきた。……うん。あの間で合ってた。",
+              "reading": "……さっきのいっぱく、ながさはちょうどよかった。フランシスがさきまわりせずにまったから、しつもんがただしいかたちでもどってきた。……うん。あのまであってた。",
+              "english": "…That beat was exactly long enough. Francis waited without getting ahead of it, so the question returned in its proper form. …Yes. That was the right pause."
             }
           },
           "support": {
@@ -481,7 +481,7 @@
           "id": "node:public-evening:evening-holds",
           "beatId": "beat:public-evening:exit-image",
           "cueId": "cue:column-left-empty-tea-still-warm",
-          "description": "This time Mika doesn't step back into the quiet — he stays in it, watching the class hold the pause he taught them. At the reception table Robert catches a mix-up, someone's brought the wrong tray, and instead of replacing it three times over he says which one it is, once, and lets the single correction stand. Rie's tea sits untouched near the back, still warm for now. The not-yet-sayable column stays empty on the board, and the courtyard is easy with it."
+          "description": "At the reception table Robert catches a tray mix-up, names the correct one once, and moves no other plate. Any first-hand audience note goes into a sealed follow-up envelope with a name and permission choice, not onto the live board. Rie's tea remains untouched at the back, still warm; Mika stays beside Francis as the microphone is switched off."
         }
       ],
       "exit": {

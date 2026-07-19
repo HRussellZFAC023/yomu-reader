@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s4e11-atlas-closes",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 4,
   "chapter": 47,
@@ -9,7 +9,7 @@
     "en": "The Atlas Closes",
     "ja": "地図をとじる"
   },
-  "synopsis": "At a small public inquiry, Rie confirms she made the blank atlas template as an early teaching exercise, attributes the first route to an earlier learner who left space on purpose, and marks the later layers as many hands with no reliable record of who. Shin states exactly how far the physical writing can be ordered and no further; Rie names the apparent responsiveness as Angel and Henry's ordinary projection chain, with no magic in the paper. The learner produces the final synthesis with an explicit uncertainty boundary, and Rose's evidence keeps a labelled blank so the record reaches only as far as the evidence — the atlas closes without inventing an owner.",
+  "synopsis": "At a small public inquiry, Rie confirms that she handed out the blank backing sheet, reads an earlier learner's letter saying one route was already present when they received it, and identifies later contribution records from several classes. Shin states exactly how far the physical writing can be ordered and no further; Rie names the apparent responsiveness as Angel and Henry's ordinary projection chain, with no magic in the paper. The learner produces the final synthesis with an explicit uncertainty boundary, Rose signs only the material finding, and the class closes the atlas without inventing an owner for the first route.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -127,23 +127,23 @@
           "id": "line:atlas-closes:rie-confirms",
           "beatId": "beat:atlas-closes:host-want",
           "speakerId": "rie",
-          "intent": "Confirm plainly that she made the blank template as an early teaching exercise, attribute the first route to an earlier learner who left space on purpose, and mark honestly that the later layers have no reliable record of who added them.",
+          "intent": "Confirm plainly what she personally did, distinguish it from the earlier learner's attributed statement and the later contribution records, and state that neither the first route nor a complete sequence can be verified.",
           "attentionTarget": "the oldest, near-empty layer of the atlas and the provenance records on the desk",
           "variants": {
             "n3": {
-              "japanese": "この、いちばん下の紙、作ったのは私なんです。ずっと前に、授業の練習用に、わざと何も書かないで配ったものです。でも、最初の道を引いたのは私じゃありません。ある生徒さんが足して、その先はわざと空けておいたんです。そのあとは、クラスが変わるたびに、みんなが少しずつ書き足しました。誰がどこを書いたか、という記録は、正直、残っていないんです。",
-              "reading": "この、いちばんしたのかみ、つくったのはわたしなんです。ずっとまえに、じゅぎょうのれんしゅうように、わざとなにもかかないでくばったものです。でも、さいしょのみちをひいたのはわたしじゃありません。あるせいとさんがたして、そのさきはわざとあけておいたんです。そのあとは、クラスがかわるたびに、みんながすこしずつかきたしました。だれがどこをかいたか、というきろくは、しょうじき、のこっていないんです。",
-              "english": "This bottom sheet — I made it. A long time ago, for a class exercise, I handed it out blank on purpose. But I'm not the one who drew the first route. A student added it, and left the space after it open on purpose. After that, with each new class, everyone added a little. A record of who wrote which part — honestly, there isn't one."
+              "japanese": "私が確認できるのは、白い台紙を授業で渡したことです。以前の学習者の手紙には、『最初の道を一本作り、その先は空けておいた』とあります。その後は、複数のクラスが加えた記録がある。ただ、最初の一本については、この手紙より前の記録がありません。全部の印を誰が、どの順番で加えたかも、確認できません。",
+              "reading": "わたしがかくにんできるのは、しろいだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃのてがみには、『さいしょのみちをいっぽんつくり、そのさきはあけておいた』とあります。そのごは、ふくすうのクラスがくわえたきろくがある。ただ、さいしょのいっぽんについては、このてがみよりまえのきろくがありません。ぜんぶのしるしをだれが、どのじゅんばんでくわえたかも、かくにんできません。",
+              "english": "What I can confirm is that I handed out a blank backing sheet in class. The earlier learner's letter says, 'I made the first route and left the space beyond it open.' Later records show contributions by several classes. But for that first route, we have no record earlier than the letter. Nor can we confirm who added every mark, or in what order."
             },
             "n2": {
-              "japanese": "この、いちばん下の台紙ですけど——これ、作ったのは私なんです。何年も前に、授業の練習用として、わざと真っ白なまま配ったものでして。最初の一本を引いたのは、私じゃありません。ある生徒さんが足して、その先はわざと空けて残していったんです。そのあとは、代が変わるたびに、みんなが少しずつ書き足していって。誰がどこを描いたかという記録は、正直、残っていないんですよ。",
-              "reading": "この、いちばんしたのだいしですけど——これ、つくったのはわたしなんです。なんねんもまえに、じゅぎょうのれんしゅうようとして、わざとまっしろなままくばったものでして。さいしょのいっぽんをひいたのは、わたしじゃありません。あるせいとさんがたして、そのさきはわざとあけてのこしていったんです。そのあとは、だいがかわるたびに、みんながすこしずつかきたしていって。だれがどこをかいたかというきろくは、しょうじき、のこっていないんですよ。",
-              "english": "This bottom sheet — I'm the one who made it. Years ago, as a class exercise, I handed it out deliberately blank. The first route on it wasn't mine; a student added it and left the space beyond it open on purpose. After that, with each new class, people added a little more. A record of who drew which part — honestly, there isn't one."
+              "japanese": "私が確認できるのは、白い台紙を授業で渡したことです。以前の学習者の手紙には、『最初の道を一本作り、その先を意図して空けておいた』とある。その後は、複数のクラスによる寄与記録があります。ただ、最初の一本を裏づける、この手紙より前の資料はありません。すべての印の作者と、途切れのない全順序も確認できません。",
+              "reading": "わたしがかくにんできるのは、しろいだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃのてがみには、『さいしょのみちをいっぽんつくり、そのさきをいとしてあけておいた』とある。そのごは、ふくすうのクラスによるきよきろくがあります。ただ、さいしょのいっぽんをうらづける、このてがみよりまえのしりょうはありません。すべてのしるしのさくしゃと、とぎれのないぜんじゅんじょもかくにんできません。",
+              "english": "What I can confirm is that I handed out a blank backing sheet in class. The earlier learner's letter says, 'I made the first route and deliberately left the space beyond it open.' After that, we have contribution records from several classes. But no source earlier than the letter corroborates that first route. Nor can we establish the maker of every mark or a complete uninterrupted sequence."
             },
             "n1": {
-              "japanese": "この、いちばん下の台紙——これを作ったのは、私です。何年も前、授業の練習用に、わざと真っ白なまま配った、それだけのものでして。最初の一本を引いたのは、私じゃない。ある生徒さんが足して、その先を、わざと空けて残していった。……そのあとは、代を重ねるごとに、みんなが少しずつ。誰がどこを、という記録は、正直、残っていないんです。",
-              "reading": "この、いちばんしたのだいし——これをつくったのは、わたしです。なんねんもまえ、じゅぎょうのれんしゅうように、わざとまっしろなままくばった、それだけのものでして。さいしょのいっぽんをひいたのは、わたしじゃない。あるせいとさんがたして、そのさきを、わざとあけてのこしていった。……そのあとは、だいをかさねるごとに、みんながすこしずつ。だれがどこを、というきろくは、しょうじき、のこっていないんです。",
-              "english": "This bottom sheet — the blank one — I'm the one who made it. Years ago, for a class exercise, I handed it out deliberately blank. That's all it was. The first route on it wasn't mine. A student added that, and left the space past it open on purpose. …After that, each class added a little more. An honest record of who did which part — there isn't one."
+              "japanese": "私が確認できるのは、白紙の台紙を授業で渡したことです。以前の学習者から届いた手紙には、『最初の道を一本作り、その先を意図的に空けた』とある。その後は、複数のクラスによる寄与記録が残っています。ただ、最初の一本を独立に裏づける、この手紙より前の資料はありません。すべての印の帰属と、途切れのない全順序も確定できません。",
+              "reading": "わたしがかくにんできるのは、はくしのだいしをじゅぎょうでわたしたことです。いぜんのがくしゅうしゃからとどいたてがみには、『さいしょのみちをいっぽんつくり、そのさきをいとてきにあけた』とある。そのごは、ふくすうのクラスによるきよきろくがのこっています。ただ、さいしょのいっぽんをどくりつにうらづける、このてがみよりまえのしりょうはありません。すべてのしるしのきぞくと、とぎれのないぜんじゅんじょもかくていできません。",
+              "english": "What I can confirm is that I handed out a blank backing sheet in class. The letter received from an earlier learner says, 'I made the first route and deliberately left the space beyond it open.' Subsequent contribution records survive from several classes. But no source earlier than the letter independently corroborates that first route. Nor can we establish the attribution of every mark or a complete uninterrupted sequence."
             }
           },
           "support": {
@@ -161,19 +161,19 @@
           "attentionTarget": "the layered ink and stroke habits across the atlas, and the marks he cannot place",
           "variants": {
             "n3": {
-              "japanese": "字は、読めますよ。筆の癖で、こことここは同じ人が書いた、とか、そのくらいは分かります。でも、分かるのはそこまで。読めることと、誰がいつ書いたか分かることは、別なんです。前は『こんなの簡単だよ』って言ってました。今は、はっきり言えます。ここまでは分かる。これ以上は、分かりません。",
-              "reading": "じは、よめますよ。ふでのくせで、こことここはおなじひとがかいた、とか、そのくらいはわかります。でも、わかるのはそこまで。よめることと、だれがいつかいたかわかることは、べつなんです。まえは『こんなのかんたんだよ』っていってました。いまは、はっきりいえます。ここまではわかる。これいじょうは、わかりません。",
-              "english": "The characters, I can read. From the brush habits — this and that were written by the same person, that much I can tell. But only that far. Being able to read them and knowing who wrote them when are separate. Before, I used to say 'this stuff's easy.' Now I can say it plainly: this far, I know. Past this, I don't."
+              "japanese": "字は読めます。こことここが同じ手だ、という組も作れます。でも、名前と日付は出ません。だから、同じ手をA、B、Cと分ける。人の名前にはしない。ここまでは分かる。これ以上は、分かりません。",
+              "reading": "じはよめます。こことここがおなじてだ、というくみもつくれます。でも、なまえとひづけはでません。だから、おなじてをエー、ビー、シーとわける。ひとのなまえにはしない。ここまではわかる。これいじょうは、わかりません。",
+              "english": "I can read the characters. I can also group this mark and that one as the same hand. But no name or date emerges. So I label the hands A, B, and C, not with people's names. This far, I know. Beyond this, I do not."
             },
             "n2": {
-              "japanese": "字自体は、読めるんです。筆の運びで、誰の癖か——こことここは同じ手だな、とか、そのくらいまでは並べられます。でも、並べられるのはそこまで。読めることと、誰がいつ書いたのかが分かることは、別の話なんですよね。前なら『こんなの簡単だよ』で片づけてました。今は、はっきり言えます。ここまでは分かる。これ以上は、分かりません。",
-              "reading": "じじたいは、よめるんです。ふでのはこびで、だれのくせか——こことここはおなじてだな、とか、そのくらいまではならべられます。でも、ならべられるのはそこまで。よめることと、だれがいつかいたのかがわかることは、べつのはなしなんですよね。まえなら『こんなのかんたんだよ』でかたづけてました。いまは、はっきりいえます。ここまではわかる。これいじょうは、わかりません。",
-              "english": "The characters themselves, I can read. From the brushwork, whose habit it is — this hand and that one are the same, that much I can line up. But only that much. Being able to read them and knowing who wrote them when are two different things. Before, I'd have brushed it off with 'this stuff's easy.' Now I can say it plainly: this far, I understand. Past this, I don't."
+              "japanese": "字自体は読めます。筆の運びから、こことここが同じ手だ、という組も作れる。ただし、名前と日付は出ません。だから同じ手をA、B、Cと分類する。実名は付けない。ここまでは分かる。これ以上は、分かりません。",
+              "reading": "じじたいはよめます。ふでのはこびから、こことここがおなじてだ、というくみもつくれる。ただし、なまえとひづけはでません。だからおなじてをエー、ビー、シーとぶんるいする。じつめいはつけない。ここまではわかる。これいじょうは、わかりません。",
+              "english": "I can read the characters themselves. From the brushwork, I can group this mark and that one as the same hand. But no name or date emerges. So I classify the hands A, B, and C, and assign no real names. This far, I know. Beyond this, I do not."
             },
             "n1": {
-              "japanese": "字はね、読めるんですよ。誰の癖か、筆の運びで、こことここは同じ手だ、とか、この辺までは並べられる。……でも、そこまで。読めることと、誰がいつ書いたかが分かることは、別なんですよね。昔なら『こんなの簡単だよ』で済ませてた。今は、はっきり言えます——ここまでは分かる。これ以上は、分からない。",
-              "reading": "じはね、よめるんですよ。だれのくせか、ふでのはこびで、こことここはおなじてだ、とか、このへんまではならべられる。……でも、そこまで。よめることと、だれがいつかいたかがわかることは、べつなんですよね。むかしなら『こんなのかんたんだよ』ですませてた。いまは、はっきりいえます——ここまではわかる。これいじょうは、わからない。",
-              "english": "The characters, I can read. From the brushwork, whose habit it is — this hand and that hand are the same, I can line up the writers that far. …But only that far. Being able to read them, and knowing who wrote them and when — those are two different things. Once, I'd have waved it off with 'this stuff's easy.' Now I can say it plainly: this far, I know. Past this, I don't."
+              "japanese": "字そのものは読めます。筆の運びから、こことここは同じ手だ、という群も作れる。ただし、そこから実名と日付は出てきません。したがって、手をA、B、Cと分類し、人物名は付さない。ここまでは分かる。これ以上は、分かりません。",
+              "reading": "じそのものはよめます。ふでのはこびから、こことここはおなじてだ、というぐんもつくれる。ただし、そこからじつめいとひづけはでてきません。したがって、てをエー、ビー、シーとぶんるいし、じんぶつめいはふさない。ここまではわかる。これいじょうは、わかりません。",
+              "english": "I can read the characters themselves. From the brushwork, I can also group this mark and that one as the same hand. But no real name or date emerges from that. Therefore I classify the hands A, B, and C and attach no person's name. This far, I know. Beyond this, I do not."
             }
           },
           "support": {
@@ -191,14 +191,14 @@
           "attentionTarget": "the dark projection cart, and the record on the desk rather than the atlas on the wall",
           "variants": {
             "n2": {
-              "japanese": "よく『この地図は生きている』なんて言われましたけど……種を明かしてしまえば、大したことはないんです。反応しているように見えたのは、アンジェルさんとヘンリーさんが組んだ投影の仕掛けのおかげ。台紙そのものは、ただの紙なんですよ。魔法なんて、どこにもありません。最初の夜、あいさつ一つで一か所だけ点きましたよね。あれと同じで、人が動いたから点いた。それだけのことなんです。だから、この記録も、分かるところまでで止めておきましょう。埋まらないところは、無理に埋めないで。",
-              "reading": "よく『このちずはいきている』なんていわれましたけど……たねをあかしてしまえば、たいしたことはないんです。はんのうしているようにみえたのは、アンジェルさんとヘンリーさんがくんだとうえいのしかけのおかげ。だいしそのものは、ただのかみなんですよ。まほうなんて、どこにもありません。さいしょのよる、あいさつひとつでいっかしょだけつきましたよね。あれとおなじで、ひとがうごいたからついた。それだけのことなんです。だから、このきろくも、わかるところまででとめておきましょう。うまらないところは、むりにうめないで。",
-              "english": "People often said 'this map is alive.' But once you know the trick, it's nothing much. What looked like it responding was thanks to the projection rig Angel and Henry built. The sheet itself is just paper. There's no magic anywhere. The first evening, one greeting lit just one spot, remember? Same as that — it lit because people moved. That's all it was. So let's stop this record where the knowing stops. The parts that won't fill in, let's not force them shut."
+              "japanese": "ショーンさん、投影を切ってください。……ほら、光だけ消えて、紙とインクは変わらない。反応していたのは、アンジェルさんとヘンリーさんの投影です。紙そのものではありません。では、この紙に、作者まで証明させないようにしましょう。",
+              "reading": "ショーンさん、とうえいをきってください。……ほら、ひかりだけきえて、かみとインクはかわらない。はんのうしていたのは、アンジェルさんとヘンリーさんのとうえいです。かみそのものではありません。では、このかみに、さくしゃまでしょうめいさせないようにしましょう。",
+              "english": "Shaun, please switch off the projection. …There. Only the light disappears; the paper and ink do not change. What responded was Angel and Henry's projection, not the paper itself. So let's not ask this paper to prove its authorship too."
             },
             "n1": {
-              "japanese": "よく、この地図は生きてる、なんて言われましたけど……種を明かせば、なんてことはないんです。反応して見えたのは、アンジェルさんとヘンリーさんが組んだ、あの投影の仕掛け。台紙そのものは、ただの紙です。魔法は、どこにもない。——最初の夜、あいさつ一つで一か所が点いた、あれと同じ。人が動いたから、点いた。それだけ。だからね、この記録も、分かるところまでで止めましょう。埋まらないところは、埋めずに。",
-              "reading": "よく、このちずはいきてる、なんていわれましたけど……たねをあかせば、なんてことはないんです。はんのうしてみえたのは、アンジェルさんとヘンリーさんがくんだ、あのとうえいのしかけ。だいしそのものは、ただのかみです。まほうは、どこにもない。——さいしょのよる、あいさつひとつでいっかしょがついた、あれとおなじ。ひとがうごいたから、ついた。それだけ。だからね、このきろくも、わかるところまででとめましょう。うまらないところは、うめずに。",
-              "english": "People used to say this map was alive. But once you know the trick, it's nothing much. What looked like it responding was the projection rig Angel and Henry built. The sheet itself is just paper. There's no magic anywhere in it. — The first evening, one greeting lit one spot. Same as that. It lit because people moved. That's all. So let's stop this record where the knowing stops, too. The parts that won't fill in — let's leave them unfilled."
+              "japanese": "ショーンさん、投影を切っていただけますか。……ほら、消えたのは光だけで、紙とインクには何の変化もない。反応していたのは、アンジェルさんとヘンリーさんが組んだ投影です。紙そのものではありません。ならば、この紙に作者まで証明させるのもやめましょう。",
+              "reading": "ショーンさん、とうえいをきっていただけますか。……ほら、きえたのはひかりだけで、かみとインクにはなんのへんかもない。はんのうしていたのは、アンジェルさんとヘンリーさんがくんだとうえいです。かみそのものではありません。ならば、このかみにさくしゃまでしょうめいさせるのもやめましょう。",
+              "english": "Shaun, would you switch off the projection? …There. Only the light disappeared; nothing in the paper or ink changed. What responded was the projection Angel and Henry built, not the paper itself. Then let us also stop asking this paper to prove its authorship."
             }
           },
           "support": {
@@ -225,7 +225,7 @@
             "kind": "activity-passed",
             "activityId": "activity:s4e11-atlas-closes-provenance-synthesis"
           },
-          "resumeContext": "The learner produces the final synthesis with an explicit uncertainty boundary: state what the record supports — Rie made the blank template, an earlier learner added the first route and left space, later classes layered the rest, and Angel and Henry's projection made it appear responsive — and mark the marks that cannot be assigned as unknown, using calibrated hedges (はっきりとはわかりませんが / 〜と思います / ここまでは分かる、これ以上は分からない) and embedded quotation (〜と言っていました / 〜によると) rather than naming an owner the record does not support.",
+          "resumeContext": "The learner produces the final synthesis with an explicit uncertainty boundary: state what the record supports — Rie handed out the blank backing sheet, an earlier learner reported receiving it with one route already present and adding another, later contribution records name several classes, and Angel and Henry's projection made it appear responsive — and mark the first route and complete sequence as unknown, using calibrated hedges (はっきりとはわかりませんが / 〜と思います / ここまでは分かる、これ以上は分からない) and embedded quotation (〜と言っていました / 〜によると) rather than naming an owner the record does not support.",
           "onReady": "checkpoint:atlas-closes:after-synthesis",
           "onRepair": "node:atlas-closes:synthesis-repair",
           "onDefer": "checkpoint:atlas-closes:before-synthesis"
@@ -252,14 +252,14 @@
           "attentionTarget": "the atlas's authorship field, and the labelled blank on the map",
           "variants": {
             "n2": {
-              "japanese": "これで、いいと思います。台紙は私。最初の一本は、名前の分かるあの生徒さん。その先は……『大勢の手で』としか書けません。そして、どうしても誰のものか言えないところは、空けたまま残します。自分がやっていないところに、自分の名前を書くわけにはいきませんから。『ここまで』という線が引けたなら、それで閉じられます。中途半端に見えるかもしれませんが、これがいちばん正直な終わり方なんですよ。",
-              "reading": "これで、いいとおもいます。だいしはわたし。さいしょのいっぽんは、なまえのわかるあのせいとさん。そのさきは……『おおぜいのてで』としかかけません。そして、どうしてもだれのものかいえないところは、あけたままのこします。じぶんがやっていないところに、じぶんのなまえをかくわけにはいきませんから。『ここまで』というせんがひけたなら、それでとじられます。ちゅうとはんぱにみえるかもしれませんが、これがいちばんしょうじきなおわりかたなんですよ。",
-              "english": "This is right, I think. The sheet: me. The first route: that student, whose name we have. Beyond that… all I can write is 'by many hands.' And the parts where I can't say whose they are, we leave open. I can't sign my name to work I didn't do. If we can draw the line at 'this far,' we can close it. It may look unfinished, but this is the most honest way to end it."
+              "japanese": "読みますね。『白い台紙は、リエが渡した。以前の学習者は、手紙の中で、最初の道を一本作り、その先を空けておいたと述べている。後の記録には複数のクラスの寄与がある。すべての印の作者と全順序は未確認』。私が署名するのは、最初の文だけです。",
+              "reading": "よみますね。『しろいだいしは、リエがわたした。いぜんのがくしゅうしゃは、てがみのなかで、さいしょのみちをいっぽんつくり、そのさきをあけておいたとのべている。あとのきろくにはふくすうのクラスのきよがある。すべてのしるしのさくしゃとぜんじゅんじょはみかくにん』。わたしがしょめいするのは、さいしょのぶんだけです。",
+              "english": "I'll read it. 'Rie handed over the blank backing sheet. In their letter, an earlier learner states that they made the first route and left the space beyond it open. Later records show contributions from several classes. The maker of every mark and the full sequence remain unverified.' I sign only the first sentence."
             },
             "n1": {
-              "japanese": "これで、いいと思います。台紙は、私。最初の一本は、名前の分かるあの生徒さん。その先は……大勢の手、としか書けない。そして、どうしても誰の、と言えないところは——空けたまま。自分のやってないところに、自分の名前を書くわけにはいきませんから。ここまで、というのが引けたなら、それで閉じられます。中途半端に見えても、これがいちばん正直な終わり方なんですよ。",
-              "reading": "これで、いいとおもいます。だいしは、わたし。さいしょのいっぽんは、なまえのわかるあのせいとさん。そのさきは……おおぜいのて、としかかけない。そして、どうしてもだれの、といえないところは——あけたまま。じぶんのやってないところに、じぶんのなまえをかくわけにはいきませんから。ここまで、というのがひけたなら、それでとじられます。ちゅうとはんぱにみえても、これがいちばんしょうじきなおわりかたなんですよ。",
-              "english": "This is right, I think. The sheet: me. The first route: that one student, whose name we have. Beyond that… all I can write is 'many hands.' And the parts where I truly can't say whose — left open. I can't put my name on work I didn't do. If we can draw the line at 'this far,' then we can close it. It may look unfinished, but this is the most honest way to end it."
+              "japanese": "読み上げます。『白紙の台紙は、リエが渡した。以前の学習者は、手紙の中で、最初の道を一本作り、その先を意図的に空けたと述べている。後続の記録には、複数のクラスによる寄与がある。すべての印の帰属と全順序は未確認』。私が署名するのは、第一文だけです。",
+              "reading": "よみあげます。『はくしのだいしは、リエがわたした。いぜんのがくしゅうしゃは、てがみのなかで、さいしょのみちをいっぽんつくり、そのさきをいとてきにあけたとのべている。こうぞくのきろくには、ふくすうのクラスによるきよがある。すべてのしるしのきぞくとぜんじゅんじょはみかくにん』。わたしがしょめいするのは、だいいちぶんだけです。",
+              "english": "I will read it aloud. 'Rie handed over the blank backing sheet. In their letter, an earlier learner states that they made the first route and deliberately left the space beyond it open. Subsequent records show contributions by several classes. The attribution of every mark and the full sequence remain unverified.' I sign only the first sentence."
             }
           },
           "support": {
@@ -273,7 +273,7 @@
           "id": "node:atlas-closes:field-written",
           "beatId": "beat:atlas-closes:changed-image",
           "cueId": "cue:authorship-field-honestly-partial",
-          "description": "On the atlas's authorship field Rie writes only what holds: her name under the blank template, one learner's name under the first route, 'several classes' under the layers, and beside the marks no one can place, a small blank with a line to the record. She caps the pen. The tea at her elbow has gone cold, untouched."
+          "description": "Rie signs beside the handoff of the blank backing sheet and nowhere else. The letter writer's attributed statement and the later contribution record keep their own source lines; first route and complete sequence remain marked unverified. She caps the pen. The tea at her elbow has gone cold, untouched."
         }
       ],
       "exit": {
@@ -399,25 +399,25 @@
           "kind": "checkpoint",
           "id": "checkpoint:atlas-closes:before-record",
           "beatId": "beat:atlas-closes:record-attempt",
-          "resume": "The learner has chosen how the record concludes. Rose reads back what it now reaches, and the labelled blank stays where the evidence stopped."
+          "resume": "The learner has chosen how the record concludes. Rose checks which rows her material evidence can support and signs only that part."
         },
         {
           "kind": "line",
           "id": "line:atlas-closes:rose-only-this-far",
           "beatId": "beat:atlas-closes:repair",
           "speakerId": "rose",
-          "intent": "Confirm the record now reaches exactly as far as the evidence and no further, and reframe the labelled blank as the precise result rather than a hole — the class knows the shape of what it does not know.",
-          "attentionTarget": "the completed map with its blank cell still blank",
+          "intent": "Turn her material finding into a bounded action: colour and sign the material row while refusing to colour the attribution row that her samples cannot support.",
+          "attentionTarget": "the material and attribution rows on the evidence map",
           "variants": {
             "n2": {
-              "japanese": "これで、記録が届く範囲と、証拠が届く範囲が、ぴったり重なりました。……その空白は、穴じゃないんです。『ここは分からない』と分かっている、という印。畑と同じで、境目がはっきりしているほうが、かえって信用できるんですよ。埋めた一言より、空けた一マスのほうが正確なこともある。",
-              "reading": "これで、きろくがとどくはんいと、しょうこがとどくはんいが、ぴったりかさなりました。……そのくうはくは、あなじゃないんです。『ここはわからない』とわかっている、というしるし。はたけとおなじで、さかいめがはっきりしているほうが、かえってしんようできるんですよ。うめたひとことより、あけたひとますのほうがせいかくなこともある。",
-              "english": "Now the record's reach and the evidence's reach line up exactly. …That blank isn't a hole. It's a mark that we know we don't know this. Like a field — clearer boundaries make it more trustworthy. One square left open can be more accurate than a single word filled in."
+              "japanese": "材質の行は濃くできます。紙とインクから、複数の時期に手が入ったところまでは確認できました。でも、名前の行には、この色を置けません。私は材質の行にだけ署名します。……ペン、一本返しますね。二本も持っていました。",
+              "reading": "ざいしつのぎょうはこくできます。かみとインクから、ふくすうのじきにてがはいったところまではかくにんできました。でも、なまえのぎょうには、このいろをおけません。わたしはざいしつのぎょうにだけしょめいします。……ペン、いっぽんかえしますね。にほんももっていました。",
+              "english": "I can shade the material row strongly. The paper and ink confirm that hands worked on it in several periods. But I can't put this colour in the names row. I'll sign only the material row. …Here, one pen back. I seem to have collected two."
             },
             "n1": {
-              "japanese": "これで、記録が届く先と、証拠が届く先が、ぴったり同じになりました。……その空白、穴じゃないんですよ。『ここは分からない』と、分かっている印。畑と同じで、境目がはっきりしてるほうが、かえって信用できる。埋めた一言より、空けた一マスのほうが、正確なこともあるんです。",
-              "reading": "これで、きろくがとどくさきと、しょうこがとどくさきが、ぴったりおなじになりました。……そのくうはく、あなじゃないんですよ。『ここはわからない』と、わかっているしるし。はたけとおなじで、さかいめがはっきりしてるほうが、かえってしんようできる。うめたひとことより、あけたひとますのほうが、せいかくなこともあるんです。",
-              "english": "Now the record reaches exactly as far as the evidence does, and no further. …That blank isn't a hole. It's a mark that we know we don't know this. Like a field — clear boundaries are what make it trustworthy. A single filled-in word can be less accurate than one square left open."
+              "japanese": "材質の行は、濃くできます。紙とインクで、複数の時期に手が入ったところまでは確認できた。でも、名前の行には、この色を置けません。署名は材質の行だけにします。……ペン、一本返しますね。二本も持ってた。",
+              "reading": "ざいしつのぎょうは、こくできます。かみとインクで、ふくすうのじきにてがはいったところまではかくにんできた。でも、なまえのぎょうには、このいろをおけません。しょめいはざいしつのぎょうだけにします。……ペン、いっぽんかえしますね。にほんももってた。",
+              "english": "The material row can take the strong colour. The paper and ink confirm that hands worked on it in several periods. But I can't put that colour in the names row. I'll sign only the material row. …Here, one pen back. I had two somehow."
             }
           },
           "support": {
@@ -431,18 +431,18 @@
           "id": "line:atlas-closes:rie-close",
           "beatId": "beat:atlas-closes:changed-action",
           "speakerId": "rie",
-          "intent": "Close the atlas on the record's terms — one honest authorship field pointing back to the map, nothing invented to fill the blank — reframe the whole inquiry as deciding together how far they could honestly say, and leave the actual closing for the class rather than doing it alone.",
-          "attentionTarget": "the closed atlas and the record beside it, and the class around her",
+          "intent": "Give the record a plain cross-reference, keep her own signature bounded to the handoff she remembers, and ask the class to perform the final physical closure with her.",
+          "attentionTarget": "the atlas's name field, the signed record, and the wall latch",
           "variants": {
             "n2": {
-              "japanese": "じゃあ、閉じましょうか。……といっても、私一人でじゃありません。ここまでの線を引いてくれたのは、みなさんですから。地図の名義のところには、『この記録を見てください』と一言だけ添えて、空いたところは埋めない。——長かったですね。ずっと『誰のものか』を突き止める話だと思っていました。でも、違った。『どこまでなら言えるか』を、みんなで決める話だったんです。その線が引けたなら、もう閉じていいんですよ。",
-              "reading": "じゃあ、とじましょうか。……といっても、わたしひとりでじゃありません。ここまでのせんをひいてくれたのは、みなさんですから。ちずのめいぎのところには、『このきろくをみてください』とひとことだけそえて、あいたところはうめない。——ながかったですね。ずっと『だれのものか』をつきとめるはなしだとおもっていました。でも、ちがった。『どこまでならいえるか』を、みんなできめるはなしだったんです。そのせんがひけたなら、もうとじていいんですよ。",
-              "english": "Then let's close it. …Though not me alone. You're the ones who drew the line this far. On the atlas's name field, I'll add just one line — 'see the record' — and leave the open part open. — It's been a long road. I kept thinking this was about pinning down whose it was. But it wasn't. It was about all of us deciding how far we could honestly say. Once that line's drawn, we can close it."
+              "japanese": "名義の欄には、『寄与記録を参照』と書きました。私の署名は、台紙を渡したという文の横だけです。では、壁から外しましょう。私は記録がずれないように押さえます。最後の留め金は、どなたかお願いできますか。",
+              "reading": "めいぎのらんには、『きよきろくをさんしょう』とかきました。わたしのしょめいは、だいしをわたしたというぶんのよこだけです。では、かべからはずしましょう。わたしはきろくがずれないようにおさえます。さいごのとめがねは、どなたかおねがいできますか。",
+              "english": "In the name field, I've written, 'see contribution record.' My signature is only beside the sentence saying I handed over the backing sheet. Now, let's take it down from the wall. I'll keep the record from slipping. Would someone else take the last latch?"
             },
             "n1": {
-              "japanese": "じゃあ、閉じましょうか。……といっても、私が一人で、じゃなくて。ここまでを引いてくれたのは、みなさんですから。地図の名義のところには、この記録を見てください、と一言だけ。空いたところは、埋めない。——長かったですね。誰の、を突き止める話だと、ずっと思っていました。違った。どこまでなら言えるか、を一緒に決める話だったんです。それが引けたなら、もう、閉じていい。",
-              "reading": "じゃあ、とじましょうか。……といっても、わたしがひとりで、じゃなくて。ここまでをひいてくれたのは、みなさんですから。ちずのめいぎのところには、このきろくをみてください、とひとことだけ。あいたところは、うめない。——ながかったですね。だれの、をつきとめるはなしだと、ずっとおもっていました。ちがった。どこまでならいえるか、をいっしょにきめるはなしだったんです。それがひけたなら、もう、とじていい。",
-              "english": "Then let's close it. …Though — not me, alone. You're the ones who drew the line this far. On the atlas's name field, just one line: 'see the record.' The open part, we leave open. — It's been a long road. I always thought this was about pinning down whose it was. It wasn't. It was about deciding together how far we could honestly say. And now that the line's drawn, we can close it."
+              "japanese": "名義欄には、『寄与記録を参照』と書きました。私が署名したのは、台紙を渡した、という文の横だけ。では、壁から外しましょう。私は記録を押さえます。最後の留め金、どなたかお願いできますか。",
+              "reading": "めいぎらんには、『きよきろくをさんしょう』とかきました。わたしがしょめいしたのは、だいしをわたした、というぶんのよこだけ。では、かべからはずしましょう。わたしはきろくをおさえます。さいごのとめがね、どなたかおねがいできますか。",
+              "english": "In the name field, I've written, 'see contribution record.' I signed only beside the sentence saying I handed over the backing sheet. Now, let's take it down from the wall. I'll hold the record. Would someone take the last latch?"
             }
           },
           "support": {
@@ -456,7 +456,7 @@
           "id": "node:atlas-closes:atlas-closed",
           "beatId": "beat:atlas-closes:exit-image",
           "cueId": "cue:atlas-closed-record-beside-it",
-          "description": "The atlas comes down from the wall and closes flat for the last time. Its name field carries three plain attributions and one small blank with a line to the record. On the desk the evidence map stays open beside it, the 'we don't know this yet' cell still blank. Nothing has been filled in that the evidence didn't reach. The cold cup waits at the desk's edge for someone to clear it."
+          "description": "The two people nearest the wall lift the atlas free while Rie keeps the signed record from sliding. One lowers the cover; the other closes the last latch. The name field reads only 'see contribution record.' Rose returns the extra pen beside the map. Rie's cold tea remains at the desk's edge."
         }
       ],
       "exit": {
@@ -505,7 +505,7 @@
     {
       "id": "outcome:atlas-closes:record-not-invention",
       "kind": "story",
-      "description": "The atlas closes with an honestly partial authorship field: the blank template attributed to Rie, the first route to a named earlier learner, the later layers to several classes, and the unassignable marks left as a labelled blank pointing to the record. The apparent responsiveness is named as Angel and Henry's ordinary projection chain and the paper as plain, and the provenance is concluded only to the level the record supports, with no ownership invented."
+      "description": "The atlas closes with a bounded contribution record: Rie's signature confirms only that she handed over the blank backing sheet; an earlier learner's letter says one route was already present when they received it and that they added another; later records identify contributions by several classes; the first route and complete sequence remain unverified. The apparent responsiveness is named as Angel and Henry's ordinary projection chain and the paper as plain, with no ownership invented."
     },
     {
       "id": "outcome:atlas-closes:rie-future",
@@ -513,7 +513,7 @@
       "castId": "rie",
       "chapter": 47,
       "beat": "future",
-      "description": "Rie closes the atlas without claiming every mark: she attributes only the blank template to herself, names the one route whose author is known, records the rest as many hands, and leaves the unassignable marks blank — then hands the actual closing to the class rather than finishing it alone. Her next possibility stays open as a teacher who has learned to end a shared work honestly and let others carry it."
+      "description": "Rie closes the atlas without claiming every mark: she signs only the backing-sheet handoff she personally remembers, preserves the earlier learner's attributed statement and the later class records as separate sources, and asks the class to work the final latch while she steadies the record. Her next possibility stays open as a teacher who can end a shared work without taking sole possession of it."
     },
     {
       "id": "outcome:atlas-closes:shin-future",

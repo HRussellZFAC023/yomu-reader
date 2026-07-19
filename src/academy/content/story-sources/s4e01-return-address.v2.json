@@ -95,7 +95,7 @@
           "id": "node:return-address:letter-on-table",
           "beatId": "beat:return-address:arrival-image",
           "cueId": "cue:reply-with-declined-line",
-          "description": "A printed reply sits squared on the classroom table. The class had mailed a former learner five questions about the old caption. Three paragraphs answer. One of the five goes unmentioned. The last paragraph stops at 「その理由については、お答えしかねます」. Peter is already in the window seat nobody uses, the pages lined up in front of him."
+          "description": "A rain-spotted envelope has arrived with the class's five questions folded inside the reply. Three answers are numbered in the margin. Number four is absent. Beside number five, one sentence stands alone: 「その理由については、お答えしかねます」. Peter has taken the window seat nobody noticed was occupied and set three paper clips beside the page."
         },
         {
           "kind": "line",
@@ -106,19 +106,19 @@
           "attentionTarget": "the reply's paragraphs and its declined last line",
           "variants": {
             "n3": {
-              "japanese": "返事、来ましたね。…でも、全部には答えてない。答えたのが三つ。触れてないことが一つ。で、最後は『お答えしかねます』って、はっきり断ってある。何を書いたかだけじゃなくて、どこで線を引いたか、そこを読みたいんです。",
-              "reading": "へんじ、きましたね。…でも、ぜんぶにはこたえてない。こたえたのがみっつ。ふれてないことがひとつ。で、さいごは『おこたえしかねます』って、はっきりことわってある。なにをかいたかだけじゃなくて、どこでせんをひいたか、そこをよみたいんです。",
-              "english": "The reply's here. …Only, it doesn't answer everything. Three questions answered. One thing left untouched. And the last one it turns down flat: 'I must decline to answer.' What I want to read is where they drew the line, not just the wording."
+              "japanese": "返事、来ましたね。三つは答えてある。四番はない。五番は『お答えしかねます』。…まず、書いてある通りに読みましょう。理由は、まだ足さないで。",
+              "reading": "へんじ、きましたね。みっつはこたえてある。よんばんはない。ごばんは『おこたえしかねます』。…まず、かいてあるとおりによみましょう。りゆうは、まだたさないで。",
+              "english": "The reply's here. Three answered. No number four. Number five says, 'I must decline.' …Let's begin with what's actually on the page. No supplying reasons yet."
             },
             "n2": {
-              "japanese": "お返事、届きました。ただ、全部に答えてはいないんですよね。答えてくださったのが三つ。触れずにおいてあるのが一つ。そして最後の一つは、はっきり『お答えしかねます』と。…何が書いてあるかより、どう線を引いたか。そこを読みたいんです。",
-              "reading": "おへんじ、とどきました。ただ、ぜんぶにこたえてはいないんですよね。こたえてくださったのがみっつ。ふれずにおいてあるのがひとつ。そしてさいごのひとつは、はっきり『おこたえしかねます』と。…なにがかいてあるかより、どうせんをひいたか。そこをよみたいんです。",
-              "english": "The reply arrived. Though it doesn't answer all of it. Three they were kind enough to answer. One left untouched on purpose. And the last one, plainly: 'I must decline to answer.' Less what's written than where the line got drawn. That's the part I want to read."
+              "japanese": "お返事、届きました。三つには回答がある。四番は抜けている。五番は、はっきり『お答えしかねます』と。…まずは、書かれた通りに読みませんか。抜けた理由を、こちらで先に作らないように。",
+              "reading": "おへんじ、とどきました。みっつにはかいとうがある。よんばんはぬけている。ごばんは、はっきり『おこたえしかねます』と。…まずは、かかれたとおりによみませんか。ぬけたりゆうを、こちらでさきにつくらないように。",
+              "english": "The reply arrived. Three answers. Number four is absent. Number five says plainly, 'I must decline.' …Shall we read it as written first, before we invent a reason for the missing part ourselves?"
             },
             "n1": {
-              "japanese": "お返事、拝見しました。もっとも、こちらの問いすべてに答えてくださったわけではなくて。お答えいただけたのが三つ、あえて触れずにおかれたのが一つ。そして最後の一つには、はっきりと『お答えしかねます』と。…何が書かれているか、というより、どこで線を引かれたか。仕事柄、私はまずそちらを読んでしまうんです。",
-              "reading": "おへんじ、はいけんしました。もっとも、こちらのといすべてにこたえてくださったわけではなくて。おこたえいただけたのがみっつ、あえてふれずにおかれたのがひとつ。そしてさいごのひとつには、はっきりと『おこたえしかねます』と。…なにがかかれているか、というより、どこでせんをひかれたか。しごとがら、わたしはまずそちらをよんでしまうんです。",
-              "english": "I've read the reply. Not that they answered every question we sent, mind. Three they were good enough to answer, one deliberately left untouched. And the last, in plain words: 'I must decline to answer.' What's written matters less to me than where they drew the line. Occupational habit. That's the part I read first."
+              "japanese": "お返事、拝見しました。回答があるのは三問。四番には触れず、五番には『お答えしかねます』とある。…まずは文面どおりに扱いましょう。空いた理由まで、こちらで補ってしまわないように。仕事のメールでも、そこを急ぐと読み違えますから。",
+              "reading": "おへんじ、はいけんしました。かいとうがあるのはさんもん。よんばんにはふれず、ごばんには『おこたえしかねます』とある。…まずはぶんめんどおりにあつかいましょう。あいたりゆうまで、こちらでおぎなってしまわないように。しごとのメールでも、そこをいそぐとよみちがえますから。",
+              "english": "I've read it. Three questions answered. Number four untouched. Number five: 'I must decline.' …Let's handle the wording before we supply a motive for the gap. Rush that part in a work email and you misread the whole thing."
             }
           },
           "support": {
@@ -166,19 +166,19 @@
           "attentionTarget": "the reply laid flat, ready to be sorted",
           "variants": {
             "n3": {
-              "japanese": "じゃあ、まず分けましょう。答えてくれたこと。書いてないこと。断ったこと。三つに。…書いてないところは、忘れたんじゃなくて、たぶんわざとなんです。",
-              "reading": "じゃあ、まずわけましょう。こたえてくれたこと。かいてないこと。ことわったこと。みっつに。…かいてないところは、わすれたんじゃなくて、たぶんわざとなんです。",
-              "english": "Then let's sort it first. What they answered. What they didn't write. What they declined. Into three. …The unwritten part isn't forgotten. Probably on purpose."
+              "japanese": "じゃあ、このクリップを使いましょう。答えたもの。書いていないもの。断ったもの。…分けてから、四番が何をしているか見たい。",
+              "reading": "じゃあ、このクリップをつかいましょう。こたえたもの。かいていないもの。ことわったもの。…わけてから、よんばんがなにをしているかみたい。",
+              "english": "Then let's use these clips. Answered. Unwritten. Declined. …Once they're apart, we can see what number four is doing."
             },
             "n2": {
-              "japanese": "なら、返事を書く前に、一度分けてみませんか。答えてくださったこと、あえて書かれなかったこと、断られたこと。この三つに。…書かれていない部分は、抜けたんじゃない。おそらく、意図して外してある。",
-              "reading": "なら、へんじをかくまえに、いちどわけてみませんか。こたえてくださったこと、あえてかかれなかったこと、ことわられたこと。このみっつに。…かかれていないぶぶんは、ぬけたんじゃない。おそらく、いとしてはずしてある。",
-              "english": "Then before we write back, shall we sort it once? What they answered, what they left off on purpose, what they declined. Into these three. …The part that isn't written didn't slip. It was likely left out on purpose."
+              "japanese": "なら、お返事を書く前に、この三つへ分けませんか。答えがあるもの、書かれていないもの、明確に断られたもの。…並べてから、四番の働きを読みたいんです。",
+              "reading": "なら、おへんじをかくまえに、このみっつへわけませんか。こたえがあるもの、かかれていないもの、めいかくにことわられたもの。…ならべてから、よんばんのはたらきをよみたいんです。",
+              "english": "Before we reply, shall we sort them three ways? Answered, unwritten, explicitly declined. …Then we can read what number four actually does in the letter."
             },
             "n1": {
-              "japanese": "でしたら、こちらから何か書き送る前に、一度整理してみましょうか。お答えいただけたこと、あえて書かずにおかれたこと、そしてお断りになったこと。その三つに分けて。…空いている箇所は、うっかり抜けたわけじゃないでしょう。おそらくは、承知のうえで外してある。",
-              "reading": "でしたら、こちらからなにかかきおくるまえに、いちどせいりしてみましょうか。おこたえいただけたこと、あえてかかずにおかれたこと、そしておことわりになったこと。そのみっつにわけて。…あいているかしょは、うっかりぬけたわけじゃないでしょう。おそらくは、しょうちのうえではずしてある。",
-              "english": "In that case, before we send anything back, let's put it in order. What they answered, what they chose to leave unwritten, and what they declined. Sorted into three. …The empty spot wasn't an oversight. Left out knowingly, more likely."
+              "japanese": "でしたら、こちらから書き送る前に、三つに分けてみましょう。回答のあるもの、文面にないもの、明確にお断りになったもの。…推測は、そのあとで十分です。まず、四番が手紙の中でどう置かれているかを見たい。",
+              "reading": "でしたら、こちらからかきおくるまえに、みっつにわけてみましょう。かいとうのあるもの、ぶんめんにないもの、めいかくにおことわりになったもの。…すいそくは、そのあとでじゅうぶんです。まず、よんばんがてがみのなかでどうおかれているかをみたい。",
+              "english": "Before we write back, let's divide them three ways: answered, absent from the text, explicitly declined. …Inference can wait. First I want to see where number four sits in the letter."
             }
           },
           "support": {
@@ -232,19 +232,19 @@
           "attentionTarget": "the three columns, the short declined one",
           "variants": {
             "n3": {
-              "japanese": "…なるほど。これで見えました。この人は、言えることと、言わないことを、自分で決めてる。断ったのも、書かなかったのも、ちゃんと選んでる。お見事、というか。",
-              "reading": "…なるほど。これでみえました。このひとは、いえることと、いわないことを、じぶんできめてる。ことわったのも、かかなかったのも、ちゃんとえらんでる。おみごと、というか。",
-              "english": "…I see. Now it's clear. This person decides for themselves what they'll say and what they won't. The refusal, the silence: both of them chosen. Rather splendid, really."
+              "japanese": "…なるほど。四番だけ、前後の答えをつなぐ言葉まで避けてある。これは抜けじゃないですね。五番の断りとは、別の止め方だ。…お見事。",
+              "reading": "…なるほど。よんばんだけ、ぜんごのこたえをつなぐことばまでさけてある。これはぬけじゃないですね。ごばんのことわりとは、べつのとめかただ。…おみごと。",
+              "english": "…There. Number four even avoids the linking phrase used between the other answers. Not an accidental omission. A different kind of stop from number five. …Splendid."
             },
             "n2": {
-              "japanese": "…なるほど、こうして並べるとよく分かる。この方は、確かめられることと、言わずにおくことを、自分で線引きしている。断りも、あの空白も、選んだうえでのことなんです。……お見事、ですね。",
-              "reading": "…なるほど、こうしてならべるとよくわかる。このかたは、たしかめられることと、いわずにおくことを、じぶんでせんびきしている。ことわりも、あのくうはくも、えらんだうえでのことなんです。……おみごと、ですね。",
-              "english": "…I see. Laid out like this, it's clear. They draw their own line between what can be checked and what they'll keep unsaid. The refusal, that blank space: both chosen on purpose. ……Splendidly done."
+              "japanese": "…なるほど。四番だけ、前後をつなぐ言葉まで意識して外してある。単なる抜けではないですね。五番の明確な断りとは、止め方を変えている。……お見事です。",
+              "reading": "…なるほど。よんばんだけ、ぜんごをつなぐことばまでいしきしてはずしてある。たんなるぬけではないですね。ごばんのめいかくなことわりとは、とめかたをかえている。……おみごとです。",
+              "english": "…I see. Number four deliberately drops even the phrase that links the surrounding answers. Not a simple omission. They used a different stop from the explicit refusal in number five. …Splendid."
             },
             "n1": {
-              "japanese": "…ええ、こうして三つに並べてみると、はっきりします。この方は、確かめられることと、口にしないでおくことを、ご自分で引き分けておられる。お断りになったのも、あの空白も、承知のうえで選ばれた線なんですよ。……お見事、というほかない。",
-              "reading": "…ええ、こうしてみっつにならべてみると、はっきりします。このかたは、たしかめられることと、くちにしないでおくことを、ごじぶんでひきわけておられる。おことわりになったのも、あのくうはくも、しょうちのうえでえらばれたせんなんですよ。……おみごと、というほかない。",
-              "english": "…Yes. Set out in three like this, it's plain. They draw their own line between what may be checked and what they'll leave unspoken. The refusal, that blank space: a line drawn knowingly. ……Nothing for it but to call it splendid."
+              "japanese": "…ええ、並べると分かります。四番だけ、前後をつなぐ定型まで外してある。うっかり落ちたのではない。しかも五番の明示的な拒否とは、止め方を変えておられる。……お見事、というほかない。",
+              "reading": "…ええ、ならべるとわかります。よんばんだけ、ぜんごをつなぐていけいまではずしてある。うっかりおちたのではない。しかもごばんのめいじてきなきょひとは、とめかたをかえておられる。……おみごと、というほかない。",
+              "english": "…Yes. Laid out, it shows. Number four drops even the stock phrase linking the answers. No accident. And they chose a different stop from the explicit refusal in number five. …Splendid is the word."
             }
           },
           "support": {
@@ -449,7 +449,7 @@
           "id": "node:return-address:filed-reply",
           "beatId": "beat:return-address:exit-image",
           "cueId": "cue:reply-filed-with-marks",
-          "description": "The follow-up goes out. The reply is filed with every question marked answered, left unsaid, or declined. The last one is written in as 'declined, not to be reopened.' The window seat is empty again. The pages stay squared where Peter left them."
+          "description": "The follow-up goes out in an envelope noticeably thinner than the one that arrived. Peter clips the three confirmed answers to the letter; number four remains marked 'not stated,' and number five 'declined, not to be reopened.' On top he places one card for tomorrow's evidence map: earlier learner added one route; space left intentionally. The other contributor fields stay untouched."
         }
       ],
       "exit": {

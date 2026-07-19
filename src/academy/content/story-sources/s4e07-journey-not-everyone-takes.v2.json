@@ -108,7 +108,7 @@
           "id": "node:journey:cafe-after-class",
           "beatId": "beat:journey:arrival-image",
           "cueId": "cue:cafe-summer-evening-phones-out",
-          "description": "The cafe after class, summer light going amber in the window. Phones are out on the table and the group chat is scrolling. Alex sets his down face-up, waits for a gap in the talk, and lets one open before he uses it."
+          "description": "Before Alex has finished taking off his jacket, Aakash's phone already shows a draft poll titled ALEX SEND-OFF: dinner, camera walk, or a full Saturday route. Alex reads all three options, sets his own phone beside it, and says the part Aakash has got ahead of."
         },
         {
           "kind": "line",
@@ -119,19 +119,19 @@
           "attentionTarget": "the gap in the conversation, and how little he raises his voice to fill it",
           "variants": {
             "n3": {
-              "japanese": "あのさ、日本で働く話、あってさ。……で、来月から。うん、もう決まった。",
-              "reading": "あのさ、にほんではたらくはなし、あってさ。……で、らいげつから。うん、もうきまった。",
-              "english": "So, hey — there's this work thing in Japan. …Anyway, from next month. Yeah, it's decided."
+              "japanese": "その投票、早いよ。……でもまあ、日本で働く話があって。来月から。うん、もう決まった。",
+              "reading": "そのとうひょう、はやいよ。……でもまあ、にほんではたらくはなしがあって。らいげつから。うん、もうきまった。",
+              "english": "That poll is early. …But yes, there's a work thing in Japan. From next month. Yeah, it's decided."
             },
             "n2": {
-              "japanese": "あのさ、大した話でもないんだけど。向こうで働く口があって。……来月から。うん、もう決まったんだ。",
-              "reading": "あのさ、たいしたはなしでもないんだけど。むこうではたらくくちがあって。……らいげつから。うん、もうきまったんだ。",
-              "english": "So, hey — it's not a big deal or anything. There's a position over there. …From next month. Yeah, it's already settled."
+              "japanese": "その投票、まだ話す前なんだけど。……まあ、向こうで働く口があって。来月から。うん、もう決まったんだ。",
+              "reading": "そのとうひょう、まだはなすまえなんだけど。……まあ、むこうではたらくくちがあって。らいげつから。うん、もうきまったんだ。",
+              "english": "That poll arrived before I told you. …Still, there's a position over there. From next month. Yeah, it's already settled."
             },
             "n1": {
-              "japanese": "あのさ、ほんと、ついで程度の話なんだけど。日本で働く口が、一つあって。……来月から。ええ、もう決まってる。",
-              "reading": "あのさ、ほんと、ついでていどのはなしなんだけど。にほんではたらくくちが、ひとつあって。……らいげつから。ええ、もうきまってる。",
-              "english": "So, hey — honestly, it's barely worth mentioning. There's one position, over in Japan. …From next month. Yeah, it's settled already."
+              "japanese": "その投票、まだ本人が話す前に出来てるんだけど。……まあ、日本で働く口が一つあって。来月から。ええ、もう決まってる。",
+              "reading": "そのとうひょう、まだほんにんがはなすまえにできてるんだけど。……まあ、にほんではたらくくちがひとつあって。らいげつから。ええ、もうきまってる。",
+              "english": "That poll was ready before the person concerned had spoken. …Still, there is a position in Japan. From next month. Yes, it's settled already."
             }
           },
           "support": {
@@ -149,19 +149,19 @@
           "attentionTarget": "the buried clause 'next month, already settled' and Alex's refusal to raise it",
           "variants": {
             "n3": {
-              "japanese": "待って待って、今さらっと言ったでしょ。「来月」「もう決まった」って、そこが一番でかいとこじゃん。……ちゃんと送らせてよ。嫌じゃなければ。",
-              "reading": "まってまって、いまさらっといったでしょ。「らいげつ」「もうきまった」って、そこがいちばんでかいとこじゃん。……ちゃんとおくらせてよ。いやじゃなければ。",
-              "english": "Wait, wait — you just slid right past it. \"Next month,\" \"already decided\" — that's the biggest part, right there. …Let us see you off properly. If you're okay with it."
+              "japanese": "待って。今、『来月』『もう決まった』って、普通の声で言ったよね。……投票は一回消す。まず、どのくらいなら嫌じゃないか、そこだけ聞かせて。",
+              "reading": "まって。いま、『らいげつ』『もうきまった』って、ふつうのこえでいったよね。……とうひょうはいっかいけす。まず、どのくらいならいやじゃないか、そこだけきかせて。",
+              "english": "Wait. You just said 'next month' and 'already decided' in an ordinary voice. …I'll delete the poll. First, tell me only this: what size would you actually be comfortable with?"
             },
             "n2": {
-              "japanese": "いやいや、待って。今、一番効くとこ、思いっきり普通のトーンで言わなかった?「来月、もう決まってる」でしょ。……そこは、こっちにもちゃんと送らせてほしいんだけど。無理にとは言わないけどさ。",
-              "reading": "いやいや、まって。いま、いちばんきくとこ、おもいっきりふつうのトーンでいわなかった?「らいげつ、もうきまってる」でしょ。……そこは、こっちにもちゃんとおくらせてほしいんだけど。むりにとはいわないけどさ。",
-              "english": "No, no — hold on. You just said the part that actually lands in the flattest voice imaginable, didn't you. \"Next month, already settled.\" …I'd really like us to see you off for that. I won't push it, but."
+              "japanese": "いや、待って。今、『来月、もう決まってる』って、一番大きいところを普通の声で言ったよね。……投票はいったん削除する。まず、どのくらいなら嫌じゃないか、それだけ聞かせて。",
+              "reading": "いや、まって。いま、『らいげつ、もうきまってる』って、いちばんおおきいところをふつうのこえでいったよね。……とうひょうはいったんさくじょする。まず、どのくらいならいやじゃないか、それだけきかせて。",
+              "english": "No, wait. You just said the biggest part, 'next month, already settled,' in an ordinary voice. …I'll delete the poll for now. First tell me only what size you would actually be comfortable with."
             },
             "n1": {
-              "japanese": "いや待ってって、今さらっと流したよね。一番効いてるとこ、わざと普通の声で言ったでしょ——「来月、もう決まってる」。……そこだけは、こっちにもちゃんと送らせてほしいな。もちろん、アレックスが嫌なら引くけど。",
-              "reading": "いやまってって、いまさらっとながしたよね。いちばんきいてるとこ、わざとふつうのこえでいったでしょ——「らいげつ、もうきまってる」。……そこだけは、こっちにもちゃんとおくらせてほしいな。もちろん、アレックスがいやならひくけど。",
-              "english": "No — wait, you just breezed right past it. The part that really lands, you said it in an ordinary voice on purpose — \"next month, already settled.\" …That part, at least, I'd like us to see you off for. Of course, if you'd rather not, I'll drop it."
+              "japanese": "いや待って。今、『来月、もう決まってる』って、一番大きいところをわざと普通の声で言ったよね。……投票はいったん削除する。まず、どの程度なら負担じゃないか、それだけ聞かせて。",
+              "reading": "いやまって。いま、『らいげつ、もうきまってる』って、いちばんおおきいところをわざとふつうのこえでいったよね。……とうひょうはいったんさくじょする。まず、どのていどならふたんじゃないか、それだけきかせて。",
+              "english": "No, wait. You deliberately said the biggest part, 'next month, already settled,' in an ordinary voice. …I'll delete the poll for now. First let me ask the person concerned only what scale would not feel burdensome."
             }
           },
           "support": {
@@ -179,19 +179,19 @@
           "attentionTarget": "how little he wants made of it, and the parts he genuinely has not decided",
           "variants": {
             "n3": {
-              "japanese": "ありがとう。でも大げさなのは無しでね。いつ戻るかも、まだ決めてないし。転勤がちょっと延びた、くらいの話だよ。",
-              "reading": "ありがとう。でもおおげさなのはなしでね。いつもどるかも、まだきめてないし。てんきんがちょっとのびた、くらいのはなしだよ。",
-              "english": "Thanks. But nothing over the top, okay. I haven't even decided yet when I'll be back. It's about the size of a transfer that ran a bit long."
+              "japanese": "じゃあ、公演のあとに、いつものカフェで一杯。それだけ。スピーチなし。いつ戻るかは、まだ決めてないから、帰国日も投票に入れないで。",
+              "reading": "じゃあ、こうえんのあとに、いつものカフェでいっぱい。それだけ。スピーチなし。いつもどるかは、まだきめてないから、きこくびもとうひょうにいれないで。",
+              "english": "Then one drink at the usual cafe after the event. That's all. No speeches. I haven't decided when I'm coming back, so don't put a return date in the poll either."
             },
             "n2": {
-              "japanese": "送ってくれるのはありがたいよ。ただ、大ごとにはしないでほしいな。いつ帰るかも、正直まだ決めてないし。まあ、転勤が少し延びた、くらいのことでさ。",
-              "reading": "おくってくれるのはありがたいよ。ただ、おおごとにはしないでほしいな。いつかえるかも、しょうじきまだきめてないし。まあ、てんきんがすこしのびた、くらいのことでさ。",
-              "english": "I appreciate the send-off. Just — don't make it a whole thing. Honestly, I haven't decided yet when I'll be back. It's about the size of a transfer that ran a little long."
+              "japanese": "じゃあ、公演のあと、いつものカフェで一杯。それだけでいい。スピーチもなし。いつ戻るかは正直まだ決めてないから、帰国日の欄も作らないで。",
+              "reading": "じゃあ、こうえんのあと、いつものカフェでいっぱい。それだけでいい。スピーチもなし。いつもどるかはしょうじきまだきめてないから、きこくびのらんもつくらないで。",
+              "english": "Then one drink at the usual cafe after the event. That's enough. No speeches either. Honestly, I haven't decided when I'm coming back, so don't create a return-date field."
             },
             "n1": {
-              "japanese": "送ってくれる気持ちは、ありがたい。ただ、大ごとにだけはしないでほしいんだ。いつ戻るかも、正直まだ決めてない。……なんというか、転勤がちょっと延びた、くらいの話でさ。",
-              "reading": "おくってくれるきもちは、ありがたい。ただ、おおごとにだけはしないでほしいんだ。いつもどるかも、しょうじきまだきめてない。……なんというか、てんきんがちょっとのびた、くらいのはなしでさ。",
-              "english": "The thought means a lot, it does. Only — don't let it become a whole occasion. When I'll be back, honestly, I haven't decided. …It's about the size of a transfer that ran a bit long, is all."
+              "japanese": "じゃあ、公演のあと、いつものカフェで一杯。それだけにしてほしい。スピーチもなし。いつ戻るかは正直まだ決めてないから、帰国日の入力欄まで作らないでくれ。",
+              "reading": "じゃあ、こうえんのあと、いつものカフェでいっぱい。それだけにしてほしい。スピーチもなし。いつもどるかはしょうじきまだきめてないから、きこくびのにゅうりょくらんまでつくらないでくれ。",
+              "english": "Then one drink at the usual cafe after the event. Please keep it to that. No speeches. Honestly, I haven't decided when I'm coming back, so don't go as far as creating an input field for the return date."
             }
           },
           "support": {
@@ -252,19 +252,19 @@
           "attentionTarget": "the difference between being seen off and being held up as an example",
           "variants": {
             "n3": {
-              "japanese": "うん、それでいい。送別は軽くね。あと一つだけ——俺のこと、勇気ある人みたいにはしないで。ただ順番が来ただけだから。",
-              "reading": "うん、それでいい。そうべつはかるくね。あとひとつだけ——おれのこと、ゆうきあるひとみたいにはしないで。ただじゅんばんがきただけだから。",
-              "english": "Yeah, that works. Keep the send-off light. One more thing — don't make me out to be brave. My turn just came up, that's all."
+              "japanese": "うん。選択肢は『いつものカフェ』か『別の会はなし』。あと、見出しに『勇気』って書かないで。仕事の順番が来ただけだから。",
+              "reading": "うん。せんたくしは『いつものカフェ』か『べつのかいはなし』。あと、みだしに『ゆうき』ってかかないで。しごとのじゅんばんがきただけだから。",
+              "english": "Yes. The choices are 'the usual cafe' or 'no separate event.' And don't put 'courage' in the heading. A work opportunity came up, that's all."
             },
             "n2": {
-              "japanese": "うん、それでいい。送別は軽めで。……あと一つだけ頼み。俺を「勇気あるやつ」みたいに扱わないでほしい。たまたま順番が先に来ただけだからさ。",
-              "reading": "うん、それでいい。そうべつはかるめで。……あとひとつだけたのみ。おれを「ゆうきあるやつ」みたいにあつかわないでほしい。たまたまじゅんばんがさきにきただけだからさ。",
-              "english": "Yeah, that works. A light send-off. …One favor, though. Don't treat me like the brave one. My turn just happened to come up first, that's all it is."
+              "japanese": "うん。選択肢は『いつものカフェ』か『別の会はなし』。……あと一つだけ。見出しに『勇気』とか『挑戦』とか、そういう言葉は入れないで。仕事の順番が来ただけだからさ。",
+              "reading": "うん。せんたくしは『いつものカフェ』か『べつのかいはなし』。……あとひとつだけ。みだしに『ゆうき』とか『ちょうせん』とか、そういうことばはいれないで。しごとのじゅんばんがきただけだからさ。",
+              "english": "Yes. The choices are 'the usual cafe' or 'no separate event.' …One more thing. Don't put words like 'courage' or 'challenge' in the heading. A work opportunity came up, that's all."
             },
             "n1": {
-              "japanese": "うん、それでいい。送別は、ごく軽く。……あと一つだけ、頼みがある。俺を「勇気を出したやつ」みたいには、しないでほしいんだ。たまたま順番が先に回ってきた、それだけの話だから。",
-              "reading": "うん、それでいい。そうべつは、ごくかるく。……あとひとつだけ、たのみがある。おれを「ゆうきをだしたやつ」みたいには、しないでほしいんだ。たまたまじゅんばんがさきにまわってきた、それだけのはなしだから。",
-              "english": "Yeah, that works. A very light send-off. …And one more favor. Don't turn me into the guy who was brave. My turn just happened to come around first — that's all it is."
+              "japanese": "うん。選択肢は『いつものカフェ』か『別の会は設けない』。……あと一つ。見出しに『勇気』や『挑戦』を持ち込まないでほしい。仕事の順番が来た、それだけの話だから。",
+              "reading": "うん。せんたくしは『いつものカフェ』か『べつのかいはもうけない』。……あとひとつ。みだしに『ゆうき』や『ちょうせん』をもちこまないでほしい。しごとのじゅんばんがきた、それだけのはなしだから。",
+              "english": "Yes. The choices are 'the usual cafe' or 'no separate event.' …One more thing. Please don't bring 'courage' or 'challenge' into the heading. A work opportunity came up; that is all."
             }
           },
           "support": {
@@ -278,7 +278,7 @@
           "id": "node:journey:phones-light-up",
           "beatId": "beat:journey:changed-image",
           "cueId": "cue:group-chat-wakes-around-the-news",
-          "description": "As Alex finishes, the phones on the table light one after another — the group chat waking around his news. Someone types a farewell emoji; someone types nothing yet. Alex's own screen stays face-up and quiet."
+          "description": "Aakash deletes the three-option draft and sends a two-choice poll: usual cafe, or no separate event. Phones light around the table. Alex votes for the cafe, then turns his screen face-down before anyone can add a speech field."
         }
       ],
       "exit": {
@@ -348,19 +348,19 @@
           "attentionTarget": "the three kinds of 'someday' in the thread, held level, and an open hand to whoever stalled",
           "variants": {
             "n3": {
-              "japanese": "うわ、久しぶりに開いたらこの話してる。笑 私も最近サボり気味だったけど、まあ気にしてない。行く人、残る人、迷ってる人——別に競争じゃないしね。ねえ、よかったらまた一緒に、ゆるく再開しない?",
-              "reading": "うわ、ひさしぶりにひらいたらこのはなししてる。わら わたしもさいきんサボりぎみだったけど、まあきにしてない。いくひと、のこるひと、まよってるひと——べつにきょうそうじゃないしね。ねえ、よかったらまたいっしょに、ゆるくさいかいしない?",
-              "english": "Whoa — open the chat after ages and this is what you're on. lol I've been slacking lately too, but eh, not fussed about it. People leaving, people staying, people still deciding — it's not a contest or anything. Hey, if you're up for it, want to restart together, nice and easy?"
+              "japanese": "うわ、久しぶりに開いたら、アレックスが来月出発。了解。私は来週の火曜、二十分だけ復習を再開するよ。時間が合う人は一緒にどう? 無理なら返事もいらないよ。",
+              "reading": "うわ、ひさしぶりにひらいたら、アレックスがらいげつしゅっぱつ。りょうかい。わたしはらいしゅうのかよう、にじゅっぷんだけふくしゅうをさいかいするよ。じかんがあうひとはいっしょにどう? むりならへんじもいらないよ。",
+              "english": "Whoa, I open the chat after ages and Alex is leaving next month. Got it. I'm restarting with twenty minutes of review next Tuesday. Anyone whose time fits, want to join? No need to reply if it doesn't work."
             },
             "n2": {
-              "japanese": "わ、久しぶりにのぞいたら、いい話してるじゃん。私もここ最近すっかりサボってたけど、まあ、そこは気にしてないよ。行く人も、残る人も、まだ迷ってる人も、どれかが上って話じゃないでしょ。……ねえ、責める気は全然ないから、よかったらまた一緒に、ゆるっと再開しない?",
-              "reading": "わ、ひさしぶりにのぞいたら、いいはなししてるじゃん。わたしもここさいきんすっかりサボってたけど、まあ、そこはきにしてないよ。いくひとも、のこるひとも、まだまよってるひとも、どれかがうえってはなしじゃないでしょ。……ねえ、せめるきはぜんぜんないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
-              "english": "Oh — peek in after ages and you're having a good talk. I've totally been slacking lately myself, but honestly, I'm not bothered about that. People leaving, people staying, people still on the fence — none of them's the higher one, right. …Hey, zero pressure, but if you feel like it, want to restart together, nice and loose?"
+              "japanese": "わ、久しぶりにのぞいたら、アレックスが来月出発。了解。私は来週の火曜、二十分だけ復習を再開するつもり。時間が合う人がいたら、一緒にどう? 難しければ、返事もスタンプもいらないよ。",
+              "reading": "わ、ひさしぶりにのぞいたら、アレックスがらいげつしゅっぱつ。りょうかい。わたしはらいしゅうのかよう、にじゅっぷんだけふくしゅうをさいかいするつもり。じかんがあうひとがいたら、いっしょにどう? むずかしければ、へんじもスタンプもいらないよ。",
+              "english": "Oh, I peek in after ages and Alex is leaving next month. Got it. I'm planning to restart with twenty minutes of review next Tuesday. Anyone whose time fits, want to join? If it doesn't work, no reply or reaction needed."
             },
             "n1": {
-              "japanese": "うわ、久しぶりに開いたら、ちょうどいい話してる。……私もここのところすっかりご無沙汰だったけど、まあ、そこは気にしてない。行く人、残る人、まだ決めかねてる人——どれかが偉い、って話じゃそもそもないしね。ねえ、責める気なんて一切ないから、よかったらまた一緒に、ゆるっと再開しない?",
-              "reading": "うわ、ひさしぶりにひらいたら、ちょうどいいはなししてる。……わたしもここのところすっかりごぶさただったけど、まあ、そこはきにしてない。いくひと、のこるひと、まだきめかねてるひと——どれかがえらい、ってはなしじゃそもそもないしね。ねえ、せめるきなんていっさいないから、よかったらまたいっしょに、ゆるっとさいかいしない?",
-              "english": "Whoa — open the chat after ages and it's exactly the right conversation. …I've gone completely quiet lately myself, but honestly, I'm not going to make a thing of it. People leaving, people staying, people who still can't decide — none of them's the admirable one, that was never the point. Hey — not a word of blame from me, so if you're up for it, want to pick it back up together, easy does it?"
+              "japanese": "うわ、久しぶりに開いたら、アレックスが来月出発。了解。私は来週火曜、二十分だけ復習を再開するつもり。時間が合う人がいたら、一緒にどう? 都合が悪ければ、返信もリアクションもいらないよ。",
+              "reading": "うわ、ひさしぶりにひらいたら、アレックスがらいげつしゅっぱつ。りょうかい。わたしはらいしゅうかよう、にじゅっぷんだけふくしゅうをさいかいするつもり。じかんがあうひとがいたら、いっしょにどう? つごうがわるければ、へんしんもリアクションもいらないよ。",
+              "english": "Whoa, I open the chat after ages and Alex is leaving next month. Understood. I plan to restart with twenty minutes of review next Tuesday. Anyone whose time fits, want to join? If it does not suit you, no reply or reaction is needed."
             }
           },
           "support": {
@@ -414,19 +414,19 @@
           "attentionTarget": "the group's old 'someday, for work' phrase, now his, and the three futures held level",
           "variants": {
             "n3": {
-              "japanese": "みんながずっと言ってた「いつか、仕事で」ってやつ。俺のは、順番が先に来ただけだよ。偉くもなんともない。行くのも、残るのも、迷うのも、同じだけ本気の話でしょ。",
-              "reading": "みんながずっといってた「いつか、しごとで」ってやつ。おれのは、じゅんばんがさきにきただけだよ。えらくもなんともない。いくのも、のこるのも、まようのも、おなじだけほんきのはなしでしょ。",
-              "english": "That 'someday, for work' thing everyone kept saying. Mine just came up first in the queue, that's all. Nothing admirable about it. Going, staying, still deciding — they're all just as serious."
+              "japanese": "うん、その書き方なら合ってる。俺は来月から。戻る日は未定。アーカシュの旅は、まだ計画中。ミラの復習は来週火曜。……矢印を一本にしなければ、それで読めるよ。",
+              "reading": "うん、そのかきかたならあってる。おれはらいげつから。もどるひはみてい。アーカシュのたびは、まだけいかくちゅう。ミラのふくしゅうはらいしゅうかよう。……やじるしをいっぽんにしなければ、それでよめるよ。",
+              "english": "Yes, written that way, it's accurate. I leave next month; my return date is undecided. Aakash's trip is still a plan. Mira's review is next Tuesday. …As long as you don't turn them into one arrow, it reads fine."
             },
             "n2": {
-              "japanese": "ずっとみんなが言ってた「いつか、仕事で日本」ってやつ、俺のはたまたま順番が先に回ってきただけの話でさ。別に偉いわけじゃない。行くのも、残るのも、迷うのも、どれも同じくらい本気なんだよ。",
-              "reading": "ずっとみんながいってた「いつか、しごとでにほん」ってやつ、おれのはたまたまじゅんばんがさきにまわってきただけのはなしでさ。べつにえらいわけじゃない。いくのも、のこるのも、まようのも、どれもおなじくらいほんきなんだよ。",
-              "english": "That 'someday, for work, Japan' line everyone's always said — mine just happened to come round first, that's all. It doesn't make me the admirable one. Going, staying, still deciding — every one of them's just as serious."
+              "japanese": "うん、その書き方なら合ってる。俺は来月からで、戻る日は未定。アーカシュの旅は、まだ計画中。ミラの復習は来週火曜。……一本の矢印に並べなければ、それぞれそのまま読めるよ。",
+              "reading": "うん、そのかきかたならあってる。おれはらいげつからで、もどるひはみてい。アーカシュのたびは、まだけいかくちゅう。ミラのふくしゅうはらいしゅうかよう。……いっぽんのやじるしにならべなければ、それぞれそのままよめるよ。",
+              "english": "Yes, written that way, it's accurate. I leave next month, and my return date is undecided. Aakash's trip is still a plan. Mira's review is next Tuesday. …As long as you don't line them up on one arrow, each reads as itself."
             },
             "n1": {
-              "japanese": "ほら、みんながずっと口にしてた「いつか、仕事で日本」ってやつ。俺のは、たまたま順番が先に回ってきただけなんだ。勇気でも手柄でもない。行く人も、残る人も、まだ決めない人も——どれも、同じだけ本気の話でしょ。",
-              "reading": "ほら、みんながずっとくちにしてた「いつか、しごとでにほん」ってやつ。おれのは、たまたまじゅんばんがさきにまわってきただけなんだ。ゆうきでもてがらでもない。いくひとも、のこるひとも、まだきめないひとも——どれも、おなじだけほんきのはなしでしょ。",
-              "english": "You know that 'someday, for work, in Japan' thing everyone's always said? Mine just happened to come round first — that's all. It's not courage, it's not an achievement. People leaving, people staying, people not deciding yet — every one of them's just as serious."
+              "japanese": "うん、その書き分けなら正確だよ。俺は来月からで、帰国日は未定。アーカシュの旅は計画段階。ミラの復習は来週火曜。……一本の矢印に配置しなければ、それぞれの時制でそのまま読める。",
+              "reading": "うん、そのかきわけならせいかくだよ。おれはらいげつからで、きこくびはみてい。アーカシュのたびはけいかくだんかい。ミラのふくしゅうはらいしゅうかよう。……いっぽんのやじるしにはいちしなければ、それぞれのじせいでそのままよめる。",
+              "english": "Yes, that distinction is accurate. I leave next month, and my return date is undecided. Aakash's trip is at the planning stage. Mira's review is next Tuesday. …As long as they aren't arranged on one arrow, each can be read in its own tense."
             }
           },
           "support": {
@@ -444,19 +444,19 @@
           "attentionTarget": "the send-off he chooses not to inflate, and his own trip he chooses not to pin down tonight",
           "variants": {
             "n3": {
-              "japanese": "じゃあ送別会も、派手にはしない。アレックスの言う通り、いつも通りで。……で、俺の撮り旅は、決まったらまた言うよ。今日は急がない。",
-              "reading": "じゃあそうべつかいも、はでにはしない。アレックスのいうとおり、いつもどおりで。……で、おれのとりたびは、きまったらまたいうよ。きょうはいそがない。",
-              "english": "Then no big send-off either. Like Alex said — same as always. …And my camera trip, I'll say more once it's decided. No rushing it tonight."
+              "japanese": "投票、直した。カフェか、別の会はなし。俺の撮り旅は、予定表から外した。……見て。今夜の俺、旅程が一つもない。",
+              "reading": "とうひょう、なおした。カフェか、べつのかいはなし。おれのとりたびは、よていひょうからはずした。……みて。こんやのおれ、りょていがひとつもない。",
+              "english": "Poll fixed: cafe, or no separate event. I took my camera trip off the schedule. …Look at that. Tonight's me has no itinerary at all."
             },
             "n2": {
-              "japanese": "なら送別会も、盛大にはしないでおく。アレックスの言う通り、いつも通りにさ。……で、俺の撮り旅のほうは、決まったらまた言うよ。今日のところは、急がない。",
-              "reading": "ならそうべつかいも、せいだいにはしないでおく。アレックスのいうとおり、いつもどおりにさ。……で、おれのとりたびのほうは、きまったらまたいうよ。きょうのところは、いそがない。",
-              "english": "Then I'll keep the send-off from getting grand, too. Like Alex said — same as always. …And my camera trip, I'll tell you more once it's settled. For tonight, I'm not rushing it."
+              "japanese": "投票は直した。いつものカフェか、別の会はなし。俺の撮り旅は、予定表から外したよ。……見てくれ。今夜の俺、旅程が一つもない。",
+              "reading": "とうひょうはなおした。いつものカフェか、べつのかいはなし。おれのとりたびは、よていひょうからはずしたよ。……みてくれ。こんやのおれ、りょていがひとつもない。",
+              "english": "The poll is fixed: the usual cafe, or no separate event. I took my camera trip off the schedule. …Look at that. Tonight's me has no itinerary at all."
             },
             "n1": {
-              "japanese": "なら送別会も、派手にはしないでおくよ。アレックスの言う通り、いつも通りにさ。……で、俺の撮り旅のほうは、決まったらまた言う。柄にもなく、今日は急がないでおくわ。",
-              "reading": "ならそうべつかいも、はでにはしないでおくよ。アレックスのいうとおり、いつもどおりにさ。……で、おれのとりたびのほうは、きまったらまたいう。がらにもなく、きょうはいそがないでおくわ。",
-              "english": "Then I'll keep the send-off from getting flashy, too. Like Alex said — same as always. …And my camera trip, I'll say more when it's settled. Not like me, but tonight I'll let it stay unhurried."
+              "japanese": "投票は修正した。いつものカフェか、別の会は設けない。俺の撮り旅は、予定表から外したよ。……見てくれ。今夜の俺には、旅程が一つもない。珍しいだろ。",
+              "reading": "とうひょうはしゅうせいした。いつものカフェか、べつのかいはもうけない。おれのとりたびは、よていひょうからはずしたよ。……みてくれ。こんやのおれには、りょていがひとつもない。めずらしいだろ。",
+              "english": "The poll is revised: the usual cafe, or no separate event. I took my camera trip off the schedule. …Look at that. Tonight's me has no itinerary at all. Rare, isn't it."
             }
           },
           "support": {
@@ -470,7 +470,7 @@
           "id": "node:journey:somedays-side-by-side",
           "beatId": "beat:journey:exit-image",
           "cueId": "cue:three-somedays-level-typing-indicator-stops",
-          "description": "The phones stay face-up on the table, the thread scrolling three kinds of someday — one leaving next month, one staying, one still open. At the bottom a typing indicator blinks under a name hours away, then stops. Nobody has been moved up or down the list."
+          "description": "Alex's cafe vote remains the only mark on the send-off poll. Mira's twenty-minute review invitation sits below it with no reply required. Aakash closes the route-planning tab without booking anything, and the cafe receipt pins the phones in place when the door opens."
         }
       ],
       "exit": {
