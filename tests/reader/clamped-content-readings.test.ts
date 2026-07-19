@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { applyTokensToScanTarget, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
-import { contentClipRowShowsRestReadings } from '../../src/reader/dom/decoration-policy';
+import { clampRowAllowsInFlowRestRuby, contentClipRowShowsRestReadings } from '../../src/reader/dom/decoration-policy';
 import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -50,7 +50,7 @@ afterEach(() => {
 // hover-only channel: WebKit can otherwise crop the base while leaving rt, or
 // grow a flex card into the large empty gap reported on iPad.
 describe('clamped content preserves base text and bounded geometry', () => {
-    it('stamps a MULTI-line clamped article paragraph as "true" (rest-hidden readings)', () => {
+    it('keeps IN-FLOW readings at rest in a growable MULTI-line clamped article paragraph', () => {
         document.body.innerHTML = `
             <main><article>
                 <p class="prose" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</p>
@@ -59,17 +59,17 @@ describe('clamped content preserves base text and bounded geometry', () => {
         const row = document.querySelector<HTMLElement>('.prose')!;
         applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'prose-full'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
-        // Even semantic prose loses at-rest readings on a MULTI-line clamp:
-        // ruby-room never grows clamped rows, so a rest reading would sit in
-        // the fixed inter-line leading and paint over the line above (the
-        // Google-snippet overlap class). The reading stays in the DOM for
-        // hover/lookup, rest-hidden like every other clamped row.
-        expect(row.dataset.yomuClipConstrained).toBe('true');
-        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
+        // Owner rule 2026-07-19: a multi-line clamp with auto height grows in
+        // flow — the clamp caps LINE COUNT, not box height, so in-flow rt
+        // grows each retained line box and the readings stay visible at rest.
+        // No detached lane, no geometry writes.
+        expect(row.dataset.yomuClipConstrained).toBe('content');
+        expect(row.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(row.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('とうきょう');
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('stamps a Google-style result DIV as "true" so its base stays in the authored row', () => {
+    it('keeps IN-FLOW readings at rest in a growable Google-style result DIV', () => {
         document.body.innerHTML = `
             <div id="search"><div class="g">
                 <div class="VwiC3b" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:22px">${SNIPPET}</div>
@@ -78,8 +78,9 @@ describe('clamped content preserves base text and bounded geometry', () => {
         const row = document.querySelector<HTMLElement>('.VwiC3b')!;
         applyTokensToScanTarget(fragmentTarget(row, SNIPPET, 'content-ruby'), [token('東京', 0, SNIPPET, 'とうきょう')], FURI);
 
-        expect(row.dataset.yomuClipConstrained).toBe('true');
-        expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
+        expect(row.dataset.yomuClipConstrained).toBe('content');
+        expect(row.querySelector('.jpdb-reader-detached-furi')).toBeNull();
+        expect(row.querySelector('rt.jpdb-reader-furi')?.textContent).toBe('とうきょう');
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
     });
 
@@ -121,19 +122,49 @@ describe('clamped content preserves base text and bounded geometry', () => {
         expect(contentClipRowShowsRestReadings(undefined, row)).toBe(false);
         expect(contentClipRowShowsRestReadings('content-ruby', row)).toBe(false);
         expect(contentClipRowShowsRestReadings('prose-full', row)).toBe(false);
+        expect(clampRowAllowsInFlowRestRuby('interactive-passive', row)).toBe(false);
+        expect(clampRowAllowsInFlowRestRuby('skip', row)).toBe(false);
+        expect(clampRowAllowsInFlowRestRuby(undefined, row)).toBe(false);
 
-        // A MULTI-line clamp cannot grow (ruby-room never grows clamped rows),
-        // so its at-rest readings would paint into the fixed inter-line
-        // leading — the Google-snippet overlap class. It stays rest-hidden.
+        // Content decorations DO keep in-flow readings on a growable
+        // multi-line clamp (owner rule 2026-07-19): the clamp caps line
+        // count, not box height, so rt grows each retained line box in flow.
+        expect(clampRowAllowsInFlowRestRuby('content-ruby', row)).toBe(true);
+        expect(clampRowAllowsInFlowRestRuby('prose-full', row)).toBe(true);
+
+        // The detached-lane exception stays prose-only and single-line; the
+        // multi-line clamp routes through the in-flow channel instead.
         document.body.innerHTML = `<main><p id="prose" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</p></main>`;
         const prose = document.querySelector<HTMLElement>('#prose')!;
         expect(contentClipRowShowsRestReadings('prose-full', prose)).toBe(false);
+        expect(clampRowAllowsInFlowRestRuby('prose-full', prose)).toBe(true);
 
         // A single-line ellipsis prose row has no internal line boundary and
         // keeps the in-flow exception.
         document.body.innerHTML = `<main><p id="single" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${SNIPPET}</p></main>`;
         const single = document.querySelector<HTMLElement>('#single')!;
         expect(contentClipRowShowsRestReadings('prose-full', single)).toBe(true);
+        // Nowrap ellipsis rows cannot rewrap a ruby-spread base, so the
+        // in-flow channel never claims them.
+        expect(clampRowAllowsInFlowRestRuby('prose-full', single)).toBe(false);
+    });
+
+    it('vetoes in-flow clamp readings under a fixed-height clipping shell', () => {
+        document.body.innerHTML = `
+            <div id="shell" style="height:64px;overflow:hidden">
+                <div id="clamped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</div>
+            </div>`;
+        const clamped = document.querySelector<HTMLElement>('#clamped')!;
+        expect(clampRowAllowsInFlowRestRuby('content-ruby', clamped)).toBe(false);
+
+        // The same row under an auto-height shell grows freely.
+        document.body.innerHTML = `
+            <div id="shell"><div id="clamped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden">${SNIPPET}</div></div>`;
+        expect(clampRowAllowsInFlowRestRuby('content-ruby', document.querySelector<HTMLElement>('#clamped')!)).toBe(true);
+
+        // An authored max-height cap on the row itself pins its geometry.
+        document.body.innerHTML = `<div id="capped" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px">${SNIPPET}</div>`;
+        expect(clampRowAllowsInFlowRestRuby('content-ruby', document.querySelector<HTMLElement>('#capped')!)).toBe(false);
     });
 
     it('ships the content-row hover override without a host-blanking mirror swap', () => {

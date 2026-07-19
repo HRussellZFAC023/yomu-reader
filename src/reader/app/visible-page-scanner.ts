@@ -4,6 +4,7 @@ import {
     healTextMirrorPageVisibility,
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
+    refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
     scanTargetRequiresWholeSourceMirror,
     withMirrorTokenApply,
@@ -182,6 +183,7 @@ export class VisiblePageScanner {
             if (this.destroyed || typeof document === 'undefined') return;
             const adjusted = this.makeRoomForRuby(document);
             if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
+            refreshWrappedScanWordUnderlines(document);
         };
         // Silent auto-scans skip the immediate document-wide pass: apply-time
         // per-root sweeps already covered every changed root, and the delayed
@@ -536,6 +538,13 @@ export class VisiblePageScanner {
         for (const root of roots) {
             if (this.destroyed) return;
             this.makeRoomForRuby(root);
+        }
+        // Wrapped-word underline stamping shares the same write profile
+        // (attribute-only; observers ignore it) and must follow the room
+        // growth above — growing a row can rewrap its words.
+        for (const root of roots) {
+            if (this.destroyed) return;
+            refreshWrappedScanWordUnderlines(root);
         }
     }
 

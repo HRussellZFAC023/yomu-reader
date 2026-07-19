@@ -10,6 +10,7 @@ import {
     UI_CLASS_RE,
     applyPassiveChromeMarks,
     boxStyleIsClipCapable,
+    clampRowAllowsInFlowRestRuby,
     classifyDecoration,
     closestRubyFragileConstrainedRow,
     contentClipRowShowsRestReadings,
@@ -33,7 +34,6 @@ import {
     isCompactInteractiveChromeText,
     isCompactPassiveInteractionElement,
     isEllipsisTextRow,
-    isInsideRubyFragileConstrainedRow,
     isLikelyProseElement,
     isLikelyProseLink,
     isNavigationChromeContext,
@@ -4160,8 +4160,13 @@ function scanTargetSuppressesRuby(
     // paints into the half-leading and the ancestor clip shaves it. The
     // absolutely-positioned mirror sizes its own line, so mirrored renders
     // keep the reading. Even furigana-mode=all must not force in-flow ruby
-    // into a clipped row.
-    if (inPlace && isInsideRubyFragileConstrainedRow(parent)) return true;
+    // into a clipped row. Exception (owner rule 2026-07-19): a growable
+    // multi-line clamp CONTENT row absorbs in-flow ruby by growing its line
+    // boxes, so it keeps real rt instead of the rest-hidden detached lane.
+    if (inPlace) {
+        const clipRow = closestRubyFragileConstrainedRow(parent);
+        if (clipRow && !clampRowAllowsInFlowRestRuby(decoration ?? decorationStateForWord(parent) ?? undefined, clipRow)) return true;
+    }
     if (targetForcesAllFurigana(parent)) return false;
     return Boolean(suppressRuby);
 }
@@ -5194,7 +5199,11 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     {
         const clipRow = closestRubyFragileConstrainedRow(target.parent);
         if (clipRow) {
+            // "content" covers both rest-visible channels: the single-line
+            // prose detached lane, and growable multi-line clamp rows that
+            // keep in-flow rt (owner rule 2026-07-19).
             clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(renderTarget.decoration, clipRow)
+                    || clampRowAllowsInFlowRestRuby(renderTarget.decoration, clipRow)
                 ? 'content'
                 : 'true';
         }
@@ -5670,7 +5679,13 @@ function targetUsesDetachedReadings(target: FragmentTextTarget): boolean {
     // when the shared example group opens.
     if (isInsideOwnedReaderRoot(target.parent)
         && target.parent.closest('[data-provider-example-sentence]')) return Boolean(target.suppressRuby);
-    return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
+    if (target.suppressRuby) return true;
+    const clipRow = closestRubyFragileConstrainedRow(target.parent);
+    if (!clipRow) return false;
+    // Growable multi-line clamp content rows keep IN-FLOW ruby (owner rule
+    // 2026-07-19): their line boxes absorb the readings, so the detached
+    // rest-hidden lane would needlessly blank furigana at rest.
+    return !clampRowAllowsInFlowRestRuby(target.decoration ?? decorationStateForWord(target.parent) ?? undefined, clipRow);
 }
 
 function isInsideOwnedReaderRoot(element: Element): boolean {
@@ -6791,6 +6806,49 @@ const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 // box still cropping. Repeat the sweep until a pass adjusts nothing; each
 // pass only ever grows (previousRubyRoomHeight guard), so it terminates.
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
+
+// A token that wraps across line boxes cannot be underlined by the single
+// absolutely-positioned ::after overlay — it anchors to the word's border box,
+// so continuation lines lose their pitch/status underline entirely (iPad
+// Google-results report, 2026-07-19). Wrapped words are stamped so CSS
+// switches them to the native text-decoration, which paints on every line
+// fragment. Two-phase (all reads, then all writes) so the sweep never
+// interleaves layout reads with its own attribute writes.
+const WRAPPED_SCAN_WORD_ATTRIBUTE = 'data-yomu-wrapped';
+
+export function refreshWrappedScanWordUnderlines(root: ParentNode = document): void {
+    const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word');
+    if (!words.length) return;
+    const wrapped: HTMLElement[] = [];
+    const unwrapped: HTMLElement[] = [];
+    for (const word of words) {
+        // Text-mirror words are atomic (nowrap) and never fragment.
+        if (word.closest('.jpdb-reader-text-mirror')) continue;
+        (scanWordSpansMultipleLines(word) ? wrapped : unwrapped).push(word);
+    }
+    for (const word of wrapped) word.setAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE, 'true');
+    for (const word of unwrapped) {
+        if (word.hasAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE)) word.removeAttribute(WRAPPED_SCAN_WORD_ATTRIBUTE);
+    }
+}
+
+// Fragment rects on ONE line share a top edge; engines may still report
+// several rects per line for a word with inline ruby children. A word is
+// wrapped only when its fragments' top edges spread further apart than half
+// the tallest fragment — a same-line split can never reach that.
+function scanWordSpansMultipleLines(word: HTMLElement): boolean {
+    const rects = Array.from(word.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+    if (rects.length < 2) return false;
+    let minTop = Number.POSITIVE_INFINITY;
+    let maxTop = Number.NEGATIVE_INFINITY;
+    let maxHeight = 0;
+    for (const rect of rects) {
+        minTop = Math.min(minTop, rect.top);
+        maxTop = Math.max(maxTop, rect.top);
+        maxHeight = Math.max(maxHeight, rect.height);
+    }
+    return maxTop - minTop > maxHeight / 2;
+}
 
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
     const adjustedBoxes = new Set<HTMLElement>();

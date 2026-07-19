@@ -258,37 +258,98 @@ export function contentClipRowShowsRestReadings(
     decoration: DecorationState | undefined,
     clipRow: HTMLElement,
 ): boolean {
-    // Only semantic prose gets the in-flow exception. Search-result cards,
+    // Only semantic prose gets the DETACHED-channel exception (single-line
+    // rows whose reading floats in a verified-safe lane). Search-result cards,
     // headings and app chrome are commonly nested in flex/fixed-height shells
     // whose USED height looks auto in CSSOM but cannot safely absorb ruby on
     // iOS. Treating every content-ruby DIV as growable caused Google result
     // gaps and rows where the base glyphs fell below the clip while rt stayed.
     if (decoration !== 'prose-full') return false;
     if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
-    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
     const facts = constrainedRowStyleFacts(clipRow);
-    if (facts.clippedShortRow) return false;
     // Only clamp/ellipsis rows have the auto-height shape that grows in flow.
     if (!facts.clamped && !facts.ellipsisRow) return false;
-    // getComputedStyle().height is a USED value — a pixel string for ANY
-    // displayed element (CSSOM resolved values), so it cannot distinguish
-    // authored height:auto from a fixed row and would veto every real-browser
-    // Google snippet (sol review P1). Author intent is read from computed
-    // max-height (stays 'none' unless authored) and the element's own inline
-    // height/max-height instead.
-    const style = safeComputedStyle(clipRow);
-    if (hasDefiniteCssSize(style.maxHeight)) return false;
-    if (hasDefiniteCssSize(clipRow.style.height) || hasDefiniteCssSize(clipRow.style.maxHeight)) return false;
-    // A MULTI-line clamp cannot actually grow: the clamp caps its line count
-    // while ruby-room deliberately never grows clamped rows (the 1.6.115
-    // blow-up guard), so at-rest readings would sit in the fixed inter-line
-    // leading and paint over the line above (Google snippet overlap class).
-    const clampLines = Number.parseInt(style.getPropertyValue('-webkit-line-clamp'), 10);
+    // A MULTI-line clamp keeps its readings through the IN-FLOW channel
+    // (clampRowAllowsInFlowRestRuby); the detached lane cannot open safely
+    // across internal line boundaries, so it stays rest-hidden here.
+    const clampLines = Number.parseInt(safeComputedStyle(clipRow).getPropertyValue('-webkit-line-clamp'), 10);
     if (Number.isFinite(clampLines) && clampLines > 1) return false;
     const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : '';
     return !parentDisplay.includes('flex')
         && !parentDisplay.includes('grid')
         && !parentDisplay.startsWith('table');
+}
+
+// Owner rule (2026-07-19): always insert furigana when the page layout can
+// absorb it. A MULTI-line clamp row with an auto height CAN absorb in-flow
+// ruby: -webkit-line-clamp caps the LINE COUNT, not the box height, so when
+// rt participates in layout every retained line box grows and the row grows
+// in flow with it — no geometry writes, no overlay in the inter-line leading
+// (that overlap class came from DETACHED readings, which never grow lines).
+// Deterministic safety facts keep the 1.6.115 blow-up classes excluded:
+//   - content decorations only (prose-full / content-ruby) — chrome and
+//     editable contexts keep their detached/skip channels;
+//   - wrapping clamp rows only — single-line ellipsis/nowrap rows still
+//     truncate a ruby-spread base (共有 → 共…), so they keep the detached lane;
+//   - no authored height/max-height cap on the row itself;
+//   - no fixed-height clipping shell among the near ancestors (growth would
+//     push the base below the shell's clip while rt stays visible);
+//   - flex/grid/table parents are vetoed only when they also pin geometry
+//     (definite size or their own clip) — an auto-height flex column grows
+//     with its content like any block.
+const CLAMP_ROW_SHELL_ANCESTOR_LIMIT = 6;
+
+export function clampRowAllowsInFlowRestRuby(
+    decoration: DecorationState | undefined,
+    clipRow: HTMLElement,
+): boolean {
+    if (decoration !== 'prose-full' && decoration !== 'content-ruby') return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    // Wrapping clamp rows only: nowrap/pre ellipsis rows cannot rewrap a
+    // ruby-spread base. A clamped -webkit-box that ALSO declares
+    // text-overflow still wraps, so the clamp fact dominates there.
+    if (!facts.clamped) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
+    return !clampRowHasFixedClippingShell(clipRow);
+}
+
+// Shared row-local growability facts: interactive shells never grow, and an
+// authored height/max-height cap means the author pinned the row's geometry.
+// getComputedStyle().height is a USED value — a pixel string for ANY displayed
+// element (CSSOM resolved values), so it cannot distinguish authored
+// height:auto from a fixed row and would veto every real-browser Google
+// snippet (sol review P1). Author intent is read from computed max-height
+// (stays 'none' unless authored) and the element's own inline height/max-height.
+function clipRowHasGrowableShape(clipRow: HTMLElement): boolean {
+    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow || facts.activelyTruncatedPreview) return false;
+    const style = safeComputedStyle(clipRow);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+}
+
+function clampRowHasFixedClippingShell(clipRow: HTMLElement): boolean {
+    let current = composedAncestorElement(clipRow);
+    for (let depth = 0; current && current !== document.body && depth < CLAMP_ROW_SHELL_ANCESTOR_LIMIT; depth += 1) {
+        if (ancestorPinsClampRowGrowth(current)) return true;
+        current = composedAncestorElement(current);
+    }
+    return false;
+}
+
+function ancestorPinsClampRowGrowth(ancestor: HTMLElement): boolean {
+    const style = safeComputedStyle(ancestor);
+    const definiteSize = hasDefiniteCssSize(style.maxHeight)
+        || hasDefiniteCssSize(ancestor.style.height)
+        || hasDefiniteCssSize(ancestor.style.maxHeight);
+    const clips = style.overflow === 'hidden' || style.overflow === 'clip'
+        || style.overflowY === 'hidden' || style.overflowY === 'clip';
+    if (definiteSize && clips) return true;
+    const display = style.display;
+    const trackParent = display.includes('flex') || display.includes('grid') || display.startsWith('table');
+    return trackParent && (definiteSize || clips);
 }
 
 // ---------------------------------------------------------------------------
