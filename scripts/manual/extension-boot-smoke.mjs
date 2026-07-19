@@ -19,6 +19,8 @@ const EXT_DIR = extensionDirectory(EXT_PACKAGE);
 const ART = process.env.ART_DIR || path.join(ROOT, 'artifacts', 'manual-extension-boot');
 const CONTENT_WAIT_MS = Number(process.env.CONTENT_WAIT_MS || 5_000);
 const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 25_000);
+const VIEWPORT_WIDTH = Number(process.env.SCREENSHOT_WIDTH || 1_280);
+const VIEWPORT_HEIGHT = Number(process.env.SCREENSHOT_HEIGHT || 800);
 mkdirSync(ART, { recursive: true });
 
 function extensionDirectory(source) {
@@ -49,6 +51,7 @@ await new Promise(resolve => server.listen(8977, '127.0.0.1', resolve));
 const userDataDir = mkdtempSync(path.join(tmpdir(), 'yomu-ext-probe-'));
 const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
+    viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
     // Playwright's default --disable-extensions flag can leave the service
     // worker visible while suppressing manifest content-script injection.
     ignoreDefaultArgs: ['--disable-extensions'],
