@@ -553,8 +553,7 @@
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
+    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
     { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
     // store's own deleteDatabase during reset; registered so the invariant test
@@ -932,12 +931,6 @@
   if (typeof window !== "undefined") {
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
-  }
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
   }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
@@ -2904,139 +2897,6 @@
     const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
     return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
   }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-    if (levels.length > moraCount + 1) return null;
-    for (let position = 0; position <= moraCount; position += 1) {
-      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-      if (levels.every((level, index) => expected[index] === level)) return position;
-    }
-    return null;
-  }
-  function looksLikeCompactHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(moraCount, pitchNumber) {
-    if (!moraCount || pitchNumber == null) return "";
-    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
-  function resolvedPitchComponents(card) {
-    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return [];
-    const components2 = card.pitchComponents ?? [];
-    if (components2.length < 2) return [];
-    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return [];
-    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return [];
-    const resolved = components2.map((component) => ({
-      ...component,
-      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
-    }));
-    return resolved.every((component) => PITCH_CLASSES$1.has(component.pitchClass)) ? resolved : [];
-  }
-  function pitchComponentUnderlineGradient(card) {
-    const components2 = resolvedPitchComponents(card);
-    if (!components2.length) return "";
-    const lengths = components2.map((component) => Array.from(component.spelling).length);
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    if (!total) return "";
-    let offset = 0;
-    const stops = [];
-    components2.forEach((component, index) => {
-      const start = offset / total * 100;
-      offset += lengths[index] ?? 0;
-      const end = offset / total * 100;
-      const color = `var(--jpdb-reader-pitch-${component.pitchClass})`;
-      stops.push(`${color} ${formatPercent(start)}`, `${color} ${formatPercent(end)}`);
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function compact(value) {
-    return value.replace(/\s+/g, "").trim();
-  }
-  function formatPercent(value) {
-    return `${Number(value.toFixed(3))}%`;
-  }
   const KANJI_RE$1 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
@@ -3172,10 +3032,8 @@
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
-    const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-    const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -5861,6 +5719,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function rtkElementFallbackGlyph(keyword) {
     return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
   }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   function isKanjiCharacter$1(value) {
     const code = value.codePointAt(0) ?? 0;
     return code >= 13312 && code <= 40959;
@@ -7191,79 +7050,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       y: y1 + (y2 - y1) * t
     };
   }
-  const SCALE_EPSILON = 0.05;
-  const MAX_PAGE_SCALE = 3;
-  const REDDIT_APPLE_TOUCH_ADAPTER = "reddit-apple-touch-page-scale";
-  const rememberedRectScales = /* @__PURE__ */ new WeakMap();
-  function isRedditHostname(hostname) {
-    const normalized = hostname.toLowerCase().replace(/\.$/, "");
-    return normalized === "reddit.com" || normalized.endsWith(".reddit.com");
-  }
-  function redditPageScale(environment) {
-    if (!isRedditHostname(environment.hostname) || !environment.appleTouch) return 1;
-    if (!positiveFinite(environment.innerWidth) || !positiveFinite(environment.outerWidth)) return 1;
-    const scale = environment.outerWidth / environment.innerWidth;
-    if (!Number.isFinite(scale) || scale <= 1 + SCALE_EPSILON) return 1;
-    return Math.min(scale, MAX_PAGE_SCALE);
-  }
-  function redditOverlayViewport(environment = currentEnvironment()) {
-    const pageScale = redditPageScale(environment);
-    return {
-      width: environment.innerWidth * pageScale,
-      height: environment.innerHeight * pageScale,
-      pageScale
-    };
-  }
-  function redditLayoutPointToOverlay(point, pageScale = redditOverlayViewport().pageScale) {
-    return {
-      x: point.x * pageScale,
-      y: point.y * pageScale
-    };
-  }
-  function redditSourceRectToOverlay(rect, source, pageScale = redditOverlayViewport().pageScale) {
-    const rememberedScale = rememberedRectScales.get(rect);
-    const root = compensatedRedditOverlayRoot(source);
-    const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
-    const overlayRect = scaleRect(rect, rectScale);
-    rememberedRectScales.set(overlayRect, 1);
-    return overlayRect;
-  }
-  function compensatedRedditOverlayRoot(source) {
-    const element = source instanceof Element ? source : source?.parentElement;
-    const root = element?.closest(`[data-jpdb-reader-scale-adapter="${REDDIT_APPLE_TOUCH_ADAPTER}"]`);
-    return root instanceof HTMLElement ? root : null;
-  }
-  function currentEnvironment() {
-    return {
-      hostname: location.hostname,
-      appleTouch: isAppleTouchBrowser(),
-      innerWidth: window.innerWidth,
-      innerHeight: window.innerHeight,
-      outerWidth: window.outerWidth
-    };
-  }
-  function compensatedRootRectScale(root, pageScale = redditOverlayViewport().pageScale) {
-    if (pageScale === 1) return 1;
-    const rect = root.getBoundingClientRect();
-    const ratios = [
-      dimensionRatio(rect.width, root.offsetWidth),
-      dimensionRatio(rect.height, root.offsetHeight)
-    ].filter((ratio) => ratio !== void 0);
-    if (!ratios.length) return 1;
-    const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
-    const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
-    return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
-  }
-  function dimensionRatio(rectSize, offsetSize) {
-    if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
-    return rectSize / offsetSize;
-  }
-  function scaleRect(rect, scale) {
-    return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
-  }
-  function positiveFinite(value) {
-    return typeof value === "number" && Number.isFinite(value) && value > 0;
-  }
   const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
   const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
   function installOriginGraphInteractions(root) {
@@ -7342,11 +7128,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function pointerDistance(active, event) {
-    const distance = redditLayoutPointToOverlay({
-      x: event.clientX - active.startX,
-      y: event.clientY - active.startY
-    });
-    return Math.hypot(distance.x, distance.y);
+    return Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
   }
   function refreshOriginGraphEdgesAfterLayout(wrap) {
     setOriginGraphReady(wrap, refreshOriginGraphEdges(wrap));
@@ -7366,12 +7148,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function originGraphPointerPercent(wrap, event) {
-    const rect = originGraphOverlayRect(wrap);
+    const rect = wrap.getBoundingClientRect();
     if (!rect.width || !rect.height) return { x: 50, y: 50 };
-    const pointer = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
     return {
-      x: (pointer.x - rect.left) / rect.width * 100,
-      y: (pointer.y - rect.top) / rect.height * 100
+      x: (event.clientX - rect.left) / rect.width * 100,
+      y: (event.clientY - rect.top) / rect.height * 100
     };
   }
   function clampOriginGraphNodePosition(wrap, node, x, y) {
@@ -7392,7 +7173,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     node.style.top = `${y}%`;
   }
   function refreshOriginGraphEdges(wrap) {
-    const wrapRect = originGraphOverlayRect(wrap);
+    const wrapRect = wrap.getBoundingClientRect();
     if (!wrapRect.width || !wrapRect.height) return false;
     wrap.querySelectorAll(".jpdb-reader-origin-edge-group").forEach((group) => {
       const from = originGraphNodeGeometry(wrap, group.dataset.from);
@@ -7422,18 +7203,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function measuredOriginGraphNodeRadii(wrap, node) {
-    const wrapRect = originGraphOverlayRect(wrap);
+    const wrapRect = wrap.getBoundingClientRect();
     if (!wrapRect.width || !wrapRect.height) return { rx: 0, ry: 0 };
-    const nodeRect = !node.offsetWidth || !node.offsetHeight ? originGraphOverlayRect(node) : void 0;
-    const width = node.offsetWidth || nodeRect?.width || 0;
-    const height = node.offsetHeight || nodeRect?.height || 0;
+    const width = node.offsetWidth || node.getBoundingClientRect().width;
+    const height = node.offsetHeight || node.getBoundingClientRect().height;
     return {
       rx: width > 0 ? width / 2 / wrapRect.width * 100 : 0,
       ry: height > 0 ? height / 2 / wrapRect.height * 100 : 0
     };
-  }
-  function originGraphOverlayRect(element) {
-    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
   }
   function originGraphTargetZone(value) {
     return value === "top" || value === "upper" || value === "left" || value === "right" || value === "lower" || value === "bottom" || value === "center" ? value : "auto";
@@ -9349,7 +9126,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
     let points = [];
     let strokes = [];
-    let canvasRect = doodleOverlayRect(canvas);
+    let canvasRect = canvas.getBoundingClientRect();
     let suppressNativeGestureUntil = 0;
     let activeClassRemovalTimer = 0;
     const controller = new AbortController();
@@ -9379,11 +9156,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       suppressNativeCanvasGesture(event);
     };
     const resize = () => {
-      const rect = doodleOverlayRect(stage);
+      const rect = stage.getBoundingClientRect();
       dpr = Math.max(window.devicePixelRatio || 1, 1);
       const width = Math.max(1, Math.round(rect.width * dpr));
       const height = Math.max(1, Math.round(rect.height * dpr));
-      canvasRect = doodleOverlayRect(canvas);
+      canvasRect = canvas.getBoundingClientRect();
       measureGhost();
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
@@ -9392,10 +9169,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
     const toPoint = (event) => {
-      const point = redditLayoutPointToOverlay({ x: event.clientX, y: event.clientY });
       return {
-        x: Math.max(0, Math.min(1, (point.x - canvasRect.left) / Math.max(canvasRect.width, 1))),
-        y: Math.max(0, Math.min(1, (point.y - canvasRect.top) / Math.max(canvasRect.height, 1))),
+        x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
+        y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
         pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
       };
     };
@@ -9403,7 +9179,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const measureGhost = () => {
       const svg = ghost.querySelector("svg");
       if (!svg) return;
-      const rect = redditSourceRectToOverlay(svg.getBoundingClientRect(), svg);
+      const rect = svg.getBoundingClientRect();
       const size = Math.min(rect.width, rect.height);
       if (size > 0) measuredGhostSize = size;
     };
@@ -9513,7 +9289,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       pointerType = event.pointerType;
       keepDoodleInteractionActive();
       clearSelection();
-      canvasRect = doodleOverlayRect(canvas);
+      canvasRect = canvas.getBoundingClientRect();
       points = [];
       appendPoint(toPoint(event));
       setDoodlePointerCapture(canvas, event.pointerId);
@@ -9669,9 +9445,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
     if (stage && canvas && ghost) return { stage, canvas, ghost };
     return null;
-  }
-  function doodleOverlayRect(element) {
-    return redditSourceRectToOverlay(element.getBoundingClientRect(), element);
   }
   const FEATURE_INTERVAL = 20;
   const NORMALIZED_SIZE = 256;

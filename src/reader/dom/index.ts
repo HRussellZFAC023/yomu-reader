@@ -1574,6 +1574,18 @@ function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
     return true;
 }
 
+// Long destructive sources are normally chunked for provider and paint
+// budgets. Keep the source whole when the renderer must use one mirror:
+// independently mirroring slices would replace the host overlay with only the
+// latest slice. Stable sources record one repaint attempt here, while their
+// deliberate slices suppress duplicate counting during apply.
+export function scanTargetRequiresWholeSourceMirror(target: ScanTextTarget): boolean {
+    if (target.nonDestructive || target.insideShadowDOM) return true;
+    const host = nonDestructiveScanHost(target);
+    if (scanHostRequiresSourcePreservingMirror(host)) return true;
+    return !target.suppressRepaintLoopMirror && scanHostIsRepaintLooping(host, target.text);
+}
+
 // React/Vue/Angular/Svelte tag every DOM node they render with a private expando
 // (e.g. __reactFiber$<hash>, __reactProps$<hash>, __vnode, __ngContext__) and keep
 // a live reference to the original Text node in their fiber/vnode/render tree. Our
@@ -1678,7 +1690,6 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         && !sourcePreservingFrameworkHost
         ? scanHostIsRepaintLooping(nonDestructiveHost, target.text)
         : false;
-    const canUseRepaintLoopMirror = !(target.forceInlineRender && target.suppressRepaintLoopMirror);
     // Clip-constrained rows are NOT mirror-rerouted (paint-invariant design,
     // 2026-07-10 third live gate): hiding the host and anchoring the mirror to
     // a clamped box collapsed feed titles to 0px. They render in place — the
@@ -1686,7 +1697,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     // REQUIRE the mirror (framework/shadow/nonDestructive) keep it, where the
     // mirror becomes a hover-only overlay over the still-painted host text.
     const canUseRequestedNonDestructiveMirror = target.nonDestructive && !nonDestructiveTargetShouldRenderInline(target, nonDestructiveHost);
-    if ((!target.forceInlineRender || (repaintLooping && canUseRepaintLoopMirror))
+    if ((!target.forceInlineRender || repaintLooping)
         && (canUseRequestedNonDestructiveMirror || sourcePreservingFrameworkHost || repaintLooping)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
@@ -5256,7 +5267,7 @@ function uniqueNonEmptyStrings(values: string[]): string[] {
     return [...new Set(values.map(value => value.trim()).filter(Boolean))];
 }
 
-function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
+export function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
     const safe: JPDBToken[] = [];
     let offset = 0;
     for (const token of tokens) {
@@ -5268,7 +5279,9 @@ function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
 }
 
 function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolean {
-    if (token.start < offset
+    if (!Number.isInteger(token.start)
+        || !Number.isInteger(token.end)
+        || token.start < offset
         || token.start < 0
         || token.end <= token.start
         || token.end > text.length) return false;

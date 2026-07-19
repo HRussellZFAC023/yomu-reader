@@ -5,6 +5,7 @@ import { installPreferredJapaneseSiteLanguageFromStoredSettings } from '../app/p
 import { applyMokuroReaderOcrDefault, installMokuroOcrToggleNote } from '../app/mokuro-integration';
 import { announceInstalledReaderRuntime } from '../app/runtime-presence';
 import { installUserscriptGmStorageBridgeWhenReady, installUserscriptHttpBridgeWhenReady } from './index';
+import { installPageOpenShadowRootDiscoveryBridge } from '../dom/shadow-scan-registry';
 
 // The hosted website runs the same readable bundle as a no-install fallback.
 // Signal a real userscript/extension immediately so that fallback never races
@@ -16,7 +17,10 @@ installPreferredJapaneseSiteLanguageFromStoredSettings();
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();
 installUserscriptGmStorageBridgeWhenReady();
-if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
+if (!isYomuNewTabUrl(location.href)) {
+    installPageOpenShadowRootDiscoveryBridge();
+    bootWhenDocumentIsReady();
+}
 
 function bootWhenDocumentIsReady(): void {
     if (document.readyState === 'loading') {

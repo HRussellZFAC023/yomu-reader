@@ -5,6 +5,7 @@ import {
     forEachScannedShadowRoot,
     installOpenShadowRootDiscovery,
     noteScannedShadowRoot,
+    OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
     setShadowRootScanHook,
     watchPotentialOpenShadowRootHost,
     watchUndefinedCustomElementHosts,
@@ -166,6 +167,23 @@ describe('shadow scan registry', () => {
         await vi.waitFor(() => expect(discovered).toHaveBeenCalledWith(root, 'attached'));
     });
 
+    it('accepts the page-realm bridge event from a native shadow host', () => {
+        const originalAttachShadow = Element.prototype.attachShadow;
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const host = document.createElement('div');
+        document.body.append(host);
+        const root = originalAttachShadow.call(host, { mode: 'open' });
+
+        host.dispatchEvent(new CustomEvent(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, {
+            bubbles: true,
+            composed: true,
+        }));
+
+        expect(discovered).toHaveBeenCalledWith(root, 'attached');
+    });
+
     it('keeps watching a connected lazy component after the fast hydration window', async () => {
         vi.useFakeTimers();
         const originalAttachShadow = Element.prototype.attachShadow;
@@ -173,15 +191,15 @@ describe('shadow scan registry', () => {
         setShadowRootScanHook(discovered);
         const dispose = installOpenShadowRootDiscovery();
         shadowRootDiscoveryDisposers.push(dispose);
-        const host = document.createElement('lazy-page-realm-component');
+        const host = document.createElement('div');
         document.body.append(host);
-        watchPotentialOpenShadowRootHost(host);
+        watchPotentialOpenShadowRootHost(host, true);
 
         try {
             await vi.advanceTimersByTimeAsync(10_100);
             const root = originalAttachShadow.call(host, { mode: 'open' });
             root.innerHTML = '<button>遅延表示</button>';
-            await vi.advanceTimersByTimeAsync(1_000);
+            await vi.advanceTimersByTimeAsync(2_000);
 
             expect(discovered).toHaveBeenCalledWith(root, 'attached');
         } finally {

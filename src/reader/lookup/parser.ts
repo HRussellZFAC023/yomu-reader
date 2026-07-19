@@ -10,11 +10,11 @@ import {
 } from './japanese-segments';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
-import { inferredInflectedSurfaceRubies } from '../dom';
+import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
-import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../dom/constants';
+import { HAS_JAPANESE } from '../dom/constants';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -1001,23 +1001,8 @@ function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
 }
 
 function renderableParserTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
-    const candidates = tokens
-        .filter(token => Number.isInteger(token.start)
-            && Number.isInteger(token.end)
-            && token.start >= 0
-            && token.end > token.start
-            && token.end <= text.length
-            && HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end)))
-        .sort((first, second) => first.start - second.start
-            || (second.end - second.start) - (first.end - first.start));
-    const accepted: JPDBToken[] = [];
-    let offset = 0;
-    for (const token of candidates) {
-        if (token.start < offset) continue;
-        accepted.push(token);
-        offset = token.end;
-    }
-    return accepted;
+    return nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
+        || (second.end - second.start) - (first.end - first.start)), text);
 }
 
 function cardCacheKey(vid: number, sid: number): string {

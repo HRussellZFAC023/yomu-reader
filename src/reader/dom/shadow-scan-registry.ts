@@ -14,23 +14,27 @@ let shadowRootScanHook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => 
 
 const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
 const POTENTIAL_SHADOW_HOST_FAST_POLL_LIFETIME_MS = 10_000;
-const POTENTIAL_SHADOW_HOST_IDLE_POLL_MS = 1_000;
+const POTENTIAL_SHADOW_HOST_IDLE_POLL_MS = 2_000;
+const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 60_000;
+export const OPEN_SHADOW_ROOT_DISCOVERY_EVENT = 'yomu:open-shadow-root-attached';
+const PAGE_SHADOW_DISCOVERY_KEY = '__yomuOpenShadowRootDiscoveryV1';
 
 interface PotentialShadowHost {
     ref: WeakRef<Element>;
-    fastPollUntil: number;
+    expiresAt: number;
 }
 
 const potentialShadowHosts = new Set<PotentialShadowHost>();
-const seenPotentialShadowHosts = new WeakSet<Element>();
+let seenPotentialShadowHosts = new WeakSet<Element>();
 let potentialShadowHostTimer: number | undefined;
+let potentialShadowHostFastPollUntil = 0;
 
 interface AttachShadowDiscoveryInstallation {
     prototype: typeof Element.prototype;
     originalDescriptor: PropertyDescriptor;
     wrapped: typeof Element.prototype.attachShadow;
     users: number;
-    active: boolean;
+    pageBridgeListener: EventListener;
 }
 
 let attachShadowDiscoveryInstallation: AttachShadowDiscoveryInstallation | undefined;
@@ -62,17 +66,22 @@ function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void
 // weak-reference poll: a hard expiry would miss components that attach their
 // root only after a later interaction or viewport transition. This crosses the
 // realm boundary without injecting page code or weakening CSP.
-export function watchPotentialOpenShadowRootHost(host: Element): void {
+export function watchPotentialOpenShadowRootHost(host: Element, includeNativeHost = false): void {
     if (host.shadowRoot) {
         noteShadowRoot(host.shadowRoot, 'scan');
         return;
     }
-    if (!host.localName.includes('-') || seenPotentialShadowHosts.has(host)) return;
+    if ((!includeNativeHost && !host.localName.includes('-')) || seenPotentialShadowHosts.has(host)) return;
+    const now = Date.now();
     seenPotentialShadowHosts.add(host);
     potentialShadowHosts.add({
         ref: new WeakRef(host),
-        fastPollUntil: Date.now() + POTENTIAL_SHADOW_HOST_FAST_POLL_LIFETIME_MS,
+        expiresAt: now + POTENTIAL_SHADOW_HOST_LIFETIME_MS,
     });
+    potentialShadowHostFastPollUntil = Math.max(
+        potentialShadowHostFastPollUntil,
+        now + POTENTIAL_SHADOW_HOST_FAST_POLL_LIFETIME_MS,
+    );
     schedulePotentialShadowHostPoll();
 }
 
@@ -82,7 +91,7 @@ export function watchPotentialOpenShadowRootHost(host: Element): void {
 // before the startup scan fast path was introduced.
 export function watchUndefinedCustomElementHosts(root: ParentNode = document): void {
     try {
-        root.querySelectorAll<Element>(':not(:defined)').forEach(watchPotentialOpenShadowRootHost);
+        root.querySelectorAll<Element>(':not(:defined)').forEach(host => watchPotentialOpenShadowRootHost(host));
     } catch {
         // Older engines without :defined still get mutation-time and scan-time
         // discovery plus the synchronous attachShadow fast path.
@@ -102,15 +111,24 @@ export function installOpenShadowRootDiscovery(): () => void {
         return attachShadowDiscoveryDisposer(existing);
     }
 
+    installPageOpenShadowRootDiscoveryBridge();
+    const pageBridgeListener: EventListener = event => {
+        const host = event.target;
+        const root = host instanceof Element ? host.shadowRoot : null;
+        if (root?.mode === 'open') noteShadowRoot(root, 'attached');
+    };
+    document.addEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, pageBridgeListener, true);
     const prototype = Element.prototype;
     const originalDescriptor = Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
     const original = originalDescriptor?.value;
-    if (!originalDescriptor || typeof original !== 'function') return () => undefined;
+    if (!originalDescriptor || typeof original !== 'function') {
+        return () => document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, pageBridgeListener, true);
+    }
 
     let installation: AttachShadowDiscoveryInstallation;
     const wrapped: typeof Element.prototype.attachShadow = function (this: Element, init: ShadowRootInit): ShadowRoot {
         const root = Reflect.apply(original, this, [init]) as ShadowRoot;
-        if (installation.active && root.mode === 'open') noteShadowRoot(root, 'attached');
+        if (attachShadowDiscoveryInstallation === installation && root.mode === 'open') noteShadowRoot(root, 'attached');
         return root;
     };
     installation = {
@@ -118,7 +136,7 @@ export function installOpenShadowRootDiscovery(): () => void {
         originalDescriptor,
         wrapped,
         users: 1,
-        active: true,
+        pageBridgeListener,
     };
     try {
         Object.defineProperty(prototype, 'attachShadow', {
@@ -127,11 +145,7 @@ export function installOpenShadowRootDiscovery(): () => void {
         });
     } catch {
         // A hardened host may make the method non-configurable/non-writable.
-        // Keep the cross-realm host watcher active even when the synchronous
-        // wrapper cannot be installed.
-        attachShadowDiscoveryInstallation = installation;
-        schedulePotentialShadowHostPoll();
-        return attachShadowDiscoveryDisposer(installation);
+        // The page bridge and bounded host watcher remain active.
     }
     attachShadowDiscoveryInstallation = installation;
     schedulePotentialShadowHostPoll();
@@ -145,7 +159,7 @@ function attachShadowDiscoveryDisposer(installation: AttachShadowDiscoveryInstal
         disposed = true;
         installation.users -= 1;
         if (installation.users > 0 || attachShadowDiscoveryInstallation !== installation) return;
-        installation.active = false;
+        document.removeEventListener(OPEN_SHADOW_ROOT_DISCOVERY_EVENT, installation.pageBridgeListener, true);
         // Do not clobber a wrapper installed by the host or another extension
         // after ours. Such a wrapper may still delegate to ours safely.
         if (installation.prototype.attachShadow === installation.wrapped) {
@@ -159,33 +173,33 @@ function attachShadowDiscoveryDisposer(installation: AttachShadowDiscoveryInstal
         attachShadowDiscoveryInstallation = undefined;
         window.clearTimeout(potentialShadowHostTimer);
         potentialShadowHostTimer = undefined;
-        for (const pending of potentialShadowHosts) {
-            const host = pending.ref.deref();
-            if (host) seenPotentialShadowHosts.delete(host);
-        }
+        potentialShadowHostFastPollUntil = 0;
         potentialShadowHosts.clear();
+        seenPotentialShadowHosts = new WeakSet<Element>();
     };
 }
 
 function schedulePotentialShadowHostPoll(): void {
-    if (!attachShadowDiscoveryInstallation?.active
+    if (!attachShadowDiscoveryInstallation
         || potentialShadowHostTimer !== undefined
         || !potentialShadowHosts.size) return;
-    const now = Date.now();
-    const fast = [...potentialShadowHosts].some(pending => pending.fastPollUntil > now);
     potentialShadowHostTimer = window.setTimeout(
         pollPotentialShadowHosts,
-        fast ? POTENTIAL_SHADOW_HOST_POLL_MS : POTENTIAL_SHADOW_HOST_IDLE_POLL_MS,
+        Date.now() < potentialShadowHostFastPollUntil ? POTENTIAL_SHADOW_HOST_POLL_MS : POTENTIAL_SHADOW_HOST_IDLE_POLL_MS,
     );
 }
 
 function pollPotentialShadowHosts(): void {
     potentialShadowHostTimer = undefined;
+    const now = Date.now();
     for (const pending of potentialShadowHosts) {
         const host = pending.ref.deref();
-        if (!host || !host.isConnected) {
+        if (!host || !host.isConnected || pending.expiresAt <= now) {
             potentialShadowHosts.delete(pending);
-            if (host) seenPotentialShadowHosts.delete(host);
+            // Disconnected hosts may be reinserted and need a fresh window.
+            // A connected no-root host that exhausted its bounded fallback is
+            // left seen; the page-realm bridge covers any later attachment.
+            if (host && !host.isConnected) seenPotentialShadowHosts.delete(host);
             continue;
         }
         if (!host.shadowRoot) continue;
@@ -195,6 +209,64 @@ function pollPotentialShadowHosts(): void {
     }
     schedulePotentialShadowHostPoll();
 }
+
+// Install at document-start so page-realm calls are observable even when the
+// userscript runs in an isolated world. The attached host dispatches a shared
+// DOM event; the content-world listener can then read its open shadowRoot.
+export function installPageOpenShadowRootDiscoveryBridge(): void {
+    const pageWindow = (globalThis as { unsafeWindow?: PageShadowWindow }).unsafeWindow;
+    if (pageWindow) {
+        try {
+            pageOpenShadowRootDiscoveryBootstrap(
+                pageWindow,
+                OPEN_SHADOW_ROOT_DISCOVERY_EVENT,
+                PAGE_SHADOW_DISCOVERY_KEY,
+            );
+            return;
+        } catch {
+            // Fall through to a shared-DOM page-realm script.
+        }
+    }
+    const parent = document.head || document.documentElement;
+    if (!parent) return;
+    try {
+        const script = document.createElement('script');
+        const nonce = document.querySelector('script[nonce]')?.getAttribute('nonce');
+        if (nonce) script.setAttribute('nonce', nonce);
+        script.textContent = `;(${pageOpenShadowRootDiscoveryBootstrap.toString()})(window,${JSON.stringify(OPEN_SHADOW_ROOT_DISCOVERY_EVENT)},${JSON.stringify(PAGE_SHADOW_DISCOVERY_KEY)});`;
+        parent.append(script);
+        script.remove();
+    } catch {
+        // The content-world wrapper plus bounded candidate polling remain.
+    }
+}
+
+function pageOpenShadowRootDiscoveryBootstrap(
+    pageWindow: PageShadowWindow,
+    eventName: string,
+    stateKey: string,
+): void {
+    const state = pageWindow as unknown as Record<string, unknown>;
+    if (state[stateKey]) return;
+    const prototype = pageWindow.Element?.prototype;
+    const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
+    const original = descriptor?.value;
+    if (!prototype || !descriptor || typeof original !== 'function') return;
+    const wrapped = function (this: Element, init: ShadowRootInit): ShadowRoot {
+        const root = Reflect.apply(original, this, [init]) as ShadowRoot;
+        if (root.mode === 'open') {
+            this.dispatchEvent(new pageWindow.Event(eventName, { bubbles: true, composed: true }));
+        }
+        return root;
+    };
+    Object.defineProperty(prototype, 'attachShadow', { ...descriptor, value: wrapped });
+    state[stateKey] = true;
+}
+
+type PageShadowWindow = Window & {
+    Element: typeof Element;
+    Event: typeof Event;
+};
 
 // The app installs one hook (observe the root with the auto-scan observer).
 // Roots discovered before the hook was installed are replayed so boot-order

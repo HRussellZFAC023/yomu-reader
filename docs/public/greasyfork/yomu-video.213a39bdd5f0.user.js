@@ -845,8 +845,7 @@
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
     { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
+    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v1" },
     { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
     // store's own deleteDatabase during reset; registered so the invariant test
@@ -1858,139 +1857,6 @@
     const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
     return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
   }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized,
-      className: pitchClassNameFromProfile(morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-    if (levels.length > moraCount + 1) return null;
-    for (let position = 0; position <= moraCount; position += 1) {
-      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-      if (levels.every((level, index) => expected[index] === level)) return position;
-    }
-    return null;
-  }
-  function looksLikeCompactHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(moraCount, pitchNumber) {
-    if (!moraCount || pitchNumber == null) return "";
-    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
-      normalized.push(levels[index]);
-    }
-    return normalized.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
-  function resolvedPitchComponents(card) {
-    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return [];
-    const components = card.pitchComponents ?? [];
-    if (components.length < 2) return [];
-    if (compact(components.map((component) => component.spelling).join("")) !== compact(card.spelling)) return [];
-    if (card.reading && compact(components.map((component) => component.reading).join("")) !== compact(card.reading)) return [];
-    const resolved = components.map((component) => ({
-      ...component,
-      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
-    }));
-    return resolved.every((component) => PITCH_CLASSES$1.has(component.pitchClass)) ? resolved : [];
-  }
-  function pitchComponentUnderlineGradient(card) {
-    const components = resolvedPitchComponents(card);
-    if (!components.length) return "";
-    const lengths = components.map((component) => Array.from(component.spelling).length);
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    if (!total) return "";
-    let offset = 0;
-    const stops = [];
-    components.forEach((component, index) => {
-      const start = offset / total * 100;
-      offset += lengths[index] ?? 0;
-      const end = offset / total * 100;
-      const color = `var(--jpdb-reader-pitch-${component.pitchClass})`;
-      stops.push(`${color} ${formatPercent(start)}`, `${color} ${formatPercent(end)}`);
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function compact(value) {
-    return value.replace(/\s+/g, "").trim();
-  }
-  function formatPercent(value) {
-    return `${Number(value.toFixed(3))}%`;
-  }
   const KANJI_RE = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
@@ -2126,10 +1992,8 @@
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
     const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
-    const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-    const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -2993,8 +2857,8 @@
     return /^[、。，．！？!?…・]+$/u.test(text.trim());
   }
   function isShortYouTubeContinuationFragment(text) {
-    const compact2 = compactCaptionText(text);
-    return compact2.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact2);
+    const compact = compactCaptionText(text);
+    return compact.length <= 3 && /^[っッゃゅょぁぃぅぇぉャュョァィゥェォー〜、。，．！？!?…・んン]+$/u.test(compact);
   }
   function hasYouTubeCaptionTextOverlap(left, right) {
     return youtubeCaptionTextOverlapLength(left, right) >= Math.min(6, compactCaptionText(right).length);
@@ -10089,11 +9953,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function authoritativeSubtitleParseOptions() {
     return {
       requireJpdb: true,
-      // JPDB identity remains authoritative, but its token boundaries are
-      // not infallible (訪れた has been returned as the surname 訪). Let the
-      // deterministic segmenter repair partial inflected spans before the
-      // subtitle HTML is cached; this does not relax the required API tier.
-      allowSegmentedFallback: true,
       includeLocalPitch: true
     };
   }
@@ -12793,7 +12652,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // in the DOM. Consumed by the mining-pause path so it pauses the exact
     // player the overlay is tracking instead of a document-wide largest-video
     // heuristic (which mis-fires with ads/previews/miniplayers).
-    // fallow-ignore-next-line unused-class-member
     getBoundVideo() {
       return this.video && this.video.isConnected ? this.video : void 0;
     }
@@ -17992,10 +17850,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { decisions, filteredCount, shownCount, visibleVideoIds };
   }
   function isProbablyJapaneseYouTubeText(text) {
-    const compact2 = normalizeYouTubeTitleForLanguageCheck(text);
-    if (JAPANESE_LEARNING_INTENT_RE.test(compact2)) return true;
-    if (!HAS_JAPANESE.test(compact2)) return false;
-    return HIRAGANA_RE.test(compact2) || KATAKANA_RE.test(compact2) || HAN_RE.test(compact2);
+    const compact = normalizeYouTubeTitleForLanguageCheck(text);
+    if (JAPANESE_LEARNING_INTENT_RE.test(compact)) return true;
+    if (!HAS_JAPANESE.test(compact)) return false;
+    return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
   }
   function classifyYouTubeFilterCandidate(candidate, options) {
     for (const rule of YOUTUBE_FILTER_DECISION_RULES) {

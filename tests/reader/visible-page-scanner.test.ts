@@ -130,6 +130,32 @@ describe('VisiblePageScanner', () => {
         }
     }, 15_000);
 
+    it('reaches the tail of a broad mirrored root across a manual continuation chain', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `<main id="feed">${Array.from(
+            { length: 460 },
+            (_, index) => `<p id="feed-${index}">日本語の文${index}</p>`,
+        ).join('')}</main>`;
+        const feed = document.getElementById('feed')!;
+        Object.defineProperty(feed, '__reactFiber$coverage', { configurable: true, value: {} });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+            testToken(text, text, 0, text.length),
+        ]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            await scanner.scanVisiblePage({ silent: false });
+            await vi.waitFor(() => {
+                expect(document.querySelector('#feed-459 .jpdb-reader-text-mirror')).not.toBeNull();
+            }, { timeout: 15_000 });
+            expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain('日本語の文459');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    }, 20_000);
+
     it('refreshes page-word contrast before yielding between apply chunks', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 50 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
@@ -1695,6 +1721,31 @@ describe('VisiblePageScanner', () => {
                 .toEqual(parsedTokenIds.sort());
             expect(document.querySelector('p .jpdb-reader-text-mirror'), 'chunk slices must not impersonate a repaint loop').toBeNull();
             expect(document.querySelector('p')?.textContent).toBe(longText);
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('switches a repeatedly reverted long source to one complete mirror', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const longText = Array.from({ length: 180 }, () => '日本語の説明を確認します。').join('');
+        document.body.innerHTML = `<main><p>${longText}</p></main>`;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const scanner = createVisiblePageScanner({ parseJapanese });
+        const paragraph = document.querySelector('p')!;
+
+        try {
+            for (let attempt = 0; attempt < 5 && !paragraph.querySelector('.jpdb-reader-text-mirror'); attempt += 1) {
+                paragraph.textContent = longText;
+                await scanner.scanVisiblePage({ silent: true });
+            }
+
+            const mirror = paragraph.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+            expect(mirror, 'the full source must graduate to the repaint-loop mirror').not.toBeNull();
+            expect(mirror?.textContent).toBe(longText);
+            expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain(longText);
         } finally {
             scanner.destroy();
             restoreRects();

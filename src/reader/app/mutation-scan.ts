@@ -148,19 +148,29 @@ function nodeTextMayContainJapanese(node: Node): boolean {
 }
 
 function nodeTreeTextMayContainJapanese(root: Node): boolean {
-    const budget: MutationTextScanBudget = {
-        inspectedLength: 0,
-        inspectedTextNodes: 0,
-        inspectedElements: 0,
-    };
+    let inspectedLength = 0;
+    let inspectedTextNodes = 0;
+    let inspectedElements = 0;
     const pendingRoots: Node[] = [root];
-    const seenRoots = new Set<Node>();
     while (pendingRoots.length) {
         const branch = pendingRoots.shift()!;
-        if (seenRoots.has(branch)) continue;
-        seenRoots.add(branch);
         enqueueOpenShadowRoot(branch, pendingRoots);
-        if (scanMutationBranch(branch, pendingRoots, budget)) return true;
+        const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                inspectedElements += 1;
+                enqueueOpenShadowRoot(node, pendingRoots);
+            } else {
+                const text = node.textContent ?? '';
+                inspectedTextNodes += 1;
+                inspectedLength += text.length;
+                if (HAS_JAPANESE.test(text)) return true;
+            }
+            if (inspectedLength >= MUTATION_TEXT_SCAN_LIMIT
+                || inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT
+                || inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT) return true;
+        }
     }
     // Reaching the sampling budget is not evidence that the remaining subtree
     // is English-only. Treat an exhausted sample as a potential match so the
@@ -170,55 +180,15 @@ function nodeTreeTextMayContainJapanese(root: Node): boolean {
     return false;
 }
 
-interface MutationTextScanBudget {
-    inspectedLength: number;
-    inspectedTextNodes: number;
-    inspectedElements: number;
-}
-
-function scanMutationBranch(
-    branch: Node,
-    pendingRoots: Node[],
-    budget: MutationTextScanBudget,
-): boolean {
-    const walker = document.createTreeWalker(branch, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-        if (mutationScanNodeMayMatch(node, pendingRoots, budget)) return true;
-    }
-    return false;
-}
-
-function mutationScanNodeMayMatch(
-    node: Node,
-    pendingRoots: Node[],
-    budget: MutationTextScanBudget,
-): boolean {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-        budget.inspectedElements += 1;
-        enqueueOpenShadowRoot(node, pendingRoots);
-    } else {
-        const text = node.textContent ?? '';
-        budget.inspectedTextNodes += 1;
-        budget.inspectedLength += text.length;
-        if (HAS_JAPANESE.test(text)) return true;
-    }
-    return mutationTextScanBudgetExhausted(budget);
-}
-
 function enqueueOpenShadowRoot(node: Node, pendingRoots: Node[]): void {
     if (!(node instanceof HTMLElement)) return;
-    watchPotentialOpenShadowRootHost(node);
+    // Newly inserted native hosts can attach a page-realm shadow root later,
+    // just like custom elements. Poll them during the bounded bridge fallback.
+    watchPotentialOpenShadowRootHost(node, true);
     const shadowRoot = node.shadowRoot;
     if (!shadowRoot) return;
     noteScannedShadowRoot(shadowRoot);
     pendingRoots.push(shadowRoot);
-}
-
-function mutationTextScanBudgetExhausted(budget: MutationTextScanBudget): boolean {
-    return budget.inspectedLength >= MUTATION_TEXT_SCAN_LIMIT
-        || budget.inspectedTextNodes >= MUTATION_TEXT_NODE_SCAN_LIMIT
-        || budget.inspectedElements >= MUTATION_ELEMENT_SCAN_LIMIT;
 }
 
 export function mutationMayAffectJpdbPageEnhancements(mutation: MutationRecord): boolean {

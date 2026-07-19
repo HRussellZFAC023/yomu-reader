@@ -50,6 +50,8 @@ interface GenericProseCollection {
     targets: FragmentTextTarget[];
     seen: Set<Text>;
     limit: number;
+    skipMirroredHosts?: boolean;
+    candidateHeadroom?: number;
 }
 
 interface FragmentTargetAdmissionOptions {
@@ -1140,6 +1142,10 @@ export interface SiteScanOptions {
     // Silent auto-scans set this so hosts whose text mirror already renders
     // the same text are skipped at collection time instead of re-parsed.
     skipMirroredHosts?: boolean;
+    // Each capped continuation can have another budget-width of already
+    // mirrored text ahead of its tail. Candidate headroom grows with the
+    // bounded continuation depth so a single broad root still advances.
+    mirroredHeadTargetCount?: number;
     // Continuation scans can exclude exact already-attempted, still-unmirrored
     // targets without letting them consume the collection cap again. The count
     // supplies bounded admission headroom; the predicate preserves correctness
@@ -1187,6 +1193,7 @@ interface SiteScanContext {
     targets: FragmentTextTarget[];
     seen: Set<Text>;
     skipMirroredHosts: boolean;
+    mirroredHeadTargetCount: number;
     // Per-pass selector→elements cache: profiles share many root selectors
     // (the YouTube chrome roots ride in two profiles), so each distinct
     // selector hits the DOM once per collection pass.
@@ -1199,6 +1206,7 @@ function createSiteScanContext(profiles: SiteParserProfile[], limit: number, opt
         targets: [],
         seen: new Set(),
         skipMirroredHosts: Boolean(options.skipMirroredHosts),
+        mirroredHeadTargetCount: Math.max(0, options.mirroredHeadTargetCount ?? 0),
         rootQueryCache: new Map(),
     };
 }
@@ -1485,7 +1493,7 @@ function siteScanRemaining(context: SiteScanContext): number {
 function mirrorSkipAwareCandidateLimit(context: SiteScanContext): number {
     const remaining = siteScanRemaining(context);
     if (!context.skipMirroredHosts) return remaining;
-    return remaining * 2 + 24;
+    return remaining + context.mirroredHeadTargetCount + 24;
 }
 
 function siteScanHasRoom(context: SiteScanContext): boolean {
@@ -1594,7 +1602,7 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
             : baseTargets;
     }
     yield;
-    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
+    const profileUiChromeTargets = collectProfileSafeUiChromeTargets(profilePhaseLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles, options);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
         // Profile roots are curated, not exhaustive: any visible Japanese they
         // miss (e.g. a metadata row the selectors never named) still gets a
@@ -1618,11 +1626,13 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
     const genericTargets = collectGenericProseTargets(
         genericPhaseRemaining - uiChromeReserve,
         [...baseTargets, ...profileUiChromeTargets],
+        options,
     );
     yield;
     const uiChromeTargets = collectSafeUiChromeTargets(
         genericPhaseRemaining - genericTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets],
+        options,
     );
     yield;
     // A page with little or no chrome should not leave the reserved slice
@@ -1631,6 +1641,7 @@ function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOpt
     const supplementalGenericTargets = collectGenericProseTargets(
         genericPhaseRemaining - genericTargets.length - uiChromeTargets.length,
         [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets],
+        options,
     );
     const collectedTargets = [
         ...baseTargets,
@@ -1714,7 +1725,7 @@ function collectResidualVisibleJapaneseTargets(
         seen: seenTextNodes(existingTargets),
         limit,
     };
-    const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+    const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length, options);
     const nonDestructiveProfile = profiles.some(profile => profile.nonDestructive);
     const collected = scanScopeRoots().flatMap(root => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
@@ -1754,9 +1765,10 @@ function collectResidualVisibleJapaneseTargets(
     return collection.targets;
 }
 
-function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCount: number): number {
+function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCount: number, options: SiteScanOptions): number {
     if (!Number.isFinite(limit)) return limit;
-    return Math.max(limit, existingTargetCount + limit + 24);
+    const mirroredHead = options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0;
+    return Math.max(limit, existingTargetCount + mirroredHead + limit + 24);
 }
 
 function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): string {
@@ -1814,9 +1826,13 @@ function collectWholePageScanTargets(limit: number): FragmentTextTarget[] {
     return targets.map(target => ({ ...target, parserId: target.parserId ?? 'whole-page-parser' }));
 }
 
-function collectGenericProseTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
+function collectGenericProseTargets(
+    limit: number,
+    existingTargets: ScanTextTarget[] = [],
+    options: SiteScanOptions = {},
+): FragmentTextTarget[] {
     const roots = genericProseRoots();
-    const collection: GenericProseCollection = { targets: [], seen: seenTextNodes(existingTargets), limit };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
     for (const root of roots) {
         collectGenericProseTargetsFromRoot(root, collection);
@@ -1824,6 +1840,20 @@ function collectGenericProseTargets(limit: number, existingTargets: ScanTextTarg
     }
 
     return collection.targets;
+}
+
+function createGenericProseCollection(
+    limit: number,
+    existingTargets: ScanTextTarget[],
+    options: SiteScanOptions,
+): GenericProseCollection {
+    return {
+        targets: [],
+        seen: seenTextNodes(existingTargets),
+        limit,
+        skipMirroredHosts: options.skipMirroredHosts,
+        candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0),
+    };
 }
 
 function seenTextNodes(targets: ScanTextTarget[]): Set<Text> {
@@ -1838,13 +1868,10 @@ function collectProfileSafeUiChromeTargets(
     existingTargets: ScanTextTarget[] = [],
     enabled = true,
     profiles: SiteParserProfile[] = [],
+    options: SiteScanOptions = {},
 ): FragmentTextTarget[] {
     if (!enabled || limit <= 0) return [];
-    const collection: GenericProseCollection = {
-        targets: [],
-        seen: seenTextNodes(existingTargets),
-        limit,
-    };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
     const extraExclude = profiles.map(p => p.exclude).filter(Boolean).join(',');
 
@@ -1857,13 +1884,13 @@ function collectProfileSafeUiChromeTargets(
     return collection.targets;
 }
 
-function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarget[] = []): FragmentTextTarget[] {
+function collectSafeUiChromeTargets(
+    limit: number,
+    existingTargets: ScanTextTarget[] = [],
+    options: SiteScanOptions = {},
+): FragmentTextTarget[] {
     if (limit <= 0) return [];
-    const collection: GenericProseCollection = {
-        targets: [],
-        seen: seenTextNodes(existingTargets),
-        limit,
-    };
+    const collection = createGenericProseCollection(limit, existingTargets, options);
 
     collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
@@ -1980,8 +2007,9 @@ function collectPassiveChromeTargetsFromRoot(
     nonDestructive: boolean,
     options: Parameters<typeof collectFragmentTextTargetsIn>[4],
 ): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
+    const collected = collectFragmentTextTargetsIn(root, genericProseCandidateLimit(collection), true, exclude, options);
     for (const target of collected) {
+        if (genericProseTargetAlreadyMirrored(collection, target)) continue;
         appendGenericProseTarget(collection.targets, collection.seen, {
             ...target,
             parserId,
@@ -1998,8 +2026,9 @@ function genericProseRoots(): HTMLElement[] {
 }
 
 function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: GenericProseCollection): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
+    const collected = collectFragmentTextTargetsIn(root, genericProseCandidateLimit(collection), true, GENERIC_PROSE_EXCLUDE, { minLength: 2 });
     for (const target of collected) {
+        if (genericProseTargetAlreadyMirrored(collection, target)) continue;
         appendGenericProseTarget(collection.targets, collection.seen, target);
         if (genericProseCollectionFull(collection)) break;
     }
@@ -2007,6 +2036,16 @@ function collectGenericProseTargetsFromRoot(root: HTMLElement, collection: Gener
 
 function genericProseRemaining(collection: GenericProseCollection): number {
     return Math.max(0, collection.limit - collection.targets.length);
+}
+
+function genericProseCandidateLimit(collection: GenericProseCollection): number {
+    const remaining = genericProseRemaining(collection);
+    if (!collection.skipMirroredHosts) return remaining;
+    return remaining + (collection.candidateHeadroom ?? 0) + 24;
+}
+
+function genericProseTargetAlreadyMirrored(collection: GenericProseCollection, target: FragmentTextTarget): boolean {
+    return Boolean(collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text));
 }
 
 function genericProseCollectionFull(collection: GenericProseCollection): boolean {

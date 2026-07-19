@@ -322,9 +322,18 @@ describe('visible scan continuation after a capped collection (class E)', () => 
     // explicit continuation bound above has already stopped the loop.
     }, 15_000);
 
-    it('bounds non-silent continuations for re-walkable YouTube-style targets', async () => {
+    it('advances non-silent continuations past the mirrored head', async () => {
         vi.resetModules();
-        const collectScanTargets = vi.fn(function* (limit: number) { yield; return makeTargets(limit, { singlePassScan: false }); });
+        const targets = makeTargets(250, { singlePassScan: false });
+        const collectScanTargets = vi.fn(function* (
+            limit: number,
+            _href: string,
+            options: { skipMirroredHosts?: boolean } = {},
+        ) {
+            yield;
+            const start = options.skipMirroredHosts ? 200 : 0;
+            return targets.slice(start, start + limit);
+        });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
             ...(await importOriginal<Record<string, unknown>>()),
             collectScanTargetsInSteps: collectScanTargets,
@@ -349,9 +358,10 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         } as any);
 
         await scanner.scanVisiblePage({ silent: false });
-        for (let i = 0; i < 40; i += 1) await new Promise(resolve => setTimeout(resolve, 5));
-        expect(collectScanTargets.mock.calls.length).toBeGreaterThan(1);
-        expect(collectScanTargets.mock.calls.length).toBeLessThanOrEqual(12);
+        await vi.waitFor(() => expect(collectScanTargets).toHaveBeenCalledTimes(2), { timeout: 5_000 });
+        expect(collectScanTargets.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: false }));
+        expect(collectScanTargets.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: true }));
+        expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(250);
         scanner.destroy();
     }, 15_000);
 });

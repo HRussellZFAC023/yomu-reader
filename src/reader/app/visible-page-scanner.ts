@@ -5,6 +5,7 @@ import {
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
     removeStaleControlTextMirrors,
+    scanTargetRequiresWholeSourceMirror,
     withMirrorTokenApply,
     type FragmentTextTarget,
     type ScanTextTarget,
@@ -359,8 +360,13 @@ export class VisiblePageScanner {
         generation: number,
         silent: boolean,
     ): ScanTextTarget[] | Promise<ScanTextTarget[] | undefined> {
+        const skipMirroredHosts = silent || this.continuationScans > 0;
         const steps = collectScanTargetsInSteps(limit, window.location.href, {
-            skipMirroredHosts: silent,
+            // A manual first pass must refresh already-rendered words, but any
+            // budget continuation has to advance past the mirrors that pass
+            // just painted or it recollects the same capped head forever.
+            skipMirroredHosts,
+            mirroredHeadTargetCount: skipMirroredHosts ? Math.max(1, this.continuationScans) * limit : 0,
             skipTargetCount: this.continuationFailedTargetKeys.size,
             skipTarget: target => this.continuationFailedTargetKeys.has(this.continuationTargetKey(target)),
         });
@@ -757,6 +763,7 @@ function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): 
     if (target.nonDestructive) return [target];
     const chunkSize = visibleScanTargetTextChunkSize(settings);
     if (target.text.length <= chunkSize) return [target];
+    if (scanTargetRequiresWholeSourceMirror(target)) return [target];
     const chunks = isFragmentTextTarget(target)
         ? chunkLongFragmentTarget(target, chunkSize)
         : chunkLongTextTarget(target, chunkSize);
