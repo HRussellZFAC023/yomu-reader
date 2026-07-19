@@ -10,6 +10,7 @@ import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
+import { yomuKanjiStudyCompanion } from '../companions/registry';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { alignedExpressionComponentPitches, cardPronunciationReading, headwordComponentPitchSegments, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
@@ -266,7 +267,7 @@ export class CardPopoverRenderer {
     }
 
     private renderActions(view: CardPopoverRenderView): string {
-        const hasMiningPanel = Boolean(view.miningActions);
+        const hasMiningPanel = Boolean(view.miningActions) && canExpandMiningDrawer();
         const miningPanel = hasMiningPanel ? this.renderMiningPanel(view) : '';
         const hasReviewTargetGutter = reviewButtonsIncludeTargetGutter(view.reviewButtons);
         const hasDrawer = hasMiningPanel || hasReviewTargetGutter;
@@ -843,6 +844,13 @@ function expressionComponentRubyToken(text: string, reading: string, pitchClass:
 function renderProviderToggle(nextProvider: ApiSrsProviderView, language: InterfaceLanguage, content = ''): string {
     const label = `${uiText(language, 'switchGradingProvider')} (${nextProvider.label})`;
     return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">⇄ ${content}</button>`;
+}
+
+// The drawer's expand/collapse behaviour ships in the kanji-study companion;
+// without it the collapsed handle is a dead pill that can never reveal any
+// mining option, so the drawer only renders when it can actually open.
+function canExpandMiningDrawer(): boolean {
+    return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
 }
 
 function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {

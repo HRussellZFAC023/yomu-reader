@@ -399,6 +399,7 @@ import {
 } from './main-lookup-helpers';
 
 const log = Logger.scope('ReaderApp');
+type KanjiStudyCompanionSlot = NonNullable<ReturnType<typeof yomuKanjiStudyCompanion>>;
 type ReaderLifecycleSurface = {
     init: () => void;
     refresh: () => void;
@@ -679,14 +680,54 @@ export class ReaderApp {
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
-    private kanjiCompanion = yomuKanjiStudyCompanion();
-    private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
+    // The kanji-study companion can register after this app constructs (hosted
+    // pages append companion scripts around the core script, so load order is
+    // not guaranteed). Every companion-backed collaborator therefore resolves
+    // lazily at use time instead of being captured once at construction — a
+    // late companion previously left Immersion Kit examples loading forever
+    // and the mining drawer handle inert.
+    private get kanjiCompanion(): ReturnType<typeof yomuKanjiStudyCompanion> {
+        return yomuKanjiStudyCompanion();
+    }
+    private jpdbKanjiInstance: InstanceType<KanjiStudyCompanionSlot['JpdbKanjiClient']> | null = null;
+    private get jpdbKanji(): InstanceType<KanjiStudyCompanionSlot['JpdbKanjiClient']> | null {
+        const companion = this.kanjiCompanion;
+        if (!this.jpdbKanjiInstance && companion) this.jpdbKanjiInstance = new companion.JpdbKanjiClient(() => this.settings.corsProxyUrl);
+        return this.jpdbKanjiInstance;
+    }
+    private set jpdbKanji(value: InstanceType<KanjiStudyCompanionSlot['JpdbKanjiClient']> | null) {
+        this.jpdbKanjiInstance = value;
+    }
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
-    private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
-    private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
-    private immersionKit = this.kanjiCompanion ? new this.kanjiCompanion.ImmersionKitClient() : null;
+    private kanjiVGInstance: InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null = null;
+    private get kanjiVG(): InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null {
+        const companion = this.kanjiCompanion;
+        if (!this.kanjiVGInstance && companion) this.kanjiVGInstance = new companion.KanjiVGClient();
+        return this.kanjiVGInstance;
+    }
+    private set kanjiVG(value: InstanceType<KanjiStudyCompanionSlot['KanjiVGClient']> | null) {
+        this.kanjiVGInstance = value;
+    }
+    private kanjiOriginInstance: InstanceType<KanjiStudyCompanionSlot['KanjiOriginClient']> | null = null;
+    private get kanjiOrigin(): InstanceType<KanjiStudyCompanionSlot['KanjiOriginClient']> | null {
+        const companion = this.kanjiCompanion;
+        if (!this.kanjiOriginInstance && companion) this.kanjiOriginInstance = new companion.KanjiOriginClient();
+        return this.kanjiOriginInstance;
+    }
+    private set kanjiOrigin(value: InstanceType<KanjiStudyCompanionSlot['KanjiOriginClient']> | null) {
+        this.kanjiOriginInstance = value;
+    }
+    private immersionKitInstance: InstanceType<KanjiStudyCompanionSlot['ImmersionKitClient']> | null = null;
+    private get immersionKit(): InstanceType<KanjiStudyCompanionSlot['ImmersionKitClient']> | null {
+        const companion = this.kanjiCompanion;
+        if (!this.immersionKitInstance && companion) this.immersionKitInstance = new companion.ImmersionKitClient();
+        return this.immersionKitInstance;
+    }
+    private set immersionKit(value: InstanceType<KanjiStudyCompanionSlot['ImmersionKitClient']> | null) {
+        this.immersionKitInstance = value;
+    }
     private audio = new AudioPlayer(() => this.settings);
     private anki = new AnkiConnectClient(() => this.settings);
     private bunproCompanion = yomuBunproCompanion();
@@ -698,7 +739,15 @@ export class ReaderApp {
     private bunproSrs = this.bunproCompanion && this.bunpro ? this.bunproCompanion.createBunproSrsAdapter(this.bunpro) : null;
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
-    private rtk = this.kanjiCompanion ? new this.kanjiCompanion.RtkClient() : null;
+    private rtkInstance: InstanceType<KanjiStudyCompanionSlot['RtkClient']> | null = null;
+    private get rtk(): InstanceType<KanjiStudyCompanionSlot['RtkClient']> | null {
+        const companion = this.kanjiCompanion;
+        if (!this.rtkInstance && companion) this.rtkInstance = new companion.RtkClient();
+        return this.rtkInstance;
+    }
+    private set rtk(value: InstanceType<KanjiStudyCompanionSlot['RtkClient']> | null) {
+        this.rtkInstance = value;
+    }
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
@@ -788,19 +837,30 @@ export class ReaderApp {
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
     });
-    private immersionPopover = this.kanjiCompanion && this.immersionKit ? new this.kanjiCompanion.ImmersionPopoverController({
-        getSettings: () => this.settings,
-        client: this.immersionKit,
-        audio: this.audio,
-        parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
-        canParseJapanese: () => this.canParseJapanese(),
-        parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
-        enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
-        enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
-        repositionPopover: () => this.repositionActivePopover(),
-        setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
-        toast: message => this.toast(message),
-    }) : null;
+    private immersionPopoverInstance: InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null = null;
+    private get immersionPopover(): InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null {
+        const companion = this.kanjiCompanion;
+        const immersionKit = this.immersionKit;
+        if (!this.immersionPopoverInstance && companion && immersionKit) {
+            this.immersionPopoverInstance = new companion.ImmersionPopoverController({
+                getSettings: () => this.settings,
+                client: immersionKit,
+                audio: this.audio,
+                parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
+                canParseJapanese: () => this.canParseJapanese(),
+                parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
+                enrichPitchWords: tokens => this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions()),
+                enrichAnkiWords: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots ?? [document]),
+                repositionPopover: () => this.repositionActivePopover(),
+                setImmersionTranslationBlurred: this.setImmersionTranslationBlurred,
+                toast: message => this.toast(message),
+            });
+        }
+        return this.immersionPopoverInstance;
+    }
+    private set immersionPopover(value: InstanceType<KanjiStudyCompanionSlot['ImmersionPopoverController']> | null) {
+        this.immersionPopoverInstance = value;
+    }
     private audioActions = new ReaderAudioActions({
         audio: this.audio,
         getSettings: () => this.settings,

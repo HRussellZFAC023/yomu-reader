@@ -38,6 +38,8 @@ const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion
 const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID = 'yomu-hosted-ocr-manga-companion';
 const YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID = 'yomu-hosted-ui-copy-companion';
+const YOMU_HOSTED_KANJI_STUDY_COMPANION_SCRIPT_ID = 'yomu-hosted-kanji-study-companion';
+const YOMU_HOSTED_ANKI_COMPANION_SCRIPT_ID = 'yomu-hosted-anki-companion';
 const HOSTED_RUNTIME_VERSION = pkg.version;
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
@@ -4621,8 +4623,12 @@ function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean {
     return location.pathname.includes('/video-player/') || Boolean(document.querySelector('[data-yomu-video-frame]'));
 }
 
+// Companion registration is read lazily by the reader, so appending the full
+// companion set after the core script keeps docs first paint lean while still
+// giving the demo popup its settings dialog, Immersion Kit examples, mining
+// drawer, and Anki sections.
 function appendHostedSettingsCompanionAfterCoreLoad(script: HTMLScriptElement, forceLocalRuntime: boolean): void {
-    const append = () => appendHostedSettingsCompanionScript(forceLocalRuntime);
+    const append = () => appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedScriptReady(script)) {
         append();
         return;
@@ -4656,6 +4662,20 @@ function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: 
         {
             id: YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID,
             src: hostedRuntimeAssetSrc('/greasyfork/yomu-ui-copy.user.js', forceLocalRuntime),
+        },
+        // The kanji-study companion carries the Immersion Kit example client,
+        // its popup controller, and the mining drawer helpers; the anki
+        // companion carries the popup Anki sections. Without them the hosted
+        // demo popup shows "Loading examples..." forever and a mining drawer
+        // handle that can never open (the video-player and PDF pages already
+        // load both — this list is the homepage/docs demo).
+        {
+            id: YOMU_HOSTED_KANJI_STUDY_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/greasyfork/yomu-kanji-study.user.js', forceLocalRuntime),
+        },
+        {
+            id: YOMU_HOSTED_ANKI_COMPANION_SCRIPT_ID,
+            src: hostedRuntimeAssetSrc('/greasyfork/yomu-anki.user.js', forceLocalRuntime),
         },
     ];
 }
