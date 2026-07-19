@@ -924,6 +924,15 @@
   function pageCompartmentDescriptor(descriptor, _target) {
     return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
   }
+  function pageCompartmentDescriptorOrNull(descriptor) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto || typeof window === "undefined") return descriptor;
+    try {
+      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return null;
+    }
+  }
   function pageCompartmentValue(value, options = {}) {
     const cloneInto = readMethod(globalThis, "cloneInto");
     if (!cloneInto || typeof window === "undefined") return value;
@@ -14985,7 +14994,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -24654,7 +24662,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return readBunproFrontendTokenFromCookieHeader(options.cookieHeader?.() ?? safeDocumentCookie());
   }
   function readBunproFrontendTokenFromCookieHeader(cookieHeader) {
-    const token = cookieValue(cookieHeader, BUNPRO_FRONTEND_API_TOKEN_COOKIE);
+    const token = cookieValue$1(cookieHeader, BUNPRO_FRONTEND_API_TOKEN_COOKIE);
     return token ? { token, expiresAt: "" } : null;
   }
   async function installBunproFrontendTokenImporter(options) {
@@ -24755,7 +24763,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return null;
     }
   }
-  function cookieValue(cookieHeader, name) {
+  function cookieValue$1(cookieHeader, name) {
     const parts = cookieHeader.split(";");
     for (const part of parts) {
       const [rawName, ...rawValue] = part.split("=");
@@ -44871,7 +44879,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.237".trim() ? "1.6.237".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.238".trim() ? "1.6.238".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -67128,9 +67136,674 @@ ${spelling}`);
     if (element2.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
     return Boolean(element2.closest(VIDEO_CARD_SELECTOR));
   }
+  const JA_LANG = "ja";
+  const JA_COUNTRY = "JP";
+  const JA_TZ = "Asia/Tokyo";
+  const JA_LOCALE = "ja-JP";
+  const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+  const REDIRECT_CACHE_KEY = "yomu:jps";
+  const REDIRECT_HOSTS_KEY = "yomu:jps:hosts";
+  const INJECTION_RETRY_LIMIT = 12;
+  const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
+  const ALTERNATE_REDIRECT_RETRY_MS = 125;
+  const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
+  const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
+  const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
+  let alternateRedirectCleanup;
+  function installPreferredJapaneseSiteLanguageFromStoredSettings() {
+    const syncPreference = readStoredPreferenceEnabledSync();
+    if (typeof syncPreference === "boolean") {
+      applyPreferredJapaneseSiteLanguage(syncPreference);
+      return;
+    }
+    void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
+  }
+  function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
+    if (typeof window === "undefined") return;
+    writeCachedPreferenceEnabled(enabled);
+    applyPageContextJapanesePreferences(enabled);
+    if (enabled) {
+      applySitePreferenceCookies();
+      schedulePreferredJapaneseSiteRedirect();
+    } else {
+      clearSitePreferenceCookies();
+      cancelPreferredJapaneseSiteRedirectWatcher();
+      if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+    }
+  }
+  function preferredJapaneseSiteUrl(sourceHref, root) {
+    const current = parseHttpUrl(sourceHref);
+    if (!current) return null;
+    const alternate = japaneseAlternateLinkUrl(current, root);
+    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
+    if (target) applyParams(target);
+    if (!target || target.href === current.href) return null;
+    return target.href;
+  }
+  function readStoredPreferenceEnabledSync() {
+    const cached = readCachedPreferenceEnabled();
+    if (typeof cached === "boolean") return cached;
+    for (const key of SETTINGS_STORAGE_KEYS) {
+      const stored = gmStorageGetSync(key, void 0);
+      if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
+        return stored.preferJapaneseSiteLanguage;
+      }
+    }
+    return void 0;
+  }
+  async function readStoredPreferenceEnabledAsync() {
+    const cached = readCachedPreferenceEnabled();
+    if (typeof cached === "boolean") return cached;
+    for (const key of SETTINGS_STORAGE_KEYS) {
+      const stored = await gmStorageGet(key, void 0);
+      if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
+        return stored.preferJapaneseSiteLanguage;
+      }
+    }
+    return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+  }
+  function readCachedPreferenceEnabled() {
+    try {
+      const value = localStorage.getItem(PREFERENCE_CACHE_KEY);
+      if (value === "true" || value === "false") return value === "true";
+      const parsed = value == null ? void 0 : JSON.parse(value);
+      return typeof parsed === "boolean" ? parsed : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function writeCachedPreferenceEnabled(enabled) {
+    try {
+      localStorage.setItem(PREFERENCE_CACHE_KEY, String(enabled));
+    } catch {
+    }
+  }
+  function applyPageContextJapanesePreferences(enabled) {
+    const pageWindow2 = sameRealmUnsafeWindow();
+    if (pageWindow2) {
+      try {
+        applyJapanesePreferencesInPage(pageWindow2, enabled);
+        return;
+      } catch {
+      }
+    }
+    if (hasExtensionRuntime()) return;
+    injectPagePreferenceScript(enabled);
+  }
+  function sameRealmUnsafeWindow() {
+    if (hasExtensionRuntime()) return void 0;
+    const pageWindow2 = globalThis.unsafeWindow;
+    return pageWindow2 && pageWindow2 === window ? pageWindow2 : void 0;
+  }
+  function hasExtensionRuntime() {
+    const root = globalThis;
+    return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
+  }
+  function injectPagePreferenceScript(enabled, attempt = 0) {
+    const parent = document.head || document.documentElement;
+    if (!parent) {
+      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+      return;
+    }
+    try {
+      const script = document.createElement("script");
+      const nonce = Array.from(document.querySelectorAll("script[nonce]")).map((el2) => el2.getAttribute("nonce")).find(Boolean);
+      if (nonce) {
+        script.setAttribute("nonce", nonce);
+      }
+      const source = injectedPagePreferenceSource(enabled);
+      const trusted = createTrustedScript(source);
+      if (trusted && typeof trusted === "object") {
+        script.textContent = trusted;
+      } else {
+        script.textContent = source;
+      }
+      parent.append(script);
+      script.remove();
+    } catch {
+      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+    }
+  }
+  function createTrustedScript(code) {
+    try {
+      const root = globalThis;
+      const factory = root.trustedTypes || (typeof window !== "undefined" ? window.trustedTypes : void 0) || root.unsafeWindow?.trustedTypes;
+      if (!factory) return code;
+      let policy = factory.getPolicy?.("yomu-reader-script");
+      if (!policy) {
+        const options = { createScript: (s) => s };
+        policy = createTrustedScriptPolicy(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedScriptPolicy(factory, options);
+      }
+      return policy && typeof policy.createScript === "function" ? policy.createScript(code) : code;
+    } catch {
+      return code;
+    }
+  }
+  function createTrustedScriptPolicy(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader-script", options);
+    } catch {
+      return void 0;
+    }
+  }
+  function injectedPagePreferenceSource(enabled) {
+    return [
+      ";(() => {",
+      `const JA_LOCALE = ${JSON.stringify(JA_LOCALE)};`,
+      `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
+      `const preferenceState = ${preferenceState.toString()};`,
+      `const rememberDescriptor = ${rememberDescriptor.toString()};`,
+      `const crossRealmDescriptor = ${crossRealmDescriptor.toString()};`,
+      `const defineGetter = ${defineGetter.toString()};`,
+      `const defineValue = ${defineValue.toString()};`,
+      `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
+      `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
+      `const installIntlDefaults = ${installIntlDefaults.toString()};`,
+      `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
+      `const installGeolocationHint = ${installGeolocationHint.toString()};`,
+      `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
+      `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
+      "})();"
+    ].join("\n");
+  }
+  function applySitePreferenceCookies() {
+    const hostname = currentLocationHostname();
+    if (/(^|\.)youtube\.com$/.test(hostname)) {
+      mergeCookie("PREF", {
+        hl: JA_LANG,
+        gl: JA_COUNTRY,
+        tz: JA_TZ
+      }, ".youtube.com");
+    }
+    if (/(^|\.)google\./.test(hostname)) {
+      mergeCookie("PREF", {
+        hl: JA_LANG,
+        gl: JA_COUNTRY
+      });
+    }
+  }
+  function clearSitePreferenceCookies() {
+    const hostname = currentLocationHostname();
+    if (/(^|\.)youtube\.com$/.test(hostname)) clearCookieValues("PREF", ["hl", "gl", "tz"], ".youtube.com");
+    if (/(^|\.)google\./.test(hostname)) clearCookieValues("PREF", ["hl", "gl"]);
+  }
+  function currentLocationHostname() {
+    return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
+  }
+  function schedulePreferredJapaneseSiteRedirect() {
+    if (hostAlreadyRedirectedThisSession()) return;
+    if (attemptPreferredJapaneseSiteRedirect()) return;
+    installAlternateRedirectWatcher();
+  }
+  function attemptPreferredJapaneseSiteRedirect() {
+    const href = currentLocationHref();
+    const target = href ? preferredJapaneseSiteUrl(href, document) : null;
+    if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
+    rememberRedirectAttempt(href, target);
+    markHostRedirectedThisSession();
+    replaceLocation(target);
+    return true;
+  }
+  function currentLocationHost() {
+    try {
+      return new URL(currentLocationHref()).host;
+    } catch {
+      return "";
+    }
+  }
+  function hostAlreadyRedirectedThisSession() {
+    const host = currentLocationHost();
+    if (!host) return false;
+    try {
+      const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+      return raw ? JSON.parse(raw).includes(host) : false;
+    } catch {
+      return false;
+    }
+  }
+  function markHostRedirectedThisSession() {
+    const host = currentLocationHost();
+    if (!host) return;
+    try {
+      const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+      const hosts = raw ? JSON.parse(raw) : [];
+      if (!hosts.includes(host)) {
+        hosts.push(host);
+        sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+      }
+    } catch {
+    }
+  }
+  function attemptPreferredDefaultSiteRedirect() {
+    const href = currentLocationHref();
+    const target = href ? rememberedRedirectSourceForTarget(href) : null;
+    if (!target) return false;
+    replaceLocation(target);
+    return true;
+  }
+  function currentLocationHref() {
+    return typeof location.href === "string" ? location.href : "";
+  }
+  function installAlternateRedirectWatcher(attempt = 0) {
+    if (alternateRedirectCleanup) return;
+    const root = document.documentElement || document.head;
+    if (!root) {
+      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => installAlternateRedirectWatcher(attempt + 1), 0);
+      return;
+    }
+    let checks = 0;
+    const stop = () => {
+      cleanup();
+      alternateRedirectCleanup = void 0;
+    };
+    const check = () => {
+      checks += 1;
+      if (attemptPreferredJapaneseSiteRedirect() || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+    };
+    const observer = new MutationObserver(check);
+    const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+    const cleanup = () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+    };
+    alternateRedirectCleanup = stop;
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["href", "hreflang", "rel"]
+    });
+  }
+  function cancelPreferredJapaneseSiteRedirectWatcher() {
+    alternateRedirectCleanup?.();
+    alternateRedirectCleanup = void 0;
+  }
+  function replaceLocation(href) {
+    try {
+      if (typeof location.replace === "function") {
+        location.replace(href);
+        return;
+      }
+    } catch {
+    }
+    try {
+      location.href = href;
+    } catch {
+    }
+  }
+  function recentlyAttemptedRedirect(sourceHref, targetHref) {
+    try {
+      const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+      if (!value) return false;
+      const [source, target, at] = JSON.parse(value);
+      return source === sourceHref && target === targetHref && Date.now() - (at ?? 0) < 6e4;
+    } catch {
+      return false;
+    }
+  }
+  function rememberRedirectAttempt(sourceHref, targetHref) {
+    try {
+      sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify([sourceHref, targetHref, Date.now()]));
+    } catch {
+    }
+  }
+  function rememberedRedirectSourceForTarget(targetHref) {
+    try {
+      const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+      if (!value) return null;
+      const [source, target] = JSON.parse(value);
+      if (target !== targetHref || !source) return null;
+      return source;
+    } catch {
+      return null;
+    }
+  }
+  function parseHttpUrl(sourceHref) {
+    try {
+      const url = new URL(sourceHref);
+      return url.protocol === "http:" || url.protocol === "https:" ? url : null;
+    } catch {
+      return null;
+    }
+  }
+  function japaneseAlternateLinkUrl(current, root) {
+    if (!root) return null;
+    try {
+      for (const element2 of alts(root)) {
+        if (!/^ja(?:[-_]|$)/i.test(element2.getAttribute("hreflang") ?? "")) continue;
+        const href = element2.getAttribute("href");
+        const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
+        if (candidate && candidate.href !== current.href) return candidate;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  function alts(root) {
+    return root.querySelectorAll("link[rel~=alternate][hreflang][href],a[hreflang][href]");
+  }
+  function siteRuleJapaneseUrl(current) {
+    const hostname = current.hostname.toLowerCase();
+    if (hostname === "youtu.be") return youtuBeJapaneseUrl(current);
+    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JA_PARAMS);
+    if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
+    if (hostname === "news.google.com") return withSearchParams(current, JA_NEWS);
+    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JA_PARAMS);
+    if (/^(?:reddit|www\.reddit|new\.reddit|sh\.reddit)\.com$/.test(hostname)) return withSearchParams(current, { locale: JA_LOCALE });
+    if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
+    if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && (current.pathname === "" || current.pathname === "/")) {
+      return withHostname(current, "ja.wikipedia.org");
+    }
+    if (hostname === "developer.mozilla.org") return withLeadingLocaleSegment(current, "ja");
+    if (hostname === "docs.github.com") return withLeadingLocaleSegment(current, "ja");
+    if (hostname === "learn.microsoft.com" || hostname === "support.microsoft.com") return withLeadingLocaleSegment(current, "ja-jp");
+    if (hostname === "support.apple.com") return withLeadingLocaleSegment(current, "ja-jp");
+    return null;
+  }
+  function youtuBeJapaneseUrl(current) {
+    const videoId = current.pathname.split("/").filter(Boolean)[0];
+    if (!videoId) return withSearchParams(current, JA_PARAMS);
+    const target = new URL("https://www.youtube.com/watch");
+    target.searchParams.set("v", videoId);
+    for (const [key, value] of current.searchParams.entries()) {
+      if (key !== "v" && key !== "hl" && key !== "gl") target.searchParams.append(key, value);
+    }
+    for (const [key, value] of Object.entries(JA_PARAMS)) target.searchParams.set(key, value);
+    target.hash = current.hash;
+    return target;
+  }
+  function googleConsentJapaneseUrl(current) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const [key, value] of Object.entries(JA_PARAMS)) {
+      if (next.searchParams.get(key) !== value) {
+        next.searchParams.set(key, value);
+        changed = true;
+      }
+    }
+    const continueHref = current.searchParams.get("continue");
+    const japaneseContinueHref = continueHref ? preferredJapaneseSiteUrl(continueHref) : null;
+    if (japaneseContinueHref && japaneseContinueHref !== continueHref) {
+      next.searchParams.set("continue", japaneseContinueHref);
+      changed = true;
+    }
+    return changed ? next : null;
+  }
+  function isGooglePreferenceHost(hostname) {
+    return hostname === "google.com" || hostname.startsWith("www.google.") || hostname === "support.google.com" || hostname === "cloud.google.com";
+  }
+  function withSearchParams(current, values) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const [key, value] of Object.entries(values)) {
+      if (next.searchParams.get(key) === value) continue;
+      next.searchParams.set(key, value);
+      changed = true;
+    }
+    return changed ? next : null;
+  }
+  function withHostname(current, hostname) {
+    if (current.hostname.toLowerCase() === hostname) return null;
+    const next = new URL(current.href);
+    next.hostname = hostname;
+    return next;
+  }
+  function withLeadingLocaleSegment(current, locale) {
+    const parts = current.pathname.split("/");
+    const first2 = (parts[1] ?? "").toLowerCase();
+    if (!/^[a-z]{2}(?:[-_][a-z]{2})?$/.test(first2) || first2 === locale.toLowerCase()) return null;
+    const next = new URL(current.href);
+    parts[1] = locale;
+    next.pathname = parts.join("/") || "/";
+    return next;
+  }
+  function genericUrl(current, root) {
+    const next = new URL(current.href);
+    let hit = applyParams(next);
+    if (!root || !alts(root).length && root.readyState !== "loading") {
+      if (/^en\./i.test(next.hostname)) {
+        next.hostname = next.hostname.replace(/^en\./i, "ja.");
+        hit = true;
+      }
+      const parts = next.pathname.split("/");
+      const first2 = (parts[1] ?? "").toLowerCase();
+      if (EN_LOCALE_RE.test(first2)) {
+        parts[1] = /[-_]/.test(first2) ? "ja-jp" : JA_LANG;
+        next.pathname = parts.join("/") || "/";
+        hit = true;
+      }
+    }
+    return hit ? next : null;
+  }
+  function applyParams(next) {
+    const p = next.searchParams;
+    let hit = false;
+    for (const k of ["locale", "ui_locale", "mkt", "market"]) hit = sp(p, k, jl(p.get(k))) || hit;
+    for (const k of ["lang", "language", "lng"]) {
+      const v = p.get(k);
+      hit = sp(p, k, v && /[-_]/.test(v) ? jl(v) : JA_LANG) || hit;
+    }
+    hit = sp(p, "hl", JA_LANG) || hit;
+    for (const k of ["region", "country", "gl", "cc"]) hit = sp(p, k, JA_COUNTRY, /^(?:us|usa|gb|uk)$/i) || hit;
+    return hit;
+  }
+  function jl(v) {
+    return v?.includes("_") ? "ja_JP" : JA_LOCALE;
+  }
+  function sp(p, k, v, r = EN_LOCALE_RE) {
+    const current = p.get(k);
+    if (!current || !r.test(current)) return false;
+    p.set(k, v);
+    return true;
+  }
+  function mergeCookie(name, values, domain) {
+    try {
+      const params = new URLSearchParams(cookieValue(name));
+      for (const [key, value] of Object.entries(values)) params.set(key, value);
+      writeCookie(name, params.toString(), domain, 31536e3);
+    } catch {
+    }
+  }
+  function clearCookieValues(name, keys, domain) {
+    try {
+      const currentValue = cookieValue(name);
+      if (!currentValue) return;
+      const params = new URLSearchParams(currentValue);
+      for (const key of keys) params.delete(key);
+      const nextValue = params.toString();
+      if (nextValue) writeCookie(name, nextValue, domain, 31536e3);
+      else writeCookie(name, "", domain, 0);
+    } catch {
+    }
+  }
+  function writeCookie(name, value, domain, maxAge) {
+    const domainPart = domain ? `; Domain=${domain}` : "";
+    const securePart = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${name}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Lax${securePart}${domainPart}`;
+  }
+  function cookieValue(name) {
+    const prefix = `${name}=`;
+    return document.cookie.split(/;\s*/).find((cookie) => cookie.startsWith(prefix))?.slice(prefix.length) ?? "";
+  }
+  function applyJapanesePreferencesInPage(scope, enabled) {
+    const root = scope;
+    const state2 = preferenceState(root);
+    if (!enabled) {
+      restoreJapanesePreferences(state2);
+      return;
+    }
+    if (state2.installed) return;
+    state2.installed = true;
+    const locale = JA_LOCALE;
+    const languages = ["ja-JP", "ja", "en-US", "en"];
+    const timeZone = "Asia/Tokyo";
+    const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
+    const navigatorObject = root.navigator;
+    const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
+    defineGetter(state2, navigatorPrototype, "language", () => locale);
+    defineGetter(state2, navigatorPrototype, "languages", () => languages.slice());
+    defineGetter(state2, navigatorPrototype, "userLanguage", () => locale);
+    defineGetter(state2, navigatorPrototype, "browserLanguage", () => locale);
+    defineGetter(state2, navigatorObject, "language", () => locale);
+    defineGetter(state2, navigatorObject, "languages", () => languages.slice());
+    installIntlDefaults(root, state2, locale, timeZone);
+    installDateTimezoneHint(root, state2, timeZone);
+    installGeolocationHint(root, state2, navigatorObject, navigatorPrototype, tokyo);
+  }
+  function preferenceState(root) {
+    if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
+    const state2 = {
+      installed: false,
+      properties: [],
+      watchTimers: /* @__PURE__ */ new Map(),
+      nextWatchId: 1
+    };
+    defineUntrackedValue(root, "__yomuJapaneseSiteLanguagePreference", state2);
+    return state2;
+  }
+  function restoreJapanesePreferences(state2) {
+    for (const timer of state2.watchTimers.values()) clearInterval(timer);
+    state2.watchTimers.clear();
+    for (const snapshot of state2.properties.slice().reverse()) {
+      try {
+        if (snapshot.hadOwn && snapshot.descriptor) {
+          const descriptor = crossRealmDescriptor(snapshot.descriptor, snapshot.target);
+          if (descriptor) Object.defineProperty(snapshot.target, snapshot.key, descriptor);
+        } else {
+          delete snapshot.target[snapshot.key];
+        }
+      } catch {
+      }
+    }
+    state2.properties = [];
+    state2.installed = false;
+  }
+  function installIntlDefaults(root, state2, locale, timeZone) {
+    const intl = root.Intl;
+    if (!intl) return;
+    wrapIntlConstructor(intl, state2, "DateTimeFormat", locale, (options) => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
+    wrapIntlConstructor(intl, state2, "NumberFormat", locale);
+    wrapIntlConstructor(intl, state2, "Collator", locale);
+    wrapIntlConstructor(intl, state2, "RelativeTimeFormat", locale);
+    wrapIntlConstructor(intl, state2, "PluralRules", locale);
+    wrapIntlConstructor(intl, state2, "ListFormat", locale);
+    wrapIntlConstructor(intl, state2, "Segmenter", locale);
+  }
+  function wrapIntlConstructor(intl, state2, name, locale, normalizeOptions = (options) => options) {
+    const NativeConstructor = intl[name];
+    if (typeof NativeConstructor !== "function" || NativeConstructor.__yomuWrapped) return;
+    const WrappedConstructor = function(locales, options) {
+      const nextLocales = locales === void 0 ? locale : locales;
+      const nextOptions = normalizeOptions(options);
+      return Reflect.construct(NativeConstructor, [nextLocales, nextOptions], new.target || NativeConstructor);
+    };
+    defineUntrackedValue(WrappedConstructor, "__yomuWrapped", true);
+    try {
+      Object.setPrototypeOf(WrappedConstructor, NativeConstructor);
+      WrappedConstructor.prototype = NativeConstructor.prototype;
+    } catch {
+    }
+    defineValue(state2, intl, name, WrappedConstructor);
+  }
+  function installDateTimezoneHint(root, state2, timeZone) {
+    const datePrototype = root.Date?.prototype;
+    if (!datePrototype) return;
+    defineValue(state2, datePrototype, "getTimezoneOffset", function getTimezoneOffset() {
+      return timeZone === "Asia/Tokyo" ? -540 : 0;
+    });
+  }
+  function installGeolocationHint(root, state2, navigatorObject, navigatorPrototype, coords) {
+    if (!navigatorObject) return;
+    const nativeGeolocation = navigatorObject.geolocation;
+    const position = () => ({
+      coords: {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null
+      },
+      timestamp: Date.now()
+    });
+    const geolocation = Object.create(nativeGeolocation ?? null);
+    defineUntrackedValue(geolocation, "getCurrentPosition", (success) => {
+      root.setTimeout(() => success(position()), 0);
+    });
+    defineUntrackedValue(geolocation, "watchPosition", (success) => {
+      const id = state2.nextWatchId++;
+      const emit = () => success(position());
+      const timer = root.setInterval(emit, 6e4);
+      state2.watchTimers.set(id, timer);
+      root.setTimeout(emit, 0);
+      return id;
+    });
+    defineUntrackedValue(geolocation, "clearWatch", (id) => {
+      const timer = state2.watchTimers.get(id);
+      if (timer !== void 0) root.clearInterval(timer);
+      state2.watchTimers.delete(id);
+    });
+    defineGetter(state2, navigatorPrototype, "geolocation", () => geolocation);
+    defineGetter(state2, navigatorObject, "geolocation", () => geolocation);
+  }
+  function rememberDescriptor(state2, target, key) {
+    if (!target || state2.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    state2.properties.push({
+      target,
+      key,
+      hadOwn: Boolean(descriptor),
+      descriptor
+    });
+  }
+  function crossRealmDescriptor(descriptor, _target) {
+    try {
+      return typeof pageCompartmentDescriptorOrNull === "function" ? pageCompartmentDescriptorOrNull(descriptor) : descriptor;
+    } catch {
+      return null;
+    }
+  }
+  function defineGetter(state2, target, key, getter) {
+    if (!target) return;
+    rememberDescriptor(state2, target, key);
+    try {
+      const descriptor = crossRealmDescriptor({
+        configurable: true,
+        get: getter
+      }, target);
+      if (descriptor) Object.defineProperty(target, key, descriptor);
+    } catch {
+    }
+  }
+  function defineValue(state2, target, key, value) {
+    if (!target) return;
+    rememberDescriptor(state2, target, key);
+    defineUntrackedValue(target, key, value);
+  }
+  function defineUntrackedValue(target, key, value) {
+    if (!target) return;
+    try {
+      const descriptor = crossRealmDescriptor({
+        configurable: true,
+        writable: true,
+        value
+      }, target);
+      if (descriptor) Object.defineProperty(target, key, descriptor);
+    } catch {
+      try {
+        target[key] = value;
+      } catch {
+      }
+    }
+  }
   registerYomuCompanion("video", {
     SubtitlePlayerController,
-    YoutubeImmersionFilter
+    YoutubeImmersionFilter,
+    installPreferredJapaneseSiteLanguageFromStoredSettings,
+    applyPreferredJapaneseSiteLanguage,
+    preferredJapaneseSiteUrl
   });
   const log$f = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
