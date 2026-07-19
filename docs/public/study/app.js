@@ -9423,7 +9423,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(options.mergeBlockFragments && !text2.trim());
   }
   function visitFragmentElement(element2, state2, hasNativeRuby, isRoot) {
-    if (shouldIgnoreFragmentElement(element2, state2.options)) return;
+    if (shouldIgnoreFragmentElement(element2, state2.options, isRoot)) return;
     if (shouldFlushAndSkipFragmentElement(element2, state2, isRoot)) {
       flushFragmentTextTarget(state2);
       return;
@@ -9503,8 +9503,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     depthCappedShadowHostSeen.add(element2);
     depthCappedShadowHosts.add(new WeakRef(element2));
   }
-  function shouldIgnoreFragmentElement(element2, options) {
-    return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
+  function shouldIgnoreFragmentElement(element2, options, isRoot = false) {
+    return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) && !(isRoot && options.parseSurfaceIgnoredRoot) || isExcludedReaderRootElement(element2, options);
   }
   function isRubyAnnotationElement(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";
@@ -14762,6 +14762,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35626,6 +35627,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
   const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
@@ -35677,7 +35679,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -35709,6 +35711,26 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       merged.push(segments[index]);
       index += 1;
+    }
+    return merged;
+  }
+  function mergeContiguousKatakanaSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const first2 = segments[index];
+      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
+        merged.push(first2);
+        index += 1;
+        continue;
+      }
+      let surface = first2.surface;
+      let runEnd = index + 1;
+      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+        surface += segments[runEnd].surface;
+        runEnd += 1;
+      }
+      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
+      index = runEnd;
     }
     return merged;
   }
@@ -41167,7 +41189,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.231".trim() ? "1.6.231".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.232".trim() ? "1.6.232".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -74456,9 +74478,11 @@ ${normalizedReading}`;
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
   const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
+  const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
   const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
-    POPOVER_SUMMARY_PARSE_SELECTOR
+    POPOVER_SUMMARY_PARSE_SELECTOR,
+    POPOVER_SOURCE_TITLE_PARSE_SELECTOR
   ].join(",");
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
@@ -74536,7 +74560,8 @@ ${normalizedReading}`;
       includePassiveInteractions: true,
       heading: true,
       minLength: 1,
-      readerRootPassiveInteractions: true
+      readerRootPassiveInteractions: true,
+      parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }

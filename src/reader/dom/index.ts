@@ -295,6 +295,11 @@ interface FragmentTextTargetCollectionOptions {
     allowShortCenteredHeadings?: boolean;
     mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
+    // Popover source-card titles carry data-jpdb-reader-surface-ignore so page
+    // scans and card sentence extraction never absorb them; the popover's own
+    // nested parse still selects them as explicit roots, so the root itself
+    // may bypass the surface-ignore veto (descendants stay vetoed).
+    parseSurfaceIgnoredRoot?: boolean;
 }
 
 interface FormControlTextTargetCollectionOptions {
@@ -1026,7 +1031,7 @@ function visitFragmentElement(
     hasNativeRuby: boolean,
     isRoot: boolean,
 ): void {
-    if (shouldIgnoreFragmentElement(element, state.options)) return;
+    if (shouldIgnoreFragmentElement(element, state.options, isRoot)) return;
     if (shouldFlushAndSkipFragmentElement(element, state, isRoot)) {
         flushFragmentTextTarget(state);
         return;
@@ -1262,9 +1267,10 @@ export function drainDepthCappedShadowHosts(): HTMLElement[] {
 function shouldIgnoreFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
+    isRoot = false,
 ): boolean {
     return isRubyAnnotationElement(element)
-        || isSurfaceIgnoredElement(element)
+        || (isSurfaceIgnoredElement(element) && !(isRoot && options.parseSurfaceIgnoredRoot))
         || isExcludedReaderRootElement(element, options);
 }
 

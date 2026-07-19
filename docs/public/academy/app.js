@@ -65,6 +65,32 @@
       classes: array$16(record2.classes, "classes").map(parseAccountClass)
     };
   }
+  function parseAcademyClassLeaderboardView(value) {
+    const record2 = object$1(value, "Class leaderboard");
+    const pagination = object$1(record2.pagination, "pagination");
+    const freshness = object$1(record2.freshness, "freshness");
+    if (freshness.mode !== "server-snapshot" || freshness.realTime !== false) {
+      throw new TypeError("Class leaderboard freshness is invalid.");
+    }
+    return {
+      classId: classId(record2.classId),
+      metric: parseLeaderboardMetric(record2.metric),
+      entries: array$16(record2.entries, "entries").map(parseLeaderboardEntry),
+      me: record2.me === null ? null : parseLeaderboardEntry(record2.me),
+      pagination: {
+        page: integer$1(pagination.page, "pagination.page", 1, 1e3),
+        limit: integer$1(pagination.limit, "pagination.limit", 1, 50),
+        visibleEntries: count(pagination.visibleEntries, "pagination.visibleEntries"),
+        pages: count(pagination.pages, "pagination.pages")
+      },
+      updatedAt: nullableTimestamp(record2.updatedAt, "updatedAt"),
+      freshness: {
+        generatedAt: integer$1(freshness.generatedAt, "freshness.generatedAt", 0, Number.MAX_SAFE_INTEGER),
+        mode: "server-snapshot",
+        realTime: false
+      }
+    };
+  }
   function parseAcademyProfileView(value) {
     const record2 = object$1(value, "Academy profile");
     return {
@@ -158,6 +184,72 @@
       boardHidden: boolean(record2.boardHidden, "boardHidden")
     };
   }
+  function parseLeaderboardMetric(value) {
+    const record2 = object$1(value, "metric");
+    const id2 = oneOf(record2.id, ["streak", "review-activity", "known-words", "lesson-progress"], "metric.id");
+    const unit = oneOf(record2.unit, ["days", "words", "lessons"], "metric.unit");
+    const window2 = oneOf(record2.window, ["current-streak", "rolling-7-utc-days", "all-time"], "metric.window");
+    const expected = {
+      streak: { unit: "days", window: "current-streak" },
+      "review-activity": { unit: "days", window: "rolling-7-utc-days" },
+      "known-words": { unit: "words", window: "all-time" },
+      "lesson-progress": { unit: "lessons", window: "all-time" }
+    };
+    if (unit !== expected[id2].unit || window2 !== expected[id2].window) {
+      throw new TypeError("metric metadata does not match metric.id.");
+    }
+    const startsOn = record2.startsOn === void 0 ? void 0 : isoDay(record2.startsOn, "metric.startsOn");
+    const endsOn = record2.endsOn === void 0 ? void 0 : isoDay(record2.endsOn, "metric.endsOn");
+    const asOf = record2.asOf === void 0 ? void 0 : isoDay(record2.asOf, "metric.asOf");
+    if (id2 === "streak" && (!asOf || startsOn || endsOn) || id2 === "review-activity" && (!startsOn || !endsOn || asOf) || (id2 === "known-words" || id2 === "lesson-progress") && (startsOn || endsOn || asOf)) {
+      throw new TypeError("metric date metadata does not match metric.id.");
+    }
+    return {
+      id: id2,
+      meaning: text$n(record2.meaning, "metric.meaning"),
+      unit,
+      window: window2,
+      ...startsOn === void 0 ? {} : { startsOn },
+      ...endsOn === void 0 ? {} : { endsOn },
+      ...asOf === void 0 ? {} : { asOf }
+    };
+  }
+  function parseLeaderboardEntry(value) {
+    const record2 = object$1(value, "leaderboard entry");
+    return {
+      rank: integer$1(record2.rank, "rank", 1, Number.MAX_SAFE_INTEGER),
+      accountId: uuid(record2.accountId, "accountId"),
+      displayTag: validDisplayTag(record2.displayTag),
+      ...record2.avatarKey === void 0 ? {} : { avatarKey: avatar$1(record2.avatarKey) },
+      role: role$1(record2.role),
+      value: count(record2.value, "value"),
+      updatedAt: nullableTimestamp(record2.updatedAt, "entry.updatedAt")
+    };
+  }
+  function nullableTimestamp(value, field2) {
+    return value === null ? null : integer$1(value, field2, 0, Number.MAX_SAFE_INTEGER);
+  }
+  function isoDay(value, field2) {
+    const day = text$n(value, field2);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
+    const at = match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : Number.NaN;
+    if (!match || Number.isNaN(at) || new Date(at).toISOString().slice(0, 10) !== day) {
+      throw new TypeError(`${field2} is invalid.`);
+    }
+    return day;
+  }
+  function oneOf(value, values, field2) {
+    if (typeof value !== "string" || !values.includes(value)) throw new TypeError(`${field2} is invalid.`);
+    return value;
+  }
+  function validDisplayTag(value) {
+    const tag = text$n(value, "displayTag");
+    const split = /^(.*)#(\d{6})$/u.exec(tag);
+    if (!split) throw new TypeError("displayTag is invalid.");
+    const identity2 = classIdentity(split[1] ?? "", split[2] ?? "");
+    if (identity2.label !== tag) throw new TypeError("displayTag is invalid.");
+    return tag;
+  }
   function discriminatorFromTag(tag) {
     const match = /#(\d{6})$/u.exec(tag);
     if (!match) throw new TypeError("displayTag is invalid.");
@@ -223,12 +315,12 @@
     if (typeof value !== "string" || !/^[a-z0-9][a-z0-9-]{2,63}$/u.test(value)) throw new TypeError("classId is invalid.");
     return value;
   }
-  function avatar(value) {
+  function avatar$1(value) {
     if (typeof value !== "string" || !/^quality-[2-5]$/u.test(value)) throw new TypeError("avatarKey is invalid.");
     return value;
   }
   function nullableAvatar(value) {
-    return value === null ? null : avatar(value);
+    return value === null ? null : avatar$1(value);
   }
   const STORAGE_KEY$1 = "yomu:academy:profile-sync:v1";
   const SYNC_BATCH_SIZE = 50;
@@ -258,6 +350,12 @@
     phase = "local";
     error = null;
     pending = Promise.resolve();
+    /** Single-flight cookie rotation shared by concurrent 401 responses. */
+    sessionResume = null;
+    /** A definitive refusal stops further automatic attempts until a new session succeeds. */
+    sessionResumeRefused = false;
+    /** Invalidates delayed rotation work as soon as sign-out starts. */
+    sessionEpoch = 0;
     queuedLocalEventIds = /* @__PURE__ */ new Set();
     /**
      * True once this session's Google account is confirmed, or this device
@@ -445,17 +543,50 @@
     async exportData() {
       await this.connect();
       const endpoint = this.account ? "/academy/api/account/export" : "/academy/api/profile/export";
-      const response = await this.request(endpoint, { credentials: "same-origin" });
+      const response = await this.authorizedRequest(endpoint, { credentials: "same-origin" });
       if (!response.ok) throw await responseError(response);
       return response.blob();
     }
+    async updateClassBoardProfile(update) {
+      if (!this.account) throw new Error("Sign in before changing the Class Board profile.");
+      const epoch = this.sessionEpoch;
+      const account = parseAcademyAccountView(await this.json("/academy/api/account", {
+        method: "PATCH",
+        body: update
+      }));
+      if (epoch !== this.sessionEpoch || this.phase === "signed-out") {
+        throw new Error("The session changed before the Class Board profile was saved.");
+      }
+      this.account = account;
+      return account;
+    }
+    async loadClassLeaderboard(classId2, metric, page = 1, limit = 20) {
+      if (!this.account?.classes.some((item2) => item2.classId === classId2)) {
+        throw new Error("This class is not available to your account.");
+      }
+      const query = new URLSearchParams({ metric, page: String(page), limit: String(limit) });
+      return parseAcademyClassLeaderboardView(await this.json(
+        `/academy/api/classes/${encodeURIComponent(classId2)}/leaderboard?${query}`
+      ));
+    }
     async signOut() {
-      await this.json("/academy/api/logout", { method: "POST" });
-      this.account = null;
-      this.entitlement = null;
-      this.awaitingPairProfile = null;
-      this.phase = "signed-out";
-      this.error = null;
+      this.sessionEpoch += 1;
+      this.sessionResumeRefused = true;
+      const logout = this.request("/academy/api/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: "{}"
+      });
+      const response = await logout;
+      if (!response.ok) throw await responseError(response);
+      await this.enqueue(async () => {
+        this.account = null;
+        this.entitlement = null;
+        this.awaitingPairProfile = null;
+        this.phase = "signed-out";
+        this.error = null;
+      });
     }
     async deleteRemoteData(scope2) {
       const confirmation = scope2 === "account" ? "delete-account" : "delete-profile";
@@ -463,6 +594,7 @@
       this.disconnect();
     }
     disconnect() {
+      this.sessionEpoch += 1;
       this.state = null;
       this.account = null;
       this.entitlement = null;
@@ -565,7 +697,7 @@
         const state = this.requireState();
         const entries2 = Object.entries(state.envelopes).slice(0, SYNC_BATCH_SIZE);
         if (!entries2.length) return;
-        const response = await this.request("/academy/api/srs/push", {
+        const response = await this.authorizedRequest("/academy/api/srs/push", {
           method: "POST",
           credentials: "same-origin",
           headers: { "content-type": "application/json" },
@@ -729,7 +861,7 @@
       this.error = null;
     }
     async json(path, init = {}) {
-      const response = await this.request(path, {
+      const response = await this.authorizedRequest(path, {
         method: init.method ?? "GET",
         credentials: "same-origin",
         headers: init.body === void 0 ? void 0 : { "content-type": "application/json" },
@@ -737,6 +869,55 @@
       });
       if (!response.ok) throw await responseError(response);
       return response.json();
+    }
+    /**
+     * Authorized requests recover an expired short session exactly once: the
+     * Worker rotates the HttpOnly cookie while the 30-day offline-resume
+     * window holds, so a long-lived tab crossing the eight-hour authorization
+     * boundary keeps its account, profile, and entitlement without replaying
+     * an invite. A refused rotation surfaces the original 401 unchanged.
+     */
+    async authorizedRequest(path, init) {
+      const epoch = this.sessionEpoch;
+      const response = await this.request(path, init);
+      if (response.ok && epoch === this.sessionEpoch) this.sessionResumeRefused = false;
+      if (response.status !== 401 || this.sessionResumeRefused || epoch !== this.sessionEpoch) return response;
+      const session = await this.request("/academy/api/session", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      if (epoch !== this.sessionEpoch) return response;
+      if (session.ok) {
+        this.sessionResumeRefused = false;
+        return response;
+      }
+      if (session.status !== 401 || !await this.resumeExpiredSession(epoch)) return response;
+      if (epoch !== this.sessionEpoch) return response;
+      return this.request(path, init);
+    }
+    resumeExpiredSession(epoch) {
+      if (this.sessionResume) return this.sessionResume;
+      const attempt = (async () => {
+        try {
+          const rotated = await this.request("/academy/api/session/resume", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store"
+          });
+          if (epoch !== this.sessionEpoch) return false;
+          if (rotated.status === 401 || rotated.status === 403) this.sessionResumeRefused = true;
+          if (rotated.ok) this.sessionResumeRefused = false;
+          return rotated.ok;
+        } catch {
+          return false;
+        }
+      })();
+      this.sessionResume = attempt;
+      void attempt.finally(() => {
+        if (this.sessionResume === attempt) this.sessionResume = null;
+      });
+      return attempt;
     }
     requireState() {
       if (!this.state) throw new Error("Turn on encrypted sync before using this action.");
@@ -975,6 +1156,24 @@
   }
   function sessionCanResume(session, now, online) {
     return online ? session.expiresAt > now : session.offlineResumeUntil > now;
+  }
+  async function resumeInviteSession(request2 = (...args) => fetch(...args)) {
+    let response;
+    try {
+      response = await request2("/academy/api/session/resume", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store"
+      });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+    try {
+      return normalizeSession(await response.json(), "cloudflare");
+    } catch {
+      return null;
+    }
   }
   function normalizeCode(code) {
     const normalized2 = code.trim().toUpperCase();
@@ -18604,7 +18803,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(options.mergeBlockFragments && !text2.trim());
   }
   function visitFragmentElement(element2, state, hasNativeRuby, isRoot) {
-    if (shouldIgnoreFragmentElement(element2, state.options)) return;
+    if (shouldIgnoreFragmentElement(element2, state.options, isRoot)) return;
     if (shouldFlushAndSkipFragmentElement(element2, state, isRoot)) {
       flushFragmentTextTarget(state);
       return;
@@ -18684,8 +18883,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     depthCappedShadowHostSeen.add(element2);
     depthCappedShadowHosts.add(new WeakRef(element2));
   }
-  function shouldIgnoreFragmentElement(element2, options) {
-    return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
+  function shouldIgnoreFragmentElement(element2, options, isRoot = false) {
+    return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) && !(isRoot && options.parseSurfaceIgnoredRoot) || isExcludedReaderRootElement(element2, options);
   }
   function isRubyAnnotationElement(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";
@@ -23374,6 +23573,50 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     })));
     return schedules.length;
   }
+  function setAuthoredWeekProgress(current, packageId, sourceSha256, position, savedAt = Date.now()) {
+    return { ...current, [packageId]: { sourceSha256, position, savedAt } };
+  }
+  function clearAuthoredWeekProgress(current, packageId) {
+    if (!current || !(packageId in current)) return current;
+    const next = { ...current };
+    delete next[packageId];
+    return Object.keys(next).length ? next : void 0;
+  }
+  function authoredWeekProgressRecordIsValid(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    return Object.entries(value).every(([packageId, cursor]) => Boolean(packageId.trim()) && persistedAuthoredWeekProgressIsValid(cursor));
+  }
+  function authoredWeekProgressFits(progress2, scope2) {
+    if (progress2.phase === "teaching") return scope2.exposureIds.includes(progress2.exposureId);
+    if (progress2.phase === "support" || progress2.phase === "question") {
+      return scope2.activityIds.includes(progress2.activityId);
+    }
+    return progress2.phase !== "extension" || scope2.hasExtension;
+  }
+  function authoredWeekProgressAfterActivity(activityId, scope2) {
+    const index = scope2.activityIds.indexOf(activityId);
+    const nextActivityId = index >= 0 ? scope2.activityIds[index + 1] : void 0;
+    if (nextActivityId) {
+      return scope2.supportActivityIds.includes(nextActivityId) ? { phase: "support", activityId: nextActivityId } : { phase: "question", activityId: nextActivityId };
+    }
+    return scope2.hasExtension ? { phase: "extension" } : { phase: "complete" };
+  }
+  function persistedAuthoredWeekProgressIsValid(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const cursor = value;
+    return Object.keys(cursor).every((key2) => key2 === "sourceSha256" || key2 === "position" || key2 === "savedAt") && typeof cursor.sourceSha256 === "string" && /^[a-f0-9]{64}$/u.test(cursor.sourceSha256) && (cursor.savedAt === void 0 || typeof cursor.savedAt === "number" && Number.isSafeInteger(cursor.savedAt) && cursor.savedAt >= 0) && authoredWeekProgressIsValid(cursor.position);
+  }
+  function authoredWeekProgressIsValid(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const progress2 = value;
+    if (progress2.phase === "teaching") {
+      return Object.keys(progress2).every((key2) => key2 === "phase" || key2 === "exposureId") && typeof progress2.exposureId === "string" && Boolean(progress2.exposureId);
+    }
+    if (progress2.phase === "support" || progress2.phase === "question") {
+      return Object.keys(progress2).every((key2) => key2 === "phase" || key2 === "activityId") && typeof progress2.activityId === "string" && Boolean(progress2.activityId);
+    }
+    return (progress2.phase === "extension" || progress2.phase === "complete") && Object.keys(progress2).length === 1;
+  }
   const ACADEMY_ROUTE_DEFINITIONS = {
     access: "enrollment",
     profile: "enrollment",
@@ -23404,6 +23647,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     review: "canonical-study",
     journal: "world",
     "profile-sync": "world",
+    "class-board": "world",
     "day-end": "world"
   };
   const ACADEMY_ROUTES = Object.freeze(
@@ -25828,6 +26072,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (value.worldVisits !== void 0 && (!value.worldVisits || typeof value.worldVisits !== "object" || Object.entries(value.worldVisits).some(([place2, visits]) => !isWorldPlaceId(place2) || !Number.isSafeInteger(visits) || visits < 0))) {
       throw new TypeError("Academy checkpoint has invalid world visits.");
     }
+    if (value.authoredWeekProgress !== void 0 && !authoredWeekProgressRecordIsValid(value.authoredWeekProgress)) {
+      throw new TypeError("Academy checkpoint has invalid authored week progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -26474,6 +26721,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         route: "access",
         routeHistory: [],
         presentationMode: checkpoint.presentationMode,
+        ...checkpoint.authoredWeekProgress ? { authoredWeekProgress: checkpoint.authoredWeekProgress } : {},
         updatedAt: now
       };
     }
@@ -26552,7 +26800,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (route === "classroom") return "world.classroom";
     if (route === "lab") return "world.lab";
     if (route === "review") return "world.library";
-    if (route === "journal" || route === "profile-sync") return "bond.quiet";
+    if (route === "journal" || route === "profile-sync" || route === "class-board") return "bond.quiet";
     if (route === "day-end") return "support.kindness";
     return "classroom.focus";
   }
@@ -29827,6 +30075,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     reviewComplete: "Saved in よむ.",
     reviewReturn: "Return to the campus",
     journalTitle: "Class journal",
+    classBoardTitle: "Class Board",
     journalRie: "Rie-sensei",
     journalRieLine: "“One open chair is enough. We can begin.”",
     journalAakash: "Aakash",
@@ -30108,6 +30357,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     reviewComplete: "よむに保存しました。",
     reviewReturn: "キャンパスに戻る",
     journalTitle: "クラス日記",
+    classBoardTitle: "クラスボード",
     journalRie: "りえ先生",
     journalRieLine: "「椅子が一つ空いていれば十分。始めましょう。」",
     journalAakash: "Aakash",
@@ -192048,7 +192298,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$G = "yomu-academy.story-package.v2";
   const id$G = "s1e06-invitation-chain";
-  const revision$G = "2026-07-18.1";
+  const revision$G = "2026-07-19.1";
   const canonicality$G = "canon";
   const season$G = 1;
   const chapter$H = 6;
@@ -192540,38 +192790,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:invitation-chain:sam-honors-it",
           beatId: "beat:invitation-chain:repair",
           speakerId: "sam",
-          intent: "Accept the soft refusal as a complete answer, resist adding options or asking again, and reframe inclusion as asking once and honoring the reply.",
-          attentionTarget: "Robert, and the open door of the plan",
+          intent: "Accept the soft refusal as a complete answer, write it on the card without adding options, and turn his attention back to the people already at the table.",
+          attentionTarget: "Robert's answer, the card, and the drinks already on the table",
           variants: {
             foundation: {
-              japanese: "はい。土曜日は また こんど、ですね。だいじょうぶ。一回 聞いて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
-              reading: "はい。どようびは また こんど、ですね。だいじょうぶ。いっかい きいて、こたえを きく。それで いいんだ。ともだちは、それでも ともだちですから。",
-              english: "Yes. Saturday's another time, then. It's okay. Ask once, hear the answer. That's enough. A friend is still a friend even so."
+              japanese: "はい。土曜日は また こんど、ですね。わかりました。カードに、そう 書きます。今の お茶、かえましょうか。",
+              reading: "はい。どようびは また こんど、ですね。わかりました。カードに、そう かきます。いまの おちゃ、かえましょうか。",
+              english: "Yes. Saturday's another time, then. Got it. I'll write that on the card. Shall I replace this tea?"
             },
             n5: {
-              japanese: "はい、土曜日は また こんど ですね。もう 一回は 聞きません。一回 聞いて、こたえを ちゃんと きく。それで いいんだ。また 来られる ときに、ぜひ。",
-              reading: "はい、どようびは また こんど ですね。もう いっかいは ききません。いっかい きいて、こたえを ちゃんと きく。それで いいんだ。また こられる ときに、ぜひ。",
-              english: "Yes, Saturday's another time, then. I won't ask a second time. Ask once, and take the answer properly. That's enough. Whenever you can come, please do."
+              japanese: "はい、土曜日は また こんど ですね。わかりました。カードには、そう 書いておきます。今の 飲み物、かえましょうか。",
+              reading: "はい、どようびは また こんど ですね。わかりました。カードには、そう かいておきます。いまの のみもの、かえましょうか。",
+              english: "Yes, Saturday's another time, then. Got it. I'll put that on the card. Shall I replace your drink?"
             },
             n4: {
-              japanese: "はい、土曜はまた今度ですね。二回は聞きません。一回ちゃんと聞いて、返事をちゃんと受け取る。……それでいいんだ。来られるとき、いつでもどうぞ。",
-              reading: "はい、どようはまたこんどですね。にかいはききません。いっかいちゃんときいて、へんじをちゃんとうけとる。……それでいいんだ。こられるとき、いつでもどうぞ。",
-              english: "Yes, Saturday's another time. I won't ask twice. Ask once properly, and receive the reply properly. ...That's enough. Whenever you can come, you're welcome."
+              japanese: "はい、土曜はまた今度ですね。了解です。カードには、そのまま書いておきます。今いる人の飲み物、先に替えましょうか。",
+              reading: "はい、どようはまたこんどですね。りょうかいです。カードには、そのままかいておきます。いまいるひとののみもの、さきにかえましょうか。",
+              english: "Right, Saturday's another time. Got it. I'll write exactly that on the card. Shall I refresh the drinks for the people here?"
             },
             n3: {
-              japanese: "はい、土曜はまた今度、了解です。もう一回は聞きませんよ。一回きちんと誘って、返ってきた答えをそのまま受け取る。……それでよかったんですね。ドアは開けとくので、いつでも。",
-              reading: "はい、どようはまたこんど、りょうかいです。もういっかいはききませんよ。いっかいきちんとさそって、かえってきたこたえをそのままうけとる。……それでよかったんですね。ドアはあけとくので、いつでも。",
-              english: "Yes, Saturday's another time — got it. I won't ask again. Invite once, properly, and take the answer that comes back as it is. ...So that was all it needed. I'll leave the door open, so anytime."
+              japanese: "はい、土曜はまた今度。了解です。ロバートさんの欄は、そのまま「また今度」で。今いる人のグラス、先に替えますね。",
+              reading: "はい、どようはまたこんど。りょうかいです。ロバートさんのらんは、そのまま「またこんど」で。いまいるひとのグラス、さきにかえますね。",
+              english: "Right, Saturday's another time. Got it. Robert's line stays exactly that: 'another time.' I'll refresh the glasses for the people here first."
             },
             n2: {
-              japanese: "はい、今回はまた今度、ですね。もう一度は聞きません。一度きちんと誘って、返ってきた答えを、そのまま受け取る。……それでよかったんだなあ。席はいつでも空けておきますから、気が向いたら。",
-              reading: "はい、こんかいはまたこんど、ですね。もういちどはききません。いちどきちんとさそって、かえってきたこたえを、そのままうけとる。……それでよかったんだなあ。せきはいつでもあけておきますから、きがむいたら。",
-              english: "Yes, this time it's another time. I won't ask a second time. Invite once, properly, and receive the answer that comes back, just as it is. ...So that was enough all along. I'll keep a seat open anytime, so if you feel like it."
+              japanese: "はい、今回はまた今度、ですね。了解しました。ロバートさんの欄は、それ以上足さずに「また今度」で。今いる人のグラス、先に替えますね。",
+              reading: "はい、こんかいはまたこんど、ですね。りょうかいしました。ロバートさんのらんは、それいじょうたさずに「またこんど」で。いまいるひとのグラス、さきにかえますね。",
+              english: "Right, this time it's another time. Understood. Robert's line stays 'another time,' with nothing added. I'll refresh the glasses for the people here first."
             },
             n1: {
-              japanese: "はい、今回はまた今度、ですね。二度は聞きませんよ。一度ちゃんと誘って、返ってきた答えを、そのまま受け取る。……なんだ、それでよかったんですね。こっちはいつでも席を空けておきますから、その気になったら、ふらっとどうぞ。",
-              reading: "はい、こんかいはまたこんど、ですね。にどはききませんよ。いちどちゃんとさそって、かえってきたこたえを、そのままうけとる。……なんだ、それでよかったんですね。こっちはいつでもせきをあけておきますから、そのきになったら、ふらっとどうぞ。",
-              english: "Yes, this time it's another time. I won't ask twice. Invite once, properly, and take the answer that comes back just as it is. ...Huh, so that was all it needed. I'll keep a seat open here anytime, so if the mood takes you, just drop by."
+              japanese: "はい、今回はまた今度、ですね。承知しました。ロバートさんの欄は、それ以上書き足さずに「また今度」で。さて、今いる人のグラスを先に替えますね。",
+              reading: "はい、こんかいはまたこんど、ですね。しょうちしました。ロバートさんのらんは、それいじょうかきたさずに「またこんど」で。さて、いまいるひとのグラスをさきにかえますね。",
+              english: "Right, this time it's another time. Understood. Robert's line stays 'another time,' with nothing else written in. Now, I'll refresh the glasses for the people here."
             }
           },
           support: {
@@ -192604,19 +192854,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
               english: "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever you feel like it. I'll leave the door open."
             },
             n3: {
-              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで大丈夫です。テニスのあとも、よかったらぜひ。無理はなしで、来たくなったら来てください。",
-              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけでだいじょうぶです。テニスのあとも、よかったらぜひ。むりはなしで、きたくなったらきてください。",
-              english: "Then Saturday, okonomiyaki at my place, just whoever can come is fine. Tennis after too, if you'd like. No pressure — come if you feel like coming."
+              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあとからでも大丈夫です。人数は金曜に一度、確認しますね。",
+              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあとからでもだいじょうぶです。にんずうはきんようにいちど、かくにんしますね。",
+              english: "Then Saturday, okonomiyaki at my place, just whoever can come. After tennis is fine too. I'll check numbers once on Friday."
             },
             n2: {
-              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあともやってますから、気が向いたらいつでも。誘うのは一回、あとは来たくなったときに、どうぞ。",
-              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあともやってますから、きがむいたらいつでも。さそうのはいっかい、あとはきたくなったときに、どうぞ。",
-              english: "Then Saturday, okonomiyaki at my place, just whoever can come. There's tennis after too, so whenever the mood takes you. I ask once; after that, come whenever you feel like it."
+              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで。テニスのあとからでも大丈夫です。人数は金曜に一度だけ、確認しますね。",
+              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけで。テニスのあとからでもだいじょうぶです。にんずうはきんようにいちどだけ、かくにんしますね。",
+              english: "Then Saturday, okonomiyaki at my place, just whoever can come. After tennis is fine too. I'll check the numbers once on Friday."
             },
             n1: {
-              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで気楽に。テニスのあともやってますから、その気になったら、ふらっとどうぞ。誘うのは一度きり、あとは来たくなったときにでも、ね。",
-              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけできらくに。テニスのあともやってますから、そのきになったら、ふらっとどうぞ。さそうのはいちどきり、あとはきたくなったときにでも、ね。",
-              english: "Then Saturday, okonomiyaki at my place, just whoever can make it, nice and easy. There's tennis after too, so if the mood takes you, just drop by. I ask once, and after that — come whenever you feel like it, yeah?"
+              japanese: "じゃあ、土曜はうちでおこのみやき、来られる人だけで気楽に。テニスのあとからでも構いません。人数の確認は、金曜に一度だけにしておきますね。",
+              reading: "じゃあ、どようはうちでおこのみやき、こられるひとだけできらくに。テニスのあとからでもかまいません。にんずうのかくにんは、きんようにいちどだけにしておきますね。",
+              english: "Then Saturday, okonomiyaki at my place, just whoever can make it. After tennis is fine. I'll keep the head-count check to once on Friday."
             }
           },
           support: {
@@ -194109,7 +194359,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$D = "yomu-academy.story-package.v2";
   const id$D = "s1e09-the-story-in-two-tenses";
-  const revision$D = "2026-07-18.1";
+  const revision$D = "2026-07-19.1";
   const canonicality$D = "canon";
   const season$D = 1;
   const chapter$E = 9;
@@ -194557,38 +194807,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:two-tenses:jodi-plural-memory",
           beatId: "beat:two-tenses:repair",
           speakerId: "jodi",
-          intent: "Reframe the two captions as two true sentences about one place, and name plural memory as a finished form rather than a contradiction to fix.",
+          intent: "Keep both captions and place one remembered detail in the past line and one visible detail in the present line.",
           attentionTarget: "the two captions held together",
           variants: {
             foundation: {
-              japanese: "ありがとう。ね、一つの本当の話に、決めなくていいんです。『昔は』と『今は』。一つの場所の、二つの文。どちらも本当。記憶は、二つのままでいいんです。",
-              reading: "ありがとう。ね、ひとつのほんとうのはなしに、きめなくていいんです。『むかしは』と『いまは』。ひとつのばしょの、ふたつのぶん。どちらもほんとう。きおくは、ふたつのままでいいんです。",
-              english: `Thank you. You see — you don't have to settle on one true story. "Long ago" and "now." Two sentences about one place. Both true. A memory can stay two.`
+              japanese: "ありがとう。では、二つともここに置きます。パンの匂いは、昔の文に。今のお店は、今の文に。",
+              reading: "ありがとう。では、ふたつともここにおきます。パンのにおいは、むかしのぶんに。いまのおみせは、いまのぶんに。",
+              english: "Thank you. Then both stay here. The smell of bread goes in the past sentence. Today's shop goes in the present one."
             },
             n5: {
-              japanese: "ありがとう。ね、一つの正しい話に決めなくていいんです。『昔は』と『今は』。同じ場所の、二つの文。どちらも本当です。記憶は、二つのままでいいんですよ。",
-              reading: "ありがとう。ね、ひとつのただしいはなしにきめなくていいんです。『むかしは』と『いまは』。おなじばしょの、ふたつのぶん。どちらもほんとうです。きおくは、ふたつのままでいいんですよ。",
-              english: `Thank you. You see — you don't have to settle on one correct story. "Long ago" and "now." Two sentences about the same place. Both true. A memory can stay two.`
+              japanese: "ありがとう。じゃあ、二つともここに置きますね。パンの匂いは昔のほうへ。今のお店は、今のほうへ。",
+              reading: "ありがとう。じゃあ、ふたつともここにおきますね。パンのにおいはむかしのほうへ。いまのおみせは、いまのほうへ。",
+              english: "Thank you. Then both stay here. The smell of bread goes with the past. Today's shop goes with the present."
             },
             n4: {
-              japanese: "ありがとう。ね、一つの正しい話に決めなくていいの。『昔は』と『今は』。同じ場所のことなのに、二つ文がある。どっちも本当。記憶って、二つのままでいいんですよ。",
-              reading: "ありがとう。ね、ひとつのただしいはなしにきめなくていいの。『むかしは』と『いまは』。おなじばしょのことなのに、ふたつぶんがある。どっちもほんとう。きおくって、ふたつのままでいいんですよ。",
-              english: `Thank you. You see — you don't have to settle on one correct story. "Long ago" and "now." It's the same place, and yet there are two sentences. Both true. A memory can just stay two, you know.`
+              japanese: "ありがとう。じゃ、二枚ともここに。パンの匂いは昔のほう。コンビニの明かりは今のほう。どっちも、この角ですものね。",
+              reading: "ありがとう。じゃ、にまいともここに。パンのにおいはむかしのほう。コンビニのあかりはいまのほう。どっちも、このかどですものね。",
+              english: "Thank you. Then both slips stay here. The smell of bread with the past; the convenience-store light with the present. Same corner, after all."
             },
             n3: {
-              japanese: "ありがとうね。ね、一つの正しい話に、まとめなくていいのよ。『昔は』と『今は』。同じ一つの場所なのに、文が二つある。でも、どっちも本当。記憶はね、二つのままでいいの。",
-              reading: "ありがとうね。ね、ひとつのただしいはなしに、まとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょなのに、ぶんがふたつある。でも、どっちもほんとう。きおくはね、ふたつのままでいいの。",
-              english: `Thank you. You see — you don't have to gather it up into one correct story. "Long ago" and "now." One and the same place, and yet two sentences. But both are true. A memory, you know, can just stay two.`
+              japanese: "ありがとうね。じゃあ、二枚ともここに置きましょう。パンの匂いは昔のほうへ、コンビニの明かりは今のほうへ。どちらも、この角の話だから。",
+              reading: "ありがとうね。じゃあ、にまいともここにおきましょう。パンのにおいはむかしのほうへ、コンビニのあかりはいまのほうへ。どちらも、このかどのはなしだから。",
+              english: "Thank you. Then both slips stay here. The smell of bread goes with the past; the convenience-store light with the present. They both belong to this corner."
             },
             n2: {
-              japanese: "ありがとうね。ね、無理に一つの正しい話にまとめなくていいのよ。『昔は』と『今は』。同じ一つの場所の話なのに、文が二つ立つ。でも、どちらも本当でね。記憶って、二つのまま抱えておいていいんですよ。",
-              reading: "ありがとうね。ね、むりにひとつのただしいはなしにまとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょのはなしなのに、ぶんがふたつたつ。でも、どちらもほんとうでね。きおくって、ふたつのままかかえておいていいんですよ。",
-              english: `Thank you. You see — you don't have to force it together into one correct story. "Long ago" and "now." It's about one and the same place, and yet two sentences stand. But both are true. A memory, you can just carry it as two, you know.`
+              japanese: "ありがとうね。じゃあ、二枚ともここに残しましょう。パンの匂いは昔のほうへ、コンビニの白い明かりは今のほうへ。同じ角に、両方置けますものね。",
+              reading: "ありがとうね。じゃあ、にまいともここにのこしましょう。パンのにおいはむかしのほうへ、コンビニのしろいあかりはいまのほうへ。おなじかどに、りょうほうおけますものね。",
+              english: "Thank you. Then both slips stay. The smell of bread goes with the past; the convenience store's white light with the present. There's room for both at the same corner."
             },
             n1: {
-              japanese: "ありがとうね。ね、無理に一つの正しい話にまとめてしまわなくていいの。『昔は』と『今は』。同じ一つの場所のことなのに、文が二つ立ってしまう。でも、そのどちらも本当でね。記憶っていうのは、二つのまま抱えておいてかまわないんですよ。",
-              reading: "ありがとうね。ね、むりにひとつのただしいはなしにまとめてしまわなくていいの。『むかしは』と『いまは』。おなじひとつのばしょのことなのに、ぶんがふたつたってしまう。でも、そのどちらもほんとうでね。きおくっていうのは、ふたつのままかかえておいてかまわないんですよ。",
-              english: `Thank you. You see — there's no need to force it all together into one correct story. "Long ago" and "now." It's about one and the same place, and yet two sentences end up standing. But both of them are true. A memory, really, is something you're free to carry as two.`
+              japanese: "ありがとうね。じゃあ、二枚ともここに残しましょうか。パンの匂いは昔のほうへ、コンビニの白い明かりは今のほうへ。同じ角なら、両方置いておけますものね。",
+              reading: "ありがとうね。じゃあ、にまいともここにのこしましょうか。パンのにおいはむかしのほうへ、コンビニのしろいあかりはいまのほうへ。おなじかどなら、りょうほうおいておけますものね。",
+              english: "Thank you. Then shall we leave both slips here? The smell of bread goes with the past; the convenience store's white light with the present. The same corner can hold both."
             }
           },
           support: {
@@ -194602,38 +194852,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:two-tenses:rose-long-view",
           beatId: "beat:two-tenses:changed-action",
           speakerId: "rose",
-          intent: "Confirm from the concrete that both captions are literally true because the corner is genuinely half-there, then widen to the long view: the map, too, can hold several memories rather than one.",
-          attentionTarget: "the corner in the photo, then the rebuilt map on the wall",
+          intent: "Make a practical adjustment so both captions and the route beneath them remain readable.",
+          attentionTarget: "the caption pins and the route line beneath the photo",
           variants: {
             foundation: {
-              japanese: "なるほど。あの角は、本当に半分あって、半分ない。だから、二つとも本当です。この地図も同じです。一つの話じゃなくて、いくつも残せます。",
-              reading: "なるほど。あのかどは、ほんとうにはんぶんあって、はんぶんない。だから、ふたつともほんとうです。このちずもおなじです。ひとつのはなしじゃなくて、いくつものこせます。",
-              english: "That makes sense. That corner really is half-there and half-gone. So both captions are true. This map is the same. Not one story — we can keep several."
+              japanese: "では、ピンを右にします。二つの文が読めます。下の道も、消えません。",
+              reading: "では、ピンをみぎにします。ふたつのぶんがよめます。したのみちも、きえません。",
+              english: "Then I'll move the pin to the right. We can read both sentences, and the route underneath stays visible."
             },
             n5: {
-              japanese: "なるほど。あの角、本当に半分は残って半分は消えてる。だから二つとも本当なんですよね。この地図も同じです。一つの話に決めないで、いくつも残せます。",
-              reading: "なるほど。あのかど、ほんとうにはんぶんはのこってはんぶんはきえてる。だからふたつともほんとうなんですよね。このちずもおなじです。ひとつのはなしにきめないで、いくつものこせます。",
-              english: "That makes sense. That corner really is half-standing and half-gone. So both captions are true. This map's the same. Instead of settling on one story, we can keep several."
+              japanese: "じゃあ、ピンを少し右へ。これなら二つの文が読めて、下の道も消えません。",
+              reading: "じゃあ、ピンをすこしみぎへ。これならふたつのぶんがよめて、したのみちもきえません。",
+              english: "Then the pin moves a little to the right. Now both sentences are readable, and the route underneath doesn't disappear."
             },
             n4: {
-              japanese: "なるほどね。あの角、実際に半分は残ってて半分は消えてる。だから、二つとも本当なんですよ。この地図も同じで。一つの話に決めないで、いくつも並べて残せる。",
-              reading: "なるほどね。あのかど、じっさいにはんぶんはのこっててはんぶんはきえてる。だから、ふたつともほんとうなんですよ。このちずもおなじで。ひとつのはなしにきめないで、いくつもならべてのこせる。",
-              english: "That makes sense. That corner actually is half-standing and half-gone. So both captions are true. This map is the same — instead of settling on one story, it can keep several lined up."
+              japanese: "じゃあ、写真を少し右にずらしましょう。二枚とも読めるし、下の道も隠れない。ここなら大丈夫です。",
+              reading: "じゃあ、しゃしんをすこしみぎにずらしましょう。にまいともよめるし、したのみちもかくれない。ここならだいじょうぶです。",
+              english: "Then let's shift the photo slightly right. Both slips stay readable, and the route underneath isn't covered. Here works."
             },
             n3: {
-              japanese: "なるほどね。あの角、実際に半分は残ってて、半分は消えてるわけで。だから、二つとも文字どおり本当なんですよ。…この地図もそうなんです。一つの話に塗り替えないで、いくつも並べて残せる。",
-              reading: "なるほどね。あのかど、じっさいにはんぶんはのこってて、はんぶんはきえてるわけで。だから、ふたつとももじどおりほんとうなんですよ。…このちずもそうなんです。ひとつのはなしにぬりかえないで、いくつもならべてのこせる。",
-              english: "That makes sense. That corner actually is half-standing and half-gone. So both captions are literally true. …This map's like that too. Rather than repainting it into one story, it can keep several side by side."
+              japanese: "じゃあ、写真を二センチだけ右へ。二枚とも読めるし、下の道も隠れない。…うん、ここなら残せます。",
+              reading: "じゃあ、しゃしんをにセンチだけみぎへ。にまいともよめるし、したのみちもかくれない。…うん、ここならのこせます。",
+              english: "Then the photo moves just two centimetres right. Both slips stay readable, and the route underneath isn't covered. …Yes, we can keep it here."
             },
             n2: {
-              japanese: "なるほどね。あの角、現に半分は残ってて、半分は消えてるんですから。だから、二つとも文字どおり本当なんですよ。…考えてみれば、この地図も同じでね。一つの話に上書きせずに、いくつもの記憶を並べたまま残せる。",
-              reading: "なるほどね。あのかど、げんにはんぶんはのこってて、はんぶんはきえてるんですから。だから、ふたつとももじどおりほんとうなんですよ。…かんがえてみれば、このちずもおなじでね。ひとつのはなしにうわがきせずに、いくつものきおくをならべたままのこせる。",
-              english: "That makes sense. That corner is, in fact, half-standing and half-gone. So both captions are literally true. …Come to think of it, this map is the same. Rather than overwriting it into one story, it can hold several memories side by side."
+              japanese: "では、写真を二センチほど右へずらしましょう。二枚とも読めるし、下の道筋も隠れない。…ここなら、どちらも傷めずに残せます。",
+              reading: "では、しゃしんをにセンチほどみぎへずらしましょう。にまいともよめるし、したのみちすじもかくれない。…ここなら、どちらもいためずにのこせます。",
+              english: "Then let's shift the photo about two centimetres right. Both slips remain readable, and the route underneath stays visible. …Here we can keep both without damaging either."
             },
             n1: {
-              japanese: "なるほどね。あの角、現に半分は残って、半分は消えてるわけですからね。だとしたら、二つとも文字どおり本当ってことになる。…長い目で見れば、この地図だって同じなんですよ。一つの話に上書きしてしまわずに、いくつもの記憶を並べたまま抱えておける。",
-              reading: "なるほどね。あのかど、げんにはんぶんはのこって、はんぶんはきえてるわけですからね。だとしたら、ふたつとももじどおりほんとうってことになる。…ながいめでみれば、このちずだっておなじなんですよ。ひとつのはなしにうわがきしてしまわずに、いくつものきおくをならべたままかかえておける。",
-              english: "That makes sense. That corner is, in plain fact, half-standing and half-gone. Which means both captions come out literally true. …Taking the long view, this map is no different, really. Rather than overwriting it into one story, it can hold several memories side by side."
+              japanese: "では、写真を二センチほど右へずらしましょうか。二枚とも読めるうえ、下の道筋も隠れない。…ここなら、どちらにも手を入れず、そのまま残せます。",
+              reading: "では、しゃしんをにセンチほどみぎへずらしましょうか。にまいともよめるうえ、したのみちすじもかくれない。…ここなら、どちらにもてをいれず、そのままのこせます。",
+              english: "Then shall we shift the photo about two centimetres right? Both slips remain readable, and the route underneath stays visible. …Here we can preserve both exactly as they are."
             }
           },
           support: {
@@ -194647,7 +194897,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:two-tenses:photo-on-the-map",
           beatId: "beat:two-tenses:exit-image",
           cueId: "cue:photo-pinned-two-captions-kept",
-          description: "The photo is pinned to the rebuilt map with both captions kept beneath it. On the wall around it, other layered captions sit side by side, none of them crossed out. The corner stays half-there, and the evening ends without one tense being made to win."
+          description: "The photo is pinned to the working atlas with both captions beneath it, shifted just far enough that the route line remains visible. Bread smell belongs to the past slip; the convenience-store light belongs to the present one. Neither is crossed out."
         }
       ],
       exit: {
@@ -194720,7 +194970,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$C = "yomu-academy.story-package.v2";
   const id$C = "s1e10-instructions-for-a-cloud";
-  const revision$C = "2026-07-18.1";
+  const revision$C = "2026-07-19.1";
   const canonicality$C = "canon";
   const season$C = 1;
   const chapter$D = 10;
@@ -195081,7 +195331,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "choice",
           id: "choice:instructions-for-a-cloud:how-to-hand-off",
           beatId: "beat:instructions-for-a-cloud:stance",
-          question: "How do you help the last step belong to the room, not just Christian?",
+          question: "How do you put the last step into the room's hands?",
           options: [
             {
               id: "option:instructions-for-a-cloud:name-the-order",
@@ -195131,38 +195381,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:instructions-for-a-cloud:christian-hands-it-back",
           beatId: "beat:instructions-for-a-cloud:repair",
           speakerId: "christian",
-          intent: "Accept guiding without taking over: name his over-build reflex against the too-hot-room, hand the sequence to the room as a request with a reason, and coordinate rather than own it.",
+          intent: "Pass the final card to the room with its order and reason, then take one bounded job instead of running the whole sequence.",
           attentionTarget: "the last card, and the people around the lantern",
           variants: {
             foundation: {
-              japanese: "そうだね。ぼく、いつも大きく作りすぎる。前に暑い部屋のときもそうだった。今日は、順番だけ渡します。まず押して、つぎに置いて。みんなでやりましょう。",
-              reading: "そうだね。ぼく、いつもおおきくつくりすぎる。まえにあついへやのときもそうだった。きょうは、じゅんばんだけわたします。まずおして、つぎにおいて。みんなでやりましょう。",
-              english: "You're right. I always build too big. Same thing back with the hot room. Today, I'll just hand over the order. First press, next place. Let's do it together."
+              japanese: "じゃあ、このカードをどうぞ。まずボタンを押して、つぎに置いてください。最後のカードだから。ぼくは扇風機を止めます。",
+              reading: "じゃあ、このカードをどうぞ。まずボタンをおして、つぎにおいてください。さいごのカードだから。ぼくはせんぷうきをとめます。",
+              english: "Then this card is yours. First press the button, then place it, because it's the last card. I'll switch off the fan."
             },
             n5: {
-              japanese: "そうですね。ぼく、いつも大きく作りすぎるんだ。前の暑い教室のときも、扇風機で大がかりにやろうとしたし。今日は順番だけ渡します。「まず押して、つぎに置いてください」って。みんなでやりましょう。",
-              reading: "そうですね。ぼく、いつもおおきくつくりすぎるんだ。まえのあついきょうしつのときも、せんぷうきでおおがかりにやろうとしたし。きょうはじゅんばんだけわたします。「まずおして、つぎにおいてください」って。みんなでやりましょう。",
-              english: "You're right. I always build too big. Back with that hot classroom too, I tried to do the whole big thing with the fan. Today I'll just hand over the order — 'first press, next place, please.' Let's do it together."
+              japanese: "じゃあ、この最後のカード、お願いします。まずボタンを押して、つぎに置いてください。雲が順番に光るから。ぼくは扇風機を止めますね。",
+              reading: "じゃあ、このさいごのカード、おねがいします。まずボタンをおして、つぎにおいてください。くもがじゅんばんにひかるから。ぼくはせんぷうきをとめますね。",
+              english: "Then please take this last card. First press the button, then place it, because that makes the cloud light in order. I'll switch off the fan."
             },
             n4: {
-              japanese: "あー、そうか。ぼく、問題を見るとすぐ大きくしちゃうんだよなあ。前の暑い教室のときも、扇風機で当番まで作ろうとしたし。今日は全部やらないで、順番だけ渡します。「まず押して、つぎに置いてください」。あとはみんなで回しましょう。",
-              reading: "あー、そうか。ぼく、もんだいをみるとすぐおおきくしちゃうんだよなあ。まえのあついきょうしつのときも、せんぷうきでとうばんまでつくろうとしたし。きょうはぜんぶやらないで、じゅんばんだけわたします。「まずおして、つぎにおいてください」。あとはみんなでまわしましょう。",
-              english: "Ah, I see. I really do see a problem and immediately make it bigger. Back in that hot classroom too, I tried to build a whole fan rota. Today I won't do all of it — I'll just hand over the order: 'first press, next place, please.' The rest, let's run together."
+              japanese: "じゃあ、この最後のカード、お願いします。「まずボタンを押して、つぎに置いてください」。雲が順番に光るからです。ぼくは扇風機のほうを止めますね。",
+              reading: "じゃあ、このさいごのカード、おねがいします。「まずボタンをおして、つぎにおいてください」。くもがじゅんばんにひかるからです。ぼくはせんぷうきのほうをとめますね。",
+              english: "Then please take this last card. 'First press the button, then place it,' because that makes the cloud light in order. I'll deal with switching off the fan."
             },
             n3: {
-              japanese: "あー、なるほどなあ。ぼく、問題を見るとすぐ全体を大きく組みたくなるんだよ。前の暑い教室のときも、窓を開ければいいのに扇風機で当番表まで作ろうとしてさ。今日はやめとく。順番だけ言葉で渡します——「まず押して、つぎに置いてください、こうだから」って。あとはみんなで回しましょう。",
-              reading: "あー、なるほどなあ。ぼく、もんだいをみるとすぐぜんたいをおおきくくみたくなるんだよ。まえのあついきょうしつのときも、まどをあければいいのにせんぷうきでとうばんひょうまでつくろうとしてさ。きょうはやめとく。じゅんばんだけことばでわたします——「まずおして、つぎにおいてください、こうだから」って。あとはみんなでまわしましょう。",
-              english: "Ah, I see. Whenever I see a problem I want to rebuild the whole thing bigger. Back in that hot classroom too — you could just open a window, but I went and tried to build a whole fan-duty roster. Not today. I'll just hand over the order in words: 'first press, next place, please, because of this.' The rest, let's run together."
+              japanese: "じゃあ、この最後の一枚、お願いします。「まずボタンを押して、つぎに置いてください」。そこで置けば、雲が順番に光るので。ぼくは扇風機を止めて、クリップだけ押さえます。",
+              reading: "じゃあ、このさいごのいちまい、おねがいします。「まずボタンをおして、つぎにおいてください」。そこでおけば、くもがじゅんばんにひかるので。ぼくはせんぷうきをとめて、クリップだけおさえます。",
+              english: "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in order. I'll switch off the fan and just hold the clip."
             },
             n2: {
-              japanese: "あー、なるほど、そういうことか。ぼく、問題を見るとつい全体を大きく組み直しにいっちゃうんですよね。前の暑い教室のときも、窓を一つ開ければ済むのに、扇風機で当番表まで作ろうとして。今日はそれ、やめときます。順番だけ言葉で渡す——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回しましょう。そのほうが、崩れても直せる。",
-              reading: "あー、なるほど、そういうことか。ぼく、もんだいをみるとついぜんたいをおおきくくみなおしにいっちゃうんですよね。まえのあついきょうしつのときも、まどをひとつあければすむのに、せんぷうきでとうばんひょうまでつくろうとして。きょうはそれ、やめときます。じゅんばんだけことばでわたす——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしましょう。そのほうが、くずれてもなおせる。",
-              english: "Ah, I see, so that's it. I tend to see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too — you could just open one window, but I went and tried to build a whole fan-duty roster. Not today; I'll drop that. I'll just hand over the order in words — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even if it falls apart, anyone can fix it."
+              japanese: "では、この最後の一枚をお願いします。「まずボタンを押して、つぎに置いてください」。そこで置くと、雲が順番に光るので。ぼくは扇風機を止めて、クリップだけ押さえます。",
+              reading: "では、このさいごのいちまいをおねがいします。「まずボタンをおして、つぎにおいてください」。そこでおくと、くもがじゅんばんにひかるので。ぼくはせんぷうきをとめて、クリップだけおさえます。",
+              english: "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in order. I'll switch off the fan and hold only the clip."
             },
             n1: {
-              japanese: "あー、なるほど、そういうことか。ぼく、問題を目にすると、つい全体を大きく組み直しにいっちゃう質でしてね。前の暑い教室のときも、窓を一つ開ければ済む話なのに、扇風機を据えて当番表まで作ろうとしたくらいで。今日はそれ、封印しときます。渡すのは順番だけ——「まず押して、つぎに置いてください、こうだから」。あとはみんなの手で回してもらいましょう。そのほうが、ぼくがいなくても、崩れたところから直せますからね。",
-              reading: "あー、なるほど、そういうことか。ぼく、もんだいをめにすると、ついぜんたいをおおきくくみなおしにいっちゃうたちでしてね。まえのあついきょうしつのときも、まどをひとつあければすむはなしなのに、せんぷうきをすえてとうばんひょうまでつくろうとしたくらいで。きょうはそれ、ふういんしときます。わたすのはじゅんばんだけ——「まずおして、つぎにおいてください、こうだから」。あとはみんなのてでまわしてもらいましょう。そのほうが、ぼくがいなくても、くずれたところからなおせますからね。",
-              english: "Ah, I see, so that's it. I've got this streak — I see a problem and go straight to rebuilding the whole thing bigger. Back in that hot classroom too, all it needed was one open window, but I went and set up a fan and tried to build a whole duty roster. Today, I'll seal that away. All I'll hand over is the order — 'first press, next place, please, because of this' — and let everyone's hands run the rest. That way, even without me, they can fix it right from wherever it broke."
+              japanese: "では、この最後の一枚をお願いします。「まずボタンを押して、つぎに置いてください」。そこで置けば、雲が順を追って光るので。ぼくは扇風機を止めて、クリップだけ押さえておきます。",
+              reading: "では、このさいごのいちまいをおねがいします。「まずボタンをおして、つぎにおいてください」。そこでおけば、くもがじゅんをおってひかるので。ぼくはせんぷうきをとめて、クリップだけおさえておきます。",
+              english: "Then please take this last card. 'First press the button, then place it.' Put it there and the cloud lights in sequence. I'll switch off the fan and hold only the clip."
             }
           },
           support: {
@@ -195176,38 +195426,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:instructions-for-a-cloud:angel-closes",
           beatId: "beat:instructions-for-a-cloud:changed-action",
           speakerId: "angel",
-          intent: "Affirm that a plan you can hand off — order plus reason — outlasts a plan only one person can run, and quietly turn the lesson on herself.",
-          attentionTarget: "the card passing from Christian's hand toward the others",
+          intent: "Receive the handoff, add the reason to the card, and assign the next concrete jobs around the lantern.",
+          attentionTarget: "the card margin, the fan, and the loose clip",
           variants: {
             foundation: {
-              japanese: "うん、それがいい。一人でしか回せない計画より、渡せる計画のほうが強いです。理由があれば、みんなが続けられます。",
-              reading: "うん、それがいい。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいです。りゆうがあれば、みんながつづけられます。",
-              english: "Yes, that's good. A plan only you can run is weaker than one you can hand off. With the reason there, everyone can keep it going."
+              japanese: "はい、受け取りました。理由もカードに書きます。クリスチャンさんは扇風機、わたしはクリップ。もう一度、いきましょう。",
+              reading: "はい、うけとりました。りゆうもカードにかきます。クリスチャンさんはせんぷうき、わたしはクリップ。もういちど、いきましょう。",
+              english: "Got it. I'll write the reason on the card too. Christian takes the fan; I'll take the clip. Let's run it again."
             },
             n5: {
-              japanese: "うん、それがいいと思います。一人でしか回せない計画より、渡せる計画のほうが強いんですよ。理由さえついていれば、あとはみんなが続けられますから。",
-              reading: "うん、それがいいとおもいます。ひとりでしかまわせないけいかくより、わたせるけいかくのほうがつよいんですよ。りゆうさえついていれば、あとはみんながつづけられますから。",
-              english: "Yes, I think that's good. A plan only one person can run is weaker than a plan you can hand off. As long as the reason is attached, everyone else can carry it on."
+              japanese: "はい、受け取りました。理由もカードの横に書きますね。クリスチャンさんは扇風機を止めて、わたしはクリップを押さえます。もう一度やりましょう。",
+              reading: "はい、うけとりました。りゆうもカードのよこにかきますね。クリスチャンさんはせんぷうきをとめて、わたしはクリップをおさえます。もういちどやりましょう。",
+              english: "Got it. I'll write the reason beside the step. Christian switches off the fan; I'll hold the clip. Let's run it again."
             },
             n4: {
-              japanese: "うん、それがいいですね。一人で全部抱える計画より、人に渡せる計画のほうが、結局は強い。理由がついていれば、途中で崩れても誰かが続けられますから。……わたしも、覚えておきます。",
-              reading: "うん、それがいいですね。ひとりでぜんぶかかえるけいかくより、ひとにわたせるけいかくのほうが、けっきょくはつよい。りゆうがついていれば、とちゅうでくずれてもだれかがつづけられますから。……わたしも、おぼえておきます。",
-              english: "Yes, that's good. A plan you carry all alone is, in the end, weaker than one you can hand to others. If the reason is attached, then even if it breaks partway, someone can carry on. …I'll remember that too."
+              japanese: "うん、受け取りました。理由はカードの余白に足しておきます。クリスチャンさんは扇風機を止める、わたしはクリップ。では、もう一回。",
+              reading: "うん、うけとりました。りゆうはカードのよはくにたしておきます。クリスチャンさんはせんぷうきをとめる、わたしはクリップ。では、もういっかい。",
+              english: "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I take the clip. Right, once more."
             },
             n3: {
-              japanese: "うん、いいと思う。一人で全部抱える計画って、その人が抜けたら止まるんですよね。渡せる計画は、途中で崩れても誰かが拾って続けられる。理由さえ一緒に渡してあれば。……これ、わたしにも刺さるなあ。",
-              reading: "うん、いいとおもう。ひとりでぜんぶかかえるけいかくって、そのひとがぬけたらとまるんですよね。わたせるけいかくは、とちゅうでくずれてもだれかがひろってつづけられる。りゆうさえいっしょにわたしてあれば。……これ、わたしにもささるなあ。",
-              english: "Yeah, I think it's good. A plan one person carries alone just stops the moment they step away. A plan you can hand off — someone can pick it up and keep going even if it breaks partway, as long as the reason travels with it. …That one hits home for me too."
+              japanese: "うん、受け取ります。理由はカードの余白に書き足しておきますね。クリスチャンさんは扇風機、わたしはクリップ。次に風が来ても、この一枚から戻せます。",
+              reading: "うん、うけとります。りゆうはカードのよはくにかきたしておきますね。クリスチャンさんはせんぷうき、わたしはクリップ。つぎにかぜがきても、このいちまいからもどせます。",
+              english: "Got it. I'll add the reason in the card's margin. Christian takes the fan; I'll take the clip. If the wind comes again, we restart from this card."
             },
             n2: {
-              japanese: "うん、それがいいと思います。一人で全部抱え込む計画は、結局その人が抜けた瞬間に止まってしまう。でも渡せる計画なら、途中で崩れても、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直、これはわたし自身に言い聞かせたい話でもあるんですけど。",
-              reading: "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくは、けっきょくそのひとがぬけたしゅんかんにとまってしまう。でもわたせるけいかくなら、とちゅうでくずれても、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじき、これはわたしじしんにいいきかせたいはなしでもあるんですけど。",
-              english: "Yes, I think that's good. A plan someone hoards entirely to themselves just stops the instant that person steps away. But a plan you can hand off — someone can pick it up and carry on even if it breaks partway, as long as the reason is handed over with it. …Honestly, this is something I need to tell myself, too."
+              japanese: "うん、受け取ります。理由はカードの余白に追記しておきますね。クリスチャンさんは扇風機を止める、わたしはクリップを押さえる。次に風が来ても、この一枚から復旧できます。",
+              reading: "うん、うけとります。りゆうはカードのよはくについきしておきますね。クリスチャンさんはせんぷうきをとめる、わたしはクリップをおさえる。つぎにかぜがきても、このいちまいからふっきゅうできます。",
+              english: "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I hold the clip. If the wind comes again, we can recover from this card."
             },
             n1: {
-              japanese: "うん、それがいいと思います。一人で全部抱え込む計画って、結局その本人が抜けた途端に止まってしまうんですよね。でも渡せる計画なら、途中で崩れたところから、誰かが拾って続けられる——理由さえ一緒に手渡してあれば。……正直に言うと、これ、わたし自身に一番言い聞かせなきゃいけない話なんですけど。",
-              reading: "うん、それがいいとおもいます。ひとりでぜんぶかかえこむけいかくって、けっきょくそのほんにんがぬけたとたんにとまってしまうんですよね。でもわたせるけいかくなら、とちゅうでくずれたところから、だれかがひろってつづけられる——りゆうさえいっしょにてわたしてあれば。……しょうじきにいうと、これ、わたしじしんにいちばんいいきかせなきゃいけないはなしなんですけど。",
-              english: "Yes, I think that's good. A plan someone hoards entirely to themselves ends up stopping the instant that person steps away. But a plan you can hand off — someone can pick it up right from where it broke and keep going, as long as the reason is handed over with it. …Honestly, this is the thing I most need to tell myself, of all people."
+              japanese: "うん、受け取ります。理由はカードの余白に追記しておきますね。クリスチャンさんは扇風機を止める、わたしはクリップを押さえる。次に風が来ても、この一枚を起点に復旧できます。",
+              reading: "うん、うけとります。りゆうはカードのよはくについきしておきますね。クリスチャンさんはせんぷうきをとめる、わたしはクリップをおさえる。つぎにかぜがきても、このいちまいをきてんにふっきゅうできます。",
+              english: "Got it. I'll add the reason in the card's margin. Christian switches off the fan; I hold the clip. If the wind comes again, this card is our recovery point."
             }
           },
           support: {
@@ -195996,7 +196246,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$A = "yomu-academy.story-package.v2";
   const id$A = "s1e12-the-vanishing-course";
-  const revision$A = "2026-07-18.1";
+  const revision$A = "2026-07-19.1";
   const canonicality$A = "canon";
   const season$A = 1;
   const chapter$B = 12;
@@ -196097,38 +196347,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:vanishing-course:jenny-welcome",
           beatId: "beat:vanishing-course:host-want",
           speakerId: "jenny",
-          intent: "Welcome the class to the map-celebration meal and lay out the full serving plan she prepared in advance.",
+          intent: "Welcome the class to a meal for the atlas's first route and lay out the serving plan she prepared in advance.",
           attentionTarget: "the row of covered dishes and their serving cards",
           variants: {
             foundation: {
-              japanese: "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。出す順番を、決めておきました。",
-              reading: "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。だすじゅんばんを、きめておきました。",
-              english: "Everyone, good evening. Tonight is the meal to celebrate the map. I decided the order to bring things out in."
+              japanese: "みなさん、こんばんは。今夜は、最初の道のお祝いのごはんです。出す順番を、決めておきました。",
+              reading: "みなさん、こんばんは。こんやは、さいしょのみちのおいわいのごはんです。だすじゅんばんを、きめておきました。",
+              english: "Everyone, good evening. Tonight's meal is for the atlas's first route. I decided the order to bring things out in."
             },
             n5: {
-              japanese: "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。何を、いくつ、どの順番で出すか、ぜんぶメモしておきました。",
-              reading: "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。なにを、いくつ、どのじゅんばんでだすか、ぜんぶメモしておきました。",
-              english: "Everyone, good evening. Tonight is the meal to celebrate the map. What, how many, and in what order to serve — I noted it all down."
+              japanese: "みなさん、こんばんは。今夜は、最初の道のお祝いのごはんです。何を、いくつ、どの順番で出すか、ぜんぶメモしておきました。",
+              reading: "みなさん、こんばんは。こんやは、さいしょのみちのおいわいのごはんです。なにを、いくつ、どのじゅんばんでだすか、ぜんぶメモしておきました。",
+              english: "Everyone, good evening. Tonight's meal is for the first route. What, how many, and in what order to serve — I noted it all down."
             },
             n4: {
-              japanese: "みなさん、こんばんは。今夜は地図の完成のお祝いなので、料理を出す順番、ぜんぶ決めておいたんです。何を何個、どこに置くか、カードにして。",
-              reading: "みなさん、こんばんは。こんやはちずのかんせいのおいわいなので、りょうりをだすじゅんばん、ぜんぶきめておいたんです。なにをなんこ、どこにおくか、カードにして。",
-              english: "Everyone, good evening. Since tonight's celebrating the map being finished, I'd set the whole serving order ahead of time — what, how many, where each goes, all on cards."
+              japanese: "みなさん、こんばんは。今夜は地図の最初の道のお祝いなので、料理を出す順番、ぜんぶ決めておいたんです。何を何個、どこに置くか、カードにして。",
+              reading: "みなさん、こんばんは。こんやはちずのさいしょのみちのおいわいなので、りょうりをだすじゅんばん、ぜんぶきめておいたんです。なにをなんこ、どこにおくか、カードにして。",
+              english: "Everyone, good evening. Since tonight celebrates the map's first route, I'd set the whole serving order ahead of time — what, how many, where each goes, all on cards."
             },
             n3: {
-              japanese: "みなさん、こんばんは。今夜は地図のお祝いなので、料理の出し順、きちんと組んでおいたんですよ。何をいくつ、どの順で出すか、一枚ずつカードにして。",
-              reading: "みなさん、こんばんは。こんやはちずのおいわいなので、りょうりのだしじゅん、きちんとくんでおいたんですよ。なにをいくつ、どのじゅんでだすか、いちまいずつカードにして。",
-              english: "Everyone, good evening. Since tonight's the map celebration, I put the serving together properly — what, how many, in what order, each on its own card."
+              japanese: "みなさん、こんばんは。今夜は最初の道のお祝いなので、料理の出し順、きちんと組んでおいたんですよ。何をいくつ、どの順で出すか、一枚ずつカードにして。",
+              reading: "みなさん、こんばんは。こんやはさいしょのみちのおいわいなので、りょうりのだしじゅん、きちんとくんでおいたんですよ。なにをいくつ、どのじゅんでだすか、いちまいずつカードにして。",
+              english: "Everyone, good evening. Since tonight celebrates the first route, I put the serving order together — what, how many, and when, each on its own card."
             },
             n2: {
-              japanese: "みなさん、こんばんは。今夜は地図の完成祝いということで、料理を出す段取りを一通り決めておきました。何をいくつ、どの順番で運ぶか、カードに書き出して。",
-              reading: "みなさん、こんばんは。こんやはちずのかんせいいわいということで、りょうりをだすだんどりをひととおりきめておきました。なにをいくつ、どのじゅんばんではこぶか、カードにかきだして。",
-              english: "Everyone, good evening. Tonight being the celebration of the finished map, I set out the whole serving procedure — what, how many, in what order to carry, written out on cards."
+              japanese: "みなさん、こんばんは。今夜は地図に最初の道ができたお祝いということで、料理を出す段取りを一通り決めておきました。何をいくつ、どの順番で運ぶか、カードに書き出して。",
+              reading: "みなさん、こんばんは。こんやはちずにさいしょのみちができたおいわいということで、りょうりをだすだんどりをひととおりきめておきました。なにをいくつ、どのじゅんばんではこぶか、カードにかきだして。",
+              english: "Everyone, good evening. Tonight celebrates the first route appearing on the map, so I set out the serving procedure — what, how many, and in what order, all on cards."
             },
             n1: {
-              japanese: "みなさん、こんばんは。今夜は地図の完成祝いですから、料理を出す手順を、ひととおり組み立てておいたんです。何をいくつ、どういう順で運ぶか、一枚ずつカードにしてね。",
-              reading: "みなさん、こんばんは。こんやはちずのかんせいいわいですから、りょうりをだすてじゅんを、ひととおりくみたてておいたんです。なにをいくつ、どういうじゅんではこぶか、いちまいずつカードにしてね。",
-              english: "Everyone, good evening. Since tonight celebrates the finished map, I'd assembled the whole serving procedure — what, how many, in what order to carry, each on its own card."
+              japanese: "みなさん、こんばんは。今夜は地図に最初の道ができたお祝いですから、料理を出す手順を、ひととおり組み立てておいたんです。何をいくつ、どういう順で運ぶか、一枚ずつカードにしてね。",
+              reading: "みなさん、こんばんは。こんやはちずにさいしょのみちができたおいわいですから、りょうりをだすてじゅんを、ひととおりくみたてておいたんです。なにをいくつ、どういうじゅんではこぶか、いちまいずつカードにしてね。",
+              english: "Everyone, good evening. Tonight celebrates the first route appearing on the map, so I'd assembled the serving procedure — what, how many, and in what order, each on its own card."
             }
           },
           support: {
@@ -196360,38 +196610,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:vanishing-course:jenny-one-route-lit",
           beatId: "beat:vanishing-course:repair",
           speakerId: "jenny",
-          intent: "Name the first ensemble save honestly: one short route restored together, not the whole atlas — and that is enough to have begun.",
+          intent: "Notice the one route and ask the room what to send next, leaving the shared recovery visible in the dish that made it around the table.",
           attentionTarget: "the single lit route point and the class around the table",
           variants: {
             foundation: {
-              japanese: "見てください。地図の道が、一つだけ光りました。ぜんぶじゃありません。でも、一人じゃなくて、みんなでできました。今日は、これで十分です。",
-              reading: "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶじゃありません。でも、ひとりじゃなくて、みんなでできました。きょうは、これでじゅうぶんです。",
-              english: "Look. Just one route on the map lit up. Not all of it. But we did it together, not alone. For today, this is enough."
+              japanese: "見てください。道が一つ、光りました。ほかはまだです。でも、スープはみんなに届きました。次は、何にしますか。",
+              reading: "みてください。みちがひとつ、ひかりました。ほかはまだです。でも、スープはみんなにとどきました。つぎは、なににしますか。",
+              english: "Look. One route lit up. The others haven't yet. But the soup reached everyone. What shall we send next?"
             },
             n5: {
-              japanese: "見てください。地図の道が、一つだけ光りました。全部は、まだです。でも、わたし一人じゃなくて、みんなで戻せた。今日はこれで、十分です。",
-              reading: "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶは、まだです。でも、わたしひとりじゃなくて、みんなでもどせた。きょうはこれで、じゅうぶんです。",
-              english: "Look. Just one route on the map lit up. All of it — not yet. But we got it back together, not just me alone. For today, this is enough."
+              japanese: "見てください。道が一つだけ光りました。全部は、まだです。でも、スープはみんなで回せましたね。次は、どれにしましょうか。",
+              reading: "みてください。みちがひとつだけひかりました。ぜんぶは、まだです。でも、スープはみんなでまわせましたね。つぎは、どれにしましょうか。",
+              english: "Look. Just one route lit up. The whole map hasn't. But we got the soup around together. Which one shall we do next?"
             },
             n4: {
-              japanese: "あ、見て。地図の道が一つだけ、ちゃんと光りましたね。全部じゃない。一皿だけ。…でも、わたし一人じゃなくて、みんなで戻せたんです。今日はそれで十分。",
-              reading: "あ、みて。ちずのみちがひとつだけ、ちゃんとひかりましたね。ぜんぶじゃない。ひとさらだけ。…でも、わたしひとりじゃなくて、みんなでもどせたんです。きょうはそれでじゅうぶん。",
-              english: "Oh, look. Just one route on the map lit up properly. Not all of it. Just one dish. …But we got it back together, not me alone. For today that's enough."
+              japanese: "あ、見て。道が一つだけ、ちゃんと光りましたね。全部じゃないけど、この一皿はみんなで回せた。次、どれからいきましょうか。",
+              reading: "あ、みて。みちがひとつだけ、ちゃんとひかりましたね。ぜんぶじゃないけど、このひとさらはみんなでまわせた。つぎ、どれからいきましょうか。",
+              english: "Oh, look. One route lit up properly. Not the whole map, but we got this dish around together. Which one next?"
             },
             n3: {
-              japanese: "見てください。道が一つだけ、灯りましたよ。地図全部じゃない、たった一皿分。…でも、それを一人でじゃなくて、みんなで戻せたんです。今夜は、それで十分だと思います。",
-              reading: "みてください。みちがひとつだけ、ともりましたよ。ちずぜんぶじゃない、たったひとさらぶん。…でも、それをひとりでじゃなくて、みんなでもどせたんです。こんやは、それでじゅうぶんだとおもいます。",
-              english: "Look. Just one route lit up. Not the whole map — only one dish's worth. …But we got that back together, not alone. For tonight, I think that's enough."
+              japanese: "見てください。道が一つだけ、灯りましたよ。地図全部じゃない。でも、この一皿はみんなの手で一周した。さて、次はどれを回しましょうか。",
+              reading: "みてください。みちがひとつだけ、ともりましたよ。ちずぜんぶじゃない。でも、このひとさらはみんなのてでいっしゅうした。さて、つぎはどれをまわしましょうか。",
+              english: "Look. One route lit up. Not the whole map. But this dish made a full circuit through everyone's hands. So, which one goes around next?"
             },
             n2: {
-              japanese: "見てください、道が一つだけ灯りました。地図全部が戻ったわけじゃない、ほんの一皿分の短い道です。…でも、それを私一人でじゃなく、みんなで戻せた。今夜はそれで、十分すぎるくらいです。",
-              reading: "みてください、みちがひとつだけともりました。ちずぜんぶがもどったわけじゃない、ほんのひとさらぶんのみじかいみちです。…でも、それをわたしひとりでじゃなく、みんなでもどせた。こんやはそれで、じゅうぶんすぎるくらいです。",
-              english: "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a short route. …But we got it back together, not me alone. For tonight, that's more than enough."
+              japanese: "見てください、道が一つだけ灯りました。地図全部じゃない。でも、この一皿はみんなの手で一周した。次は、どれから回しましょう。",
+              reading: "みてください、みちがひとつだけともりました。ちずぜんぶじゃない。でも、このひとさらはみんなのてでいっしゅうした。つぎは、どれからまわしましょう。",
+              english: "Look — one route lit up. Not the whole map. But this dish made a full circuit through everyone's hands. Which one shall we send next?"
             },
             n1: {
-              japanese: "見てください、道が一つだけ灯りましたね。地図がまるごと戻ったわけじゃない、ほんの一皿分の、ごく短い道です。…でも、それを私が一人で抱えてじゃなく、みんなで戻せた。今夜のところは、それで十分すぎるくらいですよ。",
-              reading: "みてください、みちがひとつだけともりましたね。ちずがまるごともどったわけじゃない、ほんのひとさらぶんの、ごくみじかいみちです。…でも、それをわたしがひとりでかかえてじゃなく、みんなでもどせた。こんやのところは、それでじゅうぶんすぎるくらいですよ。",
-              english: "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a very short route. …But we got it back, not with me carrying it alone but all of us together. For tonight, that's more than enough."
+              japanese: "見てください、道が一つだけ灯りましたね。地図全部じゃない。でも、この一皿はみんなの手を渡って一周した。では、次はどれから回しましょうか。",
+              reading: "みてください、みちがひとつだけともりましたね。ちずぜんぶじゃない。でも、このひとさらはみんなのてをわたっていっしゅうした。では、つぎはどれからまわしましょうか。",
+              english: "Look — one route lit up. Not the whole map. But this dish went hand to hand all the way around. Now, which one shall we send next?"
             }
           },
           support: {
@@ -196405,7 +196655,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:vanishing-course:route-holds-map-open",
           beatId: "beat:vanishing-course:exit-image",
           cueId: "cue:one-point-lit-atlas-still-open",
-          description: "The one course has gone all the way round the table. The single lit route holds on the atlas; the rest of the map is still blank — no longer a problem for Jenny to solve alone. The half-finished scarf rests in her lap, one stitch quietly picked back up."
+          description: "The one course has gone all the way round the table. The single lit route holds on the atlas; the rest of the map is still blank. The serving cards now lie within everyone's reach. In Jenny's lap, one stitch returns to the half-finished scarf."
         }
       ],
       exit: {
@@ -196986,7 +197236,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$y = "yomu-academy.story-package.v2";
   const id$y = "s1e14-two-answers";
-  const revision$y = "2026-07-18.1";
+  const revision$y = "2026-07-19.1";
   const canonicality$y = "canon";
   const season$y = 2;
   const chapter$z = 14;
@@ -197310,7 +197560,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:two-answers:open-notebook",
           beatId: "beat:two-answers:regroup-image",
           cueId: "cue:number-notebook-open-page",
-          description: "The small notebook lies open between Sophie and Rose. It is ruled into two columns: one headed for a claim, one headed for the context it was counted in. The claim column is still empty."
+          description: "The small notebook lies open between Sophie and Rose. It is ruled into two columns: one headed for a claim, one headed for the context it was counted in. Sophie uncaps a blue pen and a green one; the claim column is still empty."
         },
         {
           kind: "line",
@@ -197378,11 +197628,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
               id: "option:two-answers:anchor-observation",
               action: "Write Rose's counted hour as the observed fact, and keep the per-hour reading beside it as a possibility.",
               japaneseByBand: {
-                n5: "Roseさんが見たのは「で」の場面ですね。それを書いて、「に」は「かもしれない」で残します。",
-                n4: "Roseさんが実際に見たのは「で」の場面ですよね。それを事実として書いて、「に」は可能性として横に残しましょう。",
-                n3: "Roseさんが実際に見たのは「で」のほうですよね。それを観察した事実として書いて、「に」は「その可能性もある」って添えておきましょう。",
-                n2: "Roseさんが実際に見たのは「で」の場面ですよね。まずそれを観察された事実として記録して、「に」のほうは可能性として脇に残しておきましょう。",
-                n1: "Roseさんが実際に目にしたのは「で」の場面のほうですよね。ならまずそれを、観察された事実として記録して、「に」のほうは残る可能性として脇に添えておきましょう。"
+                n5: "ローズさんが見たのは「で」の場面ですね。それを書いて、「に」は「かもしれない」で残します。",
+                n4: "ローズさんが実際に見たのは「で」の場面ですよね。それを事実として書いて、「に」は可能性として横に残しましょう。",
+                n3: "ローズさんが実際に見たのは「で」のほうですよね。それを観察した事実として書いて、「に」は「その可能性もある」って添えておきましょう。",
+                n2: "ローズさんが実際に見たのは「で」の場面ですよね。まずそれを観察された事実として記録して、「に」のほうは可能性として脇に残しておきましょう。",
+                n1: "ローズさんが実際に目にしたのは「で」の場面のほうですよね。ならまずそれを、観察された事実として記録して、「に」のほうは残る可能性として脇に添えておきましょう。"
               },
               records: [
                 "stance",
@@ -197524,7 +197774,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:two-answers:atlas-keeps-both",
           beatId: "beat:two-answers:exit-image",
           cueId: "cue:caption-marked-notebook-beside-it",
-          description: "The caption keeps its open slot with a small mark pointing off the page. Beside the map the notebook stays open, the number three recorded twice, each under its own context. Nothing is crossed out."
+          description: "The caption keeps its open slot with a small mark pointing off the page. Beside the map the notebook stays open, the number three recorded twice in blue and green, each under its own context. Nothing is crossed out."
         }
       ],
       exit: {
@@ -200022,7 +200272,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$t = "yomu-academy.story-package.v2";
   const id$t = "s1e19-seventy-percent-door";
-  const revision$t = "2026-07-18.1";
+  const revision$t = "2026-07-19.1";
   const canonicality$t = "canon";
   const season$t = 2;
   const chapter$u = 19;
@@ -200404,40 +200654,40 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "checkpoint",
           id: "checkpoint:seventy-percent-door:before-repair",
           beatId: "beat:seventy-percent-door:back-attempt",
-          resume: "The learner has taken a stance on continuing from seventy percent. Ruparna answers by reframing what 'ready' was supposed to mean."
+          resume: "The learner has taken a stance on continuing from seventy percent. Ruparna answers by choosing what to do with the marked gap."
         },
         {
           kind: "line",
           id: "line:seventy-percent-door:ruparna-door-opens",
           beatId: "beat:seventy-percent-door:repair",
           speakerId: "ruparna",
-          intent: "Accept that partial comprehension is a graduated door rather than a pass/fail gate, and commit to choosing slightly harder clips carefully, together.",
-          attentionTarget: "the seventy percent as an opening, not a shortfall",
+          intent: "Treat the certain seventy percent as enough for one next scene, leave the rest visibly unconfirmed, and keep the next viewing optional.",
+          attentionTarget: "the next frame and the unconfirmed mark still under this one",
           variants: {
             n5: {
-              japanese: "そうか。分かる、分からない、じゃないんですね。七割で、ドアが開く。次も、少し難しいのを、みんなで見ましょう。慎重に。",
-              reading: "そうか。わかる、わからない、じゃないんですね。しちわりで、ドアがひらく。つぎも、すこしむずかしいのを、みんなでみましょう。しんちょうに。",
-              english: "I see. It isn't 'understand' or 'don't.' At seventy percent, a door opens. Next time too, let's watch something a little hard, together. Carefully."
+              japanese: "七割あれば、次まで見られますね。分からない三割は、この印のままで。次も少し難しいのを持ってきます。見るかは、また決めましょう。",
+              reading: "しちわりあれば、つぎまでみられますね。わからないさんわりは、このしるしのままで。つぎもすこしむずかしいのをもってきます。みるかは、またきめましょう。",
+              english: "With seventy percent, we can watch the next part. The thirty we don't know stays marked. I'll bring something a little harder next time too. We can decide then whether to watch it."
             },
             n4: {
-              japanese: "なるほど。『分かる』か『分からない』か、の二択じゃないんだ。七割でも、ちゃんとドアは開くんですね。じゃあ次も、少しだけ背伸びしたやつを、みんなで慎重に見ましょう。",
-              reading: "なるほど。『わかる』か『わからない』か、のにたくじゃないんだ。しちわりでも、ちゃんとドアはひらくんですね。じゃあつぎも、すこしだけせのびしたやつを、みんなでしんちょうにみましょう。",
-              english: "I see. It's not a choice between 'understand' and 'don't.' Even at seventy percent, the door really does open. So next time too, let's pick something just a bit of a stretch and watch it carefully, together."
+              japanese: "七割あれば、次の場面までは行けるんですね。分からない三割は、この印のまま置いておく。次も少しだけ難しいのを持ってきます。続けるかは、その時また決めましょう。",
+              reading: "しちわりあれば、つぎのばめんまではいけるんですね。わからないさんわりは、このしるしのままおいておく。つぎもすこしだけむずかしいのをもってきます。つづけるかは、そのときまたきめましょう。",
+              english: "With seventy percent, we can make it to the next scene. The thirty we don't know stays marked. I'll bring something just a little harder next time too. We can decide then whether to continue."
             },
             n3: {
-              japanese: "そうか。準備できてる・できてないの二択じゃないんですね。七割分かれば、それはもうドアが開いてる。次も、ちょっと上のを選びます。ただし、みんなで慎重に。",
-              reading: "そうか。じゅんびできてる・できてないのにたくじゃないんですね。しちわりわかれば、それはもうドアがひらいてる。つぎも、ちょっとうえのをえらびます。ただし、みんなでしんちょうに。",
-              english: "I see. It's not a two-way switch between ready and not ready. If you understand seventy percent, the door is already open. Next time I'll pick something a notch higher too. But carefully, all of us together."
+              japanese: "七割あれば、次の場面へ進める。残りは推測で埋めず、この印のまま。次も少し上のを持ってきます。見るかどうかは、その場でまた決めましょう。",
+              reading: "しちわりあれば、つぎのばめんへすすめる。のこりはすいそくでうめず、このしるしのまま。つぎもすこしうえのをもってきます。みるかどうかは、そのばでまたきめましょう。",
+              english: "Seventy percent gets us to the next scene. The rest stays marked instead of being filled with guesses. I'll bring something a little above us next time too. We can decide on the spot whether to watch it."
             },
             n2: {
-              japanese: "なるほどね。『分かる』か『分からない』かの、白黒だけじゃないんだ。七割つかめれば、そこはもうドアが開いてるってことか。じゃあ次も少し上を選びます。ただ、あくまで慎重に、みんなで。",
-              reading: "なるほどね。『わかる』か『わからない』かの、しろくろだけじゃないんだ。しちわりつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもすこしうえをえらびます。ただ、あくまでしんちょうに、みんなで。",
-              english: "I see. It isn't just black-and-white between 'understand' and 'don't.' If you grasp seventy percent, that already means the door is open. So next time I'll pick something a step up too. But strictly carefully, all together."
+              japanese: "七割つかめていれば、次の場面までは進めるんですね。残りは無理に埋めず、未確認の印を残しておく。次も少し上を持ってきます。続けるかどうかは、その場で決めましょう。",
+              reading: "しちわりつかめていれば、つぎのばめんまではすすめるんですね。のこりはむりにうめず、みかくにんのしるしをのこしておく。つぎもすこしうえをもってきます。つづけるかどうかは、そのばできめましょう。",
+              english: "If we've grasped seventy percent, we can move to the next scene. We leave the rest unfilled and marked unconfirmed. I'll bring something a little above us next time. We can decide there whether to continue."
             },
             n1: {
-              japanese: "なるほど…。『分かる』か『分からない』かっていう、白か黒かの話じゃないんですね。七割さえつかめれば、そこはもうドアが開いてるってことか。じゃあ次もまた、ほんの少し背伸びしたのを選びます。ただし、あくまで慎重に、みんなでね。",
-              reading: "なるほど…。『わかる』か『わからない』かっていう、しろかくろかのはなしじゃないんですね。しちわりさえつかめれば、そこはもうドアがひらいてるってことか。じゃあつぎもまた、ほんのすこしせのびしたのをえらびます。ただし、あくまでしんちょうに、みんなでね。",
-              english: "I see… It isn't a matter of black or white, of 'understand' versus 'don't,' is it. As long as you grasp even seventy percent, that already means the door is open. So next time again I'll choose something just a touch of a reach. But carefully, mind — all of us together."
+              japanese: "七割つかめていれば、次の場面へは進める。残りをこちらの推測で埋めず、未確認の印を残しておけばいいんですね。次も少し背伸びしたのを持ってきます。再生するかは、その場でまた決めましょう。",
+              reading: "しちわりつかめていれば、つぎのばめんへはすすめる。のこりをこちらのすいそくでうめず、みかくにんのしるしをのこしておけばいいんですね。つぎもすこしせのびしたのをもってきます。さいせいするかは、そのばでまたきめましょう。",
+              english: "If we've grasped seventy percent, we can move to the next scene. We just leave the rest marked unconfirmed instead of filling it with our own guesses. I'll bring another slight stretch next time. We can decide there whether to play it."
             }
           },
           support: {
@@ -200451,7 +200701,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:seventy-percent-door:door-left-open",
           beatId: "beat:seventy-percent-door:exit-image",
           cueId: "cue:blank-caption-marked-not-filled",
-          description: "The blank subtitle bar stays blank under the last frame, but now a small tag beside it reads 'unconfirmed' instead of nothing. The unknown thirty percent is left standing in plain view, a door held ajar rather than a gap to paper over."
+          description: "The blank subtitle bar stays blank under the last frame. A small tag beside it reads 'unconfirmed'. Under the tag, Ruparna writes one short note: 「次の場面へ」."
         }
       ],
       exit: {
@@ -200536,7 +200786,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$s = "yomu-academy.story-package.v2";
   const id$s = "s1e20-map-from-memory";
-  const revision$s = "2026-07-18.1";
+  const revision$s = "2026-07-19.1";
   const canonicality$s = "canon";
   const season$s = 2;
   const chapter$t = 20;
@@ -201017,33 +201267,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:map-from-memory:rose-not-one-copy",
           beatId: "beat:map-from-memory:repair",
           speakerId: "rose",
-          intent: "Reframe the map as a record of many walkers kept countable, not a single correct copy restored; state that plural is the more accurate version.",
-          attentionTarget: "the numbered row of accounts, then the room",
+          intent: "Read what the worn paper actually supports, then keep the disputed stretch plural because the material cannot choose among the accounts.",
+          attentionTarget: "the shared fold-mark, the three middle routes, and their common last shop",
           variants: {
             n5: {
-              japanese: "そうですね。この地図は、一つの正しい道じゃない。何人もが歩いて、おぼえた道です。全部、数に入れておきましょう。",
-              reading: "そうですね。このちずは、ひとつのただしいみちじゃない。なんにんもがあるいて、おぼえたみちです。ぜんぶ、かずにいれておきましょう。",
-              english: "That's right. This map isn't one correct road. It's a road that many people walked and remembered. Let's keep them all in the count."
+              japanese: "三つとも、この紙の線から始まっていますね。ちがうのは、まん中だけ。一本にしないで、三つとも残しましょう。",
+              reading: "みっつとも、このかみのせんからはじまっていますね。ちがうのは、まんなかだけ。いっぽんにしないで、みっつとものこしましょう。",
+              english: "All three start at this line in the paper. Only the middle is different. Let's keep all three instead of making one line."
             },
             n4: {
-              japanese: "そうですね。この地図は、一本の正しい道を直したものじゃないんです。何人もが歩いて、それぞれに覚えてた道。だから、全部、数に入れて残しておく。それでいいと思います。",
-              reading: "そうですね。このちずは、いっぽんのただしいみちをなおしたものじゃないんです。なんにんもがあるいて、それぞれにおぼえてたみち。だから、ぜんぶ、かずにいれてのこしておく。それでいいとおもいます。",
-              english: "That's right. This map isn't one correct road we fixed. It's a road many people walked and each remembered their own way. So we keep them all, counted. I think that's how it should be."
+              japanese: "三つとも、この古い折り目から始まってる。違うのは途中だけですね。なら、そこは三通りのまま残しましょう。",
+              reading: "みっつとも、このふるいおりめからはじまってる。ちがうのはとちゅうだけですね。なら、そこはさんとおりのままのこしましょう。",
+              english: "All three start at this old fold-mark. It's only the middle that differs. Then let's keep that stretch in all three versions."
             },
             n3: {
-              japanese: "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれに覚えていた道の集まりで。だったら、どれも消さずに、全部数に入れて残しておけばいい。そのほうが、たぶん正確なんです。",
-              reading: "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれにおぼえていたみちのあつまりで。だったら、どれもけさずに、ぜんぶかずにいれてのこしておけばいい。そのほうが、たぶんせいかくなんです。",
-              english: "That's right. This map isn't the restoration of one correct road. It's a gathering of roads that many people walked and each remembered. So we erase none of them, keep them all counted. That's probably the more accurate version, actually."
+              japanese: "三つとも、この折り目から始まって、最後は同じ店に戻ってくる。違うのは途中だけ。そこを一本に直す理由はなさそうですね。三通りのまま残しましょう。",
+              reading: "みっつとも、このおりめからはじまって、さいごはおなじみせにもどってくる。ちがうのはとちゅうだけ。そこをいっぽんになおすりゆうはなさそうですね。さんとおりのままのこしましょう。",
+              english: "All three start at this fold and return to the same shop at the end. Only the middle differs. I don't see a reason to force that into one line. Let's keep the three versions."
             },
             n2: {
-              japanese: "そうですね。この地図は、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれの覚え方をした道の集まりなんです。だったら、どれも消さずに、全部を数に入れて残しておけばいい。そのほうが、記録としてはむしろ正確なんだと思います。",
-              reading: "そうですね。このちずは、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのおぼえかたをしたみちのあつまりなんです。だったら、どれもけさずに、ぜんぶをかずにいれてのこしておけばいい。そのほうが、きろくとしてはむしろせいかくなんだとおもいます。",
-              english: "That's right. This map isn't a restored single correct road. It's a gathering of roads that many people walked and each remembered their own way. So we erase none of them and keep them all counted. As a record, that's actually the more accurate one, I think."
+              japanese: "紙が裏付けているのは、三つともこの折り目から始まり、同じ店へ戻ること。食い違うのは途中だけです。そこまで一本に整える根拠はありません。三通りのまま残しましょう。",
+              reading: "かみがうらづけているのは、みっつともこのおりめからはじまり、おなじみせへもどること。くいちがうのはとちゅうだけです。そこまでいっぽんにととのえるこんきょはありません。さんとおりのままのこしましょう。",
+              english: "The paper supports this much: all three start at this fold and return to the same shop. Only the middle conflicts. We have no basis for tidying that into one line. Let's keep the three versions."
             },
             n1: {
-              japanese: "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれのやり方で覚えていた道の、その集まりなんです。だったら、どれか一つに直すより、全部を数に入れて、並べたまま残しておくほうがいい。そのほうが、記録としてはかえって正確なんだと思います。一本にした瞬間に、こぼれるものがあるので。",
-              reading: "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのやりかたでおぼえていたみちの、そのあつまりなんです。だったら、どれかひとつになおすより、ぜんぶをかずにいれて、ならべたままのこしておくほうがいい。そのほうが、きろくとしてはかえってせいかくなんだとおもいます。いっぽんにしたしゅんかんに、こぼれるものがあるので。",
-              english: "That's right. This map isn't the restoration of one correct road. It's the gathering of roads that many people walked and remembered in their own ways. So rather than fixing it to one, it's better to keep them all counted and laid side by side. As a record, that's the more accurate version, I think. The moment you make it one line, something spills out."
+              japanese: "紙から確かめられるのは、三つともこの折り目から始まり、最後は同じ店へ戻ることまで。食い違っているのは途中だけです。そこまで一本に整えるだけの根拠は、ここにはない。三通りのまま残しましょう。",
+              reading: "かみからたしかめられるのは、みっつともこのおりめからはじまり、さいごはおなじみせへもどることまで。くいちがっているのはとちゅうだけです。そこまでいっぽんにととのえるだけのこんきょは、ここにはない。さんとおりのままのこしましょう。",
+              english: "From the paper, we can verify only this much: all three start at this fold and return to the same shop. The middle is where they conflict. Nothing here gives us grounds to tidy that into one line. Let's keep the three versions."
             }
           },
           support: {
@@ -201067,22 +201317,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
             },
             n4: {
               japanese: "じゃあ、書きますね。橋、市場。そこから川までは「三通りの記憶」。そのあと、あかりの店。これで、一本も消さずに全部入りました。",
-              reading: "じゃあ、かきますね。はし、いちば。そこからかわまでは「みとおりのきおく」。そのあと、あかりのみせ。これで、いっぽんもけさずにぜんぶはいりました。",
+              reading: "じゃあ、かきますね。はし、いちば。そこからかわまでは「さんとおりのきおく」。そのあと、あかりのみせ。これで、いっぽんもけさずにぜんぶはいりました。",
               english: `Okay, I'll write it. Bridge, market. From there to the river, "three versions of the memory." After that, the lantern shop. There — all in, without erasing a single one.`
             },
             n3: {
               japanese: "じゃあ、順番に書いていきますね。橋、市場。そこから川までの区間は「三通りの記憶」として。そのあとが、あかりの店。これで、どれも消さずに全部おさまりました。",
-              reading: "じゃあ、じゅんばんにかいていきますね。はし、いちば。そこからかわまでのくかんは「みとおりのきおく」として。そのあとが、あかりのみせ。これで、どれもけさずにぜんぶおさまりました。",
+              reading: "じゃあ、じゅんばんにかいていきますね。はし、いちば。そこからかわまでのくかんは「さんとおりのきおく」として。そのあとが、あかりのみせ。これで、どれもけさずにぜんぶおさまりました。",
               english: `Okay, I'll write it in order. Bridge, market. The stretch from there to the river as "three versions of the memory." After that, the lantern shop. There — all of it fits, without erasing any.`
             },
             n2: {
               japanese: "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と。そのあとに、あかりの店。これで、一本も削らずに全部おさまりました。",
-              reading: "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」と。そのあとに、あかりのみせ。これで、いっぽんもけずらずにぜんぶおさまりました。",
+              reading: "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「さんとおりにきおくされている」と。そのあとに、あかりのみせ。これで、いっぽんもけずらずにぜんぶおさまりました。",
               english: `Okay, I'll write it in order. Bridge, market. The stretch from there to the river as "remembered three ways." After that, the lantern shop. There — it all fits, without shaving off a single one.`
             },
             n1: {
               japanese: "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と添えて。そのあとが、あかりの店。これで、一本も削らずに、ぜんぶそのままおさまりました。まあ、順番としては、いつもより一行ぶん長いだけです。",
-              reading: "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」とそえて。そのあとが、あかりのみせ。これで、いっぽんもけずらずに、ぜんぶそのままおさまりました。まあ、じゅんばんとしては、いつもよりいちぎょうぶんながいだけです。",
+              reading: "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「さんとおりにきおくされている」とそえて。そのあとが、あかりのみせ。これで、いっぽんもけずらずに、ぜんぶそのままおさまりました。まあ、じゅんばんとしては、いつもよりいちぎょうぶんながいだけです。",
               english: `Okay, I'll write it in order. Bridge, market. The stretch from there to the river with "remembered three ways" added. After that, the lantern shop. There — not one shaved off, all of it fits as is. Well — as a sequence, it's just one line longer than usual.`
             }
           },
@@ -202472,7 +202722,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$p = "yomu-academy.story-package.v2";
   const id$p = "s1e23-farewell-rehearsal";
-  const revision$p = "2026-07-18.1";
+  const revision$p = "2026-07-19.1";
   const canonicality$p = "canon";
   const season$p = 2;
   const chapter$q = 23;
@@ -202480,7 +202730,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "The Farewell Rehearsal",
     ja: "お別れのリハーサル"
   };
-  const synopsis$p = "Nanako's time guiding the class ends today, and the farewell meal they planned in careful order collapses when the cooking will not fit before she has to go. Shaun flips the sequence, the learner states the revised intention aloud, and the round of thank-yous the class meant to give is only half said. Nanako accepts the unfinished gratitude and leaves the rest of the words held over for a next time.";
+  const synopsis$p = "Nanako's London visit is ending, and the farewell meal her friends planned in careful order collapses when the cooking will not fit before she has to go. Shaun flips the sequence, the learner states the revised intention aloud, and the round of thank-yous the group meant to give is only half said. Nanako accepts the unfinished gratitude and leaves the rest of the words held over for a next time.";
   const sourceSafety$p = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -202558,8 +202808,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:cafe",
       timeState: "evening",
       weatherState: "winter-dark",
-      goal: "Meet Nanako on her last evening guiding the class and watch the ordered farewell plan meet a clock it cannot beat.",
-      dramaticQuestion: "When the plan will not fit, does the class force the order or change what has to happen first?",
+      goal: "Meet Nanako on the last evening of her London visit and watch the ordered farewell plan meet a clock it cannot beat.",
+      dramaticQuestion: "When the plan will not fit, does the group force the order or change what has to happen first?",
       learnerNeed: "A changed-plan production where stating a revised intention and its before/after order matters more than keeping the original sequence.",
       curriculum: {
         sectionId: "state-intention-and-reorder",
@@ -202572,40 +202822,40 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:farewell-rehearsal:laid-plan",
           beatId: "beat:farewell-rehearsal:arrival-image",
           cueId: "cue:cafe-board-timeline-and-clock",
-          description: "A hand-drawn timeline runs across the cafe board: 作る → 食べる → お礼. Beside it hangs a clock. The kitchen behind the counter is still busy with someone else's order; the first step has not begun, and the last step is the one the class circled twice."
+          description: "A hand-drawn timeline runs across the cafe board: 作る → 食べる → お礼. Beside it hangs a clock. The kitchen behind the counter is still busy with someone else's order; the first step has not begun, and the last step is the one the group circled twice."
         },
         {
           kind: "line",
           id: "line:farewell-rehearsal:nanako-intention",
           beatId: "beat:farewell-rehearsal:host-want",
           speakerId: "nanako",
-          intent: "Tell the class her time guiding them ends today, and lay out the ordered thing she had meant to do before leaving: cook one dish together, eat, then thank each of them.",
+          intent: "Tell the group this is the last time she can see them on this visit, and lay out the ordered thing she had meant to do before leaving: cook one dish together, eat, then thank each of them.",
           attentionTarget: "the timeline on the board, read left to right",
           variants: {
             n5: {
-              japanese: "みなさん、今日でわたしの役目は終わりです。帰る前に、いっしょに一つ、料理を作りたかったんです。作って、食べて、それからお礼を言うつもりでした。",
-              reading: "みなさん、きょうでわたしのやくめはおわりです。かえるまえに、いっしょにひとつ、りょうりをつくりたかったんです。つくって、たべて、それからおれいをいうつもりでした。",
-              english: "Everyone, my role here ends today. Before I go, I wanted to make one dish together with you. Make it, eat it, and after that say my thanks — that was the plan."
+              japanese: "みなさん、今回会えるのは今日が最後です。帰る前に、いっしょに一つ、料理を作りたかったんです。作って、食べて、それからお礼を言うつもりでした。",
+              reading: "みなさん、こんかいあえるのはきょうがさいごです。かえるまえに、いっしょにひとつ、りょうりをつくりたかったんです。つくって、たべて、それからおれいをいうつもりでした。",
+              english: "Everyone, this is the last time I can see you on this visit. Before I go, I wanted to make one dish together. Make it, eat it, then say my thanks. That was the plan."
             },
             n4: {
-              japanese: "みなさん、案内役は今日で終わりなんです。帰る前に、一品だけみんなで作って、食べてから、ちゃんと一人ずつお礼を言うつもりでした。",
-              reading: "みなさん、あんないやくはきょうでおわりなんです。かえるまえに、いっぴんだけみんなでつくって、たべてから、ちゃんとひとりずつおれいをいうつもりでした。",
-              english: "Everyone, my guide role ends today. Before I leave, I meant to make just one dish all together, and after we ate, to thank each of you properly, one by one."
+              japanese: "みなさん、今回の滞在で会えるのは今日が最後なんです。帰る前に、一品だけみんなで作って、食べてから、ちゃんと一人ずつお礼を言うつもりでした。",
+              reading: "みなさん、こんかいのたいざいであえるのはきょうがさいごなんです。かえるまえに、いっぴんだけみんなでつくって、たべてから、ちゃんとひとりずつおれいをいうつもりでした。",
+              english: "Everyone, this is the last time I can see you during this visit. Before I leave, I meant to make one dish together, then thank each of you after we ate."
             },
             n3: {
-              japanese: "みなさん、わたしが案内する役目、今日でおしまいなんです。帰る前に、みんなで一品作って、食べてから、順番にお礼を言おうと思っていました。",
-              reading: "みなさん、わたしがあんないするやくめ、きょうでおしまいなんです。かえるまえに、みんなでいっぴんつくって、たべてから、じゅんばんにおれいをいおうとおもっていました。",
-              english: "Everyone, my role guiding you finishes today. Before I go, I'd been meaning to make one dish together, and after we ate, to thank each of you in turn."
+              japanese: "みなさん、今回ロンドンで会えるのは、今日でおしまいなんです。帰る前に、みんなで一品作って、食べてから、順番にお礼を言おうと思っていました。",
+              reading: "みなさん、こんかいロンドンであえるのは、きょうでおしまいなんです。かえるまえに、みんなでいっぴんつくって、たべてから、じゅんばんにおれいをいおうとおもっていました。",
+              english: "Everyone, today's the last time I can see you on this London visit. Before I go, I'd meant to make one dish together and thank each of you after we ate."
             },
             n2: {
-              japanese: "みなさん、案内役を務めるのも今日が最後で。帰る前に、一品だけみんなで仕上げて、食べ終えてから、一人ずつにお礼を言うつもりでいたんです。",
-              reading: "みなさん、あんないやくをつとめるのもきょうがさいごで。かえるまえに、いっぴんだけみんなでしあげて、たべおえてから、ひとりずつにおれいをいうつもりでいたんです。",
-              english: "Everyone, today's my last serving as your guide. Before I leave, I'd fully intended to finish one dish with you all, and once we'd eaten, to thank each of you one by one."
+              japanese: "みなさん、今回の滞在中に会えるのは今日が最後で。帰る前に、一品だけみんなで仕上げて、食べ終えてから、一人ずつにお礼を言うつもりでいたんです。",
+              reading: "みなさん、こんかいのたいざいちゅうにあえるのはきょうがさいごで。かえるまえに、いっぴんだけみんなでしあげて、たべおえてから、ひとりずつにおれいをいうつもりでいたんです。",
+              english: "Everyone, this is the last time I can see you during this visit. Before leaving, I'd intended to finish one dish together and then thank each of you once we'd eaten."
             },
             n1: {
-              japanese: "みなさん、案内役をお引き受けするのも、今日かぎりになりまして。帰る前に、せめて一品だけでもみんなで仕上げて、食べ終えてから、お一人ずつにお礼を、と——そのつもりでいたんですけどね。",
-              reading: "みなさん、あんないやくをおひきうけするのも、きょうかぎりになりまして。かえるまえに、せめていっぴんだけでもみんなでしあげて、たべおえてから、おひとりずつにおれいを、と——そのつもりでいたんですけどね。",
-              english: "Everyone, my time taking on the guide role comes to an end just today. Before I go, I'd meant to at least finish one dish together, and once we'd eaten, to give each of you my thanks, one by one — that was the plan, at any rate."
+              japanese: "みなさん、今回の滞在でお会いできるのも、今日かぎりになりまして。帰る前に、せめて一品だけでもみんなで仕上げて、食べ終えてから、お一人ずつにお礼を、と——そのつもりでいたんですけどね。",
+              reading: "みなさん、こんかいのたいざいでおあいできるのも、きょうかぎりになりまして。かえるまえに、せめていっぴんだけでもみんなでしあげて、たべおえてから、おひとりずつにおれいを、と——そのつもりでいたんですけどね。",
+              english: "Everyone, this is the last time I can see you during this visit. Before going, I'd meant to finish at least one dish together and then thank each of you after we'd eaten. That was the plan, anyway."
             }
           },
           support: {
@@ -202666,7 +202916,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:farewell-rehearsal:nanako-takes-flip",
           beatId: "beat:farewell-rehearsal:attempt",
           speakerId: "nanako",
-          intent: "Accept that the dish itself may not get made, note that the thanks work without it, and hand the exact new order to the class to state.",
+          intent: "Accept that the dish itself may not get made, note that the thanks work without it, and hand the exact new order to the group to state.",
           attentionTarget: "the crossed-out cooking step, and the room waiting for a plan",
           variants: {
             n5: {
@@ -202797,7 +203047,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       locationId: "location:cafe",
       timeState: "evening",
       weatherState: "winter-dark",
-      goal: "Run the reordered thank-you round and let it not finish, so the class decides what to do with the words that go unsaid.",
+      goal: "Run the reordered thank-you round and let it not finish, so the group decides what to do with the words that go unsaid.",
       dramaticQuestion: "Can a farewell count the half-said thanks as enough, or must every word be forced out before she goes?",
       learnerNeed: "A stance choice about unfinished gratitude: compress it into one line now, or leave it deliberately unfinished and held over.",
       curriculum: {
@@ -202811,40 +203061,40 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:farewell-rehearsal:half-blank-cards",
           beatId: "beat:farewell-rehearsal:regroup-image",
           cueId: "cue:name-cards-half-turned",
-          description: "The name cards lie in a row, one per classmate, each meant for a single line of thanks. A few are turned face up and spoken; most are still face down. The clock has crept close to the time Nanako has to leave."
+          description: "The name cards lie in a row, one per friend at the table, each meant for a single line of thanks. A few are turned face up and spoken; most are still face down. The clock has crept close to the time Nanako has to leave."
         },
         {
           kind: "line",
           id: "line:farewell-rehearsal:nanako-gratitude",
           beatId: "beat:farewell-rehearsal:host-want-two",
           speakerId: "nanako",
-          intent: "Take the first turn herself and thank the class for making a place for her, framing the thanks through what she could not have done without them.",
-          attentionTarget: "the row of faces around the table, not the cards",
+          intent: "Take the first turn herself and thank the group for keeping a place for her whenever she returns to London.",
+          attentionTarget: "the familiar table and the row of faces around it, not the cards",
           variants: {
             n5: {
-              japanese: "みなさんのおかげで、毎週たのしかったです。ここにいれてくれて、ありがとう。",
-              reading: "みなさんのおかげで、まいしゅうたのしかったです。ここにいれてくれて、ありがとう。",
-              english: "Thanks to all of you, every week was fun. Thank you for letting me be here."
+              japanese: "ロンドンに来ると、いつも会ってくれて、ありがとう。このテーブルにまた来られて、よかったです。",
+              reading: "ロンドンにくると、いつもあってくれて、ありがとう。このテーブルにまたこられて、よかったです。",
+              english: "Thank you for meeting me whenever I come to London. I'm glad I got to come back to this table."
             },
             n4: {
-              japanese: "みなさんのおかげで、この教室、毎週楽しみでした。仲間に入れてくれて、本当にありがとう。",
-              reading: "みなさんのおかげで、このきょうしつ、まいしゅうたのしみでした。なかまにいれてくれて、ほんとうにありがとう。",
-              english: "Thanks to all of you, I looked forward to this class every week. Thank you, really, for letting me be one of you."
+              japanese: "ロンドンに来るたび、こうして同じテーブルを空けて待っていてくれて、本当にありがとう。またここに来られて、よかったです。",
+              reading: "ロンドンにくるたび、こうしておなじテーブルをあけてまっていてくれて、ほんとうにありがとう。またここにこられて、よかったです。",
+              english: "Every time I come to London, you keep a place for me at the same table. Thank you. I'm glad I got to come back here."
             },
             n3: {
-              japanese: "みなさんがいてくれたおかげで、毎週ここに来るのが楽しみで。こんなふうに輪に入れてくれて、感謝してます。",
-              reading: "みなさんがいてくれたおかげで、まいしゅうここにくるのがたのしみで。こんなふうにわにいれてくれて、かんしゃしてます。",
-              english: "Because you were all here, I looked forward to coming every week. Thank you for letting me into the circle like this."
+              japanese: "ロンドンに戻るたび、同じテーブルに私の分まで席を作ってくれて。久しぶりでも、すぐ話の続きに戻れるのがうれしかったです。ありがとう。",
+              reading: "ロンドンにもどるたび、おなじテーブルにわたしのぶんまでせきをつくってくれて。ひさしぶりでも、すぐはなしのつづきにもどれるのがうれしかったです。ありがとう。",
+              english: "Whenever I came back to London, you made room for me at the same table. Even after a while away, we could pick the conversation straight back up. Thank you."
             },
             n2: {
-              japanese: "みなさんがいてくださったおかげで、毎週ここへ来るのが本当に楽しみで。こうして輪の中に入れてもらえて、心から感謝しています。",
-              reading: "みなさんがいてくださったおかげで、まいしゅうここへくるのがほんとうにたのしみで。こうしてわのなかにいれてもらえて、こころからかんしゃしています。",
-              english: "Because you were all here, I truly looked forward to coming each week. Being let into the circle like this — I'm grateful from the heart."
+              japanese: "ロンドンに戻るたび、同じテーブルに私の席まで空けて待っていてくださって。間が空いても、そのまま話の続きに戻れたこと、本当に感謝しています。",
+              reading: "ロンドンにもどるたび、おなじテーブルにわたしのせきまであけてまっていてくださって。あいだがあいても、そのままはなしのつづきにもどれたこと、ほんとうにかんしゃしています。",
+              english: "Whenever I returned to London, you kept my place open at the same table. Even after time apart, we could return to the conversation where we left it. Thank you."
             },
             n1: {
-              japanese: "みなさんがいてくださったからこそ、毎週ここへ足を運ぶのが、なにより楽しみでした。こうして輪の中に迎え入れていただけたこと、ほんとうに、感謝の言葉もないくらいで。",
-              reading: "みなさんがいてくださったからこそ、まいしゅうここへあしをはこぶのが、なによりたのしみでした。こうしてわのなかにむかえいれていただけたこと、ほんとうに、かんしゃのことばもないくらいで。",
-              english: "It's precisely because you were all here that coming here each week was, more than anything, what I looked forward to. To have been welcomed into the circle like this — truly, I can hardly find the words to thank you."
+              japanese: "ロンドンに戻るたび、同じテーブルに私の席まで空けて待っていてくださって。どれだけ間が空いても、前の話の続きから始められたこと、本当にありがたかったです。",
+              reading: "ロンドンにもどるたび、おなじテーブルにわたしのせきまであけてまっていてくださって。どれだけあいだがあいても、まえのはなしのつづきからはじめられたこと、ほんとうにありがたかったです。",
+              english: "Whenever I returned to London, you kept my place open at the same table. No matter how long it had been, we could begin with the rest of the conversation. I was grateful for that."
             }
           },
           support: {
@@ -202999,33 +203249,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:farewell-rehearsal:nanako-parting",
           beatId: "beat:farewell-rehearsal:exit",
           speakerId: "nanako",
-          intent: "Leave on a sentence she does not finish, handing the unsaid words to the class to hold until a next meeting.",
+          intent: "Leave on a sentence she does not finish, keeping the rest available for a next meeting without promising when it must happen.",
           attentionTarget: "the doorway, and the room she is leaving mid-sentence",
           variants: {
             n5: {
-              japanese: "じゃあ、行きますね。今日は、本当に——。また、ね。",
-              reading: "じゃあ、いきますね。きょうは、ほんとうに——。また、ね。",
-              english: "Well, I'll be off. Today was, truly——. See you."
+              japanese: "じゃあ、行きますね。今日は、本当に——。また会えたら、つづきを。",
+              reading: "じゃあ、いきますね。きょうは、ほんとうに——。またあえたら、つづきを。",
+              english: "Well, I'll be off. Today was, truly——. If we meet again, I'll finish that thought."
             },
             n4: {
-              japanese: "じゃあ、そろそろ。今日は本当に、なんて言えばいいか——。また、会いましょうね。",
-              reading: "じゃあ、そろそろ。きょうはほんとうに、なんていえばいいか——。また、あいましょうね。",
-              english: "Well, I'd better go. Today was, truly — how do I put it —. Let's meet again."
+              japanese: "じゃあ、そろそろ。今日は本当に、なんて言えばいいか——。また会えた時に、続きを聞いてください。",
+              reading: "じゃあ、そろそろ。きょうはほんとうに、なんていえばいいか——。またあえたときに、つづきをきいてください。",
+              english: "Well, I'd better go. Today was, truly — how do I put it —. When we meet again, you can hear the rest."
             },
             n3: {
-              japanese: "じゃあ、そろそろ行きますね。今日は本当に、うまく言えないんですけど——。また、必ず。",
-              reading: "じゃあ、そろそろいきますね。きょうはほんとうに、うまくいえないんですけど——。また、かならず。",
-              english: "Well, I'll head off now. Today was, truly — I can't put it well, but —. Again, without fail."
+              japanese: "じゃあ、そろそろ行きますね。今日は本当に、うまく言えないんですけど——。また会えた時に、この続きを。",
+              reading: "じゃあ、そろそろいきますね。きょうはほんとうに、うまくいえないんですけど——。またあえたときに、このつづきを。",
+              english: "Well, I'll head off. Today was, truly — I can't put it well, but —. When we meet again, I'll finish this."
             },
             n2: {
-              japanese: "じゃあ、そろそろ失礼します。今日は本当に、なんと言ったらいいのか——。続きは、また今度、必ず。",
-              reading: "じゃあ、そろそろしつれいします。きょうはほんとうに、なんといったらいいのか——。つづきは、またこんど、かならず。",
-              english: "Well, I'd best be going. Today was, truly — I don't know quite what to say —. The rest, next time, without fail."
+              japanese: "じゃあ、そろそろ失礼します。今日は本当に、なんと言ったらいいのか——。続きは、また会えた時にでも。",
+              reading: "じゃあ、そろそろしつれいします。きょうはほんとうに、なんといったらいいのか——。つづきは、またあえたときにでも。",
+              english: "Well, I'd best be going. Today was, truly — I don't know quite what to say —. The rest, perhaps when we meet again."
             },
             n1: {
-              japanese: "じゃあ、そろそろお暇しますね。今日は本当に、なんと言ったものか——。この続きは、また会えたときに、必ず。それまで、預けておきますね。",
-              reading: "じゃあ、そろそろおいとましますね。きょうはほんとうに、なんといったものか——。このつづきは、またあえたときに、かならず。それまで、あずけておきますね。",
-              english: "Well, I ought to take my leave. Today was, truly — how should I put it —. The rest of this, when we can meet again, without fail. Until then, I'll leave it in your keeping."
+              japanese: "じゃあ、そろそろお暇しますね。今日は本当に、なんと言ったものか——。この続きは、また会えたときにでも。それまで、ここに置いておきますね。",
+              reading: "じゃあ、そろそろおいとましますね。きょうはほんとうに、なんといったものか——。このつづきは、またあえたときにでも。それまで、ここにおいておきますね。",
+              english: "Well, I ought to take my leave. Today was, truly — how should I put it —. The rest, perhaps when we meet again. Until then, I'll leave it here."
             }
           },
           support: {
@@ -203053,7 +203303,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     {
       id: "outcome:farewell-rehearsal:held-over-thanks",
       kind: "story",
-      description: "The class reorders the farewell so thanks come before cooking, then lets the round go unfinished on purpose; the unsaid gratitude is treated as held over for a next meeting rather than a failure."
+      description: "The group reorders the farewell so thanks come before cooking, then lets the round go unfinished on purpose; the unsaid gratitude is treated as held over for a next meeting rather than a failure."
     },
     {
       id: "outcome:farewell-rehearsal:nanako-arrival",
@@ -203061,7 +203311,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "nanako",
       chapter: 23,
       beat: "arrival",
-      description: "Nanako is introduced through concise bilingual warmth and clean-closing exchanges on her last evening guiding the class; she establishes that she would rather leave words unfinished and held over than force a plan to completion."
+      description: "Nanako is introduced on the last evening of her London visit through concise warmth and a clean closing; as a returning friend in Henry's orbit, she leaves words held over rather than forcing the farewell to completion."
     },
     {
       id: "outcome:farewell-rehearsal:shaun-contribution",
@@ -203069,7 +203319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "shaun",
       chapter: 23,
       beat: "contribution",
-      description: "Shaun's one bounded suggestion to flip the order — thanks first, cooking last — reorders the whole farewell, and his plain naming of the unfinished round puts the choice about the unsaid thanks on the table; his light, register-bounded contribution is established as something the class can lean on."
+      description: "Shaun's one bounded suggestion to flip the order — thanks first, cooking last — reorders the whole farewell, and his plain naming of the unfinished round puts the choice about the unsaid thanks on the table; his light, register-bounded contribution is established as something the group can lean on."
     },
     {
       id: "outcome:farewell-rehearsal:transfer-return",
@@ -203119,7 +203369,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const schema$o = "yomu-academy.story-package.v2";
   const id$o = "s1e24-lanterns-return";
-  const revision$o = "2026-07-18.1";
+  const revision$o = "2026-07-19.1";
   const canonicality$o = "canon";
   const season$o = 2;
   const chapter$p = 24;
@@ -203127,7 +203377,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     en: "When the Lanterns Return",
     ja: "灯がかえるとき"
   };
-  const synopsis$o = "The first lantern exhibition is minutes from opening and the final route stays dark no matter what the class adds to the machine. Mira, arriving in the last ten minutes, sees it is not a repair but a voice the route is missing; the class lights it by coordinating who reads what and when. As the map answers their timing, a caption the projection never displayed surfaces in the atlas backing, unnamed.";
+  const synopsis$o = "The first lantern exhibition is minutes from opening and the final route stays dark no matter what the class adds to the machine. Mira joins the shared call from a distance in the last ten minutes and sees that the route is missing a voice, not a repair; the class lights it by coordinating who reads what and when. As the map answers their timing, a caption the projection never displayed surfaces in the atlas backing, unnamed.";
   const sourceSafety$o = {
     originalYomu: true,
     externalDialogueUsed: false,
@@ -203228,40 +203478,40 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:lanterns-return:dark-final-route",
           beatId: "beat:lanterns-return:arrival-image",
           cueId: "cue:courtyard-atlas-one-route-dark",
-          description: "The winter courtyard is strung for the exhibition. The lantern-atlas glows along every route but the last one, which stays black end to end. The class is packed around a projector cart at its base, feeding it cables."
+          description: "The winter courtyard is strung for the exhibition. The lantern-atlas glows along every route but the last one, which stays black end to end. The class is packed around a projector cart at its base, feeding it cables. A phone propped against the cart has just connected to the shared call, its camera pointed at the dark route."
         },
         {
           kind: "line",
           id: "line:lanterns-return:mira-arrives",
           beatId: "beat:lanterns-return:arrival",
           speakerId: "mira",
-          intent: "Arrive in the last ten minutes, greet quickly, and immediately name the plain facts she walks into: the last route is dark and everyone is crowded at the machine.",
-          attentionTarget: "the one dark route, and the cluster of people at the cart rather than at the map",
+          intent: "Join the shared call from a distance in the last ten minutes, greet quickly, and name the plain facts visible through the camera: the last route is dark and everyone is crowded at the machine.",
+          attentionTarget: "the one dark route at the edge of the call's frame, and the cluster of people at the cart",
           variants: {
             n5: {
-              japanese: "遅れてごめんなさい。やっと来ました。あれ、さいごの道、まだ暗いですね。みんな、機械のところに集まっていますね。",
-              reading: "おくれてごめんなさい。やっときました。あれ、さいごのみち、まだくらいですね。みんな、きかいのところにあつまっていますね。",
-              english: "Sorry I'm late — I finally made it. Huh, the last route's still dark. And everyone's clustered around the machine."
+              japanese: "こんばんは。今、入りました。あれ、さいごの道、まだ暗いですね。みんな、機械のところに集まっていますね。",
+              reading: "こんばんは。いま、はいりました。あれ、さいごのみち、まだくらいですね。みんな、きかいのところにあつまっていますね。",
+              english: "Hi. I've just joined. Huh, the last route is still dark. And everyone's gathered around the machine."
             },
             n4: {
-              japanese: "遅くなってごめん。やっと着いた。……あれ、最後の道だけまだ点いてないんだ。で、みんなずっと機械のまわりに集まってるんだね。",
-              reading: "おそくなってごめん。やっとついた。……あれ、さいごのみちだけまだついてないんだ。で、みんなずっときかいのまわりにあつまってるんだね。",
-              english: "Sorry I'm late, I finally got here. …Huh, only the last route still isn't lit. And everyone's been huddled around the machine this whole time."
+              japanese: "こんばんは。今、通話に入ったよ。……あれ、最後の道だけまだ点いてないんだ。で、カメラにずっと機械しか映ってないね。",
+              reading: "こんばんは。いま、つうわにはいったよ。……あれ、さいごのみちだけまだついてないんだ。で、カメラにずっときかいしかうつってないね。",
+              english: "Hi. I've just joined the call. …Huh, only the last route still isn't lit. And the camera has shown nothing but the machine this whole time."
             },
             n3: {
-              japanese: "ごめん、遅くなっちゃって。やっと着いたよ。……あれ、最後の道、まだ点いてないんだ。で、みんなさっきから機械の前に集まりっぱなしなんだね。",
-              reading: "ごめん、おそくなっちゃって。やっとついたよ。……あれ、さいごのみち、まだついてないんだ。で、みんなさっきからきかいのまえにあつまりっぱなしなんだね。",
-              english: "Sorry I'm so late — just got here. …Huh, the last route still isn't lit. And you've all been parked in front of the machine since a while ago, huh."
+              japanese: "こんばんは、今入ったよ。……あれ、最後の道、まだ点いてないんだ。で、カメラに映ってるの、さっきから機械とみんなの背中ばっかりだね。",
+              reading: "こんばんは、いまはいったよ。……あれ、さいごのみち、まだついてないんだ。で、カメラにうつってるの、さっきからきかいとみんなのせなかばっかりだね。",
+              english: "Hi, I've just joined. …Huh, the last route still isn't lit. And all the camera has shown is the machine and everyone's backs."
             },
             n2: {
-              japanese: "ごめん、すっかり遅くなって。ようやく着いたよ。……あれ、最後の一本だけ、まだ点いてないんだ。で、さっきからみんな、機械の前に張りついたまま、と。",
-              reading: "ごめん、すっかりおそくなって。ようやくついたよ。……あれ、さいごのいっぽんだけ、まだついてないんだ。で、さっきからみんな、きかいのまえにはりついたまま、と。",
-              english: "Sorry, I'm properly late — finally made it. …Huh, just that last one still isn't lit. And everyone's been glued to the front of the machine this whole time, I see."
+              japanese: "こんばんは、今ようやく通話に入れたよ。……あれ、最後の一本だけ、まだ点いてないんだ。で、画面に映るのは、機械とそこに張りついたみんなの背中ばかり、と。",
+              reading: "こんばんは、いまようやくつうわにはいれたよ。……あれ、さいごのいっぽんだけ、まだついてないんだ。で、がめんにうつるのは、きかいとそこにはりついたみんなのせなかばかり、と。",
+              english: "Hi, I've finally joined the call. …Huh, just that last route still isn't lit. And the screen shows the machine and everyone's backs glued to it."
             },
             n1: {
-              japanese: "ごめんね、すっかり遅くなっちゃって。ようやくたどり着いたよ。……あれ、最後の一本だけ、まだ点かないんだ。で、さっきからみんな揃って、機械の前に張りついたまんま、というわけね。",
-              reading: "ごめんね、すっかりおそくなっちゃって。ようやくたどりついたよ。……あれ、さいごのいっぽんだけ、まだつかないんだ。で、さっきからみんなそろって、きかいのまえにはりついたまんま、というわけね。",
-              english: "Sorry, I'm really late — finally found my way here. …Huh, just that last one still won't light. And everyone's gathered at the machine, glued there this whole time — that's the situation, is it."
+              japanese: "こんばんは、ようやく通話に入れたよ。……あれ、最後の一本だけ、まだ点かないんだ。で、こっちの画面には、機械と、そこに張りついたみんなの背中ばっかり映ってる、と。",
+              reading: "こんばんは、ようやくつうわにはいれたよ。……あれ、さいごのいっぽんだけ、まだつかないんだ。で、こっちのがめんには、きかいと、そこにはりついたみんなのせなかばっかりうつってる、と。",
+              english: "Hi, I've finally joined the call. …Huh, just that last route still won't light. And on my screen I can see the machine and everyone's backs stuck to it."
             }
           },
           support: {
@@ -203275,33 +203525,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:lanterns-return:robert-adds-fixes",
           beatId: "beat:lanterns-return:human-want",
           speakerId: "robert",
-          intent: "Welcome Mira warmly, then, under the clock, keep stacking conditional fixes onto the machine instead of stopping.",
+          intent: "Welcome Mira into the call, then, under the clock, keep stacking conditional fixes onto the machine instead of stopping.",
           attentionTarget: "the dark route and every technical option he can still reach for",
           variants: {
             n5: {
-              japanese: "ミラさん、ようこそ!あと十分で開きます。ケーブルを変えたら、点くかもしれません。だめなら、プロジェクターをもう一台。明るさも上げます。",
-              reading: "ミラさん、ようこそ!あとじゅっぷんでひらきます。ケーブルをかえたら、つくかもしれません。だめなら、プロジェクターをもういちだい。あかるさもあげます。",
-              english: "Mira, welcome! We open in ten minutes. If we change the cable, it might light. If not, another projector. I'll turn the brightness up too."
+              japanese: "ミラさん、こんばんは!あと十分で開きます。ケーブルを変えたら、点くかもしれません。だめなら、プロジェクターをもう一台。明るさも上げます。",
+              reading: "ミラさん、こんばんは!あとじゅっぷんでひらきます。ケーブルをかえたら、つくかもしれません。だめなら、プロジェクターをもういちだい。あかるさもあげます。",
+              english: "Mira, hi! We open in ten minutes. If we change the cable, it might light. If not, another projector. I'll turn the brightness up too."
             },
             n4: {
-              japanese: "ミラさん、よく来てくれました!あと十分で開場なんです。ケーブルを替えたら点くかもしれないし、だめならプロジェクターをもう一台足して、明るさも上げれば、どれかで点くはずで……。",
-              reading: "ミラさん、よくきてくれました!あとじゅっぷんでかいじょうなんです。ケーブルをかえたらつくかもしれないし、だめならプロジェクターをもういちだいたして、あかるさもあげれば、どれかでつくはずで……。",
-              english: "Mira, so glad you came! We open in ten minutes. If we swap the cable it might light, and if not, add another projector, turn the brightness up too — one of them's bound to do it…"
+              japanese: "ミラさん、入ってくれて助かります!あと十分で開場なんです。ケーブルを替えたら点くかもしれないし、だめならプロジェクターをもう一台足して、明るさも上げれば、どれかで点くはずで……。",
+              reading: "ミラさん、はいってくれてたすかります!あとじゅっぷんでかいじょうなんです。ケーブルをかえたらつくかもしれないし、だめならプロジェクターをもういちだいたして、あかるさもあげれば、どれかでつくはずで……。",
+              english: "Mira, glad you joined! We open in ten minutes. If we swap the cable it might light, and if not, add another projector, turn the brightness up too — one of them's bound to do it…"
             },
             n3: {
-              japanese: "ミラさん、来てくれて助かります!もう十分後には開場で。ケーブルを替えれば点くかもしれないし、それでだめならプロジェクターをもう一台、明るさも上げて……どれかが当たれば、間に合うはずなんです。",
-              reading: "ミラさん、きてくれてたすかります!もうじゅっぷんごにはかいじょうで。ケーブルをかえればつくかもしれないし、それでだめならプロジェクターをもういちだい、あかるさもあげて……どれかがあたれば、まにあうはずなんです。",
-              english: "Mira, it's a real help you came! We open in just ten minutes. Swap the cable and it might light, and if that fails, another projector, brightness up too… if one of them hits, we should make it in time."
+              japanese: "ミラさん、通話に入ってくれて助かります!もう十分後には開場で。ケーブルを替えれば点くかもしれないし、それでだめならプロジェクターをもう一台、明るさも上げて……どれかが当たれば、間に合うはずなんです。",
+              reading: "ミラさん、つうわにはいってくれてたすかります!もうじゅっぷんごにはかいじょうで。ケーブルをかえればつくかもしれないし、それでだめならプロジェクターをもういちだい、あかるさもあげて……どれかがあたれば、まにあうはずなんです。",
+              english: "Mira, it's a real help that you joined the call! We open in ten minutes. Swap the cable and it might light, and if that fails, another projector, brightness up too… if one of them hits, we should make it."
             },
             n2: {
-              japanese: "ミラさん、来ていただけて助かります!あと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでだめならプロジェクターをもう一台、ついでに明るさも上げて……どれか一つ当たれば、なんとか格好はつくはずなんですよ。",
-              reading: "ミラさん、きていただけてたすかります!あとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでだめならプロジェクターをもういちだい、ついでにあかるさもあげて……どれかひとつあたれば、なんとかかっこうはつくはずなんですよ。",
-              english: "Mira, it's a help you came! We open in ten minutes, you see. Swap the cable and maybe it lights; if not, another projector, and while we're at it turn the brightness up… if just one of them hits, we should just about pull it off."
+              japanese: "ミラさん、通話に入っていただけて助かります!あと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでだめならプロジェクターをもう一台、ついでに明るさも上げて……どれか一つ当たれば、なんとか格好はつくはずなんですよ。",
+              reading: "ミラさん、つうわにはいっていただけてたすかります!あとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでだめならプロジェクターをもういちだい、ついでにあかるさもあげて……どれかひとつあたれば、なんとかかっこうはつくはずなんですよ。",
+              english: "Mira, it's a help that you joined the call! We open in ten minutes, you see. Swap the cable and maybe it lights; if not, another projector, and turn the brightness up… if one hits, we should pull it off."
             },
             n1: {
-              japanese: "ミラさん、来てくださって助かりますよ!なにしろあと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでもだめならプロジェクターをもう一台、いっそ明るさまで上げて……どれか一つでも当たってくれれば、どうにか体裁は保てるはずなんですが……。",
-              reading: "ミラさん、きてくださってたすかりますよ!なにしろあとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでもだめならプロジェクターをもういちだい、いっそあかるさまであげて……どれかひとつでもあたってくれれば、どうにかていさいはたもてるはずなんですが……。",
-              english: "Mira, it's a real help you came! It's just that we open in ten minutes. Swap the cable and maybe it lights; failing that another projector; while I'm at it even crank the brightness… if even one of them lands, we should somehow keep up appearances, but…"
+              japanese: "ミラさん、通話に入ってくださって助かりますよ!なにしろあと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでもだめならプロジェクターをもう一台、いっそ明るさまで上げて……どれか一つでも当たってくれれば、どうにか体裁は保てるはずなんですが……。",
+              reading: "ミラさん、つうわにはいってくださってたすかりますよ!なにしろあとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでもだめならプロジェクターをもういちだい、いっそあかるさまであげて……どれかひとつでもあたってくれれば、どうにかていさいはたもてるはずなんですが……。",
+              english: "Mira, it's a real help that you joined the call! We open in ten minutes. Swap the cable and maybe it lights; failing that another projector; crank the brightness… if one lands, we should somehow keep up appearances, but…"
             }
           },
           support: {
@@ -203326,29 +203576,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the dark route as something read rather than powered, and the people who could read it",
           variants: {
             n5: {
-              japanese: "ロバートさん、ケーブルじゃないと思う。この道は、機械じゃなくて、声で点くんだよ。みんなで少しずつ読んで、タイミングを合わせたら、点くよ。",
-              reading: "ロバートさん、ケーブルじゃないとおもう。このみちは、きかいじゃなくて、こえでつくんだよ。みんなですこしずつよんで、タイミングをあわせたら、つくよ。",
-              english: "Robert, I don't think it's the cable. This route doesn't light by machine — it lights by voice. If we each read a little and match the timing, it'll light."
+              japanese: "ロバートさん、ケーブルじゃないと思う。この道は、機械じゃなくて、声で点くんだよ。そっちのみんなで少しずつ読んで、タイミングを合わせたら、点くよ。",
+              reading: "ロバートさん、ケーブルじゃないとおもう。このみちは、きかいじゃなくて、こえでつくんだよ。そっちのみんなですこしずつよんで、タイミングをあわせたら、つくよ。",
+              english: "Robert, I don't think it's the cable. This route lights by voice. If everyone there reads a little and matches the timing, it'll light."
             },
             n4: {
-              japanese: "ロバートさん、たぶんケーブルの問題じゃないよ。この道はね、機械で点けるんじゃなくて、声で点くんだと思う。一人ずつ担当を決めて、みんなでタイミングを合わせて読めば、ちゃんと点くはず。",
-              reading: "ロバートさん、たぶんケーブルのもんだいじゃないよ。このみちはね、きかいでつけるんじゃなくて、こえでつくんだとおもう。ひとりずつたんとうをきめて、みんなでタイミングをあわせてよめば、ちゃんとつくはず。",
-              english: "Robert, I don't think it's a cable problem. This route — I think it doesn't light by machine, it lights by voice. If we each take a part and read it together, timing matched, it'll light for sure."
+              japanese: "ロバートさん、たぶんケーブルの問題じゃないよ。この道はね、機械で点けるんじゃなくて、声で点くんだと思う。そっちで一人ずつ担当を決めて、タイミングを合わせて読めば、ちゃんと点くはず。",
+              reading: "ロバートさん、たぶんケーブルのもんだいじゃないよ。このみちはね、きかいでつけるんじゃなくて、こえでつくんだとおもう。そっちでひとりずつたんとうをきめて、タイミングをあわせてよめば、ちゃんとつくはず。",
+              english: "Robert, I don't think it's a cable problem. I think this route lights by voice. If everyone there takes a part and reads in time, it should light."
             },
             n3: {
-              japanese: "ロバートさん、これ、たぶん機械の話じゃないんだよ。この道って、いくら直しても点かないでしょ?声で点く道なんだと思う。一人ひと区切りずつ受け持って、みんなで間を合わせて読めば、点くはずだよ。",
-              reading: "ロバートさん、これ、たぶんきかいのはなしじゃないんだよ。このみちって、いくらなおしてもつかないでしょ?こえでつくみちなんだとおもう。ひとりひとくぎりずつうけもって、みんなであいだをあわせてよめば、つくはずだよ。",
-              english: "Robert, this — it's probably not a machine thing. This route won't light no matter how much you fix it, right? I think it's a route that lights by voice. If we each take one segment and read it with the timing matched, it should light."
+              japanese: "ロバートさん、これ、たぶん機械の話じゃないんだよ。この道って、いくら直しても点かないでしょ?声で点く道なんだと思う。そっちで一人ひと区切りずつ受け持って、間を合わせて読めば、点くはずだよ。",
+              reading: "ロバートさん、これ、たぶんきかいのはなしじゃないんだよ。このみちって、いくらなおしてもつかないでしょ?こえでつくみちなんだとおもう。そっちでひとりひとくぎりずつうけもって、あいだをあわせてよめば、つくはずだよ。",
+              english: "Robert, this probably isn't a machine problem. It won't light however much you fix it, right? I think it lights by voice. If everyone there takes one segment and matches the timing, it should come up."
             },
             n2: {
-              japanese: "ロバートさん、これ、機械をどういじっても無理なんじゃないかな。何回直しても点かないでしょ?この道は、声で点くタイプなんだと思う。一人がひと区切りずつ受け持って、みんなで間を合わせて読み継いでいけば、ちゃんと立ち上がるはずだよ。",
-              reading: "ロバートさん、これ、きかいをどういじってもむりなんじゃないかな。なんかいなおしてもつかないでしょ?このみちは、こえでつくタイプなんだとおもう。ひとりがひとくぎりずつうけもって、みんなであいだをあわせてよみついでいけば、ちゃんとたちあがるはずだよ。",
-              english: "Robert, no matter how you fiddle with the machine, I don't think it'll take. It won't light however many times you fix it, right? This route's the kind that lights by voice, I think. If each of us takes one segment and we read it on down the line, timing matched, it should come up properly."
+              japanese: "ロバートさん、これ、機械をどういじっても無理なんじゃないかな。何回直しても点かないでしょ?この道は、声で点くタイプなんだと思う。そっちで一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば、ちゃんと立ち上がるはずだよ。",
+              reading: "ロバートさん、これ、きかいをどういじってもむりなんじゃないかな。なんかいなおしてもつかないでしょ?このみちは、こえでつくタイプなんだとおもう。そっちでひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば、ちゃんとたちあがるはずだよ。",
+              english: "Robert, I don't think any more fiddling with the machine will do it. This route seems to light by voice. If everyone there takes one segment and reads it down the line in time, it should come up."
             },
             n1: {
-              japanese: "ロバートさん、これ、機械をどういじったところで点かないやつなんじゃないかな。何度直しても反応しないでしょ?この道はたぶん、声で点くタイプなんだよ。一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば——ちょうど息が合った瞬間に、ふっと立ち上がるはず。",
-              reading: "ロバートさん、これ、きかいをどういじったところでつかないやつなんじゃないかな。なんどなおしてもはんのうしないでしょ?このみちはたぶん、こえでつくタイプなんだよ。ひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば——ちょうどいきがあったしゅんかんに、ふっとたちあがるはず。",
-              english: "Robert, this is the kind that won't light however you fiddle with the machine, isn't it? It doesn't respond however many times you fix it, right? This route probably lights by voice. If each of us takes one segment and reads it on down the line, timing matched — the very moment we're in sync, it should quietly come up."
+              japanese: "ロバートさん、これ、機械をどういじったところで点かないやつなんじゃないかな。何度直しても反応しないでしょ?この道はたぶん、声で点くタイプなんだよ。そっちで一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば——ちょうど息が合った瞬間に、ふっと立ち上がるはず。",
+              reading: "ロバートさん、これ、きかいをどういじったところでつかないやつなんじゃないかな。なんどなおしてもはんのうしないでしょ?このみちはたぶん、こえでつくタイプなんだよ。そっちでひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば——ちょうどいきがあったしゅんかんに、ふっとたちあがるはず。",
+              english: "Robert, this may be the kind that won't light however you fiddle with the machine. It probably lights by voice. If everyone there takes one segment and reads it down the line, it should rise the moment the timing matches."
             }
           },
           support: {
@@ -203449,7 +203699,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:lanterns-return:cables-down",
           beatId: "beat:lanterns-return:exit-image",
           cueId: "cue:cart-pushed-aside-class-forms-a-line",
-          description: "The cables go slack on the ground and the cart is rolled to one side. The class stops facing the machine and turns to face the map, spreading into a loose line along the dark route."
+          description: "The cables go slack on the ground and the cart is rolled to one side. Someone lifts the phone from it and props it beside the first route card. The class turns from the machine to the map, spreading into a loose line along the dark route."
         }
       ],
       exit: {
@@ -203477,7 +203727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:lanterns-return:reading-line",
           beatId: "beat:lanterns-return:regroup-image",
           cueId: "cue:segment-cards-laid-in-order",
-          description: "Along the dark route, Stasi has laid the segment cards out in reading order, colour-edged so each hand-off is visible at a glance. Each person picks up the card in front of them. The route waits, unlit."
+          description: "Along the dark route, Stasi has laid the segment cards out in reading order, colour-edged so each hand-off is visible at a glance. Each person picks up the card in front of them. Mira's voice comes from the phone beside the first card. The route waits, unlit."
         },
         {
           kind: "line",
@@ -203608,33 +203858,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "line:lanterns-return:mira-in-time",
           beatId: "beat:lanterns-return:changed-action",
           speakerId: "mira",
-          intent: "Land the finale's relationship point lightly: she arrived in the last ten minutes and it still changed the outcome, then move the class to open the doors.",
-          attentionTarget: "the lit route, and the fact that a late arrival still moved the result",
+          intent: "Land the finale's relationship point lightly: she joined the call for the last ten minutes and it still changed the outcome, then prompt the people on site to open the doors.",
+          attentionTarget: "the lit route in the phone camera and the courtyard doors beyond it",
           variants: {
             n5: {
-              japanese: "ね、間に合ったでしょ。私、最後の十分で来たのに、それでも変わったよ。じゃあ、開けよう。お客さんを入れよう。",
-              reading: "ね、まにあったでしょ。わたし、さいごのじゅっぷんできたのに、それでもかわったよ。じゃあ、あけよう。おきゃくさんをいれよう。",
-              english: "See? We made it. I showed up in the last ten minutes, and it still changed things. Okay — let's open up. Let's let people in."
+              japanese: "ね、間に合ったでしょ。通話に入ってまだ十分だけど、それでも変わったよ。じゃあ、そっちのドアを開けて。お客さんを迎えよう。",
+              reading: "ね、まにあったでしょ。つうわにはいってまだじゅっぷんだけど、それでもかわったよ。じゃあ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              english: "See? We made it. I've only been on the call ten minutes, and it still changed things. Okay, open the doors there. Let's welcome the guests."
             },
             n4: {
-              japanese: "ね、間に合ったね。私なんて最後の十分に来ただけなのに、それでもちゃんと変わるんだ。じゃあ、そろそろ開けよう。お客さんを入れよう。",
-              reading: "ね、まにあったね。わたしなんてさいごのじゅっぷんにきただけなのに、それでもちゃんとかわるんだ。じゃあ、そろそろあけよう。おきゃくさんをいれよう。",
-              english: "See, we made it. I only showed up for the last ten minutes, and even so it really does change. Okay — time to open up. Let's let people in."
+              japanese: "ね、間に合ったね。通話に入ってまだ十分なのに、それでもちゃんと変わるんだ。じゃあ、そっちのドアを開けて。お客さんを迎えよう。",
+              reading: "ね、まにあったね。つうわにはいってまだじゅっぷんなのに、それでもちゃんとかわるんだ。じゃあ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              english: "See, we made it. I've only been on the call ten minutes, and it still changed things. Okay, open the doors there. Let's welcome the guests."
             },
             n3: {
-              japanese: "ね、間に合っちゃったね。私、ほんとに最後の十分に来ただけなのに、それでも結果って変わるんだね。……じゃ、そろそろ開けよっか。お客さん、入れよう。",
-              reading: "ね、まにあっちゃったね。わたし、ほんとにさいごのじゅっぷんにきただけなのに、それでもけっかってかわるんだね。……じゃ、そろそろあけよっか。おきゃくさん、いれよう。",
-              english: "See, we actually made it. I really only turned up for the last ten minutes, and even so the outcome changes. …Okay, shall we open up? Let's let people in."
+              japanese: "ね、間に合っちゃったね。私、通話に入ってまだ十分なのに、それでも結果って変わるんだ。……じゃ、そっちのドアを開けて。お客さんを迎えよう。",
+              reading: "ね、まにあっちゃったね。わたし、つうわにはいってまだじゅっぷんなのに、それでもけっかってかわるんだ。……じゃ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              english: "See, we made it. I've only been on the call ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             },
             n2: {
-              japanese: "ね、間に合っちゃった。私なんか、ほんの最後の十分に顔を出しただけなのに、それでも結果はちゃんと動くんだね。……さ、そろそろ開けよっか。お客さんを入れよう。",
-              reading: "ね、まにあっちゃった。わたしなんか、ほんのさいごのじゅっぷんにかおをだしただけなのに、それでもけっかはちゃんとうごくんだね。……さ、そろそろあけよっか。おきゃくさんをいれよう。",
-              english: "See, we made it after all. I only stuck my head in for the last ten minutes, and even so the outcome really does move. …Okay, shall we open up? Let's let people in."
+              japanese: "ね、間に合っちゃった。私なんか、通話にほんの十分顔を出しただけなのに、それでも結果はちゃんと動くんだね。……さ、そっちのドアを開けて。お客さんを迎えよう。",
+              reading: "ね、まにあっちゃった。わたしなんか、つうわにほんのじゅっぷんかおをだしただけなのに、それでもけっかはちゃんとうごくんだね。……さ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              english: "See, we made it. I only popped into the call for ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             },
             n1: {
-              japanese: "ね、間に合っちゃったね。私なんて、ほんの最後の十分にひょっこり顔を出しただけ。それでも、ちゃんと結果は動くんだ。……さ、そろそろ開けよっか。お客さんを、入れよう。",
-              reading: "ね、まにあっちゃったね。わたしなんて、ほんのさいごのじゅっぷんにひょっこりかおをだしただけ。それでも、ちゃんとけっかはうごくんだ。……さ、そろそろあけよっか。おきゃくさんを、いれよう。",
-              english: "See, we made it after all. Me — I only popped in for the last ten minutes. And even so, the outcome really does move. …Okay, shall we open up? Let's let people in."
+              japanese: "ね、間に合っちゃったね。私なんて、通話にほんの十分ひょっこり顔を出しただけ。それでも、ちゃんと結果は動くんだ。……さ、そっちのドアを開けて。お客さんを迎えよう。",
+              reading: "ね、まにあっちゃったね。わたしなんて、つうわにほんのじゅっぷんひょっこりかおをだしただけ。それでも、ちゃんとけっかはうごくんだ。……さ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              english: "See, we made it. I only popped into the call for ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             }
           },
           support: {
@@ -203687,7 +203937,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       castId: "mira",
       chapter: 24,
       beat: "arrival",
-      description: "Mira is introduced arriving in the last ten minutes and changing the outcome by reframing a machine problem as a coordination problem; joining late is established as a full contribution, not a deficit."
+      description: "Mira is introduced joining the shared call from a distance in the last ten minutes and changing the outcome by reframing a machine problem as a coordination problem; joining late is established as a full contribution, not a deficit."
     },
     {
       id: "outcome:lanterns-return:robert-contribution",
@@ -203740,7 +203990,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "hide-english",
       "replay-coordination-step"
     ],
-    withdrawnContentFallback: "Use the same negotiate-and-narrate-live evidence with neutral nameplates: a late-arriving classmate reframes the fix as a coordination problem, a generic host calls the timing, and the route lights once the group's reading lines up."
+    withdrawnContentFallback: "Use the same negotiate-and-narrate-live evidence with neutral nameplates: a remote participant joining the call late reframes the fix as a coordination problem, a generic host calls the timing, and the route lights once the group's reading lines up."
   };
   const s1e24 = {
     schema: schema$o,
@@ -245262,7 +245512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderRecognition(root, item2, language, advance) {
     const cue = kanaCue(item2.kana, language === "ja" ? "読み方を選んでください。" : "Choose the reading.");
     const choices2 = choiceGrid();
-    const status = statusLine();
+    const status = statusLine$1();
     for (const candidate2 of LESSON_ZERO_KANA_SEQUENCE) {
       choices2.append(choice(candidate2.romaji, () => {
         if (candidate2.romaji !== item2.romaji) {
@@ -245299,7 +245549,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     play.classList.add("academy-lesson-zero-kana-play");
     const choices2 = choiceGrid();
-    const status = statusLine();
+    const status = statusLine$1();
     for (const candidate2 of LESSON_ZERO_KANA_SEQUENCE) {
       choices2.append(choice(candidate2.kana, () => {
         if (candidate2.kana !== item2.kana) {
@@ -245329,7 +245579,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     submit.type = "submit";
     submit.className = "academy-vn-primary-action";
     submit.textContent = language === "ja" ? "確認" : "Check";
-    const status = statusLine();
+    const status = statusLine$1();
     const preview = document.createElement("output");
     preview.className = "academy-lesson-zero-kana-input-preview";
     preview.setAttribute("aria-live", "polite");
@@ -245399,7 +245649,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       revealAndContinue(root, status, `${item2.kana} = ${item2.romaji}`, language, advance);
     });
     tools.append(clear, check2);
-    const status = statusLine();
+    const status = statusLine$1();
     const source2 = document.createElement("img");
     source2.className = "academy-lesson-zero-kana-source-reveal";
     source2.src = LESSON_ZERO_SOURCE_MEDIA.hiraganaARow;
@@ -245448,7 +245698,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     button2.addEventListener("click", action2);
     return button2;
   }
-  function statusLine() {
+  function statusLine$1() {
     const status = document.createElement("p");
     status.className = "academy-lesson-zero-kana-status";
     status.setAttribute("role", "status");
@@ -246192,28 +246442,51 @@ recommendedJiten	Jiten由来の頻度バッジです。
     panel.append(content);
     veil.append(panel);
     screen.append(veil);
-    let currentIndex = 0;
-    let preAssessmentIndex = 0;
-    let preAssessmentComplete = options.week.preAssessment.length === 0;
-    const completedActivityIds = /* @__PURE__ */ new Set();
-    const lapsedActivityIds = /* @__PURE__ */ new Set();
-    const repairedActivityIds = /* @__PURE__ */ new Set();
-    let extensionCompleted = 0;
+    const initialProgress = normalizeInitialProgress(options.initialProgress, options.week, Boolean(options.extension));
+    const progressScope = {
+      exposureIds: options.week.preAssessment.map((exposure) => exposure.id),
+      activityIds: options.week.activities.map((activity2) => activity2.id),
+      supportActivityIds: options.week.activities.filter((activity2) => activity2.kind !== "academy-source-vocabulary-sheet").map((activity2) => activity2.id),
+      hasExtension: Boolean(options.extension)
+    };
+    const initialActivityIndex = initialProgress && "activityId" in initialProgress ? options.week.activities.findIndex((activity2) => activity2.id === initialProgress.activityId) : 0;
+    let currentIndex = Math.max(0, initialActivityIndex);
+    let preAssessmentIndex = initialProgress?.phase === "teaching" ? options.week.preAssessment.findIndex((exposure) => exposure.id === initialProgress.exposureId) : 0;
+    let preAssessmentComplete = initialProgress ? initialProgress.phase !== "teaching" : options.week.preAssessment.length === 0;
+    const completedThrough = initialProgress?.phase === "extension" || initialProgress?.phase === "complete" ? options.week.activities.length : currentIndex;
+    const validActivityIds = new Set(options.week.activities.map((activity2) => activity2.id));
+    const completedActivityIds = new Set(options.week.activities.slice(0, completedThrough).map((activity2) => activity2.id));
+    const lapsedActivityIds = new Set((options.initialLapsedActivityIds ?? []).filter((id2) => validActivityIds.has(id2)));
+    const repairedActivityIds = new Set((options.initialRepairedActivityIds ?? []).filter((id2) => validActivityIds.has(id2)));
+    let extensionCompleted = initialProgress?.phase === "complete" ? options.extension?.activityCount ?? 0 : 0;
     let disposed = false;
     let completionNotified = false;
     let showingComplete = false;
     let showingAuthoredActivity = options.week.activities.length > 0;
     let extensionController;
     let activityController;
+    let positionWriteTail = Promise.resolve();
+    progress2.update(completedActivityIds.size + extensionCompleted);
     const resetPanelScroll = () => {
       panel.scrollTop = 0;
     };
     const showStoryContext = (visible) => {
       if (storyContextElement) storyContextElement.hidden = !visible;
     };
+    const savePosition = (position) => {
+      const write = positionWriteTail.catch(() => void 0).then(() => options.onPositionChange?.(position));
+      positionWriteTail = write.then(() => void 0, () => void 0);
+      return write;
+    };
+    const reportPosition = (position) => {
+      if (options.onPositionChange) notify(() => savePosition(position), screen);
+    };
     const focusInPanel = (target2) => {
       target2?.focus({ preventScroll: true });
       resetPanelScroll();
+    };
+    const positionAfterCurrent = () => {
+      return authoredWeekProgressAfterActivity(options.week.activities[currentIndex].id, progressScope);
     };
     const advance = () => {
       completedActivityIds.add(options.week.activities[currentIndex].id);
@@ -246235,6 +246508,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       showStoryContext(preAssessmentIndex === 0);
       screen.dataset.lessonPhase = "teaching";
+      delete screen.dataset.currentActivityId;
+      reportPosition({ phase: "teaching", exposureId: exposure.id });
       const supportView = element("div", "academy-authored-week-pre-question academy-authored-week-briefing");
       const step2 = element("p", "academy-eyebrow academy-authored-week-briefing-step");
       step2.textContent = options.language === "ja" ? `学習ポイント ${preAssessmentIndex + 1} / ${options.week.preAssessment.length}` : `Lesson note ${preAssessmentIndex + 1} of ${options.week.preAssessment.length}`;
@@ -246287,6 +246562,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (showSupport && hasTeachingSupport) {
         showStoryContext(currentIndex === 0);
         screen.dataset.lessonPhase = "support";
+        screen.dataset.currentActivityId = activity2.id;
+        reportPosition({ phase: "support", activityId: activity2.id });
         const teachingSupport = authoredTeachingSupport(activity2);
         const supportView = element("div", "academy-authored-week-pre-question");
         supportView.append(teachingSupportView(teachingSupport, options.language));
@@ -246310,6 +246587,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       screen.dataset.lessonPhase = "question";
+      screen.dataset.currentActivityId = activity2.id;
+      reportPosition({ phase: "question", activityId: activity2.id });
       const questionHost = element("div", "academy-authored-week-question-host");
       const backAction = hasTeachingSupport ? { back: () => renderCurrent(true), backLabel: options.language === "ja" ? "学習サポート" : "Review support" } : currentIndex > 0 ? {
         back: () => {
@@ -246325,6 +246604,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (activity2.kind === "academy-source-vocabulary-sheet") {
         const runtime2 = options.runtime ?? createAcademyActivityRuntime();
         let passed = false;
+        const savedEvaluations = /* @__PURE__ */ new WeakSet();
         activityController = runtime2.mount(activity2, {
           language: options.language,
           replace(view) {
@@ -246339,11 +246619,55 @@ recommendedJiten	Jiten由来の頻度バッジです。
           const repaired = evaluation.result.outcome === "pass" && lapsedActivityIds.has(activity2.id);
           if (evaluation.result.outcome === "lapse") lapsedActivityIds.add(activity2.id);
           if (repaired) repairedActivityIds.add(activity2.id);
-          await Promise.all([
-            options.onReviewSeeds?.(evaluation.reviewSeeds),
-            options.onEvaluation?.(activity2, evaluation, { repaired })
-          ]);
+          if (!savedEvaluations.has(evaluation)) {
+            await Promise.all([
+              options.onReviewSeeds?.(evaluation.reviewSeeds),
+              options.onEvaluation?.(activity2, evaluation, { repaired })
+            ]);
+            savedEvaluations.add(evaluation);
+          }
           if (evaluation.result.outcome !== "pass" || passed) return;
+          const nextPosition = positionAfterCurrent();
+          try {
+            await savePosition(nextPosition);
+          } catch {
+            await new Promise((resolve) => {
+              if (lifecycle.signal.aborted) {
+                resolve();
+                return;
+              }
+              const retryState = element("div", "academy-authored-week-save-retry");
+              retryState.setAttribute("role", "alert");
+              retryState.append(bilingualParagraph(
+                {
+                  en: "Your answer was saved, but your place was not. Try saving your place again.",
+                  ja: "答えは保存されましたが、続きの場所を保存できませんでした。もう一度保存してください。"
+                },
+                "academy-field-error"
+              ));
+              const retry = element("button", "academy-button academy-authored-week-retry-save");
+              retry.type = "button";
+              retry.textContent = options.language === "ja" ? "もう一度保存" : "Try saving again";
+              retry.addEventListener("click", () => {
+                retry.disabled = true;
+                void savePosition(nextPosition).then(() => {
+                  retryState.remove();
+                  resolve();
+                }).catch(() => {
+                  retry.disabled = false;
+                  retry.focus();
+                });
+              }, { signal: lifecycle.signal });
+              retryState.append(retry);
+              questionHost.append(retryState);
+              retry.focus();
+              lifecycle.signal.addEventListener("abort", () => {
+                retryState.remove();
+                resolve();
+              }, { once: true });
+            });
+          }
+          if (lifecycle.signal.aborted) return;
           passed = true;
           const action2 = element("button", "academy-button academy-authored-week-next");
           action2.type = "button";
@@ -246361,6 +246685,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
         return;
       }
+      let evaluationSaved = false;
       questionHost.replaceChildren(renderActivity(activity2, currentIndex, options.week.activities.length, {
         language: options.language,
         signal: lifecycle.signal,
@@ -246369,10 +246694,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           const repaired = evaluation.result.outcome === "pass" && lapsedActivityIds.has(activity2.id);
           if (evaluation.result.outcome === "lapse") lapsedActivityIds.add(activity2.id);
           if (repaired) repairedActivityIds.add(activity2.id);
-          await Promise.all([
-            options.onReviewSeeds?.(evaluation.reviewSeeds),
-            options.onEvaluation?.(activity2, evaluation, { repaired })
-          ]);
+          if (!evaluationSaved) {
+            await Promise.all([
+              options.onReviewSeeds?.(evaluation.reviewSeeds),
+              options.onEvaluation?.(activity2, evaluation, { repaired })
+            ]);
+            evaluationSaved = true;
+          }
+          if (evaluation.result.outcome === "pass") await savePosition(positionAfterCurrent());
         },
         hadPriorLapse: lapsedActivityIds.has(activity2.id),
         onRetry() {
@@ -246394,6 +246723,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       resetPanelScroll();
       showStoryContext(false);
       screen.dataset.lessonPhase = "extension";
+      delete screen.dataset.currentActivityId;
+      reportPosition({ phase: "extension" });
       showingComplete = false;
       showingAuthoredActivity = false;
       activityController?.dispose();
@@ -246427,6 +246758,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       resetPanelScroll();
       showStoryContext(true);
       screen.dataset.lessonPhase = "complete";
+      delete screen.dataset.currentActivityId;
+      reportPosition({ phase: "complete" });
       activityController?.dispose();
       activityController = void 0;
       extensionController?.dispose();
@@ -246450,7 +246783,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const finish = () => {
         if (completionNotified) return;
         completionNotified = true;
-        notify(() => options.onComplete?.(), screen);
+        notify(async () => {
+          await positionWriteTail;
+          await options.onComplete?.();
+        }, screen);
       };
       complete.append(lessonNavigation(options.language, {
         back: () => {
@@ -246470,7 +246806,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       focusInPanel(complete);
       if (!options.storyContext?.handoff) finish();
     };
-    renderCurrent();
+    if (initialProgress?.phase === "teaching") renderPreAssessment();
+    else if (initialProgress?.phase === "support") renderCurrent(false, true);
+    else if (initialProgress?.phase === "question") renderCurrent(false, false);
+    else if (initialProgress?.phase === "extension") renderExtension();
+    else if (initialProgress?.phase === "complete") renderComplete();
+    else renderCurrent();
     return {
       element: screen,
       get currentActivityIndex() {
@@ -247030,6 +247371,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function localized(value, language) {
     return value[language];
+  }
+  function normalizeInitialProgress(progress2, week, hasExtension) {
+    if (!progress2) return void 0;
+    if (progress2.phase === "teaching") {
+      return week.preAssessment.some((exposure) => exposure.id === progress2.exposureId) ? progress2 : void 0;
+    }
+    if (progress2.phase === "support" || progress2.phase === "question") {
+      return week.activities.some((activity2) => activity2.id === progress2.activityId) ? progress2 : void 0;
+    }
+    if (progress2.phase === "extension") return hasExtension ? progress2 : void 0;
+    return progress2;
   }
   function notify(callback2, target2) {
     try {
@@ -248078,11 +248430,41 @@ recommendedJiten	Jiten由来の頻度バッジです。
           );
         }
       }) : void 0;
+      const progressScope = {
+        exposureIds: week.preAssessment.map((exposure) => exposure.id),
+        activityIds: week.activities.map((activity2) => activity2.id),
+        supportActivityIds: week.activities.filter((activity2) => activity2.kind !== "academy-source-vocabulary-sheet").map((activity2) => activity2.id),
+        hasExtension: Boolean(extension)
+      };
+      const savedProgress = context2.checkpoint.authoredWeekProgress?.[packageId];
+      let initialProgress = savedProgress && savedProgress.sourceSha256 === week.provenance.source.sha256 && authoredWeekProgressFits(savedProgress.position, progressScope) ? savedProgress.position : void 0;
+      if (initialProgress && savedProgress?.savedAt !== void 0 && (initialProgress.phase === "support" || initialProgress.phase === "question")) {
+        const activityProgress = context2.projection.activities[initialProgress.activityId];
+        if (activityProgress?.lastOutcome === "pass" && activityProgress.lastAttemptAt > savedProgress.savedAt) {
+          initialProgress = authoredWeekProgressAfterActivity(initialProgress.activityId, progressScope);
+        }
+      }
+      const initialLapsedActivityIds = week.activities.filter((activity2) => (context2.projection.activities[activity2.id]?.lapseCount ?? 0) > 0).map((activity2) => activity2.id);
+      const initialRepairedActivityIds = week.activities.filter((activity2) => {
+        const progress2 = context2.projection.activities[activity2.id];
+        return Boolean(progress2 && progress2.lapseCount > 0 && progress2.lastOutcome === "pass");
+      }).map((activity2) => activity2.id);
       const showActivities = () => {
         let releaseListeningDuck;
         const screen = createAuthoredWeekScreen({
           language: context2.language,
           week,
+          ...initialProgress ? { initialProgress } : {},
+          initialLapsedActivityIds,
+          initialRepairedActivityIds,
+          onPositionChange: (progress2) => context2.save?.({
+            authoredWeekProgress: setAuthoredWeekProgress(
+              context2.checkpoint.authoredWeekProgress,
+              packageId,
+              week.provenance.source.sha256,
+              progress2
+            )
+          }),
           ...continuity?.callback ? {
             storyContext: {
               hostId: continuity.hostId,
@@ -248151,6 +248533,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
               sceneId: `scene:class-week:${classWeek.weekId}`,
               attendeeIds: [primary.id, ...classWeek.supporting.map((member) => member.id)]
             });
+            await context2.save?.({
+              authoredWeekProgress: clearAuthoredWeekProgress(
+                context2.checkpoint.authoredWeekProgress,
+                packageId
+              )
+            });
             const destination = lessonCompletionReturn(context2.checkpoint);
             if (context2.returnTo) {
               await context2.returnTo(destination);
@@ -248170,9 +248558,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           onBack: () => context2.back()
         });
         screen.element.dataset.academyRoute = "lesson-overview";
+        screen.element.dataset.authoredWeekResumed = String(Boolean(initialProgress));
         screen.element.addEventListener("academy:dispose", () => screen.dispose(), { once: true });
         context2.shell.replace(screen.element);
       };
+      if (initialProgress) {
+        showActivities();
+        return;
+      }
       context2.shell.replace(renderLessonVocabularyPrerequisiteScreen({
         language: context2.language,
         prerequisite: prerequisite2,
@@ -250233,6 +250626,368 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     return labels[category][language];
   }
+  const METRICS = [
+    { id: "streak", en: "Study rhythm", ja: "学習リズム" },
+    { id: "review-activity", en: "Recent study", ja: "最近の学習" },
+    { id: "known-words", en: "Known words", ja: "習得した単語" },
+    { id: "lesson-progress", en: "Lessons", ja: "レッスン" }
+  ];
+  function renderClassBoardScreen(options) {
+    const { screen, content } = screenFrame({
+      language: options.language,
+      className: "academy-class-board-screen",
+      plate: "library",
+      title: "classBoardTitle"
+    });
+    screen.dataset.academyRoute = "class-board";
+    screen.lang = options.language;
+    const back = backButton(options.language);
+    back.addEventListener("click", options.onBack);
+    const intro = element("p", "academy-class-board-intro");
+    intro.textContent = localize$1(
+      options.language,
+      "A private class snapshot. Only names and totals learners chose to share appear here.",
+      "クラス内だけのスナップショットです。本人が共有を選んだ名前と合計だけが表示されます。"
+    );
+    const body = element("div", "academy-class-board-body");
+    content.prepend(back);
+    content.append(intro, body);
+    let account = options.account;
+    let selectedClassId = account.classes[0]?.classId ?? "";
+    let selectedMetric = "streak";
+    let selectedPage = 1;
+    let requestVersion = 0;
+    const render2 = () => {
+      body.replaceChildren();
+      body.append(profilePreferences(account, options, async (updated) => {
+        account = updated;
+        render2();
+        await loadBoard();
+      }));
+      if (account.classes.length === 0) {
+        const empty = element("p", "academy-class-board-empty");
+        empty.textContent = localize$1(
+          options.language,
+          "No class is linked to this account yet.",
+          "このアカウントには、まだクラスが登録されていません。"
+        );
+        body.append(empty);
+        return;
+      }
+      if (!account.classes.some((item2) => item2.classId === selectedClassId)) {
+        selectedClassId = account.classes[0]?.classId ?? "";
+      }
+      body.append(boardControls(account.classes, selectedClassId, selectedMetric, options.language, {
+        onClass: (classId2) => {
+          selectedClassId = classId2;
+          selectedPage = 1;
+          void loadBoard();
+        },
+        onMetric: (metric) => {
+          selectedMetric = metric;
+          selectedPage = 1;
+          void loadBoard();
+        }
+      }));
+      const result = element("section", "academy-class-board-results");
+      result.setAttribute("aria-live", "polite");
+      result.setAttribute("aria-busy", "true");
+      const loading = element("p", "academy-class-board-loading");
+      loading.textContent = localize$1(options.language, "Loading class snapshot…", "クラスのスナップショットを読み込んでいます…");
+      result.append(loading);
+      body.append(result);
+    };
+    const loadBoard = async () => {
+      if (!selectedClassId) return;
+      const version2 = ++requestVersion;
+      const result = body.querySelector(".academy-class-board-results");
+      if (!result) return;
+      result.setAttribute("aria-busy", "true");
+      result.replaceChildren(statusLine(options.language));
+      try {
+        const view = await options.onLoad(selectedClassId, selectedMetric, selectedPage);
+        if (version2 !== requestVersion || !result.isConnected) return;
+        result.removeAttribute("aria-busy");
+        result.replaceChildren(boardResult(view, account, options.language, (page) => {
+          selectedPage = page;
+          void loadBoard();
+        }));
+      } catch (error) {
+        if (version2 !== requestVersion || !result.isConnected) return;
+        result.removeAttribute("aria-busy");
+        result.replaceChildren(boardError(error, options.language, () => void loadBoard()));
+      }
+    };
+    render2();
+    void loadBoard();
+    return screen;
+  }
+  function profilePreferences(account, options, onSaved) {
+    const section = element("details", "academy-class-board-profile");
+    section.open = !account.nameChosen;
+    const summary = element("summary", "academy-class-board-profile-summary");
+    summary.textContent = localize$1(options.language, "Board profile", "ボードのプロフィール");
+    const form2 = element("form", "academy-class-board-profile-form");
+    const nameLabel = element("label", "academy-class-board-field");
+    const nameText = element("span");
+    nameText.textContent = localize$1(options.language, "Display name", "表示名");
+    const name = element("input", "academy-input");
+    name.name = "displayName";
+    name.value = account.identity.displayName;
+    name.maxLength = 32;
+    name.required = true;
+    name.autocomplete = "name";
+    nameLabel.append(nameText, name);
+    const listed = checkbox$1(
+      "boardVisible",
+      localize$1(options.language, "Appear on the Class Board", "クラスボードに表示する"),
+      account.boardVisible
+    );
+    const share = checkbox$1(
+      "shareAvatar",
+      localize$1(options.language, "Show my chosen story portrait", "選んだ物語のポートレートを表示する"),
+      account.shareAvatar
+    );
+    const shareInput = share.querySelector("input");
+    shareInput.disabled = account.avatarKey === null;
+    const visibilityInput = listed.querySelector("input");
+    visibilityInput.addEventListener("change", () => {
+      if (!visibilityInput.checked) shareInput.checked = false;
+    });
+    const note = element("p", "academy-class-board-profile-note");
+    note.textContent = account.classes.some((item2) => item2.boardHidden) ? localize$1(options.language, "Your class has hidden your listing. Your own preference is still saved.", "クラス側で表示が非公開になっています。自分の設定は保存されます。") : localize$1(options.language, "Answers, mistakes, word lists, and Google details are never shown.", "解答、間違い、単語リスト、Google の情報は表示されません。");
+    const status = element("p", "academy-class-board-profile-status");
+    status.setAttribute("aria-live", "polite");
+    const save = element("button", "academy-button academy-button-secondary");
+    save.type = "submit";
+    save.textContent = localize$1(options.language, "Save board profile", "ボードのプロフィールを保存");
+    form2.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!form2.reportValidity()) return;
+      save.disabled = true;
+      save.setAttribute("aria-busy", "true");
+      status.removeAttribute("role");
+      status.textContent = localize$1(options.language, "Saving…", "保存しています…");
+      void options.onSaveProfile({
+        displayName: name.value,
+        boardVisible: visibilityInput.checked,
+        shareAvatar: shareInput.checked && !shareInput.disabled
+      }).then(async (updated) => {
+        status.textContent = localize$1(options.language, "Saved.", "保存しました。");
+        await onSaved(updated);
+      }).catch((error) => {
+        status.setAttribute("role", "alert");
+        status.textContent = error instanceof Error ? error.message : localize$1(options.language, "The profile could not be saved.", "プロフィールを保存できませんでした。");
+      }).finally(() => {
+        save.disabled = false;
+        save.removeAttribute("aria-busy");
+      });
+    });
+    form2.append(nameLabel, listed, share, note, save, status);
+    section.append(summary, form2);
+    return section;
+  }
+  function boardControls(classes2, selectedClassId, selectedMetric, language, callbacks2) {
+    const controls = element("div", "academy-class-board-controls");
+    const classLabel = element("label", "academy-class-board-class");
+    const classText = element("span");
+    classText.textContent = localize$1(language, "Class", "クラス");
+    const select2 = element("select", "academy-input academy-class-board-class-select");
+    classes2.forEach((item2) => {
+      const option2 = element("option");
+      option2.value = item2.classId;
+      option2.textContent = item2.name;
+      option2.selected = item2.classId === selectedClassId;
+      select2.append(option2);
+    });
+    select2.addEventListener("change", () => callbacks2.onClass(select2.value));
+    classLabel.append(classText, select2);
+    const tabs = element("div", "academy-class-board-metrics");
+    tabs.setAttribute("role", "group");
+    tabs.setAttribute("aria-label", localize$1(language, "Class Board measure", "クラスボードの項目"));
+    METRICS.forEach((metric) => {
+      const button2 = element("button", "academy-class-board-metric");
+      button2.type = "button";
+      button2.dataset.metric = metric.id;
+      button2.setAttribute("aria-pressed", String(metric.id === selectedMetric));
+      button2.textContent = localize$1(language, metric.en, metric.ja);
+      button2.addEventListener("click", () => {
+        tabs.querySelectorAll(".academy-class-board-metric").forEach((candidate2) => {
+          candidate2.setAttribute("aria-pressed", String(candidate2 === button2));
+        });
+        callbacks2.onMetric(metric.id);
+      });
+      tabs.append(button2);
+    });
+    controls.append(classLabel, tabs);
+    return controls;
+  }
+  function boardResult(view, account, language, onPage) {
+    const fragment2 = element("div", "academy-class-board-result");
+    const context2 = element("div", "academy-class-board-context");
+    const meaning = element("p", "academy-class-board-meaning");
+    meaning.textContent = localizeMetricMeaning(view.metric.id, language);
+    const freshness = element("p", "academy-class-board-freshness");
+    freshness.textContent = localize$1(
+      language,
+      `Snapshot ${relativeTime(view.freshness.generatedAt, Date.now(), "en")}`,
+      `スナップショット: ${relativeTime(view.freshness.generatedAt, Date.now(), "ja")}`
+    );
+    context2.append(meaning, freshness);
+    fragment2.append(context2);
+    if (view.entries.length === 0) {
+      const empty = element("p", "academy-class-board-empty");
+      empty.textContent = localize$1(language, "No one has shared this total yet.", "この合計を共有している人はまだいません。");
+      fragment2.append(empty);
+    } else {
+      fragment2.append(boardTable(view.entries, account, view.metric.id, language));
+    }
+    const visibleHasMe = view.entries.some((entry2) => entry2.accountId === account.accountId);
+    if (view.me && !visibleHasMe) {
+      const own = element("div", "academy-class-board-me");
+      const label = element("span");
+      label.textContent = localize$1(language, "Your place", "あなたの位置");
+      const value = element("strong");
+      value.textContent = `#${view.me.rank} · ${formatValue(view.me.value, view.metric.id, language)}`;
+      own.append(label, value);
+      fragment2.append(own);
+    } else if (!view.me && !account.boardVisible) {
+      const privateNote = element("p", "academy-class-board-private-note");
+      privateNote.textContent = localize$1(
+        language,
+        "Your totals stay private until you choose to appear above.",
+        "上の設定で表示を選ぶまで、あなたの合計は非公開です。"
+      );
+      fragment2.append(privateNote);
+    }
+    if (view.pagination.pages > 1) {
+      const pagination = element("nav", "academy-class-board-pagination");
+      pagination.setAttribute("aria-label", localize$1(language, "Class Board pages", "クラスボードのページ"));
+      const previous = pageButton("←", localize$1(language, "Previous page", "前のページ"), () => onPage(view.pagination.page - 1));
+      const page = element("span");
+      page.textContent = `${view.pagination.page} / ${view.pagination.pages}`;
+      const next = pageButton("→", localize$1(language, "Next page", "次のページ"), () => onPage(view.pagination.page + 1));
+      previous.disabled = view.pagination.page <= 1;
+      next.disabled = view.pagination.page >= view.pagination.pages;
+      pagination.append(previous, page, next);
+      fragment2.append(pagination);
+    }
+    return fragment2;
+  }
+  function boardTable(entries2, account, metric, language) {
+    const table = element("table", "academy-class-board-table");
+    const caption2 = element("caption", "academy-sr-only");
+    caption2.textContent = localize$1(language, "Class Board positions", "クラスボードの順位");
+    const head = element("thead");
+    const headRow = element("tr");
+    [localize$1(language, "Place", "順位"), localize$1(language, "Classmate", "クラスメイト"), localize$1(language, "Total", "合計")].forEach((text2) => {
+      const cell = element("th");
+      cell.scope = "col";
+      cell.textContent = text2;
+      headRow.append(cell);
+    });
+    head.append(headRow);
+    const body = element("tbody");
+    entries2.forEach((entry2) => {
+      const row = element("tr");
+      if (entry2.accountId === account.accountId) row.dataset.currentLearner = "true";
+      const rank2 = element("td");
+      rank2.dataset.label = localize$1(language, "Place", "順位");
+      rank2.textContent = `#${entry2.rank}`;
+      rank2.setAttribute("aria-label", `${rank2.dataset.label}: ${rank2.textContent}`);
+      const learner = element("td", "academy-class-board-learner");
+      learner.dataset.label = localize$1(language, "Classmate", "クラスメイト");
+      if (entry2.avatarKey) learner.append(avatar(entry2.avatarKey, entry2.displayTag));
+      const tag = element("span");
+      tag.textContent = entry2.displayTag;
+      learner.append(tag);
+      if (entry2.role === "sensei") {
+        const role2 = element("small");
+        role2.textContent = localize$1(language, "Sensei", "先生");
+        learner.append(role2);
+      }
+      learner.setAttribute("aria-label", entry2.role === "sensei" ? `${learner.dataset.label}: ${entry2.displayTag}, ${localize$1(language, "Sensei", "先生")}` : `${learner.dataset.label}: ${entry2.displayTag}`);
+      const value = element("td", "academy-class-board-value");
+      value.dataset.label = localize$1(language, "Total", "合計");
+      value.textContent = formatValue(entry2.value, metric, language);
+      value.setAttribute("aria-label", `${value.dataset.label}: ${value.textContent}`);
+      row.append(rank2, learner, value);
+      body.append(row);
+    });
+    table.append(caption2, head, body);
+    return table;
+  }
+  function avatar(key2, label) {
+    const image = element("img", "academy-class-board-avatar");
+    image.src = ACADEMY_ASSETS.portraits[key2];
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    image.title = label;
+    return image;
+  }
+  function boardError(error, language, retry) {
+    const box = element("div", "academy-class-board-error");
+    box.setAttribute("role", "alert");
+    const message = element("p");
+    message.textContent = error instanceof Error ? error.message : localize$1(language, "The class snapshot could not be loaded.", "クラスのスナップショットを読み込めませんでした。");
+    const button2 = element("button", "academy-button academy-button-secondary");
+    button2.type = "button";
+    button2.textContent = localize$1(language, "Try again", "もう一度試す");
+    button2.addEventListener("click", retry);
+    box.append(message, button2);
+    return box;
+  }
+  function statusLine(language, state) {
+    const status = element("p", "academy-class-board-loading");
+    status.textContent = localize$1(language, "Loading class snapshot…", "クラスのスナップショットを読み込んでいます…");
+    return status;
+  }
+  function checkbox$1(name, text2, checked) {
+    const label = element("label", "academy-class-board-check");
+    const input2 = element("input");
+    input2.type = "checkbox";
+    input2.name = name;
+    input2.checked = checked;
+    const caption2 = element("span");
+    caption2.textContent = text2;
+    label.append(input2, caption2);
+    return label;
+  }
+  function pageButton(text2, label, action2) {
+    const button2 = element("button", "academy-class-board-page-button");
+    button2.type = "button";
+    button2.textContent = text2;
+    button2.setAttribute("aria-label", label);
+    button2.addEventListener("click", action2);
+    return button2;
+  }
+  function formatValue(value, metric, language) {
+    const formatted = new Intl.NumberFormat(language === "ja" ? "ja-JP" : "en-GB").format(value);
+    if (metric === "known-words") return localize$1(language, `${formatted} words`, `${formatted}語`);
+    if (metric === "lesson-progress") return localize$1(language, `${formatted} lessons`, `${formatted}レッスン`);
+    return localize$1(language, `${formatted} days`, `${formatted}日`);
+  }
+  function localizeMetricMeaning(metric, language) {
+    const copy2 = {
+      streak: ["Current run of qualifying study days.", "現在続いている学習日の記録です。"],
+      "review-activity": ["Study days recorded in the last seven days.", "直近7日間に記録された学習日です。"],
+      "known-words": ["Words independently demonstrated in Yomu SRS.", "Yomu SRSで自力で使えると確認された単語です。"],
+      "lesson-progress": ["Academy lessons completed.", "完了したAcademyレッスンです。"]
+    };
+    return localize$1(language, copy2[metric][0], copy2[metric][1]);
+  }
+  function relativeTime(at, now, language) {
+    const minutes = Math.max(0, Math.round((now - at) / 6e4));
+    if (minutes < 1) return localize$1(language, "just now", "たった今");
+    if (minutes < 60) return localize$1(language, `${minutes} min ago`, `${minutes}分前`);
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return localize$1(language, `${hours} hr ago`, `${hours}時間前`);
+    const days = Math.round(hours / 24);
+    return localize$1(language, `${days} days ago`, `${days}日前`);
+  }
+  function localize$1(language, en, ja) {
+    return language === "ja" ? ja : en;
+  }
   function renderDayEndScene(options) {
     const actionLifecycle = new AbortController();
     const stage2 = createAcademyVnStage({ label: academyText(options.language, "dayEndStageLabel") });
@@ -250397,6 +251152,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       actions.append(actionButton$1(localize(options.language, "Export encrypted data", "暗号化データを書き出す"), async () => options.onExport()));
     }
     if ((profile2 || account) && phase !== "sign-in" && phase !== "signed-out") {
+      if (account?.classes.length && options.onClassBoard) {
+        actions.append(actionButton$1(
+          localize(options.language, "Open Class Board", "クラスボードを開く"),
+          async () => options.onClassBoard?.()
+        ));
+      }
       if (account) actions.append(actionButton$1(localize(options.language, "Sign out", "サインアウト"), async () => options.onSignOut()));
       actions.append(deleteButton(options, account ? "account" : "profile"));
     }
@@ -252996,6 +253757,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const isStation = place2.id === "station";
     const isTubePlatform = place2.id === "station-platform";
     const isHome = place2.id === "home";
+    let embeddedPractice;
     const activityLabel = element("h2", "academy-world-section-title");
     activityLabel.textContent = place2.activity.label[options.language];
     const activityDetail = element("p", "academy-world-activity-detail");
@@ -253059,7 +253821,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (place2.id === "ramen" && place2.practice) activity2.append(renderRamenOrderTicket(options.language, place2.practice));
     if (place2.practice && place2.availability.state === "open" && !isStation && !isTubePlatform && place2.id !== "cafe" && !isHome) {
-      activity2.append(place2.id === "konbini" ? renderKonbiniRegister({
+      embeddedPractice = place2.id === "konbini" ? renderKonbiniRegister({
         language: options.language,
         practice: place2.practice,
         stampId: place2.stamp.id,
@@ -253094,7 +253856,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onListen: options.onListen,
         onSketch: options.onObjectInteract,
         onPracticeComplete: options.onPracticeComplete
-      }) : place2.id === "cafeteria" ? worldCafeteriaTrayPractice(options, place2.practice, place2.stamp.id) : worldPractice(options, place2.practice, place2.stamp.id));
+      }) : place2.id === "cafeteria" ? worldCafeteriaTrayPractice(options, place2.practice, place2.stamp.id) : worldPractice(options, place2.practice, place2.stamp.id);
+      activity2.append(embeddedPractice);
     }
     if (place2.activity.route && place2.availability.state === "open" && place2.id !== "cafe" && !isHome) {
       activity2.append(worldActivityButton(options, place2.activity.route));
@@ -253102,6 +253865,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const unavailable = element("p", "academy-world-unavailable");
       unavailable.textContent = place2.activity.unavailableReason?.[options.language] ?? place2.availability.reason?.[options.language] ?? "";
       activity2.append(unavailable);
+    }
+    if (place2.id === "courtyard" && embeddedPractice) {
+      configureCourtyardPurposeSwitcher(options.language, activity2, embeddedPractice);
     }
     const objects = worldObjects(options, place2.objects);
     const reward = place2.id === "cafe" || place2.id === "station-platform" ? void 0 : worldReward(options, place2.stamp, Boolean(place2.practice));
@@ -253168,9 +253934,47 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const button2 = element("button", "academy-world-activity-button");
     button2.type = "button";
     button2.dataset.activityRoute = route;
-    button2.textContent = options.language === "ja" ? "始める" : "Start";
+    button2.textContent = route === "journal" ? options.language === "ja" ? "日誌を開く" : "Open journal" : options.language === "ja" ? "始める" : "Start";
     button2.addEventListener("click", () => options.onActivity(route));
     return button2;
+  }
+  function configureCourtyardPurposeSwitcher(language, purpose, practice2) {
+    purpose.dataset.courtyardMode = "journal";
+    practice2.hidden = true;
+    practice2.id = `academy-${practice2.dataset.worldPractice ?? "courtyard-notice-practice"}`;
+    const open = element("button", "academy-courtyard-practice-toggle");
+    open.type = "button";
+    open.setAttribute("aria-controls", practice2.id);
+    open.setAttribute("aria-expanded", "false");
+    open.textContent = language === "ja" ? "掲示を練習する" : "Practice the notice";
+    const close = element("button", "academy-courtyard-practice-back");
+    close.type = "button";
+    close.textContent = language === "ja" ? "← 日誌に戻る" : "← Back to journal";
+    practice2.prepend(close);
+    const journalNodes = [
+      purpose.querySelector(".academy-world-section-title"),
+      purpose.querySelector(".academy-world-activity-detail"),
+      purpose.querySelector(".academy-world-curriculum"),
+      purpose.querySelector(".academy-world-activity-button")
+    ].filter((node2) => Boolean(node2));
+    const showPractice = (visible) => {
+      purpose.dataset.courtyardMode = visible ? "practice" : "journal";
+      open.hidden = visible;
+      open.setAttribute("aria-expanded", String(visible));
+      practice2.hidden = !visible;
+      journalNodes.forEach((node2) => {
+        node2.hidden = visible;
+      });
+      (visible ? close : open).focus();
+    };
+    open.addEventListener("click", () => showPractice(true));
+    close.addEventListener("click", () => showPractice(false));
+    practice2.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || event.isComposing) return;
+      event.preventDefault();
+      showPractice(false);
+    });
+    purpose.append(open);
   }
   function worldArrivalDialogue(options, dialogue2, introductionId2, purpose, screen) {
     const arrival = element("aside", "academy-world-arrival-dialogue");
@@ -254160,6 +254964,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         case "profile-sync":
           this.renderProfileSync(context2);
           return true;
+        case "class-board":
+          this.renderClassBoard(context2);
+          return true;
         case "day-end":
           context2.shell.replace(renderDayEndScene({
             language: context2.language,
@@ -254288,10 +255095,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onPracticeComplete: (_practiceId, stampId, evaluation) => {
           this.locationAudio.succeed(place2);
           if (evaluation) void this.options.evidence.recordWorldPractice?.(evaluation);
+          const update = { seenIntroductions: markSeen(stampId) };
+          if (context2.save) {
+            void context2.save(update).catch(() => context2.go(context2.checkpoint.route, update));
+            return;
+          }
           setTimeout(() => {
-            void context2.go(context2.checkpoint.route, {
-              seenIntroductions: markSeen(stampId)
-            });
+            void context2.go(context2.checkpoint.route, update);
           }, 1200);
         },
         // Route-flow harnesses and older embedded hosts may not mount an audio director.
@@ -254367,9 +255177,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async travelWorldPlace(place2, context2) {
       const route = worldRouteForPlace(place2);
-      const isFirstCafeArrival = place2 === "cafe" && !hasSeenIntroduction(context2.checkpoint.seenIntroductions, introductionId("place", "cafe"));
+      const isFirstArrival = !hasSeenIntroduction(
+        context2.checkpoint.seenIntroductions,
+        introductionId("place", place2)
+      );
       await context2.go(route, {
-        worldVisits: isFirstCafeArrival ? context2.checkpoint.worldVisits ?? {} : markWorldVisit(context2.checkpoint.worldVisits, place2),
+        worldVisits: isFirstArrival ? context2.checkpoint.worldVisits ?? {} : markWorldVisit(context2.checkpoint.worldVisits, place2),
         ...route === "world" ? { worldPlace: place2 } : {}
       });
     }
@@ -254645,7 +255458,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
           await sync.deleteRemoteData(scope2);
           this.renderProfileSync(context2);
         },
+        onClassBoard: sync.status.account?.classes.length ? () => void context2.go("class-board") : void 0,
         onContinue: context2.checkpoint.routeHistory.length === 0 ? () => void context2.go(context2.projection.profile ? "start" : "profile") : void 0
+      }));
+    }
+    renderClassBoard(context2) {
+      const sync = this.options.sync;
+      if (!sync) {
+        void context2.back();
+        return;
+      }
+      const account = sync.status.account;
+      if (!account) {
+        context2.shell.replace(renderLoadingScreen(context2.language));
+        void sync.connect().then(() => {
+          if (sync.status.account) this.renderClassBoard(context2);
+          else this.renderProfileSync(context2);
+        }).catch(() => this.renderProfileSync(context2));
+        return;
+      }
+      context2.shell.replace(renderClassBoardScreen({
+        language: context2.language,
+        account,
+        onBack: () => void context2.back(),
+        onLoad: (classId2, metric, page) => sync.loadClassLeaderboard(classId2, metric, page, 20),
+        onSaveProfile: (update) => sync.updateClassBoardProfile(update)
       }));
     }
     replayOpening(context2) {
@@ -255017,7 +255854,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         audio: this.audio,
         sync: this.sync
       });
-      const restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+      let restoredCheckpoint = await loadAcademyCheckpointSafely(this.persistence.checkpoint, this.checkpoint);
+      restoredCheckpoint = await this.refreshExpiredSession(restoredCheckpoint);
       const returnedFromGoogle = await this.sync.completeGoogleReturn();
       if (!returnedFromGoogle && restoredCheckpoint.session && !this.accountLinked && navigator.onLine) {
         await this.sync.connect();
@@ -255033,6 +255871,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
       this.bindLifecycle();
       await this.render();
+    }
+    /**
+     * Rotate an expired Worker session cookie before the resume checkpoint is
+     * normalized. Within the fixed 30-day offline-resume window the Worker
+     * re-issues an eight-hour authorization without spending an invite, so a
+     * linked learner returning after the short session lapsed lands back in
+     * Academy instead of the invite screen. Refusals leave the checkpoint
+     * untouched and fall through to the existing access gate.
+     */
+    async refreshExpiredSession(checkpoint) {
+      const session = checkpoint.session;
+      const now = Date.now();
+      if (!session || session.source !== "cloudflare" || !navigator.onLine || sessionCanResume(session, now, true) || session.offlineResumeUntil <= now) return checkpoint;
+      const refreshed = await resumeInviteSession();
+      if (!refreshed) return checkpoint;
+      const refreshedCheckpoint = { ...checkpoint, session: refreshed, updatedAt: Date.now() };
+      await this.persistence.checkpoint.save(refreshedCheckpoint).catch(() => void 0);
+      return refreshedCheckpoint;
     }
     dispose() {
       this.lifecycle.abort();
@@ -262634,6 +263490,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -267550,10 +268407,11 @@ ${entry2.reading || ""}`;
     if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
       return "";
     }
+    const map = sourceInfo?.kanjiMap;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title2)}</summary>
-            ${renderKanjiOriginDetail()}
+            ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
             ${renderKanjiFactPills(facts, language, excludeFactLabels)}
         </details>
@@ -267619,7 +268477,38 @@ ${entry2.reading || ""}`;
     }
   }
   function renderKanjiOriginDetail(map, settings, language) {
-    return "";
+    if (!map) return "";
+    const radicalCard = renderKanjiRadicalCard(map, settings, language);
+    return radicalCard ? `<div class="jpdb-reader-origin-detail">${radicalCard}</div>` : '<div class="jpdb-reader-origin-detail"></div>';
+  }
+  function renderKanjiRadicalCard(map, settings, language) {
+    const radical = map.radical;
+    if (!radical && !map.hint) return "";
+    return `<div class="jpdb-reader-radical-card">
+        ${renderKanjiRadicalGlyph(radical, language)}
+        <div>
+            ${renderKanjiRadicalSummary(radical, language)}
+            ${map.hint ? `<span>${escapeHtml$1(map.hint)}</span>` : ""}
+            ${renderKanjiRadicalFrames(radicalFrameUrls(radical, settings))}
+        </div>
+    </div>`;
+  }
+  function renderKanjiRadicalGlyph(radical, language) {
+    return radical ? `<strong class="jpdb-reader-radical-glyph">${escapeHtml$1(radical.symbol || uiText(language, "radical"))}</strong>` : "";
+  }
+  function renderKanjiRadicalSummary(radical, language) {
+    if (!radical) return "";
+    const values = [radical.reading, radical.meaning, radical.strokes ? `${radical.strokes} ${uiText(language, "strokes")}` : ""];
+    return `<strong>${escapeHtml$1(values.filter(Boolean).join(" · "))}</strong>`;
+  }
+  function radicalFrameUrls(radical, settings) {
+    return settings.kanjiOriginRadicalImagesEnabled && radical ? [radical.image, ...radical.animation].filter(Boolean).slice(0, 4) : [];
+  }
+  function renderKanjiRadicalFrames(radicalFrames) {
+    if (!radicalFrames.length) return "";
+    return `<div class="jpdb-reader-radical-frames">
+        ${radicalFrames.map((url, index) => `<img alt="" loading="lazy" data-radical-frame="${index}" data-radical-frame-url="${escapeHtml$1(url)}">`).join("")}
+    </div>`;
   }
   const ORIGIN_GRAPH_DRAG_THRESHOLD_PX = 6;
   const ORIGIN_GRAPH_EDGE_PADDING_PERCENT = 1.8;
@@ -268096,10 +268985,11 @@ ${entry2.reading || ""}`;
     }));
     return summaries;
   }
-  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en") {
+  function renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language = "en", sourceInfo = null) {
     return renderKanjiKeywordChips([
       { text: jpdbInfo?.keyword, label: "JPDB", canonical: true },
       { text: rtkInfo?.keyword, label: "RTK" },
+      { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
       ...entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
     ], language);
   }
@@ -269214,10 +270104,6 @@ ${component.reading}`;
     if (!attributes) return;
     info.pitchAccentStress = textValue(attributes.pitch_accent_stress);
     info.frequencies = BUNPRO_FREQUENCY_LISTS.map((list2) => ({ list: list2, rank: numberValue$1(attributes[`frequency_${list2}`]) })).filter((entry2) => entry2.rank > 0);
-    info.wordAudioUrls = uniqueText([
-      bunproHttpsUrl(textValue(attributes.female_audio_url)),
-      bunproHttpsUrl(textValue(attributes.male_audio_url))
-    ]);
     info.relatedWords = bunproJmdictRelatedWords(attributes.jmdict_data, info);
     info.caution = stripBunproMarkup(textValue(attributes.caution));
     info.register = textValue(attributes.register);
@@ -269443,7 +270329,7 @@ ${component.reading}`;
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title2)}</summary>
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
-                ${renderBunproHeadword(card, info, language)}
+                ${renderBunproHeadword(card, info)}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ""}
                 ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml$1(glosses.meaning)}</span></div></div>` : ""}
                 ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join("")}</div>` : ""}
@@ -269455,18 +270341,15 @@ ${component.reading}`;
         </details>
     `;
   }
-  function renderBunproHeadword(card, info, language) {
-    const audioUrl = info.wordAudioUrls[0] ?? "";
-    const audioLabel = uiText(language, "playAudio");
-    const audio2 = audioUrl ? `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio jpdb-reader-bunpro-audio" type="button" data-action="bunpro-audio" data-study-sentence="${escapeHtml$1(info.expression)}" data-audio-url="${escapeHtml$1(audioUrl)}" title="${escapeHtml$1(audioLabel)}" aria-label="${escapeHtml$1(audioLabel)}">${speakerIcon()}</button>` : "";
-    if (repeatsLookupHeadword(card, info)) return audio2 ? `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio2}</div>` : "";
+  function renderBunproHeadword(card, info, _language) {
+    if (repeatsLookupHeadword(card, info)) return "";
     const reference = renderPassiveReference({
       text: info.expression,
       reading: info.reading,
       dictionary: "Bunpro",
       className: "jpdb-reader-bunpro-headword-target"
     });
-    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio2}${reference}</div>`;
+    return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${reference}</div>`;
   }
   function renderBunproGlossText(value) {
     if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
@@ -269627,7 +270510,6 @@ ${component.reading}`;
       examplesUnavailableReason: "",
       pitchAccentStress: "",
       frequencies: [],
-      wordAudioUrls: [],
       relatedWords: [],
       caution: "",
       register: "",
@@ -269720,6 +270602,7 @@ ${component.reading}`;
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
   const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
@@ -269768,7 +270651,7 @@ ${component.reading}`;
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -269800,6 +270683,26 @@ ${component.reading}`;
       }
       merged.push(segments[index]);
       index += 1;
+    }
+    return merged;
+  }
+  function mergeContiguousKatakanaSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const first2 = segments[index];
+      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
+        merged.push(first2);
+        index += 1;
+        continue;
+      }
+      let surface = first2.surface;
+      let runEnd = index + 1;
+      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+        surface += segments[runEnd].surface;
+        runEnd += 1;
+      }
+      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
+      index = runEnd;
     }
     return merged;
   }
@@ -270547,11 +271450,8 @@ ${spelling}`);
       if (!this.canUseLocalDictionaryFallback()) return tokens;
       if (!await this.hasLocalTermDictionaries()) return tokens;
       const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
-      if (!localTokens.length) return tokens;
-      const kept = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
-      const additions = nonOverlappingTokens([...localTokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2).filter((local) => !kept.some((token) => rangesOverlap(local.start, local.end, token.start, token.end)));
-      if (!additions.length) return tokens;
-      return [...kept, ...additions].sort(compareTokensByOffset);
+      const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap(local.start, local.end, token.start, token.end)));
+      return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
     }
     fillSegmentedFallbackGaps(text2, tokens) {
       tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
@@ -271018,11 +271918,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function exactSearchFrequencyRank(provider, card, candidates) {
     const spelling = normalizeIdentityText(card.spelling);
     const reading = normalizeIdentityText(card.reading);
-    const matches = candidates.filter(
-      (candidate2) => normalizeIdentityText(candidate2.spelling) === spelling && normalizeIdentityText(candidate2.reading) === reading
+    const match = candidates.find(
+      (candidate2) => normalizeIdentityText(candidate2.spelling) === spelling && normalizeIdentityText(candidate2.reading) === reading && frequencyRank(candidate2.frequencyRank) !== null
     );
-    if (matches.length !== 1) return null;
-    const match = matches[0];
     const rank2 = frequencyRank(match?.frequencyRank);
     return match && rank2 ? rankEvidence(provider, rank2, match, "live-search") : null;
   }
@@ -271284,8 +272182,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
-      return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
+      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+      const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
+      return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
         log$j.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
@@ -278187,10 +279086,11 @@ ${key2}`] = { t: now, v: value };
   function jitenKanjiKeyword(info) {
     return info?.meanings?.[0] ?? "";
   }
-  function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en") {
+  function renderJitenKanjiKeywordLine(info, rtkInfo, entries2, language = "en", sourceInfo = null) {
     return renderKanjiKeywordChips([
       { text: jitenKanjiKeyword(info), label: "Jiten", canonical: true },
       { text: rtkInfo?.keyword, label: "RTK" },
+      { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
       ...entries2.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).map((meaning) => ({ text: meaning, label: uiText(language, "dict") }))
     ], language);
   }
@@ -279428,9 +280328,11 @@ ${normalizedReading}`;
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
   const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
+  const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
   const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
-    POPOVER_SUMMARY_PARSE_SELECTOR
+    POPOVER_SUMMARY_PARSE_SELECTOR,
+    POPOVER_SOURCE_TITLE_PARSE_SELECTOR
   ].join(",");
   const READER_WORD_SELECTOR = ".jpdb-reader-word";
   const EXAMPLE_TARGET_SELECTOR = ".jpdb-reader-example-target";
@@ -279508,7 +280410,8 @@ ${normalizedReading}`;
       includePassiveInteractions: true,
       heading: true,
       minLength: 1,
-      readerRootPassiveInteractions: true
+      readerRootPassiveInteractions: true,
+      parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
@@ -284477,12 +285380,14 @@ ${entry2.url}`),
           rtk: null,
           vg: null,
           local: [],
+          sourceInfo: null,
           sourceStates: {
             jpdb: "unavailable",
             jiten: "unavailable",
             rtk: "unavailable",
             vg: "unavailable",
-            local: "unavailable"
+            local: "unavailable",
+            origin: "unavailable"
           }
         };
       });
@@ -284491,7 +285396,7 @@ ${entry2.url}`),
       const meanings = uniqueTrimmedStrings([
         ...details.jiten?.meanings ?? [],
         ...details.local.flatMap((entry2) => entry2.meanings)
-      ]).filter((meaning) => !parentMeanings.has(normalizedKeywordText$1(meaning))).slice(0, 6);
+      ]).filter((meaning) => !parentMeanings.has(normalizedKeywordText(meaning))).slice(0, 6);
       const readings = details.jiten ? jitenKanjiReadingRows(details.jiten).slice(0, 8) : newTabKanjiReadings(fullInfo, uniqueTrimmedStrings(details.local.flatMap((entry2) => [...entry2.onyomi, ...entry2.kunyomi]))).slice(0, 8);
       const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
       const sourceKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
@@ -284655,9 +285560,10 @@ ${entry2.url}`),
     }
     loadSearchJpdbVocabularyInfo(card) {
       const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
-      if (!hasJpdbApiCredential(this.deps.getDependencies().getSettings()) || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+      if (!this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+      const jpdbVid = !card.source || card.source === "jpdb" ? card.vid : 0;
       return promiseWithTimeout(
-        jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
+        jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "JPDB vocabulary lookup timed out."
       ).catch(() => null);
@@ -284749,11 +285655,7 @@ ${entry2.url}`),
       const kanjiDetail = this.deps.renderKanjiDetails(
         kanjiCard,
         item2.kanji,
-        item2.details.jpdb,
-        item2.details.jiten,
-        item2.details.rtk,
-        item2.details.vg,
-        item2.details.local
+        item2.details
       );
       const itemRoot = el(
         "section",
@@ -284783,7 +285685,7 @@ ${entry2.url}`),
         const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji);
         const localMeanings = uniqueTrimmedStrings(details.local.flatMap((entry2) => entry2.meanings)).slice(0, 6);
         card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || "";
-        replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+        replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
         this.deps.renderNewTabUchisen(existing, kanji);
         this.deps.renderNewTabKanjiImmersion(existing, kanji);
         void this.deps.getDependencies().parseContent?.(existing);
@@ -284998,11 +285900,11 @@ ${entry2.url}`),
   function normalizedSearchWordIdentity(value) {
     return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
   }
-  function normalizedKeywordText$1(value) {
+  function normalizedKeywordText(value) {
     return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   }
   function searchParentMeaningKeys(cards, kanji) {
-    return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters$1(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText$1).filter(Boolean));
+    return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters$1(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText).filter(Boolean));
   }
   function isSearchLocalKanjiDictionaryCard(card) {
     const characters = Array.from(card.spelling.trim());
@@ -286171,6 +287073,7 @@ ${entry2.url}`),
       this.primeRtk(cache2, kanji, settings);
       this.primeKanjiVg(cache2, kanji, settings);
       this.primeLocal(cache2, kanji, settings);
+      this.primeOrigin(cache2, kanji, settings);
     }
     primeJpdb(cache2, kanji, settings) {
       const lookupJpdbKanji = this.deps.jpdbKanji.lookup;
@@ -286211,25 +287114,35 @@ ${entry2.url}`),
         []
       ));
     }
+    primeOrigin(cache2, kanji, settings) {
+      if (!this.shouldLoadOrigin(settings) || !this.deps.kanjiOrigin || cache2.origin) return;
+      cache2.origin = this.remoteResult(
+        promiseWithTimeout(this.deps.kanjiOrigin.lookup(kanji, settings), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "Kanji origin lookup timed out."),
+        null
+      );
+    }
     resolveBundle(cache2, settings) {
       return Promise.all([
         settings.jpdbKanjiEnabled ? cache2.jpdb ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         settings.jpdbKanjiEnabled && hasJitenApiCredential(settings) ? cache2.jiten ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         settings.rtkEnabled ? cache2.rtk ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
         this.shouldLoadKanjiVg(settings) ? cache2.vg ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        this.shouldLoadLocal(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled"))
-      ]).then(([jpdb, jiten, rtk, vg, local]) => ({
+        this.shouldLoadLocal(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled")),
+        this.shouldLoadOrigin(settings) ? cache2.origin ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled"))
+      ]).then(([jpdb, jiten, rtk, vg, local, origin]) => ({
         jpdb: jpdb.value,
         jiten: jiten.value,
         rtk: rtk.value,
         vg: vg.value,
         local: local.value,
+        sourceInfo: origin.value,
         sourceStates: {
           jpdb: jpdb.state,
           jiten: jiten.state,
           rtk: rtk.state,
           vg: vg.state,
-          local: local.state
+          local: local.state,
+          origin: origin.state
         }
       }));
     }
@@ -286261,11 +287174,15 @@ ${entry2.url}`),
         hasJitenApiCredential(settings),
         settings.rtkEnabled,
         this.shouldLoadKanjiVg(settings),
-        this.shouldLoadLocal(settings)
+        this.shouldLoadLocal(settings),
+        this.shouldLoadOrigin(settings)
       ].map(Boolean).join(":");
     }
     shouldLoadLocal(settings) {
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
+    }
+    shouldLoadOrigin(settings) {
+      return settings.kanjiOriginsEnabled && settings.kanjiOriginKanjiMapEnabled;
     }
   }
   const gmGradeQueueStorage = {
@@ -287812,9 +288729,6 @@ ${entry2.url}`),
     clone2.querySelectorAll("rt, rp").forEach((node2) => node2.remove());
     return clone2.textContent ?? "";
   }
-  function normalizedKeywordText(value) {
-    return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-  }
   function shouldResolveInitialWordIndex(poolChanged, preferStoredWord) {
     return poolChanged || preferStoredWord;
   }
@@ -287932,6 +288846,7 @@ ${entry2.url}`),
         jiten: this.dependencies.jiten,
         rtk: this.dependencies.rtk,
         kanjiVG: this.dependencies.kanjiVG,
+        kanjiOrigin: this.dependencies.kanjiOrigin,
         dictionaries: this.dependencies.dictionaries,
         localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
       });
@@ -288061,7 +288976,7 @@ ${entry2.url}`),
       language: () => this.language(),
       hasLocalDictionaries: () => this.hasLocalDictionaries(),
       loadKanjiDetails: (character) => this.loadKanjiDetails(character),
-      renderKanjiDetails: (card, kanji, info, jitenInfo, rtk, vg, localEntries) => this.renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries),
+      renderKanjiDetails: (card, kanji, details) => this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null),
       keywordFromDetails: (card, jpdb, jiten, rtk) => this.keywordFromDetails(card, jpdb, jiten, rtk),
       renderNewTabUchisen: (root, kanji) => this.renderNewTabUchisen(root, kanji),
       renderNewTabKanjiImmersion: (root, kanji) => this.renderNewTabKanjiImmersion(root, kanji),
@@ -293954,7 +294869,7 @@ ${entry2.url}`),
     }
     applyEnrichedKanjiMeaning(slots, card, kanji, details) {
       if (!this.state.revealAnswer || !slots.meaning) return;
-      replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
+      replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null));
       this.renderNewTabUchisen(slots.meaning, kanji);
       this.renderNewTabKanjiImmersion(slots.meaning, kanji);
       void this.dependencies.parseContent?.(slots.meaning);
@@ -294079,7 +294994,7 @@ ${entry2.url}`),
       this.uchisenDataCache.set(kanji, promise);
       return promise;
     }
-    renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries) {
+    renderKanjiDetails(card, kanji, info, jitenInfo, rtk, vg, localEntries, sourceInfo) {
       const settings = this.dependencies.getSettings();
       const fullInfo = info ? normalizeJpdbKanjiInfo(info) : null;
       const localMeanings = uniqueTrimmedStrings(localEntries.flatMap((entry2) => entry2.meanings)).slice(0, 6);
@@ -294096,6 +295011,7 @@ ${entry2.url}`),
         jitenInfo,
         rtk,
         vg,
+        sourceInfo,
         localEntries,
         settings,
         excludeFactLabels: new Set(facts.map(([label]) => label))
@@ -294109,10 +295025,15 @@ ${entry2.url}`),
       );
       const keywordMount = wrap.querySelector(".jpdb-reader-newtab-kanji-keywords");
       if (keywordMount) {
-        const keywordLine = jitenInfo ? this.suppressDuplicateKanjiKeywordLine(
-          renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage),
-          jitenInfo.meanings[0] ?? ""
-        ) : this.renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, settings.interfaceLanguage);
+        const displayedKeyword = jitenInfo?.meanings[0] ?? this.newTabKanjiDisplayedKeyword(facts, settings.interfaceLanguage);
+        const keywordLine = this.renderNewTabKanjiKeywordLine(
+          { text: jitenInfo?.meanings[0] ?? fullInfo?.keyword, label: jitenInfo ? "Jiten" : "JPDB", canonical: true },
+          rtk,
+          localEntries,
+          displayedKeyword,
+          settings.interfaceLanguage,
+          sourceInfo
+        );
         if (keywordLine) setInnerHtml(keywordMount, keywordLine);
         else keywordMount.remove();
       }
@@ -294149,7 +295070,7 @@ ${entry2.url}`),
         return context2.fullInfo ? renderNewTabKanjiInfoSection(context2.card, context2.facts, context2.readings, context2.localMeanings, context2.fullInfo, (key2) => this.sourceAttributes(key2), this.kanjiFactSourceTitle("jpdb"), context2.settings.interfaceLanguage) : null;
       }
       if (sourceId2 === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context2.rtk, context2.fullInfo, context2.localEntries, context2.settings);
-      if (sourceId2 === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context2.kanji, context2.fullInfo, context2.rtk, context2.vg, context2.localEntries, context2.settings, context2.excludeFactLabels);
+      if (sourceId2 === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context2.kanji, context2.fullInfo, context2.rtk, context2.vg, context2.localEntries, context2.sourceInfo, context2.settings, context2.excludeFactLabels);
       return void 0;
     }
     renderSupplementalNewTabKanjiSourceSection(sourceId2, context2) {
@@ -294206,15 +295127,15 @@ ${entry2.url}`),
         title2
       ));
     }
-    renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, settings, excludeFactLabels = /* @__PURE__ */ new Set()) {
+    renderNewTabKanjiOriginGraph(kanji, fullInfo, rtk, vg, localEntries, sourceInfo, settings, excludeFactLabels = /* @__PURE__ */ new Set()) {
       if (!settings.kanjiOriginsEnabled || !settings.kanjiOriginGraphEnabled) return null;
-      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries);
-      const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, null, vg);
+      const factsForOrigins = buildKanjiFacts(kanji, fullInfo, rtk, settings.kanjivgEnabled ? vg : null, localEntries, sourceInfo);
+      const graph = buildKanjiOriginGraph(kanji, fullInfo, rtk, localEntries, sourceInfo, vg);
       if (!graph) return null;
       const section = htmlToFirstElement(renderKanjiOrigins(
         factsForOrigins,
         graph,
-        null,
+        sourceInfo,
         settings,
         settings.interfaceLanguage,
         this.isSourceOpen(kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID)),
@@ -294243,21 +295164,16 @@ ${entry2.url}`),
       const keywordLabel = uiText(language, "factKeyword");
       return facts.find(([label]) => label === keywordLabel)?.[1] ?? "";
     }
-    renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, language) {
-      const line2 = renderKanjiKeywordLine(fullInfo, rtk, localEntries, language);
-      const displayedKeyword = this.newTabKanjiDisplayedKeyword(facts, language);
-      return this.suppressDuplicateKanjiKeywordLine(line2, displayedKeyword);
-    }
-    suppressDuplicateKanjiKeywordLine(line2, displayedKeyword) {
-      if (!displayedKeyword) return line2;
-      const root = htmlToFirstElement(line2);
-      if (!root || root.classList.contains("jpdb-reader-help")) return line2;
-      const duplicateKey = normalizedKeywordText(displayedKeyword);
-      root.querySelectorAll(".jpdb-reader-kanji-keyword").forEach((chip) => {
-        const text2 = Array.from(chip.children).find((child) => child.tagName.toLowerCase() === "span")?.textContent ?? "";
-        if (normalizedKeywordText(text2) === duplicateKey) chip.remove();
-      });
-      return root.querySelector(".jpdb-reader-kanji-keyword") ? root.outerHTML : "";
+    renderNewTabKanjiKeywordLine(primary, rtk, localEntries, displayedKeyword, language, sourceInfo) {
+      const keywordKey = (text2) => text2?.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en") ?? "";
+      const displayedKey = keywordKey(displayedKeyword);
+      const sources = [
+        primary,
+        { text: rtk?.keyword, label: "RTK" },
+        { text: sourceInfo?.kanjiAliveKeyword, label: "Kanji Alive" },
+        ...localEntries.flatMap((entry2) => entry2.meanings).filter(Boolean).slice(0, 3).map((text2) => ({ text: text2, label: uiText(language, "dict") }))
+      ].filter((source2) => keywordKey(source2.text) !== displayedKey);
+      return sources.some((source2) => source2.text?.trim()) ? renderKanjiKeywordChips(sources, language) : "";
     }
     sourceAttributes(sourceStateKey, initiallyExpanded = true) {
       return this.dependencies.dictionarySourceAttributes?.(sourceStateKey, initiallyExpanded) ?? newTabKanjiSourceAttrs(sourceStateKey, initiallyExpanded);
@@ -304538,6 +305454,7 @@ ${entry2.url}`),
     jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
     kanjiCompanion = yomuKanjiStudyCompanion();
     jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
+    kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
     jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
@@ -304875,6 +305792,7 @@ ${entry2.url}`),
         jiten: this.jiten,
         jpdbKanji: this.jpdbKanji,
         kanjiVG: this.kanjiVG,
+        kanjiOrigin: this.kanjiOrigin ?? void 0,
         rtk: this.rtk,
         immersionKit: this.immersionKit,
         jpdbVocabulary: this.jpdbVocabulary,
@@ -305437,6 +306355,7 @@ ${entry2.url}`),
       let jitenInfo = null;
       let rtkInfo = null;
       let kanjiVGInfo = null;
+      let sourceInfo = null;
       let kanjiEntries = [];
       const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo) ?? noopKanjiPracticeDoodle();
       const detailPromises = this.kanjiLookupDetailPromises(kanji);
@@ -305447,7 +306366,7 @@ ${entry2.url}`),
       const renderKeyword = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
         const mount = popover.querySelector("[data-kanji-keyword-mount]");
-        if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries));
+        if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo));
       };
       const renderKanjiPillRanks = () => {
         if (!this.isCurrentLookupRender(popover, requestId)) return;
@@ -305542,10 +306461,14 @@ ${entry2.url}`),
           if (!this.isCurrentLookupRender(popover, requestId)) return;
           renderKanjiVG();
           practiceDoodle.reassess();
+        }),
+        detailPromises.kanjiSourceInfo.then((info) => {
+          sourceInfo = info;
+          renderKeyword();
         })
       ]);
       if (!this.isCurrentLookupRender(popover, requestId)) return;
-      this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries);
+      this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       void this.parseNewTabContent(popover);
       this.repositionLookupPopover();
     }
@@ -305562,7 +306485,8 @@ ${entry2.url}`),
           NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS
         ) : Promise.resolve([]),
         rtkInfo: this.settings.rtkEnabled ? this.lookupDetailWithTimeout(this.rtk.lookup(kanji), null, "RTK lookup timed out.") : Promise.resolve(null),
-        kanjiVGInfo: this.shouldLoadKanjiVGInfo() ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, "KanjiVG lookup timed out.") : Promise.resolve(null)
+        kanjiVGInfo: this.shouldLoadKanjiVGInfo() ? this.lookupDetailWithTimeout(this.kanjiVG.lookup(kanji), null, "KanjiVG lookup timed out.") : Promise.resolve(null),
+        kanjiSourceInfo: this.kanjiOrigin?.lookup(kanji, this.settings) ?? Promise.resolve(null)
       };
     }
     isJitenApiActive() {
@@ -305571,14 +306495,14 @@ ${entry2.url}`),
     shouldLoadKanjiVGInfo() {
       return this.settings.kanjivgEnabled || this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled;
     }
-    renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
+    renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
       const mount = this.kanjiLookupOriginMount(popover, requestId);
       if (!mount) return;
       const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
       setInnerHtml(mount, renderKanjiOrigins(
-        buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries),
-        this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries),
-        null,
+        buildKanjiFacts(kanji, jpdbInfo, rtkInfo, this.settings.kanjivgEnabled ? kanjiVGInfo : null, kanjiEntries, sourceInfo),
+        this.kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo),
+        sourceInfo,
         this.settings,
         this.settings.interfaceLanguage,
         this.dictionarySourceState.isOpen(sourceStateKey),
@@ -305594,8 +306518,8 @@ ${entry2.url}`),
       const mount = popover.querySelector("[data-kanji-origin-mount]");
       return mount?.isConnected ? mount : null;
     }
-    kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries) {
-      return this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, null, kanjiVGInfo) : null;
+    kanjiLookupOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
+      return this.settings.kanjiOriginGraphEnabled ? buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, kanjiEntries, sourceInfo, kanjiVGInfo) : null;
     }
     hiddenKanjiLookupOriginFactLabels(jpdbInfo, jitenInfo) {
       const labels = new Set(jitenKanjiOriginFactLabels(jitenInfo, this.settings.interfaceLanguage));

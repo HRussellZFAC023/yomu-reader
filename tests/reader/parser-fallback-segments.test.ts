@@ -91,6 +91,18 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('ｶﾀｶﾅ')).toEqual(['ｶﾀｶﾅ']);
     });
 
+    it('collapses over-segmented katakana compounds into one token', () => {
+        // ICU splits loanword compounds phonetically (イ|マージ|ョン|キット —
+        // ョン even starts on a small kana). A contiguous katakana run has no
+        // particles or grammar, so it always reads as one orthographic word.
+        expect(surfaces('イマージョンキット')).toEqual(['イマージョンキット']);
+        expect(surfaces('イマージョンキットで学ぶ')).toContain('イマージョンキット');
+        // Mixed-script boundaries stay intact: katakana merging never eats
+        // the surrounding kanji/hiragana segments.
+        expect(surfaces('東京タワーを見る')).toEqual(['東京タワー', 'を', '見る']);
+        expect(surfaces('アニメで日本語')).toEqual(['アニメ', 'で', '日本語']);
+    });
+
     it('keeps a real particle boundary when merging kana-only runs', () => {
         expect(surfaces('にほんごのじかん')).toEqual(['にほんご', 'の', 'じかん']);
     });

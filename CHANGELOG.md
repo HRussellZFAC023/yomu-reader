@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.232] - 2026-07-19
+
+### Fixed
+
+- The homepage Try me demo no longer draws every underline twice: the pre-baked sample keeps its single demo underline and the reader runtime's second underline is suppressed inside it.
+- Words the runtime annotates inside demo blocks no longer receive word-state highlight colours as if an API source were connected. Demo status colours are confined to the pre-baked sample sentence, and live annotated words follow your real decoration settings.
+- Dictionary source titles in the word popup, such as the Immersion Kit section and Japanese dictionary names, are now annotated with furigana, pitch, and lookup like the rest of the Japanese interface. Clicking the annotated title looks the word up, while the rest of the header still opens and closes the section.
+- Katakana compound words are no longer shattered into phonetic fragments by the keyless fallback segmenter, which could even start a fragment on a small kana. A contiguous katakana run such as イマージョンキット now stays one word.
+
 ## [1.6.231] - 2026-07-19
 
 ### Changed

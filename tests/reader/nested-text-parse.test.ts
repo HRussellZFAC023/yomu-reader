@@ -229,7 +229,7 @@ describe('nested text parse plans', () => {
         expect(words[1]?.querySelector('rt')?.textContent).toBe('つか');
     });
 
-    it('keeps dictionary source summaries as plain labels', () => {
+    it('parses dictionary source summaries as passive render-only words that keep toggling', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
                 <details open>
@@ -240,18 +240,27 @@ describe('nested text parse plans', () => {
         `;
         const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
         const details = popover.querySelector<HTMLDetailsElement>('details')!;
-        const plan = nestedTextParsePlan(popover, 24);
+        const plan = nestedTextParsePlan(popover, 24)!;
 
-        const { click, parsedWord } = clickParsedWordInPopover(popover, popover.querySelector<HTMLElement>('summary')!);
+        expect(plan.targets.map(target => target.text)).toEqual(['翻訳']);
+        applyNestedParsePlan(plan, [[token('翻訳', 0, 'ほんやく', 'heiban')]], {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            furiganaMode: 'all',
+        });
 
-        expect(plan).toBeNull();
-        expect(popover.querySelector('summary .jpdb-reader-word')).toBeNull();
+        const summaryWord = popover.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
+        const { click, parsedWord } = clickParsedWordInPopover(popover, summaryWord);
+
+        expect(readerWordSurfaceText(summaryWord)).toBe('翻訳');
+        expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');
+        expect(summaryWord.querySelector('rt')?.textContent).toBe('ほんやく');
         expect(parsedWord).toBeNull();
         expect(click.defaultPrevented).toBe(false);
         expect(details.open).toBe(false);
     });
 
-    it('skips surface-ignored source labels inside parseable reader content', () => {
+    it('annotates surface-ignored source labels as their own parse roots without absorbing them into content flow', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
                 <div class="jpdb-reader-parseable">
@@ -265,7 +274,10 @@ describe('nested text parse plans', () => {
         const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
         const plan = nestedTextParsePlan(popover, 24);
 
-        expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。']);
+        // The glossary flow never absorbs the title (it stays surface-ignored
+        // for page scans and sentence extraction); the title is parsed as its
+        // own explicit root instead of staying a bare label.
+        expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', 'イマージョンキット']);
     });
 
     it('parses dictionary example summaries as passive render-only words', () => {

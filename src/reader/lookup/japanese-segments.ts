@@ -13,6 +13,7 @@ const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, 
 const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
 const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
 const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
@@ -87,7 +88,7 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
 
 function finalizeJapaneseRunSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-        mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+        mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
     );
     return mergeInflectedFallbackSegments(
         splitLeadingParticleSegments(normalizedSegments),
@@ -132,6 +133,35 @@ function mergeContiguousKanaSegments(segments: JapaneseTextSegment[]): JapaneseT
         }
         merged.push(segments[index]);
         index += 1;
+    }
+    return merged;
+}
+
+// ICU's word segmenter has no kana dictionary for loanwords either, so it
+// over-splits katakana compounds on phonetic guesses (イマージョンキット →
+// イ|マージ|ョン|キット — ョン even starts on a small kana, an impossible token
+// boundary). Unlike hiragana, a contiguous katakana run carries no particles
+// or grammar, so the whole run is one orthographic word and merges
+// unconditionally; dictionary lookup decomposes compounds downstream.
+function mergeContiguousKatakanaSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    const merged: JapaneseTextSegment[] = [];
+    for (let index = 0; index < segments.length;) {
+        const first = segments[index];
+        if (!KATAKANA_SEGMENT_RE.test(first.surface)) {
+            merged.push(first);
+            index += 1;
+            continue;
+        }
+        let surface = first.surface;
+        let runEnd = index + 1;
+        while (runEnd < segments.length
+            && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface)
+            && segments[runEnd].start === segments[runEnd - 1].end) {
+            surface += segments[runEnd].surface;
+            runEnd += 1;
+        }
+        merged.push(runEnd - index > 1 ? { surface, start: first.start, end: segments[runEnd - 1].end } : first);
+        index = runEnd;
     }
     return merged;
 }

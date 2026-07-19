@@ -1290,7 +1290,12 @@ html[lang="ja"] .VPHomeHero .tagline {
   line-height: 1.85 !important;
 }
 
-.yomu-try-me-text .jpdb-reader-word {
+/* Demo styling is scoped to the pre-baked sample ONLY. Live runtime-annotated
+   words elsewhere in a try-me block (labels, live demo paragraphs) follow the
+   user's real decoration settings — painting demo status boxes on them faked
+   "API key" state colours, and pairing this native underline with the
+   runtime's ::after border underline drew every underline twice. */
+.yomu-try-me-sample .jpdb-reader-word {
   --yomu-demo-status-highlight: color-mix(in srgb, var(--yomu-demo-status-color, var(--vp-c-brand-2)) 14%, transparent);
   --yomu-demo-pitch-color: var(--jpdb-reader-pitch-heiban);
   --jpdb-reader-word-underline: var(--yomu-demo-pitch-color);
@@ -1314,31 +1319,34 @@ html[lang="ja"] .VPHomeHero .tagline {
   -webkit-text-fill-color: var(--yomu-doc-demo-text);
 }
 
-.yomu-try-me-text .jpdb-reader-word::after {
-  border-block-end-color: var(--yomu-demo-pitch-color);
+/* The runtime stylesheet gives every .jpdb-reader-word an ::after border
+   underline; the baked sample already paints its own native text-decoration
+   underline, so the runtime one must never also render (doubled underlines). */
+.yomu-try-me-sample .jpdb-reader-word::after {
+  content: none !important;
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-known {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-known {
   --yomu-demo-status-color: var(--jpdb-reader-state-known);
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-due {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-due {
   --yomu-demo-status-color: var(--jpdb-reader-state-due);
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-not-in-deck {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-not-in-deck {
   --yomu-demo-status-color: var(--jpdb-reader-state-new);
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-pitch-heiban {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-pitch-heiban {
   --yomu-demo-pitch-color: var(--jpdb-reader-pitch-heiban);
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-pitch-atamadaka {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-pitch-atamadaka {
   --yomu-demo-pitch-color: var(--jpdb-reader-pitch-atamadaka);
 }
 
-.yomu-try-me-text .jpdb-reader-word.jpdb-pitch-nakadaka {
+.yomu-try-me-sample .jpdb-reader-word.jpdb-pitch-nakadaka {
   --yomu-demo-pitch-color: var(--jpdb-reader-pitch-nakadaka);
 }
 

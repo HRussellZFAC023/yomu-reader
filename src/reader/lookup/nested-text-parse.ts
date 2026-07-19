@@ -3,9 +3,15 @@ import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
 const POPOVER_SUMMARY_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-example-summary';
+// Source-card titles (イマージョンキット, dictionary names, …) keep their
+// data-jpdb-reader-surface-ignore marker so page scans and card sentence
+// extraction never absorb them, but as explicit popover parse roots they are
+// annotated like every other Japanese UI label.
+const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-local-title';
 const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
     POPOVER_SUMMARY_PARSE_SELECTOR,
+    POPOVER_SOURCE_TITLE_PARSE_SELECTOR,
 ].join(',');
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const EXAMPLE_TARGET_SELECTOR = '.jpdb-reader-example-target';
@@ -104,6 +110,7 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
             heading: true,
             minLength: 1,
             readerRootPassiveInteractions: true,
+            parseSurfaceIgnoredRoot: true,
         }))
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
