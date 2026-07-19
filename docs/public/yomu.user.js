@@ -10668,6 +10668,24 @@ const RUBY_ROOM_WRAPPED_MIRROR_MIN_DELTA_PX = 32;
 const RUBY_ROOM_WRAPPED_MIRROR_MIN_HEIGHT_PX = 80;
 const RUBY_ROOM_WRAPPED_MIRROR_SETTLE_BUFFER_PX = 8;
 const RUBY_ROOM_SWEEP_MAX_PASSES = 3;
+function healUngrowableInFlowClampRows(root = document) {
+  const rows = root.querySelectorAll('[data-yomu-clip-constrained="content"]');
+  if (!rows.length) return 0;
+  const broken = [];
+  for (const row of rows) {
+  if (row.classList.contains("jpdb-reader-text-mirror")) continue;
+  const word = row.querySelector(".jpdb-reader-word.jpdb-reader-scan-word");
+  if (!word || !word.querySelector("rt.jpdb-reader-furi")) continue;
+  const rect = row.getBoundingClientRect();
+  if (!rect.height) continue;
+  const base = word.querySelector(".jpdb-reader-ruby-base") ?? word;
+  const baseRect = base.getBoundingClientRect();
+  if (!baseRect.height) continue;
+  if (baseRect.top < rect.top - 1 || baseRect.bottom > rect.bottom + 1) broken.push(row);
+  }
+  for (const row of broken) row.dataset.yomuClipConstrained = "true";
+  return broken.length;
+}
 const WRAPPED_SCAN_WORD_ATTRIBUTE = "data-yomu-wrapped";
 function refreshWrappedScanWordUnderlines(root = document) {
   const words = root.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word");
@@ -34221,6 +34239,8 @@ class VisiblePageScanner {
     if (this.destroyed || typeof document === "undefined") return;
     const adjusted = this.makeRoomForRuby(document);
     if (adjusted) log$1.info("Made room for ruby in cropped rows", { adjusted });
+    const healed = healUngrowableInFlowClampRows(document);
+    if (healed) log$1.info("Rest-hid in-flow readings on ungrowable clamp rows", { healed });
     refreshWrappedScanWordUnderlines(document);
   };
   if (!silent) sweep();
@@ -34449,6 +34469,10 @@ class VisiblePageScanner {
   for (const root of roots) {
     if (this.destroyed) return;
     this.makeRoomForRuby(root);
+  }
+  for (const root of roots) {
+    if (this.destroyed) return;
+    healUngrowableInFlowClampRows(root);
   }
   for (const root of roots) {
     if (this.destroyed) return;
