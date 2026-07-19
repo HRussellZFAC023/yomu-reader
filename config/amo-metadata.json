@@ -1,0 +1,22 @@
+{
+  "summary": {
+    "en-US": "Read Japanese on any page with furigana, pitch accent, pop-up definitions, subtitles, OCR, and an optional Study tab.",
+    "ja": "ウェブ上の日本語にふりがなやピッチアクセントを表示し、辞書ポップアップ、字幕、OCR、任意の学習タブで読解を支援します。"
+  },
+  "categories": {
+    "firefox": ["language-support"]
+  },
+  "homepage": {
+    "en-US": "https://yomureader.com/",
+    "ja": "https://yomureader.com/"
+  },
+  "support_url": {
+    "en-US": "https://github.com/HRussellZFAC023/yomu-reader/issues",
+    "ja": "https://github.com/HRussellZFAC023/yomu-reader/issues"
+  },
+  "requires_payment": false,
+  "version": {
+    "license": "MIT",
+    "approval_notes": "No account is required for core review. On a fresh install, open a new tab and confirm that the welcome screen's Set Study as the new tab option is unchecked and the page behind it says Study is off. Finish onboarding without selecting it and confirm another new tab remains off. Turn Study on only through the visible button or Settings. On a Japanese page, click a word to open the bundled dictionary popup. All executable code is packaged; optional network services are used only when the user enables or invokes them."
+  }
+}

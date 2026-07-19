@@ -6,9 +6,13 @@ on:
       tag:
         description: Tag to release, for example v0.3.0
         required: true
+      publish_browser_stores:
+        description: Also submit this release to Chrome Web Store and Firefox Add-ons
+        type: boolean
+        default: false
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -16,6 +20,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.browser-store-gate.outputs.release_tag }}
+      publish_browser_stores: ${{ steps.browser-store-gate.outputs.publish_browser_stores }}
     # Unlike PR CI, this job runs the whole check on one small 4-core runner.
     # The single-process vitest path sizes workers from the core count; cap it
     # explicitly so the parallel check lanes (tests ∥ builds) never oversubscribe
@@ -132,3 +139,139 @@ jobs:
             gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --latest --verify-tag
           fi
           gh release upload "$TAG" "${assets[@]}" --clobber
+
+      - name: Decide whether to publish browser stores
+        id: browser-store-gate
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          MANUAL_STORE_PUBLISH: ${{ inputs.publish_browser_stores || false }}
+        run: |
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.0\.0$ || "$MANUAL_STORE_PUBLISH" == "true" ]]; then
+            echo "publish_browser_stores=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish_browser_stores=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish-chrome-web-store:
+    name: Submit Chrome Web Store update
+    needs: release
+    if: needs.release.outputs.publish_browser_stores == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+      CHROME_WEB_STORE_PUBLISHER_ID: ${{ vars.CHROME_WEB_STORE_PUBLISHER_ID }}
+      CHROME_WEB_STORE_ITEM_ID: ${{ vars.CHROME_WEB_STORE_ITEM_ID }}
+      CHROME_WEB_STORE_CLIENT_ID: ${{ secrets.CHROME_WEB_STORE_CLIENT_ID }}
+      CHROME_WEB_STORE_CLIENT_SECRET: ${{ secrets.CHROME_WEB_STORE_CLIENT_SECRET }}
+      CHROME_WEB_STORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEB_STORE_REFRESH_TOKEN }}
+    steps:
+      - name: Download the reviewed Chrome package
+        run: gh release download "$RELEASE_TAG" --pattern yomureader.com-chrome.zip --dir browser-store-artifacts
+
+      - name: Upload and submit the Chrome package
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CHROME_WEB_STORE_PUBLISHER_ID:?Set the CHROME_WEB_STORE_PUBLISHER_ID repository variable}"
+          : "${CHROME_WEB_STORE_ITEM_ID:?Set the CHROME_WEB_STORE_ITEM_ID repository variable}"
+          : "${CHROME_WEB_STORE_CLIENT_ID:?Set the CHROME_WEB_STORE_CLIENT_ID repository secret}"
+          : "${CHROME_WEB_STORE_CLIENT_SECRET:?Set the CHROME_WEB_STORE_CLIENT_SECRET repository secret}"
+          : "${CHROME_WEB_STORE_REFRESH_TOKEN:?Set the CHROME_WEB_STORE_REFRESH_TOKEN repository secret}"
+
+          json_field() {
+            node -e '
+              const fs = require("node:fs");
+              const value = process.argv[1].split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(0, "utf8")));
+              if (value === undefined || value === null || value === "") process.exit(1);
+              process.stdout.write(String(value));
+            ' "$1"
+          }
+
+          token_response="$(curl --fail-with-body --silent --show-error \
+            https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$CHROME_WEB_STORE_CLIENT_ID" \
+            --data-urlencode "client_secret=$CHROME_WEB_STORE_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$CHROME_WEB_STORE_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)"
+          access_token="$(json_field access_token <<< "$token_response")"
+          item_name="publishers/$CHROME_WEB_STORE_PUBLISHER_ID/items/$CHROME_WEB_STORE_ITEM_ID"
+
+          upload_response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $access_token" \
+            --header "Content-Type: application/zip" \
+            --upload-file browser-store-artifacts/yomureader.com-chrome.zip \
+            "https://chromewebstore.googleapis.com/upload/v2/$item_name:upload")"
+          upload_state="$(json_field uploadState <<< "$upload_response")"
+
+          for attempt in {1..30}; do
+            if [[ "$upload_state" == "SUCCEEDED" ]]; then
+              break
+            fi
+            if [[ "$upload_state" == "FAILED" ]]; then
+              echo "Chrome Web Store rejected the package upload with state: $upload_state" >&2
+              exit 1
+            fi
+            sleep 10
+            status_response="$(curl --fail-with-body --silent --show-error \
+              --header "Authorization: Bearer $access_token" \
+              "https://chromewebstore.googleapis.com/v2/$item_name:fetchStatus")"
+            # The status field may be absent or briefly report NOT_FOUND while
+            # the asynchronous upload is being registered. Keep polling until
+            # Chrome reports a terminal state or the bounded timeout expires.
+            upload_state="$(json_field lastAsyncUploadState <<< "$status_response" || echo IN_PROGRESS)"
+          done
+
+          if [[ "$upload_state" != "SUCCEEDED" ]]; then
+            echo "Chrome Web Store package processing timed out with state: $upload_state" >&2
+            exit 1
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $access_token" \
+            "https://chromewebstore.googleapis.com/v2/$item_name:publish" >/dev/null
+          echo "Chrome Web Store accepted $RELEASE_TAG for review."
+
+  publish-firefox-add-ons:
+    name: Submit Firefox Add-ons update
+    needs: release
+    if: needs.release.outputs.publish_browser_stores == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+    steps:
+      - name: Checkout release metadata
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.release_tag }}
+
+      - name: Download the reviewed Firefox project
+        run: gh release download "$RELEASE_TAG" --pattern yomureader.com-extension-project.zip --dir browser-store-artifacts
+
+      - name: Unpack the Firefox package source
+        run: unzip -q browser-store-artifacts/yomureader.com-extension-project.zip -d browser-store-artifacts/project
+
+      - name: Submit the Firefox package
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${AMO_JWT_ISSUER:?Set the AMO_JWT_ISSUER repository secret}"
+          : "${AMO_JWT_SECRET:?Set the AMO_JWT_SECRET repository secret}"
+          npx --yes web-ext@10.5.0 sign \
+            --channel=listed \
+            --approval-timeout=0 \
+            --source-dir=browser-store-artifacts/project/packages/extension/firefox \
+            --artifacts-dir=browser-store-artifacts/signed \
+            --amo-metadata=config/amo-metadata.json \
+            --api-key="$AMO_JWT_ISSUER" \
+            --api-secret="$AMO_JWT_SECRET"
