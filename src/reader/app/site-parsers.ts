@@ -1272,7 +1272,8 @@ function normalizedAttributeText(element: HTMLElement, attribute: string): strin
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
     if (root instanceof HTMLCanvasElement && collectCanvasFallbackTextTarget(profile, root, context)) return;
-    const collected = collectFragmentTextTargetsIn(root, mirrorSkipAwareCandidateLimit(context), profile.visibleOnly ?? true, excludeSelector, {
+    const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context)
+        + (context.skipMirroredHosts ? context.mirroredHeadTargetCount + 24 : 0), profile.visibleOnly ?? true, excludeSelector, {
         allowUiText: true,
         minLength: profile.minLength,
         includeUiChrome: true,
@@ -1483,17 +1484,6 @@ function plainScanTarget(target: FragmentTextTarget): FragmentTextTarget {
 
 function siteScanRemaining(context: SiteScanContext): number {
     return context.effectiveLimit - context.targets.length;
-}
-
-// When silent scans skip already-mirrored hosts, the SKIPPED head must not
-// consume the candidate budget or continuation scans re-collect the same
-// decorated head and never reach the tail (sol review P1: one broad root with
-// 2x the budget of targets starved forever). Bounded headroom, not an
-// unbounded walk: each continuation reaches one budget-width deeper.
-function mirrorSkipAwareCandidateLimit(context: SiteScanContext): number {
-    const remaining = siteScanRemaining(context);
-    if (!context.skipMirroredHosts) return remaining;
-    return remaining + context.mirroredHeadTargetCount + 24;
 }
 
 function siteScanHasRoom(context: SiteScanContext): boolean {
@@ -1725,7 +1715,9 @@ function collectResidualVisibleJapaneseTargets(
         seen: seenTextNodes(existingTargets),
         limit,
     };
-    const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length, options);
+    const candidateLimit = Number.isFinite(limit)
+        ? Math.max(limit, existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0) + limit + 24)
+        : limit;
     const nonDestructiveProfile = profiles.some(profile => profile.nonDestructive);
     const collected = scanScopeRoots().flatMap(root => collectFragmentTextTargetsIn(root, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
         allowUiText: true,
@@ -1763,12 +1755,6 @@ function collectResidualVisibleJapaneseTargets(
         if (genericProseCollectionFull(collection)) break;
     }
     return collection.targets;
-}
-
-function residualVisibleJapaneseCandidateLimit(limit: number, existingTargetCount: number, options: SiteScanOptions): number {
-    if (!Number.isFinite(limit)) return limit;
-    const mirroredHead = options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0;
-    return Math.max(limit, existingTargetCount + mirroredHead + limit + 24);
 }
 
 function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): string {
@@ -1976,9 +1962,12 @@ function collectFragmentTargetsFromRoot(
     passiveParserId?: string,
     nonDestructive = false,
 ): void {
-    const collected = collectFragmentTextTargetsIn(root, genericProseCandidateLimit(collection), true, exclude, options);
+    const remaining = genericProseRemaining(collection);
+    const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts
+        ? remaining + (collection.candidateHeadroom ?? 0) + 24
+        : remaining, true, exclude, options);
     for (const target of collected) {
-        if (genericProseTargetAlreadyMirrored(collection, target)) continue;
+        if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
         appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
             ...target,
             parserId: passiveParserId,
@@ -1996,16 +1985,6 @@ function genericProseRoots(): HTMLElement[] {
 
 function genericProseRemaining(collection: GenericProseCollection): number {
     return Math.max(0, collection.limit - collection.targets.length);
-}
-
-function genericProseCandidateLimit(collection: GenericProseCollection): number {
-    const remaining = genericProseRemaining(collection);
-    if (!collection.skipMirroredHosts) return remaining;
-    return remaining + (collection.candidateHeadroom ?? 0) + 24;
-}
-
-function genericProseTargetAlreadyMirrored(collection: GenericProseCollection, target: FragmentTextTarget): boolean {
-    return Boolean(collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text));
 }
 
 function genericProseCollectionFull(collection: GenericProseCollection): boolean {

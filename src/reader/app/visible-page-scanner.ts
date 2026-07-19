@@ -282,7 +282,11 @@ export class VisiblePageScanner {
         if (this.isStaleScan(generation)) return;
         removeStaleControlTextMirrors(document);
         const settings = this.dependencies.getSettings();
-        const targetCollectionLimit = visibleScanTargetCollectionLimit(settings);
+        const targetCollectionLimit = !isNarrowVisibleScanViewport()
+            ? VISIBLE_SCAN_TARGET_COLLECTION_LIMIT
+            : isYouTubeVisibleScanHost() || hasJpdbParseApiKey(settings)
+                ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT
+                : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
         // Cooperative collection (perf item 4): the walk is identical to the
         // sync collectScanTargets, chunked at frame deadlines so a dense page
         // never spends ~300ms of one task collecting. A fast collection
@@ -339,8 +343,8 @@ export class VisiblePageScanner {
     // collection skips already-mirrored hosts, so each continuation reaches
     // deeper), always under a bounded number of rounds.
     private canQueueContinuationScan(targets: ScanTextTarget[], silent: boolean): boolean {
-        if (canContinueVisibleScan(targets)) return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
-        return silent && this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS;
+        return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS
+            && (silent || targets.some(target => !target.singlePassScan));
     }
 
     private isStaleScan(generation: number): boolean {
@@ -400,8 +404,14 @@ export class VisiblePageScanner {
         let cursor = 0;
         const unparsedTargets: ScanTextTarget[] = [];
         const pending: VisibleScanParseWork[] = [];
-        const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
-        const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
+        const parseCharBudget = !isNarrowVisibleScanViewport()
+            ? VISIBLE_SCAN_PARSE_CHAR_BUDGET
+            : hasJpdbParseApiKey(scanStartSettings)
+                ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET
+                : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
+        const concurrency = hasRemoteParseApiKey(scanStartSettings)
+            ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH
+            : 1;
         const schedule = (): void => {
             while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
                 const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
@@ -432,7 +442,7 @@ export class VisiblePageScanner {
 
     private async parseVisibleScanBatch(batch: ScanTextTarget[], generation: number): Promise<JPDBToken[][]> {
         const paragraphs = batch.map(target => target.text);
-        const options = scanParseOptions(this.dependencies.getSettings(), batch);
+        const options = scanParseOptions(this.dependencies.getSettings());
         try {
             return await this.dependencies.parseJapanese(paragraphs, options);
         } catch (error) {
@@ -452,9 +462,11 @@ export class VisiblePageScanner {
     }
 
     private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
-        const resolved = applyAuthoredVocabularyToBatch(batch, parsed);
+        const resolved = batch.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
         const tokens = resolved.flat();
-        const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+        const pitchStartedBeforeApply = tokens.some(token => token.card.source === 'fallback'
+            && token.card.spelling.trim()
+            && !token.rubies.length);
         if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords()
             ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
@@ -469,7 +481,11 @@ export class VisiblePageScanner {
 
     private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation?: number): Promise<ParentNode[]> {
         const allChangedRoots = new Set<ParentNode>();
-        const applyBatchSize = visibleScanApplyBatchSize(scanStartSettings);
+        const applyBatchSize = !isNarrowVisibleScanViewport()
+            ? VISIBLE_SCAN_APPLY_BATCH_SIZE
+            : hasJpdbParseApiKey(scanStartSettings)
+                ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE
+                : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
         for (let index = 0; index < targets.length; index += applyBatchSize) {
             if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
             const start = index;
@@ -650,38 +666,8 @@ export class VisiblePageScanner {
     }
 }
 
-function applyAuthoredVocabularyToBatch(targets: ScanTextTarget[], parsed: JPDBToken[][]): JPDBToken[][] {
-    return targets.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
-}
-
 function waitForVisibleScanTurn(): Promise<void> {
     return new Promise(resolve => window.setTimeout(resolve, 0));
-}
-
-function visibleScanParseCharBudget(settings: ReaderSettings): number {
-    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_PARSE_CHAR_BUDGET;
-    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
-}
-
-function visibleScanTargetCollectionLimit(settings: ReaderSettings): number {
-    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_COLLECTION_LIMIT;
-    if (isYouTubeVisibleScanHost()) return VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT;
-    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_COLLECTION_LIMIT : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_COLLECTION_LIMIT;
-}
-
-function visibleScanTargetTextChunkSize(settings: ReaderSettings): number {
-    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE;
-    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE;
-}
-
-function visibleScanApplyBatchSize(settings: ReaderSettings): number {
-    if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_APPLY_BATCH_SIZE;
-    return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-}
-
-function visibleScanParsePrefetchConcurrency(settings: ReaderSettings): number {
-    if (isYouTubeVisibleScanHost()) return hasRemoteParseApiKey(settings) ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
-    return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
 }
 
 function isNarrowVisibleScanViewport(): boolean {
@@ -700,13 +686,7 @@ function hasRemoteParseApiKey(settings: ReaderSettings): boolean {
     return Boolean(settings.apiKey.trim() || settings.jitenApiKey.trim());
 }
 
-function shouldStartPitchEnrichmentBeforeApply(tokens: JPDBToken[]): boolean {
-    return tokens.some(token => token.card.source === 'fallback'
-        && token.card.spelling.trim()
-        && !token.rubies.length);
-}
-
-function scanParseOptions(settings: ReaderSettings, _targets: ScanTextTarget[] = []): VisibleScanParseOptions {
+function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
     return {
         jpdbTimeoutMs: hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS : VISIBLE_SCAN_PARSE_TIMEOUT_MS,
         allowJpdbTimeoutFallback: true,
@@ -715,29 +695,31 @@ function scanParseOptions(settings: ReaderSettings, _targets: ScanTextTarget[] =
     };
 }
 
-function canContinueVisibleScan(targets: ScanTextTarget[]): boolean {
-    return targets.some(target => !target.singlePassScan);
-}
-
 function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): ScanTextTarget[] {
     if (target.nonDestructive) return [target];
-    const chunkSize = visibleScanTargetTextChunkSize(settings);
+    const chunkSize = !isNarrowVisibleScanViewport()
+        ? VISIBLE_SCAN_TARGET_TEXT_CHUNK_SIZE
+        : hasJpdbParseApiKey(settings)
+            ? VISIBLE_SCAN_MOBILE_TARGET_TEXT_CHUNK_SIZE
+            : VISIBLE_SCAN_MOBILE_FALLBACK_TARGET_TEXT_CHUNK_SIZE;
     if (target.text.length <= chunkSize) return [target];
     if (scanTargetRequiresWholeSourceMirror(target)) return [target];
     const fragmentTarget = isFragmentTextTarget(target);
-    const sourceRange = fragmentTarget ? null : textTargetTrimmedSourceRange(target);
-    if (!fragmentTarget && !sourceRange) return [target];
-    const chunks = chunkTextRanges(target.text, chunkSize)
-        .map(([start, end]) => fragmentTarget
+    const sourceStart = fragmentTarget ? 0 : target.node.data.indexOf(target.text);
+    if (sourceStart < 0) return [target];
+    const chunks: FragmentTextTarget[] = [];
+    for (let start = 0; start < target.text.length;) {
+        const end = nextChunkEnd(target.text, start, chunkSize);
+        const chunk = fragmentTarget
             ? fragmentTargetChunk(target, start, end)
-            : textTargetChunk(target, sourceRange!.start + start, sourceRange!.start + end))
-        .filter((chunk): chunk is FragmentTextTarget => Boolean(chunk));
-    // These are slices of ONE deliberate paint, not repeated attempts by a
-    // framework-hostile render loop. Counting identical slices independently
-    // trips the four-repaint fallback mid-paragraph; that fallback mirrors only
-    // the current slice and hides the rest of the host. Source-preserving
-    // framework detection still dominates in applyTokensToScanTarget.
-    return chunks.map(chunk => ({ ...chunk, suppressRepaintLoopMirror: true }));
+            : textTargetChunk(target, sourceStart + start, sourceStart + end);
+        // These are slices of ONE deliberate paint, not repeated attempts by a
+        // framework-hostile render loop. Counting slices independently trips
+        // the four-repaint fallback mid-paragraph and hides the remaining host.
+        if (chunk) chunks.push({ ...chunk, suppressRepaintLoopMirror: true });
+        start = end;
+    }
+    return chunks;
 }
 
 function textTargetChunk(target: TextTarget, start: number, end: number): FragmentTextTarget | null {
@@ -760,11 +742,6 @@ function textTargetChunk(target: TextTarget, start: number, end: number): Fragme
         singlePassScan: target.singlePassScan,
         forceInlineRender: target.forceInlineRender,
     };
-}
-
-function textTargetTrimmedSourceRange(target: TextTarget): { start: number; end: number } | null {
-    const start = target.node.data.indexOf(target.text);
-    return start < 0 ? null : { start, end: start + target.text.length };
 }
 
 function fragmentTargetChunk(target: FragmentTextTarget, start: number, end: number): FragmentTextTarget | null {
@@ -797,17 +774,6 @@ function fragmentRange(fragments: TextFragment[], start: number, end: number): T
         if (cursor >= end) break;
     }
     return result;
-}
-
-function chunkTextRanges(text: string, chunkSize: number): Array<[number, number]> {
-    const ranges: Array<[number, number]> = [];
-    let start = 0;
-    while (start < text.length) {
-        const end = nextChunkEnd(text, start, chunkSize);
-        ranges.push([start, end]);
-        start = end;
-    }
-    return ranges;
 }
 
 function nextChunkEnd(text: string, start: number, chunkSize: number): number {
