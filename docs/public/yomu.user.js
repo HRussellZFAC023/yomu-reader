@@ -14912,12 +14912,16 @@ function positionPopover(popover, anchor, fallbackRect, options = {}) {
   }
   positionAnchoredPopover(popover, anchor, frame);
 }
+const POPOVER_PLANNING_HEIGHT = 540;
+const MIN_LOCKED_SIDE_SPACE = 160;
 function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
   const viewport = getPopoverViewport();
   const viewportHeight = viewport.bottom - viewport.top;
   const viewportWidth = viewport.right - viewport.left;
   popover.style.maxWidth = `${Math.max(0, viewportWidth)}px`;
-  popover.style.maxHeight = `${popoverMaxFrameHeight(viewportHeight, options)}px`;
+  const maxFrameHeight = popoverMaxFrameHeight(viewportHeight, options);
+  popover.style.maxHeight = `${maxFrameHeight}px`;
+  const height = popover.offsetHeight;
   return {
   scrollTop: popover.scrollTop,
   sourceRects: getPopoverSourceRects(anchor, fallbackRect, options),
@@ -14925,8 +14929,10 @@ function preparePopoverPositionFrame(popover, anchor, fallbackRect, options) {
   viewportWidth,
   viewportHeight,
   width: popover.offsetWidth,
-  height: popover.offsetHeight,
-  preferBefore: Boolean(options.preferBefore)
+  height,
+  planningHeight: Math.max(height, Math.min(maxFrameHeight, options.maxHeight ?? POPOVER_PLANNING_HEIGHT)),
+  preferBefore: Boolean(options.preferBefore),
+  keepPlacementSide: Boolean(options.keepPlacementSide)
   };
 }
 function popoverMaxFrameHeight(viewportHeight, options) {
@@ -14942,7 +14948,8 @@ function positionPopoverWithoutAnchor(popover, frame) {
 }
 function positionAnchoredPopover(popover, anchor, frame) {
   const writingMode = getPopoverWritingMode(anchor);
-  const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.preferBefore);
+  const forcedAfter = frame.keepPlacementSide ? forcedAfterForPlacementSide(writingMode, popover.dataset.jpdbReaderPlacementSide) : void 0;
+  const position = getYomitanLikePopoverPosition(frame.sourceRects, writingMode, frame.viewport, frame.width, frame.height, frame.planningHeight, frame.preferBefore, forcedAfter);
   popover.style.maxWidth = `${Math.max(0, position.width)}px`;
   popover.style.maxHeight = `${Math.max(0, position.height)}px`;
   popover.dataset.jpdbReaderPlacementSide = getPlacementSide(writingMode, position);
@@ -15038,15 +15045,25 @@ function normalizePopoverWritingMode(writingMode) {
   const normalized = writingMode;
   return SUPPORTED_POPOVER_WRITING_MODES.has(normalized) ? normalized : DEFAULT_POPOVER_WRITING_MODE;
 }
-function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, preferBefore) {
+function getYomitanLikePopoverPosition(sourceRects, writingMode, viewport, frameWidth, frameHeight, planningHeight, preferBefore, forcedAfter) {
   const horizontal = isHorizontalPopoverMode(writingMode);
-  const layout = popoverWritingLayout(writingMode, horizontal, preferBefore);
-  return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
+  const layout = popoverWritingLayout(writingMode, horizontal, preferBefore, forcedAfter);
+  return bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, planningHeight, layout) ?? fallbackPopoverPosition(viewport, frameWidth, frameHeight);
 }
-function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, layout) {
+function forcedAfterForPlacementSide(writingMode, side) {
+  if (writingMode === "horizontal-tb") {
+  if (side === "below") return true;
+  if (side === "above") return false;
+  return void 0;
+  }
+  if (side === "right") return true;
+  if (side === "left") return false;
+  return void 0;
+}
+function bestYomitanPopoverPosition(sourceRects, horizontal, viewport, frameWidth, frameHeight, planningHeight, layout) {
   let best = null;
   for (const candidate of popoverSourceRectCandidates(sourceRects)) {
-  const result = getPositionForWritingMode(candidate.rect, horizontal, frameWidth, frameHeight, viewport, layout.horizontalOffset, layout.verticalOffset, layout.preferAfter);
+  const result = getPositionForWritingMode(candidate.rect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout);
   if (!canUsePopoverPosition(candidate, result, sourceRects)) continue;
   best = tallerPopoverPosition(best, result);
   if (result.height >= frameHeight) break;
@@ -15059,11 +15076,13 @@ function isHorizontalPopoverMode(writingMode) {
 function fallbackPopoverPosition(viewport, frameWidth, frameHeight) {
   return { left: viewport.left, top: viewport.top, width: frameWidth, height: frameHeight, after: true, below: true };
 }
-function popoverWritingLayout(writingMode, horizontal, preferBefore) {
+function popoverWritingLayout(writingMode, horizontal, preferBefore, forcedAfter) {
+  const preferAfter = horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore);
   return {
   horizontalOffset: horizontal ? 0 : 10,
   verticalOffset: horizontal ? 10 : 0,
-  preferAfter: horizontal ? !preferBefore : verticalTextPrefersAfter(writingMode, preferBefore)
+  preferAfter: forcedAfter ?? preferAfter,
+  lockAfter: forcedAfter !== void 0
   };
 }
 function verticalTextPrefersAfter(writingMode, preferBefore) {
@@ -15080,40 +15099,44 @@ function popoverSourceRectCandidates(sourceRects) {
   const candidates = sourceRects.map((rect, index) => ({ rect, index, canOverlap: false }));
   return sourceRects.length > 1 ? [...candidates, { rect: getBoundingSourceRect(sourceRects), index: sourceRects.length, canOverlap: true }] : candidates;
 }
-function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) {
-  return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferAfter);
+function getPositionForWritingMode(sourceRect, horizontal, frameWidth, frameHeight, planningHeight, viewport, layout) {
+  return horizontal ? getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, planningHeight, viewport, layout) : getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, layout);
 }
-function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferBelow) {
+function getPositionForHorizontalText(sourceRect, frameWidth, frameHeight, planningHeight, viewport, layout) {
   const [left, width, after] = getConstrainedPosition(
-  sourceRect.right - horizontalOffset,
-  sourceRect.left + horizontalOffset,
+  sourceRect.right - layout.horizontalOffset,
+  sourceRect.left + layout.horizontalOffset,
   frameWidth,
   viewport.left,
   viewport.right,
   true
   );
   const [top, height, below] = getConstrainedPositionBinary(
-  sourceRect.top - verticalOffset,
-  sourceRect.bottom + verticalOffset,
+  sourceRect.top - layout.verticalOffset,
+  sourceRect.bottom + layout.verticalOffset,
   frameHeight,
   viewport.top,
   viewport.bottom,
-  preferBelow
+  layout.preferAfter,
+  planningHeight,
+  layout.lockAfter
   );
   return { left, top, width, height, after, below };
 }
-function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, horizontalOffset, verticalOffset, preferRight) {
+function getPositionForVerticalText(sourceRect, frameWidth, frameHeight, viewport, layout) {
   const [left, width, after] = getConstrainedPositionBinary(
-  sourceRect.left - horizontalOffset,
-  sourceRect.right + horizontalOffset,
+  sourceRect.left - layout.horizontalOffset,
+  sourceRect.right + layout.horizontalOffset,
   frameWidth,
   viewport.left,
   viewport.right,
-  preferRight
+  layout.preferAfter,
+  frameWidth,
+  layout.lockAfter
   );
   const [top, height, below] = getConstrainedPosition(
-  sourceRect.bottom - verticalOffset,
-  sourceRect.top + verticalOffset,
+  sourceRect.bottom - layout.verticalOffset,
+  sourceRect.top + layout.verticalOffset,
   frameHeight,
   viewport.top,
   viewport.bottom,
@@ -15133,18 +15156,20 @@ function getConstrainedPosition(positionBefore, positionAfter, size, minLimit, m
   }
   return [position, size, after];
 }
-function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after) {
-  const overflowBefore = minLimit - (positionBefore - size);
-  const overflowAfter = positionAfter + size - maxLimit;
-  if (overflowAfter > 0 || overflowBefore > 0) {
-  after = overflowAfter < overflowBefore;
+function getConstrainedPositionBinary(positionBefore, positionAfter, size, minLimit, maxLimit, after, planningSize = size, lockSide = false) {
+  const spaceBefore = positionBefore - minLimit;
+  const spaceAfter = maxLimit - positionAfter;
+  const lockedSpace = after ? spaceAfter : spaceBefore;
+  const keepLockedSide = lockSide && lockedSpace >= Math.min(MIN_LOCKED_SIDE_SPACE, size);
+  if (!keepLockedSide && (planningSize > spaceAfter || planningSize > spaceBefore)) {
+  after = spaceAfter > spaceBefore;
   }
   let position;
   if (after) {
-  size -= Math.max(0, overflowAfter);
+  size = Math.max(0, Math.min(size, spaceAfter));
   position = Math.max(minLimit, positionAfter);
   } else {
-  size -= Math.max(0, overflowBefore);
+  size = Math.max(0, Math.min(size, spaceBefore));
   position = Math.min(maxLimit, positionBefore) - size;
   }
   return [position, size, after];
@@ -41908,7 +41933,8 @@ class ReaderApp {
     {
       followPoint: this.shouldFollowActiveHoverPointer() ? this.hoverPopoverPointerPosition : void 0,
       maxHeight: configuredPopoverMaxHeight(this.settings),
-      preferBefore: this.shouldPreferActiveHoverPopoverBefore()
+      preferBefore: this.shouldPreferActiveHoverPopoverBefore(),
+      keepPlacementSide: true
     }
   );
   this.syncActivePopoverFixedHeight();
