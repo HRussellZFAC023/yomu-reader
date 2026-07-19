@@ -1,7 +1,7 @@
 {
   "summary": {
-    "en-US": "Read Japanese on any page with furigana, pitch accent, pop-up definitions, subtitles, OCR, and an optional Study tab.",
-    "ja": "ウェブ上の日本語にふりがなやピッチアクセントを表示し、辞書ポップアップ、字幕、OCR、任意の学習タブで読解を支援します。"
+    "en-US": "Read Japanese on any page with furigana, pitch accent, pop-up definitions, subtitles, OCR, and a study page.",
+    "ja": "ウェブ上の日本語にふりがなやピッチアクセントを表示し、辞書ポップアップ、字幕、OCR、学習ページで読解を支援します。"
   },
   "categories": {
     "firefox": ["language-support"]

@@ -112,7 +112,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         // The Greasy Fork listing is searched by this text — the name is よむ,
         // so without "Yomu" and feature keywords here the script is
         // unfindable by its romaji name.
-        description: 'Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and optional Study new tabs.',
+        description: 'Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.',
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read Japanese anywhere" behavior.
         match: userscriptMatchForCommand(command),
