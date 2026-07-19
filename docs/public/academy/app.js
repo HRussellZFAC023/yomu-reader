@@ -251718,7 +251718,7 @@ ${entry2.url}`),
     cachedCardForRenderedWord(word) {
       const getCachedCard = this.dependencies.parser.getCachedCard;
       const cachedCard = typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
-      return renderedWordCardForLookup(word, cachedCard);
+      return renderedWordCardForLookup(word, cachedCard) ?? renderedWordCardForLookup(word, this.visibleWords[this.index]);
     }
     handlePromptLookupClick(root, target, event) {
       const request2 = this.promptLookupRequest(root, target);

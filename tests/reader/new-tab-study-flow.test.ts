@@ -634,6 +634,38 @@ describe('study flow: unrevealed headword opens the word, not a kanji popup', ()
             controller.destroy();
         }
     });
+
+    it('uses the matching visible Study card when neither provider source nor parser cache is available', () => {
+        const visible = headwordCard({
+            vid: 0,
+            sid: 0,
+            source: 'local',
+            reviewSource: undefined,
+            sourceCardKey: undefined,
+            pitchAccent: ['LHHH'],
+        });
+        const showLookupCard = vi.fn(async (..._args: unknown[]) => undefined);
+        const lookupText = vi.fn(async (..._args: unknown[]) => undefined);
+        const { controller, internals } = studyController([visible], {
+            newTabStudyDisabledSteps: ['kanji-doodle', 'recall-cloze', 'listen-pitch', 'speaking'],
+        }, { showLookupCard, lookupText });
+        const root = studyRoot();
+        try {
+            internals.state.mode = 'word';
+            internals.bindRootEvents(root);
+            internals.renderWord(root, visible);
+
+            const word = root.querySelector<HTMLElement>('.jpdb-reader-newtab-term .jpdb-reader-word');
+            word?.closest<HTMLElement>('[data-newtab-prompt]')?.classList.add('jpdb-reader-parseable');
+            word?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(showLookupCard).toHaveBeenCalledWith(visible, visible.sentence, word, expect.any(Object));
+            expect(lookupText).not.toHaveBeenCalled();
+            expect(visible.pitchAccent).toEqual(['LHHH']);
+        } finally {
+            controller.destroy();
+        }
+    });
 });
 
 describe('study flow: revealed answer reading stays visible', () => {

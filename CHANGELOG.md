@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.216] - 2026-07-19
+
+### Fixed
+
+- Reused the matching visible Study card for parsed-word popovers when a portable card has neither a provider lookup target nor a parser cache entry, preventing 自（じ） from falling through to a fresh pitchless text lookup.
+
 ## [1.6.215] - 2026-07-19
 
 ### Fixed

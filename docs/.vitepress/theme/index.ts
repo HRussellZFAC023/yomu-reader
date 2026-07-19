@@ -211,6 +211,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Reused the matching visible Study card for parsed-word popovers when a portable card has neither a provider lookup target nor a parser cache entry, preventing 自（じ） from falling through to a fresh pitchless text lookup.': '共有用カードに提供元の検索対象もパーサーキャッシュもない場合、解析済み単語のポップオーバーには一致する表示中のStudyカードを再利用するようにしました。「自（じ）」がピッチなしの新しい文字検索へフォールスルーすることを防ぎます。',
     'Kept short annotated labels inside their native ellipsis boxes, fixing the stray': '短い注釈付きラベルをページ本来の省略表示ボックス内に収め、余計な省略記号が表示される問題を修正しました。',
     "that appeared on YouTube navigation and shelf labels on iPad. Reading-free annotation mirrors now remain clipped to the page's authored box, while labels that actually show furigana retain room for it.": 'iPad版YouTubeのナビゲーションやシェルフのラベルで発生していた問題です。読みを表示しない注釈ミラーはページが定めたボックス内に留まり、実際にふりがなを表示するラベルには引き続き必要な空間を確保します。',
     'Restored the exact rendered pitch contour onto the provider source card selected for a Study popover, closing the final path where 自（じ） could show Listen/Speak but still report “Exact pitch unavailable”.': 'Studyポップオーバーで選ばれた提供元カードに、描画済みの完全一致するピッチ輪郭を引き継ぐようにしました。「自（じ）」でListen／Speakが表示されているのに「完全一致するピッチがありません」と出る最後の経路を修正します。',

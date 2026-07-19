@@ -2288,7 +2288,8 @@ export class NewTabController {
         const cachedCard = typeof getCachedCard === 'function'
             ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid))
             : undefined;
-        return renderedWordCardForLookup(word, cachedCard);
+        return renderedWordCardForLookup(word, cachedCard)
+            ?? renderedWordCardForLookup(word, this.visibleWords[this.index]);
     }
 
     private handlePromptLookupClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {

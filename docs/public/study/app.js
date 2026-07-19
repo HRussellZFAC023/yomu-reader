@@ -40384,7 +40384,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.215".trim() ? "1.6.215".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.216".trim() ? "1.6.216".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -82090,7 +82090,7 @@ ${entry.url}`),
     cachedCardForRenderedWord(word) {
       const getCachedCard = this.dependencies.parser.getCachedCard;
       const cachedCard = typeof getCachedCard === "function" ? getCachedCard.call(this.dependencies.parser, Number(word.dataset.vid), Number(word.dataset.sid)) : void 0;
-      return renderedWordCardForLookup(word, cachedCard);
+      return renderedWordCardForLookup(word, cachedCard) ?? renderedWordCardForLookup(word, this.visibleWords[this.index]);
     }
     handlePromptLookupClick(root, target, event) {
       const request = this.promptLookupRequest(root, target);
