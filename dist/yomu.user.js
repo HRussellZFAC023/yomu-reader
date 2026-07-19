@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.216
+// @version 1.6.217
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -13,7 +13,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.1ae173128948.user.js#sha256=GuFzEolI8F1wx5VJzPkjavn7cGMPrU5MA/IO61tdSVE=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.497d5a08521d.user.js#sha256=SX1aCFIds7YkRYAFMbZHt2yAFtv81B/2ppsWQ6pOgR8=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.98d5d298af45.user.js#sha256=mNXSmK9FHI0+JzS4+5oDC2UZSlmRUv5B7RspSKiYzO8=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.cb721c0eb2da.user.js#sha256=y3IcDrLa8L8eP126+XXjA015p08hLVe8BXp1qyGt6Q0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.fd362f336c45.user.js#sha256=/TYvM2xFIHA/W9GVbQIeaPT0TurtvzcSPWkw9/m9oVU=
 // @require https://yomureader.com/greasyfork/yomu-video.d264f68d5fe4.user.js#sha256=0mT2jV/kIelLo1AaPmUmzo5rvTbS/1ikZOgjypJ0ZKg=
 // @resource yomuCss  https://yomureader.com/yomu.475b9ad2620b.css#sha256=R1ua0mILyYPNNbYpzgBVmxyzWAQLb2i6KGDimiRyPfA=
 // @connect api.jiten.moe
@@ -36968,8 +36968,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.216"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.216"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.217"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.217"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37089,7 +37089,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.216"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.217"}`;
   } catch {
   return null;
   }

@@ -11302,7 +11302,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return !hasNativeRuby;
   }
   function targetUsesDetachedReadings(target) {
-    if (isInsideOwnedReaderRoot(target.parent) && target.parent.closest(".jpdb-reader-example-sentence")) return Boolean(target.suppressRuby);
+    if (isInsideOwnedReaderRoot(target.parent) && target.parent.closest("[data-provider-example-sentence]")) return Boolean(target.suppressRuby);
     return Boolean(target.suppressRuby || isInsideRubyFragileConstrainedRow(target.parent));
   }
   function isInsideOwnedReaderRoot(element) {
@@ -30557,7 +30557,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             <div class="${classes("jpdb-reader-jpdb-example-row", example.rowClassName, hasAudio ? "has-audio" : "")}">
                 ${example.audio ? renderProviderExampleAudio(example.audio) : ""}
                 <div class="${classes("jpdb-reader-jpdb-example-text", example.textClassName)}">
-                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}">${example.sentenceHtml}</div>
+                    <div class="${classes("jpdb-reader-example-sentence jpdb-reader-parseable", example.sentenceClassName)}" data-provider-example-sentence>${example.sentenceHtml}</div>
                     ${example.translation ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.translation)}</div>` : ""}
                 </div>
             </div>
@@ -40430,7 +40430,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.216".trim() ? "1.6.216".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.217".trim() ? "1.6.217".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -64588,12 +64588,12 @@ ${component.reading}`;
     const details = [
       info.jlptLevel ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(info.jlptLevel)}</span>` : "",
       ...info.partOfSpeech.slice(0, 4).map((value) => `<span class="jpdb-reader-dict-tag">${escapeHtml$1(value)}</span>`),
-      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : "",
-      ...info.frequencies.map((entry) => `<span class="jpdb-reader-dict-tag jpdb-reader-bunpro-frequency-tag">${escapeHtml$1(`${bunproFrequencyLabel(entry.list, language)} #${entry.rank}`)}</span>`)
+      registerTag ? `<span class="jpdb-reader-dict-tag">${escapeHtml$1(registerTag)}</span>` : ""
     ].filter(Boolean).join("");
     const accepted = info.kind === "grammar" ? distinctDisplayText(info.acceptedAnswers, [info.expression, info.reading]).slice(0, 8) : [];
     const nuanceLabel = japanese ? "ニュアンス" : "Nuance";
     const glosses = distinctBunproGlosses(info);
+    const extras = `${renderBunproExamples(info, sourceAttributes, language)}${renderBunproRelatedWords(info, sourceAttributes, language)}${renderBunproRelatedGrammar(info, sourceAttributes, language)}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-bunpro-definition" data-source="bunpro" ${sourceAttributes(definitionSourceStateKey$1(BUNPRO_DEFINITION_SOURCE_ID))}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
@@ -64605,10 +64605,8 @@ ${component.reading}`;
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "acceptedInputs"))}</strong><div>${accepted.map(escapeHtml$1).join(" · ")}</div></div>` : ""}
                 ${renderBunproStructures(info, language)}
                 ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml$1(uiText(language, "bunproCaution"))}</strong><div>${escapeHtml$1(info.caution)}</div></div>` : ""}
-                ${renderBunproExamples(info, sourceAttributes, language)}
-                ${renderBunproRelatedWords(info, sourceAttributes, language)}
-                ${renderBunproRelatedGrammar(info, sourceAttributes, language)}
             </article>
+            <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
         </details>
     `;
   }
@@ -64624,18 +64622,6 @@ ${component.reading}`;
       className: "jpdb-reader-bunpro-headword-target"
     });
     return `<div class="jpdb-reader-local-head jpdb-reader-bunpro-headword">${audio}${reference}</div>`;
-  }
-  function bunproFrequencyLabel(list, language) {
-    const japanese = resolveUiLanguage(language) === "ja";
-    const labels = {
-      general: ["General", "一般"],
-      anime: ["Anime", "アニメ"],
-      novels: ["Novels", "小説"],
-      netflix: ["Netflix", "Netflix"],
-      dictionary: ["Dictionary", "辞書"]
-    };
-    const label = labels[list];
-    return label ? label[japanese ? 1 : 0] : list;
   }
   function renderBunproGlossText(value) {
     if (!/[぀-ヿ㐀-鿿]/u.test(value)) return `<div>${escapeHtml$1(value)}</div>`;
@@ -65045,6 +65031,17 @@ ${component.reading}`;
       const bunproDefinitionRequested = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
       const bunproDataRequested = bunproDefinitionRequested || liveFrequencyEnabled(settings, "bunpro");
       const bunproDataLookup = this.lookupBunproDataResult(card, bunproDataRequested);
+      const boundedBunproPitchData = this.withFallback(
+        card,
+        CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
+        "Bunpro pitch evidence",
+        bunproDataLookup,
+        { info: null, status: { state: "timeout" } }
+      );
+      const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
+        if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+        return result;
+      });
       const bunproDefinitionLookup = bunproDefinitionRequested ? bunproDataLookup : Promise.resolve({
         info: null,
         status: {
@@ -65053,10 +65050,12 @@ ${component.reading}`;
         }
       });
       const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
-      const pitchAccent = Promise.all([basePitchAccent, bunproDataLookup]).then(([publicPitch, result]) => {
-        if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
-        return publicPitch;
+      const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
+        if (!settings.showPitchAccent) return publicPitch;
+        applyBunproPitchToCard(card, result.info);
+        return [...card.pitchAccent];
       });
+      const hydratedPitchAccent = hydratedBunproPitchData.then(() => [...card.pitchAccent]);
       const bunproDefinitionResult = this.withFallback(
         card,
         CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -65081,6 +65080,7 @@ ${component.reading}`;
         []
       );
       void pitchAccent.catch(() => void 0);
+      void hydratedPitchAccent.catch(() => void 0);
       void jpdbDeckMembership.catch(() => void 0);
       void jitenVocabularyInfo.catch(() => void 0);
       void frequencyRankLoad.initial.catch(() => void 0);
@@ -65092,6 +65092,7 @@ ${component.reading}`;
         localEntries,
         localMetaEntries,
         pitchAccent,
+        hydratePitchAccent: () => hydratedPitchAccent,
         ankiLookup: fastAnkiLookup,
         hydrateAnkiLookup,
         jpdbVocabularyInfo,
@@ -78094,7 +78095,17 @@ ${entry.url}`),
           wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails)
         };
         renderCurrentDetail();
-        const { hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
+        const { hydratePitchAccent, hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
+        if (hydratePitchAccent) {
+          const renderedPitchKey = card.pitchAccent.join("|");
+          void hydratePitchAccent(card).then((pitchAccent) => {
+            if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+            if (renderedPitchKey === card.pitchAccent.join("|")) return;
+            renderCurrentDetail();
+          }).catch((error) => {
+            log$3.debug("Search pitch hydration failed", { term: card.spelling, error });
+          });
+        }
         if (hydrateFrequencyRanks) {
           void hydrateFrequencyRanks(card).then((frequencyRanks) => {
             if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
@@ -91742,6 +91753,7 @@ ${entry.url}`),
           userGesture: options?.userGesture
         }),
         loadCardRenderData: (card, options) => this.cardRenderData.load(card, options).all,
+        hydratePitchAccent: (card) => this.cardRenderData.load(card).hydratePitchAccent?.() ?? Promise.resolve([...card.pitchAccent]),
         hydrateFrequencyRanks: (card) => this.cardRenderData.load(card).hydrateFrequencyRanks?.() ?? Promise.resolve({}),
         hydrateBunproDefinitionInfo: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionInfo?.() ?? Promise.resolve(null),
         hydrateBunproDefinitionResult: (card) => this.cardRenderData.load(card).hydrateBunproDefinitionResult?.() ?? Promise.resolve({ info: null, status: { state: "client-unavailable" } }),
@@ -91939,6 +91951,17 @@ ${entry.url}`),
           if (renderedPitchKey === card.pitchAccent.join("|")) return;
           renderedPitchKey = card.pitchAccent.join("|");
           this.updateDeferredLookupPitch(popover, card, metaEntriesValue, currentAnkiLookup);
+        });
+      }
+      if (renderData.hydratePitchAccent) {
+        void renderData.hydratePitchAccent().then((pitchAccent) => {
+          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
+          if (renderedPitchKey === card.pitchAccent.join("|")) return;
+          renderedPitchKey = card.pitchAccent.join("|");
+          this.updateDeferredLookupPitch(popover, card, metaEntriesValue, currentAnkiLookup);
+        }).catch((error) => {
+          log.debug("New-tab pitch hydration failed", { term: card.spelling, error });
         });
       }
       void renderData.all.then((data) => {
