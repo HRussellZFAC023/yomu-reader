@@ -51,6 +51,7 @@ interface HoverLookupInternals {
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
+    pinHoverPopoverForInsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
     lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
@@ -1471,6 +1472,50 @@ describe('hover lookup', () => {
             expect(internals.activePopoverMode).toBeUndefined();
         } finally {
             window.getSelection()?.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('pins a hover popover sticky when a pointerdown lands inside it', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const titleRow = document.createElement('div');
+        titleRow.textContent = '辞書';
+        popover.append(titleRow);
+        document.body.append(popover);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+
+        try {
+            internals.pinHoverPopoverForInsidePointer(hoverPointerEvent(titleRow, 'pen', 'pointerdown'));
+
+            expect(internals.activePopoverMode).toBe('modal');
+            expect(popover.isConnected).toBe(true);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('leaves a hover popover transient when pointerdown lands outside it', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const outside = document.createElement('button');
+        outside.textContent = '外';
+        document.body.append(popover, outside);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+
+        try {
+            internals.pinHoverPopoverForInsidePointer(hoverPointerEvent(outside, 'pen', 'pointerdown'));
+
+            expect(internals.activePopoverMode).toBe('hover');
+        } finally {
             cleanupReaderApp(app);
         }
     });
