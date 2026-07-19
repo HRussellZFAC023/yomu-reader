@@ -112,6 +112,47 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists authored-week cursors outside route history and rejects malformed cursor data', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'classroom',
+            routeHistory: [],
+            presentationMode: 'story',
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: '0'.repeat(64),
+                    position: { phase: 'question', activityId: 'authored:l1-l01/ex-input-job' },
+                },
+            },
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({
+            route: 'classroom',
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: '0'.repeat(64),
+                    position: { phase: 'question', activityId: 'authored:l1-l01/ex-input-job' },
+                },
+            },
+        });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'classroom',
+            routeHistory: [],
+            presentationMode: 'story',
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: '0'.repeat(64),
+                    position: { phase: 'question', activityId: '' },
+                },
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid authored week progress');
+        persistence.close();
+    });
+
     it('migrates schema 1 checkpoints without losing the invite session or lesson state', () => {
         expect(migrateAcademyCheckpoint({
             schemaVersion: 1,

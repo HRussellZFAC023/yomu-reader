@@ -28,11 +28,11 @@ const LESSON_ZERO_ACTIVITY_IDS = [
 ].sort();
 
 describe('Academy story runtime', () => {
-    it('keeps all legacy episode IDs, order, and unlocks beside the authored opening arc', () => {
+    it('keeps all canonical episode IDs, order, and authored activity hooks beside the opening arc', () => {
         const story = loadStoryRuntime();
 
-        expect(story.episodes).toHaveLength(30);
-        expect(story.episodes.at(-1)?.id).toBe('s3e06-two-schedules');
+        expect(story.episodes).toHaveLength(48);
+        expect(story.episodes.at(-1)?.id).toBe('s4e12-next-page');
         expect(story.episode('s1e01-the-blank-atlas')?.title).toBe('The Blank Atlas');
         expect(story.openingArc).toMatchObject({
             id: STORY_OPENING_ARC_ID,
@@ -47,9 +47,9 @@ describe('Academy story runtime', () => {
         ]);
         expect(story.scope.finiteStoryRule).toContain('48 canonical chapters');
         expect(story.playableArc('s3e01-after-the-applause')?.curriculum.activities[0]?.exerciseId)
-            .toBe('activity:story-n3:after-applause-tone');
+            .toBe('activity:s3e01-after-the-applause-three-readings');
         expect(story.playableArc('s3e06-two-schedules')?.curriculum.activities[0]?.exerciseId)
-            .toBe('activity:story-n3:conditional-schedule');
+            .toBe('activity:s3e06-two-schedules-sort-claims');
     });
 
     it('compiles the Open Door and Blank Atlas packages into one immutable scene graph', () => {

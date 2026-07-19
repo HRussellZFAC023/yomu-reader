@@ -12,6 +12,7 @@ import type {
 } from '../../src/academy/content/authored-week-adapter';
 import { adaptAuthoredWeek } from '../../src/academy/content/authored-week-adapter';
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../../src/academy/domain/activity-runtime';
+import type { AuthoredWeekProgress } from '../../src/academy/domain/authored-week-progress';
 import type { SourceVocabularySheetModel } from '../../src/academy/minigames';
 import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-screen';
 import { sha256File } from './helpers/hash-memo';
@@ -183,6 +184,69 @@ describe('authored week learner screen', () => {
         expect(screen.element.dataset.lessonPhase).toBe('teaching');
         expect(screen.element.querySelector('.academy-authored-week-briefing-step')?.textContent)
             .toBe('Lesson note 5 of 5');
+    });
+
+    it('restores an exact teaching note and persists each reversible position', async () => {
+        const base = weekFixture();
+        const fixture: LearnerAuthoredWeek = {
+            ...base,
+            preAssessment: [
+                { id: 'one', kind: 'explanation', order: 1, title: { en: 'One' }, entries: [{ en: 'First note' }] },
+                { id: 'two', kind: 'passage', order: 2, title: { en: 'Two' }, entries: [{ en: 'Second note' }] },
+                { id: 'three', kind: 'mission', order: 3, title: { en: 'Three' }, entries: [{ en: 'Third note' }] },
+            ],
+        };
+        const onPositionChange = vi.fn();
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: fixture,
+            initialProgress: { phase: 'teaching', exposureId: 'two' },
+            onPositionChange,
+        });
+        document.body.append(screen.element);
+
+        expect(screen.element.dataset.lessonPhase).toBe('teaching');
+        expect(screen.element.querySelector('.academy-authored-week-briefing-step')?.textContent)
+            .toBe('Lesson note 2 of 3');
+        expect(screen.element.textContent).toContain('Second note');
+        expect(screen.element.textContent).not.toContain('First note');
+        await flush();
+        expect(onPositionChange).toHaveBeenLastCalledWith({ phase: 'teaching', exposureId: 'two' });
+
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
+        await flush();
+        expect(screen.element.textContent).toContain('Third note');
+        expect(onPositionChange).toHaveBeenLastCalledWith({ phase: 'teaching', exposureId: 'three' });
+        screen.element.querySelector<HTMLButtonElement>('.academy-lesson-activity-back')?.click();
+        await flush();
+        expect(onPositionChange).toHaveBeenLastCalledWith({ phase: 'teaching', exposureId: 'two' });
+    });
+
+    it('restores a lapsed activity directly and still recognizes the independent repair', async () => {
+        const onPositionChange = vi.fn();
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(),
+            initialProgress: { phase: 'question', activityId: 'activity:two' },
+            initialLapsedActivityIds: ['activity:two'],
+            onPositionChange,
+        });
+        document.body.append(screen.element);
+
+        expect(screen.currentActivityIndex).toBe(1);
+        expect(screen.currentActivityId).toBe('activity:two');
+        expect(screen.element.dataset.lessonPhase).toBe('question');
+        expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 2');
+        expect(screen.element.querySelector('.academy-authored-week-pre-question')).toBeNull();
+        expect(screen.element.querySelector('[data-exposure-kind]')).toBeNull();
+        await flush();
+        expect(onPositionChange).toHaveBeenLastCalledWith({ phase: 'question', activityId: 'activity:two' });
+
+        choice(screen.element, 'right').click();
+        await flush();
+        expect(screen.element.querySelector<HTMLElement>('.academy-authored-week-activity')?.dataset.repaired).toBe('true');
+        expect(screen.element.querySelector('.academy-authored-week-repair-win')?.textContent)
+            .toContain('You corrected this one yourself.');
     });
 
     it('locks a lapse before feedback, offers repair and retry, then gives a pass action', async () => {
@@ -398,8 +462,39 @@ describe('authored week learner screen', () => {
         expect(returnToRoute.textContent).toBe('元の道へ戻る');
         returnToRoute.click();
         returnToRoute.click();
+        await flush();
         expect(onComplete).toHaveBeenCalledOnce();
         expect(screen.element.querySelector('.academy-authored-week-next')).toBeNull();
+    });
+
+    it('waits for the final cursor write before clearing the completed package', async () => {
+        const base = weekFixture();
+        const fixture: LearnerAuthoredWeek = { ...base, activities: base.activities.slice(0, 1) };
+        let completeWrites = 0;
+        let releaseFinalWrite: (() => void) | undefined;
+        const finalWrite = new Promise<void>(resolve => { releaseFinalWrite = resolve; });
+        const calls: string[] = [];
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: fixture,
+            initialProgress: { phase: 'question', activityId: 'activity:one' },
+            onPositionChange: progress => {
+                calls.push(`position:${progress.phase}`);
+                if (progress.phase === 'complete' && ++completeWrites === 2) return finalWrite;
+            },
+            onComplete: () => { calls.push('clear'); },
+        });
+        document.body.append(screen.element);
+
+        choice(screen.element, 'right').click();
+        await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-next')).not.toBeNull());
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')?.click();
+        await flush();
+        expect(calls.at(-1)).toBe('position:complete');
+        expect(calls).not.toContain('clear');
+
+        releaseFinalWrite?.();
+        await vi.waitFor(() => expect(calls.at(-1)).toBe('clear'));
     });
 
     it('exposes unresolved audio as unavailable without leaking its locator', () => {
@@ -488,6 +583,60 @@ describe('authored week learner screen', () => {
         expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-retry-save')).not.toBeNull();
     });
 
+    it('retries only the cursor when evidence saved before a position write failed', async () => {
+        const onEvaluation = vi.fn(async () => undefined);
+        let cursorAttempts = 0;
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(),
+            initialProgress: { phase: 'question', activityId: 'activity:one' },
+            onEvaluation,
+            onPositionChange: progress => {
+                if (progress.phase !== 'support') return;
+                cursorAttempts += 1;
+                if (cursorAttempts === 1) return Promise.reject(new Error('cursor write failed'));
+            },
+        });
+        document.body.append(screen.element);
+
+        choice(screen.element, 'right').click();
+        await flush();
+        expect(onEvaluation).toHaveBeenCalledOnce();
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-retry-save')).not.toBeNull();
+
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-retry-save')?.click();
+        await flush();
+        expect(onEvaluation).toHaveBeenCalledOnce();
+        expect(cursorAttempts).toBe(2);
+        expect(screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')).not.toBeNull();
+    });
+
+    it('serializes render and answer cursor writes so an older position cannot win', async () => {
+        let releaseInitialWrite: (() => void) | undefined;
+        const initialWrite = new Promise<void>(resolve => { releaseInitialWrite = resolve; });
+        const onPositionChange = vi.fn((progress: AuthoredWeekProgress) => {
+            return progress.phase === 'question' ? initialWrite : Promise.resolve();
+        });
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: weekFixture(),
+            initialProgress: { phase: 'question', activityId: 'activity:one' },
+            onPositionChange,
+        });
+        document.body.append(screen.element);
+
+        choice(screen.element, 'right').click();
+        await flush();
+        expect(onPositionChange).toHaveBeenCalledOnce();
+
+        releaseInitialWrite?.();
+        await vi.waitFor(() => expect(onPositionChange).toHaveBeenCalledTimes(2));
+        expect(onPositionChange.mock.calls.map(call => call[0])).toEqual([
+            { phase: 'question', activityId: 'activity:one' },
+            { phase: 'support', activityId: 'activity:two' },
+        ]);
+    });
+
     it('exposes a real in-content Back action', () => {
         const onBack = vi.fn();
         const screen = createAuthoredWeekScreen({ language: 'en', week: weekFixture(), onBack });
@@ -528,6 +677,66 @@ describe('authored week learner screen', () => {
         screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-next')!.click();
         expect(screen.currentActivityId).toBe('activity:one');
         expect(screen.element.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 3');
+    });
+
+    it('retries only a failed vocabulary-sheet cursor write after evidence has saved', async () => {
+        const base = weekFixture();
+        const sourceRow = sourceVocabularyRow();
+        const onEvaluation = vi.fn();
+        let cursorAttempts = 0;
+        const fixture: LearnerAuthoredWeek = { ...base, activities: [sourceRow, ...base.activities] };
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: fixture,
+            initialProgress: { phase: 'question', activityId: sourceRow.id },
+            onEvaluation,
+            onPositionChange: progress => {
+                if (progress.phase !== 'support' || progress.activityId !== 'activity:one') return;
+                cursorAttempts += 1;
+                if (cursorAttempts === 1) return Promise.reject(new Error('cursor write failed'));
+            },
+        });
+        document.body.append(screen.element);
+
+        const input = screen.element.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = 'today';
+        screen.element.querySelector<HTMLFormElement>('.academy-source-vocabulary-form')!.requestSubmit();
+        await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-retry-save')).not.toBeNull());
+        expect(onEvaluation).toHaveBeenCalledOnce();
+        expect(cursorAttempts).toBe(1);
+
+        screen.element.querySelector<HTMLButtonElement>('.academy-authored-week-retry-save')?.click();
+        await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-next')).not.toBeNull());
+        expect(onEvaluation).toHaveBeenCalledOnce();
+        expect(cursorAttempts).toBe(2);
+    });
+
+    it('abandons a failed vocabulary cursor retry when the screen is disposed', async () => {
+        const base = weekFixture();
+        const sourceRow = sourceVocabularyRow();
+        const fixture: LearnerAuthoredWeek = { ...base, activities: [sourceRow, ...base.activities] };
+        const screen = createAuthoredWeekScreen({
+            language: 'en',
+            week: fixture,
+            initialProgress: { phase: 'question', activityId: sourceRow.id },
+            onEvaluation: vi.fn(),
+            onPositionChange: progress => progress.phase === 'support'
+                ? Promise.reject(new Error('cursor write failed'))
+                : undefined,
+        });
+        document.body.append(screen.element);
+
+        const input = screen.element.querySelector<HTMLInputElement>('[data-source-vocabulary-answer]')!;
+        input.value = 'today';
+        screen.element.querySelector<HTMLFormElement>('.academy-source-vocabulary-form')!.requestSubmit();
+        await vi.waitFor(() => expect(screen.element.querySelector('.academy-authored-week-retry-save')).not.toBeNull());
+
+        screen.dispose();
+        await flush();
+
+        expect(screen.element.isConnected).toBe(false);
+        expect(screen.element.querySelector('.academy-authored-week-retry-save')).toBeNull();
+        expect(screen.element.querySelector('.academy-authored-week-next')).toBeNull();
     });
 
     it('keeps language controls stable and revisits earlier support without inflating progress', async () => {

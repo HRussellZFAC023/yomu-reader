@@ -525,7 +525,20 @@ describe('Academy current-place world', () => {
         expect(screen.querySelector<HTMLElement>('[data-world-stamp]')?.dataset.rewardProp).toBe('notebook');
         expect(screen.querySelector('[data-world-object="courtyard-bell"]')).not.toBeNull();
         expect(screen.querySelectorAll('[data-exit-slot]')).toHaveLength(6);
+        const purpose = screen.querySelector<HTMLElement>('[data-purpose-surface="noticeboard"]')!;
         const practice = screen.querySelector<HTMLElement>('[data-courtyard-practice="noticeboard-order"]')!;
+        const practiceToggle = screen.querySelector<HTMLButtonElement>('.academy-courtyard-practice-toggle')!;
+        const journalAction = screen.querySelector<HTMLButtonElement>('[data-activity-route="journal"]')!;
+        expect(purpose.dataset.courtyardMode).toBe('journal');
+        expect(practice.hidden).toBe(true);
+        expect(practiceToggle.getAttribute('aria-controls')).toBe(practice.id);
+        expect(practiceToggle.getAttribute('aria-expanded')).toBe('false');
+        expect(journalAction.textContent).toBe('Open journal');
+        practiceToggle.click();
+        expect(purpose.dataset.courtyardMode).toBe('practice');
+        expect(practice.hidden).toBe(false);
+        expect(practiceToggle.hidden).toBe(true);
+        expect(journalAction.hidden).toBe(true);
         expect(practice.dataset.worldPractice).toBe('courtyard-notice-write');
         expect(practice.dataset.worldInteraction).toBe('token-order');
         expect(screen.querySelector<HTMLElement>('[data-world-character="rie"]')?.dataset.presence).toBe('filing-board-notes');
@@ -543,6 +556,16 @@ describe('Academy current-place world', () => {
                 reviewSeeds: [expect.objectContaining({ id: 'review:world:courtyard:notice-write' })],
             }),
         );
+        const composingEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+        Object.defineProperty(composingEscape, 'isComposing', { value: true });
+        practice.dispatchEvent(composingEscape);
+        expect(purpose.dataset.courtyardMode).toBe('practice');
+        expect(practice.hidden).toBe(false);
+        practice.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(purpose.dataset.courtyardMode).toBe('journal');
+        expect(practice.hidden).toBe(true);
+        expect(practiceToggle.hidden).toBe(false);
+        expect(journalAction.hidden).toBe(false);
         const returning = projectWorldPlace('courtyard', {
             ...PROGRESS,
             worldVisits: { courtyard: 2 },

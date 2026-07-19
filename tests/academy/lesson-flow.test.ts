@@ -7,6 +7,7 @@ import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb'
 import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
 import type { AcademyShell } from '../../src/academy/ui/shell';
+import { sha256File } from './helpers/hash-memo';
 
 const LESSON_PATH = path.resolve('public/academy/content/lessons/lesson-zero.v1.json');
 
@@ -44,6 +45,7 @@ function context(
     const appShell = shell();
     const go = vi.fn(async () => undefined);
     const back = vi.fn(async () => undefined);
+    const save = vi.fn(async () => undefined);
     const value: AcademyRouteContext = {
         language: 'en',
         checkpoint: checkpoint(lessonId, update),
@@ -51,8 +53,9 @@ function context(
         shell: appShell,
         go,
         back,
+        save,
     };
-    return { value, shell: appShell, go, back };
+    return { value, shell: appShell, go, back, save };
 }
 
 async function completeSpeakingFork(route: ReturnType<typeof context>): Promise<void> {
@@ -298,6 +301,239 @@ describe('Academy lesson flow', () => {
         await vi.waitFor(() => expect(route.shell.current?.dataset.academyScreen).toBe('authored-week'));
         expect(route.shell.current?.textContent).toContain('The orientation invitation arrives as two response cards.');
         expect(route.shell.current?.textContent).not.toContain('The first response card is still open.');
+    });
+
+    it('resumes a saved l1-l01 lapse at its question without replaying the prerequisite or notes', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const saved = {
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    savedAt: 1,
+                    position: {
+                        phase: 'question' as const,
+                        activityId: 'authored:l1-l01/ex-input-job',
+                    },
+                },
+            },
+        };
+        const projection = projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:l1-l01-lapse',
+            at: 1,
+            kind: 'attempt-recorded',
+            activityId: 'authored:l1-l01/ex-input-job',
+            sourceQuestionId: 'l1-l01/ex-input-job',
+            conceptIds: ['concept:self-introduction-job'],
+            responseKind: 'choice',
+            outcome: 'lapse',
+            score: 0,
+            errorTags: ['concept:self-introduction-job:repair'],
+        }]);
+        const route = context('authored-week:l1-l01', saved, projection);
+        const seedVocabularyPrerequisite = vi.fn(async () => undefined);
+        const recordActivity = vi.fn(async (
+            _evaluation: unknown,
+            _lessonId: string,
+            _milestone?: unknown,
+        ) => undefined);
+        const flow = createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite,
+                recordActivity,
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('lesson-overview', route.value);
+
+        expect(route.shell.current?.dataset.academyScreen).toBe('authored-week');
+        expect(route.shell.current?.dataset.authoredWeekResumed).toBe('true');
+        expect(route.shell.current?.dataset.lessonPhase).toBe('question');
+        expect(route.shell.current?.querySelector('[data-activity-id="authored:l1-l01/ex-input-job"]')).not.toBeNull();
+        expect(route.shell.current?.querySelector('[data-exposure-kind]')).toBeNull();
+        expect(seedVocabularyPrerequisite).not.toHaveBeenCalled();
+        expect(route.save).toHaveBeenLastCalledWith({
+            authoredWeekProgress: {
+                'l1-l01': expect.objectContaining({
+                    sourceSha256: saved.authoredWeekProgress['l1-l01'].sourceSha256,
+                    position: saved.authoredWeekProgress['l1-l01'].position,
+                    savedAt: expect.any(Number),
+                }),
+            },
+        });
+
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice-id="a"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledOnce());
+        expect(recordActivity.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
+            id: 'l1-l01-first-name-card-repair',
+        }));
+    });
+
+    it('heals a stale question cursor when pass evidence committed before the next cursor', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const sourceSha256 = sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json'));
+        const saved = {
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256,
+                    savedAt: 1,
+                    position: {
+                        phase: 'question' as const,
+                        activityId: 'authored:l1-l01/ex-input-job',
+                    },
+                },
+            },
+        };
+        const attempt = (eventId: string, at: number, outcome: 'lapse' | 'pass') => ({
+            schemaVersion: 1 as const,
+            eventId,
+            at,
+            kind: 'attempt-recorded' as const,
+            activityId: 'authored:l1-l01/ex-input-job',
+            sourceQuestionId: 'l1-l01/ex-input-job',
+            conceptIds: ['concept:self-introduction-job'],
+            responseKind: 'choice' as const,
+            outcome,
+            score: outcome === 'pass' ? 1 : 0,
+            errorTags: outcome === 'pass' ? [] : ['concept:self-introduction-job:repair'],
+        });
+        const route = context(
+            'authored-week:l1-l01',
+            saved,
+            projectLearnerRecord([attempt('test:lapse', 1, 'lapse'), attempt('test:pass', 2, 'pass')]),
+        );
+        const flow = createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite: vi.fn(async () => undefined),
+                recordActivity: vi.fn(async () => undefined),
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('lesson-overview', route.value);
+
+        expect(route.shell.current?.dataset.lessonPhase).toBe('support');
+        expect(route.shell.current?.dataset.currentActivityId).toBe('authored:l1-l01/ex-vocab-match');
+        expect(route.shell.current?.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('1 / 19');
+        expect(route.save).toHaveBeenLastCalledWith({
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256,
+                    position: { phase: 'support', activityId: 'authored:l1-l01/ex-vocab-match' },
+                    savedAt: expect.any(Number),
+                },
+            },
+        });
+    });
+
+    it('does not skip a replayed question because of pass evidence older than its cursor', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const activityId = 'authored:l1-l01/ex-input-job';
+        const route = context('authored-week:l1-l01', {
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    savedAt: 3,
+                    position: { phase: 'question', activityId },
+                },
+            },
+        }, projectLearnerRecord([{
+            schemaVersion: 1,
+            eventId: 'test:prior-pass',
+            at: 2,
+            kind: 'attempt-recorded',
+            activityId,
+            sourceQuestionId: 'l1-l01/ex-input-job',
+            conceptIds: ['concept:self-introduction-job'],
+            responseKind: 'choice',
+            outcome: 'pass',
+            score: 1,
+            errorTags: [],
+        }]));
+
+        await createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite: vi.fn(async () => undefined),
+                recordActivity: vi.fn(async () => undefined),
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter: vi.fn(async () => undefined),
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        }).render('lesson-overview', route.value);
+
+        expect(route.shell.current?.dataset.lessonPhase).toBe('question');
+        expect(route.shell.current?.dataset.currentActivityId).toBe(activityId);
+        expect(route.shell.current?.querySelector('.academy-authored-week-progress-value')?.textContent).toBe('0 / 19');
+    });
+
+    it('keeps a complete cursor when encounter persistence fails so completion can be retried', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (value: string | URL | Request) => {
+            const requestPath = String(value);
+            const sourcePath = requestPath.endsWith('002-l1-l01.json')
+                ? path.resolve('public/academy/content/lessons/002-l1-l01.json')
+                : requestPath.endsWith('class-week-cast.v1.json')
+                    ? path.resolve('public/academy/content/curriculum/class-week-cast.v1.json')
+                    : LESSON_PATH;
+            return new Response(fs.readFileSync(sourcePath), { status: 200, headers: { 'content-type': 'application/json' } });
+        }));
+        const route = context('authored-week:l1-l01', {
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: sha256File(path.resolve('public/academy/content/lessons/002-l1-l01.json')),
+                    savedAt: 1,
+                    position: { phase: 'complete' },
+                },
+            },
+        });
+        const recordEncounter = vi.fn(async () => { throw new Error('encounter persistence failed'); });
+        await createLessonFlow({
+            evidence: {
+                seedVocabularyPrerequisite: vi.fn(async () => undefined),
+                recordActivity: vi.fn(async () => undefined),
+                recordSupportUse: vi.fn(async () => undefined),
+                recordEncounter,
+            } as never,
+            pronunciation: {} as never,
+            kanjiWriting: {} as never,
+        }).render('lesson-overview', route.value);
+
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-lesson-activity-continue')?.click();
+        await vi.waitFor(() => expect(recordEncounter).toHaveBeenCalledOnce());
+
+        expect(route.save).not.toHaveBeenCalledWith({ authoredWeekProgress: undefined });
+        expect(route.go).not.toHaveBeenCalled();
     });
 
     it('turns the first repaired l1-l01 answer into one Stasi journal memory', async () => {

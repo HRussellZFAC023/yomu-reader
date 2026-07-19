@@ -45,7 +45,9 @@ const EVIDENCE_MILESTONES = new Set([
     'journal',
     'l1-l01-prerequisite',
     'l1-l01-authored-week',
+    'l1-l01-lapse-resume',
     'l1-l01-repair',
+    'l1-l01-next-resume',
     'l1-l01-world-return',
     'l1-l01-repair-journal',
 ]);
@@ -142,6 +144,7 @@ async function runCoreJourney(page, viewport, runtime) {
     await setCheckpoint(page, run, 'campus', { lessonId: 'lesson:foundation-00' });
     await auditMilestone(page, viewport, runtime, 'campus', '[data-academy-route="campus"]');
     await pressFocused(page, '.academy-world-arrival-continue');
+    await assertCourtyardPurposeLayout(page, viewport);
 
     const firstExit = page.locator('.academy-world-exit:not(:disabled)').first();
     await firstExit.focus();
@@ -277,8 +280,17 @@ async function runCoreJourney(page, viewport, runtime) {
     const repairProvenance = repairCard?.academyProvenance?.['academy:review-seed:review:ex-input-job:concept:self-introduction-job'];
     assert(repairCard && repairCard.dueAt <= Date.now(), `${run}: l1-l01 repair is absent from Yomu SRS`, repairCard);
     assert(repairProvenance?.reason === 'repair', `${run}: l1-l01 SRS card lost its repair provenance`, repairProvenance);
+    const lapsedCursor = lapsedState.checkpoint?.authoredWeekProgress?.['l1-l01'];
+    assert(lapsedCursor?.position?.phase === 'question'
+        && lapsedCursor.position.activityId === 'authored:l1-l01/ex-input-job', `${run}: l1-l01 lapse cursor was not saved`, lapsedCursor);
 
-    await pressFocused(page, `${firstActivitySelector} .academy-authored-week-next`);
+    await openAcademy(page, run);
+    await page.waitForSelector(`${authoredWeekSelector}[data-authored-week-resumed="true"][data-lesson-phase="question"]`);
+    assert(await authoredWeek.getAttribute('data-current-activity-id') === 'authored:l1-l01/ex-input-job', `${run}: l1-l01 reload lost the lapsed activity`);
+    assert(await page.locator('[data-academy-screen="lesson-vocabulary-prerequisite"]').count() === 0, `${run}: l1-l01 reload replayed the prerequisite`);
+    assert(await authoredWeek.locator('[data-exposure-kind]').count() === 0, `${run}: l1-l01 reload replayed teaching notes`);
+    await auditMilestone(page, viewport, runtime, 'l1-l01-lapse-resume', authoredWeekSelector);
+
     await page.waitForSelector(`${firstActivitySelector} [data-choice-id="a"]:not(:disabled)`);
     await pressFocused(page, `${firstActivitySelector} [data-choice-id="a"]`);
     await page.waitForSelector(`${firstActivitySelector}[data-outcome="pass"][data-repaired="true"]`);
@@ -292,10 +304,20 @@ async function runCoreJourney(page, viewport, runtime) {
     assert(repairedAttempts[0].outcome === 'lapse' && repairedAttempts[1].outcome === 'pass', `${run}: l1-l01 repair attempt order is wrong`, repairedAttempts);
     assert(repairedState.events.some(event => event.kind === 'journal-line-recorded'
         && event.journalLineId === 'journal:l1-l01:first-name-card-repair'), `${run}: l1-l01 repair did not become a story memory`);
+    const nextCursor = repairedState.checkpoint?.authoredWeekProgress?.['l1-l01'];
+    assert(nextCursor?.position?.phase === 'support'
+        && nextCursor.position.activityId === 'authored:l1-l01/ex-vocab-match', `${run}: repaired l1-l01 answer did not save the next activity`, nextCursor);
 
     await pressFocused(page, `${authoredWeekSelector} .academy-authored-week-back`);
     const lessonBoundClassroom = '[data-current-place="classroom"][data-world-lesson-id="authored-week:l1-l01"]';
     await auditMilestone(page, viewport, runtime, 'l1-l01-world-return', lessonBoundClassroom);
+    await pressFocused(page, `${lessonBoundClassroom} .academy-world-activity-button[data-activity-route="class"]`);
+    await page.waitForSelector(`${authoredWeekSelector}[data-authored-week-resumed="true"][data-lesson-phase="support"]`);
+    assert(await authoredWeek.getAttribute('data-current-activity-id') === 'authored:l1-l01/ex-vocab-match', `${run}: revisiting l1-l01 did not open the next activity`);
+    assert((await authoredWeek.locator('.academy-authored-week-progress-value').textContent())?.trim() === '1 / 19', `${run}: revisiting l1-l01 lost completed progress`);
+    await auditMilestone(page, viewport, runtime, 'l1-l01-next-resume', authoredWeekSelector);
+    await pressFocused(page, `${authoredWeekSelector} .academy-authored-week-back`);
+    await page.waitForSelector(lessonBoundClassroom);
     await pressFocused(page, `${lessonBoundClassroom} .academy-world-exit[data-location="courtyard"]`);
     const courtyard = '[data-current-place="courtyard"]';
     await page.waitForSelector(courtyard);
@@ -308,6 +330,87 @@ async function runCoreJourney(page, viewport, runtime) {
     await page.waitForSelector(repairJournalLine, { state: 'visible' });
     assert((await page.locator(repairJournalLine).textContent())?.includes("Stasi waited while I read Aakash's name card again."), `${run}: l1-l01 journal memory lost its story text`);
     await auditMilestone(page, viewport, runtime, 'l1-l01-repair-journal', '.academy-journal-screen');
+}
+
+async function assertCourtyardPurposeLayout(page, viewport) {
+    const screen = page.locator('[data-current-place="courtyard"]');
+    const purpose = screen.locator('.academy-world-action-dock');
+    const practiceToggle = purpose.locator('.academy-courtyard-practice-toggle');
+    const journalAction = purpose.locator('[data-activity-route="journal"]');
+    assert(await purpose.getAttribute('data-courtyard-mode') === 'journal', `${viewport.name}: courtyard does not open in journal mode`);
+    assert(await practiceToggle.isVisible(), `${viewport.name}: courtyard notice practice switch is not visible`);
+    assert(await journalAction.isVisible(), `${viewport.name}: courtyard journal action is not visible`);
+    await assertCourtyardPurposeGeometry(screen, viewport, 'journal');
+
+    await pressFocused(page, '.academy-courtyard-practice-toggle');
+    assert(await purpose.getAttribute('data-courtyard-mode') === 'practice', `${viewport.name}: courtyard notice practice did not open`);
+    assert(await purpose.locator('[data-courtyard-practice="noticeboard-order"]').isVisible(), `${viewport.name}: courtyard notice exercise is not visible`);
+    assert(await purpose.locator('.academy-courtyard-practice-back').isVisible(), `${viewport.name}: courtyard practice has no return action`);
+    await assertCourtyardPurposeGeometry(screen, viewport, 'practice');
+
+    await pressFocused(page, '.academy-courtyard-practice-back');
+    assert(await purpose.getAttribute('data-courtyard-mode') === 'journal', `${viewport.name}: courtyard practice did not return to the journal`);
+}
+
+async function assertCourtyardPurposeGeometry(screen, viewport, mode) {
+    const geometry = await screen.evaluate(root => {
+        const box = selector => {
+            const element = root.querySelector(selector);
+            if (!(element instanceof HTMLElement) || getComputedStyle(element).display === 'none') return null;
+            const rect = element.getBoundingClientRect();
+            return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+        };
+        const overlaps = (first, second) => Boolean(first && second
+            && Math.min(first.right, second.right) - Math.max(first.left, second.left) > 1
+            && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 1);
+        const purpose = root.querySelector('.academy-world-action-dock');
+        const purposeBox = box('.academy-world-action-dock');
+        const exits = box('.academy-world-spatial-exits');
+        const characters = [...root.querySelectorAll('[data-world-character]')]
+            .map(character => {
+                if (!(character instanceof HTMLElement) || getComputedStyle(character).display === 'none') return null;
+                const rect = character.getBoundingClientRect();
+                return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+            })
+            .filter(Boolean);
+        const internalScrollers = purpose instanceof HTMLElement
+            ? [purpose, ...purpose.querySelectorAll('*')]
+                .filter(element => element instanceof HTMLElement)
+                .filter(element => {
+                    const overflowY = getComputedStyle(element).overflowY;
+                    return (overflowY === 'auto' || overflowY === 'scroll')
+                        && element.scrollHeight > element.clientHeight + 1;
+                })
+                .map(element => ({
+                    className: element.className,
+                    clientHeight: element.clientHeight,
+                    scrollHeight: element.scrollHeight,
+                }))
+            : [];
+        return {
+            viewport: { width: innerWidth, height: innerHeight },
+            purposeExists: Boolean(purposeBox),
+            exitsExists: Boolean(exits),
+            characterCount: characters.length,
+            purposeBox,
+            exits,
+            internalScrollers,
+            clipsViewport: Boolean(purposeBox && (
+                purposeBox.left < -1 || purposeBox.right > innerWidth + 1
+                || purposeBox.top < -1 || purposeBox.bottom > innerHeight + 1
+            )),
+            overlapsExits: overlaps(purposeBox, exits),
+            overlapsCharacters: characters.some(character => overlaps(purposeBox, character)),
+        };
+    });
+    assert(geometry.purposeExists, `${viewport.name}: courtyard ${mode} paper is missing`, geometry);
+    assert(geometry.exitsExists, `${viewport.name}: courtyard ${mode} route rail is missing`, geometry);
+    assert(geometry.characterCount > 0, `${viewport.name}: courtyard ${mode} visible cast is missing`, geometry);
+    assert(geometry.internalScrollers.length === 0, `${viewport.name}: courtyard ${mode} paper scrolls internally`, geometry);
+    assert(!geometry.clipsViewport, `${viewport.name}: courtyard ${mode} paper clips outside the viewport`, geometry);
+    if (viewport.name !== 'mobile') return;
+    assert(!geometry.overlapsExits, `${viewport.name}: courtyard ${mode} paper overlaps the route rail`, geometry);
+    assert(!geometry.overlapsCharacters, `${viewport.name}: courtyard ${mode} paper overlaps visible cast`, geometry);
 }
 
 async function completePlacement(page, run) {
@@ -731,11 +834,17 @@ async function readLearningState(page, run) {
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
+        const checkpoint = await new Promise((resolve, reject) => {
+            const request = database.transaction('meta').objectStore('meta').get('active-checkpoint');
+            request.onsuccess = () => resolve(request.result?.value ?? null);
+            request.onerror = () => reject(request.error);
+        });
         database.close();
         const storedSrs = localStorage.getItem('yomu:srs-local:v1');
         return {
             events: events.sort((left, right) => left.at - right.at || left.eventId.localeCompare(right.eventId)),
             srs: storedSrs ? JSON.parse(storedSrs) : null,
+            checkpoint,
         };
     }, databaseName(run));
 }

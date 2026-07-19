@@ -140,6 +140,7 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
     const isStation = place.id === 'station';
     const isTubePlatform = place.id === 'station-platform';
     const isHome = place.id === 'home';
+    let embeddedPractice: HTMLElement | undefined;
     const activityLabel = element('h2', 'academy-world-section-title');
     activityLabel.textContent = place.activity.label[options.language];
     const activityDetail = element('p', 'academy-world-activity-detail');
@@ -205,7 +206,7 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
     }
     if (place.id === 'ramen' && place.practice) activity.append(renderRamenOrderTicket(options.language, place.practice));
     if (place.practice && place.availability.state === 'open' && !isStation && !isTubePlatform && place.id !== 'cafe' && !isHome) {
-        activity.append(place.id === 'konbini'
+        embeddedPractice = place.id === 'konbini'
             ? renderKonbiniRegister({
                 language: options.language,
                 practice: place.practice,
@@ -252,7 +253,8 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
                 })
             : place.id === 'cafeteria'
                 ? worldCafeteriaTrayPractice(options, place.practice, place.stamp.id)
-                : worldPractice(options, place.practice, place.stamp.id));
+                : worldPractice(options, place.practice, place.stamp.id);
+        activity.append(embeddedPractice);
     }
     if (place.activity.route && place.availability.state === 'open' && place.id !== 'cafe' && !isHome) {
         activity.append(worldActivityButton(options, place.activity.route));
@@ -262,6 +264,9 @@ export function renderWorldPlaceScreen(options: WorldScreenOptions): HTMLElement
             ?? place.availability.reason?.[options.language]
             ?? '';
         activity.append(unavailable);
+    }
+    if (place.id === 'courtyard' && embeddedPractice) {
+        configureCourtyardPurposeSwitcher(options.language, activity, embeddedPractice);
     }
 
     const objects = worldObjects(options, place.objects);
@@ -335,9 +340,58 @@ function worldActivityButton(options: WorldScreenOptions, route: WorldRoute): HT
     const button = element('button', 'academy-world-activity-button');
     button.type = 'button';
     button.dataset.activityRoute = route;
-    button.textContent = options.language === 'ja' ? '始める' : 'Start';
+    button.textContent = route === 'journal'
+        ? options.language === 'ja' ? '日誌を開く' : 'Open journal'
+        : options.language === 'ja' ? '始める' : 'Start';
     button.addEventListener('click', () => options.onActivity(route));
     return button;
+}
+
+function configureCourtyardPurposeSwitcher(
+    language: AcademyLanguage,
+    purpose: HTMLElement,
+    practice: HTMLElement,
+): void {
+    purpose.dataset.courtyardMode = 'journal';
+    practice.hidden = true;
+    practice.id = `academy-${practice.dataset.worldPractice ?? 'courtyard-notice-practice'}`;
+
+    const open = element('button', 'academy-courtyard-practice-toggle');
+    open.type = 'button';
+    open.setAttribute('aria-controls', practice.id);
+    open.setAttribute('aria-expanded', 'false');
+    open.textContent = language === 'ja' ? '掲示を練習する' : 'Practice the notice';
+
+    const close = element('button', 'academy-courtyard-practice-back');
+    close.type = 'button';
+    close.textContent = language === 'ja' ? '← 日誌に戻る' : '← Back to journal';
+    practice.prepend(close);
+
+    const journalNodes = [
+        purpose.querySelector<HTMLElement>('.academy-world-section-title'),
+        purpose.querySelector<HTMLElement>('.academy-world-activity-detail'),
+        purpose.querySelector<HTMLElement>('.academy-world-curriculum'),
+        purpose.querySelector<HTMLElement>('.academy-world-activity-button'),
+    ].filter((node): node is HTMLElement => Boolean(node));
+
+    const showPractice = (visible: boolean) => {
+        purpose.dataset.courtyardMode = visible ? 'practice' : 'journal';
+        open.hidden = visible;
+        open.setAttribute('aria-expanded', String(visible));
+        practice.hidden = !visible;
+        journalNodes.forEach(node => { node.hidden = visible; });
+        (visible ? close : open).focus();
+    };
+
+    open.addEventListener('click', () => showPractice(true));
+    close.addEventListener('click', () => showPractice(false));
+    practice.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || event.isComposing) return;
+        event.preventDefault();
+        showPractice(false);
+    });
+
+    purpose.append(open);
 }
 
 function worldArrivalDialogue(

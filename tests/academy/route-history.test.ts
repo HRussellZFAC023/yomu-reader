@@ -38,6 +38,27 @@ describe('Academy route history', () => {
         expect(transitionAcademyRoute(floor, { kind: 'back' })).toBe(floor);
     });
 
+    it('keeps authored-week progress when Back discards the current lesson frame', () => {
+        const lesson = {
+            ...state('lesson-overview', [{ route: 'classroom', lessonId: 'authored-week:l1-l01' }]),
+            lessonId: 'authored-week:l1-l01',
+            authoredWeekProgress: {
+                'l1-l01': {
+                    sourceSha256: '0'.repeat(64),
+                    position: { phase: 'question' as const, activityId: 'activity:one' },
+                },
+            },
+        };
+
+        expect(transitionAcademyRoute(lesson, { kind: 'back' })).toEqual({
+            route: 'classroom',
+            lessonId: 'authored-week:l1-l01',
+            routeHistory: [],
+            presentationMode: 'story',
+            authoredWeekProgress: lesson.authoredWeekProgress,
+        });
+    });
+
     it('changes presentation without resetting route history or learner-facing navigation state', () => {
         const campus = {
             ...state('campus', [{ route: 'review' }]),

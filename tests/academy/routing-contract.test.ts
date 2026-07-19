@@ -116,7 +116,16 @@ describe('Academy resume route contract', () => {
 
     it('returns to access when neither online nor offline session validity remains', () => {
         const expired = normalizeResumeCheckpoint(
-            { ...checkpoint('campus'), routeHistory: [{ route: 'access' }, { route: 'profile' }, { route: 'start' }] },
+            {
+                ...checkpoint('campus'),
+                routeHistory: [{ route: 'access' }, { route: 'profile' }, { route: 'start' }],
+                authoredWeekProgress: {
+                    'l1-l01': {
+                        sourceSha256: '0'.repeat(64),
+                        position: { phase: 'question', activityId: 'activity:one' },
+                    },
+                },
+            },
             projectLearnerRecord([]),
             4_000,
             false,
@@ -125,6 +134,12 @@ describe('Academy resume route contract', () => {
         expect(expired.route).toBe('access');
         expect(expired.routeHistory).toEqual([]);
         expect(expired.session).toBeUndefined();
+        expect(expired.authoredWeekProgress).toEqual({
+            'l1-l01': {
+                sourceSha256: '0'.repeat(64),
+                position: { phase: 'question', activityId: 'activity:one' },
+            },
+        });
     });
 
     it('resumes the day-end pause without inventing lesson completion evidence', () => {

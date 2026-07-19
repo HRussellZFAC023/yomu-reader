@@ -30,6 +30,9 @@ export function normalizeResumeCheckpoint(
             route: 'access',
             routeHistory: [],
             presentationMode: checkpoint.presentationMode,
+            ...(checkpoint.authoredWeekProgress
+                ? { authoredWeekProgress: checkpoint.authoredWeekProgress }
+                : {}),
             updatedAt: now,
         };
     }

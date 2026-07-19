@@ -25,6 +25,12 @@ import {
 } from '../content/advanced-curriculum';
 import { loadVerticalSliceContent, openingForkActivityId } from '../content/vertical-slice';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
+import {
+    authoredWeekProgressAfterActivity,
+    authoredWeekProgressFits,
+    clearAuthoredWeekProgress,
+    setAuthoredWeekProgress,
+} from '../domain/authored-week-progress';
 import type { SfxCue } from '../audio/types';
 import { createLessonOverviewModel, type LessonOverviewState } from '../domain/lesson-overview';
 import type { LearnerProjection } from '../domain/learner-record';
@@ -166,11 +172,54 @@ class LessonFlow implements AcademyRouteFlow {
                 );
             },
         }) : undefined;
+        const progressScope = {
+            exposureIds: week.preAssessment.map(exposure => exposure.id),
+            activityIds: week.activities.map(activity => activity.id),
+            supportActivityIds: week.activities
+                .filter(activity => activity.kind !== 'academy-source-vocabulary-sheet')
+                .map(activity => activity.id),
+            hasExtension: Boolean(extension),
+        };
+        const savedProgress = context.checkpoint.authoredWeekProgress?.[packageId];
+        let initialProgress = savedProgress
+            && savedProgress.sourceSha256 === week.provenance.source.sha256
+            && authoredWeekProgressFits(savedProgress.position, progressScope)
+            ? savedProgress.position
+            : undefined;
+        if (initialProgress
+            && savedProgress?.savedAt !== undefined
+            && (initialProgress.phase === 'support' || initialProgress.phase === 'question')) {
+            const activityProgress = context.projection.activities[initialProgress.activityId];
+            if (activityProgress?.lastOutcome === 'pass'
+                && activityProgress.lastAttemptAt > savedProgress.savedAt) {
+                initialProgress = authoredWeekProgressAfterActivity(initialProgress.activityId, progressScope);
+            }
+        }
+        const initialLapsedActivityIds = week.activities
+            .filter(activity => (context.projection.activities[activity.id]?.lapseCount ?? 0) > 0)
+            .map(activity => activity.id);
+        const initialRepairedActivityIds = week.activities
+            .filter(activity => {
+                const progress = context.projection.activities[activity.id];
+                return Boolean(progress && progress.lapseCount > 0 && progress.lastOutcome === 'pass');
+            })
+            .map(activity => activity.id);
         const showActivities = () => {
             let releaseListeningDuck: (() => void) | undefined;
             const screen = createAuthoredWeekScreen({
             language: context.language,
             week,
+            ...(initialProgress ? { initialProgress } : {}),
+            initialLapsedActivityIds,
+            initialRepairedActivityIds,
+            onPositionChange: progress => context.save?.({
+                authoredWeekProgress: setAuthoredWeekProgress(
+                    context.checkpoint.authoredWeekProgress,
+                    packageId,
+                    week.provenance.source.sha256,
+                    progress,
+                ),
+            }),
             ...(continuity?.callback ? {
                 storyContext: {
                     hostId: continuity.hostId,
@@ -245,6 +294,12 @@ class LessonFlow implements AcademyRouteFlow {
                         sceneId: `scene:class-week:${classWeek.weekId}`,
                         attendeeIds: [primary.id, ...classWeek.supporting.map(member => member.id)],
                     });
+                await context.save?.({
+                    authoredWeekProgress: clearAuthoredWeekProgress(
+                        context.checkpoint.authoredWeekProgress,
+                        packageId,
+                    ),
+                });
                 const destination = lessonCompletionReturn(context.checkpoint);
                 if (context.returnTo) {
                     await context.returnTo(destination);
@@ -264,9 +319,14 @@ class LessonFlow implements AcademyRouteFlow {
             onBack: () => context.back(),
             });
             screen.element.dataset.academyRoute = 'lesson-overview';
+            screen.element.dataset.authoredWeekResumed = String(Boolean(initialProgress));
             screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
             context.shell.replace(screen.element);
         };
+        if (initialProgress) {
+            showActivities();
+            return;
+        }
         context.shell.replace(renderLessonVocabularyPrerequisiteScreen({
             language: context.language,
             prerequisite,

@@ -1,4 +1,8 @@
 import type { InviteSession } from '../access/gateway';
+import {
+    authoredWeekProgressRecordIsValid,
+    type AuthoredWeekProgressRecord,
+} from '../domain/authored-week-progress';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
 import {
     isAcademyPresentationMode,
@@ -17,6 +21,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly seenIntroductions?: readonly string[];
     /** Deterministic revisit state for the location world; not route history. */
     readonly worldVisits?: Readonly<Partial<Record<WorldPlaceId, number>>>;
+    /** Per-package lesson cursor. It survives leaving the lesson; evidence remains canonical for answers. */
+    readonly authoredWeekProgress?: AuthoredWeekProgressRecord;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -228,6 +234,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
         || Object.entries(value.worldVisits).some(([place, visits]) => !isWorldPlaceId(place)
             || !Number.isSafeInteger(visits) || visits < 0))) {
         throw new TypeError('Academy checkpoint has invalid world visits.');
+    }
+    if (value.authoredWeekProgress !== undefined
+        && !authoredWeekProgressRecordIsValid(value.authoredWeekProgress)) {
+        throw new TypeError('Academy checkpoint has invalid authored week progress.');
     }
     validateRouteContext(value);
 }
