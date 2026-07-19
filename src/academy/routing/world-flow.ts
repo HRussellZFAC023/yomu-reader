@@ -42,7 +42,6 @@ import { renderLoadingScreen } from '../ui/loading-screen';
 import { renderProfileSyncScreen } from '../ui/profile-sync-screen';
 import { openVocabularySheet, renderLibraryIntroduction, renderLibraryScreen } from '../ui/library-screen';
 import { renderStoryScreen } from '../ui/story-screen';
-import { renderReplayStreamPanel } from '../ui/replay-stream-panel';
 import {
     renderJournalScreen,
     renderWorldPlaceScreen,
@@ -601,7 +600,6 @@ class WorldFlow implements AcademyRouteFlow {
             await context.go('profile');
             return;
         }
-        const replayEvents = await this.options.evidence.history?.() ?? [];
         const journal = renderJournalScreen(
             context.language,
             profile,
@@ -616,15 +614,6 @@ class WorldFlow implements AcademyRouteFlow {
                 onProfileSync: () => void context.go('profile-sync'),
             },
         );
-        journal.querySelector<HTMLElement>('.academy-panel-content')?.append(renderReplayStreamPanel({
-            language: context.language,
-            events: replayEvents,
-            onOpenChapter: (chapterId, band) => void context.go('story', {
-                sectionId: chapterId,
-                ...(replayCheckpointBand(band) ? { selectedBand: replayCheckpointBand(band) } : {}),
-            }),
-            onOpenLesson: lessonId => void context.go('lesson-overview', { lessonId }),
-        }));
         context.shell.replace(journal);
     }
 

@@ -187,6 +187,28 @@ describe('Class path', () => {
         expect(future.querySelector('.academy-class-week-status')?.textContent).toBe('Future stop');
     });
 
+    it('distinguishes open stops that share a source title', () => {
+        const screen = renderClassPathScreen({
+            language: 'en',
+            plan: plan(),
+            currentOrder: 11,
+            playableWeekIds: new Set(['l1-l06', 'l1-l07', 'l1-l08', 'l1-l09']),
+            completedWeekIds: new Set(['l1-l06', 'l1-l07', 'l1-l08', 'l1-l09']),
+            onBack: vi.fn(),
+            onOpenWeek: vi.fn(),
+        });
+        const labels = [...screen.querySelectorAll<HTMLButtonElement>('button.academy-class-week-entry')]
+            .map(button => button.getAttribute('aria-label'));
+
+        expect(labels).toEqual([
+            'Revisit: Week 07 · This one, please',
+            'Revisit: Week 08 · This one, please',
+            'Revisit: Week 09 · What time do we start?',
+            'Revisit: Week 10 · What time do we start?',
+        ]);
+        expect(new Set(labels).size).toBe(labels.length);
+    });
+
     it('uses only runtime-approved transparent cutouts and keeps pending likenesses name-only', () => {
         const screen = renderClassPathScreen({
             language: 'en',

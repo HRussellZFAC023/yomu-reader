@@ -49,7 +49,7 @@ describe('World Journal route', () => {
             back: vi.fn(async () => undefined),
         });
 
-        expect(current?.querySelector('[data-replay-stream="true"]')).not.toBeNull();
+        expect(current?.querySelector('[data-replay-stream="true"]')).toBeNull();
 
         current?.querySelector<HTMLButtonElement>('[data-character="xingyu"] button')?.click();
         const revisits = current?.querySelectorAll<HTMLButtonElement>('.academy-character-revisit');

@@ -9,7 +9,8 @@ This queue is the release scheduler. Work below it remains required, but these i
 | Priority | Channel | Current deliverable | State |
 | --- | --- | --- | --- |
 | P0 | Release | Mandatory linked account in production; explicit localhost QA bypass | Shipped `735336f27`, `522452c10` |
-| P0 | Golden path | Prove entry -> profile/avatar -> campus -> Lesson 0 -> completion -> campus on desktop and phone | Next release gate |
+| P0 | Golden path | Prove entry -> lesson -> repair/SRS -> story return -> journal/world continuation on desktop and phone | Gate green through `l1-l01` teaching; attempt/return next |
+| P0 | Motivation | Carry meaningful goals, competence feedback, narrative anticipation, relationship/world rewards, return cues, and clean endings across the whole loop | Daily route shipped; cross-surface pass next |
 | P0 | Curriculum | Ground and expose the next source-faithful lesson slice | Integrated: exact Chapter 36 homework matches |
 | P0 | Activities/audio | Add the next taught-first, hinted, gradable multimodal activity with evidence/SRS | Integrated: Lesson 0 vowel dictation |
 | P0 | Story/world/cast | Make the next first-path encounter and journal unlock distinct and reachable | Integrated: library encounter continuity |
@@ -23,6 +24,7 @@ This is the short operational order inside the queue above. The detailed catalog
 
 - [x] Recover the interrupted Claude story/voice/art sessions, preserve private transcript archives with hashes, and record their exact finished and unfinished outputs.
 - [x] Recover, validate, compile, and list all 48 four-season story chapters; later chapters remain playable while unregistered practice is labelled honestly.
+- [x] Restore the deterministic desktop/phone Browser gate through onboarding, world navigation, Lesson 0, Study, placement, the finite journal, Class, the `l1-l01` source sheet, and its teaching-first seam; self-confirm furigana persistence and remove the journal's duplicated Replay overflow.
 - [ ] Prove the real learner golden path in Browser: onboarding → lesson → repair/SRS → story return → journal/world continuation, with the journal redesign and furigana regressions resolved.
 - [x] Integrate Moodle Lesson 10 as canonical `l3plus-l10`, including its handouts, listening, homework, runtime route, source ledger, and focused reachability tests.
 - [ ] Verify Lessons 1-10 source, handout, listening, homework, and runtime coverage against the Moodle inventory as one release audit.
@@ -32,6 +34,7 @@ This is the short operational order inside the queue above. The detailed catalog
 - [x] Wire the deterministic daily learning route and warm return arc into the live Course route from the world; connect due SRS, grounded lessons, relationships, place discovery, visible diegetic payoffs, and one dominant next action without grind rewards.
 - [x] Make Yomu's scheduler queue authoritative for due repair and advance Course/daily recommendations from the learner's selected-band floor and completed class-week evidence, including Lesson 10 → Kanji 7.
 - [x] Complete the learner-motivation pass for the daily route: one clear start, competence cue, warm return without loss, the learner's own reason, relationship/world payoff, and a clean stopping point.
+- [ ] Apply the psychological-elements pass across lesson, repair, SRS, story, world, and journal: meaningful learner goals, immediate competence feedback, open-loop narrative anticipation, earned relationship/world payoffs, memorable return cues, and satisfying stopping points.
 - [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
 - [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
 

@@ -30477,6 +30477,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     title2.tabIndex = -1;
     title2.append(...localizedNodes$2(support2.title));
     const entries2 = element("div", "academy-lesson-teaching-entries");
+    entries2.tabIndex = 0;
+    entries2.setAttribute("aria-label", language === "ja" ? "学習例" : "Teaching examples");
     for (const entry2 of support2.entries) {
       const row = element("article", "academy-lesson-teaching-entry");
       const japanese2 = element("p", "academy-japanese academy-lesson-teaching-japanese");
@@ -246039,6 +246041,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     title2.tabIndex = -1;
     appendExposureText(title2, exposure.title);
     const entries2 = element("div", "academy-lesson-teaching-entries");
+    entries2.tabIndex = 0;
+    entries2.setAttribute("aria-label", language === "ja" ? "学習例" : "Teaching examples");
     exposure.entries.forEach((entry2) => {
       const row = element("article", "academy-lesson-teaching-entry");
       appendExposureText(row, entry2);
@@ -249563,7 +249567,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const content = presentation2.openable ? element("button", "academy-class-week-entry") : element("div", "academy-class-week-entry");
     if (content instanceof HTMLButtonElement) {
       content.type = "button";
-      content.setAttribute("aria-label", `${presentation2.actionLabel}: ${week.source.title[options.language]}`);
+      content.setAttribute("aria-label", `${presentation2.actionLabel}: ${weekSequenceLabel(week, options.language)} · ${week.source.title[options.language]}`);
       content.addEventListener("click", () => options.onOpenWeek(week.weekId));
     } else {
       content.setAttribute("aria-disabled", "true");
@@ -249577,7 +249581,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       stage2.append(levelLabel);
     }
     const sequenceLabel = element("span", "academy-class-week-sequence");
-    sequenceLabel.textContent = week.order === 0 ? options.language === "ja" ? "レッスン0" : "Lesson 0" : options.language === "ja" ? `第${week.order}週` : `Week ${String(week.order).padStart(2, "0")}`;
+    sequenceLabel.textContent = weekSequenceLabel(week, options.language);
     stage2.append(sequenceLabel);
     label.textContent = week.source.title[options.language];
     const status = element("span", "academy-class-week-status");
@@ -249592,6 +249596,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     content.append(copy2, cast2, action2);
     item2.append(content);
     return item2;
+  }
+  function weekSequenceLabel(week, language) {
+    if (week.order === 0) return language === "ja" ? "レッスン0" : "Lesson 0";
+    return language === "ja" ? `第${week.order}週` : `Week ${String(week.order).padStart(2, "0")}`;
   }
   function weekPresentation(week, playable, options) {
     const language = options.language;
@@ -253284,12 +253292,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     panel.classList.add("academy-journal-book");
     content.classList.add("academy-journal-book-content");
+    const bookControls = element("div", "academy-journal-book-controls");
     const bookTabs = element("div", "academy-journal-book-tabs");
     bookTabs.setAttribute("role", "tablist");
     bookTabs.setAttribute("aria-label", language === "ja" ? "日誌の項目" : "Journal sections");
     const peopleTab = journalTab(language === "ja" ? "みんな" : "People", true);
     const linesTab = journalTab(language === "ja" ? "学習の記録" : "Learning lines", false);
     bookTabs.append(peopleTab, linesTab);
+    bookControls.append(bookTabs);
     const bookIntro = element("p", "academy-journal-book-intro");
     bookIntro.textContent = language === "ja" ? "出会った人と、一緒に学んだこと。" : "The people you have met, and what you learned together.";
     const page = element("section", "academy-character-page");
@@ -253320,13 +253330,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       page.replaceChildren(characterPage(language, definition2, () => {
         page.hidden = true;
         directory.hidden = false;
-        bookTabs.hidden = false;
+        bookControls.hidden = false;
         bookIntro.hidden = false;
         if (bookFooter) bookFooter.hidden = false;
         directory.querySelector(`[data-character="${characterId}"] button`)?.focus();
       }));
       directory.hidden = true;
-      bookTabs.hidden = true;
+      bookControls.hidden = true;
       bookIntro.hidden = true;
       if (learningLines) learningLines.hidden = true;
       if (bookFooter) bookFooter.hidden = true;
@@ -253338,7 +253348,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       profileSync.type = "button";
       profileSync.textContent = language === "ja" ? "プロフィールと同期" : "Profile & sync";
       profileSync.addEventListener("click", callbacks2.onProfileSync);
-      bookTabs.append(profileSync);
+      bookControls.append(profileSync);
     }
     const recordedLines = "characters" in state ? state.journalLines ?? [] : [];
     learningLines = journalLearningLines(language, recordedLines);
@@ -253362,7 +253372,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       showSection(showLines ? "lines" : "people");
       (showLines ? linesTab : peopleTab).focus();
     });
-    content.append(bookIntro, bookTabs, directory, learningLines, page, bookFooter);
+    content.append(bookIntro, bookControls, directory, learningLines, page, bookFooter);
     return screen;
   }
   function journalTab(label, selected2) {
@@ -254105,7 +254115,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         await context2.go("profile");
         return;
       }
-      const replayEvents = await this.options.evidence.history?.() ?? [];
       const journal2 = renderJournalScreen(
         context2.language,
         profile2,
@@ -254120,15 +254129,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
           onProfileSync: () => void context2.go("profile-sync")
         }
       );
-      journal2.querySelector(".academy-panel-content")?.append(renderReplayStreamPanel({
-        language: context2.language,
-        events: replayEvents,
-        onOpenChapter: (chapterId, band) => void context2.go("story", {
-          sectionId: chapterId,
-          ...replayCheckpointBand(band) ? { selectedBand: replayCheckpointBand(band) } : {}
-        }),
-        onOpenLesson: (lessonId) => void context2.go("lesson-overview", { lessonId })
-      }));
       context2.shell.replace(journal2);
     }
     renderProfileSync(context2) {

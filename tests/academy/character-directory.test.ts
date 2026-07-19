@@ -237,6 +237,8 @@ describe('Academy character directory presentation', () => {
         const peopleTab = screen.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')!;
 
         expect(screen.querySelector('.academy-journal-book')).not.toBeNull();
+        expect([...tabs.children].every(child => child.getAttribute('role') === 'tab')).toBe(true);
+        expect(tabs.querySelector('.academy-journal-profile-sync')).toBeNull();
         expect(entries.filter(entry => !entry.hidden)).toHaveLength(6);
         expect(next.disabled).toBe(false);
         next.click();

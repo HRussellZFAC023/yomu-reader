@@ -119,6 +119,8 @@ export function teachingSupportView(
     title.tabIndex = -1;
     title.append(...localizedNodes(support.title));
     const entries = element('div', 'academy-lesson-teaching-entries');
+    entries.tabIndex = 0;
+    entries.setAttribute('aria-label', language === 'ja' ? '学習例' : 'Teaching examples');
     for (const entry of support.entries) {
         const row = element('article', 'academy-lesson-teaching-entry');
         const japanese = element('p', 'academy-japanese academy-lesson-teaching-japanese');
