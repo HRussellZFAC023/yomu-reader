@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e12-the-vanishing-course",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 1,
   "chapter": 12,
@@ -102,38 +102,38 @@
           "id": "line:vanishing-course:jenny-welcome",
           "beatId": "beat:vanishing-course:host-want",
           "speakerId": "jenny",
-          "intent": "Welcome the class to the map-celebration meal and lay out the full serving plan she prepared in advance.",
+          "intent": "Welcome the class to a meal for the atlas's first route and lay out the serving plan she prepared in advance.",
           "attentionTarget": "the row of covered dishes and their serving cards",
           "variants": {
             "foundation": {
-              "japanese": "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。出す順番を、決めておきました。",
-              "reading": "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。だすじゅんばんを、きめておきました。",
-              "english": "Everyone, good evening. Tonight is the meal to celebrate the map. I decided the order to bring things out in."
+              "japanese": "みなさん、こんばんは。今夜は、最初の道のお祝いのごはんです。出す順番を、決めておきました。",
+              "reading": "みなさん、こんばんは。こんやは、さいしょのみちのおいわいのごはんです。だすじゅんばんを、きめておきました。",
+              "english": "Everyone, good evening. Tonight's meal is for the atlas's first route. I decided the order to bring things out in."
             },
             "n5": {
-              "japanese": "みなさん、こんばんは。今夜は、地図のお祝いのごはんです。何を、いくつ、どの順番で出すか、ぜんぶメモしておきました。",
-              "reading": "みなさん、こんばんは。こんやは、ちずのおいわいのごはんです。なにを、いくつ、どのじゅんばんでだすか、ぜんぶメモしておきました。",
-              "english": "Everyone, good evening. Tonight is the meal to celebrate the map. What, how many, and in what order to serve — I noted it all down."
+              "japanese": "みなさん、こんばんは。今夜は、最初の道のお祝いのごはんです。何を、いくつ、どの順番で出すか、ぜんぶメモしておきました。",
+              "reading": "みなさん、こんばんは。こんやは、さいしょのみちのおいわいのごはんです。なにを、いくつ、どのじゅんばんでだすか、ぜんぶメモしておきました。",
+              "english": "Everyone, good evening. Tonight's meal is for the first route. What, how many, and in what order to serve — I noted it all down."
             },
             "n4": {
-              "japanese": "みなさん、こんばんは。今夜は地図の完成のお祝いなので、料理を出す順番、ぜんぶ決めておいたんです。何を何個、どこに置くか、カードにして。",
-              "reading": "みなさん、こんばんは。こんやはちずのかんせいのおいわいなので、りょうりをだすじゅんばん、ぜんぶきめておいたんです。なにをなんこ、どこにおくか、カードにして。",
-              "english": "Everyone, good evening. Since tonight's celebrating the map being finished, I'd set the whole serving order ahead of time — what, how many, where each goes, all on cards."
+              "japanese": "みなさん、こんばんは。今夜は地図の最初の道のお祝いなので、料理を出す順番、ぜんぶ決めておいたんです。何を何個、どこに置くか、カードにして。",
+              "reading": "みなさん、こんばんは。こんやはちずのさいしょのみちのおいわいなので、りょうりをだすじゅんばん、ぜんぶきめておいたんです。なにをなんこ、どこにおくか、カードにして。",
+              "english": "Everyone, good evening. Since tonight celebrates the map's first route, I'd set the whole serving order ahead of time — what, how many, where each goes, all on cards."
             },
             "n3": {
-              "japanese": "みなさん、こんばんは。今夜は地図のお祝いなので、料理の出し順、きちんと組んでおいたんですよ。何をいくつ、どの順で出すか、一枚ずつカードにして。",
-              "reading": "みなさん、こんばんは。こんやはちずのおいわいなので、りょうりのだしじゅん、きちんとくんでおいたんですよ。なにをいくつ、どのじゅんでだすか、いちまいずつカードにして。",
-              "english": "Everyone, good evening. Since tonight's the map celebration, I put the serving together properly — what, how many, in what order, each on its own card."
+              "japanese": "みなさん、こんばんは。今夜は最初の道のお祝いなので、料理の出し順、きちんと組んでおいたんですよ。何をいくつ、どの順で出すか、一枚ずつカードにして。",
+              "reading": "みなさん、こんばんは。こんやはさいしょのみちのおいわいなので、りょうりのだしじゅん、きちんとくんでおいたんですよ。なにをいくつ、どのじゅんでだすか、いちまいずつカードにして。",
+              "english": "Everyone, good evening. Since tonight celebrates the first route, I put the serving order together — what, how many, and when, each on its own card."
             },
             "n2": {
-              "japanese": "みなさん、こんばんは。今夜は地図の完成祝いということで、料理を出す段取りを一通り決めておきました。何をいくつ、どの順番で運ぶか、カードに書き出して。",
-              "reading": "みなさん、こんばんは。こんやはちずのかんせいいわいということで、りょうりをだすだんどりをひととおりきめておきました。なにをいくつ、どのじゅんばんではこぶか、カードにかきだして。",
-              "english": "Everyone, good evening. Tonight being the celebration of the finished map, I set out the whole serving procedure — what, how many, in what order to carry, written out on cards."
+              "japanese": "みなさん、こんばんは。今夜は地図に最初の道ができたお祝いということで、料理を出す段取りを一通り決めておきました。何をいくつ、どの順番で運ぶか、カードに書き出して。",
+              "reading": "みなさん、こんばんは。こんやはちずにさいしょのみちができたおいわいということで、りょうりをだすだんどりをひととおりきめておきました。なにをいくつ、どのじゅんばんではこぶか、カードにかきだして。",
+              "english": "Everyone, good evening. Tonight celebrates the first route appearing on the map, so I set out the serving procedure — what, how many, and in what order, all on cards."
             },
             "n1": {
-              "japanese": "みなさん、こんばんは。今夜は地図の完成祝いですから、料理を出す手順を、ひととおり組み立てておいたんです。何をいくつ、どういう順で運ぶか、一枚ずつカードにしてね。",
-              "reading": "みなさん、こんばんは。こんやはちずのかんせいいわいですから、りょうりをだすてじゅんを、ひととおりくみたてておいたんです。なにをいくつ、どういうじゅんではこぶか、いちまいずつカードにしてね。",
-              "english": "Everyone, good evening. Since tonight celebrates the finished map, I'd assembled the whole serving procedure — what, how many, in what order to carry, each on its own card."
+              "japanese": "みなさん、こんばんは。今夜は地図に最初の道ができたお祝いですから、料理を出す手順を、ひととおり組み立てておいたんです。何をいくつ、どういう順で運ぶか、一枚ずつカードにしてね。",
+              "reading": "みなさん、こんばんは。こんやはちずにさいしょのみちができたおいわいですから、りょうりをだすてじゅんを、ひととおりくみたてておいたんです。なにをいくつ、どういうじゅんではこぶか、いちまいずつカードにしてね。",
+              "english": "Everyone, good evening. Tonight celebrates the first route appearing on the map, so I'd assembled the serving procedure — what, how many, and in what order, each on its own card."
             }
           },
           "support": {
@@ -365,38 +365,38 @@
           "id": "line:vanishing-course:jenny-one-route-lit",
           "beatId": "beat:vanishing-course:repair",
           "speakerId": "jenny",
-          "intent": "Name the first ensemble save honestly: one short route restored together, not the whole atlas — and that is enough to have begun.",
+          "intent": "Notice the one route and ask the room what to send next, leaving the shared recovery visible in the dish that made it around the table.",
           "attentionTarget": "the single lit route point and the class around the table",
           "variants": {
             "foundation": {
-              "japanese": "見てください。地図の道が、一つだけ光りました。ぜんぶじゃありません。でも、一人じゃなくて、みんなでできました。今日は、これで十分です。",
-              "reading": "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶじゃありません。でも、ひとりじゃなくて、みんなでできました。きょうは、これでじゅうぶんです。",
-              "english": "Look. Just one route on the map lit up. Not all of it. But we did it together, not alone. For today, this is enough."
+              "japanese": "見てください。道が一つ、光りました。ほかはまだです。でも、スープはみんなに届きました。次は、何にしますか。",
+              "reading": "みてください。みちがひとつ、ひかりました。ほかはまだです。でも、スープはみんなにとどきました。つぎは、なににしますか。",
+              "english": "Look. One route lit up. The others haven't yet. But the soup reached everyone. What shall we send next?"
             },
             "n5": {
-              "japanese": "見てください。地図の道が、一つだけ光りました。全部は、まだです。でも、わたし一人じゃなくて、みんなで戻せた。今日はこれで、十分です。",
-              "reading": "みてください。ちずのみちが、ひとつだけひかりました。ぜんぶは、まだです。でも、わたしひとりじゃなくて、みんなでもどせた。きょうはこれで、じゅうぶんです。",
-              "english": "Look. Just one route on the map lit up. All of it — not yet. But we got it back together, not just me alone. For today, this is enough."
+              "japanese": "見てください。道が一つだけ光りました。全部は、まだです。でも、スープはみんなで回せましたね。次は、どれにしましょうか。",
+              "reading": "みてください。みちがひとつだけひかりました。ぜんぶは、まだです。でも、スープはみんなでまわせましたね。つぎは、どれにしましょうか。",
+              "english": "Look. Just one route lit up. The whole map hasn't. But we got the soup around together. Which one shall we do next?"
             },
             "n4": {
-              "japanese": "あ、見て。地図の道が一つだけ、ちゃんと光りましたね。全部じゃない。一皿だけ。…でも、わたし一人じゃなくて、みんなで戻せたんです。今日はそれで十分。",
-              "reading": "あ、みて。ちずのみちがひとつだけ、ちゃんとひかりましたね。ぜんぶじゃない。ひとさらだけ。…でも、わたしひとりじゃなくて、みんなでもどせたんです。きょうはそれでじゅうぶん。",
-              "english": "Oh, look. Just one route on the map lit up properly. Not all of it. Just one dish. …But we got it back together, not me alone. For today that's enough."
+              "japanese": "あ、見て。道が一つだけ、ちゃんと光りましたね。全部じゃないけど、この一皿はみんなで回せた。次、どれからいきましょうか。",
+              "reading": "あ、みて。みちがひとつだけ、ちゃんとひかりましたね。ぜんぶじゃないけど、このひとさらはみんなでまわせた。つぎ、どれからいきましょうか。",
+              "english": "Oh, look. One route lit up properly. Not the whole map, but we got this dish around together. Which one next?"
             },
             "n3": {
-              "japanese": "見てください。道が一つだけ、灯りましたよ。地図全部じゃない、たった一皿分。…でも、それを一人でじゃなくて、みんなで戻せたんです。今夜は、それで十分だと思います。",
-              "reading": "みてください。みちがひとつだけ、ともりましたよ。ちずぜんぶじゃない、たったひとさらぶん。…でも、それをひとりでじゃなくて、みんなでもどせたんです。こんやは、それでじゅうぶんだとおもいます。",
-              "english": "Look. Just one route lit up. Not the whole map — only one dish's worth. …But we got that back together, not alone. For tonight, I think that's enough."
+              "japanese": "見てください。道が一つだけ、灯りましたよ。地図全部じゃない。でも、この一皿はみんなの手で一周した。さて、次はどれを回しましょうか。",
+              "reading": "みてください。みちがひとつだけ、ともりましたよ。ちずぜんぶじゃない。でも、このひとさらはみんなのてでいっしゅうした。さて、つぎはどれをまわしましょうか。",
+              "english": "Look. One route lit up. Not the whole map. But this dish made a full circuit through everyone's hands. So, which one goes around next?"
             },
             "n2": {
-              "japanese": "見てください、道が一つだけ灯りました。地図全部が戻ったわけじゃない、ほんの一皿分の短い道です。…でも、それを私一人でじゃなく、みんなで戻せた。今夜はそれで、十分すぎるくらいです。",
-              "reading": "みてください、みちがひとつだけともりました。ちずぜんぶがもどったわけじゃない、ほんのひとさらぶんのみじかいみちです。…でも、それをわたしひとりでじゃなく、みんなでもどせた。こんやはそれで、じゅうぶんすぎるくらいです。",
-              "english": "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a short route. …But we got it back together, not me alone. For tonight, that's more than enough."
+              "japanese": "見てください、道が一つだけ灯りました。地図全部じゃない。でも、この一皿はみんなの手で一周した。次は、どれから回しましょう。",
+              "reading": "みてください、みちがひとつだけともりました。ちずぜんぶじゃない。でも、このひとさらはみんなのてでいっしゅうした。つぎは、どれからまわしましょう。",
+              "english": "Look — one route lit up. Not the whole map. But this dish made a full circuit through everyone's hands. Which one shall we send next?"
             },
             "n1": {
-              "japanese": "見てください、道が一つだけ灯りましたね。地図がまるごと戻ったわけじゃない、ほんの一皿分の、ごく短い道です。…でも、それを私が一人で抱えてじゃなく、みんなで戻せた。今夜のところは、それで十分すぎるくらいですよ。",
-              "reading": "みてください、みちがひとつだけともりましたね。ちずがまるごともどったわけじゃない、ほんのひとさらぶんの、ごくみじかいみちです。…でも、それをわたしがひとりでかかえてじゃなく、みんなでもどせた。こんやのところは、それでじゅうぶんすぎるくらいですよ。",
-              "english": "Look — just one route lit up. Not that the whole map came back; only one dish's worth, a very short route. …But we got it back, not with me carrying it alone but all of us together. For tonight, that's more than enough."
+              "japanese": "見てください、道が一つだけ灯りましたね。地図全部じゃない。でも、この一皿はみんなの手を渡って一周した。では、次はどれから回しましょうか。",
+              "reading": "みてください、みちがひとつだけともりましたね。ちずぜんぶじゃない。でも、このひとさらはみんなのてをわたっていっしゅうした。では、つぎはどれからまわしましょうか。",
+              "english": "Look — one route lit up. Not the whole map. But this dish went hand to hand all the way around. Now, which one shall we send next?"
             }
           },
           "support": {
@@ -410,7 +410,7 @@
           "id": "node:vanishing-course:route-holds-map-open",
           "beatId": "beat:vanishing-course:exit-image",
           "cueId": "cue:one-point-lit-atlas-still-open",
-          "description": "The one course has gone all the way round the table. The single lit route holds on the atlas; the rest of the map is still blank — no longer a problem for Jenny to solve alone. The half-finished scarf rests in her lap, one stitch quietly picked back up."
+          "description": "The one course has gone all the way round the table. The single lit route holds on the atlas; the rest of the map is still blank. The serving cards now lie within everyone's reach. In Jenny's lap, one stitch returns to the half-finished scarf."
         }
       ],
       "exit": {

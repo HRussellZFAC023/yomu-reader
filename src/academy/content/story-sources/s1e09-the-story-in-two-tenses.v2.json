@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e09-the-story-in-two-tenses",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 1,
   "chapter": 9,
@@ -449,38 +449,38 @@
           "id": "line:two-tenses:jodi-plural-memory",
           "beatId": "beat:two-tenses:repair",
           "speakerId": "jodi",
-          "intent": "Reframe the two captions as two true sentences about one place, and name plural memory as a finished form rather than a contradiction to fix.",
+          "intent": "Keep both captions and place one remembered detail in the past line and one visible detail in the present line.",
           "attentionTarget": "the two captions held together",
           "variants": {
             "foundation": {
-              "japanese": "ありがとう。ね、一つの本当の話に、決めなくていいんです。『昔は』と『今は』。一つの場所の、二つの文。どちらも本当。記憶は、二つのままでいいんです。",
-              "reading": "ありがとう。ね、ひとつのほんとうのはなしに、きめなくていいんです。『むかしは』と『いまは』。ひとつのばしょの、ふたつのぶん。どちらもほんとう。きおくは、ふたつのままでいいんです。",
-              "english": "Thank you. You see — you don't have to settle on one true story. \"Long ago\" and \"now.\" Two sentences about one place. Both true. A memory can stay two."
+              "japanese": "ありがとう。では、二つともここに置きます。パンの匂いは、昔の文に。今のお店は、今の文に。",
+              "reading": "ありがとう。では、ふたつともここにおきます。パンのにおいは、むかしのぶんに。いまのおみせは、いまのぶんに。",
+              "english": "Thank you. Then both stay here. The smell of bread goes in the past sentence. Today's shop goes in the present one."
             },
             "n5": {
-              "japanese": "ありがとう。ね、一つの正しい話に決めなくていいんです。『昔は』と『今は』。同じ場所の、二つの文。どちらも本当です。記憶は、二つのままでいいんですよ。",
-              "reading": "ありがとう。ね、ひとつのただしいはなしにきめなくていいんです。『むかしは』と『いまは』。おなじばしょの、ふたつのぶん。どちらもほんとうです。きおくは、ふたつのままでいいんですよ。",
-              "english": "Thank you. You see — you don't have to settle on one correct story. \"Long ago\" and \"now.\" Two sentences about the same place. Both true. A memory can stay two."
+              "japanese": "ありがとう。じゃあ、二つともここに置きますね。パンの匂いは昔のほうへ。今のお店は、今のほうへ。",
+              "reading": "ありがとう。じゃあ、ふたつともここにおきますね。パンのにおいはむかしのほうへ。いまのおみせは、いまのほうへ。",
+              "english": "Thank you. Then both stay here. The smell of bread goes with the past. Today's shop goes with the present."
             },
             "n4": {
-              "japanese": "ありがとう。ね、一つの正しい話に決めなくていいの。『昔は』と『今は』。同じ場所のことなのに、二つ文がある。どっちも本当。記憶って、二つのままでいいんですよ。",
-              "reading": "ありがとう。ね、ひとつのただしいはなしにきめなくていいの。『むかしは』と『いまは』。おなじばしょのことなのに、ふたつぶんがある。どっちもほんとう。きおくって、ふたつのままでいいんですよ。",
-              "english": "Thank you. You see — you don't have to settle on one correct story. \"Long ago\" and \"now.\" It's the same place, and yet there are two sentences. Both true. A memory can just stay two, you know."
+              "japanese": "ありがとう。じゃ、二枚ともここに。パンの匂いは昔のほう。コンビニの明かりは今のほう。どっちも、この角ですものね。",
+              "reading": "ありがとう。じゃ、にまいともここに。パンのにおいはむかしのほう。コンビニのあかりはいまのほう。どっちも、このかどですものね。",
+              "english": "Thank you. Then both slips stay here. The smell of bread with the past; the convenience-store light with the present. Same corner, after all."
             },
             "n3": {
-              "japanese": "ありがとうね。ね、一つの正しい話に、まとめなくていいのよ。『昔は』と『今は』。同じ一つの場所なのに、文が二つある。でも、どっちも本当。記憶はね、二つのままでいいの。",
-              "reading": "ありがとうね。ね、ひとつのただしいはなしに、まとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょなのに、ぶんがふたつある。でも、どっちもほんとう。きおくはね、ふたつのままでいいの。",
-              "english": "Thank you. You see — you don't have to gather it up into one correct story. \"Long ago\" and \"now.\" One and the same place, and yet two sentences. But both are true. A memory, you know, can just stay two."
+              "japanese": "ありがとうね。じゃあ、二枚ともここに置きましょう。パンの匂いは昔のほうへ、コンビニの明かりは今のほうへ。どちらも、この角の話だから。",
+              "reading": "ありがとうね。じゃあ、にまいともここにおきましょう。パンのにおいはむかしのほうへ、コンビニのあかりはいまのほうへ。どちらも、このかどのはなしだから。",
+              "english": "Thank you. Then both slips stay here. The smell of bread goes with the past; the convenience-store light with the present. They both belong to this corner."
             },
             "n2": {
-              "japanese": "ありがとうね。ね、無理に一つの正しい話にまとめなくていいのよ。『昔は』と『今は』。同じ一つの場所の話なのに、文が二つ立つ。でも、どちらも本当でね。記憶って、二つのまま抱えておいていいんですよ。",
-              "reading": "ありがとうね。ね、むりにひとつのただしいはなしにまとめなくていいのよ。『むかしは』と『いまは』。おなじひとつのばしょのはなしなのに、ぶんがふたつたつ。でも、どちらもほんとうでね。きおくって、ふたつのままかかえておいていいんですよ。",
-              "english": "Thank you. You see — you don't have to force it together into one correct story. \"Long ago\" and \"now.\" It's about one and the same place, and yet two sentences stand. But both are true. A memory, you can just carry it as two, you know."
+              "japanese": "ありがとうね。じゃあ、二枚ともここに残しましょう。パンの匂いは昔のほうへ、コンビニの白い明かりは今のほうへ。同じ角に、両方置けますものね。",
+              "reading": "ありがとうね。じゃあ、にまいともここにのこしましょう。パンのにおいはむかしのほうへ、コンビニのしろいあかりはいまのほうへ。おなじかどに、りょうほうおけますものね。",
+              "english": "Thank you. Then both slips stay. The smell of bread goes with the past; the convenience store's white light with the present. There's room for both at the same corner."
             },
             "n1": {
-              "japanese": "ありがとうね。ね、無理に一つの正しい話にまとめてしまわなくていいの。『昔は』と『今は』。同じ一つの場所のことなのに、文が二つ立ってしまう。でも、そのどちらも本当でね。記憶っていうのは、二つのまま抱えておいてかまわないんですよ。",
-              "reading": "ありがとうね。ね、むりにひとつのただしいはなしにまとめてしまわなくていいの。『むかしは』と『いまは』。おなじひとつのばしょのことなのに、ぶんがふたつたってしまう。でも、そのどちらもほんとうでね。きおくっていうのは、ふたつのままかかえておいてかまわないんですよ。",
-              "english": "Thank you. You see — there's no need to force it all together into one correct story. \"Long ago\" and \"now.\" It's about one and the same place, and yet two sentences end up standing. But both of them are true. A memory, really, is something you're free to carry as two."
+              "japanese": "ありがとうね。じゃあ、二枚ともここに残しましょうか。パンの匂いは昔のほうへ、コンビニの白い明かりは今のほうへ。同じ角なら、両方置いておけますものね。",
+              "reading": "ありがとうね。じゃあ、にまいともここにのこしましょうか。パンのにおいはむかしのほうへ、コンビニのしろいあかりはいまのほうへ。おなじかどなら、りょうほうおいておけますものね。",
+              "english": "Thank you. Then shall we leave both slips here? The smell of bread goes with the past; the convenience store's white light with the present. The same corner can hold both."
             }
           },
           "support": {
@@ -494,38 +494,38 @@
           "id": "line:two-tenses:rose-long-view",
           "beatId": "beat:two-tenses:changed-action",
           "speakerId": "rose",
-          "intent": "Confirm from the concrete that both captions are literally true because the corner is genuinely half-there, then widen to the long view: the map, too, can hold several memories rather than one.",
-          "attentionTarget": "the corner in the photo, then the rebuilt map on the wall",
+          "intent": "Make a practical adjustment so both captions and the route beneath them remain readable.",
+          "attentionTarget": "the caption pins and the route line beneath the photo",
           "variants": {
             "foundation": {
-              "japanese": "なるほど。あの角は、本当に半分あって、半分ない。だから、二つとも本当です。この地図も同じです。一つの話じゃなくて、いくつも残せます。",
-              "reading": "なるほど。あのかどは、ほんとうにはんぶんあって、はんぶんない。だから、ふたつともほんとうです。このちずもおなじです。ひとつのはなしじゃなくて、いくつものこせます。",
-              "english": "That makes sense. That corner really is half-there and half-gone. So both captions are true. This map is the same. Not one story — we can keep several."
+              "japanese": "では、ピンを右にします。二つの文が読めます。下の道も、消えません。",
+              "reading": "では、ピンをみぎにします。ふたつのぶんがよめます。したのみちも、きえません。",
+              "english": "Then I'll move the pin to the right. We can read both sentences, and the route underneath stays visible."
             },
             "n5": {
-              "japanese": "なるほど。あの角、本当に半分は残って半分は消えてる。だから二つとも本当なんですよね。この地図も同じです。一つの話に決めないで、いくつも残せます。",
-              "reading": "なるほど。あのかど、ほんとうにはんぶんはのこってはんぶんはきえてる。だからふたつともほんとうなんですよね。このちずもおなじです。ひとつのはなしにきめないで、いくつものこせます。",
-              "english": "That makes sense. That corner really is half-standing and half-gone. So both captions are true. This map's the same. Instead of settling on one story, we can keep several."
+              "japanese": "じゃあ、ピンを少し右へ。これなら二つの文が読めて、下の道も消えません。",
+              "reading": "じゃあ、ピンをすこしみぎへ。これならふたつのぶんがよめて、したのみちもきえません。",
+              "english": "Then the pin moves a little to the right. Now both sentences are readable, and the route underneath doesn't disappear."
             },
             "n4": {
-              "japanese": "なるほどね。あの角、実際に半分は残ってて半分は消えてる。だから、二つとも本当なんですよ。この地図も同じで。一つの話に決めないで、いくつも並べて残せる。",
-              "reading": "なるほどね。あのかど、じっさいにはんぶんはのこっててはんぶんはきえてる。だから、ふたつともほんとうなんですよ。このちずもおなじで。ひとつのはなしにきめないで、いくつもならべてのこせる。",
-              "english": "That makes sense. That corner actually is half-standing and half-gone. So both captions are true. This map is the same — instead of settling on one story, it can keep several lined up."
+              "japanese": "じゃあ、写真を少し右にずらしましょう。二枚とも読めるし、下の道も隠れない。ここなら大丈夫です。",
+              "reading": "じゃあ、しゃしんをすこしみぎにずらしましょう。にまいともよめるし、したのみちもかくれない。ここならだいじょうぶです。",
+              "english": "Then let's shift the photo slightly right. Both slips stay readable, and the route underneath isn't covered. Here works."
             },
             "n3": {
-              "japanese": "なるほどね。あの角、実際に半分は残ってて、半分は消えてるわけで。だから、二つとも文字どおり本当なんですよ。…この地図もそうなんです。一つの話に塗り替えないで、いくつも並べて残せる。",
-              "reading": "なるほどね。あのかど、じっさいにはんぶんはのこってて、はんぶんはきえてるわけで。だから、ふたつとももじどおりほんとうなんですよ。…このちずもそうなんです。ひとつのはなしにぬりかえないで、いくつもならべてのこせる。",
-              "english": "That makes sense. That corner actually is half-standing and half-gone. So both captions are literally true. …This map's like that too. Rather than repainting it into one story, it can keep several side by side."
+              "japanese": "じゃあ、写真を二センチだけ右へ。二枚とも読めるし、下の道も隠れない。…うん、ここなら残せます。",
+              "reading": "じゃあ、しゃしんをにセンチだけみぎへ。にまいともよめるし、したのみちもかくれない。…うん、ここならのこせます。",
+              "english": "Then the photo moves just two centimetres right. Both slips stay readable, and the route underneath isn't covered. …Yes, we can keep it here."
             },
             "n2": {
-              "japanese": "なるほどね。あの角、現に半分は残ってて、半分は消えてるんですから。だから、二つとも文字どおり本当なんですよ。…考えてみれば、この地図も同じでね。一つの話に上書きせずに、いくつもの記憶を並べたまま残せる。",
-              "reading": "なるほどね。あのかど、げんにはんぶんはのこってて、はんぶんはきえてるんですから。だから、ふたつとももじどおりほんとうなんですよ。…かんがえてみれば、このちずもおなじでね。ひとつのはなしにうわがきせずに、いくつものきおくをならべたままのこせる。",
-              "english": "That makes sense. That corner is, in fact, half-standing and half-gone. So both captions are literally true. …Come to think of it, this map is the same. Rather than overwriting it into one story, it can hold several memories side by side."
+              "japanese": "では、写真を二センチほど右へずらしましょう。二枚とも読めるし、下の道筋も隠れない。…ここなら、どちらも傷めずに残せます。",
+              "reading": "では、しゃしんをにセンチほどみぎへずらしましょう。にまいともよめるし、したのみちすじもかくれない。…ここなら、どちらもいためずにのこせます。",
+              "english": "Then let's shift the photo about two centimetres right. Both slips remain readable, and the route underneath stays visible. …Here we can keep both without damaging either."
             },
             "n1": {
-              "japanese": "なるほどね。あの角、現に半分は残って、半分は消えてるわけですからね。だとしたら、二つとも文字どおり本当ってことになる。…長い目で見れば、この地図だって同じなんですよ。一つの話に上書きしてしまわずに、いくつもの記憶を並べたまま抱えておける。",
-              "reading": "なるほどね。あのかど、げんにはんぶんはのこって、はんぶんはきえてるわけですからね。だとしたら、ふたつとももじどおりほんとうってことになる。…ながいめでみれば、このちずだっておなじなんですよ。ひとつのはなしにうわがきしてしまわずに、いくつものきおくをならべたままかかえておける。",
-              "english": "That makes sense. That corner is, in plain fact, half-standing and half-gone. Which means both captions come out literally true. …Taking the long view, this map is no different, really. Rather than overwriting it into one story, it can hold several memories side by side."
+              "japanese": "では、写真を二センチほど右へずらしましょうか。二枚とも読めるうえ、下の道筋も隠れない。…ここなら、どちらにも手を入れず、そのまま残せます。",
+              "reading": "では、しゃしんをにセンチほどみぎへずらしましょうか。にまいともよめるうえ、したのみちすじもかくれない。…ここなら、どちらにもてをいれず、そのままのこせます。",
+              "english": "Then shall we shift the photo about two centimetres right? Both slips remain readable, and the route underneath stays visible. …Here we can preserve both exactly as they are."
             }
           },
           "support": {
@@ -539,7 +539,7 @@
           "id": "node:two-tenses:photo-on-the-map",
           "beatId": "beat:two-tenses:exit-image",
           "cueId": "cue:photo-pinned-two-captions-kept",
-          "description": "The photo is pinned to the rebuilt map with both captions kept beneath it. On the wall around it, other layered captions sit side by side, none of them crossed out. The corner stays half-there, and the evening ends without one tense being made to win."
+          "description": "The photo is pinned to the working atlas with both captions beneath it, shifted just far enough that the route line remains visible. Bread smell belongs to the past slip; the convenience-store light belongs to the present one. Neither is crossed out."
         }
       ],
       "exit": {

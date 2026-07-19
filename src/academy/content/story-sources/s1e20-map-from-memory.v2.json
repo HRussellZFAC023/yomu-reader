@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e20-map-from-memory",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 2,
   "chapter": 20,
@@ -482,33 +482,33 @@
           "id": "line:map-from-memory:rose-not-one-copy",
           "beatId": "beat:map-from-memory:repair",
           "speakerId": "rose",
-          "intent": "Reframe the map as a record of many walkers kept countable, not a single correct copy restored; state that plural is the more accurate version.",
-          "attentionTarget": "the numbered row of accounts, then the room",
+          "intent": "Read what the worn paper actually supports, then keep the disputed stretch plural because the material cannot choose among the accounts.",
+          "attentionTarget": "the shared fold-mark, the three middle routes, and their common last shop",
           "variants": {
             "n5": {
-              "japanese": "そうですね。この地図は、一つの正しい道じゃない。何人もが歩いて、おぼえた道です。全部、数に入れておきましょう。",
-              "reading": "そうですね。このちずは、ひとつのただしいみちじゃない。なんにんもがあるいて、おぼえたみちです。ぜんぶ、かずにいれておきましょう。",
-              "english": "That's right. This map isn't one correct road. It's a road that many people walked and remembered. Let's keep them all in the count."
+              "japanese": "三つとも、この紙の線から始まっていますね。ちがうのは、まん中だけ。一本にしないで、三つとも残しましょう。",
+              "reading": "みっつとも、このかみのせんからはじまっていますね。ちがうのは、まんなかだけ。いっぽんにしないで、みっつとものこしましょう。",
+              "english": "All three start at this line in the paper. Only the middle is different. Let's keep all three instead of making one line."
             },
             "n4": {
-              "japanese": "そうですね。この地図は、一本の正しい道を直したものじゃないんです。何人もが歩いて、それぞれに覚えてた道。だから、全部、数に入れて残しておく。それでいいと思います。",
-              "reading": "そうですね。このちずは、いっぽんのただしいみちをなおしたものじゃないんです。なんにんもがあるいて、それぞれにおぼえてたみち。だから、ぜんぶ、かずにいれてのこしておく。それでいいとおもいます。",
-              "english": "That's right. This map isn't one correct road we fixed. It's a road many people walked and each remembered their own way. So we keep them all, counted. I think that's how it should be."
+              "japanese": "三つとも、この古い折り目から始まってる。違うのは途中だけですね。なら、そこは三通りのまま残しましょう。",
+              "reading": "みっつとも、このふるいおりめからはじまってる。ちがうのはとちゅうだけですね。なら、そこはさんとおりのままのこしましょう。",
+              "english": "All three start at this old fold-mark. It's only the middle that differs. Then let's keep that stretch in all three versions."
             },
             "n3": {
-              "japanese": "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれに覚えていた道の集まりで。だったら、どれも消さずに、全部数に入れて残しておけばいい。そのほうが、たぶん正確なんです。",
-              "reading": "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれにおぼえていたみちのあつまりで。だったら、どれもけさずに、ぜんぶかずにいれてのこしておけばいい。そのほうが、たぶんせいかくなんです。",
-              "english": "That's right. This map isn't the restoration of one correct road. It's a gathering of roads that many people walked and each remembered. So we erase none of them, keep them all counted. That's probably the more accurate version, actually."
+              "japanese": "三つとも、この折り目から始まって、最後は同じ店に戻ってくる。違うのは途中だけ。そこを一本に直す理由はなさそうですね。三通りのまま残しましょう。",
+              "reading": "みっつとも、このおりめからはじまって、さいごはおなじみせにもどってくる。ちがうのはとちゅうだけ。そこをいっぽんになおすりゆうはなさそうですね。さんとおりのままのこしましょう。",
+              "english": "All three start at this fold and return to the same shop at the end. Only the middle differs. I don't see a reason to force that into one line. Let's keep the three versions."
             },
             "n2": {
-              "japanese": "そうですね。この地図は、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれの覚え方をした道の集まりなんです。だったら、どれも消さずに、全部を数に入れて残しておけばいい。そのほうが、記録としてはむしろ正確なんだと思います。",
-              "reading": "そうですね。このちずは、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのおぼえかたをしたみちのあつまりなんです。だったら、どれもけさずに、ぜんぶをかずにいれてのこしておけばいい。そのほうが、きろくとしてはむしろせいかくなんだとおもいます。",
-              "english": "That's right. This map isn't a restored single correct road. It's a gathering of roads that many people walked and each remembered their own way. So we erase none of them and keep them all counted. As a record, that's actually the more accurate one, I think."
+              "japanese": "紙が裏付けているのは、三つともこの折り目から始まり、同じ店へ戻ること。食い違うのは途中だけです。そこまで一本に整える根拠はありません。三通りのまま残しましょう。",
+              "reading": "かみがうらづけているのは、みっつともこのおりめからはじまり、おなじみせへもどること。くいちがうのはとちゅうだけです。そこまでいっぽんにととのえるこんきょはありません。さんとおりのままのこしましょう。",
+              "english": "The paper supports this much: all three start at this fold and return to the same shop. Only the middle conflicts. We have no basis for tidying that into one line. Let's keep the three versions."
             },
             "n1": {
-              "japanese": "そうですね。この地図って、正しい一本を復元したものじゃないんですよ。何人もが歩いて、それぞれのやり方で覚えていた道の、その集まりなんです。だったら、どれか一つに直すより、全部を数に入れて、並べたまま残しておくほうがいい。そのほうが、記録としてはかえって正確なんだと思います。一本にした瞬間に、こぼれるものがあるので。",
-              "reading": "そうですね。このちずって、ただしいいっぽんをふくげんしたものじゃないんですよ。なんにんもがあるいて、それぞれのやりかたでおぼえていたみちの、そのあつまりなんです。だったら、どれかひとつになおすより、ぜんぶをかずにいれて、ならべたままのこしておくほうがいい。そのほうが、きろくとしてはかえってせいかくなんだとおもいます。いっぽんにしたしゅんかんに、こぼれるものがあるので。",
-              "english": "That's right. This map isn't the restoration of one correct road. It's the gathering of roads that many people walked and remembered in their own ways. So rather than fixing it to one, it's better to keep them all counted and laid side by side. As a record, that's the more accurate version, I think. The moment you make it one line, something spills out."
+              "japanese": "紙から確かめられるのは、三つともこの折り目から始まり、最後は同じ店へ戻ることまで。食い違っているのは途中だけです。そこまで一本に整えるだけの根拠は、ここにはない。三通りのまま残しましょう。",
+              "reading": "かみからたしかめられるのは、みっつともこのおりめからはじまり、さいごはおなじみせへもどることまで。くいちがっているのはとちゅうだけです。そこまでいっぽんにととのえるだけのこんきょは、ここにはない。さんとおりのままのこしましょう。",
+              "english": "From the paper, we can verify only this much: all three start at this fold and return to the same shop. The middle is where they conflict. Nothing here gives us grounds to tidy that into one line. Let's keep the three versions."
             }
           },
           "support": {
@@ -532,22 +532,22 @@
             },
             "n4": {
               "japanese": "じゃあ、書きますね。橋、市場。そこから川までは「三通りの記憶」。そのあと、あかりの店。これで、一本も消さずに全部入りました。",
-              "reading": "じゃあ、かきますね。はし、いちば。そこからかわまでは「みとおりのきおく」。そのあと、あかりのみせ。これで、いっぽんもけさずにぜんぶはいりました。",
+              "reading": "じゃあ、かきますね。はし、いちば。そこからかわまでは「さんとおりのきおく」。そのあと、あかりのみせ。これで、いっぽんもけさずにぜんぶはいりました。",
               "english": "Okay, I'll write it. Bridge, market. From there to the river, \"three versions of the memory.\" After that, the lantern shop. There — all in, without erasing a single one."
             },
             "n3": {
               "japanese": "じゃあ、順番に書いていきますね。橋、市場。そこから川までの区間は「三通りの記憶」として。そのあとが、あかりの店。これで、どれも消さずに全部おさまりました。",
-              "reading": "じゃあ、じゅんばんにかいていきますね。はし、いちば。そこからかわまでのくかんは「みとおりのきおく」として。そのあとが、あかりのみせ。これで、どれもけさずにぜんぶおさまりました。",
+              "reading": "じゃあ、じゅんばんにかいていきますね。はし、いちば。そこからかわまでのくかんは「さんとおりのきおく」として。そのあとが、あかりのみせ。これで、どれもけさずにぜんぶおさまりました。",
               "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river as \"three versions of the memory.\" After that, the lantern shop. There — all of it fits, without erasing any."
             },
             "n2": {
               "japanese": "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と。そのあとに、あかりの店。これで、一本も削らずに全部おさまりました。",
-              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」と。そのあとに、あかりのみせ。これで、いっぽんもけずらずにぜんぶおさまりました。",
+              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「さんとおりにきおくされている」と。そのあとに、あかりのみせ。これで、いっぽんもけずらずにぜんぶおさまりました。",
               "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river as \"remembered three ways.\" After that, the lantern shop. There — it all fits, without shaving off a single one."
             },
             "n1": {
               "japanese": "じゃあ、順に書き込んでいきますね。橋、市場。そこから川までの区間は「三通りに記憶されている」と添えて。そのあとが、あかりの店。これで、一本も削らずに、ぜんぶそのままおさまりました。まあ、順番としては、いつもより一行ぶん長いだけです。",
-              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「みとおりにきおくされている」とそえて。そのあとが、あかりのみせ。これで、いっぽんもけずらずに、ぜんぶそのままおさまりました。まあ、じゅんばんとしては、いつもよりいちぎょうぶんながいだけです。",
+              "reading": "じゃあ、じゅんにかきこんでいきますね。はし、いちば。そこからかわまでのくかんは「さんとおりにきおくされている」とそえて。そのあとが、あかりのみせ。これで、いっぽんもけずらずに、ぜんぶそのままおさまりました。まあ、じゅんばんとしては、いつもよりいちぎょうぶんながいだけです。",
               "english": "Okay, I'll write it in order. Bridge, market. The stretch from there to the river with \"remembered three ways\" added. After that, the lantern shop. There — not one shaved off, all of it fits as is. Well — as a sequence, it's just one line longer than usual."
             }
           },

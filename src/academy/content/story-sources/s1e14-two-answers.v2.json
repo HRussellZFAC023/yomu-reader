@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e14-two-answers",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 2,
   "chapter": 14,
@@ -325,7 +325,7 @@
           "id": "node:two-answers:open-notebook",
           "beatId": "beat:two-answers:regroup-image",
           "cueId": "cue:number-notebook-open-page",
-          "description": "The small notebook lies open between Sophie and Rose. It is ruled into two columns: one headed for a claim, one headed for the context it was counted in. The claim column is still empty."
+          "description": "The small notebook lies open between Sophie and Rose. It is ruled into two columns: one headed for a claim, one headed for the context it was counted in. Sophie uncaps a blue pen and a green one; the claim column is still empty."
         },
         {
           "kind": "line",
@@ -393,11 +393,11 @@
               "id": "option:two-answers:anchor-observation",
               "action": "Write Rose's counted hour as the observed fact, and keep the per-hour reading beside it as a possibility.",
               "japaneseByBand": {
-                "n5": "Roseさんが見たのは「で」の場面ですね。それを書いて、「に」は「かもしれない」で残します。",
-                "n4": "Roseさんが実際に見たのは「で」の場面ですよね。それを事実として書いて、「に」は可能性として横に残しましょう。",
-                "n3": "Roseさんが実際に見たのは「で」のほうですよね。それを観察した事実として書いて、「に」は「その可能性もある」って添えておきましょう。",
-                "n2": "Roseさんが実際に見たのは「で」の場面ですよね。まずそれを観察された事実として記録して、「に」のほうは可能性として脇に残しておきましょう。",
-                "n1": "Roseさんが実際に目にしたのは「で」の場面のほうですよね。ならまずそれを、観察された事実として記録して、「に」のほうは残る可能性として脇に添えておきましょう。"
+                "n5": "ローズさんが見たのは「で」の場面ですね。それを書いて、「に」は「かもしれない」で残します。",
+                "n4": "ローズさんが実際に見たのは「で」の場面ですよね。それを事実として書いて、「に」は可能性として横に残しましょう。",
+                "n3": "ローズさんが実際に見たのは「で」のほうですよね。それを観察した事実として書いて、「に」は「その可能性もある」って添えておきましょう。",
+                "n2": "ローズさんが実際に見たのは「で」の場面ですよね。まずそれを観察された事実として記録して、「に」のほうは可能性として脇に残しておきましょう。",
+                "n1": "ローズさんが実際に目にしたのは「で」の場面のほうですよね。ならまずそれを、観察された事実として記録して、「に」のほうは残る可能性として脇に添えておきましょう。"
               },
               "records": [
                 "stance",
@@ -539,7 +539,7 @@
           "id": "node:two-answers:atlas-keeps-both",
           "beatId": "beat:two-answers:exit-image",
           "cueId": "cue:caption-marked-notebook-beside-it",
-          "description": "The caption keeps its open slot with a small mark pointing off the page. Beside the map the notebook stays open, the number three recorded twice, each under its own context. Nothing is crossed out."
+          "description": "The caption keeps its open slot with a small mark pointing off the page. Beside the map the notebook stays open, the number three recorded twice in blue and green, each under its own context. Nothing is crossed out."
         }
       ],
       "exit": {

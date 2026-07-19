@@ -1,7 +1,7 @@
 {
   "schema": "yomu-academy.story-package.v2",
   "id": "s1e24-lanterns-return",
-  "revision": "2026-07-18.1",
+  "revision": "2026-07-19.1",
   "canonicality": "canon",
   "season": 2,
   "chapter": 24,
@@ -9,7 +9,7 @@
     "en": "When the Lanterns Return",
     "ja": "灯がかえるとき"
   },
-  "synopsis": "The first lantern exhibition is minutes from opening and the final route stays dark no matter what the class adds to the machine. Mira, arriving in the last ten minutes, sees it is not a repair but a voice the route is missing; the class lights it by coordinating who reads what and when. As the map answers their timing, a caption the projection never displayed surfaces in the atlas backing, unnamed.",
+  "synopsis": "The first lantern exhibition is minutes from opening and the final route stays dark no matter what the class adds to the machine. Mira joins the shared call from a distance in the last ten minutes and sees that the route is missing a voice, not a repair; the class lights it by coordinating who reads what and when. As the map answers their timing, a caption the projection never displayed surfaces in the atlas backing, unnamed.",
   "sourceSafety": {
     "originalYomu": true,
     "externalDialogueUsed": false,
@@ -110,40 +110,40 @@
           "id": "node:lanterns-return:dark-final-route",
           "beatId": "beat:lanterns-return:arrival-image",
           "cueId": "cue:courtyard-atlas-one-route-dark",
-          "description": "The winter courtyard is strung for the exhibition. The lantern-atlas glows along every route but the last one, which stays black end to end. The class is packed around a projector cart at its base, feeding it cables."
+          "description": "The winter courtyard is strung for the exhibition. The lantern-atlas glows along every route but the last one, which stays black end to end. The class is packed around a projector cart at its base, feeding it cables. A phone propped against the cart has just connected to the shared call, its camera pointed at the dark route."
         },
         {
           "kind": "line",
           "id": "line:lanterns-return:mira-arrives",
           "beatId": "beat:lanterns-return:arrival",
           "speakerId": "mira",
-          "intent": "Arrive in the last ten minutes, greet quickly, and immediately name the plain facts she walks into: the last route is dark and everyone is crowded at the machine.",
-          "attentionTarget": "the one dark route, and the cluster of people at the cart rather than at the map",
+          "intent": "Join the shared call from a distance in the last ten minutes, greet quickly, and name the plain facts visible through the camera: the last route is dark and everyone is crowded at the machine.",
+          "attentionTarget": "the one dark route at the edge of the call's frame, and the cluster of people at the cart",
           "variants": {
             "n5": {
-              "japanese": "遅れてごめんなさい。やっと来ました。あれ、さいごの道、まだ暗いですね。みんな、機械のところに集まっていますね。",
-              "reading": "おくれてごめんなさい。やっときました。あれ、さいごのみち、まだくらいですね。みんな、きかいのところにあつまっていますね。",
-              "english": "Sorry I'm late — I finally made it. Huh, the last route's still dark. And everyone's clustered around the machine."
+              "japanese": "こんばんは。今、入りました。あれ、さいごの道、まだ暗いですね。みんな、機械のところに集まっていますね。",
+              "reading": "こんばんは。いま、はいりました。あれ、さいごのみち、まだくらいですね。みんな、きかいのところにあつまっていますね。",
+              "english": "Hi. I've just joined. Huh, the last route is still dark. And everyone's gathered around the machine."
             },
             "n4": {
-              "japanese": "遅くなってごめん。やっと着いた。……あれ、最後の道だけまだ点いてないんだ。で、みんなずっと機械のまわりに集まってるんだね。",
-              "reading": "おそくなってごめん。やっとついた。……あれ、さいごのみちだけまだついてないんだ。で、みんなずっときかいのまわりにあつまってるんだね。",
-              "english": "Sorry I'm late, I finally got here. …Huh, only the last route still isn't lit. And everyone's been huddled around the machine this whole time."
+              "japanese": "こんばんは。今、通話に入ったよ。……あれ、最後の道だけまだ点いてないんだ。で、カメラにずっと機械しか映ってないね。",
+              "reading": "こんばんは。いま、つうわにはいったよ。……あれ、さいごのみちだけまだついてないんだ。で、カメラにずっときかいしかうつってないね。",
+              "english": "Hi. I've just joined the call. …Huh, only the last route still isn't lit. And the camera has shown nothing but the machine this whole time."
             },
             "n3": {
-              "japanese": "ごめん、遅くなっちゃって。やっと着いたよ。……あれ、最後の道、まだ点いてないんだ。で、みんなさっきから機械の前に集まりっぱなしなんだね。",
-              "reading": "ごめん、おそくなっちゃって。やっとついたよ。……あれ、さいごのみち、まだついてないんだ。で、みんなさっきからきかいのまえにあつまりっぱなしなんだね。",
-              "english": "Sorry I'm so late — just got here. …Huh, the last route still isn't lit. And you've all been parked in front of the machine since a while ago, huh."
+              "japanese": "こんばんは、今入ったよ。……あれ、最後の道、まだ点いてないんだ。で、カメラに映ってるの、さっきから機械とみんなの背中ばっかりだね。",
+              "reading": "こんばんは、いまはいったよ。……あれ、さいごのみち、まだついてないんだ。で、カメラにうつってるの、さっきからきかいとみんなのせなかばっかりだね。",
+              "english": "Hi, I've just joined. …Huh, the last route still isn't lit. And all the camera has shown is the machine and everyone's backs."
             },
             "n2": {
-              "japanese": "ごめん、すっかり遅くなって。ようやく着いたよ。……あれ、最後の一本だけ、まだ点いてないんだ。で、さっきからみんな、機械の前に張りついたまま、と。",
-              "reading": "ごめん、すっかりおそくなって。ようやくついたよ。……あれ、さいごのいっぽんだけ、まだついてないんだ。で、さっきからみんな、きかいのまえにはりついたまま、と。",
-              "english": "Sorry, I'm properly late — finally made it. …Huh, just that last one still isn't lit. And everyone's been glued to the front of the machine this whole time, I see."
+              "japanese": "こんばんは、今ようやく通話に入れたよ。……あれ、最後の一本だけ、まだ点いてないんだ。で、画面に映るのは、機械とそこに張りついたみんなの背中ばかり、と。",
+              "reading": "こんばんは、いまようやくつうわにはいれたよ。……あれ、さいごのいっぽんだけ、まだついてないんだ。で、がめんにうつるのは、きかいとそこにはりついたみんなのせなかばかり、と。",
+              "english": "Hi, I've finally joined the call. …Huh, just that last route still isn't lit. And the screen shows the machine and everyone's backs glued to it."
             },
             "n1": {
-              "japanese": "ごめんね、すっかり遅くなっちゃって。ようやくたどり着いたよ。……あれ、最後の一本だけ、まだ点かないんだ。で、さっきからみんな揃って、機械の前に張りついたまんま、というわけね。",
-              "reading": "ごめんね、すっかりおそくなっちゃって。ようやくたどりついたよ。……あれ、さいごのいっぽんだけ、まだつかないんだ。で、さっきからみんなそろって、きかいのまえにはりついたまんま、というわけね。",
-              "english": "Sorry, I'm really late — finally found my way here. …Huh, just that last one still won't light. And everyone's gathered at the machine, glued there this whole time — that's the situation, is it."
+              "japanese": "こんばんは、ようやく通話に入れたよ。……あれ、最後の一本だけ、まだ点かないんだ。で、こっちの画面には、機械と、そこに張りついたみんなの背中ばっかり映ってる、と。",
+              "reading": "こんばんは、ようやくつうわにはいれたよ。……あれ、さいごのいっぽんだけ、まだつかないんだ。で、こっちのがめんには、きかいと、そこにはりついたみんなのせなかばっかりうつってる、と。",
+              "english": "Hi, I've finally joined the call. …Huh, just that last route still won't light. And on my screen I can see the machine and everyone's backs stuck to it."
             }
           },
           "support": {
@@ -157,33 +157,33 @@
           "id": "line:lanterns-return:robert-adds-fixes",
           "beatId": "beat:lanterns-return:human-want",
           "speakerId": "robert",
-          "intent": "Welcome Mira warmly, then, under the clock, keep stacking conditional fixes onto the machine instead of stopping.",
+          "intent": "Welcome Mira into the call, then, under the clock, keep stacking conditional fixes onto the machine instead of stopping.",
           "attentionTarget": "the dark route and every technical option he can still reach for",
           "variants": {
             "n5": {
-              "japanese": "ミラさん、ようこそ!あと十分で開きます。ケーブルを変えたら、点くかもしれません。だめなら、プロジェクターをもう一台。明るさも上げます。",
-              "reading": "ミラさん、ようこそ!あとじゅっぷんでひらきます。ケーブルをかえたら、つくかもしれません。だめなら、プロジェクターをもういちだい。あかるさもあげます。",
-              "english": "Mira, welcome! We open in ten minutes. If we change the cable, it might light. If not, another projector. I'll turn the brightness up too."
+              "japanese": "ミラさん、こんばんは!あと十分で開きます。ケーブルを変えたら、点くかもしれません。だめなら、プロジェクターをもう一台。明るさも上げます。",
+              "reading": "ミラさん、こんばんは!あとじゅっぷんでひらきます。ケーブルをかえたら、つくかもしれません。だめなら、プロジェクターをもういちだい。あかるさもあげます。",
+              "english": "Mira, hi! We open in ten minutes. If we change the cable, it might light. If not, another projector. I'll turn the brightness up too."
             },
             "n4": {
-              "japanese": "ミラさん、よく来てくれました!あと十分で開場なんです。ケーブルを替えたら点くかもしれないし、だめならプロジェクターをもう一台足して、明るさも上げれば、どれかで点くはずで……。",
-              "reading": "ミラさん、よくきてくれました!あとじゅっぷんでかいじょうなんです。ケーブルをかえたらつくかもしれないし、だめならプロジェクターをもういちだいたして、あかるさもあげれば、どれかでつくはずで……。",
-              "english": "Mira, so glad you came! We open in ten minutes. If we swap the cable it might light, and if not, add another projector, turn the brightness up too — one of them's bound to do it…"
+              "japanese": "ミラさん、入ってくれて助かります!あと十分で開場なんです。ケーブルを替えたら点くかもしれないし、だめならプロジェクターをもう一台足して、明るさも上げれば、どれかで点くはずで……。",
+              "reading": "ミラさん、はいってくれてたすかります!あとじゅっぷんでかいじょうなんです。ケーブルをかえたらつくかもしれないし、だめならプロジェクターをもういちだいたして、あかるさもあげれば、どれかでつくはずで……。",
+              "english": "Mira, glad you joined! We open in ten minutes. If we swap the cable it might light, and if not, add another projector, turn the brightness up too — one of them's bound to do it…"
             },
             "n3": {
-              "japanese": "ミラさん、来てくれて助かります!もう十分後には開場で。ケーブルを替えれば点くかもしれないし、それでだめならプロジェクターをもう一台、明るさも上げて……どれかが当たれば、間に合うはずなんです。",
-              "reading": "ミラさん、きてくれてたすかります!もうじゅっぷんごにはかいじょうで。ケーブルをかえればつくかもしれないし、それでだめならプロジェクターをもういちだい、あかるさもあげて……どれかがあたれば、まにあうはずなんです。",
-              "english": "Mira, it's a real help you came! We open in just ten minutes. Swap the cable and it might light, and if that fails, another projector, brightness up too… if one of them hits, we should make it in time."
+              "japanese": "ミラさん、通話に入ってくれて助かります!もう十分後には開場で。ケーブルを替えれば点くかもしれないし、それでだめならプロジェクターをもう一台、明るさも上げて……どれかが当たれば、間に合うはずなんです。",
+              "reading": "ミラさん、つうわにはいってくれてたすかります!もうじゅっぷんごにはかいじょうで。ケーブルをかえればつくかもしれないし、それでだめならプロジェクターをもういちだい、あかるさもあげて……どれかがあたれば、まにあうはずなんです。",
+              "english": "Mira, it's a real help that you joined the call! We open in ten minutes. Swap the cable and it might light, and if that fails, another projector, brightness up too… if one of them hits, we should make it."
             },
             "n2": {
-              "japanese": "ミラさん、来ていただけて助かります!あと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでだめならプロジェクターをもう一台、ついでに明るさも上げて……どれか一つ当たれば、なんとか格好はつくはずなんですよ。",
-              "reading": "ミラさん、きていただけてたすかります!あとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでだめならプロジェクターをもういちだい、ついでにあかるさもあげて……どれかひとつあたれば、なんとかかっこうはつくはずなんですよ。",
-              "english": "Mira, it's a help you came! We open in ten minutes, you see. Swap the cable and maybe it lights; if not, another projector, and while we're at it turn the brightness up… if just one of them hits, we should just about pull it off."
+              "japanese": "ミラさん、通話に入っていただけて助かります!あと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでだめならプロジェクターをもう一台、ついでに明るさも上げて……どれか一つ当たれば、なんとか格好はつくはずなんですよ。",
+              "reading": "ミラさん、つうわにはいっていただけてたすかります!あとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでだめならプロジェクターをもういちだい、ついでにあかるさもあげて……どれかひとつあたれば、なんとかかっこうはつくはずなんですよ。",
+              "english": "Mira, it's a help that you joined the call! We open in ten minutes, you see. Swap the cable and maybe it lights; if not, another projector, and turn the brightness up… if one hits, we should pull it off."
             },
             "n1": {
-              "japanese": "ミラさん、来てくださって助かりますよ!なにしろあと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでもだめならプロジェクターをもう一台、いっそ明るさまで上げて……どれか一つでも当たってくれれば、どうにか体裁は保てるはずなんですが……。",
-              "reading": "ミラさん、きてくださってたすかりますよ!なにしろあとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでもだめならプロジェクターをもういちだい、いっそあかるさまであげて……どれかひとつでもあたってくれれば、どうにかていさいはたもてるはずなんですが……。",
-              "english": "Mira, it's a real help you came! It's just that we open in ten minutes. Swap the cable and maybe it lights; failing that another projector; while I'm at it even crank the brightness… if even one of them lands, we should somehow keep up appearances, but…"
+              "japanese": "ミラさん、通話に入ってくださって助かりますよ!なにしろあと十分で開場でしてね。ケーブルを替えれば点くかもしれない、それでもだめならプロジェクターをもう一台、いっそ明るさまで上げて……どれか一つでも当たってくれれば、どうにか体裁は保てるはずなんですが……。",
+              "reading": "ミラさん、つうわにはいってくださってたすかりますよ!なにしろあとじゅっぷんでかいじょうでしてね。ケーブルをかえればつくかもしれない、それでもだめならプロジェクターをもういちだい、いっそあかるさまであげて……どれかひとつでもあたってくれれば、どうにかていさいはたもてるはずなんですが……。",
+              "english": "Mira, it's a real help that you joined the call! We open in ten minutes. Swap the cable and maybe it lights; failing that another projector; crank the brightness… if one lands, we should somehow keep up appearances, but…"
             }
           },
           "support": {
@@ -208,29 +208,29 @@
           "attentionTarget": "the dark route as something read rather than powered, and the people who could read it",
           "variants": {
             "n5": {
-              "japanese": "ロバートさん、ケーブルじゃないと思う。この道は、機械じゃなくて、声で点くんだよ。みんなで少しずつ読んで、タイミングを合わせたら、点くよ。",
-              "reading": "ロバートさん、ケーブルじゃないとおもう。このみちは、きかいじゃなくて、こえでつくんだよ。みんなですこしずつよんで、タイミングをあわせたら、つくよ。",
-              "english": "Robert, I don't think it's the cable. This route doesn't light by machine — it lights by voice. If we each read a little and match the timing, it'll light."
+              "japanese": "ロバートさん、ケーブルじゃないと思う。この道は、機械じゃなくて、声で点くんだよ。そっちのみんなで少しずつ読んで、タイミングを合わせたら、点くよ。",
+              "reading": "ロバートさん、ケーブルじゃないとおもう。このみちは、きかいじゃなくて、こえでつくんだよ。そっちのみんなですこしずつよんで、タイミングをあわせたら、つくよ。",
+              "english": "Robert, I don't think it's the cable. This route lights by voice. If everyone there reads a little and matches the timing, it'll light."
             },
             "n4": {
-              "japanese": "ロバートさん、たぶんケーブルの問題じゃないよ。この道はね、機械で点けるんじゃなくて、声で点くんだと思う。一人ずつ担当を決めて、みんなでタイミングを合わせて読めば、ちゃんと点くはず。",
-              "reading": "ロバートさん、たぶんケーブルのもんだいじゃないよ。このみちはね、きかいでつけるんじゃなくて、こえでつくんだとおもう。ひとりずつたんとうをきめて、みんなでタイミングをあわせてよめば、ちゃんとつくはず。",
-              "english": "Robert, I don't think it's a cable problem. This route — I think it doesn't light by machine, it lights by voice. If we each take a part and read it together, timing matched, it'll light for sure."
+              "japanese": "ロバートさん、たぶんケーブルの問題じゃないよ。この道はね、機械で点けるんじゃなくて、声で点くんだと思う。そっちで一人ずつ担当を決めて、タイミングを合わせて読めば、ちゃんと点くはず。",
+              "reading": "ロバートさん、たぶんケーブルのもんだいじゃないよ。このみちはね、きかいでつけるんじゃなくて、こえでつくんだとおもう。そっちでひとりずつたんとうをきめて、タイミングをあわせてよめば、ちゃんとつくはず。",
+              "english": "Robert, I don't think it's a cable problem. I think this route lights by voice. If everyone there takes a part and reads in time, it should light."
             },
             "n3": {
-              "japanese": "ロバートさん、これ、たぶん機械の話じゃないんだよ。この道って、いくら直しても点かないでしょ?声で点く道なんだと思う。一人ひと区切りずつ受け持って、みんなで間を合わせて読めば、点くはずだよ。",
-              "reading": "ロバートさん、これ、たぶんきかいのはなしじゃないんだよ。このみちって、いくらなおしてもつかないでしょ?こえでつくみちなんだとおもう。ひとりひとくぎりずつうけもって、みんなであいだをあわせてよめば、つくはずだよ。",
-              "english": "Robert, this — it's probably not a machine thing. This route won't light no matter how much you fix it, right? I think it's a route that lights by voice. If we each take one segment and read it with the timing matched, it should light."
+              "japanese": "ロバートさん、これ、たぶん機械の話じゃないんだよ。この道って、いくら直しても点かないでしょ?声で点く道なんだと思う。そっちで一人ひと区切りずつ受け持って、間を合わせて読めば、点くはずだよ。",
+              "reading": "ロバートさん、これ、たぶんきかいのはなしじゃないんだよ。このみちって、いくらなおしてもつかないでしょ?こえでつくみちなんだとおもう。そっちでひとりひとくぎりずつうけもって、あいだをあわせてよめば、つくはずだよ。",
+              "english": "Robert, this probably isn't a machine problem. It won't light however much you fix it, right? I think it lights by voice. If everyone there takes one segment and matches the timing, it should come up."
             },
             "n2": {
-              "japanese": "ロバートさん、これ、機械をどういじっても無理なんじゃないかな。何回直しても点かないでしょ?この道は、声で点くタイプなんだと思う。一人がひと区切りずつ受け持って、みんなで間を合わせて読み継いでいけば、ちゃんと立ち上がるはずだよ。",
-              "reading": "ロバートさん、これ、きかいをどういじってもむりなんじゃないかな。なんかいなおしてもつかないでしょ?このみちは、こえでつくタイプなんだとおもう。ひとりがひとくぎりずつうけもって、みんなであいだをあわせてよみついでいけば、ちゃんとたちあがるはずだよ。",
-              "english": "Robert, no matter how you fiddle with the machine, I don't think it'll take. It won't light however many times you fix it, right? This route's the kind that lights by voice, I think. If each of us takes one segment and we read it on down the line, timing matched, it should come up properly."
+              "japanese": "ロバートさん、これ、機械をどういじっても無理なんじゃないかな。何回直しても点かないでしょ?この道は、声で点くタイプなんだと思う。そっちで一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば、ちゃんと立ち上がるはずだよ。",
+              "reading": "ロバートさん、これ、きかいをどういじってもむりなんじゃないかな。なんかいなおしてもつかないでしょ?このみちは、こえでつくタイプなんだとおもう。そっちでひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば、ちゃんとたちあがるはずだよ。",
+              "english": "Robert, I don't think any more fiddling with the machine will do it. This route seems to light by voice. If everyone there takes one segment and reads it down the line in time, it should come up."
             },
             "n1": {
-              "japanese": "ロバートさん、これ、機械をどういじったところで点かないやつなんじゃないかな。何度直しても反応しないでしょ?この道はたぶん、声で点くタイプなんだよ。一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば——ちょうど息が合った瞬間に、ふっと立ち上がるはず。",
-              "reading": "ロバートさん、これ、きかいをどういじったところでつかないやつなんじゃないかな。なんどなおしてもはんのうしないでしょ?このみちはたぶん、こえでつくタイプなんだよ。ひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば——ちょうどいきがあったしゅんかんに、ふっとたちあがるはず。",
-              "english": "Robert, this is the kind that won't light however you fiddle with the machine, isn't it? It doesn't respond however many times you fix it, right? This route probably lights by voice. If each of us takes one segment and reads it on down the line, timing matched — the very moment we're in sync, it should quietly come up."
+              "japanese": "ロバートさん、これ、機械をどういじったところで点かないやつなんじゃないかな。何度直しても反応しないでしょ?この道はたぶん、声で点くタイプなんだよ。そっちで一人がひと区切りずつ受け持って、間を合わせて読み継いでいけば——ちょうど息が合った瞬間に、ふっと立ち上がるはず。",
+              "reading": "ロバートさん、これ、きかいをどういじったところでつかないやつなんじゃないかな。なんどなおしてもはんのうしないでしょ?このみちはたぶん、こえでつくタイプなんだよ。そっちでひとりがひとくぎりずつうけもって、あいだをあわせてよみついでいけば——ちょうどいきがあったしゅんかんに、ふっとたちあがるはず。",
+              "english": "Robert, this may be the kind that won't light however you fiddle with the machine. It probably lights by voice. If everyone there takes one segment and reads it down the line, it should rise the moment the timing matches."
             }
           },
           "support": {
@@ -331,7 +331,7 @@
           "id": "node:lanterns-return:cables-down",
           "beatId": "beat:lanterns-return:exit-image",
           "cueId": "cue:cart-pushed-aside-class-forms-a-line",
-          "description": "The cables go slack on the ground and the cart is rolled to one side. The class stops facing the machine and turns to face the map, spreading into a loose line along the dark route."
+          "description": "The cables go slack on the ground and the cart is rolled to one side. Someone lifts the phone from it and props it beside the first route card. The class turns from the machine to the map, spreading into a loose line along the dark route."
         }
       ],
       "exit": {
@@ -359,7 +359,7 @@
           "id": "node:lanterns-return:reading-line",
           "beatId": "beat:lanterns-return:regroup-image",
           "cueId": "cue:segment-cards-laid-in-order",
-          "description": "Along the dark route, Stasi has laid the segment cards out in reading order, colour-edged so each hand-off is visible at a glance. Each person picks up the card in front of them. The route waits, unlit."
+          "description": "Along the dark route, Stasi has laid the segment cards out in reading order, colour-edged so each hand-off is visible at a glance. Each person picks up the card in front of them. Mira's voice comes from the phone beside the first card. The route waits, unlit."
         },
         {
           "kind": "line",
@@ -490,33 +490,33 @@
           "id": "line:lanterns-return:mira-in-time",
           "beatId": "beat:lanterns-return:changed-action",
           "speakerId": "mira",
-          "intent": "Land the finale's relationship point lightly: she arrived in the last ten minutes and it still changed the outcome, then move the class to open the doors.",
-          "attentionTarget": "the lit route, and the fact that a late arrival still moved the result",
+          "intent": "Land the finale's relationship point lightly: she joined the call for the last ten minutes and it still changed the outcome, then prompt the people on site to open the doors.",
+          "attentionTarget": "the lit route in the phone camera and the courtyard doors beyond it",
           "variants": {
             "n5": {
-              "japanese": "ね、間に合ったでしょ。私、最後の十分で来たのに、それでも変わったよ。じゃあ、開けよう。お客さんを入れよう。",
-              "reading": "ね、まにあったでしょ。わたし、さいごのじゅっぷんできたのに、それでもかわったよ。じゃあ、あけよう。おきゃくさんをいれよう。",
-              "english": "See? We made it. I showed up in the last ten minutes, and it still changed things. Okay — let's open up. Let's let people in."
+              "japanese": "ね、間に合ったでしょ。通話に入ってまだ十分だけど、それでも変わったよ。じゃあ、そっちのドアを開けて。お客さんを迎えよう。",
+              "reading": "ね、まにあったでしょ。つうわにはいってまだじゅっぷんだけど、それでもかわったよ。じゃあ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              "english": "See? We made it. I've only been on the call ten minutes, and it still changed things. Okay, open the doors there. Let's welcome the guests."
             },
             "n4": {
-              "japanese": "ね、間に合ったね。私なんて最後の十分に来ただけなのに、それでもちゃんと変わるんだ。じゃあ、そろそろ開けよう。お客さんを入れよう。",
-              "reading": "ね、まにあったね。わたしなんてさいごのじゅっぷんにきただけなのに、それでもちゃんとかわるんだ。じゃあ、そろそろあけよう。おきゃくさんをいれよう。",
-              "english": "See, we made it. I only showed up for the last ten minutes, and even so it really does change. Okay — time to open up. Let's let people in."
+              "japanese": "ね、間に合ったね。通話に入ってまだ十分なのに、それでもちゃんと変わるんだ。じゃあ、そっちのドアを開けて。お客さんを迎えよう。",
+              "reading": "ね、まにあったね。つうわにはいってまだじゅっぷんなのに、それでもちゃんとかわるんだ。じゃあ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              "english": "See, we made it. I've only been on the call ten minutes, and it still changed things. Okay, open the doors there. Let's welcome the guests."
             },
             "n3": {
-              "japanese": "ね、間に合っちゃったね。私、ほんとに最後の十分に来ただけなのに、それでも結果って変わるんだね。……じゃ、そろそろ開けよっか。お客さん、入れよう。",
-              "reading": "ね、まにあっちゃったね。わたし、ほんとにさいごのじゅっぷんにきただけなのに、それでもけっかってかわるんだね。……じゃ、そろそろあけよっか。おきゃくさん、いれよう。",
-              "english": "See, we actually made it. I really only turned up for the last ten minutes, and even so the outcome changes. …Okay, shall we open up? Let's let people in."
+              "japanese": "ね、間に合っちゃったね。私、通話に入ってまだ十分なのに、それでも結果って変わるんだ。……じゃ、そっちのドアを開けて。お客さんを迎えよう。",
+              "reading": "ね、まにあっちゃったね。わたし、つうわにはいってまだじゅっぷんなのに、それでもけっかってかわるんだ。……じゃ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              "english": "See, we made it. I've only been on the call ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             },
             "n2": {
-              "japanese": "ね、間に合っちゃった。私なんか、ほんの最後の十分に顔を出しただけなのに、それでも結果はちゃんと動くんだね。……さ、そろそろ開けよっか。お客さんを入れよう。",
-              "reading": "ね、まにあっちゃった。わたしなんか、ほんのさいごのじゅっぷんにかおをだしただけなのに、それでもけっかはちゃんとうごくんだね。……さ、そろそろあけよっか。おきゃくさんをいれよう。",
-              "english": "See, we made it after all. I only stuck my head in for the last ten minutes, and even so the outcome really does move. …Okay, shall we open up? Let's let people in."
+              "japanese": "ね、間に合っちゃった。私なんか、通話にほんの十分顔を出しただけなのに、それでも結果はちゃんと動くんだね。……さ、そっちのドアを開けて。お客さんを迎えよう。",
+              "reading": "ね、まにあっちゃった。わたしなんか、つうわにほんのじゅっぷんかおをだしただけなのに、それでもけっかはちゃんとうごくんだね。……さ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              "english": "See, we made it. I only popped into the call for ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             },
             "n1": {
-              "japanese": "ね、間に合っちゃったね。私なんて、ほんの最後の十分にひょっこり顔を出しただけ。それでも、ちゃんと結果は動くんだ。……さ、そろそろ開けよっか。お客さんを、入れよう。",
-              "reading": "ね、まにあっちゃったね。わたしなんて、ほんのさいごのじゅっぷんにひょっこりかおをだしただけ。それでも、ちゃんとけっかはうごくんだ。……さ、そろそろあけよっか。おきゃくさんを、いれよう。",
-              "english": "See, we made it after all. Me — I only popped in for the last ten minutes. And even so, the outcome really does move. …Okay, shall we open up? Let's let people in."
+              "japanese": "ね、間に合っちゃったね。私なんて、通話にほんの十分ひょっこり顔を出しただけ。それでも、ちゃんと結果は動くんだ。……さ、そっちのドアを開けて。お客さんを迎えよう。",
+              "reading": "ね、まにあっちゃったね。わたしなんて、つうわにほんのじゅっぷんひょっこりかおをだしただけ。それでも、ちゃんとけっかはうごくんだ。……さ、そっちのドアをあけて。おきゃくさんをむかえよう。",
+              "english": "See, we made it. I only popped into the call for ten minutes, and the outcome still moved. …Okay, open the doors there. Let's welcome the guests."
             }
           },
           "support": {
@@ -569,7 +569,7 @@
       "castId": "mira",
       "chapter": 24,
       "beat": "arrival",
-      "description": "Mira is introduced arriving in the last ten minutes and changing the outcome by reframing a machine problem as a coordination problem; joining late is established as a full contribution, not a deficit."
+      "description": "Mira is introduced joining the shared call from a distance in the last ten minutes and changing the outcome by reframing a machine problem as a coordination problem; joining late is established as a full contribution, not a deficit."
     },
     {
       "id": "outcome:lanterns-return:robert-contribution",
@@ -622,6 +622,6 @@
       "hide-english",
       "replay-coordination-step"
     ],
-    "withdrawnContentFallback": "Use the same negotiate-and-narrate-live evidence with neutral nameplates: a late-arriving classmate reframes the fix as a coordination problem, a generic host calls the timing, and the route lights once the group's reading lines up."
+    "withdrawnContentFallback": "Use the same negotiate-and-narrate-live evidence with neutral nameplates: a remote participant joining the call late reframes the fix as a coordination problem, a generic host calls the timing, and the route lights once the group's reading lines up."
   }
 }
