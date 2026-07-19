@@ -60,6 +60,8 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('--yi:.08em;');
         expect(css).toContain('inset-inline:var(--yi);');
         expect(css).toContain('border-block-end:var(--yw) var(--ys) var(--yu,#0000);');
+        expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word{text-decoration-color:var(--yu,#0000)!important}');
+        expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-text-mirror .jpdb-reader-word::after{content:none!important}');
     });
 
     it('uses the full reader CSS when the userscript resource is available', () => {

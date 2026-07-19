@@ -26,6 +26,7 @@ writeFileSync(entryPath, `
         setRubyDistortsConstrainedRowsForTest,
     } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/index.ts'))};
     import { DEFAULT_SETTINGS } from ${JSON.stringify(path.join(ROOT, 'src/reader/settings/index.ts'))};
+    import { CRITICAL_READER_CSS } from ${JSON.stringify(path.join(ROOT, 'src/reader/styles/index.ts'))};
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
     const TEXT = '新しい順';
@@ -166,7 +167,65 @@ writeFileSync(entryPath, `
             && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
     }
 
+    function paintPlainWord(host: HTMLElement, text: string, spelling: string, reading: string, pitchClass: JPDBToken['pitchClass']): void {
+        const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text.trim() === text);
+        if (!target) throw new Error('critical-css target not collected: ' + text);
+        const start = text.indexOf(spelling);
+        applyTokensToScanTarget({ ...target, nonDestructive: true }, [{
+            card: card(spelling, reading), start, end: start + spelling.length, length: spelling.length,
+            rubies: [{ text: reading, start, end: start + spelling.length, length: spelling.length }],
+            pitchClass, sentence: text,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        makeRoomForRubyInCroppedRows(document);
+    }
+
+    function pitchWordSamples(scope: Element): { afterContent: string; decorationColor: string; rect: DOMRect }[] {
+        return [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')].map(word => ({
+            afterContent: getComputedStyle(word, '::after').content,
+            decorationColor: getComputedStyle(word).textDecorationColor,
+            rect: word.getBoundingClientRect(),
+        }));
+    }
+
     Object.assign(window, {
+        CRITICAL_READER_CSS_TEXT: CRITICAL_READER_CSS,
+        // These two probes exercise CRITICAL_READER_CSS in isolation (no
+        // dist/yomu.css, no reader-words-ocr.css) so the pitch-disable rules
+        // it alone must carry — ::after suppression and native underline
+        // color — are proven on the inline fallback sheet, not just the full
+        // stylesheet the other probes above load.
+        runCriticalCssDescriptionProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const line1 = document.getElementById('crit-desc-line1')!;
+            const line2 = document.getElementById('crit-desc-line2')!;
+            paintPlainWord(line1, line1.textContent ?? '', '新しい', 'あたらしい', 'nakadaka');
+            paintPlainWord(line2, line2.textContent ?? '', '質問', 'しつもん', 'heiban');
+            const words1 = pitchWordSamples(line1);
+            const words2 = pitchWordSamples(line2);
+            const line2Rect = line2.getBoundingClientRect();
+            return {
+                words1,
+                words2,
+                line1WordCount: words1.length,
+                line2WordCount: words2.length,
+                line1ToLine2Clearance: words1.length ? line2Rect.top - Math.max(...words1.map(w => w.rect.bottom)) : -1,
+            };
+        },
+        runCriticalCssTitleProbe() {
+            setRubyDistortsConstrainedRowsForTest(null);
+            removeNonDestructiveScanMirrors(document);
+            const title = document.getElementById('crit-title')!;
+            const metadata = document.getElementById('crit-metadata')!;
+            paintPlainWord(title, title.textContent ?? '', '新しい', 'あたらしい', 'nakadaka');
+            const words = pitchWordSamples(title);
+            const metadataRect = metadata.getBoundingClientRect();
+            return {
+                words,
+                wordCount: words.length,
+                titleToMetadataClearance: words.length ? metadataRect.top - Math.max(...words.map(w => w.rect.bottom)) : -1,
+            };
+        },
         runYouTubeDescriptionClipProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -364,7 +423,15 @@ writeFileSync(entryPath, `
     });
 `);
 
-await esbuild.build({ entryPoints: [entryPath], bundle: true, outfile: bundlePath, format: 'iife', platform: 'browser', logLevel: 'silent' });
+await esbuild.build({
+    entryPoints: [entryPath],
+    bundle: true,
+    outfile: bundlePath,
+    format: 'iife',
+    platform: 'browser',
+    define: { __YOMU_VERSION__: JSON.stringify('critical-css-smoke') },
+    logLevel: 'silent',
+});
 
 const FIXTURE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
 body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
@@ -401,6 +468,31 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
 </ytm-structured-description-content-renderer>
 </body></html>`;
 
+// A second, standalone page: only CRITICAL_READER_CSS is injected (no
+// dist/yomu.css, no reader-words-ocr.css), proving the inline fallback sheet
+// alone disables ::after and keeps the native underline visible on both a
+// wrapped multiline description and a clamped two-line homepage-style title.
+const CRIT_FIXTURE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+body {
+  font: 14px/1.4 Roboto, sans-serif;
+  width: 320px;
+  margin: 24px;
+  --jpdb-reader-pitch-heiban: #62d27d;
+  --jpdb-reader-pitch-nakadaka: #ffd166;
+}
+#crit-desc-line1, #crit-desc-line2 { font-size: 14px; line-height: 20px; }
+#crit-title-block { width: 240px; margin-top: 24px; }
+#crit-title { font: 16px/20px Roboto, sans-serif; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#crit-metadata { margin-top: 6px; font: 12px/16px Roboto, sans-serif; color: #606060; }
+</style></head><body class="jpdb-reader-word-underline-pitch">
+<div id="crit-desc-line1">新しいSiri AIとiOS 27について知っておくべきことのすべて</div>
+<div id="crit-desc-line2">質問する内容について詳しく解説します</div>
+<div id="crit-title-block">
+  <div id="crit-title">MKBHDが解説する新しいSiri AIとiOS 27についての全知識と質問する内容についての詳細レビューまとめ</div>
+  <div id="crit-metadata">1.2M回視聴・3日前</div>
+</div>
+</body></html>`;
+
 let failed = false;
 function fail(message, details) {
     console.error('FAIL:', message, JSON.stringify(details));
@@ -424,6 +516,7 @@ async function runEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
         const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(90_000);
         await page.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
         await page.goto('https://www.youtube.com/chip-mirror-smoke', { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
@@ -479,6 +572,36 @@ async function runEngine(name, browserType) {
         if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
         if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
         if (tab.readingBaseOverlap > 0) fail(`${name}: tab reading overlaps base text`, tab);
+
+        const criticalPage = await browser.newPage();
+        try {
+            criticalPage.setDefaultNavigationTimeout(90_000);
+            await criticalPage.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: CRIT_FIXTURE }));
+            await criticalPage.goto('https://www.youtube.com/critical-css-smoke', { waitUntil: 'domcontentloaded' });
+            await criticalPage.addScriptTag({ path: bundlePath });
+            const criticalCss = await criticalPage.evaluate(() => window.CRITICAL_READER_CSS_TEXT);
+            await criticalPage.addStyleTag({ content: criticalCss });
+
+            const descCritical = await criticalPage.evaluate(() => window.runCriticalCssDescriptionProbe());
+            console.log(`${name} critical-css description:`, JSON.stringify(descCritical));
+            if (descCritical.line1WordCount < 1 || descCritical.line2WordCount < 1) fail(`${name}: critical-css description pitch words missing`, descCritical);
+            for (const word of [...descCritical.words1, ...descCritical.words2]) {
+                if (word.afterContent !== 'none') fail(`${name}: critical-css description pitch ::after was not disabled`, word);
+                if (transparentPaint(word.decorationColor)) fail(`${name}: critical-css description pitch underline is not visible`, word);
+            }
+            if (descCritical.line1ToLine2Clearance <= 0) fail(`${name}: critical-css description pitch underline crowds the following line`, descCritical);
+
+            const titleCritical = await criticalPage.evaluate(() => window.runCriticalCssTitleProbe());
+            console.log(`${name} critical-css title:`, JSON.stringify(titleCritical));
+            if (titleCritical.wordCount < 1) fail(`${name}: critical-css title pitch word missing`, titleCritical);
+            for (const word of titleCritical.words) {
+                if (word.afterContent !== 'none') fail(`${name}: critical-css title pitch ::after was not disabled`, word);
+                if (transparentPaint(word.decorationColor)) fail(`${name}: critical-css title pitch underline is not visible`, word);
+            }
+            if (titleCritical.titleToMetadataClearance <= 0) fail(`${name}: critical-css title pitch underline crowds the metadata row`, titleCritical);
+        } finally {
+            await criticalPage.close();
+        }
     } finally {
         await browser.close();
     }
