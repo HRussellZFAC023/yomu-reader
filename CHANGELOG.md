@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.236] - 2026-07-19
+
+### Added
+
+- Imported dictionaries now follow you to every site. Dictionary imports keep their source archive in the userscript manager's shared storage, and a site whose local store is missing a dictionary listed in settings rebuilds it automatically in the background, then re-annotates the page from it. Until now an import only served the site it ran on, so most pages showed fewer definition sources than settings promised; this also self-heals stores the browser evicted.
+
+### Fixed
+
+- The core userscript moved rich mining-context fallbacks behind the Kanji/Study companion, restoring headroom under Greasy Fork's 2 MB script limit.
+
 ## [1.6.235] - 2026-07-19
 
 ### Fixed
