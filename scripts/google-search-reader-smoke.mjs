@@ -568,7 +568,11 @@ function assertGoogleClippedRows(snapshot, label) {
         assert(row.visibleBases, `${label}: ${name} lost or clipped its base text`, row);
         assert(row.visibleRubyCount <= row.rubyCount, `${label}: ${name} reading metrics are inconsistent`, row);
         assert(row.rubyRoomCount === 0, `${label}: ${name} reserved ruby room`, row);
-        assert([row.clipStamp === 'true', row.rubyCount === 0].includes(true), `${label}: ${name} is not protected by the clip invariant`, row);
+        // Two protected states: "true" rest-hides readings inside the clip;
+        // "content" (growable clamp rows, owner rule 2026-07-19) keeps
+        // IN-FLOW readings visible at rest while the row grows in flow.
+        const inFlowContentRow = row.clipStamp === 'content' && row.visibleBases;
+        assert([row.clipStamp === 'true', inFlowContentRow, row.rubyCount === 0].includes(true), `${label}: ${name} is not protected by the clip invariant`, row);
         for (const fragment of expectedRows[name]) {
             assert(row.text.includes(fragment), `${label}: ${name} lost text "${fragment}"`, row);
         }
@@ -581,7 +585,10 @@ function assertGoogleLayout(snapshot, label, baseline) {
     assert(snapshot.rejectedPunctuationWords === 0, `${label}: punctuation-only parser output became a floating annotation`, snapshot);
     assert(snapshot.layout.primarySnippetHeight >= 18 && snapshot.layout.primarySnippetHeight <= baseline.primarySnippetHeight + 2, `${label}: primary snippet escaped or collapsed beyond one readable line`, { baseline, layout: snapshot.layout });
     assert(Math.abs(snapshot.layout.weblioHeadingHeight - baseline.weblioHeadingHeight) <= 2, `${label}: Weblio heading height changed`, { baseline, layout: snapshot.layout });
-    assert(snapshot.layout.weblioSnippetHeight >= 18 && snapshot.layout.weblioSnippetHeight <= baseline.weblioSnippetHeight + 2, `${label}: Weblio snippet escaped or collapsed beyond one readable line`, { baseline, layout: snapshot.layout });
+    // The Weblio snippet is a growable clamp row: in-flow at-rest readings
+    // legitimately grow each line box by roughly one rt band (~0.55em). Bound
+    // the growth so a runaway expansion still fails.
+    assert(snapshot.layout.weblioSnippetHeight >= 18 && snapshot.layout.weblioSnippetHeight <= baseline.weblioSnippetHeight + 28, `${label}: Weblio snippet escaped or collapsed beyond its ruby-grown line`, { baseline, layout: snapshot.layout });
     assert(snapshot.layout.primaryHeight <= baseline.primaryHeight + 64, `${label}: primary result expanded into a large gap`, { baseline, layout: snapshot.layout });
     assert(snapshot.layout.weblioHeight <= baseline.weblioHeight + 64, `${label}: Weblio result expanded into a large gap`, { baseline, layout: snapshot.layout });
     assert(snapshot.layout.askGap <= baseline.askGap + 2, `${label}: a large empty gap appeared before the following card`, { baseline, layout: snapshot.layout });

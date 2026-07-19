@@ -60,6 +60,7 @@ import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './sh
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
+import { JAPANESE_CHARACTER_RE, bareFallbackCardFromText, segmentJapaneseText } from '../lookup/japanese-segments';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export {
@@ -2126,10 +2127,156 @@ function nonDestructiveHostRenderPlan(
     if (hostText && hostText === target.text) return { text: hostText, tokens, whitespaceJoints, hostText };
     if (!fragments.length || !hostText) return { text: target.text, tokens, hostText };
     const indexed = indexTextFragments(fragments);
+    const dropped: JPDBToken[] = [];
     const remapped = tokens
-        .map(token => remapTokenIntoHostText(token, indexed, nodeOffsets, hostText))
+        .map(token => {
+            const remappedToken = remapTokenIntoHostText(token, indexed, nodeOffsets, hostText);
+            if (!remappedToken) dropped.push(token);
+            return remappedToken;
+        })
         .filter((token): token is JPDBToken => token !== null);
-    return { text: hostText, tokens: nonOverlappingTokens(remapped, hostText), whitespaceJoints, hostText };
+    const pruned = nonOverlappingTokens(remapped, hostText);
+    const prunedSet = new Set(pruned);
+    dropped.push(...remapped.filter(token => !prunedSet.has(token)));
+    return {
+        text: hostText,
+        tokens: withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText),
+        whitespaceJoints,
+        hostText,
+    };
+}
+
+// The parser's segmented gap-fill guarantees every Japanese range of
+// target.text carries a token — but that guarantee is issued in TARGET
+// coordinates. The host remap above can still drop a provider token (fragment
+// boundaries that no longer align, host-text drift), and the segmented
+// fallback for that exact range was suppressed by the very token that just
+// got dropped, so the range rendered as a fully-bare hole while its
+// neighbours annotated (エージェント型 class, 2026-07-19). Refill ONLY the
+// dropped tokens' own character ranges — mapped char-by-char into host
+// coordinates — with bare fallback tokens, so a remap loss degrades to an
+// annotated-but-unenriched word instead of un-annotated raw text. Ranges the
+// parser deliberately left bare have no dropped token and stay untouched.
+function withHostRemapGapFallbackTokens(
+    tokens: JPDBToken[],
+    dropped: JPDBToken[],
+    indexed: IndexedTextFragment[],
+    nodeOffsets: Map<Text, number>,
+    hostText: string,
+): JPDBToken[] {
+    if (!dropped.length) return tokens;
+    const additions: JPDBToken[] = [];
+    for (const token of dropped) {
+        for (const range of hostRangesForTargetRange(token.start, token.end, indexed, nodeOffsets, hostText)) {
+            collectHostGapFallbackTokens(tokens, hostText, range.start, range.end, additions);
+        }
+    }
+    if (!additions.length) return tokens;
+    return nonOverlappingTokens(
+        [...tokens, ...additions].sort((first, second) => first.start - second.start
+            || (second.end - second.start) - (first.end - first.start)),
+        hostText,
+    );
+}
+
+// Maps a target-coordinate range into contiguous host-coordinate runs via the
+// scanned fragments. Each mapped character is verified against the host text;
+// drifted characters end the current run (the mirror renders hostText, so a
+// stale mapping must never mint tokens over different bytes).
+function hostRangesForTargetRange(
+    start: number,
+    end: number,
+    indexed: IndexedTextFragment[],
+    nodeOffsets: Map<Text, number>,
+    hostText: string,
+): Array<{ start: number; end: number }> {
+    const ranges: Array<{ start: number; end: number }> = [];
+    let runStart = -1;
+    let expectedNext = -1;
+    for (let offset = Math.max(0, start); offset < end; offset += 1) {
+        const hostIndex = hostIndexForTargetOffset(offset, indexed, nodeOffsets);
+        const sourceChar = sourceCharForTargetOffset(offset, indexed);
+        const aligned = hostIndex !== null
+            && hostIndex >= 0
+            && hostIndex < hostText.length
+            && sourceChar !== null
+            && hostText[hostIndex] === sourceChar;
+        if (aligned && hostIndex === expectedNext && runStart >= 0) {
+            expectedNext = hostIndex + 1;
+            continue;
+        }
+        if (runStart >= 0) ranges.push({ start: runStart, end: expectedNext });
+        runStart = aligned ? hostIndex : -1;
+        expectedNext = aligned ? hostIndex + 1 : -1;
+    }
+    if (runStart >= 0) ranges.push({ start: runStart, end: expectedNext });
+    return ranges;
+}
+
+function hostIndexForTargetOffset(
+    offset: number,
+    indexed: IndexedTextFragment[],
+    nodeOffsets: Map<Text, number>,
+): number | null {
+    for (const fragment of indexed) {
+        if (offset < fragment.globalStart || offset >= fragment.globalEnd) continue;
+        const base = nodeOffsets.get(fragment.node);
+        if (base === undefined) return null;
+        return base + fragment.start + (offset - fragment.globalStart);
+    }
+    return null;
+}
+
+function sourceCharForTargetOffset(offset: number, indexed: IndexedTextFragment[]): string | null {
+    for (const fragment of indexed) {
+        if (offset < fragment.globalStart || offset >= fragment.globalEnd) continue;
+        return fragment.node.data[fragment.start + (offset - fragment.globalStart)] ?? null;
+    }
+    return null;
+}
+
+function collectHostGapFallbackTokens(
+    tokens: JPDBToken[],
+    hostText: string,
+    rangeStart: number,
+    rangeEnd: number,
+    additions: JPDBToken[],
+): void {
+    let gapStart = -1;
+    for (let index = rangeStart; index <= rangeEnd; index += 1) {
+        // JAPANESE_CHARACTER_RE (not HAS_JAPANESE_LETTER): the parser's own
+        // gap-fill counts ー/々 as Japanese, and splitting a katakana run at
+        // its prolonged-sound mark would shatter エージェント into エ+ジェント.
+        const uncoveredJapanese = index < rangeEnd
+            && JAPANESE_CHARACTER_RE.test(hostText[index] ?? '')
+            && !tokens.some(token => token.start <= index && index < token.end)
+            && !additions.some(token => token.start <= index && index < token.end);
+        if (uncoveredJapanese) {
+            if (gapStart < 0) gapStart = index;
+            continue;
+        }
+        if (gapStart >= 0) appendSegmentedHostFallbackTokens(hostText, gapStart, index, additions);
+        gapStart = -1;
+    }
+}
+
+function appendSegmentedHostFallbackTokens(
+    hostText: string,
+    gapStart: number,
+    gapEnd: number,
+    additions: JPDBToken[],
+): void {
+    for (const segment of segmentJapaneseText(hostText.slice(gapStart, gapEnd))) {
+        additions.push({
+            card: bareFallbackCardFromText(segment.surface),
+            start: gapStart + segment.start,
+            end: gapStart + segment.end,
+            length: segment.end - segment.start,
+            rubies: [],
+            pitchClass: '',
+            sentence: hostText,
+        });
+    }
 }
 
 // Text the host never paints must not reach the mirror either — the mirror

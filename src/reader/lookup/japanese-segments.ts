@@ -1,5 +1,6 @@
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
+import { stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard } from '../app/types';
 
 export const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
@@ -42,6 +43,31 @@ const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
 
 export function normalizeFallbackTerm(text: string): string {
     return text.replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+// The one fallback-card identity: parser-cached fallback cards and render-side
+// remap-gap refills (dom/index.ts) must mint IDENTICAL cards for the same
+// surface, so the stable hash and lookup-term derivation live here rather than
+// being duplicated per caller.
+export function bareFallbackCardFromText(text: string): JPDBCard {
+    const spelling = normalizeFallbackTerm(text);
+    const id = -stablePositiveHashId(`fallback\n${spelling}`);
+    const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
+    return {
+        vid: id,
+        sid: id,
+        rid: 0,
+        spelling,
+        reading: '',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'fallback',
+        ...(fallbackLookupTerms.length ? { fallbackLookupTerms } : {}),
+    };
 }
 
 export type JapaneseTextSegment = { surface: string; start: number; end: number };

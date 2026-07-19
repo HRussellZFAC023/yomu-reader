@@ -3,7 +3,7 @@ import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import {
     JAPANESE_CHARACTER_RE,
     JAPANESE_SCRIPT_GROUP_RE,
-    fallbackLookupTermsForText,
+    bareFallbackCardFromText,
     isBoundarySegment,
     normalizeFallbackTerm,
     segmentJapaneseText,
@@ -288,24 +288,7 @@ export class ReaderParser {
     }
 
     fallbackCardFromText(text: string): JPDBCard {
-        const spelling = normalizeFallbackTerm(text);
-        const id = -stablePositiveHashId(`fallback\n${spelling}`);
-        const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
-        const card: JPDBCard = {
-            vid: id,
-            sid: id,
-            rid: 0,
-            spelling,
-            reading: '',
-            frequencyRank: null,
-            partOfSpeech: [],
-            meanings: [],
-            cardState: ['not-in-deck'],
-            pitchAccent: [],
-            wordWithReading: null,
-            source: 'fallback',
-            ...(fallbackLookupTerms.length ? { fallbackLookupTerms } : {}),
-        };
+        const card = bareFallbackCardFromText(text);
         this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
         return card;
     }
