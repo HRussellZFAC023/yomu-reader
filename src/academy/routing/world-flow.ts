@@ -361,22 +361,35 @@ class WorldFlow implements AcademyRouteFlow {
         const plan = await loadClassWeekCastPlan();
         const delivery = await loadClassWeekDeliveryCatalog(plan);
         const playableWeeks = delivery.weeks.filter(week => week.state === 'grounded-playable');
+        const playableWeekIds = new Set(playableWeeks.map(week => week.weekId));
+        const completedWeekIds = completedClassWeekIds(playableWeeks, context.projection.completedEncounterIds);
+        const selectedBand = context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band;
+        const requestedOrder = classOrderForBand(selectedBand);
         const replayEvents = await this.options.evidence.history?.() ?? [];
+        const schedulerDueReviews = this.options.evidence.dueReviews
+            ? await this.options.evidence.dueReviews(50).catch(() => undefined)
+            : undefined;
         const dailyRoute = dailyLearningRoute(
             plan,
             playableWeeks,
             loadStoryRuntime().episodes,
             replayEvents,
             context.language,
+            requestedOrder,
+            schedulerDueReviews,
         );
-        const selectedBand = context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band;
-        const requestedOrder = classOrderForBand(selectedBand);
-        const currentOrder = nearestPlayableOrder(plan.weeks, new Set(playableWeeks.map(week => week.weekId)), requestedOrder);
+        const currentOrder = nextIncompletePlayableOrder(
+            plan.weeks,
+            playableWeekIds,
+            completedWeekIds,
+            requestedOrder,
+        );
         context.shell.replace(renderClassPathScreen({
             language: context.language,
             plan,
             currentOrder,
-            playableWeekIds: new Set(playableWeeks.map(week => week.weekId)),
+            playableWeekIds,
+            completedWeekIds,
             characters: projectCharacterDirectory(context.projection),
             selectedBand,
             advancedPackages: advancedCurriculumForBand(selectedBand),
@@ -673,13 +686,14 @@ function dailyLearningRoute(
     episodes: ReturnType<typeof loadStoryRuntime>['episodes'],
     events: Parameters<typeof projectDailyLearningRoute>[0]['events'],
     language: AcademyRouteContext['language'],
+    minimumLessonOrder: number,
+    schedulerDueReviews: Parameters<typeof projectDailyLearningRoute>[0]['schedulerDueReviews'],
 ): DailyLearningRoute | undefined {
     const candidates: DailyLearningCandidate[] = playableWeeks.flatMap(delivery => {
+        if (delivery.order < minimumLessonOrder) return [];
         const week = plan.weeks.find(candidate => candidate.weekId === delivery.weekId);
         if (!week) return [];
-        const packageId = delivery.lessonId.startsWith('authored-week:')
-            ? delivery.lessonId.slice('authored-week:'.length)
-            : delivery.lessonId;
+        const packageId = classWeekPackageId(delivery.lessonId);
         const conceptIds = week.source.topicEvidence.map(
             (_, index) => `source:${week.source.sha256}:topic:${index + 1}`,
         );
@@ -718,12 +732,13 @@ function dailyLearningRoute(
                 : { kind: 'place-discovery', id: `story-place:${episode.location.id}` },
         });
     });
-    if (!candidates.length && !events.length) return undefined;
+    if (!candidates.length && !events.length && !schedulerDueReviews?.length) return undefined;
     try {
         return projectDailyLearningRoute({
             events,
             evidence: [],
             candidates,
+            ...(schedulerDueReviews ? { schedulerDueReviews } : {}),
             now: Date.now(),
             dayBoundary: { timeZone: 'Europe/London', dayBoundaryHour: 4 },
         });
@@ -821,6 +836,39 @@ function nearestPlayableOrder(
         .sort((left, right) => left - right);
     if (playableOrders.length === 0) return requestedOrder;
     return playableOrders.find(candidate => candidate >= requestedOrder) ?? playableOrders.at(-1)!;
+}
+
+function nextIncompletePlayableOrder(
+    weeks: readonly { readonly weekId: string; readonly order: number }[],
+    playableWeekIds: ReadonlySet<string>,
+    completedWeekIds: ReadonlySet<string>,
+    requestedOrder: number,
+): number {
+    const next = weeks
+        .filter(week => playableWeekIds.has(week.weekId)
+            && !completedWeekIds.has(week.weekId)
+            && week.order >= requestedOrder)
+        .sort((left, right) => left.order - right.order)[0];
+    return next?.order ?? nearestPlayableOrder(weeks, playableWeekIds, requestedOrder);
+}
+
+function completedClassWeekIds(
+    deliveries: readonly { readonly weekId: string; readonly lessonId: string }[],
+    completedEncounterIds: readonly string[],
+): ReadonlySet<string> {
+    const completed = new Set(completedEncounterIds);
+    return new Set(deliveries.flatMap(delivery => {
+        const packageId = classWeekPackageId(delivery.lessonId);
+        return completed.has(`class-week:${delivery.weekId}`) || completed.has(`class-week:${packageId}`)
+            ? [delivery.weekId]
+            : [];
+    }));
+}
+
+function classWeekPackageId(lessonId: string): string {
+    return lessonId.startsWith('authored-week:')
+        ? lessonId.slice('authored-week:'.length)
+        : lessonId;
 }
 
 function downloadExport(blob: Blob): void {

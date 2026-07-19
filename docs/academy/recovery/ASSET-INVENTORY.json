@@ -5,7 +5,8 @@
   "authority": {
     "runtimeAuthorization": "public/academy/art/ASSET-USAGE.json",
     "expressionMatrix": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
-    "physicalScope": "public/academy/art/**/*.{jpeg,jpg,png,webp}",
+    "physicalScope": "git-tracked public/academy/art/**/*.{jpeg,jpg,png,webp}",
+    "recoveredReviewScope": "public/academy/art/ASSET-USAGE.json#recovered-art-review-collection-v1",
     "physicalPresenceDoesNotAuthorizeRuntime": true,
     "recoveryArchivesAuthorizeRuntime": false
   },
@@ -18,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 111,
-    "currentRasterFilesAccountedFor": 111,
-    "active": 102,
+    "currentRasterFiles": 114,
+    "currentRasterFilesAccountedFor": 114,
+    "active": 105,
     "orphaned": 9,
     "deprecated": 9,
     "deprecatedPresent": 0,
@@ -34,7 +35,7 @@
       "character-sprite": 23,
       "protagonist-portrait": 4,
       "scene-background": 66,
-      "scene-event": 1,
+      "scene-event": 4,
       "scene-item": 8
     },
     "orphanedByKind": {
@@ -464,6 +465,62 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "review-candidate/runtime-preview",
         "ledgerStatus": "private-reference-derivative-review-preview; source-photo-not-shipped; owner-likeness-approval-required"
+      },
+      {
+        "id": "atlas-finale-next-page-v001",
+        "path": "/academy/art/events/event__atlas-finale-next-page__v001.png",
+        "sha256": "644e371d050f58392c9c14ea4f59c8075a5a0922153ff6932652cac5c4742e9b",
+        "ledgerSha256": "644e371d050f58392c9c14ea4f59c8075a5a0922153ff6932652cac5c4742e9b",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "scene:atlas-closes:what-the-template-was",
+          "scene:atlas-closes:only-this-far",
+          "scene:next-page:the-terms-of-the-page",
+          "scene:next-page:the-one-thing-left"
+        ],
+        "reviewHomes": [],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime-anchor",
+        "ledgerStatus": "generated-from-verified-season-four-gap; prop-led; no-visible-people; runtime-bound"
+      },
+      {
+        "id": "empty-microphone-rehearsal-v001",
+        "path": "/academy/art/events/event__empty-microphone-rehearsal__v001.png",
+        "sha256": "5ca3b9da0670ad6715ccce8ff8c139d3e5d5a1f30c7dd3ff0b35768420bd351e",
+        "ledgerSha256": "5ca3b9da0670ad6715ccce8ff8c139d3e5d5a1f30c7dd3ff0b35768420bd351e",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "scene:empty-microphone:host-drops-out",
+          "scene:empty-microphone:the-role-on-the-sheet"
+        ],
+        "reviewHomes": [],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime-anchor",
+        "ledgerStatus": "generated-from-verified-season-three-gap; prop-led; no-visible-people; runtime-bound"
+      },
+      {
+        "id": "withheld-panel-handoff-v001",
+        "path": "/academy/art/events/event__withheld-panel-handoff__v001.png",
+        "sha256": "5e1a4e3922799975a940988eda43a38403720fdf84574b11106d61c7984cf7f7",
+        "ledgerSha256": "5e1a4e3922799975a940988eda43a38403720fdf84574b11106d61c7984cf7f7",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "scene:last-revision:what-stays-out-of-frame",
+          "scene:last-revision:vivid-but-restores-nothing"
+        ],
+        "reviewHomes": [],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime-anchor",
+        "ledgerStatus": "generated-from-verified-season-four-gap; prop-led; no-visible-people; runtime-bound"
       },
       {
         "id": "rainy-directions-rie-aakash-v001",

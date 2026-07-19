@@ -93,7 +93,7 @@ export const AUTHORED_WEEK_HASHES = {
     'l2-l32': '2c62cac30744372dbc1790806410e647c86baca7695803c3806372f69d09ee23',
     'l2-l33': '766792a660f9f445cb21d23fda504c6403a3d90eaa08ddcf6980cf9a03bdd2d8',
     'l2-l34': 'a7be0c2a1333dc4b91f9428e087d03609700bdb7b4840accabc7c94e0c1f508b',
-    'l2-l36': 'deab104b569a87118df23c6346b42677c6716713bb40a2525f1c9489cff6ffe2',
+    'l2-l36': 'e5ed449ecb4c21edfb318db581c604788cd76b206617cae455dbfca2e81dbb0d',
 } as const;
 
 export type AuthoredWeekId = keyof typeof AUTHORED_WEEK_HASHES;

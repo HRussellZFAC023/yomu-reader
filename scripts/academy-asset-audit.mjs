@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +33,17 @@ function walk(directory) {
             const target = path.join(directory, entry.name);
             return entry.isDirectory() ? walk(target) : [target];
         });
+}
+
+function trackedRasterFiles() {
+    const paths = execFileSync('git', ['ls-files', '-z', '--', 'public/academy/art'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+    }).split('\0').filter(Boolean);
+    return paths
+        .filter(file => RASTER_EXTENSIONS.has(path.extname(file).toLowerCase()))
+        .map(file => path.join(REPO_ROOT, file))
+        .filter(file => fs.existsSync(file));
 }
 
 function publicPath(file) {
@@ -99,7 +111,7 @@ function currentRecord(assetPath, file, ledger) {
     };
 }
 
-function deprecatedRecords(usage, spriteInventory) {
+function deprecatedRecords(usage, spriteInventory, trackedPaths) {
     const records = [];
     for (const asset of usage.assets.filter(entry => isDeprecatedVerdict(entry.verdict))) {
         for (const delivery of asset.deliveries ?? []) {
@@ -110,7 +122,7 @@ function deprecatedRecords(usage, spriteInventory) {
                 sha256: delivery.sha256,
                 kind: rasterKind(delivery.path),
                 state: 'deprecated',
-                present: fs.existsSync(path.join(REPO_ROOT, 'public', delivery.path.replace(/^\//, ''))),
+                present: trackedPaths.has(delivery.path),
                 runtimeAuthorized: false,
                 runtimeHomes: [],
                 reviewHomes: [...(asset.reviewHome ?? [])],
@@ -130,7 +142,7 @@ function deprecatedRecords(usage, spriteInventory) {
             sha256: null,
             kind: rasterKind(migration.from),
             state: 'deprecated',
-            present: fs.existsSync(path.join(REPO_ROOT, 'public', migration.from.replace(/^\//, ''))),
+            present: trackedPaths.has(migration.from),
             runtimeAuthorized: false,
             runtimeHomes: [...migration.runtimeReferencesAfterMigration],
             reviewHomes: [],
@@ -240,12 +252,14 @@ export function buildAcademyAssetInventory() {
     const usage = readJson(USAGE_PATH);
     const spriteInventory = readJson(SPRITE_INVENTORY_PATH);
     const byDelivery = deliveryMap(usage);
-    const deprecated = deprecatedRecords(usage, spriteInventory);
+    const currentFiles = trackedRasterFiles();
+    const trackedPaths = new Set(currentFiles.map(publicPath));
+    const deprecated = deprecatedRecords(usage, spriteInventory, trackedPaths);
     const deprecatedPaths = new Set(deprecated.map(entry => entry.path));
     const active = [];
     const orphaned = [];
 
-    for (const file of walk(PUBLIC_ART_ROOT).filter(file => RASTER_EXTENSIONS.has(path.extname(file).toLowerCase()))) {
+    for (const file of currentFiles) {
         const assetPath = publicPath(file);
         if (deprecatedPaths.has(assetPath)) continue;
         const record = currentRecord(assetPath, file, byDelivery.get(assetPath));
@@ -272,7 +286,8 @@ export function buildAcademyAssetInventory() {
         authority: {
             runtimeAuthorization: 'public/academy/art/ASSET-USAGE.json',
             expressionMatrix: 'public/academy/art/CLASSMATE-SPRITE-INVENTORY.json',
-            physicalScope: 'public/academy/art/**/*.{jpeg,jpg,png,webp}',
+            physicalScope: 'git-tracked public/academy/art/**/*.{jpeg,jpg,png,webp}',
+            recoveredReviewScope: 'public/academy/art/ASSET-USAGE.json#recovered-art-review-collection-v1',
             physicalPresenceDoesNotAuthorizeRuntime: true,
             recoveryArchivesAuthorizeRuntime: false,
         },
@@ -326,8 +341,7 @@ export function validateAcademyAssetInventory(inventory) {
     const presentPaths = present.map(entry => entry.path);
     if (new Set(presentPaths).size !== presentPaths.length) errors.push('Present asset states overlap or contain duplicate paths.');
 
-    const physicalPaths = walk(PUBLIC_ART_ROOT)
-        .filter(file => RASTER_EXTENSIONS.has(path.extname(file).toLowerCase()))
+    const physicalPaths = trackedRasterFiles()
         .map(publicPath)
         .sort((a, b) => a.localeCompare(b, 'en'));
     if (JSON.stringify([...presentPaths].sort((a, b) => a.localeCompare(b, 'en'))) !== JSON.stringify(physicalPaths)) {
@@ -354,8 +368,8 @@ export function validateAcademyAssetInventory(inventory) {
         errors.push('Expression matrix delivered and missing counts do not reconcile.');
     }
     for (const entry of missing) {
-        if (fs.existsSync(path.join(REPO_ROOT, 'public', entry.plannedPath.replace(/^\//, '')))) {
-            errors.push(`${entry.plannedPath}: marked missing but a raster exists.`);
+        if (physicalPaths.includes(entry.plannedPath)) {
+            errors.push(`${entry.plannedPath}: marked missing but a release-tracked raster exists.`);
         }
     }
     if (!inventory.noFilesDeletedByAudit || deprecated.some(entry => !entry.noDeletionPerformedByAudit)) {

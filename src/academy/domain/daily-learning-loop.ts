@@ -72,6 +72,11 @@ export interface DailyLearningLoopInput {
     readonly events: readonly LearnerEvent[];
     readonly evidence: readonly CrossYomuEvidence[];
     readonly candidates: readonly DailyLearningCandidate[];
+    /** When present, Yomu's scheduler owns the complete current due set. */
+    readonly schedulerDueReviews?: readonly Readonly<{
+        id: string;
+        dueAt: number;
+    }>[];
     readonly targetConceptIds?: readonly string[];
     readonly now: number;
     readonly dayBoundary: Pick<StreakPolicy, 'timeZone' | 'dayBoundaryHour'>;
@@ -167,7 +172,7 @@ export function projectDailyLearningRoute(input: DailyLearningLoopInput): DailyL
     const candidates = input.candidates.filter((candidate) => candidate.modeId !== 'inferno-pressure');
 
     const actions = [
-        projectDueRepair(input.events, input.now),
+        projectDueRepair(input.events, input.now, input.schedulerDueReviews),
         projectNextLesson(candidates, input.events, input.now),
         projectNextEncounter(candidates, input.events, input.now, knowledge, input.targetConceptIds ?? [], [
             ...verifiedEvidence,
@@ -267,16 +272,18 @@ function projectConnection(action: DailyRouteAction): NonNullable<DailyMotivatio
     };
 }
 
-function projectDueRepair(events: readonly LearnerEvent[], now: number): DailyRouteAction | null {
+function projectDueRepair(
+    events: readonly LearnerEvent[],
+    now: number,
+    schedulerDueReviews: DailyLearningLoopInput['schedulerDueReviews'],
+): DailyRouteAction | null {
     const schedules = latestActiveSchedules(events, now);
-    const ratings = latestRatings(events, now);
-    const due = [...schedules.values()]
-        // A rating closes one schedule occurrence, including `again`; SRS must
-        // append the next schedule occurrence when more repair is needed.
-        .filter((schedule) => schedule.dueAt <= now && (ratings.get(schedule.reviewItemId)?.at ?? -1) < schedule.at)
-        .sort((left, right) => left.reviewItemId.localeCompare(right.reviewItemId));
-    if (!due.length) return null;
-    const reviewItemIds = due.map((schedule) => schedule.reviewItemId);
+    const reviewItemIds = schedulerDueReviews === undefined
+        ? locallyDueReviewIds(schedules, latestRatings(events, now), now)
+        : sortedUnique(schedulerDueReviews
+            .filter(review => review.dueAt <= now)
+            .map(review => review.id));
+    if (!reviewItemIds.length) return null;
     return {
         kind: 'repair',
         reason: 'due-srs',
@@ -286,9 +293,25 @@ function projectDueRepair(events: readonly LearnerEvent[], now: number): DailyRo
         skill: 'repair',
         format: 'mixed',
         reviewItemIds,
-        conceptIds: sortedUnique(due.map((schedule) => schedule.conceptId)),
+        conceptIds: sortedUnique(reviewItemIds.flatMap(id => {
+            const conceptId = schedules.get(id)?.conceptId;
+            return conceptId ? [conceptId] : [];
+        })),
         incentive: { kind: 'journal-memory', id: 'daily-repair-memory' },
     };
+}
+
+function locallyDueReviewIds(
+    schedules: ReadonlyMap<string, Extract<LearnerEvent, { kind: 'review-scheduled' }>>,
+    ratings: ReadonlyMap<string, Extract<LearnerEvent, { kind: 'review-rated' }>>,
+    now: number,
+): readonly string[] {
+    return [...schedules.values()]
+        // A rating closes one local schedule occurrence. When Yomu supplies a
+        // due snapshot above, that scheduler-owned state takes precedence.
+        .filter(schedule => schedule.dueAt <= now && (ratings.get(schedule.reviewItemId)?.at ?? -1) < schedule.at)
+        .map(schedule => schedule.reviewItemId)
+        .sort((left, right) => left.localeCompare(right));
 }
 
 function projectNextLesson(candidates: readonly DailyLearningCandidate[], events: readonly LearnerEvent[], now: number): DailyRouteAction | null {
@@ -592,6 +615,10 @@ function validateInput(input: DailyLearningLoopInput): void {
         'evidence id',
     );
     if (input.targetConceptIds) input.targetConceptIds.forEach((id) => nonEmpty(id, 'target concept id'));
+    input.schedulerDueReviews?.forEach(review => {
+        nonEmpty(review.id, 'scheduler due review id');
+        nonNegativeInteger(review.dueAt, `${review.id} scheduler dueAt`);
+    });
     input.candidates.forEach((candidate) => {
         nonEmpty(candidate.label, 'candidate label');
         nonEmptyConcepts(candidate.conceptIds, `${candidate.id} conceptIds`);

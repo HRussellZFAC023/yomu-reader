@@ -30,6 +30,8 @@ This is the short operational order inside the queue above. The detailed catalog
 - [ ] Complete the voice roster for all Academy and textbook characters plus narrator/UI/worksheet/minigame lines; naturalness-lock each line before pitch-reviewed Aivis rendering and runtime binding.
 - [ ] Reconcile every existing image with the forthcoming grader JSON, bind provisionally approved candidates, fill only verified scene gaps, and retain rejected/replaced candidates as review history.
 - [x] Wire the deterministic daily learning route and warm return arc into the live Course route from the world; connect due SRS, grounded lessons, relationships, place discovery, visible diegetic payoffs, and one dominant next action without grind rewards.
+- [x] Make Yomu's scheduler queue authoritative for due repair and advance Course/daily recommendations from the learner's selected-band floor and completed class-week evidence, including Lesson 10 → Kanji 7.
+- [x] Complete the learner-motivation pass for the daily route: one clear start, competence cue, warm return without loss, the learner's own reason, relationship/world payoff, and a clean stopping point.
 - [ ] Feed verified Reader/Watch evidence into that route and mirror its concise continuation prompt in the world and journal.
 - [ ] Finish the line-by-line tone, chronological n+1, asset, and lesson-seam pass across all 48 chapters, then run full desktop/mobile real-user QA and release from the main checkout.
 

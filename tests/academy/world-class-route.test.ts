@@ -68,7 +68,7 @@ describe('World Class route', () => {
         expect(go).toHaveBeenCalledWith('lesson-overview');
     });
 
-    it('shows all 73 Weeks while opening the recovered authored Weeks', async () => {
+    it('shows all 74 course stops while opening the recovered authored Weeks', async () => {
         const appShell = shell();
         const go = vi.fn(async () => undefined);
         const back = vi.fn(async () => undefined);
@@ -88,7 +88,7 @@ describe('World Class route', () => {
             back,
         });
 
-        expect(appShell.current?.querySelectorAll('.academy-class-week-node')).toHaveLength(73);
+        expect(appShell.current?.querySelectorAll('.academy-class-week-node')).toHaveLength(74);
         expect(appShell.current?.querySelectorAll('button.academy-class-week-entry')).toHaveLength(1);
         expect(appShell.current?.querySelector('[data-week-id="orientation"] [aria-disabled="true"]')).not.toBeNull();
         appShell.current?.querySelector<HTMLButtonElement>('[data-week-id="l1-l01"] button')?.click();
@@ -190,5 +190,69 @@ describe('World Class route', () => {
         expect(appShell.current?.querySelector('[data-week-id="l1-l01"] button')).not.toBeNull();
         expect(appShell.current?.querySelector('[data-week-id="l3-2-l02"] button')).toBeNull();
         expect(appShell.current?.querySelector('[data-week-id="l3-2-l02"]')?.getAttribute('data-week-status')).toBe('locked');
+        expect(appShell.current?.querySelector('.academy-daily-route-action.is-primary')?.getAttribute('data-daily-action-id'))
+            .toBe('authored-week:l2-l12');
+    });
+
+    it('advances the N2 path and daily thread beyond completed Lesson 10', async () => {
+        const completed = [
+            ['l2-l24', 'l3plus-kickoff'],
+            ['l2-l25', 'l3plus-l01'],
+            ['l2-l26', 'l3plus-l02'],
+            ['l2-l27', 'l3plus-l03'],
+            ['l2-l28', 'l3plus-l04'],
+            ['l2-l29', 'l3plus-l05'],
+            ['l2-l30', 'l3plus-l06'],
+            ['l2-l31', 'l3plus-l07'],
+            ['l2-l32', 'l3plus-l08'],
+            ['l2-l33', 'l3plus-l09'],
+            ['l2-l36', 'l3plus-l10'],
+        ].map(([packageId, weekId], index) => ({
+            schemaVersion: 1 as const,
+            eventId: `encounter:${packageId}`,
+            at: index + 2,
+            kind: 'characters-encountered' as const,
+            encounterId: `class-week:${packageId}`,
+            sceneId: `scene:class-week:${weekId}`,
+            attendeeIds: ['rie'],
+        }));
+        const events = [{
+            schemaVersion: 1 as const,
+            eventId: 'entry:n2',
+            at: 1,
+            kind: 'curriculum-entry-chosen' as const,
+            route: 'manual-band' as const,
+            band: 'n2' as const,
+        }, ...completed];
+        const appShell = shell();
+        const flow = createWorldFlow({
+            evidence: {
+                history: vi.fn(async () => events),
+                dueReviews: vi.fn(async () => []),
+            } as never,
+            pronunciation: {} as never,
+            audio: {} as never,
+        });
+
+        await flow.render('class', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2,
+                route: 'class',
+                routeHistory: [],
+                presentationMode: 'course',
+                selectedBand: 'n2',
+                updatedAt: 20,
+            },
+            projection: projectLearnerRecord(events),
+            shell: appShell,
+            go: vi.fn(async () => undefined),
+            back: vi.fn(async () => undefined),
+        });
+
+        expect(appShell.current?.querySelector('[data-week-id="l3plus-l10"]')?.getAttribute('data-week-status')).toBe('complete');
+        expect(appShell.current?.querySelector('[data-week-id="l3plus-kanji-7"]')?.getAttribute('aria-current')).toBe('step');
+        expect(appShell.current?.querySelector('.academy-daily-route-action.is-primary')?.getAttribute('data-daily-action-id'))
+            .toBe('authored-week:l2-l34');
     });
 });

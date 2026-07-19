@@ -148,7 +148,7 @@ describe('Academy story chapter catalog', () => {
 
         const undeclared = mutableChapter('s1e02-margin-map.v2.json');
         const line = undeclared.scenes[0]!.nodes.find(node => node.kind === 'line')!;
-        line.speakerId = 'nanako';
+        (line as { speakerId?: string }).speakerId = 'nanako';
         expect(() => compileStoryPackage(undeclared)).toThrow(/not declared/);
     });
 

@@ -131,6 +131,71 @@ describe('projectDailyLearningRoute', () => {
         });
     });
 
+    it.each(['again', 'good', 'easy'] as const)(
+        'keeps a %s-rated item in repair while Yomu still reports it due',
+        rating => {
+            const route = projectDailyLearningRoute({
+                events: [
+                    scheduled('schedule:a', 'review:a', 'known:a', 0, 0),
+                    rated('rating:a', 'review:a', rating, 1),
+                ],
+                evidence: [],
+                candidates: [lesson('lesson:a', 1, ['lesson:a'])],
+                schedulerDueReviews: [{ id: 'review:a', dueAt: 0 }],
+                now: 20,
+                dayBoundary: BOUNDARY,
+            });
+
+            expect(route.primaryAction).toMatchObject({
+                kind: 'repair',
+                reviewItemIds: ['review:a'],
+                conceptIds: ['known:a'],
+            });
+        },
+    );
+
+    it('treats an empty scheduler snapshot as authoritative over stale local schedules', () => {
+        const route = projectDailyLearningRoute({
+            events: [scheduled('schedule:a', 'review:a', 'known:a', 0, 0)],
+            evidence: [],
+            candidates: [lesson('lesson:a', 1, ['lesson:a'])],
+            schedulerDueReviews: [],
+            now: 20,
+            dayBoundary: BOUNDARY,
+        });
+
+        expect(route.primaryAction).toMatchObject({ kind: 'lesson', id: 'lesson:a' });
+    });
+
+    it('preserves scheduler IDs and sorts the authoritative due repair deterministically', () => {
+        const input = {
+            events: [
+                scheduled('schedule:b', 'review:b', 'known:b', 0, 0),
+                scheduled('schedule:a', 'review:a', 'known:a', 0, 0),
+                rated('rating:a', 'review:a', 'good', 1),
+            ],
+            evidence: [],
+            candidates: [lesson('lesson:a', 1, ['lesson:a'])],
+            schedulerDueReviews: [
+                { id: 'scheduler:unmatched', dueAt: 0 },
+                { id: 'review:b', dueAt: 0 },
+                { id: 'review:a', dueAt: 0 },
+            ],
+            now: 20,
+            dayBoundary: BOUNDARY,
+        } as const;
+
+        expect(projectDailyLearningRoute(input).primaryAction).toMatchObject({
+            kind: 'repair',
+            reviewItemIds: ['review:a', 'review:b', 'scheduler:unmatched'],
+            conceptIds: ['known:a', 'known:b'],
+        });
+        expect(projectDailyLearningRoute({
+            ...input,
+            schedulerDueReviews: [...input.schedulerDueReviews].reverse(),
+        })).toEqual(projectDailyLearningRoute(input));
+    });
+
     it('chooses the earliest unfinished grounded lesson, independent of candidate order', () => {
         const events = [
             academyEvidence('complete:first', 1, ['lesson:first'], {
@@ -174,6 +239,7 @@ describe('projectDailyLearningRoute', () => {
         const route = projectDailyLearningRoute({
             events: [
                 {
+                    schemaVersion: 1,
                     kind: 'characters-encountered',
                     eventId: 'encounter:first',
                     at: 1,
@@ -700,7 +766,12 @@ function scheduled(eventId: string, reviewItemId: string, conceptId: string, due
     };
 }
 
-function rated(eventId: string, reviewItemId: string, rating: 'again' | 'good', at: number): Extract<LearnerEvent, { kind: 'review-rated' }> {
+function rated(
+    eventId: string,
+    reviewItemId: string,
+    rating: Extract<LearnerEvent, { kind: 'review-rated' }>['rating'],
+    at: number,
+): Extract<LearnerEvent, { kind: 'review-rated' }> {
     return {
         schemaVersion: 1,
         kind: 'review-rated',

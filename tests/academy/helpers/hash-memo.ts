@@ -1,5 +1,5 @@
-// Content-addressed sha256 memo for large fixture files. Keyed on (path, mtimeMs,
-// size) and persisted under node_modules/.cache so repeated hashing of the same
+// Content-addressed sha256 memo for large fixture files. Keyed on exact file
+// timestamps and size, then persisted so repeated hashing of the same
 // unchanged multi-MB assets (academy art, lesson payloads, docs mirrors) is paid
 // once per checkout instead of once per test file per run.
 //
@@ -13,7 +13,12 @@ const CACHE_DIR = path.join(process.cwd(), 'node_modules', '.cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'yomu-academy-hash-memo.json');
 const memoDisabled = process.env.YOMU_HASH_MEMO === '0';
 
-type MemoIndex = Record<string, { mtimeMs: number; size: number; sha256: string }>;
+type MemoIndex = Record<string, {
+    mtimeNs: string;
+    ctimeNs: string;
+    size: string;
+    sha256: string;
+}>;
 
 let index: MemoIndex | null = null;
 let dirty = false;
@@ -54,16 +59,21 @@ function hashBytes(filePath: string): string {
     return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-/** sha256 of a file, memoized on (path, mtimeMs, size). */
+/** sha256 of a file, memoized on nanosecond timestamps and size. */
 export function sha256File(filePath: string): string {
     const resolved = path.resolve(filePath);
     if (memoDisabled) return hashBytes(resolved);
-    const stat = fs.statSync(resolved);
+    const stat = fs.statSync(resolved, { bigint: true });
     const idx = loadIndex();
     const entry = idx[resolved];
-    if (entry && entry.mtimeMs === stat.mtimeMs && entry.size === stat.size) return entry.sha256;
+    const mtimeNs = stat.mtimeNs.toString();
+    const ctimeNs = stat.ctimeNs.toString();
+    const size = stat.size.toString();
+    if (entry && entry.mtimeNs === mtimeNs && entry.ctimeNs === ctimeNs && entry.size === size) {
+        return entry.sha256;
+    }
     const sha256 = hashBytes(resolved);
-    idx[resolved] = { mtimeMs: stat.mtimeMs, size: stat.size, sha256 };
+    idx[resolved] = { mtimeNs, ctimeNs, size, sha256 };
     dirty = true;
     return sha256;
 }

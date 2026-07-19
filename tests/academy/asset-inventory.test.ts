@@ -58,19 +58,15 @@ const inventory = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8')) as AssetInven
 
 function currentRasterHashes() {
     const root = path.resolve('public/academy/art');
-    const files: string[] = [];
-    const walk = (directory: string) => {
-        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-            const file = path.join(directory, entry.name);
-            if (entry.isDirectory()) walk(file);
-            else if (/\.(?:jpe?g|png|webp)$/iu.test(entry.name)) files.push(file);
-        }
-    };
-    walk(root);
+    const files = execFileSync('git', ['ls-files', '-z', '--', 'public/academy/art'], { encoding: 'utf8' })
+        .split('\0')
+        .filter(file => /\.(?:jpe?g|png|webp)$/iu.test(file))
+        .map(file => path.resolve(file))
+        .filter(file => fs.existsSync(file));
     return Object.fromEntries(files.sort().map(file => [
         path.relative(root, file),
-        // Memoized on (mtime, size): a file the audit rewrote re-hashes for real,
-        // an untouched 73MB art tree stops being hashed three times per run.
+        // Recovered review files are catalogued separately; this audit proves the
+        // release-tracked tree without making local recovery bytes a CI input.
         sha256File(file),
     ]));
 }
@@ -82,19 +78,19 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain('102 active, 9 orphaned, 9 deprecated, 607 missing expression variants');
+            .toContain(`${inventory.counts.active} active, ${inventory.counts.orphaned} orphaned, ${inventory.counts.deprecated} deprecated, 607 missing expression variants`);
         expect(currentRasterHashes()).toEqual(before);
     });
 
     it('accounts for every current raster exactly once without conflating authorization and presence', () => {
-        expect(inventory.counts).toMatchObject({
-            currentRasterFiles: 111,
-            currentRasterFilesAccountedFor: 111,
-            active: 102,
-            orphaned: 9,
-            deprecated: 9,
-            deprecatedPresent: 0,
-        });
+        const releaseRasterCount = Object.keys(currentRasterHashes()).length;
+        expect(inventory.counts.currentRasterFiles).toBe(releaseRasterCount);
+        expect(inventory.counts.currentRasterFilesAccountedFor).toBe(releaseRasterCount);
+        expect(inventory.counts.active).toBe(inventory.assets.active.length);
+        expect(inventory.counts.orphaned).toBe(inventory.assets.orphaned.length);
+        expect(inventory.counts.deprecated).toBe(inventory.assets.deprecated.length);
+        expect(inventory.counts.deprecatedPresent)
+            .toBe(inventory.assets.deprecated.filter(asset => asset.present).length);
         expect(inventory.assets.active.every(asset => asset.present && asset.runtimeAuthorized && asset.runtimeHomes.length > 0)).toBe(true);
         expect(inventory.assets.orphaned.every(asset => asset.present && !asset.runtimeAuthorized && asset.runtimeHomes.length === 0)).toBe(true);
         expect(inventory.assets.deprecated.every(asset => !asset.runtimeAuthorized && asset.runtimeHomes.length === 0)).toBe(true);
@@ -102,7 +98,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             ...inventory.assets.active,
             ...inventory.assets.orphaned,
             ...inventory.assets.deprecated.filter(asset => asset.present),
-        ].map(asset => asset.path)).size).toBe(111);
+        ].map(asset => asset.path)).size).toBe(releaseRasterCount);
     });
 
     it('keeps the recovered Aakash expression family and the Rie thinking sprite orphaned as the off-matrix deliveries', () => {
@@ -171,7 +167,12 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
             present: false,
             sourceLedger: 'public/academy/art/CLASSMATE-SPRITE-INVENTORY.json',
         });
+        const releasePaths = new Set([
+            ...inventory.assets.active,
+            ...inventory.assets.orphaned,
+            ...inventory.assets.deprecated.filter(asset => asset.present),
+        ].map(asset => asset.path));
         expect(inventory.expressionCoverage.missingVariants.every(variant =>
-            !fs.existsSync(path.resolve('public', variant.plannedPath.slice(1))))).toBe(true);
+            !releasePaths.has(variant.plannedPath))).toBe(true);
     });
 });

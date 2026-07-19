@@ -17,7 +17,7 @@ import { createAuthoredWeekScreen } from '../../src/academy/ui/authored-week-scr
 import { filesHaveSameContent, sha256File } from './helpers/hash-memo';
 
 const PACKAGE_FILENAME = '063-l2-l36.json';
-const PACKAGE_SHA256 = 'deab104b569a87118df23c6346b42677c6716713bb40a2525f1c9489cff6ffe2';
+const PACKAGE_SHA256 = 'e5ed449ecb4c21edfb318db581c604788cd76b206617cae455dbfca2e81dbb0d';
 const ARCHIVE_SHA256 = '57ca13bfffee06933f2dc4ee47d9b3ce168fd6d37475c12e0e7f243c9658265';
 const PUBLIC_PACKAGE_PATH = path.resolve('public/academy/content/lessons', PACKAGE_FILENAME);
 const DOCS_PACKAGE_PATH = path.resolve('docs/public/academy/content/lessons', PACKAGE_FILENAME);

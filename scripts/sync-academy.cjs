@@ -1,9 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const destination = path.join(root, 'docs', 'public', 'academy');
+const trackedFilesBySource = new Map();
 const revisionToken = '__ACADEMY_REVISION__';
 const templates = [
     ['public/academy/index.html', 'index.html'],
@@ -48,11 +50,15 @@ const sourcePaths = [...templates, ...runtimeSources].map(([source]) => source).
 for (const source of sourcePaths) {
     if (!fs.existsSync(path.join(root, source))) throw new Error(`Missing Academy runtime file: ${source}`);
 }
-assertNoPrivatePaths(path.join(root, 'public', 'academy'));
+assertNoPrivatePaths(trackedFiles('public/academy').map(file => path.join(root, file)));
 
 const hash = crypto.createHash('sha256');
-for (const source of sourcePaths.sort()) hashPath(source, path.join(root, source), hash);
+for (const source of sourcePaths.sort()) hashSource(source, hash);
 const revision = `s1-${hash.digest('hex').slice(0, 12)}`;
+if (process.env.YOMU_SYNC_ACADEMY_REVISION_ONLY === '1') {
+    console.log(revision);
+    process.exit(0);
+}
 
 // The full sync rm+cp moves ~220MB; when the destination was already produced
 // from byte-identical sources (revision marker matches), skip it. The revision
@@ -73,7 +79,8 @@ for (const [source, target] of runtimeSources) {
     const from = path.join(root, source);
     const to = path.join(destination, target);
     fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.cpSync(from, to, { recursive: true });
+    if (isTrackedPublicDirectory(source)) copyTrackedDirectory(source, target);
+    else fs.cpSync(from, to, { recursive: true });
 }
 for (const [source, target] of templates) {
     const template = fs.readFileSync(path.join(root, source), 'utf8');
@@ -102,19 +109,45 @@ function hashPath(label, absolutePath, digest) {
     digest.update('\0');
 }
 
-function assertNoPrivatePaths(directory) {
+function trackedFiles(source) {
+    const cached = trackedFilesBySource.get(source);
+    if (cached) return cached;
+    const files = execFileSync('git', ['ls-files', '-z', '--', source], {
+        cwd: root,
+        encoding: 'utf8',
+    }).split('\0').filter(Boolean).sort();
+    trackedFilesBySource.set(source, files);
+    return files;
+}
+
+function isTrackedPublicDirectory(source) {
+    return source.startsWith('public/') && fs.statSync(path.join(root, source)).isDirectory();
+}
+
+function hashSource(source, digest) {
+    if (!isTrackedPublicDirectory(source)) {
+        hashPath(source, path.join(root, source), digest);
+        return;
+    }
+    for (const file of trackedFiles(source)) hashPath(file, path.join(root, file), digest);
+}
+
+function copyTrackedDirectory(source, target) {
+    for (const file of trackedFiles(source)) {
+        const relative = path.relative(source, file);
+        const to = path.join(destination, target, relative);
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.copyFileSync(path.join(root, file), to);
+    }
+}
+
+function assertNoPrivatePaths(files) {
     const privatePath = /(?:\/Users\/[^/]+\/|\/home\/[^/]+\/|[A-Za-z]:\\\\Users\\\\[^\\]+\\\\)/;
     const textExtensions = new Set(['.css', '.html', '.js', '.json', '.md', '.txt', '.webmanifest']);
-    const visit = current => {
-        const stat = fs.statSync(current);
-        if (stat.isDirectory()) {
-            for (const child of fs.readdirSync(current)) visit(path.join(current, child));
-            return;
-        }
-        if (!textExtensions.has(path.extname(current))) return;
+    for (const current of files) {
+        if (!textExtensions.has(path.extname(current))) continue;
         if (privatePath.test(fs.readFileSync(current, 'utf8'))) {
             throw new Error(`Academy runtime contains a private workstation path: ${path.relative(root, current)}`);
         }
-    };
-    visit(directory);
+    }
 }

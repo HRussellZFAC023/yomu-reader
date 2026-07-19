@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ACADEMY_ASSETS, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
@@ -263,7 +264,7 @@ describe('Academy runtime asset ledger', () => {
         expect(rainyScene?.status).not.toContain('sprite');
     });
 
-    it('records the rejected Xingyu likeness without shipping or binding it', () => {
+    it('records the rejected Xingyu likeness without tracking, shipping, or binding it', () => {
         const preview = ledger.assets.find(asset => asset.id === 'xingyu-neutral-halfbody-v001');
         const review = JSON.parse(fs.readFileSync(
             path.resolve('docs/academy/art-review/xingyu__neutral__halfbody__v001.json'),
@@ -292,10 +293,15 @@ describe('Academy runtime asset ledger', () => {
             path: rejectedPath,
             sha256: review.rejection.outputSha256,
         }]);
+        const trackedPaths = execFileSync('git', ['ls-files', '--',
+            `public${rejectedPath}`, `docs/public${rejectedPath}`], { encoding: 'utf8' });
+        expect(trackedPaths).toBe('');
         for (const root of ['public', 'docs/public']) {
             const file = path.resolve(root, rejectedPath.replace(/^\//, ''));
-            expect(fs.existsSync(file), `preserved review evidence ${file}`).toBe(true);
-            expect(sha256File(file), file).toBe(review.rejection.outputSha256);
+            if (fs.existsSync(file)) {
+                expect(sha256File(file), `local recovered review evidence ${file}`)
+                    .toBe(review.rejection.outputSha256);
+            }
         }
         expect(collectPaths(ACADEMY_ASSETS)).not.toContain(rejectedPath);
         expect(collectPaths(ACADEMY_RUNTIME_ASSET_REGISTRY)).not.toContain(rejectedPath);
