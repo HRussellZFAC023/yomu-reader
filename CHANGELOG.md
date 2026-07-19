@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.229] - 2026-07-19
+
+### Fixed
+
+- Enabling both Jiten and JPDB definitions now shows both dictionary sources even without a JPDB API key. JPDB vocabulary details use the existing cached, backoff-protected public lookup, and cards owned by Jiten or a local dictionary no longer send their provider-specific ids as false JPDB vocabulary ids.
+- JPDB frequency pills no longer disappear when the public search returns duplicate records for the same exact spelling and reading, such as 今日（きょう）. The first ranked exact-identity result is used while differently read homographs remain excluded, so Jiten and JPDB ranks can appear side by side without borrowing evidence from another word.
+
 ## [1.6.228] - 2026-07-19
 
 ### Fixed
