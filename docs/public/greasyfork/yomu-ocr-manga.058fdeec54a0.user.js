@@ -2580,7 +2580,7 @@
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-    const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
+    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
     const classes = [
       readerWordClassName(state2, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
@@ -2597,7 +2597,7 @@
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
+    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
     const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
@@ -2637,7 +2637,7 @@
       if (source !== "jpdb") classes.push(`${source}-${state2}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
+    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(" ");
   }
   function hasKnownCardState(card) {
@@ -2648,9 +2648,6 @@
   }
   function safePitchClass(value) {
     return PITCH_CLASSES.has(value) ? value : "unknown";
-  }
-  function tokenPitchClass(token) {
-    return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
     let html = "";
@@ -8050,7 +8047,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["なくて", "る", "negative te-form"],
     ["なければ", "る", "negative conditional"],
     ["ない", "る", "negative"],
-    ["ず", "る", "negative archaic"],
     ["たかった", "る", "desiderative past"],
     ["たくなかった", "る", "desiderative negative past"],
     ["たくない", "る", "desiderative negative"],
@@ -8097,7 +8093,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["しなくて", "する", "negative te-form"],
     ["しなければ", "する", "negative conditional"],
     ["しない", "する", "negative"],
-    ["せず", "する", "negative archaic"],
     ["しなさい", "する", "polite request"],
     ["しすぎる", "する", "excessive"],
     ["された", "する", "passive past"],
@@ -8145,7 +8140,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["こなかった", "くる", "negative past"],
     ["こなくて", "くる", "negative te-form"],
     ["こない", "くる", "negative"],
-    ["こず", "くる", "negative archaic"],
     ["きなさい", "くる", "polite request"],
     ["きすぎる", "くる", "excessive"],
     ["こられた", "くる", "potential/passive past"],
@@ -8280,7 +8274,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
       { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
       { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
       { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
       { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
       { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },

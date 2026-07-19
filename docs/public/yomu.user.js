@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.235
+// @version 1.6.236
 // @author Henry Russell
 // @description Yomu (よむ) — Japanese popup dictionary and immersion reader: furigana, pitch accent, OCR, subtitles, and Anki/Jiten/Bunpro/JPDB study.
 // @license MIT
@@ -9,11 +9,11 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.04bf9491d05c.user.js#sha256=BL+UkdBcwDeEVEBBIzdVHiiVn7Am2krgrb0n3B8TqSY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.ee4e79ebc957.user.js#sha256=7k5568lXb4DiTQ8IFns9otyAXXlQMVd/NYS40ZC2uPU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b6e510c00167.user.js#sha256=tuUQwAFnKEZDbJp1yuOxxjS/b9XDLg1oX2qh9N3TUxo=
+// @require https://yomureader.com/greasyfork/yomu-anki.36b09d9a549f.user.js#sha256=NrCdmlSf/72x1N/dFmKWBx1rkdsJwK6bB4sN8rhImzk=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.2a8e9cf759ef.user.js#sha256=Ko6c91nvX1JZ/3Q74MXdqcWngzqhPBHYW0gDLhWMUd8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.efd7d1d64420.user.js#sha256=79fR1kQg5gM5ltQzRV8fnSXggIhspXWHTzfacu8TUZs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.3583968c9ebf.user.js#sha256=NYOWjJ6/9erRPyNFSxJ9Cbqz5sj9mhc1Z53k6NpSV58=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.42df0f76b089.user.js#sha256=Qt8PdrCJVqZ5mfNWLb2WLwXIsXs5aua82pQO3httJAc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.30c70bde8182.user.js#sha256=MMcL3oGCJRokQ50Ac3c/i+GSzbVYmvqR5oLfZjM5dT8=
 // @require https://yomureader.com/greasyfork/yomu-video.b10a4f0e357b.user.js#sha256=sQpPDjV7iygEidv3PeJmmZlGq7KzF/lTCrPF/E358BQ=
 // @resource yomuCss  https://yomureader.com/yomu.3946f3eb902f.css#sha256=OUbz65AvSggmnW8bNhao+UAZo0mN0Qq5EXtr1iy9RdI=
 // @connect api.jiten.moe
@@ -16435,6 +16435,7 @@ function nestedFrequencyValue(value) {
   const record = value;
   return record.frequency ?? record.value ?? record.displayValue;
 }
+Logger.scope("DictionaryArchiveCache");
 Logger.scope("Yomitan");
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -17361,32 +17362,16 @@ function renderFrequencyPill(entry, dictionaryLabel) {
   return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" data-frequency-source="local" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(`${label} local frequency`)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
 }
 const normalizeMiningSentence = (sentence) => yomuKanjiStudyCompanion()?.normalizeMiningSentence?.(sentence) ?? (sentence ?? "").replace(/\s+/g, " ").trim();
-const inferMiningSourceKind = (hints) => yomuKanjiStudyCompanion()?.inferMiningSourceKind?.(hints) ?? fallbackMiningSourceKind(hints);
-const resolveMiningContext = async (options) => yomuKanjiStudyCompanion()?.resolveMiningContext?.(options) ?? fallbackResolveMiningContext(options);
-const loadMiningContext = (term) => yomuKanjiStudyCompanion()?.loadMiningContext?.(term) ?? null;
-function fallbackResolveMiningContext(options) {
-  const sentence = normalizeMiningSentence(options.sentence) || options.term.trim();
-  const sourceKind = options.imageDataUrl ? "image" : options.videoImageDataUrl ? "video" : options.sourceKind ?? inferMiningSourceKind();
-  return {
-  ...fallbackStoredMiningContext(options.term, fallbackPageMiningContext(sentence, sourceKind), Date.now()),
+const inferMiningSourceKind = (hints = {}) => yomuKanjiStudyCompanion()?.inferMiningSourceKind?.(hints) ?? (hints.isImageSource ? "image" : hints.hasVideo ? "video" : (hints.hostname ?? location.hostname) === "jpdb.io" ? "jpdb" : "page");
+const resolveMiningContext = async (options) => yomuKanjiStudyCompanion()?.resolveMiningContext?.(options) ?? {
+  ...fallbackStored(options.term, fallbackDraft(
+  normalizeMiningSentence(options.sentence) || options.term.trim(),
+  options.imageDataUrl ? "image" : options.videoImageDataUrl ? "video" : options.sourceKind ?? inferMiningSourceKind()
+  ), Date.now()),
   imageDataUrl: options.imageDataUrl ?? options.videoImageDataUrl
-  };
-}
-function fallbackStoredMiningContext(term, context, updatedAt) {
-  return {
-  ...context,
-  term: term.trim(),
-  sentence: context.sentence.trim() || term.trim(),
-  sourceTitle: context.sourceTitle.trim(),
-  sourceUrl: context.sourceUrl.trim(),
-  imageUrl: optionalText(context.imageUrl),
-  audioUrls: optionalTextArray(context.audioUrls),
-  immersionIndex: optionalNumber(context.immersionIndex),
-  immersionTotal: optionalNumber(context.immersionTotal),
-  updatedAt
-  };
-}
-function fallbackPageMiningContext(sentence, sourceKind = "page") {
+};
+const loadMiningContext = (term) => yomuKanjiStudyCompanion()?.loadMiningContext?.(term) ?? null;
+function fallbackDraft(sentence, sourceKind) {
   return {
   sentence,
   sourceKind,
@@ -17394,24 +17379,13 @@ function fallbackPageMiningContext(sentence, sourceKind = "page") {
   sourceUrl: location.href
   };
 }
-function fallbackMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
-  if (isImageSource) return "image";
-  if (hasVideo) return "video";
-  if (hostname === "jpdb.io") return "jpdb";
-  return "page";
-}
-function optionalText(value) {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text || void 0;
-}
-function optionalTextArray(value) {
-  if (!Array.isArray(value)) return void 0;
-  const values = Array.from(new Set(value.map(optionalText).filter((text) => Boolean(text))));
-  return values.length ? values : void 0;
-}
-function optionalNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : void 0;
+function fallbackStored(term, context, updatedAt) {
+  return {
+  ...context,
+  term: term.trim(),
+  sentence: context.sentence.trim() || term.trim(),
+  updatedAt
+  };
 }
 const POS_LABELS = {
   abbr: "abbreviation",
@@ -22667,9 +22641,9 @@ function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
   });
 }
 function scheduleIdleCallback(callback, timeoutMs = 75) {
-  const requestIdleCallback = window.requestIdleCallback;
-  if (typeof requestIdleCallback !== "function") return false;
-  requestIdleCallback.call(window, callback, { timeout: timeoutMs });
+  const requestIdleCallback2 = window.requestIdleCallback;
+  if (typeof requestIdleCallback2 !== "function") return false;
+  requestIdleCallback2.call(window, callback, { timeout: timeoutMs });
   return true;
 }
 const ITEM_EXIT_MS = 180;
@@ -35866,8 +35840,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.235"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.235"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.236"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.236"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -35987,7 +35961,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.235"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.6.236"}`;
   } catch {
   return null;
   }
@@ -37498,6 +37472,27 @@ class ReaderApp {
   } else {
     this.scheduleStatusWarmups();
   }
+  this.scheduleLocalDictionaryReplication();
+  }
+  scheduleLocalDictionaryReplication() {
+  if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
+  const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
+  if (!replicate) return;
+  const run = () => {
+    if (this.isDestroyed) return;
+    void replicate({
+      dictionaries: this.dictionaries,
+      getSettings: () => this.settings,
+      onReplicated: () => {
+        if (this.isDestroyed) return;
+        this.parser.clearLocalCache();
+        unwrapReaderWords(document, { excludeSelector: ':not([data-card-source="fallback"])' });
+        this.scheduleDictionaryRescan();
+      }
+    });
+  };
+  if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 15e3 });
+  else window.setTimeout(run, 3e3);
   }
   async installBunproTokenImporter() {
   await installBunproFrontendTokenImporter({

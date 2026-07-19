@@ -6880,7 +6880,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (lower.endsWith(".svg")) return "image/svg+xml";
     return "image/png";
   }
-  function bytesToBase64(bytes) {
+  function bytesToBase64$1(bytes) {
     let binary = "";
     const chunkSize = 32768;
     for (let index = 0; index < bytes.length; index += chunkSize) {
@@ -7467,7 +7467,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$G = Logger.scope("Settings");
+  const log$I = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -8749,7 +8749,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (recoveredLegacySettings) await persistSettings(settings);
       return settings;
     } catch (error) {
-      log$G.warn("Settings load failed", { error });
+      log$I.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -8775,13 +8775,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$G.warn("Skipped save during reset");
+      log$I.warn("Skipped save during reset");
       return;
     }
     try {
       await persistSettings(settings);
     } catch (error) {
-      log$G.warn("Settings save failed", { error });
+      log$I.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -13588,6 +13588,107 @@ ${item.sequence ?? ""}`;
       deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
     } : null;
   }
+  const log$H = Logger.scope("DictionaryArchiveCache");
+  const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
+  const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
+  const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
+  const MAX_ARCHIVE_BYTES = 192 * 1024 * 1024;
+  async function listDictionaryArchives() {
+    const index = await gmStorageGet(ARCHIVE_INDEX_KEY, null);
+    return index && typeof index === "object" ? index : {};
+  }
+  async function persistDictionaryArchive(input2) {
+    const identity = yomitanDictionaryIdentity(input2.title);
+    try {
+      const previous = (await listDictionaryArchives())[identity];
+      const meta = await writeArchivePayload(identity, input2);
+      if (!meta) return;
+      await updateArchiveIndex((index) => ({ ...index, [identity]: meta }));
+      if (previous && previous.chunkCount > meta.chunkCount) {
+        await deleteArchiveChunks(identity, previous.chunkCount, meta.chunkCount);
+      }
+      log$H.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
+    } catch (error) {
+      log$H.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
+    }
+  }
+  async function readDictionaryArchiveFile(identity) {
+    const meta = (await listDictionaryArchives())[identity];
+    if (!meta || !meta.chunkCount) return null;
+    const parts = [];
+    for (let chunk = 0; chunk < meta.chunkCount; chunk++) {
+      const encoded = await gmStorageGet(archiveChunkKey(identity, chunk), "");
+      if (!encoded) {
+        log$H.warn("Dictionary archive chunk missing", { identity, chunk });
+        return null;
+      }
+      parts.push(base64ToBytes(encoded));
+    }
+    return new File(parts, meta.filename || `${identity}.zip`, { type: "application/zip" });
+  }
+  async function deleteDictionaryArchive(title) {
+    const identity = yomitanDictionaryIdentity(title);
+    const meta = (await listDictionaryArchives())[identity];
+    if (!meta) return;
+    await updateArchiveIndex((index) => {
+      const next = { ...index };
+      delete next[identity];
+      return next;
+    });
+    await deleteArchiveChunks(identity, meta.chunkCount, 0);
+    log$H.info("Dictionary archive deleted", { identity });
+  }
+  async function writeArchivePayload(identity, input2) {
+    if (input2.downloadUrl) {
+      return { title: input2.title, filename: input2.filename, downloadUrl: input2.downloadUrl, size: input2.file?.size ?? 0, chunkCount: 0 };
+    }
+    if (!input2.file) return null;
+    if (input2.file.size > MAX_ARCHIVE_BYTES) {
+      log$H.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
+      return null;
+    }
+    const bytes = await blobBytes(input2.file);
+    const chunkCount = Math.ceil(bytes.length / ARCHIVE_CHUNK_BYTES) || 1;
+    for (let chunk = 0; chunk < chunkCount; chunk++) {
+      const slice = bytes.subarray(chunk * ARCHIVE_CHUNK_BYTES, (chunk + 1) * ARCHIVE_CHUNK_BYTES);
+      await gmStorageSet(archiveChunkKey(identity, chunk), bytesToBase64(slice));
+    }
+    return { title: input2.title, filename: input2.filename, size: bytes.length, chunkCount };
+  }
+  async function updateArchiveIndex(update) {
+    const index = await listDictionaryArchives();
+    await gmStorageSet(ARCHIVE_INDEX_KEY, update(index));
+  }
+  async function deleteArchiveChunks(identity, fromCount, keep) {
+    for (let chunk = keep; chunk < fromCount; chunk++) {
+      await gmStorageDelete(archiveChunkKey(identity, chunk));
+    }
+  }
+  function archiveChunkKey(identity, chunk) {
+    return `${ARCHIVE_CHUNK_PREFIX}${identity}:${chunk}`;
+  }
+  async function blobBytes(blob) {
+    if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(new Uint8Array(reader.result));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read dictionary archive blob."));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+  function bytesToBase64(bytes) {
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 32768) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+    }
+    return btoa(binary);
+  }
+  function base64ToBytes(encoded) {
+    const binary = atob(encoded);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
   function readBlobWithFileReader(blob, read, result) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -13886,7 +13987,7 @@ ${item.sequence ?? ""}`;
     }
     return -1;
   }
-  const log$F = Logger.scope("Yomitan");
+  const log$G = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -13934,7 +14035,7 @@ ${item.sequence ?? ""}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$3(url, proxyUrl, onProgress, language = "en") {
-    const done = log$F.time("Dictionary download", { host: safeHost$3(url) });
+    const done = log$G.time("Dictionary download", { host: safeHost$3(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -13943,18 +14044,18 @@ ${item.sequence ?? ""}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$F.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
+          log$G.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$F.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
+          log$G.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$F.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
+        log$G.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -13971,19 +14072,19 @@ ${item.sequence ?? ""}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$F.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$G.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$F.warn("Dictionary download timed out", { host: safeHost$3(url) });
+          log$G.warn("Dictionary download timed out", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$F.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$G.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -14007,7 +14108,7 @@ ${item.sequence ?? ""}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$F.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
+    log$G.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -14039,17 +14140,17 @@ ${item.sequence ?? ""}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$F.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
+    log$G.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host = safeHost$3(url);
     if (isDictionaryCorsError(error)) {
-      log$F.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$G.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$F.warn("Dictionary download fetch failed", { host, error });
+    log$G.warn("Dictionary download fetch failed", { host, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -15455,7 +15556,7 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
-  const log$E = Logger.scope("YomitanSettingsImport");
+  const log$F = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -15465,11 +15566,11 @@ ${entry.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language = "en") {
-    const done = log$E.time("Yomitan settings export parse");
+    const done = log$F.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$E.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$F.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -15484,7 +15585,7 @@ ${entry.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$E.info("Yomitan settings import parsed", {
+    log$F.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -15724,14 +15825,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const log$D = Logger.scope("Yomitan");
+  const log$E = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$D.info("Persistent storage request", { granted });
+        log$E.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -15756,7 +15857,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$D.warn("Term search index preparation failed", { error });
+        log$E.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -15790,7 +15891,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$D.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$E.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries2 = await this.getTermLookupEntries(
@@ -15815,7 +15916,7 @@ ${entry.reading}`;
             });
             return selectTermLookupResults(ranked, expression, reading, limit);
           } catch (error) {
-            log$D.warn("Term lookup failed", { expression, reading, error });
+            log$E.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -15825,7 +15926,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$D.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$E.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -15844,7 +15945,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$D.warn("Term search failed", { query: normalizedQuery, error });
+        log$E.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -15854,7 +15955,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$D.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$E.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -15863,7 +15964,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$D.warn("Kanji lookup failed", { length: text2.length, error });
+            log$E.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -15874,14 +15975,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$D.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$E.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$D.warn("Kanji character list failed", { error });
+        log$E.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -15891,7 +15992,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$D.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$E.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -15899,7 +16000,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$D.warn("Term metadata lookup failed", { expression, error });
+            log$E.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -15911,7 +16012,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$D.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$E.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -15921,7 +16022,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$D.warn("Similar terms by kanji lookup failed", { character, error });
+            log$E.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -15930,7 +16031,7 @@ ${entry.reading}`;
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$D.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$E.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -15946,7 +16047,7 @@ ${entry.reading}`;
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$D.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$E.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -16001,7 +16102,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$D.time("Dictionary summary");
+      const done = log$E.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -16021,7 +16122,7 @@ ${entry.reading}`;
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$D.warn("Dictionary summary failed", { error });
+        log$E.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -16034,12 +16135,12 @@ ${entry.reading}`;
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$D.time("Dictionary presence check");
+      const done = log$E.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$D.warn("Dictionary presence check failed", { error });
+        log$E.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -16048,12 +16149,12 @@ ${entry.reading}`;
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
-      const done = log$D.time("Term dictionary presence check");
+      const done = log$E.time("Term dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
-        log$D.warn("Term dictionary presence check failed", { error });
+        log$E.warn("Term dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -16064,7 +16165,7 @@ ${entry.reading}`;
     // mode 'pitch', so sampling the head of each meta dictionary is enough.
     // fallow-ignore-next-line unused-class-member
     async hasPitchMetaDictionaries() {
-      const done = log$D.time("Pitch dictionary presence check");
+      const done = log$E.time("Pitch dictionary presence check");
       try {
         const db = await this.db();
         const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
@@ -16074,27 +16175,27 @@ ${entry.reading}`;
         }
         return false;
       } catch (error) {
-        log$D.warn("Pitch dictionary presence check failed", { error });
+        log$E.warn("Pitch dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$D.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$E.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$D.warn("Random term listing failed", { limit, error });
+        log$E.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$D.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$E.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -16111,7 +16212,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$D.warn("Random top term listing failed", { limit, error });
+        log$E.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -16192,31 +16293,31 @@ ${entry.reading}`;
       );
       return reservoir;
     }
-    async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$D.time("Dictionary file import", fileSummary(file, sourceUrl));
+    async importFile(file, onProgress, sourceUrl = "", options = {}) {
+      const done = log$E.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$D.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$E.info("Dictionary file import started", fileSummary(file, sourceUrl));
         requestPersistentDictionaryStorage();
-        const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$D.info("Dictionary file import completed", summary);
+        const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
+        log$E.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$D.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$E.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
-    async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$D.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
+    async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
+      log$E.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
-      const summary = await this.importFile(file, onProgress, url);
-      log$D.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
+      const summary = await this.importFile(file, onProgress, url, options);
+      log$E.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
       return summary;
     }
-    async importZip(file, onProgress, sourceUrl = "") {
+    async importZip(file, onProgress, sourceUrl = "", options = {}) {
       const language = this.getInterfaceLanguage();
       onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
       const zip = await readZipArchive(file, (progress) => {
@@ -16298,7 +16399,10 @@ ${entry.reading}`;
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$D.info("ZIP dictionary import parsed", summary);
+      if (options.persistArchive !== false) {
+        await persistDictionaryArchive({ title: dictionary, filename: file.name, downloadUrl: sourceUrl || void 0, file: sourceUrl ? void 0 : file });
+      }
+      log$E.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -16326,7 +16430,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$D.info("JSON dictionary import parsed", summary);
+      log$E.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -16425,13 +16529,13 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$D.info("Dexie dictionary import parsed", summary);
+      log$E.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$D.time("Dictionary export");
+      const done = log$E.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -16441,7 +16545,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$D.info("Dictionary export prepared", {
+        log$E.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -16459,7 +16563,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$D.warn("Dictionary export failed", { error });
+        log$E.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -16478,26 +16582,26 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$D.warn("Dictionary stylesheet render failed", { error });
+        log$E.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$D.time("Dictionary store clear");
+      const done = log$E.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$D.info("Dictionary store cleared");
+        log$E.info("Dictionary store cleared");
       } catch (error) {
-        log$D.warn("Dictionary store clear failed", { error });
+        log$E.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$D.time("Dictionary database factory reset");
+      const done = log$E.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -16506,10 +16610,10 @@ ${entry.reading}`;
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$D.warn("Dictionary reset pre-clear failed", { error });
+          log$E.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$D.warn("Dictionary delete incomplete after clear", { error });
+        log$E.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -16523,12 +16627,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$D.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$E.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$D.time("Dictionary database delete");
+      const done = log$E.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -16554,12 +16658,12 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$D.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$E.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$D.info("Dictionary database deleted", { name: DB_NAME });
+        log$E.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$D.warn("Dictionary database delete failed", { error });
+        log$E.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -16585,18 +16689,19 @@ ${entry.reading}`;
       return stale.filter((title) => title !== dictionary);
     }
     async deleteDictionary(dictionary) {
-      const done = log$D.time("Dictionary delete", { dictionary });
+      const done = log$E.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$D.info("Dictionary delete skipped; not installed", { dictionary });
+          log$E.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$D.info("Only installed dictionary cleared", { dictionary });
+          await deleteDictionaryArchive(dictionary).catch(() => void 0);
+          log$E.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -16612,9 +16717,10 @@ ${entry.reading}`;
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$D.info("Dictionary deleted", { dictionary });
+        await deleteDictionaryArchive(dictionary).catch(() => void 0);
+        log$E.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$D.warn("Dictionary delete failed", { dictionary, error });
+        log$E.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -16903,9 +17009,9 @@ ${entry.reading}`;
         for (const title of stale) {
           try {
             await this.deleteDictionary(title);
-            log$D.info("Removed duplicate dictionary revision", { title });
+            log$E.info("Removed duplicate dictionary revision", { title });
           } catch (error) {
-            log$D.warn("Duplicate dictionary revision cleanup failed", { title, error });
+            log$E.warn("Duplicate dictionary revision cleanup failed", { title, error });
           }
         }
       })();
@@ -16976,7 +17082,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$D.time("Term search index rebuild");
+      const done = log$E.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -16993,13 +17099,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$D.info("Term search index rebuilt", { terms: indexedTerms });
+        log$E.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$D.time("Term kanji index rebuild");
+      const done = log$E.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -17016,7 +17122,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$D.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$E.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -17114,7 +17220,7 @@ ${entry.reading}`;
           if (settled) return;
           settled = true;
           if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$D.warn("Dictionary database open failed", { reason, error });
+          log$E.warn("Dictionary database open failed", { reason, error });
           reject(error instanceof Error ? error : new Error(reason));
         };
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
@@ -17122,7 +17228,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$D.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$E.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -17169,7 +17275,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$D.info("Dictionary DB version change; closing", {
+        log$E.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -17246,7 +17352,7 @@ ${entry.reading}`;
   }
   async function zipImageDataUrl(zip, path) {
     const bytes = await zip.bytes(path).catch(() => null);
-    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : "";
+    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64$1(bytes)}` : "";
   }
   function termLookupDedupKey(entry) {
     const glossaryKey = JSON.stringify(entry.glossary);
@@ -18062,7 +18168,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$C = Logger.scope("Anki");
+  const log$D = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -18105,7 +18211,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$C.warn("Anki status save fell back", error);
+      log$D.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -18119,7 +18225,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$C.warn("Anki status metadata failed", error);
+      log$D.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -18648,7 +18754,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const ANKI_RENDERED_MEDIA_LIMIT = 12;
   const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
   const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
-  const log$B = Logger.scope("Anki");
+  const log$C = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -18754,7 +18860,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       } catch (error) {
-        log$B.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$C.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -18769,7 +18875,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$B.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$C.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -18952,7 +19058,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$B.warn("Exact Anki status lookup failed", error);
+        log$C.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache) {
@@ -18982,7 +19088,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!pending.length) return results;
       const batches = this.pendingLookupBatches(pending);
       try {
-        const done = log$B.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        const done = log$C.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -18991,7 +19097,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         done();
         return results;
       } catch (error) {
-        log$B.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        log$C.warn("Anki batch lookup failed", { terms: pending.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -19059,7 +19165,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$B.warn("Anki status load failed", error);
+        log$C.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -19078,7 +19184,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const keys = unique(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$B.warn("Anki status entry failed", error);
+        log$C.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -19111,7 +19217,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$B.warn("Anki status index refresh failed", error);
+        log$C.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -19157,7 +19263,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
         this.statusIndex = dirty;
         await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$B.warn("Anki edited-sweep dirty marker failed", error);
+          log$C.warn("Anki edited-sweep dirty marker failed", error);
         });
         return { handled: false, index: dirty };
       }
@@ -19233,7 +19339,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$B.warn("Queued Anki status index refresh failed", error);
+          log$C.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -19302,7 +19408,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$B.warn("Anki status rebuild fell back", error);
+        log$C.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -19549,7 +19655,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$B.warn("Anki status cache update failed", error);
+        log$C.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -19716,7 +19822,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$B.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$C.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -19742,7 +19848,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$B.info("Answering Anki card", { cardId, grade, ease });
+      log$C.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -19754,7 +19860,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
-      log$B.info("Setting Anki card suspension", { cardIds, suspended });
+      log$C.info("Setting Anki card suspension", { cardIds, suspended });
       await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -19765,7 +19871,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
-      log$B.info("Setting Anki note tag", { noteIds, tag, present });
+      log$C.info("Setting Anki note tag", { noteIds, tag, present });
       await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -19774,7 +19880,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$B.info("Opening Anki note browser", { noteId });
+      log$C.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -19901,7 +20007,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$B.info("Adding Anki note", {
+      log$C.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -19915,7 +20021,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$B.info("Anki note added", { term: card.spelling, noteId });
+      log$C.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
       return noteId;
@@ -19923,7 +20029,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError$1(error)) throw error;
-        log$B.warn("Anki duplicate preflight failed", error);
+        log$C.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
@@ -19961,7 +20067,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$B.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$C.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -19979,7 +20085,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$B.warn("Anki dirty marker failed", { reason }, error);
+          log$C.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -19993,12 +20099,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$B.warn("Anki dirty marker failed", { reason }, error);
+        log$C.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff$1(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$B.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$C.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -20030,7 +20136,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$B.info("Anki model created", { modelName });
+      log$C.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
@@ -20057,7 +20163,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       this.markAvailable();
       if (response.error) {
-        log$B.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$C.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -20069,11 +20175,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError$1(error)) {
-          log$B.warn("AnkiConnect multi failed; cooling down", error);
+          log$C.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$B.warn("AnkiConnect multi failed; retrying solo", error);
+        log$C.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -20131,7 +20237,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$B.warn("Active video frame capture failed", error);
+      log$C.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -21586,7 +21692,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$A = Logger.scope("Audio");
+  const log$B = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -21626,7 +21732,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$A.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$B.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(
         request.sources,
         card,
@@ -21706,7 +21812,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$A.warn("No audio sources configured", { term: card.spelling });
+      log$B.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(
         request.settings,
         request.requestId,
@@ -21719,7 +21825,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$A.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$B.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
@@ -21952,7 +22058,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$A.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$B.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -22048,7 +22154,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio = fallbackAudio;
-          log$A.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+          log$B.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
         } else {
           errors.push(audioErrorMessage(error));
           if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -22251,7 +22357,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       try {
         playbackLifecycle?.onStart?.();
       } catch (error) {
-        log$A.warn("Audio playback start callback failed", void 0, error);
+        log$B.warn("Audio playback start callback failed", void 0, error);
       }
     }
     finishPlayback(requestId) {
@@ -22262,7 +22368,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       try {
         active.onEnd?.();
       } catch (error) {
-        log$A.warn("Audio playback end callback failed", void 0, error);
+        log$B.warn("Audio playback end callback failed", void 0, error);
       }
     }
     // Web Audio decoding is exempt from the page's media-src, so it is the only way
@@ -23925,7 +24031,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const KANJI_ALIVE_PRIMARY_GLOSSES_URL = "https://yomureader.com/data/kanji-alive-primary-glosses.json";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$z = Logger.scope("KanjiOrigin");
+  const log$A = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     kanjiAliveGlosses;
@@ -23945,14 +24051,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$z.time("Kanji origin lookup", { kanji });
+      const done = log$A.time("Kanji origin lookup", { kanji });
       const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled ? await Promise.all([
         fetchKanjiMapInfo(kanji).catch((error) => {
-          log$z.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$A.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }),
         this.lookupKanjiAliveKeyword(kanji).catch((error) => {
-          log$z.warn("Kanji Alive keyword lookup failed", { kanji, error });
+          log$A.warn("Kanji Alive keyword lookup failed", { kanji, error });
           return void 0;
         })
       ]) : [void 0, void 0];
@@ -23977,7 +24083,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$z.time("Fetch Kanji Map info", { kanji });
+    const done = log$A.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson$1(await requestText$6(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -24399,7 +24505,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$z.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+      log$A.warn("Kanji origin request failed", { host: safeHost$2(url), error });
       throw error;
     });
   }
@@ -26267,7 +26373,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$y = Logger.scope("JpdbKanji");
+  const log$z = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -26288,7 +26394,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$y.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$z.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$4(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -26301,7 +26407,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$4(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$y.warn("Kanji page request failed", { kanji }, error);
+        log$z.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -26794,7 +26900,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$x = Logger.scope("KanjiVG");
+  const log$y = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -26814,7 +26920,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$3(url).catch((error) => {
-        log$x.warn("Stroke-order request failed", { kanji }, error);
+        log$y.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -27148,7 +27254,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$w = Logger.scope("ImmersionKit");
+  const log$x = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -27261,7 +27367,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const cacheInflight = !options.signal;
       const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
       if (inflight) return inflight;
-      const done = log$w.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$x.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -27306,11 +27412,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
         if (isAbortError(error)) throw error;
-        log$w.warn("Nadeshiko examples failed", { query }, error);
+        log$x.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
         if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$w.warn("Immersion Kit examples failed", { query }, error);
+        log$x.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
@@ -28569,7 +28675,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$v = Logger.scope("MiningContext");
+  const log$w = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -28622,7 +28728,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     fetchImageDataUrl,
     fetchAudioDataUrl: fetchAudioDataUrl2
   }) {
-    const done = log$v.time("Resolve mining context", {
+    const done = log$w.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -28699,7 +28805,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$v.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$w.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -28714,7 +28820,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const context = parseStoredMiningContext(stored, normalized);
       return context;
     } catch (error) {
-      log$v.warn("Mining context load failed", { term: normalized, error });
+      log$w.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -30210,7 +30316,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
   const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
-  const log$u = Logger.scope("ReaderParser");
+  const log$v = Logger.scope("ReaderParser");
   const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -30235,7 +30341,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
-      const done = log$u.time("parse", {
+      const done = log$v.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -30321,7 +30427,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     handleRemoteParseError(source, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$u.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      log$v.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     async parseWithFallbackSource(paragraphs, options) {
@@ -30341,7 +30447,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
       } catch (error) {
-        log$u.warn("Jiten public parse failed; using local or segmented fallback", error);
+        log$v.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
       }
     }
@@ -30459,7 +30565,7 @@ ${spelling}`);
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-        log$u.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$v.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
@@ -30514,7 +30620,7 @@ ${spelling}`);
         settings.dictionaryPreferences
       )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
         if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-        log$u.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+        log$v.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
         return null;
       });
       this.localBoundaryEvidenceCache.set(key, promise);
@@ -30537,7 +30643,7 @@ ${spelling}`);
       if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
-        log$u.warn("Local term dictionary availability check failed", { error });
+        log$v.warn("Local term dictionary availability check failed", { error });
         return void 0;
       });
       return this.localTermDictionaryAvailability;
@@ -30700,7 +30806,7 @@ ${spelling}`);
         card.reading,
         (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
       ).catch((error) => {
-        log$u.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$v.warn("Local pitch parse failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       this.rememberLocalPitchCacheEntry(key, promise);
@@ -30982,7 +31088,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$t = Logger.scope("ImmersionPopover");
+  const log$u = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -31057,7 +31163,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$t.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$u.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -31639,7 +31745,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       }
     }
     handleExampleAudioError(example, quiet, error) {
-      log$t.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$u.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     exampleAudioSource(example, quiet) {
@@ -32821,7 +32927,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         </details>
     `;
   }
-  const log$s = Logger.scope("KanjiDoodle");
+  const log$t = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -32844,11 +32950,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$s.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$t.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$s.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$t.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -33482,7 +33588,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE$2 = /[\u3400-\u9fff]/u;
-  const log$r = Logger.scope("RTK");
+  const log$s = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -33499,7 +33605,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$r.warn("RTK request failed", { kanji }, error);
+        log$s.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -34174,7 +34280,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const uuid = globalThis.crypto?.randomUUID?.();
     return uuid ? `grammar-known:${uuid}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   }
-  const log$q = Logger.scope("StudyTools");
+  const log$r = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
@@ -34336,17 +34442,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$q.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$r.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson$1(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$q.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$r.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$q.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$r.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -34703,13 +34809,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  const log$p = Logger.scope("StudyRender");
+  const log$q = Logger.scope("StudyRender");
   async function renderStudyToolResult$1(button2, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$p.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$q.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
@@ -35408,7 +35514,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
   }
-  const log$o = Logger.scope("StudySources");
+  const log$p = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
@@ -35502,7 +35608,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
       } catch (error) {
-        log$o.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+        log$p.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
       }
     }
     canRenderGrammar(popover, container) {
@@ -35591,7 +35697,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
     }
     renderTranslationError(sentence, container, error) {
-      log$o.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+      log$p.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
@@ -37807,7 +37913,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isOcrRequestTimeout(error) {
     return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
-  const log$n = Logger.scope("OCR");
+  const log$o = Logger.scope("OCR");
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const OCR_RECOGNIZERS = {
@@ -37866,7 +37972,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       Math.max(1, remainingGoogleLensTimeout(deadline))
     ).catch((error) => {
       protobufFailure = error;
-      log$n.warn("Google Lens protobuf failed", error);
+      log$o.warn("Google Lens protobuf failed", error);
       return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
@@ -37878,7 +37984,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     let uploadFailure;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
       uploadFailure = error;
-      log$n.warn("Google Lens upload failed", error);
+      log$o.warn("Google Lens upload failed", error);
       return void 0;
     });
     if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
@@ -38082,7 +38188,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (!userscriptRequest) {
-      log$n.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      log$o.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
       return null;
     }
     return new Promise((resolve, reject) => {
@@ -39239,7 +39345,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
-  const log$m = Logger.scope("OCR");
+  const log$n = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
   const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
   const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
@@ -39325,7 +39431,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const provider = inlineProviderLabel(settings);
     return {
       provider,
-      done: log$m.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+      done: log$n.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
   function finishOcrScan(state2) {
@@ -39339,10 +39445,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function logOcrFailure(state2, provider, manualRequested, error) {
     state2.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
-      log$m.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+      log$n.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
     }
-    log$m.warn("OCR scan failed", { provider, manualRequested }, error);
+    log$n.warn("OCR scan failed", { provider, manualRequested }, error);
   }
   const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
   const OCR_FULLSCREEN_CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange"];
@@ -39739,7 +39845,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$m.info("Manual OCR scan queued images", { images: images.length });
+      log$n.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       const staleLine = element2?.closest?.(".jpdb-ocr-line");
@@ -39960,7 +40066,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$m.warn("OCR scan task failed unexpectedly", {}, error);
+        log$n.warn("OCR scan task failed unexpectedly", {}, error);
       }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
@@ -40089,7 +40195,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       await this.renderResult(state2, result, false, key);
-      log$m.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+      log$n.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
       return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
@@ -40102,7 +40208,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.requireCurrentContentState(state2, key);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
-        log$m.warn("OCR provider failed", { provider }, error);
+        log$n.warn("OCR provider failed", { provider }, error);
         this.readerRasterFailedScans.delete(key);
         this.clearReaderRasterProviderRetry(key);
         await this.renderResult(state2, fallback, false, key);
@@ -40240,7 +40346,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$m.warn("OCR rendered token enrichment failed", {}, error);
+        log$n.warn("OCR rendered token enrichment failed", {}, error);
       }).finally(() => this.schedulePosition());
     }
     shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
@@ -40470,7 +40576,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.readerRasterProviderFailures.set(key, attempts);
       if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
       const delay2 = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
-      log$m.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
+      log$n.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
       const previousTimer = this.readerRasterProviderRetryTimers.get(key);
       if (previousTimer) window.clearTimeout(previousTimer);
       const timer = window.setTimeout(() => {
@@ -41003,7 +41109,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       } catch (error) {
         if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) {
           const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-          log$m.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
+          log$n.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
         }
       } finally {
@@ -41132,7 +41238,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.canvasTapRecapture.delete(canvas);
       this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
       const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-      log$m.warnOnce(
+      log$n.warnOnce(
         `canvas-commit-mismatch:${surface}:${reason}`,
         `Reader raster capture repeatedly changed ${reason}; automatic retries paused`,
         { surface, userRequested }
@@ -43002,14 +43108,14 @@ ${spelling}`);
         blob = await requestBlob(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
       }
     } catch (error) {
-      log$m.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
+      log$n.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
       throw error;
     }
     const objectUrl = URL.createObjectURL(blob);
     try {
       return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } catch (error) {
-      log$m.warnOnce(
+      log$n.warnOnce(
         `mirror-image-decode:${resource}`,
         "BookWalker mirror image decode failed",
         { bytes: blob.size, resource, type: blob.type },
@@ -43133,7 +43239,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.235".trim() ? "1.6.235".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.236".trim() ? "1.6.236".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -43471,7 +43577,7 @@ ${spelling}`);
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$l = Logger.scope("SettingsForm");
+  const log$m = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const DEFAULT_COLOR_SOURCE_VALUES = {
@@ -43599,7 +43705,7 @@ ${spelling}`);
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
-    log$l.info("Read settings form data", {
+    log$m.info("Read settings form data", {
       enableLogging: normalized.enableLogging,
       dictionaries: normalized.dictionaryPreferences.length,
       lookupLinks: normalized.dictionaryLookupLinks.length,
@@ -47664,7 +47770,7 @@ ${spelling}`);
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
   }
-  const log$k = Logger.scope("SettingsFileIO");
+  const log$l = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -47710,14 +47816,14 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$k.warn("File picker input missing", { type });
+      log$l.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
       inputEl.onchange = () => {
         const file = inputEl.files?.[0] ?? null;
         inputEl.value = "";
-        log$k.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
+        log$l.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
         resolve(file);
       };
       inputEl.click();
@@ -47730,7 +47836,7 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$k.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$l.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
@@ -47738,7 +47844,7 @@ ${spelling}`);
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
-  const log$j = Logger.scope("SettingsDialog");
+  const log$k = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
@@ -47991,7 +48097,7 @@ ${spelling}`);
     return -1;
   }
   function handleSettingsActionError(action, control, setStatus, error, language) {
-    log$j.warn("Settings action failed", { action }, error);
+    log$k.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
     const message = errorMessage$1(error, uiText(language, "actionFailed"));
     setStatus(message);
@@ -48056,7 +48162,7 @@ ${spelling}`);
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
-      log$j.info("Opening settings", { panel: panel ?? "default" });
+      log$k.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
@@ -48161,7 +48267,7 @@ ${spelling}`);
         }
         const saveRequestId = ++this.saveRequestId;
         void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId)).catch((error) => {
-          log$j.error("Settings save failed", error);
+          log$k.error("Settings save failed", error);
           this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
         });
       });
@@ -48275,7 +48381,7 @@ ${spelling}`);
     }
     afterSettingsSaved(form, saveRequestId) {
       if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-      log$j.info("Settings saved", loggingSettingsSummary(this.settings));
+      log$k.info("Settings saved", loggingSettingsSummary(this.settings));
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       this.dependencies.installFab();
@@ -48293,7 +48399,7 @@ ${spelling}`);
       try {
         await this.dependencies.refreshDictionaryStyles();
       } catch (error) {
-        log$j.warn("Dictionary style refresh failed", error);
+        log$k.warn("Dictionary style refresh failed", error);
         this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "actionFailed")));
       }
     }
@@ -48659,7 +48765,7 @@ ${spelling}`);
         const decks = await this.dependencies.jpdb.listDecks();
         setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } catch (error) {
-        log$j.warn("Deck controls failed to load", error);
+        log$k.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
       } finally {
         this.settings.apiKey = originalKey;
@@ -48732,7 +48838,7 @@ ${spelling}`);
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form, requestId)) return;
-        log$j.warn("Anki settings probe failed", error);
+        log$k.warn("Anki settings probe failed", error);
         this.setAnkiStatusLine(form, this.ankiSetupUnavailableStatus(formSettings, language));
         void this.refineAnkiUnavailableStatus(form, requestId, formSettings, language);
       } finally {
@@ -48771,10 +48877,10 @@ ${spelling}`);
           ...staleDetails,
           ...this.ankiScanDetails(scan, language)
         ]);
-        log$j.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
+        log$k.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
-        log$j.warn("Automatic Anki library scan failed", error);
+        log$k.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form, uiText(language, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
         this.restoreTransientSettings(previous);
@@ -48794,9 +48900,9 @@ ${spelling}`);
       }
       try {
         await warmStatusIndex2.call(this.dependencies.anki);
-        log$j.info("Auto Anki status index warmup ok");
+        log$k.info("Auto Anki status index warmup ok");
       } catch (error) {
-        log$j.warn("Automatic Anki status index warmup failed", error);
+        log$k.warn("Automatic Anki status index warmup failed", error);
       } finally {
         this.restoreTransientSettings(previous);
       }
@@ -48821,7 +48927,7 @@ ${spelling}`);
         const summary = await this.dependencies.dictionaries.summary();
         await this.applyDictionaryStatus(form, elements, summary);
       } catch (error) {
-        log$j.warn("Dictionary status unavailable", error);
+        log$k.warn("Dictionary status unavailable", error);
         setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       }
     }
@@ -48862,7 +48968,7 @@ ${spelling}`);
         });
         this.refreshSettingsJapaneseParse(form);
       } catch (error) {
-        log$j.warn("Yomu update status unavailable", error);
+        log$k.warn("Yomu update status unavailable", error);
         if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
         status.dataset.statusTone = "pending";
         status.textContent = formatUiText(language, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
@@ -49056,12 +49162,12 @@ ${spelling}`);
         const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
         if (played) {
           this.dependencies.toast(uiText(language, "playingAudioPreview"));
-          log$j.info("Audio settings preview started");
+          log$k.info("Audio settings preview started");
         } else {
           this.dependencies.toast(uiText(language, "audioPreviewFailed"));
         }
       } catch (error) {
-        log$j.warn("Audio settings preview failed", error);
+        log$k.warn("Audio settings preview failed", error);
         this.dependencies.toast(errorMessage$1(error, uiText(language, "audioPreviewFailed")));
       } finally {
         this.restoreTransientSettings(previous);
@@ -49086,7 +49192,7 @@ ${spelling}`);
         const blob = await this.dependencies.dictionaries.exportJson();
         downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "dictionariesExported"));
-        log$j.info("Dictionaries exported");
+        log$k.info("Dictionaries exported");
         return true;
       }
       return false;
@@ -49120,7 +49226,7 @@ ${spelling}`);
         const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
         setStatus?.(message2);
         this.dependencies.toast(message2);
-        log$j.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+        log$k.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
         return;
       }
       const snapshot = await downloadCloudSettingsFromCloud();
@@ -49146,7 +49252,7 @@ ${spelling}`);
       this.dependencies.ocr.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$j.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
+      log$k.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
       this.open("backup");
     }
     async rememberPendingCloudSettingsAction(action) {
@@ -49187,7 +49293,7 @@ ${spelling}`);
           ...dictionaries ? { dictionaries } : {}
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
-        log$j.info("Settings exported");
+        log$k.info("Settings exported");
         return true;
       }
       return false;
@@ -49227,7 +49333,7 @@ ${spelling}`);
       try {
         if (await this.dependencies.anki.isConnected()) return true;
       } catch (error) {
-        log$j.warn("Anki settings check failed", error);
+        log$k.warn("Anki settings check failed", error);
       }
       const line = this.ankiSetupUnavailableStatus(this.settings, language);
       setAnkiStatus(line.message, line.tone, line.action);
@@ -49236,23 +49342,23 @@ ${spelling}`);
     finishAnkiConnectionTest(form, setAnkiStatus, language) {
       setAnkiStatus(uiText(language, "ankiConnectionReady"), "success");
       this.queueAutomaticAnkiLibraryScan(form, language);
-      log$j.info("Anki settings check ok", { url: this.settings.ankiConnectUrl });
+      log$k.info("Anki settings check ok", { url: this.settings.ankiConnectUrl });
     }
     async prepareAnkiConnectionAction(form, setAnkiStatus, language) {
       await this.dependencies.anki.ensureDeckAndModel();
       setAnkiStatus(this.ankiReadyMessage(language), "success");
       this.queueAutomaticAnkiLibraryScan(form, language);
-      log$j.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+      log$k.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
     }
     handleAnkiConnectionActionError(error, setAnkiStatus, language) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
         const line = this.ankiSetupUnavailableStatus(this.settings, language);
-        log$j.warn("Anki settings action unavailable", error);
+        log$k.warn("Anki settings action unavailable", error);
         setAnkiStatus(line.message, line.tone, line.action);
         return;
       }
       const message = this.ankiConnectionErrorMessage(error, language);
-      log$j.warn("Anki settings test failed", error);
+      log$k.warn("Anki settings test failed", error);
       setAnkiStatus(message, "error");
       this.dependencies.toast(message);
     }
@@ -49495,7 +49601,7 @@ ${spelling}`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      log$j.info("Dictionary removed", { dictionary });
+      log$k.info("Dictionary removed", { dictionary });
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -49508,7 +49614,7 @@ ${spelling}`);
           sources: summary.dictionaries.length.toLocaleString(),
           plural: summary.dictionaries.length === 1 ? "" : "s"
         }));
-        log$j.info("Dictionary file imported", summary);
+        log$k.info("Dictionary file imported", summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
       });
@@ -49531,7 +49637,7 @@ ${spelling}`);
           const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
           this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
           setStatus(startedMessage);
-          log$j.info("Downloading selected dictionary", { dictionary: dictionary.name });
+          log$k.info("Downloading selected dictionary", { dictionary: dictionary.name });
           const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
             setStatus(message);
             this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
@@ -49544,7 +49650,7 @@ ${spelling}`);
           }));
           await this.refreshDictionaryStatus(form);
           this.dependencies.refreshNewTabIfCurrent();
-          log$j.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
+          log$k.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
         } finally {
           this.clearRecommendedDictionaryInstallState(form, dictionary.id);
         }
@@ -49573,7 +49679,7 @@ ${spelling}`);
       const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
       setStatus(status);
       this.dependencies.toast(status);
-      log$j.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
+      log$k.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
@@ -49614,7 +49720,7 @@ ${spelling}`);
       this.dependencies.subtitles.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$j.info("Settings imported", loggingSettingsSummary(this.settings));
+      log$k.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
     }
     async importReaderDictionaryBackup(json, setStatus) {
@@ -49738,7 +49844,7 @@ ${spelling}`);
       }
     });
   }
-  const log$i = Logger.scope("Onboarding");
+  const log$j = Logger.scope("Onboarding");
   const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
   const ONBOARDING_FEATURE_KEYS = [
     ["featureText", "featureTextBody"],
@@ -49779,7 +49885,7 @@ ${spelling}`);
       return true;
     }
     show() {
-      log$i.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      log$j.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
       this.close();
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
@@ -49956,7 +50062,7 @@ ${spelling}`);
       actions.append(dictionaries, setup);
       this.languageSelect.addEventListener("change", () => {
         const language2 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
-        log$i.info("Onboarding language changed", { language: language2 });
+        log$j.info("Onboarding language changed", { language: language2 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language2 });
         this.localize(language2);
       });
@@ -50051,7 +50157,7 @@ ${spelling}`);
       this.annotateJapanese();
     }
     async complete(openSettings) {
-      const done = log$i.time("Onboarding complete", { openSettings });
+      const done = log$j.time("Onboarding complete", { openSettings });
       const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
       const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
       try {
@@ -50060,9 +50166,9 @@ ${spelling}`);
         this.close();
         if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
         this.openPostOnboardingSettings(openSettings);
-        log$i.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
+        log$j.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
       } catch (error) {
-        log$i.warn("Onboarding completion failed", { openSettings, error });
+        log$j.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
@@ -50322,8 +50428,91 @@ ${spelling}`);
   function themeSwitchChrome() {
     return '<span class="check"><span class="icon"><span class="vpi-sun sun" aria-hidden="true"></span><span class="vpi-moon moon" aria-hidden="true"></span></span></span>';
   }
+  const log$i = Logger.scope("DictionaryReplication");
+  const REPLICATION_STATE_KEY = "yomu-dictionary-replication-state";
+  const MAX_ATTEMPTS = 3;
+  const RETRY_BACKOFF_MS = 6 * 60 * 60 * 1e3;
+  let replicationInFlight = false;
+  async function ensureLocalDictionariesReplicated(options) {
+    if (replicationInFlight) return [];
+    replicationInFlight = true;
+    try {
+      return await replicateMissingDictionaries(options);
+    } catch (error) {
+      log$i.warn("Dictionary replication pass failed", error);
+      return [];
+    } finally {
+      replicationInFlight = false;
+    }
+  }
+  async function replicateMissingDictionaries(options) {
+    const settings = options.getSettings();
+    if (!settings.localDictionariesEnabled) return [];
+    const wanted = enabledPreferenceIdentities(settings);
+    if (!wanted.size) return [];
+    const missing = await missingArchives(options, wanted);
+    if (!missing.length) return [];
+    const now = options.now ?? Date.now;
+    const state2 = readAttemptState();
+    const imported = [];
+    for (const [identity, meta] of missing) {
+      if (!shouldAttempt(state2[identity], now())) continue;
+      try {
+        const summary = await importArchive(options.dictionaries, identity, meta);
+        if (summary) {
+          imported.push(...summary.dictionaries);
+          delete state2[identity];
+        }
+      } catch (error) {
+        state2[identity] = { attempts: (state2[identity]?.attempts ?? 0) + 1, lastAt: now() };
+        log$i.warn("Dictionary replication failed", { identity, title: meta.title, attempts: state2[identity].attempts }, error);
+      }
+    }
+    writeAttemptState(state2);
+    if (imported.length) {
+      log$i.info("Dictionaries replicated to this origin", { imported });
+      options.onReplicated(imported);
+    }
+    return imported;
+  }
+  function enabledPreferenceIdentities(settings) {
+    return new Set(settings.dictionaryPreferences.filter((preference) => preference.enabled).map((preference) => yomitanDictionaryIdentity(preference.name)));
+  }
+  async function missingArchives(options, wanted) {
+    const archives = await listDictionaryArchives();
+    const candidates = Object.entries(archives).filter(([identity]) => wanted.has(identity));
+    if (!candidates.length) return [];
+    const installed = new Set((await options.dictionaries.summary()).dictionaries.map((info) => yomitanDictionaryIdentity(info.title)));
+    return candidates.filter(([identity]) => !installed.has(identity));
+  }
+  async function importArchive(store, identity, meta) {
+    const file = await readDictionaryArchiveFile(identity);
+    if (file) return store.importFile(file, void 0, meta.downloadUrl ?? "", { persistArchive: false });
+    if (meta.downloadUrl) return store.importFromUrl(meta.downloadUrl, meta.filename || void 0, void 0, { persistArchive: false });
+    return null;
+  }
+  function shouldAttempt(state2, now) {
+    if (!state2) return true;
+    if (state2.attempts >= MAX_ATTEMPTS) return false;
+    return now - state2.lastAt >= RETRY_BACKOFF_MS;
+  }
+  function readAttemptState() {
+    try {
+      const raw = localStorage.getItem(REPLICATION_STATE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  function writeAttemptState(state2) {
+    try {
+      localStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(state2));
+    } catch {
+    }
+  }
   registerYomuCompanion("settings", { SettingsDialogController, OnboardingController });
-  registerYomuCompanion("localDictionaries", { YomitanDictionaryStore });
+  registerYomuCompanion("localDictionaries", { YomitanDictionaryStore, ensureLocalDictionariesReplicated });
   registerYomuCompanion("i18n", {
     CARD_STATE_LABEL_KEYS,
     audioSourceLabel,

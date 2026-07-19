@@ -4345,7 +4345,7 @@
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
-  const CURRENT_YOMU_VERSION = "1.6.236".trim() ? "1.6.236".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.234".trim() ? "1.6.234".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -11949,7 +11949,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["なくて", "る", "negative te-form"],
     ["なければ", "る", "negative conditional"],
     ["ない", "る", "negative"],
-    ["ず", "る", "negative archaic"],
     ["たかった", "る", "desiderative past"],
     ["たくなかった", "る", "desiderative negative past"],
     ["たくない", "る", "desiderative negative"],
@@ -11996,7 +11995,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["しなくて", "する", "negative te-form"],
     ["しなければ", "する", "negative conditional"],
     ["しない", "する", "negative"],
-    ["せず", "する", "negative archaic"],
     ["しなさい", "する", "polite request"],
     ["しすぎる", "する", "excessive"],
     ["された", "する", "passive past"],
@@ -12044,7 +12042,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["こなかった", "くる", "negative past"],
     ["こなくて", "くる", "negative te-form"],
     ["こない", "くる", "negative"],
-    ["こず", "くる", "negative archaic"],
     ["きなさい", "くる", "polite request"],
     ["きすぎる", "くる", "excessive"],
     ["こられた", "くる", "potential/passive past"],
@@ -12197,7 +12194,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
       { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
       { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
       { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
       { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
       { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
@@ -14247,7 +14243,6 @@ ${entry.reading}`;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
   const DB_VERSION = 4;
-  const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
   const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
@@ -15649,27 +15644,8 @@ ${entry.reading}`;
       });
     }
     db() {
-      this.dbPromise ??= this.openDb();
-      return this.dbPromise;
-    }
-    // A blocked or wedged upgrade (an older runtime still holding the
-    // connection) used to leave the open promise pending FOREVER — every local
-    // lookup then died at its own render timeout with no hint why. Fail fast,
-    // re-null the cached promise so a later call retries, and handle onblocked
-    // (the delete path at clearAll already does both).
-    openDb() {
-      const promise = new Promise((resolve, reject) => {
+      this.dbPromise ??= new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        let settled = false;
-        const failOpen = (reason, error) => {
-          if (settled) return;
-          settled = true;
-          if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$3.warn("Dictionary database open failed", { reason, error });
-          reject(error instanceof Error ? error : new Error(reason));
-        };
-        const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
-        request.onblocked = () => failOpen("Dictionary database upgrade blocked by another open connection");
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
@@ -15698,25 +15674,16 @@ ${entry.reading}`;
           ensureIndex(termKanji, "dictionary", "dictionary");
         };
         request.onsuccess = () => {
-          clearTimeout(openTimeout);
-          if (settled) {
-            try {
-              request.result.close();
-            } catch {
-            }
-            return;
-          }
-          settled = true;
           const db = request.result;
           this.installVersionChangeHandler(db);
           resolve(db);
         };
         request.onerror = () => {
-          clearTimeout(openTimeout);
-          failOpen("Dictionary database open failed", request.error);
+          log$3.warn("Dictionary database open failed", { error: request.error });
+          reject(request.error);
         };
       });
-      return promise;
+      return this.dbPromise;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
@@ -17023,7 +16990,6 @@ ${glossaryKey}`;
       const line = connected ? { message: uiText(language, successKey), tone: "success" } : { message: uiText(language, "jpdbConnectionFailed"), tone: "error" };
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, language);
-      this.refreshSettingsJapaneseParse(form);
     }
     async refreshAnkiConnectionStatus(form) {
       const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
@@ -17147,7 +17113,6 @@ ${glossaryKey}`;
       status.dataset.statusTone = "pending";
       status.dataset.updateChecked = "true";
       status.textContent = formatUiText(language, "updateStatusChecking", { current: CURRENT_YOMU_VERSION });
-      this.refreshSettingsJapaneseParse(form);
       try {
         const version = await requestJson(`${NEW_TAB_VERSION_URL}?t=${Date.now()}`, {
           allowDirectCrossOrigin: true,
@@ -17165,7 +17130,6 @@ ${glossaryKey}`;
         if (comparison === null) {
           status.dataset.statusTone = "pending";
           status.textContent = formatUiText(language, "updateStatusIncomparable", { current: CURRENT_YOMU_VERSION, latest });
-          this.refreshSettingsJapaneseParse(form);
           return;
         }
         const updateAvailable = comparison < 0;
@@ -17174,13 +17138,11 @@ ${glossaryKey}`;
           current: CURRENT_YOMU_VERSION,
           latest
         });
-        this.refreshSettingsJapaneseParse(form);
       } catch (error) {
         log$2.warn("Yomu update status unavailable", error);
         if (this.currentForm !== form || !form.isConnected || this.yomuUpdateCheckId !== requestId) return;
         status.dataset.statusTone = "pending";
         status.textContent = formatUiText(language, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
-        this.refreshSettingsJapaneseParse(form);
       }
     }
     async applyDictionaryStatus(form, elements, summary) {

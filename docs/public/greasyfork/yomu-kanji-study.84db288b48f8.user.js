@@ -1695,13 +1695,13 @@
     const value = await requestHttp(url, { ...options, responseType: "text" });
     return typeof value === "string" ? value : String(value ?? "");
   }
-  async function requestBlob$2(url, options = {}) {
+  async function requestBlob$1(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "blob" });
     if (value instanceof Blob) return value;
     if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
     throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? "Request"} did not return a blob.`);
   }
-  async function requestJson$2(url, options = {}) {
+  async function requestJson$1(url, options = {}) {
     const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
   }
@@ -1724,11 +1724,8 @@
     }
     return result;
   }
-  function uniqueNonEmptyStrings$1(values) {
+  function uniqueNonEmptyStrings(values) {
     return uniqueStrings(values, { dropEmpty: true });
-  }
-  function uniqueTrimmedStrings(values) {
-    return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
   function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
     const nodes = /* @__PURE__ */ new Map();
@@ -1874,7 +1871,7 @@
   function kanjiVGPositionKeys(component) {
     const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
     const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
-    return uniqueNonEmptyStrings$1([
+    return uniqueNonEmptyStrings([
       component.component,
       component.original,
       ...componentAliases,
@@ -1909,7 +1906,7 @@
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const KANJI_ALIVE_PRIMARY_GLOSSES_URL = "https://yomureader.com/data/kanji-alive-primary-glosses.json";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$a = Logger.scope("KanjiOrigin");
+  const log$8 = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     kanjiAliveGlosses;
@@ -1929,14 +1926,14 @@
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$a.time("Kanji origin lookup", { kanji });
+      const done = log$8.time("Kanji origin lookup", { kanji });
       const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled ? await Promise.all([
         fetchKanjiMapInfo(kanji).catch((error) => {
-          log$a.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$8.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }),
         this.lookupKanjiAliveKeyword(kanji).catch((error) => {
-          log$a.warn("Kanji Alive keyword lookup failed", { kanji, error });
+          log$8.warn("Kanji Alive keyword lookup failed", { kanji, error });
           return void 0;
         })
       ]) : [void 0, void 0];
@@ -1961,7 +1958,7 @@
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$a.time("Fetch Kanji Map info", { kanji });
+    const done = log$8.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$4(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -2383,7 +2380,7 @@
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$a.warn("Kanji origin request failed", { host: safeHost(url), error });
+      log$8.warn("Kanji origin request failed", { host: safeHost(url), error });
       throw error;
     });
   }
@@ -2539,7 +2536,6 @@
       classes.add(`${source}-deck-${slug}`);
     });
   }
-  const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff々〆\uff66-\uff9f]/;
   const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -2625,28 +2621,6 @@
     } catch {
       return null;
     }
-  }
-  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-  function readerWordSurfaceText(element) {
-    const surface = readerWordChildSurfaceText(element);
-    return surface || element.getAttribute("data-surface") || "";
-  }
-  function readerWordChildSurfaceText(element) {
-    let text2 = "";
-    element.childNodes.forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        text2 += node.textContent ?? "";
-        return;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return;
-      const child = node;
-      if (isSurfaceIgnoredElement(child)) return;
-      text2 += readerWordChildSurfaceText(child);
-    });
-    return text2;
-  }
-  function isSurfaceIgnoredElement(element) {
-    return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
   }
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -3139,50 +3113,6 @@
     const prefix = gap.slice(0, gap.length - digits.length);
     return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
   }
-  function renderHighlightedTextHtml(text2, targets, className) {
-    const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
-    if (!text2 || !needles.length) return escapeHtml(text2);
-    return renderHighlightChunks(text2, needles, className);
-  }
-  function renderHighlightChunks(text2, needles, className) {
-    let html = "";
-    let offset = 0;
-    while (offset < text2.length) {
-      const match = nextHighlightMatch(text2, needles, offset);
-      if (!match) break;
-      html += renderHighlightChunk(text2, className, offset, match);
-      offset = match.index + match.needle.length;
-    }
-    if (offset < text2.length) html += escapeHtml(text2.slice(offset));
-    return html;
-  }
-  function renderHighlightChunk(text2, className, offset, match) {
-    const prefix = match.index > offset ? escapeHtml(text2.slice(offset, match.index)) : "";
-    const marked = text2.slice(match.index, match.index + match.needle.length);
-    return `${prefix}<mark class="${escapeHtml(className)}">${escapeHtml(marked)}</mark>`;
-  }
-  function nextHighlightMatch(text2, needles, offset) {
-    let best = null;
-    for (const needle of needles) {
-      best = betterHighlightMatch(best, highlightMatchForNeedle(text2, needle, offset));
-    }
-    return best;
-  }
-  function highlightMatchForNeedle(text2, needle, offset) {
-    const index = text2.indexOf(needle, offset);
-    return index < 0 ? null : { index, needle };
-  }
-  function betterHighlightMatch(current, candidate) {
-    if (!candidate) return current;
-    if (!current) return candidate;
-    return isBetterHighlightMatch(candidate, current) ? candidate : current;
-  }
-  function isBetterHighlightMatch(candidate, current) {
-    return candidate.index < current.index || candidate.index === current.index && candidate.needle.length > current.needle.length;
-  }
-  function uniqueNonEmptyStrings(values) {
-    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-  }
   function nonOverlappingTokens(tokens, text2) {
     const safe = [];
     let offset = 0;
@@ -3202,11 +3132,11 @@
     for (const token of tokens) {
       const sentence = miningInsightSentenceKey(token);
       if (!sentence || isParticleCard(token.card)) continue;
-      const cardKey2 = readerCardKey(token.card);
+      const cardKey = readerCardKey(token.card);
       const sentenceCards = sentences.get(sentence) ?? /* @__PURE__ */ new Map();
       if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
-      if (!sentenceCards.has(cardKey2)) {
-        sentenceCards.set(cardKey2, { unknown: isMiningUnknownCard(token.card) });
+      if (!sentenceCards.has(cardKey)) {
+        sentenceCards.set(cardKey, { unknown: isMiningUnknownCard(token.card) });
       }
     }
     const keys = /* @__PURE__ */ new Set();
@@ -3224,8 +3154,8 @@
   function miningInsightTokenKey(token) {
     return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
   }
-  function miningInsightKey(sentence, cardKey2) {
-    return `${sentence}\0${cardKey2}`;
+  function miningInsightKey(sentence, cardKey) {
+    return `${sentence}\0${cardKey}`;
   }
   function miningInsightSentenceKey(token) {
     return (token.sentence ?? "").replace(/\s+/g, " ").trim();
@@ -3247,7 +3177,7 @@
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-    const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
+    const pitchClass = settings.showPitchAccent ? safePitchClass(token.pitchClass) : "";
     const classes = [
       readerWordClassName(state, token, settings),
       hasRuby ? "jpdb-reader-has-furi" : "",
@@ -3264,7 +3194,7 @@
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
     const pitchAccent = token.card.pitchAccent.join("|");
     const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-    const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
+    const lookupMetadata = settings.showPitchAccent && pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
     const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
@@ -3304,7 +3234,7 @@
       if (source !== "jpdb") classes.push(`${source}-${state}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
+    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
     return classes.join(" ");
   }
   function hasKnownCardState(card) {
@@ -3315,9 +3245,6 @@
   }
   function safePitchClass(value) {
     return PITCH_CLASSES.has(value) ? value : "unknown";
-  }
-  function tokenPitchClass(token) {
-    return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
     let html = "";
@@ -5892,14 +5819,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
-  function formatUiText(language, key, values) {
-    return Object.entries(values).reduce(
-      (text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
-      uiText(language, key)
-    );
-  }
   async function loadJaGrammarRuleCopy() {
-    jaGrammarRuleCopyPromise ??= requestJson$2(JA_GRAMMAR_RULE_COPY_URL, {
+    jaGrammarRuleCopyPromise ??= requestJson$1(JA_GRAMMAR_RULE_COPY_URL, {
       failureLabel: "Japanese grammar copy request",
       timeoutMs: 15e3,
       allowDirectCrossOrigin: true,
@@ -5960,244 +5881,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   );
   function rtkElementFallbackGlyph(keyword) {
     return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
-  }
-  const GODAN_ROWS = [
-    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-  ];
-  const ICHIDAN_RULES = [
-    ["ながら", "る", "simultaneous action"],
-    ["ました", "る", "polite past"],
-    ["ませんでした", "る", "polite negative past"],
-    ["ません", "る", "polite negative"],
-    ["ましょう", "る", "polite volitional"],
-    ["ます", "る", "polite"],
-    ["なかった", "る", "negative past"],
-    ["なくて", "る", "negative te-form"],
-    ["なければ", "る", "negative conditional"],
-    ["ない", "る", "negative"],
-    ["ず", "る", "negative archaic"],
-    ["たかった", "る", "desiderative past"],
-    ["たくなかった", "る", "desiderative negative past"],
-    ["たくない", "る", "desiderative negative"],
-    ["たい", "る", "desiderative"],
-    ["なさい", "る", "polite request"],
-    ["すぎる", "る", "excessive"],
-    ["られなかった", "る", "potential/passive negative past"],
-    ["られない", "る", "potential/passive negative"],
-    ["られて", "る", "potential/passive te-form"],
-    ["られた", "る", "potential/passive past"],
-    ["られる", "る", "potential/passive"],
-    ["させられた", "る", "causative passive past"],
-    ["させられる", "る", "causative passive"],
-    ["させない", "る", "causative negative"],
-    ["させて", "る", "causative te-form"],
-    ["させた", "る", "causative past"],
-    ["させる", "る", "causative"],
-    ["れば", "る", "conditional"],
-    ["よう", "る", "volitional"],
-    ["ろ", "る", "imperative"],
-    ["て", "る", "te-form"],
-    ["た", "る", "past"]
-  ];
-  const I_ADJECTIVE_RULES = [
-    ["くなかった", "い", "negative past"],
-    ["くありませんでした", "い", "polite negative past"],
-    ["くありません", "い", "polite negative"],
-    ["かった", "い", "past"],
-    ["くない", "い", "negative"],
-    ["くて", "い", "te-form"],
-    ["ければ", "い", "conditional"],
-    ["そう", "い", "looks"],
-    ["すぎる", "い", "excessive"],
-    ["く", "い", "adverbial"]
-  ];
-  const SURU_RULES = [
-    ["しながら", "する", "simultaneous action"],
-    ["しませんでした", "する", "polite negative past"],
-    ["しません", "する", "polite negative"],
-    ["しました", "する", "polite past"],
-    ["しましょう", "する", "polite volitional"],
-    ["します", "する", "polite"],
-    ["しなかった", "する", "negative past"],
-    ["しなくて", "する", "negative te-form"],
-    ["しなければ", "する", "negative conditional"],
-    ["しない", "する", "negative"],
-    ["せず", "する", "negative archaic"],
-    ["しなさい", "する", "polite request"],
-    ["しすぎる", "する", "excessive"],
-    ["された", "する", "passive past"],
-    ["されて", "する", "passive te-form"],
-    ["される", "する", "passive"],
-    ["させた", "する", "causative past"],
-    ["させて", "する", "causative te-form"],
-    ["させる", "する", "causative"],
-    ["できなかった", "する", "potential negative past"],
-    ["できない", "する", "potential negative"],
-    ["できた", "する", "potential past"],
-    ["できて", "する", "potential te-form"],
-    ["できる", "する", "potential"],
-    ["すれば", "する", "conditional"],
-    ["しよう", "する", "volitional"],
-    ["しろ", "する", "imperative"],
-    ["せよ", "する", "imperative"],
-    ["した", "する", "past"],
-    ["して", "する", "te-form"]
-  ];
-  const KURU_RULES = [
-    ["来ながら", "来る", "simultaneous action"],
-    ["来ませんでした", "来る", "polite negative past"],
-    ["来ません", "来る", "polite negative"],
-    ["来ました", "来る", "polite past"],
-    ["来ます", "来る", "polite"],
-    ["来なかった", "来る", "negative past"],
-    ["来なくて", "来る", "negative te-form"],
-    ["来ない", "来る", "negative"],
-    ["来なさい", "来る", "polite request"],
-    ["来すぎる", "来る", "excessive"],
-    ["来られた", "来る", "potential/passive past"],
-    ["来られて", "来る", "potential/passive te-form"],
-    ["来られる", "来る", "potential/passive"],
-    ["来れば", "来る", "conditional"],
-    ["来よう", "来る", "volitional"],
-    ["来い", "来る", "imperative"],
-    ["来た", "来る", "past"],
-    ["来て", "来る", "te-form"],
-    ["きながら", "くる", "simultaneous action"],
-    ["きませんでした", "くる", "polite negative past"],
-    ["きません", "くる", "polite negative"],
-    ["きました", "くる", "polite past"],
-    ["きます", "くる", "polite"],
-    ["こなかった", "くる", "negative past"],
-    ["こなくて", "くる", "negative te-form"],
-    ["こない", "くる", "negative"],
-    ["こず", "くる", "negative archaic"],
-    ["きなさい", "くる", "polite request"],
-    ["きすぎる", "くる", "excessive"],
-    ["こられた", "くる", "potential/passive past"],
-    ["こられて", "くる", "potential/passive te-form"],
-    ["こられる", "くる", "potential/passive"],
-    ["くれば", "くる", "conditional"],
-    ["こよう", "くる", "volitional"],
-    ["こい", "くる", "imperative"],
-    ["きた", "くる", "past"],
-    ["きて", "くる", "te-form"]
-  ];
-  const TE_ASPECT_SUFFIXES = [
-    ["いる", "progressive"],
-    ["います", "polite progressive"],
-    ["いました", "polite progressive past"],
-    ["いません", "polite progressive negative"],
-    ["いませんでした", "polite progressive negative past"],
-    ["いた", "progressive past"],
-    ["いて", "progressive te-form"],
-    ["いない", "progressive negative"],
-    ["いなかった", "progressive negative past"],
-    ["いれば", "progressive conditional"],
-    ["る", "contracted progressive"],
-    ["ます", "contracted polite progressive"],
-    ["ました", "contracted polite progressive past"],
-    ["た", "contracted progressive past"],
-    ["て", "contracted progressive te-form"],
-    ["ない", "contracted progressive negative"],
-    ["なかった", "contracted progressive negative past"]
-  ];
-  const TE_COMPLETION_SUFFIXES = [
-    ["しまう", "completion"],
-    ["しまった", "completion past"],
-    ["しまって", "completion te-form"],
-    ["しまわない", "completion negative"],
-    ["しまいます", "polite completion"],
-    ["しまいました", "polite completion past"]
-  ];
-  const CONTRACTED_COMPLETION_SUFFIXES = [
-    ["う", "contracted completion"],
-    ["った", "contracted completion past"],
-    ["って", "contracted completion te-form"],
-    ["わない", "contracted completion negative"],
-    ["います", "contracted polite completion"],
-    ["いました", "contracted polite completion past"]
-  ];
-  [
-    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-    ...teCompoundRules("て", "る", ["v1"]),
-    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
-  function godanRules(row) {
-    const rules = row.rules;
-    return [
-      ...teCompoundRules(row.te, row.ending, rules),
-      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
-      { from: row.i, to: row.ending, reason: "continuative stem", rules },
-      { from: row.te, to: row.ending, reason: "te-form", rules },
-      { from: row.ta, to: row.ending, reason: "past", rules },
-      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
-      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-      { from: row.e, to: row.ending, reason: "imperative", rules }
-    ];
-  }
-  function teCompoundRules(te, to, rules) {
-    return [
-      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...contractedCompletionRules(te, to, rules)
-    ];
-  }
-  function contractedCompletionRules(te, to, rules) {
-    const stem = contractedCompletionStem(te);
-    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-  }
-  function contractedCompletionStem(te) {
-    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-    return "";
   }
   function isKanjiCharacter$1(value) {
     const code = value.codePointAt(0) ?? 0;
@@ -7280,10 +6963,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return params.toString();
   }
   function requestBlobUrl(url, timeout, proxyUrl) {
-    return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
+    return requestBlob(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
   }
-  function requestBlob$1(url, timeout, proxyUrl) {
-    return requestBlob$2(url, {
+  function requestBlob(url, timeout, proxyUrl) {
+    return requestBlob$1(url, {
       proxyUrl,
       timeoutMs: timeout,
       failureLabel: "Uchisen image request",
@@ -7781,7 +7464,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Math.max(min, Math.min(max, Number(value.toFixed(2))));
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$9 = Logger.scope("JpdbKanji");
+  const log$7 = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -7802,7 +7485,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$9.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$7.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$2(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -7815,7 +7498,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$9.warn("Kanji page request failed", { kanji }, error);
+        log$7.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -8308,7 +7991,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$8 = Logger.scope("KanjiVG");
+  const log$6 = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -8328,7 +8011,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
-        log$8.warn("Stroke-order request failed", { kanji }, error);
+        log$6.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -8623,2221 +8306,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       failureLabel: "Stroke-order request",
       timeoutLabel: "Stroke-order request timed out."
     });
-  }
-  function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
-  function isNonNullObject(value) {
-    return typeof value === "object" && value !== null;
-  }
-  function pruneOldestCacheEntries(cache, limit) {
-    while (cache.size > limit) {
-      const oldest = cache.keys().next();
-      if (oldest.done) break;
-      cache.delete(oldest.value);
-    }
-  }
-  function isAbortError(error) {
-    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-  }
-  function revokeBlobObjectUrl(url) {
-    if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-  }
-  class ObjectUrlCache {
-    // `revoke` lets callers release side-channel state tied to the URL (e.g. the
-    // retained Blob the Web Audio CSP fallback reads), not just the object URL.
-    constructor(ttlMs, revoke = revokeBlobObjectUrl) {
-      this.ttlMs = ttlMs;
-      this.revoke = revoke;
-    }
-    entries = /* @__PURE__ */ new Map();
-    getOrCreate(key, createUrl) {
-      const now = Date.now();
-      const cached = this.entries.get(key);
-      if (cached && cached.expiresAt > now) {
-        return cached.promise;
-      }
-      if (cached) this.delete(key);
-      const entry = {
-        expiresAt: now + this.ttlMs,
-        promise: Promise.resolve().then(createUrl).then((url) => {
-          entry.url = url;
-          entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
-          return url;
-        }).catch((error) => {
-          if (this.entries.get(key) === entry) this.entries.delete(key);
-          throw error;
-        })
-      };
-      this.entries.set(key, entry);
-      return entry.promise;
-    }
-    clear() {
-      for (const key of this.entries.keys()) {
-        this.delete(key);
-      }
-    }
-    expire(key, entry) {
-      if (this.entries.get(key) !== entry) return;
-      this.delete(key);
-    }
-    delete(key) {
-      const entry = this.entries.get(key);
-      if (!entry) return;
-      if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
-      this.entries.delete(key);
-      if (entry.url !== void 0) this.revoke(entry.url);
-    }
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  const API_BASE = "https://apiv2express.immersionkit.com";
-  const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
-  const API_BASES = [API_BASE, LEGACY_API_BASE];
-  const NADESHIKO_API_BASE = "https://api.nadeshiko.co/v1";
-  const OBJECT_STORE_BASE = "https://us-southeast-1.linodeobjects.com/immersionkit";
-  const MEDIA_BLOB_CACHE_TTL_MS = 10 * 60 * 1e3;
-  const MEDIA_CANDIDATE_LIMIT = 4;
-  const SEARCH_EXAMPLE_LIMIT = 250;
-  const SEARCH_CACHE_LIMIT = 160;
-  const SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS = 1e3;
-  const SEARCH_RATE_LIMIT_MAX_BACKOFF_MS = 3e4;
-  const NADESHIKO_SEARCH_LIMIT = 25;
-  const MIN_LEARNING_SENTENCE_LENGTH = 8;
-  const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$7 = Logger.scope("ImmersionKit");
-  const IMMERSION_KIT_TITLES = {
-    your_lie_in_april: "Your Lie in April",
-    princess_mononoke: "Princess Mononoke",
-    girls_band_cry: "Girls Band Cry",
-    only_yesterday: "Only Yesterday",
-    chobits: "Chobits",
-    k_on_: "K-On!",
-    weathering_with_you: "Weathering with You",
-    from_the_new_world: "From the New World",
-    grave_of_the_fireflies: "Grave of the Fireflies",
-    steins_gate: "Steins Gate",
-    sword_art_online: "Sword Art Online",
-    nisekoi: "Nisekoi",
-    death_note: "Death Note",
-    wolf_children: "Wolf Children",
-    demon_slayer___kimetsu_no_yaiba: "Demon Slayer - Kimetsu no Yaiba",
-    your_name: "Your Name",
-    alya_sometimes_hides_her_feelings_in_russian: "Alya Sometimes Hides Her Feelings in Russian",
-    cardcaptor_sakura: "Cardcaptor Sakura",
-    kill_la_kill: "Kill la Kill",
-    howl_s_moving_castle: "Howl's Moving Castle",
-    whisper_of_the_heart: "Whisper of the Heart",
-    bunny_drop: "Bunny Drop",
-    fermat_kitchen: "Fermat Kitchen",
-    haruhi_suzumiya: "Haruhi Suzumiya",
-    hunter_x_hunter: "Hunter × Hunter",
-    god_s_blessing_on_this_wonderful_world_: "God's Blessing on this Wonderful World!",
-    assassination_classroom_season_1: "Assassination Classroom Season 1",
-    durarara__: "Durarara!!",
-    bakemonogatari: "Bakemonogatari",
-    hyouka: "Hyouka",
-    relife: "ReLIFE",
-    from_up_on_poppy_hill: "From Up on Poppy Hill",
-    sound__euphonium: "Sound! Euphonium",
-    lucky_star: "Lucky Star",
-    kokoro_connect: "Kokoro Connect",
-    my_little_sister_can_t_be_this_cute: "My Little Sister Can't Be This Cute",
-    is_the_order_a_rabbit: "Is The Order a Rabbit",
-    clannad: "Clannad",
-    angel_beats_: "Angel Beats!",
-    daily_lives_of_high_school_boys: "Daily Lives of High School Boys",
-    new_game_: "New Game!",
-    the_wind_rises: "The Wind Rises",
-    fate_zero: "Fate Zero",
-    toradora_: "Toradora!",
-    anohana_the_flower_we_saw_that_day: "Anohana the flower we saw that day",
-    wandering_witch_the_journey_of_elaina: "Wandering Witch The Journey of Elaina",
-    kino_s_journey: "Kino's Journey",
-    boku_no_hero_academia_season_1: "Boku no Hero Academia Season 1",
-    fullmetal_alchemist_brotherhood: "Fullmetal Alchemist Brotherhood",
-    one_week_friends: "One Week Friends",
-    erased: "Erased",
-    mononoke: "Mononoke",
-    little_witch_academia: "Little Witch Academia",
-    re_zero___starting_life_in_another_world: "Re Zero − Starting Life in Another World",
-    fruits_basket_season_1: "Fruits Basket Season 1",
-    mahou_shoujo_madoka_magica: "Mahou Shoujo Madoka Magica",
-    the_irregular_at_magic_high_school: "The Irregular at Magic High School",
-    clannad_after_story: "Clannad After Story",
-    frieren_beyond_journey_s_end: "Frieren Beyond Journey's End",
-    kakegurui: "Kakegurui",
-    the_garden_of_words: "The Garden of Words",
-    when_marnie_was_there: "When Marnie Was There",
-    castle_in_the_sky: "Castle in the sky",
-    shirokuma_cafe: "Shirokuma Cafe",
-    my_neighbor_totoro: "My Neighbor Totoro",
-    kiki_s_delivery_service: "Kiki's Delivery Service",
-    the_girl_who_leapt_through_time: "The Girl Who Leapt Through Time",
-    fate_stay_night_unlimited_blade_works: "Fate Stay Night Unlimited Blade Works",
-    code_geass_season_1: "Code Geass Season 1",
-    the_world_god_only_knows: "The World God Only Knows",
-    the_pet_girl_of_sakurasou: "The Pet Girl of Sakurasou",
-    no_game_no_life: "No Game No Life",
-    kanon__2006_: "Kanon (2006)",
-    psycho_pass: "Psycho Pass",
-    the_cat_returns: "The Cat Returns",
-    the_secret_world_of_arrietty: "The Secret World of Arrietty",
-    spirited_away: "Spirited Away",
-    noragami: "Noragami",
-    fairy_tail: "Fairy Tail",
-    i_m_taking_the_day_off: "I'm Taking the Day Off",
-    border: "Border",
-    weakest_beast: "Weakest Beast",
-    mob_psycho_100: "Mob Psycho 100",
-    the_journalist: "The Journalist",
-    sailor_suit_and_machine_gun__2006_: "Sailor Suit and Machine Gun (2006)",
-    smoking: "Smoking",
-    i_am_mita__your_housekeeper: "I am Mita, Your Housekeeper",
-    good_morning_call: "Good Morning Call",
-    overprotected_kahoko: "Overprotected Kahoko",
-    quartet: "Quartet",
-    million_yen_woman: "Million Yen Woman",
-    legal_high_season_1: "Legal High Season 1",
-    witcher_3: "Witcher 3",
-    cyberpunk_2077: "Cyberpunk 2077",
-    skyrim: "Skyrim"
-  };
-  class ImmersionKitClient {
-    cache = /* @__PURE__ */ new Map();
-    inflight = /* @__PURE__ */ new Map();
-    mediaBlobUrlCache = new ObjectUrlCache(MEDIA_BLOB_CACHE_TTL_MS);
-    immersionKitRateLimitedUntil = 0;
-    immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-    async search(term, settings, options = {}) {
-      const query = term.trim();
-      if (!canSearchImmersionExamples(query, settings)) return [];
-      const cacheKey = this.searchCacheKey(query, settings, options);
-      const cached = this.cache.get(cacheKey);
-      if (cached) return cached;
-      const cacheInflight = !options.signal;
-      const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
-      if (inflight) return inflight;
-      const done = log$7.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
-      const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
-        const result = applySearchExampleLimit(examples, settings, options);
-        if (!options.signal?.aborted) {
-          this.cache.set(cacheKey, result);
-          pruneOldestCacheEntries(this.cache, SEARCH_CACHE_LIMIT);
-        }
-        return result;
-      }).finally(() => {
-        if (cacheInflight) this.inflight.delete(cacheKey);
-        done();
-      });
-      if (cacheInflight) this.inflight.set(cacheKey, promise);
-      return promise;
-    }
-    async searchEnabledSources(query, settings, options) {
-      const sources = enabledImmersionExampleSources(settings);
-      if (settings.immersionKitExampleSource === "combined" && options.fastFirst && sources.length > 1) {
-        return this.searchCombinedFastFirst(query, settings, options, sources);
-      }
-      const resultSets = await Promise.all(sources.map(
-        (source) => this.searchSource(source, query, settings, options)
-      ));
-      return settings.immersionKitExampleSource === "combined" ? deterministicMergedExamples(sources, resultSets, this.combinedShuffleSeed(query, settings)) : resultSets.flat();
-    }
-    searchCombinedFastFirst(query, settings, options, sources) {
-      let pending = sources.length;
-      const emptyResults = [];
-      return new Promise((resolve, reject) => {
-        sources.forEach((source) => {
-          void this.searchSource(source, query, settings, options).then((examples) => {
-            if (examples.length) {
-              resolve(examples);
-              return;
-            }
-            emptyResults.push(examples);
-            pending -= 1;
-            if (pending === 0) resolve(emptyResults.flat());
-          }).catch(reject);
-        });
-      });
-    }
-    searchSource(source, query, settings, options) {
-      return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError(error)) throw error;
-        log$7.warn("Nadeshiko examples failed", { query }, error);
-        return [];
-      }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$7.warn("Immersion Kit examples failed", { query }, error);
-        return [];
-      });
-    }
-    searchImmersionKit(query, settings, options) {
-      this.assertImmersionKitSearchAllowed(settings.interfaceLanguage);
-      return requestJson$1(apiUrls(`/search?${this.searchParams(query, settings, options)}`), settings.audioTimeoutMs, settings.corsProxyUrl, options.signal, settings.interfaceLanguage).then((data) => {
-        this.resetImmersionKitBackoff();
-        return filterSearchExamples(data, query, settings, this.minimumSentenceLength(settings), "immersion-kit");
-      }).catch((error) => {
-        if (isImmersionKitRateLimitError(error)) this.noteImmersionKitRateLimit();
-        throw error;
-      });
-    }
-    assertImmersionKitSearchAllowed(language) {
-      if (Date.now() < this.immersionKitRateLimitedUntil) {
-        throw new Error(uiText(language, "immersionKitRateLimited"));
-      }
-    }
-    noteImmersionKitRateLimit() {
-      this.immersionKitRateLimitedUntil = Date.now() + this.immersionKitBackoffMs;
-      this.immersionKitBackoffMs = Math.min(this.immersionKitBackoffMs * 2, SEARCH_RATE_LIMIT_MAX_BACKOFF_MS);
-    }
-    resetImmersionKitBackoff() {
-      this.immersionKitBackoffMs = SEARCH_RATE_LIMIT_INITIAL_BACKOFF_MS;
-      this.immersionKitRateLimitedUntil = 0;
-    }
-    searchNadeshiko(query, settings, options) {
-      const apiKey = settings.nadeshikoApiKey.trim();
-      if (!apiKey) return Promise.resolve([]);
-      return requestJson$2(`${NADESHIKO_API_BASE}/search`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        data: JSON.stringify(nadeshikoSearchPayload(query, settings, this.minimumSentenceLength(settings))),
-        timeoutMs: settings.audioTimeoutMs,
-        allowDirectCrossOrigin: true,
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        preferFetch: shouldPreferFetchForImmersionKitRequests(),
-        signal: options.signal,
-        failureLabel: uiText(settings.interfaceLanguage, "nadeshikoRequest"),
-        failureMessage: uiText(settings.interfaceLanguage, "nadeshikoRequestFailed"),
-        statusFailureMessage: (status) => formatUiText(settings.interfaceLanguage, "nadeshikoRequestFailedWithStatus", { status }),
-        timeoutLabel: uiText(settings.interfaceLanguage, "nadeshikoRequestTimedOut")
-      }).then((data) => filterNadeshikoExamples(data, query, settings, this.minimumSentenceLength(settings)));
-    }
-    searchCacheKey(query, settings, options) {
-      return JSON.stringify({
-        query,
-        source: settings.immersionKitExampleSource,
-        nadeshikoKey: sensitiveFingerprint(settings.nadeshikoApiKey),
-        limit: searchRequestLimit(options),
-        userLimit: searchResultLimit(settings, options),
-        min: this.minimumSentenceLength(settings),
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        sort: this.effectiveSort(settings),
-        exact: settings.immersionKitExactMatch,
-        fastFirst: Boolean(options.fastFirst)
-      });
-    }
-    combinedShuffleSeed(query, settings) {
-      return JSON.stringify({
-        query,
-        source: settings.immersionKitExampleSource,
-        key: sensitiveFingerprint(settings.nadeshikoApiKey),
-        min: this.minimumSentenceLength(settings),
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        exact: settings.immersionKitExactMatch
-      });
-    }
-    searchParams(query, settings, options) {
-      const params = new URLSearchParams({
-        q: query,
-        limit: String(searchRequestLimit(options)),
-        sort: this.effectiveSort(settings)
-      });
-      if (settings.immersionKitExactMatch) params.set("exactMatch", "true");
-      if (settings.immersionKitCategory !== "all") params.set("category", settings.immersionKitCategory);
-      return params;
-    }
-    effectiveSort(settings) {
-      return settings.immersionKitSort === "random" ? DEFAULT_EXAMPLE_SORT : settings.immersionKitSort;
-    }
-    minimumSentenceLength(settings) {
-      return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
-    }
-    // Compatibility helper for callers that still expect the first media candidate.
-    mediaUrl(example, kind) {
-      return this.mediaUrls(example, kind)[0] ?? "";
-    }
-    mediaUrls(example, kind) {
-      const direct = directMediaUrl(example, kind);
-      if (direct) return [direct];
-      const file = mediaFileName(example, kind);
-      if (!file) return [];
-      return mediaFileUrls(example, file).slice(0, MEDIA_CANDIDATE_LIMIT);
-    }
-    async fetchBlobUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-      const urls = urlCandidates(url);
-      const key = urls.join("");
-      return this.mediaBlobUrlCache.getOrCreate(key, async () => {
-        const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-        const blobUrl = await createPageMediaUrl(blob, urls[0] ?? "");
-        return blobUrl;
-      });
-    }
-    async fetchDataUrl(url, timeoutMs, proxyUrl = "", language = "en") {
-      const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
-      return readBlobAsDataUrl(blob);
-    }
-  }
-  function canSearchImmersionExamples(query, settings) {
-    return Boolean(query && settings.immersionKitEnabled);
-  }
-  function enabledImmersionExampleSources(settings) {
-    if (settings.immersionKitExampleSource === "nadeshiko") return ["nadeshiko"];
-    if (settings.immersionKitExampleSource === "combined") return ["immersion-kit", "nadeshiko"];
-    return ["immersion-kit"];
-  }
-  function collectExamples(value) {
-    if (Array.isArray(value)) return value;
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    return firstArrayField(record, ["examples", "results", "data"]);
-  }
-  function firstArrayField(record, keys) {
-    return keys.map((key) => record[key]).find(Array.isArray) ?? [];
-  }
-  function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
-    return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-  }
-  function filterNadeshikoExamples(data, query, settings, minLength) {
-    const response = nadeshikoResponseRecord(data);
-    if (!response) return [];
-    const media = nadeshikoMediaMap(response);
-    return nadeshikoSegments(response).map((value) => normalizeNadeshikoExample(value, media)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
-  }
-  function applySearchExampleLimit(examples, settings, options = {}) {
-    const limit = searchResultLimit(settings, options);
-    return limit ? examples.slice(0, limit) : examples;
-  }
-  function searchRequestLimit(options) {
-    return boundedSearchLimit(options.requestLimit, SEARCH_EXAMPLE_LIMIT);
-  }
-  function searchResultLimit(settings, options) {
-    if (options.resultLimit !== void 0) return boundedSearchLimit(options.resultLimit, SEARCH_EXAMPLE_LIMIT);
-    return settings.immersionKitLimitEnabled ? boundedSearchLimit(settings.immersionKitLimit, SEARCH_EXAMPLE_LIMIT) : 0;
-  }
-  function boundedSearchLimit(value, fallback) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-    return Math.max(1, Math.min(SEARCH_EXAMPLE_LIMIT, Math.trunc(value)));
-  }
-  function isSearchExampleInRange(example, settings, minLength) {
-    const length = sentenceLength(example.sentence);
-    return length >= minLength && (!settings.immersionKitMaxLength || length <= settings.immersionKitMaxLength);
-  }
-  function isSearchExampleSurfaceMatch(example, query) {
-    return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
-  }
-  function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
-  }
-  function normalizeExampleRecord(record, provider = "immersion-kit") {
-    const id = text$1(record.id);
-    const sentence = firstText(record, ["sentence", "text"]);
-    if (!sentence) return null;
-    const titleSlug = exampleTitleSlug(record, id);
-    const sourceTitle = exampleSourceTitle(record, titleSlug);
-    const category = exampleCategory(record, id);
-    const soundFile = firstText(record, ["sound", "audio", "audio_file", "audioFile"]);
-    const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
-    return {
-      id,
-      provider,
-      sentence,
-      sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
-      translation: firstText(record, ["translation", "translation_en", "english"]),
-      sourceTitle,
-      titleSlug,
-      category,
-      soundFile,
-      imageFile,
-      soundUrl: absoluteMediaUrl(firstText(record, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
-      imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
-    };
-  }
-  function nadeshikoSearchPayload(query, settings, minLength) {
-    const maxLength = settings.immersionKitMaxLength || 1e3;
-    return {
-      query: { search: query },
-      take: NADESHIKO_SEARCH_LIMIT,
-      filters: {
-        segmentLengthChars: {
-          min: minLength,
-          max: Math.max(minLength, maxLength)
-        }
-      }
-    };
-  }
-  function nadeshikoResponseRecord(data) {
-    if (Array.isArray(data)) return { segments: data };
-    return isRecord(data) ? data : null;
-  }
-  function nadeshikoSegments(response) {
-    return firstArrayField(response, ["segments", "examples", "results", "data"]);
-  }
-  function nadeshikoMediaMap(response) {
-    const includes = response.includes;
-    const media = isRecord(includes) ? includes.media : void 0;
-    return isRecord(media) ? media : {};
-  }
-  function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord(value)) return null;
-    const sentence = nadeshikoSentence(value);
-    if (!sentence) return null;
-    const ids = nadeshikoExampleIds(value);
-    const media = nadeshikoMediaRecord(mediaById, ids.mediaPublicId);
-    const urls = recordField(value.urls);
-    const sourceTitle = nadeshikoSourceTitle(value, media);
-    return {
-      id: nadeshikoExampleId(sentence, ids),
-      provider: "nadeshiko",
-      sentence,
-      sentenceWithFurigana: firstText(value, ["furi_sentence", "sentenceWithFurigana", "sentence_with_furigana"]),
-      translation: nadeshikoTranslation(value),
-      sourceTitle,
-      titleSlug: slugFromTitle(sourceTitle),
-      category: nadeshikoCategory(value, media),
-      soundFile: "",
-      imageFile: "",
-      soundUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["audioUrl", "soundUrl", "audio_url", "sound_url"]),
-      imageUrl: nadeshikoAbsoluteMediaUrl(value, urls, ["imageUrl", "image_url"]),
-      publicId: ids.publicId,
-      mediaPublicId: ids.mediaPublicId
-    };
-  }
-  function nadeshikoSentence(record) {
-    return nestedText(record, "textJa", ["content", "text"]) || firstText(record, ["sentence", "text", "textJa"]);
-  }
-  function nadeshikoExampleIds(record) {
-    return {
-      publicId: firstText(record, ["publicId", "public_id", "id"]),
-      mediaPublicId: firstText(record, ["mediaPublicId", "media_public_id", "mediaId"])
-    };
-  }
-  function nadeshikoMediaRecord(mediaById, mediaPublicId) {
-    return recordField(mediaById[mediaPublicId]);
-  }
-  function recordField(value) {
-    return isRecord(value) ? value : {};
-  }
-  function nadeshikoSourceTitle(record, media) {
-    return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
-  }
-  function nadeshikoExampleId(sentence, ids) {
-    return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
-  }
-  function nadeshikoTranslation(record) {
-    return nestedText(record, "textEn", ["content", "text"]) || firstText(record, ["translation", "translation_en", "english"]);
-  }
-  function nadeshikoCategory(record, media) {
-    return firstText(media, ["type", "category"]) || firstText(record, ["category"]) || "anime";
-  }
-  function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
-    return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
-  }
-  function nestedText(record, key, fields) {
-    const value = record[key];
-    return isRecord(value) ? firstText(value, fields) : "";
-  }
-  function directMediaUrl(example, kind) {
-    return kind === "image" ? example.imageUrl : example.soundUrl;
-  }
-  function mediaFileName(example, kind) {
-    return kind === "image" ? example.imageFile : example.soundFile;
-  }
-  function mediaFileUrls(example, file) {
-    const category = example.category || categoryFromId(example.id);
-    return uniqueTrimmedStrings(mediaTitleCandidates(example, file).flatMap((title) => mediaFileTitleUrls(category, title, file)));
-  }
-  function mediaFileTitleUrls(category, title, file) {
-    const path = `media/${category}/${title}/media/${file}`;
-    return [
-      `${OBJECT_STORE_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`,
-      ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
-    ];
-  }
-  function exampleTitleSlug(record, id) {
-    return firstText(record, ["title", "deck", "source"]) || titleSlugFromId(id);
-  }
-  function exampleSourceTitle(record, titleSlug) {
-    return firstText(record, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
-  }
-  function exampleCategory(record, id) {
-    return text$1(record.category) || categoryFromId(id);
-  }
-  function firstText(record, keys) {
-    for (const key of keys) {
-      const value = text$1(record[key]);
-      if (value) return value;
-    }
-    return "";
-  }
-  function text$1(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function titleSlugFromId(id) {
-    const parts = id.split("_");
-    if (parts.length < 3) return "";
-    return parts.slice(1, -1).join("_");
-  }
-  function categoryFromId(id) {
-    const [category] = id.split("_");
-    return category || "anime";
-  }
-  function titleFromSlug(slug) {
-    if (!slug) return "Unknown";
-    const override = IMMERSION_KIT_TITLES[slug];
-    if (override) return override;
-    return slug.replace(/_+$/g, "").split("_").filter(Boolean).map((part) => part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)).join(" ");
-  }
-  function slugFromTitle(title) {
-    return title.trim().toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]+/gi, "_").replace(/^_+|_+$/g, "");
-  }
-  function mediaTitleCandidates(example, file) {
-    const slug = example.titleSlug || titleSlugFromId(example.id);
-    return uniqueTrimmedStrings([
-      titleFromSlug(slug),
-      example.sourceTitle,
-      titleFromMediaFile(file),
-      slug
-    ].filter(Boolean));
-  }
-  function titleFromMediaFile(file) {
-    const stem = file.replace(/\.[^.]+$/u, "");
-    const episodeMatch = /^(.+?)(?:_S\d|_\d|_E\d|-\s*\d)/i.exec(stem);
-    const title = (episodeMatch?.[1] || stem).replace(/^A[_-]/, "").replace(/_/g, " ").trim();
-    if (!title) return "";
-    return title.replace(/\bKOn\b/u, "K-On!").replace(/\bDurarara\b/u, "Durarara!!").replace(/\bAngel Beats!?\b/u, "Angel Beats!");
-  }
-  function deterministicShuffle(values, seed) {
-    const result = [...values];
-    let state = stablePositiveHashId(seed);
-    for (let index = result.length - 1; index > 0; index--) {
-      state = nextRandomState(state);
-      const swapIndex = state % (index + 1);
-      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-    }
-    return result;
-  }
-  function deterministicMergedExamples(sources, resultSets, seed) {
-    const groups = deterministicShuffle(sources.map((source, index) => ({
-      source,
-      examples: deterministicShuffle(resultSets[index] ?? [], `${seed}:${source}`)
-    })), `${seed}:providers`).filter((group) => group.examples.length);
-    const result = [];
-    while (groups.some((group) => group.examples.length)) {
-      for (const group of groups) {
-        const example = group.examples.shift();
-        if (example) result.push(example);
-      }
-    }
-    return result;
-  }
-  function nextRandomState(value) {
-    return Math.imul(value, 1664525) + 1013904223 >>> 0;
-  }
-  function sensitiveFingerprint(value) {
-    const trimmed = value.trim();
-    return trimmed ? stableHash32(trimmed).toString(36) : "";
-  }
-  function absoluteMediaUrl(value) {
-    if (!value) return "";
-    if (isAbsoluteMediaUrl(value)) return value;
-    if (value.startsWith("media/")) return `${OBJECT_STORE_BASE}/${value.split("/").map(encodeURIComponent).join("/")}`;
-    return "";
-  }
-  function isAbsoluteMediaUrl(value) {
-    return /^https?:\/\//i.test(value) || value.startsWith("data:");
-  }
-  function sentenceLength(sentence) {
-    return Array.from(sentence.replace(/\s+/g, "")).length;
-  }
-  function requiresSurfaceMatch(query) {
-    return /[0-9０-９]/u.test(query);
-  }
-  function sentenceContainsQuery(sentence, query) {
-    const normalizedSentence = normalizeForSurfaceMatch(sentence);
-    const normalizedQuery = normalizeForSurfaceMatch(query);
-    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
-  }
-  function normalizeForSurfaceMatch(value) {
-    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-  }
-  async function requestJson$1(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    let lastError;
-    for (const candidate of urlCandidates(url)) {
-      try {
-        return await requestJsonCandidate(candidate, timeoutMs, proxyUrl, signal, language);
-      } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        lastError = error;
-      }
-    }
-    throw requestError(lastError, uiText(language, "immersionKitRequestFailed"));
-  }
-  function urlCandidates(url) {
-    return Array.isArray(url) ? url : [url];
-  }
-  function requestError(error, fallback) {
-    return error instanceof Error ? error : new Error(fallback);
-  }
-  function requestJsonCandidate(url, timeoutMs, proxyUrl = "", signal, language = "en") {
-    return requestJson$2(url, {
-      proxyUrl,
-      timeoutMs,
-      allowDirectCrossOrigin: true,
-      allowPublicProxies: false,
-      preferFetch: shouldPreferFetchForImmersionKitRequests(),
-      signal,
-      failureLabel: uiText(language, "immersionKitRequest"),
-      failureMessage: uiText(language, "immersionKitRequestFailed"),
-      statusFailureMessage: (status) => formatUiText(language, "immersionKitRequestFailedWithStatus", { status }),
-      timeoutLabel: uiText(language, "immersionKitRequestTimedOut")
-    }).catch((error) => {
-      if (isAbortError(error)) throw error;
-      if (isImmersionKitRateLimitError(error)) throw error;
-      if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
-        throw new Error(uiText(language, "immersionKitSearchBlocked"));
-      }
-      throw requestError(error, uiText(language, "immersionKitRequestFailed"));
-    });
-  }
-  function isImmersionKitRateLimitError(error) {
-    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
-  }
-  function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
-    return requestBlob$2(url, {
-      proxyUrl,
-      timeoutMs,
-      allowDirectCrossOrigin: true,
-      preferFetch: shouldPreferFetchForImmersionKitRequests(),
-      failureLabel: uiText(language, "immersionKitMediaRequest"),
-      failureMessage: uiText(language, "immersionKitMediaRequestFailed"),
-      statusFailureMessage: (status) => formatUiText(language, "immersionKitMediaRequestFailedWithStatus", { status }),
-      timeoutLabel: uiText(language, "immersionKitMediaRequestTimedOut"),
-      blobFailureMessage: uiText(language, "immersionKitMediaRequestReturnedNonMedia")
-    }).then((blob) => {
-      if (isErrorDocumentBlob(blob)) throw new Error(uiText(language, "immersionKitMediaRequestReturnedNonMedia"));
-      return blob;
-    });
-  }
-  async function requestFirstBlob(urls, timeoutMs, proxyUrl = "", language = "en") {
-    const candidates = prioritizeMediaCandidates(urlCandidates(urls)).slice(0, MEDIA_CANDIDATE_LIMIT);
-    let lastError;
-    for (const candidate of candidates) {
-      try {
-        return await requestBlob(candidate, timeoutMs, proxyUrl, language);
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    throw requestError(lastError, uiText(language, "immersionKitNoMediaCandidate"));
-  }
-  function prioritizeMediaCandidates(urls) {
-    return [...urls].sort((a, b) => Number(isObjectStoreMediaUrl(b)) - Number(isObjectStoreMediaUrl(a)));
-  }
-  function isObjectStoreMediaUrl(url) {
-    try {
-      return new URL(url, location.href).origin === new URL(OBJECT_STORE_BASE).origin;
-    } catch {
-      return false;
-    }
-  }
-  function isErrorDocumentBlob(blob) {
-    const type = blob.type.toLowerCase();
-    if (isMediaBlobType(type)) return false;
-    return ERROR_DOCUMENT_TYPE_MARKERS.some((marker) => type.includes(marker)) || type.startsWith("text/");
-  }
-  const ERROR_DOCUMENT_TYPE_MARKERS = ["xml", "html", "json"];
-  function isMediaBlobType(type) {
-    return ["image/", "audio/", "video/"].some((prefix) => type.startsWith(prefix));
-  }
-  function shouldPreferFetchForImmersionKitRequests() {
-    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
-  }
-  function apiUrls(path) {
-    const cleanPath = path.startsWith("/") ? path : `/${path}`;
-    return API_BASES.map((base) => `${base}${cleanPath}`);
-  }
-  function hasVisiblePageVideo() {
-    return Array.from(document.querySelectorAll("video")).some(isVisiblePageVideo);
-  }
-  function isVisiblePageVideo(video) {
-    if (video.closest("[data-jpdb-reader-root]")) return false;
-    if (!hasRenderableVideoRect(video)) return false;
-    if (isVideoHidden(video)) return false;
-    return isAudiblyPlayingVideo(video);
-  }
-  function hasRenderableVideoRect(video) {
-    const rect = video.getBoundingClientRect();
-    return rect.width >= 120 && rect.height >= 90;
-  }
-  function isVideoHidden(video) {
-    const style = getComputedStyle(video);
-    return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
-  }
-  function isAudiblyPlayingVideo(video) {
-    return !video.paused && !video.ended && !video.muted && video.volume > 0;
-  }
-  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
-  function cardHighlightTargets(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = optionalJapaneseCardReading(card);
-    return uniqueCardHighlightValues([spelling, reading]);
-  }
-  function normalizedJapaneseCardReading(spelling, reading) {
-    const cleanSpelling = cleanCardHighlightValue(spelling);
-    const cleanReading = cleanCardHighlightValue(reading);
-    return cleanReading && JAPANESE_TEXT_RE$1.test(cleanReading) ? cleanReading : cleanSpelling;
-  }
-  function cleanCardHighlightValue(value) {
-    return (value ?? "").replace(/\s+/g, " ").trim();
-  }
-  function compactCardHighlightValue(value) {
-    return cleanCardHighlightValue(value).replace(/\s+/g, "");
-  }
-  function optionalJapaneseCardReading(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = normalizedJapaneseCardReading(spelling, card.reading);
-    return reading && reading !== spelling ? reading : "";
-  }
-  function uniqueCardHighlightValues(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.map(cleanCardHighlightValue).filter((value) => {
-      if (!value || seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
-  function highlightCardTargetWords(root, card) {
-    const words = cardHighlightWords(root);
-    for (const word of words) {
-      if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
-    }
-  }
-  function isCardHighlightWord(word, card) {
-    const cardVid = card.vid === void 0 ? "" : String(card.vid);
-    const cardSid = card.sid === void 0 ? "" : String(card.sid);
-    if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
-    const surface = compactCardHighlightValue(readerWordSurfaceText(word));
-    if (!surface) return false;
-    return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
-  }
-  function cardHighlightWords(root) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-    return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
-  }
-  function cardKey(card) {
-    return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-  }
-  function loadCachedParsedTokens(cache, key, limit, parse, shouldCache) {
-    const cached = cache.get(key);
-    if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
-    const entry = { promise: Promise.resolve([]) };
-    entry.promise = parse().then((tokens) => {
-      if (shouldCache(tokens)) entry.tokens = tokens;
-      else if (cache.get(key) === entry) cache.delete(key);
-      return tokens;
-    }).catch((error) => {
-      if (cache.get(key) === entry) cache.delete(key);
-      throw error;
-    });
-    cache.set(key, entry);
-    pruneOldestCacheEntries(cache, limit);
-    return entry.promise;
-  }
-  const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
-  const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
-  function exampleSentenceLookupTokens(tokens, targetCard) {
-    return tokens.filter((token) => shouldKeepExampleSentenceToken(token, targetCard));
-  }
-  function shouldKeepExampleSentenceToken(token, targetCard) {
-    if (targetCard && cardKey(token.card) === cardKey(targetCard)) return true;
-    return !isLowValueExampleSentenceToken(token);
-  }
-  function isLowValueExampleSentenceToken(token) {
-    const surfaceLength = token.end - token.start;
-    if (surfaceLength > 2) return false;
-    const spelling = token.card.spelling.trim();
-    if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
-    return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
-  }
-  const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
-  const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
-  function normalizeImmersionSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function queryKey(value) {
-    return normalizeImmersionSearchQuery(value).replace(/\s+/g, "").toLowerCase();
-  }
-  function queryLength(value) {
-    return Array.from(queryKey(value)).length;
-  }
-  function queryHasKanji(value) {
-    return /[\u3400-\u9fff々〆]/u.test(value);
-  }
-  function shouldRequireOriginalSurfaceMatch(value) {
-    return queryHasKanji(value) && queryLength(value) >= 3;
-  }
-  function shouldFilterImmersionExamplesBySurface(query) {
-    return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
-  }
-  function immersionSentenceContainsQuery(sentence, query) {
-    const s = normalizeSurface(sentence);
-    const q = normalizeSurface(query);
-    return Boolean(q) && s.includes(q);
-  }
-  function isUsefulImmersionFallbackQuery(query, exactQuery) {
-    if (isSameImmersionQuery(query, exactQuery)) return false;
-    return isUsefulStandaloneQuery(query);
-  }
-  function uniqueImmersionQueries(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values) {
-      const query = normalizeImmersionSearchQuery(value);
-      const key = queryKey(query);
-      if (!query || seen.has(key)) continue;
-      seen.add(key);
-      result.push(query);
-    }
-    return result;
-  }
-  function immersionFallbackFragments(value) {
-    const fragments = [];
-    const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
-    for (const run of runs) {
-      fragments.push(...scriptFragments(run));
-    }
-    return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
-  }
-  function normalizeSurface(value) {
-    return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-  }
-  function isSameImmersionQuery(query, exactQuery) {
-    return queryKey(query) === queryKey(exactQuery);
-  }
-  function isUsefulStandaloneQuery(query) {
-    if (!query || !HAS_JAPANESE.test(query)) return false;
-    if (COMMON_PARTICLES.has(queryKey(query))) return false;
-    return queryLength(query) >= 2;
-  }
-  function scriptFragments(run) {
-    const groups = run.match(SCRIPT_GROUP_RE) ?? [];
-    if (groups.length <= 1) return groups;
-    const result = [...groups];
-    for (let i = 0; i < groups.length; i++) {
-      let q = groups[i];
-      for (let j = i + 1; j < groups.length; j++) {
-        q += groups[j];
-        result.push(q);
-      }
-    }
-    result.push(groups.filter(queryHasKanji).join(""));
-    return result;
-  }
-  function compareFallbackFragments(a, b) {
-    const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
-    if (order) return order;
-    return queryLength(b) - queryLength(a);
-  }
-  function publishImmersionFrameWidth(media) {
-    if (!media) return;
-    const rect = media.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-    const width = immersionPaintedWidth(media, rect);
-    if (width) media.style.setProperty("--yomu-immersion-frame-width", `${Math.round(width)}px`);
-    else media.style.removeProperty("--yomu-immersion-frame-width");
-  }
-  function immersionPaintedWidth(media, rect) {
-    const image = media.querySelector(".jpdb-reader-example-image");
-    if (!image || !image.naturalWidth || !image.naturalHeight) return 0;
-    return Math.min(rect.width, rect.height * (image.naturalWidth / image.naturalHeight));
-  }
-  const IMMERSION_SOURCE_TITLES_JA = {
-    "My Neighbor Totoro": "となりのトトロ"
-  };
-  function localizedImmersionProviderLabel(example, language) {
-    return example.provider === "nadeshiko" ? "Nadeshiko" : uiText(language, "immersionKit");
-  }
-  function localizedImmersionSourceTitle(title, language) {
-    return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
-  }
-  function nextImmersionExampleIndex(index, total, action) {
-    if (!Number.isFinite(index) || total <= 0) return 0;
-    const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
-    return (index + delta + total) % total;
-  }
-  function validImmersionExampleIndex(index, total) {
-    return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
-  }
-  function renderImmersionExampleActionsHtml(hasAudio, language) {
-    const previous = uiText(language, "previousExample");
-    const next = uiText(language, "nextExample");
-    const audio = uiText(language, "playExampleAudio");
-    return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
-            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-            ${renderImmersionActionButtonHtml("next", next, "›")}
-        </div>
-    `;
-  }
-  function renderImmersionActionButtonHtml(action, label, content) {
-    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
-  }
-  let activationTrackingWindow;
-  let pageHasUserActivation = false;
-  function canAttemptAudiblePlayback(userGesture = false) {
-    installPageActivationTracking();
-    if (userGesture) {
-      pageHasUserActivation = true;
-      return true;
-    }
-    const browserActivation = browserUserActivationState();
-    if (browserActivation) pageHasUserActivation = true;
-    if (browserActivation !== void 0) return true;
-    if (pageHasUserActivation) return true;
-    if (isFirefoxLikeBrowser()) return true;
-    return true;
-  }
-  function installPageActivationTracking() {
-    if (typeof window === "undefined" || activationTrackingWindow === window) return;
-    activationTrackingWindow = window;
-    const markActive = () => {
-      pageHasUserActivation = true;
-    };
-    for (const eventName of ["click", "keydown", "pointerdown", "touchstart"]) {
-      window.addEventListener(eventName, markActive, { capture: true, passive: true });
-    }
-  }
-  function browserUserActivationState() {
-    const activation = typeof navigator === "undefined" ? void 0 : navigator.userActivation;
-    if (!activation) return void 0;
-    return activation.hasBeenActive || activation.isActive;
-  }
-  function isFirefoxLikeBrowser() {
-    return typeof navigator !== "undefined" && /firefox|iceweasel|fxios/i.test(navigator.userAgent ?? "");
-  }
-  installPageActivationTracking();
-  const CONTEXT_PREFIX = "yomu-mining-context:";
-  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
-  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$6 = Logger.scope("MiningContext");
-  function normalizeMiningSentence(sentence) {
-    return (sentence ?? "").replace(/\s+/g, " ").trim();
-  }
-  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
-    if (isImageSource) return "image";
-    if (hasVideo) return "video";
-    if (hostname === "jpdb.io") return "jpdb";
-    return "page";
-  }
-  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
-    const normalizedTerm = term.trim();
-    const sentence = context.sentence.trim();
-    if (!normalizedTerm || !sentence) return null;
-    return {
-      ...context,
-      term: normalizedTerm,
-      sentence,
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
-    return createStoredMiningContext(term, context, updatedAt) ?? {
-      ...context,
-      term: term.trim(),
-      sentence: context.sentence.trim() || term.trim(),
-      sourceTitle: context.sourceTitle.trim(),
-      sourceUrl: context.sourceUrl.trim(),
-      imageUrl: optionalText(context.imageUrl),
-      audioUrls: optionalTextArray(context.audioUrls),
-      immersionIndex: optionalNumber(context.immersionIndex),
-      immersionTotal: optionalNumber(context.immersionTotal),
-      updatedAt
-    };
-  }
-  async function resolveMiningContext({
-    term,
-    sentence,
-    settings,
-    activeContext,
-    storedContext,
-    sourceKind,
-    imageDataUrl,
-    videoImageDataUrl,
-    fetchImageDataUrl,
-    fetchAudioDataUrl
-  }) {
-    const done = log$6.time("Resolve mining context", {
-      term,
-      hasSentence: Boolean(sentence?.trim()),
-      activeKind: activeContext?.sourceKind,
-      storedKind: storedContext?.sourceKind,
-      sourceKind,
-      hasImage: Boolean(imageDataUrl),
-      hasVideoImage: Boolean(videoImageDataUrl)
-    });
-    const cleanSentence = normalizeMiningSentence(sentence);
-    try {
-      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
-      if (direct) return direct;
-      const immersion = await resolveStoredImmersionMiningContext({
-        term,
-        settings,
-        activeContext,
-        storedContext,
-        fetchImageDataUrl,
-        fetchAudioDataUrl
-      });
-      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
-    } finally {
-      done();
-    }
-  }
-  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
-    if (imageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "image", imageDataUrl);
-    }
-    if (videoImageDataUrl && sentence) {
-      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
-    }
-    return null;
-  }
-  async function resolveStoredImmersionMiningContext(options) {
-    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl } = options;
-    const chosen = activeContext?.term === term ? activeContext : storedContext ?? void 0;
-    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
-    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
-      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
-      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl)
-    ]);
-    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
-  }
-  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
-    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
-    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl) {
-    if (!context.audioUrls?.length || !fetchAudioDataUrl) return Promise.resolve(void 0);
-    return fetchAudioDataUrl(context.audioUrls, settings.audioTimeoutMs).catch(() => {
-      return void 0;
-    });
-  }
-  function resolvePageMiningContext(term, sentence, sourceKind) {
-    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
-    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
-    return result;
-  }
-  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
-    const context = pageMiningContext(sentence, sourceKind);
-    return {
-      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
-      imageDataUrl
-    };
-  }
-  function saveMiningContext(term, context) {
-    const stored = createStoredMiningContext(term, context);
-    if (!stored) {
-      return null;
-    }
-    try {
-      gmStorageSetSync(contextStorageKey(stored.term), stored);
-    } catch (error) {
-      log$6.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
-    }
-    return stored;
-  }
-  function loadMiningContext(term) {
-    const normalized = term.trim();
-    if (!normalized) return null;
-    try {
-      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
-      if (!stored) {
-        return null;
-      }
-      const context = parseStoredMiningContext(stored, normalized);
-      return context;
-    } catch (error) {
-      log$6.warn("Mining context load failed", { term: normalized, error });
-      return null;
-    }
-  }
-  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
-    return {
-      sentence: example.sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: example.sourceTitle || "Immersion Kit",
-      sourceUrl: immersionKitUrl(term, index),
-      imageUrl: imageUrl || void 0,
-      audioUrls: optionalTextArray(audioUrls),
-      immersionIndex: index,
-      immersionTotal: total
-    };
-  }
-  function immersionContextFromElement(sentence, element, sourceUrl = location.href) {
-    return {
-      sentence,
-      sourceKind: "immersion-kit",
-      sourceTitle: element.dataset.immersionSourceTitle || "Immersion Kit",
-      sourceUrl,
-      imageUrl: optionalText(element.dataset.immersionImageUrl),
-      audioUrls: immersionAudioUrlsFromElement(element),
-      immersionIndex: optionalNumber(Number(element.dataset.immersionIndex ?? 0)),
-      immersionTotal: optionalNumber(Number(element.dataset.immersionTotal ?? 0))
-    };
-  }
-  function pageMiningContext(sentence, sourceKind = "page") {
-    return {
-      sentence,
-      sourceKind,
-      sourceTitle: document.title || location.hostname,
-      sourceUrl: location.href
-    };
-  }
-  function contextLabel(context) {
-    const immersionLabel = immersionContextLabel(context);
-    if (immersionLabel) return immersionLabel;
-    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
-    if (prefix) return `${prefix}: ${context.sourceTitle}`;
-    return context.sourceTitle || context.sourceUrl || "Current page";
-  }
-  const CONTEXT_LABEL_PREFIXES = {
-    video: "Video",
-    image: "Image",
-    jpdb: "JPDB"
-  };
-  function immersionContextLabel(context) {
-    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
-  }
-  function shouldUseImmersionContext(settings, context) {
-    return Boolean(settings.immersionKitEnabled && context?.sourceKind === "immersion-kit" && context.sentence.trim());
-  }
-  function contextStorageKey(term) {
-    return `${CONTEXT_PREFIX}${term}`;
-  }
-  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
-    const record = storedMiningContextRecord(value, expectedTerm);
-    if (!record) return null;
-    const sourceKind = storedMiningSourceKind(record.sourceKind);
-    if (!sourceKind) return null;
-    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
-    if (updatedAt === null) return null;
-    const context = createStoredMiningContext(expectedTerm, {
-      sentence: text(record.sentence),
-      sourceKind,
-      sourceTitle: text(record.sourceTitle),
-      sourceUrl: text(record.sourceUrl),
-      imageUrl: optionalText(record.imageUrl),
-      audioUrls: optionalTextArray(record.audioUrls),
-      immersionIndex: optionalNumber(record.immersionIndex),
-      immersionTotal: optionalNumber(record.immersionTotal)
-    }, updatedAt);
-    return context;
-  }
-  function storedMiningContextRecord(value, expectedTerm) {
-    if (!isNonNullObject(value)) return null;
-    return text(value.term) === expectedTerm ? value : null;
-  }
-  function storedMiningSourceKind(value) {
-    return isMiningSourceKind(value) ? value : null;
-  }
-  function storedMiningContextUpdatedAt(value, now) {
-    const updatedAt = Number(value);
-    if (!isStoredMiningContextFresh(updatedAt, now)) {
-      return null;
-    }
-    return updatedAt;
-  }
-  function isStoredMiningContextFresh(updatedAt, now) {
-    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
-  }
-  function isMiningSourceKind(value) {
-    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
-  }
-  function optionalText(value) {
-    const normalized = text(value);
-    return normalized || void 0;
-  }
-  function optionalTextArray(value) {
-    if (!Array.isArray(value)) return void 0;
-    const values = uniqueTexts(value);
-    return values.length ? values : void 0;
-  }
-  function immersionAudioUrlsFromElement(element) {
-    const parsed = parseTextArray(element.dataset.immersionAudioUrls);
-    return optionalTextArray(parsed ?? [element.dataset.immersionAudioUrl]);
-  }
-  function parseTextArray(value) {
-    if (typeof value !== "string" || !value.trim()) return null;
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  function uniqueTexts(values) {
-    return Array.from(new Set(values.map(text).filter(Boolean)));
-  }
-  function optionalNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : void 0;
-  }
-  function text(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function immersionKitUrl(term, index) {
-    const url = new URL("https://www.immersionkit.com/dictionary");
-    url.searchParams.set("keyword", term);
-    url.searchParams.set("sort", "sentence_length:asc");
-    url.searchParams.set("page", String(index + 1));
-    return url.toString();
-  }
-  function popoverScrollBody(popover) {
-    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-  }
-  function capturePopoverScrollFrame(target) {
-    const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody(popover);
-    return { scrollBody, scrollTop: scrollBody.scrollTop };
-  }
-  function restorePopoverScrollFrame(frame) {
-    if (!frame.scrollBody.isConnected) return;
-    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-  }
-  function restorePopoverScrollFrameSoon(frame) {
-    restorePopoverScrollFrame(frame);
-    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-  }
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
-  [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
-  Logger.scope("DictionaryArchiveCache");
-  Logger.scope("Yomitan");
-  new TextDecoder();
-  Logger.scope("YomitanSettingsImport");
-  Logger.scope("Yomitan");
-  Logger.scope("ReaderParser");
-  function apiFirstParseOptions(options = {}) {
-    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
-    return { includeLocalPitch: false, ...options, requireApi };
-  }
-  function jpdbFirstParseOptions(options = {}) {
-    const requireApi = options.requireApi ?? options.requireJpdb ?? true;
-    const requireJpdb = options.requireJpdb ?? requireApi;
-    return apiFirstParseOptions({ ...options, requireApi, requireJpdb });
-  }
-  const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
-  const IMMERSION_SEARCH_CACHE_LIMIT = 120;
-  const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
-  const IMMERSION_POPUP_SEARCH_REQUEST_LIMIT = 10;
-  const IMMERSION_LAZY_LOAD_DELAY_MS = 180;
-  const IMMERSION_VISIBLE_LOAD_DELAY_MS = 60;
-  const IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
-  const IMMERSION_LAZY_LOAD_ROOT_MARGIN = "180px 0px";
-  const IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX = 180;
-  const IMMERSION_HOVER_AUDIO_KEY_LIMIT = 240;
-  const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
-  const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
-  const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$5 = Logger.scope("ImmersionPopover");
-  class ImmersionPopoverController {
-    constructor(options) {
-      this.options = options;
-    }
-    hoverAudioPlayedKeys = /* @__PURE__ */ new Set();
-    activeMiningContext;
-    contextByCardKey = /* @__PURE__ */ new Map();
-    searchResultCache = /* @__PURE__ */ new Map();
-    parsedSentenceCache = /* @__PURE__ */ new Map();
-    loadAbortControllers = /* @__PURE__ */ new WeakMap();
-    lazyLoadTimers = /* @__PURE__ */ new WeakMap();
-    lazyLoadObservers = /* @__PURE__ */ new WeakMap();
-    abortPendingRequests(popover) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (container) {
-        this.clearLazyLoadTimer(container);
-        this.disconnectLazyLoadObserver(container);
-      }
-      this.abortActiveLoad(popover);
-    }
-    abortActiveLoad(popover) {
-      const controller = this.loadAbortControllers.get(popover);
-      if (!controller) return;
-      controller.abort();
-      this.loadAbortControllers.delete(popover);
-    }
-    hasActiveContext(card, sentence) {
-      return this.activeMiningContext?.term === card.spelling && this.activeMiningContext.sentence === (sentence || "").replace(/\s+/g, " ").trim();
-    }
-    activeContextFor(card) {
-      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : void 0;
-    }
-    storedContextFor(card) {
-      return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-    }
-    rememberPageMiningContext(card, sentence, anchor) {
-      const cleanSentence = normalizeMiningSentence(sentence);
-      if (!isPageMiningSentence(cleanSentence, card)) return;
-      this.rememberStoredMiningContext(saveMiningContext(card.spelling, this.pageMiningContextDraft(cleanSentence, anchor)));
-    }
-    rememberTermMiningContext(term, sentence, anchor) {
-      const cleanTerm = term.trim();
-      const cleanSentence = normalizeMiningSentence(sentence);
-      if (!cleanTerm || !isPageMiningSentence(cleanSentence, { spelling: cleanTerm })) return;
-      this.rememberStoredMiningContext(saveMiningContext(cleanTerm, this.pageMiningContextDraft(cleanSentence, anchor)));
-    }
-    pageMiningContextDraft(sentence, anchor) {
-      const immersionCard = anchor?.closest(".jpdb-reader-example-card") ?? null;
-      if (immersionCard) return immersionContextFromElement(sentence, immersionCard);
-      const sourceKind = pageMiningSourceKind(anchor);
-      return pageMiningContext(sentence, sourceKind);
-    }
-    rememberStoredMiningContext(stored) {
-      if (!stored) return;
-      this.activeMiningContext = stored;
-    }
-    async loadExamples(popover, card, options = {}) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (!container) return;
-      this.abortActiveLoad(popover);
-      const controller = new AbortController();
-      this.loadAbortControllers.set(popover, controller);
-      const searchPromise = this.searchExamples(card, { ...options, signal: controller.signal });
-      const settings = this.options.getSettings();
-      try {
-        const result = await raceAgainstAbortOrTimeout(
-          searchPromise,
-          controller.signal,
-          settings.audioTimeoutMs + IMMERSION_LOAD_TIMEOUT_GRACE_MS
-        );
-        if (this.shouldSkipLoadedExamplesRender(popover, container, controller)) return;
-        this.renderLoadedExamples(container, card, result);
-      } catch (error) {
-        if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$5.warn("Immersion Kit examples failed", { term: card.spelling }, error);
-        this.renderEmptyIfConnected(popover, container);
-      } finally {
-        if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
-      }
-    }
-    shouldSkipLoadedExamplesRender(popover, container, controller) {
-      if (!controller.signal.aborted && isConnectedImmersionSurface(popover, container)) return false;
-      clearImmersionLoadingState(container);
-      return true;
-    }
-    shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError(error) || !controller.signal.aborted) return false;
-      clearImmersionLoadingState(container);
-      return true;
-    }
-    installLazyLoad(popover, card, options = {}) {
-      const container = popover.querySelector("[data-immersion-kit]");
-      if (!container || container.dataset.immersionLazyBound === "true") return;
-      container.dataset.immersionLazyBound = "true";
-      const canLoad = () => this.canStartLazyLoad(popover, container);
-      const scheduleLoad = (delayMs) => {
-        if (!canLoad()) return;
-        if (container.dataset.immersionLoadState === "scheduled") return;
-        this.clearLazyLoadTimer(container);
-        container.dataset.immersionLoadState = "scheduled";
-        const timer = window.setTimeout(() => {
-          this.lazyLoadTimers.delete(container);
-          if (!canLoad()) {
-            if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-            return;
-          }
-          container.dataset.immersionLoadState = "loading";
-          void this.loadExamples(popover, card, options).then(() => {
-            if (container.dataset.immersionLoadState !== "loading") return;
-            container.dataset.immersionLoadState = "loaded";
-          }).catch(() => {
-            if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-          });
-        }, delayMs);
-        this.lazyLoadTimers.set(container, timer);
-      };
-      const maybeLoad = () => {
-        if (!canLoad()) return;
-        scheduleLoad(isImmersionNearVisibleArea(popover, container) ? IMMERSION_VISIBLE_LOAD_DELAY_MS : IMMERSION_LAZY_LOAD_DELAY_MS);
-      };
-      const handleToggle = () => {
-        if (!container.open) {
-          this.clearLazyLoadTimer(container);
-          if (container.dataset.immersionLoadState === "scheduled" || container.dataset.immersionLoadState === "loading") {
-            delete container.dataset.immersionLoadState;
-          }
-          this.abortActiveLoad(popover);
-          return;
-        }
-        maybeLoad();
-      };
-      container.addEventListener("toggle", handleToggle);
-      this.installLazyVisibilityObserver(popover, container, maybeLoad);
-      maybeLoad();
-    }
-    canStartLazyLoad(popover, container) {
-      return isConnectedImmersionSurface(popover, container) && container.open && container.dataset.immersionEmpty !== "true" && !["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "");
-    }
-    installLazyVisibilityObserver(popover, container, maybeLoad) {
-      if (typeof IntersectionObserver !== "function") return;
-      const observer = new IntersectionObserver((entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) maybeLoad();
-      }, {
-        root: immersionLazyLoadRoot(popover, container),
-        rootMargin: IMMERSION_LAZY_LOAD_ROOT_MARGIN
-      });
-      observer.observe(container);
-      this.lazyLoadObservers.set(container, observer);
-    }
-    clearLazyLoadTimer(container) {
-      const timer = this.lazyLoadTimers.get(container);
-      if (timer === void 0) return;
-      window.clearTimeout(timer);
-      this.lazyLoadTimers.delete(container);
-      if (container.dataset.immersionLoadState === "scheduled") delete container.dataset.immersionLoadState;
-    }
-    disconnectLazyLoadObserver(container) {
-      this.lazyLoadObservers.get(container)?.disconnect();
-      this.lazyLoadObservers.delete(container);
-    }
-    renderLoadedExamples(container, card, result) {
-      const { examples } = result;
-      if (!examples.length) {
-        this.renderEmpty(container);
-        return;
-      }
-      this.bindExampleCarousel(container, card, result);
-    }
-    bindExampleCarousel(container, card, result) {
-      const { examples } = result;
-      let index = this.startIndex(card, examples);
-      let renderRequest = 0;
-      let hoverAudioCanPlay = true;
-      let hoverAudioActive = false;
-      const render = (nextIndex, playAudio, promoteMiningContext = false) => {
-        const requestId = ++renderRequest;
-        index = validImmersionExampleIndex(nextIndex, examples.length);
-        this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
-        bindHoverMedia();
-      };
-      container.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-immersion-action]");
-        const media = event.target.closest(".jpdb-reader-example-media");
-        const translation = event.target.closest(".jpdb-reader-example-translation");
-        if (translation) {
-          event.preventDefault();
-          event.stopPropagation();
-          this.toggleTranslationBlur(container);
-          return;
-        }
-        if (!button && (!media || !this.options.getSettings().immersionKitPlayOnImageClick)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!button) {
-          void this.playExampleAudio(examples[index]);
-          return;
-        }
-        const action = button.dataset.immersionAction;
-        if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
-        if (action === "audio") void this.playExampleAudio(examples[index]);
-      });
-      container.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const translation = event.target.closest(".jpdb-reader-example-translation");
-        if (!translation) return;
-        event.preventDefault();
-        this.toggleTranslationBlur(container);
-      });
-      const playHoverAudioForTarget = (hoverTarget, pointerType, relatedTarget) => {
-        if (!this.canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay)) return;
-        const example = examples[index];
-        if (!this.rememberHoverAudioExample(example)) return;
-        hoverAudioCanPlay = false;
-        hoverAudioActive = true;
-        void this.playExampleAudio(example, true, () => hoverAudioActive && container.isConnected && hoverTarget.isConnected && hoverTarget.matches(":hover"));
-      };
-      const handleImmersionHover = (event) => {
-        const hoverTarget = event.target.closest?.(".jpdb-reader-example-media, .jpdb-reader-example-card");
-        if (hoverTarget) playHoverAudioForTarget(hoverTarget, "pointerType" in event ? event.pointerType : "mouse", event.relatedTarget);
-      };
-      const bindHoverMedia = () => {
-        container.querySelectorAll(".jpdb-reader-example-media, .jpdb-reader-example-card").forEach((hoverTarget) => {
-          if (hoverTarget.dataset.immersionHoverBound === "true") return;
-          hoverTarget.dataset.immersionHoverBound = "true";
-          hoverTarget.addEventListener("pointerover", handleImmersionHover);
-          hoverTarget.addEventListener("mouseover", handleImmersionHover);
-          requestAnimationFrame(() => {
-            if (hoverTarget.isConnected && hoverTarget.matches(":hover")) playHoverAudioForTarget(hoverTarget, "mouse", null);
-          });
-        });
-      };
-      container.addEventListener("pointerleave", () => {
-        hoverAudioCanPlay = true;
-        hoverAudioActive = false;
-      });
-      container.addEventListener("mouseleave", () => {
-        hoverAudioCanPlay = true;
-        hoverAudioActive = false;
-      });
-      render(index, false);
-    }
-    shouldAutoPlayCarouselAudio() {
-      const settings = this.options.getSettings();
-      return settings.immersionKitEnabled && settings.immersionKitAutoPlayAudio && !this.shouldSuppressAutoAudioForVideo() && canAttemptAudiblePlayback(true);
-    }
-    canPlayHoverAudioForTarget(hoverTarget, pointerType, relatedTarget, hoverAudioCanPlay) {
-      if (!this.options.getSettings().immersionKitPlayOnHover) return false;
-      if (isHoverAudioPointerSuppressed(pointerType)) return false;
-      if (hoverTarget.contains(relatedTarget)) return false;
-      if (!hoverAudioCanPlay) return false;
-      if (this.shouldSuppressAutoAudioForVideo()) return false;
-      return canAttemptAudiblePlayback();
-    }
-    rememberHoverAudioExample(example) {
-      const audioKey = hoverAudioExampleKey(example);
-      if (this.hoverAudioPlayedKeys.has(audioKey)) return false;
-      this.hoverAudioPlayedKeys.add(audioKey);
-      pruneOldestCacheEntries(this.hoverAudioPlayedKeys, IMMERSION_HOVER_AUDIO_KEY_LIMIT);
-      return true;
-    }
-    shouldSuppressAutoAudioForVideo() {
-      const settings = this.options.getSettings();
-      return settings.suppressAutoAudioOnVideo && hasVisiblePageVideo();
-    }
-    renderEmptyIfConnected(popover, container) {
-      if (!isConnectedImmersionSurface(popover, container)) return;
-      this.renderEmpty(container);
-    }
-    async searchExamples(card, options = {}) {
-      const key = this.searchCacheKey(card, options);
-      const now = Date.now();
-      const cached = this.searchResultCache.get(key);
-      if (cached && cached.expiresAt > now) return cached.promise;
-      if (options.signal) {
-        return this.fetchExamples(card, options).then((result) => {
-          if (!options.signal?.aborted) this.rememberSearchResult(key, result);
-          return result;
-        });
-      }
-      const promise = this.fetchExamples(card, options).catch((error) => {
-        if (this.searchResultCache.get(key)?.promise === promise) this.searchResultCache.delete(key);
-        throw error;
-      });
-      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise });
-      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-      return promise;
-    }
-    rememberSearchResult(key, result) {
-      const now = Date.now();
-      this.searchResultCache.set(key, { expiresAt: now + IMMERSION_SEARCH_CACHE_TTL_MS, promise: Promise.resolve(result) });
-      pruneImmersionSearchCache(this.searchResultCache, now, IMMERSION_SEARCH_CACHE_LIMIT);
-    }
-    stopAudio() {
-      this.options.audio.stop();
-    }
-    async fetchExamples(card, options) {
-      const exactQuery = normalizeImmersionSearchQuery(card.spelling);
-      const triedQueries = [];
-      const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
-      if (exactResult) return exactResult;
-      const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
-      const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
-      if (fallbackResult) return fallbackResult;
-      return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
-    }
-    fetchFirstFallbackExamples(queries, exactQuery, triedQueries, signal) {
-      if (!queries.length) return Promise.resolve(null);
-      const concurrency = Math.min(IMMERSION_FALLBACK_SEARCH_CONCURRENCY, queries.length);
-      let nextIndex = 0;
-      let active = 0;
-      let settled = false;
-      return new Promise((resolve, reject) => {
-        const cleanupAbortListener = () => {
-          signal?.removeEventListener("abort", handleAbort);
-        };
-        const fail = (error) => {
-          if (settled) return;
-          settled = true;
-          cleanupAbortListener();
-          reject(error);
-        };
-        const finish = (result) => {
-          if (settled) return;
-          settled = true;
-          cleanupAbortListener();
-          resolve(result);
-        };
-        const handleAbort = () => fail(abortErrorForRace());
-        if (signal?.aborted) {
-          handleAbort();
-          return;
-        }
-        signal?.addEventListener("abort", handleAbort, { once: true });
-        const launch = () => {
-          if (signal?.aborted) {
-            handleAbort();
-            return;
-          }
-          while (!settled && active < concurrency && nextIndex < queries.length) {
-            const query = queries[nextIndex++];
-            active++;
-            void this.fetchExamplesForQuery(query, exactQuery, triedQueries, signal).then((result) => {
-              active--;
-              if (result) {
-                finish(result);
-                return;
-              }
-              if (nextIndex >= queries.length && active === 0) finish(null);
-              else launch();
-            }).catch((error) => {
-              active--;
-              if (signal?.aborted) {
-                handleAbort();
-                return;
-              }
-              if (isAbortError(error)) {
-                fail(error);
-                return;
-              }
-              if (nextIndex >= queries.length && active === 0) finish(null);
-              else launch();
-            });
-          }
-        };
-        launch();
-      });
-    }
-    async immersionFallbackSearchQueries(card, options, exactQuery) {
-      const relatedQueries = uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery).filter((query) => isUsefulImmersionFallbackQuery(query, exactQuery));
-      const fallbackQueries = await this.fallbackQueries(card, exactQuery);
-      return uniqueImmersionQueries([...relatedQueries, ...fallbackQueries]).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-    async fetchExamplesForQuery(query, exactQuery, triedQueries, signal) {
-      if (!query) return null;
-      if (signal?.aborted) throw abortErrorForRace();
-      triedQueries.push(query);
-      try {
-        const settings = this.options.getSettings();
-        const searchOptions = this.popupSearchOptions(settings, signal);
-        const examples = await this.options.client.search(query, settings, searchOptions);
-        return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
-      } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
-        return null;
-      }
-    }
-    popupSearchOptions(settings, signal) {
-      const resultLimit = settings.immersionKitLimitEnabled ? Math.min(settings.immersionKitLimit, IMMERSION_POPUP_EXAMPLE_LIMIT) : IMMERSION_POPUP_EXAMPLE_LIMIT;
-      return {
-        requestLimit: Math.max(IMMERSION_POPUP_SEARCH_REQUEST_LIMIT, resultLimit),
-        resultLimit,
-        fastFirst: true,
-        ...signal ? { signal } : {}
-      };
-    }
-    searchCacheKey(card, options) {
-      const settings = this.options.getSettings();
-      return JSON.stringify({
-        spelling: card.spelling,
-        reading: card.reading,
-        enabled: settings.immersionKitEnabled,
-        source: settings.immersionKitExampleSource,
-        nadeshikoKey: Boolean(settings.nadeshikoApiKey.trim()),
-        limit: settings.immersionKitLimit,
-        limitEnabled: settings.immersionKitLimitEnabled,
-        min: settings.immersionKitMinLength,
-        max: settings.immersionKitMaxLength,
-        category: settings.immersionKitCategory,
-        sort: settings.immersionKitSort,
-        exact: settings.immersionKitExactMatch,
-        parse: this.options.canParseJapanese(),
-        relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
-      });
-    }
-    async fallbackQueries(card, exactQuery) {
-      const candidates = [];
-      addImmersionFallbackQuery(candidates, card.reading !== card.spelling ? card.reading : "", exactQuery);
-      await this.addParsedFallbackQueries(candidates, card, exactQuery);
-      addImmersionFallbackQueries(candidates, immersionFallbackFragments(card.spelling), exactQuery);
-      return uniqueImmersionQueries(candidates).slice(0, IMMERSION_FALLBACK_QUERY_LIMIT);
-    }
-    async addParsedFallbackQueries(candidates, card, exactQuery) {
-      if (!this.options.canParseJapanese()) return;
-      const tokens = await this.fallbackParseTokens(card);
-      addImmersionFallbackQueries(candidates, fallbackTokenQueries(card, tokens), exactQuery);
-    }
-    async fallbackParseTokens(card) {
-      const [tokens] = await this.options.parseJapanese([card.spelling], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).catch(() => {
-        return [[]];
-      });
-      return tokens ?? [];
-    }
-    renderEmpty(container) {
-      container.removeAttribute("open");
-      container.dataset.immersionEmpty = "true";
-      container.hidden = true;
-      setInnerHtml(container, "");
-      this.options.repositionPopover();
-    }
-    startIndex(card, examples) {
-      const context = this.miningContextForStartIndex(card);
-      if (!context || context.sourceKind !== "immersion-kit") return 0;
-      const sentenceIndex = examples.findIndex((example) => example.sentence === context.sentence);
-      if (sentenceIndex >= 0) return sentenceIndex;
-      return validImmersionExampleIndex(Number(context.immersionIndex), examples.length);
-    }
-    miningContextForStartIndex(card) {
-      return this.activeMiningContext?.term === card.spelling ? this.activeMiningContext : this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
-    }
-    renderExample(container, card, examples, index, playAudio, searchQuery, isCurrent = () => true, promoteMiningContext = false) {
-      const example = examples[index];
-      const settings = this.options.getSettings();
-      const imageUrls = settings.immersionKitShowImages ? this.mediaUrls(example, "image") : [];
-      const audioUrls = this.mediaUrls(example, "sound");
-      const hasAudio = audioUrls.length > 0;
-      const imageUrl = imageUrls[0] ?? "";
-      const contextImageUrl = immersionMiningImageUrl(imageUrls);
-      const cachedTokens = this.cachedParsedExampleSentenceTokens(example.sentence);
-      this.rememberExampleMiningContext(card, example, index, examples.length, contextImageUrl, audioUrls, promoteMiningContext);
-      delete container.dataset.immersionEmpty;
-      container.hidden = false;
-      const scrollFrame = capturePopoverScrollFrame(container);
-      setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-      this.loadRenderedExampleImages(container, imageUrls, isCurrent);
-      this.options.repositionPopover();
-      restorePopoverScrollFrameSoon(scrollFrame);
-      if (playAudio) void this.playExampleAudio(example, true);
-      if (cachedTokens) this.applyParsedExampleSentence(container, card, example, cachedTokens, { updateHtml: false });
-      else this.parseRenderedExampleSentence(container, card, example, isCurrent);
-    }
-    rememberExampleMiningContext(card, example, index, total, imageUrl, audioUrls, promoteMiningContext) {
-      const storedContext = saveMiningContext(card.spelling, immersionContextFromExample(card.spelling, example, index, total, imageUrl, audioUrls));
-      if (storedContext) {
-        this.contextByCardKey.set(cardKey(card), storedContext);
-        pruneOldestCacheEntries(this.contextByCardKey, IMMERSION_CONTEXT_CACHE_LIMIT);
-        this.promoteExampleMiningContext(card, storedContext, promoteMiningContext);
-      }
-    }
-    promoteExampleMiningContext(card, storedContext, promoteMiningContext) {
-      if (shouldPromoteExampleMiningContext(this.activeMiningContext, card, promoteMiningContext)) this.activeMiningContext = storedContext;
-    }
-    renderExampleHtml(container, card, example, total, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio) {
-      const language = settings.interfaceLanguage;
-      const sentenceHtml = this.renderExampleSentenceContent(example.sentence, card, settings);
-      const translation = renderExampleTranslation(example.translation, settings);
-      const sourceLabel = immersionExampleSourceLabel(card, example, searchQuery, language);
-      const sentence = renderExampleSentenceHtml(sentenceHtml, Boolean(imageUrl));
-      const image = renderExampleImageHtml(container, imageUrl, sentence);
-      return `
-            <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
-                <span class="jpdb-reader-example-source">${escapeHtml(immersionExampleProviderLabel(example, language))}</span>
-            </summary>
-            <div class="jpdb-reader-example-toolbar">
-                <div class="jpdb-reader-example-meta jpdb-reader-example-meta-compact">
-                    <span class="jpdb-reader-example-title">${escapeHtml(sourceLabel)}</span>
-                    <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
-                </div>
-                ${renderImmersionExampleActionsHtml(hasAudio, language)}
-            </div>
-            <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml(JSON.stringify(audioUrls))}">
-                <div class="jpdb-reader-example-body">
-                    ${image}
-                    ${image ? "" : sentence}
-                    ${translation}
-                </div>
-            </div>
-        `;
-    }
-    renderExampleSentenceContent(sentence, card, settings) {
-      const tokens = this.cachedParsedExampleSentenceTokens(sentence);
-      return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
-    }
-    loadRenderedExampleImages(container, imageUrls, isCurrent) {
-      container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
-        let imageCandidateIndex = 0;
-        let imageRequestId = 0;
-        const holdUntilReady = imageElement.dataset.immersionHoldUntilReady === "true";
-        let pendingImage = null;
-        const showImageCandidate = (sourceUrl, displayUrl) => {
-          imageElement.dataset.immersionImageSrc = sourceUrl;
-          imageElement.src = displayUrl;
-          imageElement.removeAttribute("data-immersion-hold-until-ready");
-        };
-        const loadNextImageCandidate = () => {
-          if (!isCurrent() || !imageElement.isConnected) return;
-          const fallbackUrl = imageUrls[imageCandidateIndex++];
-          if (!fallbackUrl) {
-            if (imageElement.complete && imageElement.naturalWidth > 0) return;
-            this.hideBrokenExampleImage(container, imageElement);
-            return;
-          }
-          const currentSrc = imageElement.currentSrc || imageElement.src;
-          const requestId = ++imageRequestId;
-          const settings = this.options.getSettings();
-          this.options.client.fetchBlobUrl(fallbackUrl, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).then((displayUrl) => {
-            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-            if (!holdUntilReady || currentSrc === displayUrl) {
-              showImageCandidate(fallbackUrl, displayUrl);
-              return;
-            }
-            const preload = new Image();
-            pendingImage = preload;
-            preload.decoding = "async";
-            preload.onload = () => {
-              if (pendingImage !== preload || requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-              pendingImage = null;
-              showImageCandidate(fallbackUrl, displayUrl);
-              this.options.repositionPopover();
-            };
-            preload.onerror = () => {
-              if (pendingImage !== preload || requestId !== imageRequestId) return;
-              pendingImage = null;
-              loadNextImageCandidate();
-            };
-            preload.src = displayUrl;
-          }).catch(() => {
-            if (requestId !== imageRequestId || !isCurrent() || !imageElement.isConnected) return;
-            showImageCandidate(fallbackUrl, fallbackUrl);
-          });
-        };
-        imageElement.addEventListener("error", loadNextImageCandidate);
-        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
-        imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
-        if (!imageElement.dataset.immersionImageSrc) {
-          this.hideBrokenExampleImage(container, imageElement);
-          return;
-        }
-        loadNextImageCandidate();
-      });
-    }
-    hideBrokenExampleImage(container, imageElement) {
-      if (!imageElement.isConnected) return;
-      const media = imageElement.closest(".jpdb-reader-example-media");
-      const sentence = media?.querySelector(".jpdb-reader-example-sentence");
-      if (sentence) {
-        sentence.classList.remove("jpdb-subtitle-primary");
-        sentence.querySelectorAll(".jpdb-subtitle-primary").forEach((element) => {
-          element.classList.remove("jpdb-subtitle-primary");
-        });
-        media?.after(sentence);
-      }
-      media?.remove();
-      if (imageElement.isConnected) imageElement.remove();
-      container.querySelector(".jpdb-reader-example-card")?.classList.remove("has-image");
-      this.options.repositionPopover();
-    }
-    parseRenderedExampleSentence(container, card, example, isCurrent) {
-      void this.parsedExampleSentenceTokens(example.sentence).then((tokens) => {
-        if (!isCurrent() || !container.isConnected) return;
-        this.applyParsedExampleSentence(container, card, example, tokens);
-      }).catch(() => void 0);
-    }
-    applyParsedExampleSentence(container, card, example, tokens, options = {}) {
-      const sentence = container.querySelector("[data-immersion-sentence-render]");
-      if (!sentence) return;
-      const lookupTokens = exampleSentenceLookupTokens(tokens, card);
-      if (options.updateHtml !== false) {
-        setInnerHtml(sentence, renderTokensToHtml(example.sentence, lookupTokens, this.options.getSettings()));
-      }
-      this.highlightTarget(sentence, card);
-      void this.options.enrichPitchWords(lookupTokens);
-      void this.options.enrichAnkiWords(lookupTokens, [container]);
-      this.options.repositionPopover();
-    }
-    parsedExampleSentenceTokens(sentence) {
-      const key = sentence.trim();
-      if (!key) return Promise.resolve([]);
-      return loadCachedParsedTokens(
-        this.parsedSentenceCache,
-        key,
-        IMMERSION_PARSED_SENTENCE_CACHE_LIMIT,
-        () => this.options.parseJapanese([sentence], this.exampleSentenceParseOptions()).then(([tokens]) => {
-          return tokens ?? [];
-        }),
-        shouldCacheParsedExampleSentenceTokens
-      );
-    }
-    exampleSentenceParseOptions() {
-      const settings = this.options.getSettings();
-      return jpdbFirstParseOptions(hasJpdbApiCredential(settings) ? { includeLocalPitch: true } : { allowSegmentedFallback: true, includeLocalPitch: true });
-    }
-    cachedParsedExampleSentenceTokens(sentence) {
-      return this.parsedSentenceCache.get(sentence.trim())?.tokens;
-    }
-    highlightTarget(sentence, card) {
-      highlightCardTargetWords(sentence, card);
-    }
-    toggleTranslationBlur(container) {
-      const settings = this.options.getSettings();
-      const shouldBlur = !settings.immersionKitRevealTranslationOnClick;
-      this.options.setImmersionTranslationBlurred(shouldBlur);
-      container.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
-        setTranslationBlurAttributes(translation, shouldBlur, "immersionTranslationBlurred", settings.interfaceLanguage);
-      });
-      this.options.repositionPopover();
-    }
-    async playExampleAudio(example, quiet = false, isCurrent = () => true) {
-      const settings = this.options.getSettings();
-      if (!settings.audioEnabled) {
-        if (!quiet) this.options.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabled"));
-        return;
-      }
-      const source = this.exampleAudioSource(example, quiet);
-      if (!source) return;
-      try {
-        const blobSrc = await this.options.client.fetchBlobUrl(source.urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-        if (!isCurrent()) return;
-        await this.options.audio.playMediaCandidates([blobSrc, ...source.urls], {
-          playbackRate: settings.immersionKitPlaybackRate,
-          isCurrent
-        });
-      } catch (error) {
-        this.handleExampleAudioError(example, quiet, error);
-      }
-    }
-    handleExampleAudioError(example, quiet, error) {
-      log$5.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
-      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-    }
-    exampleAudioSource(example, quiet) {
-      const urls = this.mediaUrls(example, "sound");
-      const key = urls[0] ?? "";
-      if (key) return { urls, key };
-      if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
-      return null;
-    }
-    mediaUrls(example, kind) {
-      const client = this.options.client;
-      return client.mediaUrls?.(example, kind) ?? [client.mediaUrl(example, kind)].filter(Boolean);
-    }
-  }
-  function immersionExampleSourceLabel(card, example, searchQuery, language) {
-    const sourceTitle = localizedImmersionSourceTitle(example.sourceTitle, language);
-    return queryKey(searchQuery) !== queryKey(card.spelling) ? `${searchQuery} · ${sourceTitle}` : sourceTitle;
-  }
-  function immersionExampleProviderLabel(example, language) {
-    return localizedImmersionProviderLabel(example, language);
-  }
-  function accurateImmersionExamples(query, examples) {
-    return shouldFilterImmersionExamplesBySurface(query) ? examples.filter((example) => immersionSentenceContainsQuery(example.sentence, query)) : examples;
-  }
-  function immersionSearchResultForQuery(query, exactQuery, triedQueries, examples) {
-    const accurateExamples = accurateImmersionExamples(query, examples);
-    if (!accurateExamples.length) return null;
-    return {
-      examples: accurateExamples,
-      query,
-      usedFallback: queryKey(query) !== queryKey(exactQuery),
-      triedQueries
-    };
-  }
-  function immersionMiningImageUrl(imageUrls) {
-    return imageUrls.find((url) => /\/download_media\?/u.test(url)) ?? imageUrls[0] ?? "";
-  }
-  function isPageMiningSentence(sentence, card) {
-    return Boolean(sentence && sentence !== card.spelling);
-  }
-  function shouldPromoteExampleMiningContext(activeContext, card, promoteMiningContext) {
-    return promoteMiningContext || !activeContext || activeContext.term !== card.spelling;
-  }
-  function pageMiningSourceKind(anchor) {
-    return inferMiningSourceKind({
-      isImageSource: Boolean(anchor?.closest(".jpdb-ocr-line")),
-      hasVideo: Boolean(anchor?.closest(".jpdb-subtitle-player, .jpdb-subtitle-list")) || Boolean(document.querySelector("video")),
-      hostname: location.hostname
-    });
-  }
-  function isConnectedImmersionSurface(popover, container) {
-    return popover.isConnected && container.isConnected;
-  }
-  function clearImmersionLoadingState(container) {
-    if (container.dataset.immersionLoadState === "loading") delete container.dataset.immersionLoadState;
-  }
-  function raceAgainstAbortOrTimeout(promise, signal, timeoutMs) {
-    if (signal.aborted) return Promise.reject(abortErrorForRace());
-    return new Promise((resolve, reject) => {
-      const onAbort = () => {
-        cleanup();
-        reject(abortErrorForRace());
-      };
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        reject(new Error("Immersion Kit examples timed out."));
-      }, Math.max(1e3, timeoutMs));
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        signal.removeEventListener("abort", onAbort);
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-      promise.then((value) => {
-        cleanup();
-        resolve(value);
-      }, (error) => {
-        cleanup();
-        reject(error);
-      });
-    });
-  }
-  function abortErrorForRace() {
-    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-    const error = new Error("Aborted");
-    error.name = "AbortError";
-    return error;
-  }
-  function addImmersionFallbackQuery(candidates, value, exactQuery) {
-    const query = normalizeImmersionSearchQuery(value);
-    if (isUsefulImmersionFallbackQuery(query, exactQuery)) candidates.push(query);
-  }
-  function addImmersionFallbackQueries(candidates, values, exactQuery) {
-    for (const value of values) addImmersionFallbackQuery(candidates, value, exactQuery);
-  }
-  function fallbackTokenQueries(card, tokens) {
-    return sortedFallbackTokenCandidates(card, tokens).flatMap((item) => [
-      item.token.card.spelling,
-      item.surface,
-      item.token.card.reading !== item.token.card.spelling ? item.token.card.reading : ""
-    ].filter(Boolean));
-  }
-  function sortedFallbackTokenCandidates(card, tokens) {
-    return tokens.map((token) => ({
-      token,
-      surface: card.spelling.slice(token.start, token.end),
-      length: queryLength(token.card.spelling)
-    })).sort(compareFallbackTokenCandidates);
-  }
-  function compareFallbackTokenCandidates(a, b) {
-    return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
-  }
-  function renderExampleImageHtml(container, imageUrl, overlay = "") {
-    if (!imageUrl) return "";
-    const heldImage = heldExampleImage(container);
-    return `<div class="jpdb-reader-example-media"${heldExampleMediaStyle(heldImage)}><img class="jpdb-reader-example-image" data-immersion-image data-immersion-image-src="${escapeHtml(imageUrl)}"${heldExampleImageAttributes(heldImage)} alt="" loading="eager" decoding="async" referrerpolicy="no-referrer">${overlay}</div>`;
-  }
-  function renderExampleSentenceHtml(sentenceHtml, primarySubtitle = false) {
-    const classes = [
-      "jpdb-reader-example-sentence",
-      "jpdb-reader-parseable",
-      "jpdb-reader-subtitle-surface"
-    ].filter(Boolean).join(" ");
-    if (primarySubtitle) {
-      return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
-    }
-    return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-  }
-  function shouldCacheParsedExampleSentenceTokens(tokens) {
-    return !tokens.length || tokens.some((token) => token.card.source !== "fallback");
-  }
-  function heldExampleMediaStyle(image) {
-    return image.minHeight > 0 ? ` style="min-height:${image.minHeight}px"` : "";
-  }
-  function heldExampleImageAttributes(image) {
-    return `${heldExampleHoldAttribute(image)}${heldExampleSourceAttribute(image)}`;
-  }
-  function heldExampleHoldAttribute(image) {
-    return image.holdUntilReady ? ' data-immersion-hold-until-ready="true"' : "";
-  }
-  function heldExampleSourceAttribute(image) {
-    return image.src ? ` src="${escapeHtml(image.src)}"` : "";
-  }
-  function heldExampleImage(container) {
-    const currentImage = container.querySelector("[data-immersion-image]");
-    const src = heldExampleImageSource(currentImage);
-    const holdUntilReady = Boolean(src && currentImage?.isConnected);
-    return {
-      src: holdUntilReady ? src : "",
-      minHeight: holdUntilReady ? heldExampleImageHeight(currentImage) : 0,
-      holdUntilReady
-    };
-  }
-  function heldExampleImageSource(image) {
-    return image?.currentSrc || image?.src || "";
-  }
-  function heldExampleImageHeight(image) {
-    const media = image?.closest(".jpdb-reader-example-media") ?? null;
-    return Math.ceil(media?.getBoundingClientRect().height || image?.getBoundingClientRect().height || 0);
-  }
-  function hoverAudioExampleKey(example) {
-    if (!example) return "";
-    return example.id || `${example.provider ?? "immersion-kit"}:${example.sourceTitle}:${example.sentence}:${example.soundFile || example.soundUrl}`;
-  }
-  function isHoverAudioPointerSuppressed(pointerType) {
-    if (pointerType === "touch") return true;
-    return pointerType !== "mouse" && (window.matchMedia?.("(hover: none)").matches ?? false);
-  }
-  function immersionLazyLoadRoot(popover, target) {
-    const body = popover.querySelector(".jpdb-reader-popover-body");
-    if (body?.contains(target)) return body;
-    return popover.contains(target) ? popover : null;
-  }
-  function isImmersionNearVisibleArea(popover, container) {
-    const root = immersionLazyLoadRoot(popover, container);
-    const containerRect = container.getBoundingClientRect();
-    const rootRect = root?.getBoundingClientRect();
-    if (!hasUsableRect(containerRect) || !rootRect || !hasUsableRect(rootRect)) return true;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rootRect.bottom;
-    const visibleTop = Math.max(0, rootRect.top);
-    const visibleBottom = Math.min(viewportHeight, rootRect.bottom);
-    return containerRect.bottom >= visibleTop - IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX && containerRect.top <= visibleBottom + IMMERSION_LAZY_LOAD_VISIBILITY_MARGIN_PX;
-  }
-  function hasUsableRect(rect) {
-    return rect.width > 0 || rect.height > 0;
-  }
-  function pruneImmersionSearchCache(cache, now, limit) {
-    for (const [key, value] of cache) {
-      if (value.expiresAt <= now) cache.delete(key);
-    }
-    pruneOldestCacheEntries(cache, limit);
-  }
-  function renderExampleTranslation(translation, settings) {
-    if (!settings.immersionKitShowTranslation || !translation) return "";
-    const escaped = escapeHtml(translation);
-    if (!settings.immersionKitRevealTranslationOnClick) {
-      return `<div class="jpdb-reader-example-translation">${escaped}</div>`;
-    }
-    return `<div class="jpdb-reader-example-translation" data-immersion-translation-blurred="true" role="button" tabindex="0" aria-label="${escapeHtml(uiText(settings.interfaceLanguage, "revealTranslation"))}">${escaped}</div>`;
-  }
-  function setTranslationBlurAttributes(element, blurred, key, language) {
-    if (blurred) {
-      element.dataset[key] = "true";
-      element.setAttribute("role", "button");
-      element.setAttribute("tabindex", "0");
-      element.setAttribute("aria-label", uiText(language, "revealTranslation"));
-      return;
-    }
-    delete element.dataset[key];
-    element.removeAttribute("tabindex");
-    element.removeAttribute("role");
-    element.removeAttribute("aria-label");
   }
   let sandboxCompanions = {};
   function registerYomuCompanion(key, value) {
@@ -11866,7 +9334,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         </details>
     `;
   }
-  const log$4 = Logger.scope("KanjiDoodle");
+  const log$5 = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -11889,11 +9357,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$4.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$5.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$4.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$5.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -12436,7 +9904,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE = /[\u3400-\u9fff]/u;
-  const log$3 = Logger.scope("RTK");
+  const log$4 = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -12453,7 +9921,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async fetchInfo(kanji) {
       const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$3.warn("RTK request failed", { kanji }, error);
+        log$4.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -12653,6 +10121,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       failureLabel: "RTK request",
       timeoutLabel: "RTK request timed out."
     });
+  }
+  function pruneOldestCacheEntries(cache, limit) {
+    while (cache.size > limit) {
+      const oldest = cache.keys().next();
+      if (oldest.done) break;
+      cache.delete(oldest.value);
+    }
   }
   function renderStudyBlock(className, content, attrs = "") {
     return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
@@ -13128,7 +10603,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const uuid = globalThis.crypto?.randomUUID?.();
     return uuid ? `grammar-known:${uuid}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   }
-  const log$2 = Logger.scope("StudyTools");
+  const log$3 = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const MAX_LOCAL_GRAMMAR_HINTS = 12;
@@ -13290,17 +10765,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$2.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$3.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$2.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$3.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$2.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$3.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -13647,7 +11122,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function requestJson(url, options = {}) {
-    return requestJson$2(url, {
+    return requestJson$1(url, {
       timeoutMs: options.timeoutMs ?? TRANSLATION_TIMEOUT_MS,
       allowDirectCrossOrigin: true,
       allowConfiguredProxy: false,
@@ -13657,13 +11132,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  const log$1 = Logger.scope("StudyRender");
+  function popoverScrollBody(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  const log$2 = Logger.scope("StudyRender");
   async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$1.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$2.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, language);
@@ -13832,6 +11323,292 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     miningMount.hidden = !hasControls;
     setInnerHtml(miningMount, controls);
   }
+  function isNonNullObject(value) {
+    return typeof value === "object" && value !== null;
+  }
+  const CONTEXT_PREFIX = "yomu-mining-context:";
+  const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
+  const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
+  const log$1 = Logger.scope("MiningContext");
+  function normalizeMiningSentence(sentence) {
+    return (sentence ?? "").replace(/\s+/g, " ").trim();
+  }
+  function inferMiningSourceKind({ isImageSource, hasVideo, hostname = location.hostname } = {}) {
+    if (isImageSource) return "image";
+    if (hasVideo) return "video";
+    if (hostname === "jpdb.io") return "jpdb";
+    return "page";
+  }
+  function createStoredMiningContext(term, context, updatedAt = Date.now()) {
+    const normalizedTerm = term.trim();
+    const sentence = context.sentence.trim();
+    if (!normalizedTerm || !sentence) return null;
+    return {
+      ...context,
+      term: normalizedTerm,
+      sentence,
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  function createFallbackMiningContext(term, context, updatedAt = Date.now()) {
+    return createStoredMiningContext(term, context, updatedAt) ?? {
+      ...context,
+      term: term.trim(),
+      sentence: context.sentence.trim() || term.trim(),
+      sourceTitle: context.sourceTitle.trim(),
+      sourceUrl: context.sourceUrl.trim(),
+      imageUrl: optionalText(context.imageUrl),
+      audioUrls: optionalTextArray(context.audioUrls),
+      immersionIndex: optionalNumber(context.immersionIndex),
+      immersionTotal: optionalNumber(context.immersionTotal),
+      updatedAt
+    };
+  }
+  async function resolveMiningContext({
+    term,
+    sentence,
+    settings,
+    activeContext,
+    storedContext,
+    sourceKind,
+    imageDataUrl,
+    videoImageDataUrl,
+    fetchImageDataUrl,
+    fetchAudioDataUrl
+  }) {
+    const done = log$1.time("Resolve mining context", {
+      term,
+      hasSentence: Boolean(sentence?.trim()),
+      activeKind: activeContext?.sourceKind,
+      storedKind: storedContext?.sourceKind,
+      sourceKind,
+      hasImage: Boolean(imageDataUrl),
+      hasVideoImage: Boolean(videoImageDataUrl)
+    });
+    const cleanSentence = normalizeMiningSentence(sentence);
+    try {
+      const direct = resolveDirectImageMiningContext(term, cleanSentence, imageDataUrl, videoImageDataUrl);
+      if (direct) return direct;
+      const immersion = await resolveStoredImmersionMiningContext({
+        term,
+        settings,
+        activeContext,
+        storedContext,
+        fetchImageDataUrl,
+        fetchAudioDataUrl
+      });
+      return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
+    } finally {
+      done();
+    }
+  }
+  function resolveDirectImageMiningContext(term, sentence, imageDataUrl, videoImageDataUrl) {
+    if (imageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "image", imageDataUrl);
+    }
+    if (videoImageDataUrl && sentence) {
+      return miningContextWithImage(term, sentence, "video", videoImageDataUrl);
+    }
+    return null;
+  }
+  async function resolveStoredImmersionMiningContext(options) {
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl } = options;
+    const chosen = activeContext?.term === term ? activeContext : storedContext ?? void 0;
+    if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
+    const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
+      fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
+      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl)
+    ]);
+    return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
+  }
+  function fetchMiningContextImage(context, settings, fetchImageDataUrl) {
+    if (!context.imageUrl || !settings.immersionKitShowImages || !fetchImageDataUrl) return Promise.resolve(void 0);
+    return fetchImageDataUrl(context.imageUrl, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl) {
+    if (!context.audioUrls?.length || !fetchAudioDataUrl) return Promise.resolve(void 0);
+    return fetchAudioDataUrl(context.audioUrls, settings.audioTimeoutMs).catch(() => {
+      return void 0;
+    });
+  }
+  function resolvePageMiningContext(term, sentence, sourceKind) {
+    const context = pageMiningContext(sentence || term, sourceKind ?? inferMiningSourceKind());
+    const result = saveMiningContext(term, context) ?? createFallbackMiningContext(term, context);
+    return result;
+  }
+  function miningContextWithImage(term, sentence, sourceKind, imageDataUrl) {
+    const context = pageMiningContext(sentence, sourceKind);
+    return {
+      ...saveMiningContext(term, context) ?? createFallbackMiningContext(term, context),
+      imageDataUrl
+    };
+  }
+  function saveMiningContext(term, context) {
+    const stored = createStoredMiningContext(term, context);
+    if (!stored) {
+      return null;
+    }
+    try {
+      gmStorageSetSync(contextStorageKey(stored.term), stored);
+    } catch (error) {
+      log$1.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+    }
+    return stored;
+  }
+  function loadMiningContext(term) {
+    const normalized = term.trim();
+    if (!normalized) return null;
+    try {
+      const stored = gmStorageGetSync(contextStorageKey(normalized), null);
+      if (!stored) {
+        return null;
+      }
+      const context = parseStoredMiningContext(stored, normalized);
+      return context;
+    } catch (error) {
+      log$1.warn("Mining context load failed", { term: normalized, error });
+      return null;
+    }
+  }
+  function immersionContextFromExample(term, example, index, total, imageUrl, audioUrls = []) {
+    return {
+      sentence: example.sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: example.sourceTitle || "Immersion Kit",
+      sourceUrl: immersionKitUrl(term, index),
+      imageUrl: imageUrl || void 0,
+      audioUrls: optionalTextArray(audioUrls),
+      immersionIndex: index,
+      immersionTotal: total
+    };
+  }
+  function immersionContextFromElement(sentence, element, sourceUrl = location.href) {
+    return {
+      sentence,
+      sourceKind: "immersion-kit",
+      sourceTitle: element.dataset.immersionSourceTitle || "Immersion Kit",
+      sourceUrl,
+      imageUrl: optionalText(element.dataset.immersionImageUrl),
+      audioUrls: immersionAudioUrlsFromElement(element),
+      immersionIndex: optionalNumber(Number(element.dataset.immersionIndex ?? 0)),
+      immersionTotal: optionalNumber(Number(element.dataset.immersionTotal ?? 0))
+    };
+  }
+  function pageMiningContext(sentence, sourceKind = "page") {
+    return {
+      sentence,
+      sourceKind,
+      sourceTitle: document.title || location.hostname,
+      sourceUrl: location.href
+    };
+  }
+  function contextLabel(context) {
+    const immersionLabel = immersionContextLabel(context);
+    if (immersionLabel) return immersionLabel;
+    const prefix = CONTEXT_LABEL_PREFIXES[context.sourceKind];
+    if (prefix) return `${prefix}: ${context.sourceTitle}`;
+    return context.sourceTitle || context.sourceUrl || "Current page";
+  }
+  const CONTEXT_LABEL_PREFIXES = {
+    video: "Video",
+    image: "Image",
+    jpdb: "JPDB"
+  };
+  function immersionContextLabel(context) {
+    return context.sourceKind === "immersion-kit" && context.immersionIndex !== void 0 && context.immersionTotal ? `${context.sourceTitle} ${context.immersionIndex + 1}/${context.immersionTotal}` : "";
+  }
+  function shouldUseImmersionContext(settings, context) {
+    return Boolean(settings.immersionKitEnabled && context?.sourceKind === "immersion-kit" && context.sentence.trim());
+  }
+  function contextStorageKey(term) {
+    return `${CONTEXT_PREFIX}${term}`;
+  }
+  function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
+    const record = storedMiningContextRecord(value, expectedTerm);
+    if (!record) return null;
+    const sourceKind = storedMiningSourceKind(record.sourceKind);
+    if (!sourceKind) return null;
+    const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
+    if (updatedAt === null) return null;
+    const context = createStoredMiningContext(expectedTerm, {
+      sentence: text(record.sentence),
+      sourceKind,
+      sourceTitle: text(record.sourceTitle),
+      sourceUrl: text(record.sourceUrl),
+      imageUrl: optionalText(record.imageUrl),
+      audioUrls: optionalTextArray(record.audioUrls),
+      immersionIndex: optionalNumber(record.immersionIndex),
+      immersionTotal: optionalNumber(record.immersionTotal)
+    }, updatedAt);
+    return context;
+  }
+  function storedMiningContextRecord(value, expectedTerm) {
+    if (!isNonNullObject(value)) return null;
+    return text(value.term) === expectedTerm ? value : null;
+  }
+  function storedMiningSourceKind(value) {
+    return isMiningSourceKind(value) ? value : null;
+  }
+  function storedMiningContextUpdatedAt(value, now) {
+    const updatedAt = Number(value);
+    if (!isStoredMiningContextFresh(updatedAt, now)) {
+      return null;
+    }
+    return updatedAt;
+  }
+  function isStoredMiningContextFresh(updatedAt, now) {
+    return Number.isFinite(updatedAt) && now - updatedAt <= CONTEXT_MAX_AGE_MS;
+  }
+  function isMiningSourceKind(value) {
+    return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
+  }
+  function optionalText(value) {
+    const normalized = text(value);
+    return normalized || void 0;
+  }
+  function optionalTextArray(value) {
+    if (!Array.isArray(value)) return void 0;
+    const values = uniqueTexts(value);
+    return values.length ? values : void 0;
+  }
+  function immersionAudioUrlsFromElement(element) {
+    const parsed = parseTextArray(element.dataset.immersionAudioUrls);
+    return optionalTextArray(parsed ?? [element.dataset.immersionAudioUrl]);
+  }
+  function parseTextArray(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  function uniqueTexts(values) {
+    return Array.from(new Set(values.map(text).filter(Boolean)));
+  }
+  function optionalNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : void 0;
+  }
+  function text(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function immersionKitUrl(term, index) {
+    const url = new URL("https://www.immersionkit.com/dictionary");
+    url.searchParams.set("keyword", term);
+    url.searchParams.set("sort", "sentence_length:asc");
+    url.searchParams.set("page", String(index + 1));
+    return url.toString();
+  }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
   const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
@@ -13956,6 +11733,245 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function builtInSourceNameKey(sourceId) {
     return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
   }
+  const GODAN_ROWS = [
+    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+  ];
+  const ICHIDAN_RULES = [
+    ["ながら", "る", "simultaneous action"],
+    ["ました", "る", "polite past"],
+    ["ませんでした", "る", "polite negative past"],
+    ["ません", "る", "polite negative"],
+    ["ましょう", "る", "polite volitional"],
+    ["ます", "る", "polite"],
+    ["なかった", "る", "negative past"],
+    ["なくて", "る", "negative te-form"],
+    ["なければ", "る", "negative conditional"],
+    ["ない", "る", "negative"],
+    ["たかった", "る", "desiderative past"],
+    ["たくなかった", "る", "desiderative negative past"],
+    ["たくない", "る", "desiderative negative"],
+    ["たい", "る", "desiderative"],
+    ["なさい", "る", "polite request"],
+    ["すぎる", "る", "excessive"],
+    ["られなかった", "る", "potential/passive negative past"],
+    ["られない", "る", "potential/passive negative"],
+    ["られて", "る", "potential/passive te-form"],
+    ["られた", "る", "potential/passive past"],
+    ["られる", "る", "potential/passive"],
+    ["させられた", "る", "causative passive past"],
+    ["させられる", "る", "causative passive"],
+    ["させない", "る", "causative negative"],
+    ["させて", "る", "causative te-form"],
+    ["させた", "る", "causative past"],
+    ["させる", "る", "causative"],
+    ["れば", "る", "conditional"],
+    ["よう", "る", "volitional"],
+    ["ろ", "る", "imperative"],
+    ["て", "る", "te-form"],
+    ["た", "る", "past"]
+  ];
+  const I_ADJECTIVE_RULES = [
+    ["くなかった", "い", "negative past"],
+    ["くありませんでした", "い", "polite negative past"],
+    ["くありません", "い", "polite negative"],
+    ["かった", "い", "past"],
+    ["くない", "い", "negative"],
+    ["くて", "い", "te-form"],
+    ["ければ", "い", "conditional"],
+    ["そう", "い", "looks"],
+    ["すぎる", "い", "excessive"],
+    ["く", "い", "adverbial"]
+  ];
+  const SURU_RULES = [
+    ["しながら", "する", "simultaneous action"],
+    ["しませんでした", "する", "polite negative past"],
+    ["しません", "する", "polite negative"],
+    ["しました", "する", "polite past"],
+    ["しましょう", "する", "polite volitional"],
+    ["します", "する", "polite"],
+    ["しなかった", "する", "negative past"],
+    ["しなくて", "する", "negative te-form"],
+    ["しなければ", "する", "negative conditional"],
+    ["しない", "する", "negative"],
+    ["しなさい", "する", "polite request"],
+    ["しすぎる", "する", "excessive"],
+    ["された", "する", "passive past"],
+    ["されて", "する", "passive te-form"],
+    ["される", "する", "passive"],
+    ["させた", "する", "causative past"],
+    ["させて", "する", "causative te-form"],
+    ["させる", "する", "causative"],
+    ["できなかった", "する", "potential negative past"],
+    ["できない", "する", "potential negative"],
+    ["できた", "する", "potential past"],
+    ["できて", "する", "potential te-form"],
+    ["できる", "する", "potential"],
+    ["すれば", "する", "conditional"],
+    ["しよう", "する", "volitional"],
+    ["しろ", "する", "imperative"],
+    ["せよ", "する", "imperative"],
+    ["した", "する", "past"],
+    ["して", "する", "te-form"]
+  ];
+  const KURU_RULES = [
+    ["来ながら", "来る", "simultaneous action"],
+    ["来ませんでした", "来る", "polite negative past"],
+    ["来ません", "来る", "polite negative"],
+    ["来ました", "来る", "polite past"],
+    ["来ます", "来る", "polite"],
+    ["来なかった", "来る", "negative past"],
+    ["来なくて", "来る", "negative te-form"],
+    ["来ない", "来る", "negative"],
+    ["来なさい", "来る", "polite request"],
+    ["来すぎる", "来る", "excessive"],
+    ["来られた", "来る", "potential/passive past"],
+    ["来られて", "来る", "potential/passive te-form"],
+    ["来られる", "来る", "potential/passive"],
+    ["来れば", "来る", "conditional"],
+    ["来よう", "来る", "volitional"],
+    ["来い", "来る", "imperative"],
+    ["来た", "来る", "past"],
+    ["来て", "来る", "te-form"],
+    ["きながら", "くる", "simultaneous action"],
+    ["きませんでした", "くる", "polite negative past"],
+    ["きません", "くる", "polite negative"],
+    ["きました", "くる", "polite past"],
+    ["きます", "くる", "polite"],
+    ["こなかった", "くる", "negative past"],
+    ["こなくて", "くる", "negative te-form"],
+    ["こない", "くる", "negative"],
+    ["きなさい", "くる", "polite request"],
+    ["きすぎる", "くる", "excessive"],
+    ["こられた", "くる", "potential/passive past"],
+    ["こられて", "くる", "potential/passive te-form"],
+    ["こられる", "くる", "potential/passive"],
+    ["くれば", "くる", "conditional"],
+    ["こよう", "くる", "volitional"],
+    ["こい", "くる", "imperative"],
+    ["きた", "くる", "past"],
+    ["きて", "くる", "te-form"]
+  ];
+  const TE_ASPECT_SUFFIXES = [
+    ["いる", "progressive"],
+    ["います", "polite progressive"],
+    ["いました", "polite progressive past"],
+    ["いません", "polite progressive negative"],
+    ["いませんでした", "polite progressive negative past"],
+    ["いた", "progressive past"],
+    ["いて", "progressive te-form"],
+    ["いない", "progressive negative"],
+    ["いなかった", "progressive negative past"],
+    ["いれば", "progressive conditional"],
+    ["る", "contracted progressive"],
+    ["ます", "contracted polite progressive"],
+    ["ました", "contracted polite progressive past"],
+    ["た", "contracted progressive past"],
+    ["て", "contracted progressive te-form"],
+    ["ない", "contracted progressive negative"],
+    ["なかった", "contracted progressive negative past"]
+  ];
+  const TE_COMPLETION_SUFFIXES = [
+    ["しまう", "completion"],
+    ["しまった", "completion past"],
+    ["しまって", "completion te-form"],
+    ["しまわない", "completion negative"],
+    ["しまいます", "polite completion"],
+    ["しまいました", "polite completion past"]
+  ];
+  const CONTRACTED_COMPLETION_SUFFIXES = [
+    ["う", "contracted completion"],
+    ["った", "contracted completion past"],
+    ["って", "contracted completion te-form"],
+    ["わない", "contracted completion negative"],
+    ["います", "contracted polite completion"],
+    ["いました", "contracted polite completion past"]
+  ];
+  [
+    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+    ...teCompoundRules("て", "る", ["v1"]),
+    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+  ];
+  function godanRules(row) {
+    const rules = row.rules;
+    return [
+      ...teCompoundRules(row.te, row.ending, rules),
+      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+      { from: row.i, to: row.ending, reason: "continuative stem", rules },
+      { from: row.te, to: row.ending, reason: "te-form", rules },
+      { from: row.ta, to: row.ending, reason: "past", rules },
+      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+      { from: row.e, to: row.ending, reason: "imperative", rules }
+    ];
+  }
+  function teCompoundRules(te, to, rules) {
+    return [
+      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...contractedCompletionRules(te, to, rules)
+    ];
+  }
+  function contractedCompletionRules(te, to, rules) {
+    const stem = contractedCompletionStem(te);
+    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+  }
+  function contractedCompletionStem(te) {
+    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+    return "";
+  }
+  Logger.scope("DictionaryArchiveCache");
+  Logger.scope("Yomitan");
+  new TextDecoder();
+  Logger.scope("YomitanSettingsImport");
+  Logger.scope("Yomitan");
   function definitionSourceStateKey(sourceId) {
     return `definition-source:${sourceId}`;
   }
@@ -14179,8 +12195,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return true;
   }
   registerYomuCompanion("kanjiStudy", {
-    ImmersionKitClient,
-    ImmersionPopoverController,
     KanjiOriginClient,
     KanjiVGClient,
     RtkClient,
