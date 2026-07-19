@@ -445,6 +445,8 @@ function authoredExposureView(exposure: AuthoredWeekExposure, language: AcademyL
     title.tabIndex = -1;
     appendExposureText(title, exposure.title);
     const entries = element('div', 'academy-lesson-teaching-entries');
+    entries.tabIndex = 0;
+    entries.setAttribute('aria-label', language === 'ja' ? '学習例' : 'Teaching examples');
     exposure.entries.forEach(entry => {
         const row = element('article', 'academy-lesson-teaching-entry');
         appendExposureText(row, entry);

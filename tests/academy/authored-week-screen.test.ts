@@ -115,6 +115,9 @@ describe('authored week learner screen', () => {
         expect(screen.element.dataset.lessonPhase).toBe('teaching');
         expect([...screen.element.querySelectorAll<HTMLElement>('[data-exposure-kind]')]
             .map(section => section.dataset.exposureKind)).toEqual(['explanation']);
+        const teachingEntries = screen.element.querySelector<HTMLElement>('.academy-lesson-teaching-entries')!;
+        expect(teachingEntries.tabIndex).toBe(0);
+        expect(teachingEntries.getAttribute('aria-label')).toBe('学習例');
         expect(screen.element.querySelector('.academy-authored-week-briefing-step')?.textContent)
             .toBe('学習ポイント 1 / 4');
         expect(screen.element.textContent).toContain('Use the polite frame before you answer.');

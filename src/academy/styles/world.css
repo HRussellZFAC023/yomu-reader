@@ -2688,7 +2688,7 @@
 .academy-journal-screen .academy-background img {
     object-position: center;
     filter: saturate(0.92) brightness(0.7) contrast(1.04);
-    transform: scale(1.015);
+    transform: none;
 }
 
 .academy-journal-screen .academy-screen-veil {
@@ -2777,10 +2777,16 @@
     line-height: 1.4;
 }
 
-.academy-journal-book-tabs {
+.academy-journal-book-controls {
     grid-area: tabs;
     display: flex;
     align-self: end;
+    gap: 5px;
+    align-items: center;
+}
+
+.academy-journal-book-tabs {
+    display: flex;
     gap: 5px;
     align-items: center;
 }
@@ -2990,7 +2996,7 @@
     }
 
     .academy-journal-book-intro { font-size: 0.76rem; }
-    .academy-journal-book-tabs { justify-content: flex-end; }
+    .academy-journal-book-controls { justify-content: flex-end; }
     .academy-journal-book-tab { min-height: 38px; padding: 5px 8px; font-size: 0.74rem; }
 
     .academy-journal-screen .academy-character-directory {

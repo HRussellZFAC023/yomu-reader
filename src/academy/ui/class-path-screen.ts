@@ -278,7 +278,7 @@ function renderWeek(
         : element('div', 'academy-class-week-entry');
     if (content instanceof HTMLButtonElement) {
         content.type = 'button';
-        content.setAttribute('aria-label', `${presentation.actionLabel}: ${week.source.title[options.language]}`);
+        content.setAttribute('aria-label', `${presentation.actionLabel}: ${weekSequenceLabel(week, options.language)} · ${week.source.title[options.language]}`);
         content.addEventListener('click', () => options.onOpenWeek(week.weekId));
     } else {
         content.setAttribute('aria-disabled', 'true');
@@ -293,9 +293,7 @@ function renderWeek(
         stage.append(levelLabel);
     }
     const sequenceLabel = element('span', 'academy-class-week-sequence');
-    sequenceLabel.textContent = week.order === 0
-        ? (options.language === 'ja' ? 'レッスン0' : 'Lesson 0')
-        : (options.language === 'ja' ? `第${week.order}週` : `Week ${String(week.order).padStart(2, '0')}`);
+    sequenceLabel.textContent = weekSequenceLabel(week, options.language);
     stage.append(sequenceLabel);
     label.textContent = week.source.title[options.language];
     const status = element('span', 'academy-class-week-status');
@@ -310,6 +308,11 @@ function renderWeek(
     content.append(copy, cast, action);
     item.append(content);
     return item;
+}
+
+function weekSequenceLabel(week: ClassWeekCastPlanEntry, language: AcademyLanguage): string {
+    if (week.order === 0) return language === 'ja' ? 'レッスン0' : 'Lesson 0';
+    return language === 'ja' ? `第${week.order}週` : `Week ${String(week.order).padStart(2, '0')}`;
 }
 
 function weekPresentation(

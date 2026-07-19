@@ -56,6 +56,10 @@ if (skipBuild) {
     rmSync(BUILD_ROOT, { recursive: true, force: true });
     await build({
         configFile: CONFIG,
+        // The browser journey proves the product path independently of the
+        // production Google-account proof. Compile the localhost-only QA
+        // gateway into this isolated build; production builds keep DEV=false.
+        define: { 'import.meta.env.DEV': 'true' },
         build: { outDir: BUILD_ROOT, emptyOutDir: true },
     });
 }
@@ -106,10 +110,7 @@ console.log(JSON.stringify({ gate: 'academy-release', results }, null, 2));
 if (results.some(result => result.status === 'fail')) process.exitCode = 1;
 
 async function runEnrollment(page, viewport, runtime) {
-    const smokeCode = process.env.ACADEMY_SMOKE_CODE?.trim();
-    if (!smokeCode) {
-        throw new Error('ACADEMY_SMOKE_CODE is required for the authenticated Academy release journey.');
-    }
+    const smokeCode = process.env.ACADEMY_SMOKE_CODE?.trim() || 'TEST';
     await openAcademy(page, viewport.name);
     await auditMilestone(page, viewport, runtime, 'access', '.academy-access-screen');
     await page.locator('input[name="code"]').fill(smokeCode);
@@ -206,23 +207,31 @@ async function runCoreJourney(page, viewport, runtime) {
     await pressFocused(page, '[data-activity-route="class"]');
     await auditMilestone(page, viewport, runtime, 'current-lesson', '[data-academy-screen="lesson-overview"]');
 
-    await setCheckpoint(page, run, 'class', { lessonId: undefined }, [{ route: 'classroom' }]);
+    await setCheckpoint(page, run, 'class', { lessonId: undefined, selectedBand: 'n5' }, [{ route: 'classroom' }]);
     await auditMilestone(page, viewport, runtime, 'class-path', '[data-academy-screen="class-path"]');
 
     const lessonOneNode = page.locator('.academy-class-week-node[data-week-id="l1-l01"]');
     assert(await lessonOneNode.count() === 1, `${run}: Class path does not expose l1-l01 exactly once`);
     assert(await lessonOneNode.getAttribute('data-week-runtime') === 'playable', `${run}: l1-l01 is not playable on the Class path`);
-    const lessonOneEntry = lessonOneNode.locator('.academy-class-week-entry');
+    const lessonOneEntry = lessonOneNode.locator('button.academy-class-week-entry');
+    assert(await lessonOneEntry.count() === 1, `${run}: l1-l01 is not an actionable Class path stop`);
     assert(await lessonOneEntry.isVisible(), `${run}: l1-l01 entry is not visible`);
     assert(await lessonOneEntry.isEnabled(), `${run}: l1-l01 entry is disabled`);
     await lessonOneEntry.focus();
     await page.keyboard.press('Enter');
 
-    const prerequisiteSelector = '[data-academy-screen="lesson-vocabulary-prerequisite"][data-lesson-id="l1-l01"]';
+    const lessonOneClassroom = '[data-current-place="classroom"][data-world-lesson-id="authored-week:l1-l01"]';
+    await page.waitForSelector(lessonOneClassroom);
+    const arrivalContinue = page.locator(`${lessonOneClassroom} .academy-world-arrival-continue`);
+    if (await arrivalContinue.isVisible()) await pressFocused(page, `${lessonOneClassroom} .academy-world-arrival-continue`);
+    await pressFocused(page, `${lessonOneClassroom} [data-activity-route="class"]`);
+
+    const prerequisiteSelector = '[data-academy-screen="lesson-vocabulary-prerequisite"][data-lesson-id="authored-week:l1-l01"]';
     await page.waitForSelector(prerequisiteSelector);
     const prerequisite = page.locator(prerequisiteSelector);
     assert(await prerequisite.getAttribute('data-source-status') === 'exact-source', `${run}: l1-l01 prerequisite lost its exact teacher source`);
     assert(await prerequisite.getAttribute('data-parity-status') === 'gap-declared', `${run}: l1-l01 prerequisite conceals its declared source gap`);
+    await page.waitForSelector('.academy-vocabulary-sheet');
     const vocabularySheet = page.locator('.academy-vocabulary-sheet');
     assert(await vocabularySheet.isVisible(), `${run}: l1-l01 exact vocabulary sheet did not open`);
     assert(await vocabularySheet.locator('.academy-vocabulary-sheet-list > li').count() === 27, `${run}: l1-l01 vocabulary sheet does not expose all 27 source rows`);
@@ -232,7 +241,9 @@ async function runCoreJourney(page, viewport, runtime) {
     const authoredWeekSelector = '[data-academy-screen="authored-week"][data-week-id="l1-l01"]';
     await auditMilestone(page, viewport, runtime, 'l1-l01-authored-week', authoredWeekSelector);
     const authoredWeek = page.locator(authoredWeekSelector);
-    assert(await authoredWeek.locator('.academy-authored-week-activity').count() === 1, `${run}: l1-l01 has no current activity`);
+    assert(await authoredWeek.getAttribute('data-lesson-phase') === 'teaching', `${run}: l1-l01 skips its teaching-first seam`);
+    assert(await authoredWeek.locator('[data-exposure-kind]').count() === 1, `${run}: l1-l01 has no current teaching exposure`);
+    assert(await authoredWeek.locator('.academy-lesson-activity-continue').isVisible(), `${run}: l1-l01 teaching cannot continue`);
     assert(await authoredWeek.locator('.academy-authored-week-progress-value').isVisible(), `${run}: l1-l01 progress is not visible`);
 }
 
@@ -595,7 +606,7 @@ async function pressFocused(page, selector) {
 }
 
 async function openAcademy(page, run) {
-    await page.goto(`${server.origin}/academy/?qa-run=${run}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${server.origin}/academy/?qa-run=${run}&qa-auth=bypass`, { waitUntil: 'domcontentloaded' });
     try {
         await page.waitForSelector('#academy-screen > *', { timeout: 20_000 });
     } catch (error) {

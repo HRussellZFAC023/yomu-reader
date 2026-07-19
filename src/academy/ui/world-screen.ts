@@ -1133,12 +1133,14 @@ export function renderJournalScreen(
     panel.classList.add('academy-journal-book');
     content.classList.add('academy-journal-book-content');
 
+    const bookControls = element('div', 'academy-journal-book-controls');
     const bookTabs = element('div', 'academy-journal-book-tabs');
     bookTabs.setAttribute('role', 'tablist');
     bookTabs.setAttribute('aria-label', language === 'ja' ? '日誌の項目' : 'Journal sections');
     const peopleTab = journalTab(language === 'ja' ? 'みんな' : 'People', true);
     const linesTab = journalTab(language === 'ja' ? '学習の記録' : 'Learning lines', false);
     bookTabs.append(peopleTab, linesTab);
+    bookControls.append(bookTabs);
 
     const bookIntro = element('p', 'academy-journal-book-intro');
     bookIntro.textContent = language === 'ja'
@@ -1173,13 +1175,13 @@ export function renderJournalScreen(
         page.replaceChildren(characterPage(language, definition, () => {
             page.hidden = true;
             directory.hidden = false;
-            bookTabs.hidden = false;
+            bookControls.hidden = false;
             bookIntro.hidden = false;
             if (bookFooter) bookFooter.hidden = false;
             directory.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.focus();
         }));
         directory.hidden = true;
-        bookTabs.hidden = true;
+        bookControls.hidden = true;
         bookIntro.hidden = true;
         if (learningLines) learningLines.hidden = true;
         if (bookFooter) bookFooter.hidden = true;
@@ -1191,7 +1193,7 @@ export function renderJournalScreen(
         profileSync.type = 'button';
         profileSync.textContent = language === 'ja' ? 'プロフィールと同期' : 'Profile & sync';
         profileSync.addEventListener('click', callbacks.onProfileSync);
-        bookTabs.append(profileSync);
+        bookControls.append(profileSync);
     }
     const recordedLines = 'characters' in state ? state.journalLines ?? [] : [];
     learningLines = journalLearningLines(language, recordedLines);
@@ -1217,7 +1219,7 @@ export function renderJournalScreen(
         (showLines ? linesTab : peopleTab).focus();
     });
 
-    content.append(bookIntro, bookTabs, directory, learningLines, page, bookFooter);
+    content.append(bookIntro, bookControls, directory, learningLines, page, bookFooter);
     return screen;
 }
 
