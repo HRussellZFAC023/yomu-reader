@@ -14,6 +14,7 @@ import { inferredInflectedSurfaceRubies } from '../dom';
 import { Logger } from '../app/logger';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from './pitch-meta';
 import { stablePositiveHashId } from '../core/stable-hash';
+import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../dom/constants';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -42,7 +43,7 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // instead — only when local term dictionaries exist, so Jiten-only users are
 // unaffected.
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々]/gu;
+const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
 function japaneseBatchCharCount(paragraphs: string[]): number {
     return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
@@ -976,7 +977,7 @@ function fallbackRepairGroupForToken(
 
 function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
     for (let index = start; index < end; index += 1) {
-        if (!JAPANESE_CHARACTER_RE.test(text[index] ?? '')) continue;
+        if (!HAS_JAPANESE.test(text[index] ?? '')) continue;
         if (!tokens.some(token => token.start <= index && index < token.end)) return true;
     }
     return false;
@@ -1003,7 +1004,7 @@ function renderableParserTokens(text: string, tokens: JPDBToken[]): JPDBToken[] 
             && token.start >= 0
             && token.end > token.start
             && token.end <= text.length
-            && JAPANESE_CHARACTER_RE.test(text.slice(token.start, token.end)))
+            && HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end)))
         .sort((first, second) => first.start - second.start
             || (second.end - second.start) - (first.end - first.start));
     const accepted: JPDBToken[] = [];

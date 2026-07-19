@@ -510,7 +510,7 @@ describe('Academy encrypted profile sync client', () => {
         const client = new AcademySyncClient({ events: createMemoryLearnerEventRepository(), request });
         await client.connect();
 
-        expect(await (await client.exportData()).text()).toContain('schemaVersion');
+        expect(await readBlobText(await client.exportData())).toContain('schemaVersion');
         await client.deleteRemoteData('profile');
         const deletion = request.mock.calls.find(([path, init]) => path === '/academy/api/profile' && init?.method === 'DELETE');
         expect(JSON.parse(String(deletion?.[1]?.body))).toEqual({ confirmation: 'delete-profile' });
@@ -868,6 +868,19 @@ function remoteEnvelope() {
 
 function response(value: unknown, status = 200): Response {
     return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
+}
+
+async function readBlobText(blob: Blob): Promise<string> {
+    // Node's native Blob has text(), while Vitest's jsdom Blob is a different
+    // realm and may omit it. FileReader is the browser-standard fallback and
+    // keeps this assertion about exported bytes rather than the test runtime.
+    if (typeof blob.text === 'function') return blob.text();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.onerror = () => reject(reader.error ?? new Error('Could not read exported Academy profile data.'));
+        reader.readAsText(blob);
+    });
 }
 
 function memoryStorage(seed?: string): AcademySyncStorage {

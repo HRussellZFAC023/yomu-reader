@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -114,10 +115,17 @@ describe('grounded Academy audio registry', () => {
         const end = source.indexOf("\n\nself.addEventListener('install'", start);
         const cachedAudioResponse = new Function(
             `${source.slice(start, end)}; return cachedAudioResponse;`,
-        )() as (response: Response, range: string | null) => Promise<Response>;
-        const media = () => new Response(Uint8Array.from({ length: 10 }, (_, index) => index), {
-            status: 200,
-            headers: { 'content-type': 'audio/flac', 'content-length': '10' },
+        )() as (
+            response: { readonly headers: Headers; blob(): Promise<NodeBlob> },
+            range: string | null,
+        ) => Promise<Response>;
+        // jsdom's Blob is a separate realm that Node 24's Response stringifies.
+        // Return the native body directly so this tests byte slicing, not realm interop.
+        const media = () => ({
+            headers: new Headers({ 'content-type': 'audio/flac', 'content-length': '10' }),
+            blob: async () => new NodeBlob([
+                Uint8Array.from({ length: 10 }, (_, index) => index),
+            ]),
         });
 
         const middle = await cachedAudioResponse(media(), 'bytes=2-5');

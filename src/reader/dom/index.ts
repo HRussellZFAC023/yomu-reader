@@ -55,7 +55,7 @@ import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, resetDecorationPolicyCachesForTest } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
 import { ensureReaderStylesForHost } from './shadow-styles';
-import { noteScannedShadowRoot } from './shadow-scan-registry';
+import { noteScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
@@ -481,7 +481,9 @@ export function documentHasJapaneseText(limit = 200000): boolean {
         const root = roots.shift()!;
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
         for (let node = walker.nextNode(); node && inspected < limit; inspected += 1, node = walker.nextNode()) {
-            const shadowRoot = (node as HTMLElement).shadowRoot;
+            const element = node as HTMLElement;
+            watchPotentialOpenShadowRootHost(element);
+            const shadowRoot = element.shadowRoot;
             if (!shadowRoot) continue;
             noteScannedShadowRoot(shadowRoot);
             roots.push(shadowRoot);
@@ -980,6 +982,7 @@ const SHADOW_SCAN_MAX_DEPTH = 4;
 const SHADOW_JAPANESE_LOOKAHEAD_ELEMENT_LIMIT = 160;
 
 function visitFragmentShadowRoot(element: HTMLElement, state: FragmentTextCollectionState): void {
+    watchPotentialOpenShadowRootHost(element);
     // element.shadowRoot is null for a closed root (mode:'closed') — silently
     // skip, it is unreachable and not an error.
     const shadowRoot = element.shadowRoot;

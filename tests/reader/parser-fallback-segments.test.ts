@@ -20,6 +20,45 @@ function surfaces(text: string): string[] {
     return fallbackJapaneseSegments(text).map(segment => segment.surface);
 }
 
+function publicProviderToken(text: string, spelling: string, start: number, end: number): JPDBToken {
+    return {
+        card: {
+            vid: start + 1,
+            sid: 1,
+            rid: 0,
+            spelling,
+            reading: '',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jiten',
+        },
+        start,
+        end,
+        length: end - start,
+        rubies: [],
+        pitchClass: '',
+        sentence: text,
+    };
+}
+
+function parserWithPublicVocabulary(parse: (paragraphs: readonly string[]) => Promise<JPDBToken[][]>): ReaderParser {
+    return new ReaderParser({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+        }),
+        jpdb: {} as never,
+        jitenPublicVocabulary: { parse },
+        dictionaries: {} as never,
+    });
+}
+
 describe('fallback Japanese segmentation coherence (P0-02)', () => {
     it('does not leave a dangling さし stem for ややさしい', () => {
         const segs = surfaces('ややさしい');
@@ -42,6 +81,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('じかん')).toEqual(['じかん']);
         expect(surfaces('がっこう')).toEqual(['がっこう']);
         expect(surfaces('たべもの')).toEqual(['たべもの']);
+        expect(surfaces('ｶﾀｶﾅ')).toEqual(['ｶﾀｶﾅ']);
     });
 
     it('keeps a real particle boundary when merging kana-only runs', () => {
@@ -340,6 +380,45 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
 
         expect(tokens.map(token => ({ start: token.start, end: token.end, surface: text.slice(token.start, token.end) })))
             .toEqual([{ start: 2, end: 4, surface: '日本' }]);
+    });
+
+    it('preserves valid halfwidth-katakana provider coverage in a mixed paragraph', async () => {
+        const text = '日本 ｶﾀｶﾅ';
+        const providerTokens = [
+            publicProviderToken(text, '日本', 0, 2),
+            publicProviderToken(text, 'ｶﾀｶﾅ', 3, 7),
+        ];
+        const parser = parserWithPublicVocabulary(vi.fn(async () => [providerTokens]));
+
+        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(tokens).toEqual(providerTokens);
+    });
+
+    it('fills a halfwidth-katakana tail omitted by the provider', async () => {
+        const text = '日本 ｶﾀｶﾅ';
+        const parser = parserWithPublicVocabulary(vi.fn(async () => [[
+            publicProviderToken(text, '日本', 0, 2),
+        ]]));
+
+        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(tokens.map(token => text.slice(token.start, token.end))).toEqual(['日本', 'ｶﾀｶﾅ']);
+    });
+
+    it('repairs overlapping provider coverage without leaving halfwidth kana raw', async () => {
+        const text = '日本ｶﾀ';
+        const parser = parserWithPublicVocabulary(vi.fn(async () => [[
+            publicProviderToken(text, '本ｶﾀ', 1, 4),
+        ]]));
+
+        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(tokens.map(token => ({ start: token.start, end: token.end, surface: text.slice(token.start, token.end) })))
+            .toEqual([
+                { start: 0, end: 2, surface: '日本' },
+                { start: 2, end: 4, surface: 'ｶﾀ' },
+            ]);
     });
 
     it('parses 好きなものを読む coherently', () => {

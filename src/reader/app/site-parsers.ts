@@ -1139,11 +1139,12 @@ export interface SiteScanOptions {
     // Silent auto-scans set this so hosts whose text mirror already renders
     // the same text are skipped at collection time instead of re-parsed.
     skipMirroredHosts?: boolean;
-    // Continuation scans can skip an already-attempted, still-unmirrored head
-    // without letting those failed targets consume the collection cap again.
-    // The collector admits this many extra leading targets, then returns the
-    // following window; profile scanLimit caps grow by the same bounded offset.
-    skipLeadingTargets?: number;
+    // Continuation scans can exclude exact already-attempted, still-unmirrored
+    // targets without letting them consume the collection cap again. The count
+    // supplies bounded admission headroom; the predicate preserves correctness
+    // when the DOM reorders or long source targets split into parse chunks.
+    skipTarget?: (target: ScanTextTarget) => boolean;
+    skipTargetCount?: number;
 }
 
 // The scanner's continuation gate must compare against the limit collection
@@ -1193,7 +1194,7 @@ interface SiteScanContext {
 
 function createSiteScanContext(profiles: SiteParserProfile[], limit: number, options: SiteScanOptions = {}): SiteScanContext {
     return {
-        effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipLeadingTargets ?? 0),
+        effectiveLimit: effectiveScanTargetLimit(profiles, limit, options.skipTargetCount ?? 0),
         targets: [],
         seen: new Set(),
         skipMirroredHosts: Boolean(options.skipMirroredHosts),
@@ -1516,16 +1517,17 @@ export function collectScanTargetsInSteps(
 const DEFERRED_SHADOW_SCAN_MAX_ROUNDS = 8;
 
 function* scanTargetCollectionSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
-    const skipLeadingTargets = Math.max(0, Math.floor(options.skipLeadingTargets ?? 0));
-    const collectionLimit = limit + skipLeadingTargets;
+    const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
+    const collectionLimit = limit + skipTargetCount;
     const matchingProfiles = getMatchingSiteParsers(href);
     const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
     const withDeferred = yield* withDeferredShadowScanTargets(
         targets,
-        effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipLeadingTargets),
+        effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
         matchingProfiles,
     );
-    return skipLeadingTargets ? withDeferred.slice(skipLeadingTargets, skipLeadingTargets + limit) : withDeferred;
+    const eligible = options.skipTarget ? withDeferred.filter(target => !options.skipTarget!(target)) : withDeferred;
+    return eligible.slice(0, limit);
 }
 
 // Depth-capped shadow hosts queued during any phase above get a bounded
@@ -1570,7 +1572,7 @@ function* withDeferredShadowScanTargets(
 function* scanTargetPhaseSteps(limit: number, href: string, options: SiteScanOptions): Generator<void, ScanTextTarget[]> {
     const matchingProfiles = getMatchingSiteParsers(href);
     const effectiveLimit = matchingProfiles.length
-        ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipLeadingTargets ?? 0)
+        ? effectiveScanTargetLimit(matchingProfiles, limit, options.skipTargetCount ?? 0)
         : limit;
     const profilePhaseLimit = profilePhaseTargetLimit(matchingProfiles, effectiveLimit);
     const siteTargets = yield* completeSiteScanTargetSteps(matchingProfiles, profilePhaseLimit, href, options);

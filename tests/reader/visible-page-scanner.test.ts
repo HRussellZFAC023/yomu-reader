@@ -93,9 +93,21 @@ describe('VisiblePageScanner', () => {
 
     it('continues beyond the collection cap when every attempted batch rejects twice', async () => {
         const restoreRects = mockVisibleElementRects();
-        document.body.innerHTML = Array.from({ length: 250 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        document.body.innerHTML = Array.from({ length: 250 }, (_, index) => (
+            `<p id="paragraph-${index}">${index === 0
+                ? `日本語の文0です。${'長い本文です。'.repeat(300)}`
+                : `日本語の文${index}`}</p>`
+        )).join('');
         const parseJapanese = vi.fn(async (paragraphs: string[]) => {
-            if (parseJapanese.mock.calls.length <= 6) throw new Error('unrecoverable capped head');
+            if (parseJapanese.mock.calls.length <= 6) {
+                // Move a failed source between the capped pass and its
+                // continuation. Continuations must exclude the exact source
+                // nodes that failed, not an ordinal prefix of the new DOM.
+                if (parseJapanese.mock.calls.length === 6) {
+                    document.body.append(document.querySelector('#paragraph-0')!);
+                }
+                throw new Error('unrecoverable capped head');
+            }
             return paragraphs.map(text => [testToken(text, text, 0, text.length)]);
         });
         const scanner = createVisiblePageScanner({ parseJapanese });
@@ -103,9 +115,11 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            await vi.waitFor(() => expect(document.querySelector('p:last-child .jpdb-reader-word')).not.toBeNull(), { timeout: 10_000 });
+            await vi.waitFor(() => {
+                expect(document.querySelector('#paragraph-200 .jpdb-reader-word')).not.toBeNull();
+                expect(document.querySelector('#paragraph-249 .jpdb-reader-word')).not.toBeNull();
+            }, { timeout: 10_000 });
             expect(parseJapanese.mock.calls.length).toBeGreaterThan(6);
-            expect(document.querySelectorAll('.jpdb-reader-word').length).toBeGreaterThan(0);
         } finally {
             scanner.destroy();
             restoreRects();

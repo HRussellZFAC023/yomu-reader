@@ -1,10 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { collectFragmentTextTargetsIn } from '../../src/reader/dom';
-import { forEachScannedShadowRoot, noteScannedShadowRoot, setShadowRootScanHook } from '../../src/reader/dom/shadow-scan-registry';
+import {
+    forEachScannedShadowRoot,
+    installOpenShadowRootDiscovery,
+    noteScannedShadowRoot,
+    setShadowRootScanHook,
+    watchUndefinedCustomElementHosts,
+} from '../../src/reader/dom/shadow-scan-registry';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayContainJapaneseText } from '../../src/reader/app/mutation-scan';
 
+const shadowRootDiscoveryDisposers: Array<() => void> = [];
+
 afterEach(() => {
+    while (shadowRootDiscoveryDisposers.length) shadowRootDiscoveryDisposers.pop()?.();
     setShadowRootScanHook(null);
     document.body.innerHTML = '';
 });
@@ -95,7 +104,78 @@ describe('shadow scan registry', () => {
         await Promise.resolve();
 
         expect(records.some(record => mutationMayContainJapaneseText(record))).toBe(true);
-        expect(discovered).toHaveBeenCalledWith(root);
+        expect(discovered).toHaveBeenCalledWith(root, 'scan');
         observer.disconnect();
+    });
+
+    it('discovers and observes an open root attached after its host was inserted', async () => {
+        const discovered = vi.fn();
+        const records: MutationRecord[] = [];
+        const observer = new MutationObserver(mutations => records.push(...mutations));
+        setShadowRootScanHook(root => {
+            discovered(root);
+            observer.observe(root, AUTO_SCAN_OBSERVER_OPTIONS);
+        });
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const host = document.createElement('late-upgrade-component');
+        document.body.append(host);
+
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>ﾌｨｰﾄﾞ</button>';
+        await Promise.resolve();
+
+        expect(discovered).toHaveBeenCalledTimes(1);
+        expect(discovered).toHaveBeenCalledWith(root);
+        expect(records.some(record => mutationMayContainJapaneseText(record))).toBe(true);
+        observer.disconnect();
+    });
+
+    it('discovers a page-realm-style attachment that bypasses the content-world wrapper', async () => {
+        const originalAttachShadow = Element.prototype.attachShadow;
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        shadowRootDiscoveryDisposers.push(installOpenShadowRootDiscovery());
+        const host = document.createElement('cross-realm-component');
+        document.body.append(host);
+        watchUndefinedCustomElementHosts();
+
+        // Calling the captured original simulates a page realm whose Element
+        // prototype is distinct from the userscript content world.
+        const root = originalAttachShadow.call(host, { mode: 'open' });
+        root.innerHTML = '<button>フィード</button>';
+
+        await vi.waitFor(() => expect(discovered).toHaveBeenCalledWith(root, 'attached'));
+    });
+
+    it('reference-counts discovery installs and restores attachShadow after cleanup', () => {
+        const originalAttachShadow = Element.prototype.attachShadow;
+        const discovered = vi.fn();
+        setShadowRootScanHook(discovered);
+        const disposeFirst = installOpenShadowRootDiscovery();
+        const wrappedAttachShadow = Element.prototype.attachShadow;
+        const disposeSecond = installOpenShadowRootDiscovery();
+        shadowRootDiscoveryDisposers.push(disposeFirst, disposeSecond);
+
+        expect(wrappedAttachShadow).not.toBe(originalAttachShadow);
+        expect(Element.prototype.attachShadow).toBe(wrappedAttachShadow);
+        disposeFirst();
+        expect(Element.prototype.attachShadow).toBe(wrappedAttachShadow);
+
+        const openHost = document.createElement('open-component');
+        document.body.append(openHost);
+        const openRoot = openHost.attachShadow({ mode: 'open' });
+        expect(discovered).toHaveBeenCalledWith(openRoot, 'attached');
+
+        const closedHost = document.createElement('closed-component');
+        document.body.append(closedHost);
+        closedHost.attachShadow({ mode: 'closed' });
+        expect(discovered).toHaveBeenCalledTimes(1);
+
+        disposeSecond();
+        expect(Element.prototype.attachShadow).toBe(originalAttachShadow);
+        const afterCleanupHost = document.createElement('after-cleanup-component');
+        document.body.append(afterCleanupHost);
+        afterCleanupHost.attachShadow({ mode: 'open' });
+        expect(discovered).toHaveBeenCalledTimes(1);
     });
 });

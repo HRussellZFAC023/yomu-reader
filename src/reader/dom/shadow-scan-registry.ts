@@ -8,23 +8,187 @@
 
 const scannedShadowRootRefs = new Set<WeakRef<ShadowRoot>>();
 const scannedShadowRoots = new WeakSet<ShadowRoot>();
-let shadowRootScanHook: ((root: ShadowRoot) => void) | null = null;
+export type ShadowRootDiscoveryCause = 'scan' | 'attached' | 'replay';
+let shadowRootScanHook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null = null;
+
+const POTENTIAL_SHADOW_HOST_POLL_MS = 100;
+const POTENTIAL_SHADOW_HOST_LIFETIME_MS = 10_000;
+
+interface PotentialShadowHost {
+    ref: WeakRef<Element>;
+    expiresAt: number;
+}
+
+const potentialShadowHosts = new Set<PotentialShadowHost>();
+const seenPotentialShadowHosts = new WeakSet<Element>();
+let potentialShadowHostTimer: number | undefined;
+
+interface AttachShadowDiscoveryInstallation {
+    prototype: typeof Element.prototype;
+    originalDescriptor: PropertyDescriptor;
+    wrapped: typeof Element.prototype.attachShadow;
+    users: number;
+    active: boolean;
+}
+
+let attachShadowDiscoveryInstallation: AttachShadowDiscoveryInstallation | undefined;
 
 // Called by the fragment walk for every open shadow root it descends into.
 // Idempotent per root; invokes the app hook immediately for new roots.
 export function noteScannedShadowRoot(root: ShadowRoot): void {
+    noteShadowRoot(root, 'scan');
+}
+
+function noteShadowRoot(root: ShadowRoot, cause: ShadowRootDiscoveryCause): void {
     if (scannedShadowRoots.has(root)) return;
     scannedShadowRoots.add(root);
     scannedShadowRootRefs.add(new WeakRef(root));
-    shadowRootScanHook?.(root);
+    shadowRootScanHook?.(root, cause);
+}
+
+// Content-world userscripts and page scripts have different JavaScript
+// prototypes in Chromium/WebKit. Wrapping the userscript realm's attachShadow
+// is therefore only the synchronous fast path; it cannot see a page-realm
+// custom-element upgrade. Record custom-element hosts encountered by the
+// generic DOM walk and poll their shared DOM `shadowRoot` property for a short,
+// bounded hydration window. This crosses the realm boundary without injecting
+// page code or weakening CSP, and an attached root is then observed normally.
+export function watchPotentialOpenShadowRootHost(host: Element): void {
+    if (host.shadowRoot) {
+        noteShadowRoot(host.shadowRoot, 'scan');
+        return;
+    }
+    if (!host.localName.includes('-') || seenPotentialShadowHosts.has(host)) return;
+    seenPotentialShadowHosts.add(host);
+    potentialShadowHosts.add({
+        ref: new WeakRef(host),
+        expiresAt: Date.now() + POTENTIAL_SHADOW_HOST_LIFETIME_MS,
+    });
+    schedulePotentialShadowHostPoll();
+}
+
+// Seed hosts that were already in the document when the reader started but
+// have not upgraded yet. `:not(:defined)` is a browser-native custom-element
+// index, avoiding the expensive second all-elements walk that dense pages paid
+// before the startup scan fast path was introduced.
+export function watchUndefinedCustomElementHosts(root: ParentNode = document): void {
+    try {
+        root.querySelectorAll<Element>(':not(:defined)').forEach(watchPotentialOpenShadowRootHost);
+    } catch {
+        // Older engines without :defined still get mutation-time and scan-time
+        // discovery plus the synchronous attachShadow fast path.
+    }
+}
+
+// A host can be inserted before its component upgrades and calls attachShadow().
+// That later attachment is not itself a DOM mutation, so neither the document
+// observer nor a walk of the earlier insertion can discover the new root. Keep
+// one narrowly scoped wrapper installed while the reader is alive and register
+// newly attached open roots at creation time. The install is reference-counted
+// so repeated app setup/teardown cannot stack wrappers or restore one too early.
+export function installOpenShadowRootDiscovery(): () => void {
+    const existing = attachShadowDiscoveryInstallation;
+    if (existing) {
+        existing.users += 1;
+        return attachShadowDiscoveryDisposer(existing);
+    }
+
+    const prototype = Element.prototype;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(prototype, 'attachShadow');
+    const original = originalDescriptor?.value;
+    if (!originalDescriptor || typeof original !== 'function') return () => undefined;
+
+    let installation: AttachShadowDiscoveryInstallation;
+    const wrapped: typeof Element.prototype.attachShadow = function (this: Element, init: ShadowRootInit): ShadowRoot {
+        const root = Reflect.apply(original, this, [init]) as ShadowRoot;
+        if (installation.active && root.mode === 'open') noteShadowRoot(root, 'attached');
+        return root;
+    };
+    installation = {
+        prototype,
+        originalDescriptor,
+        wrapped,
+        users: 1,
+        active: true,
+    };
+    try {
+        Object.defineProperty(prototype, 'attachShadow', {
+            ...originalDescriptor,
+            value: wrapped,
+        });
+    } catch {
+        // A hardened host may make the method non-configurable/non-writable.
+        // Keep the cross-realm host watcher active even when the synchronous
+        // wrapper cannot be installed.
+        attachShadowDiscoveryInstallation = installation;
+        schedulePotentialShadowHostPoll();
+        return attachShadowDiscoveryDisposer(installation);
+    }
+    attachShadowDiscoveryInstallation = installation;
+    schedulePotentialShadowHostPoll();
+    return attachShadowDiscoveryDisposer(installation);
+}
+
+function attachShadowDiscoveryDisposer(installation: AttachShadowDiscoveryInstallation): () => void {
+    let disposed = false;
+    return () => {
+        if (disposed) return;
+        disposed = true;
+        installation.users -= 1;
+        if (installation.users > 0 || attachShadowDiscoveryInstallation !== installation) return;
+        installation.active = false;
+        // Do not clobber a wrapper installed by the host or another extension
+        // after ours. Such a wrapper may still delegate to ours safely.
+        if (installation.prototype.attachShadow === installation.wrapped) {
+            try {
+                Object.defineProperty(installation.prototype, 'attachShadow', installation.originalDescriptor);
+            } catch {
+                // The page may have hardened the property after installation.
+                // The inactive wrapper still delegates without registering roots.
+            }
+        }
+        attachShadowDiscoveryInstallation = undefined;
+        window.clearTimeout(potentialShadowHostTimer);
+        potentialShadowHostTimer = undefined;
+        for (const pending of potentialShadowHosts) {
+            const host = pending.ref.deref();
+            if (host) seenPotentialShadowHosts.delete(host);
+        }
+        potentialShadowHosts.clear();
+    };
+}
+
+function schedulePotentialShadowHostPoll(): void {
+    if (!attachShadowDiscoveryInstallation?.active
+        || potentialShadowHostTimer !== undefined
+        || !potentialShadowHosts.size) return;
+    potentialShadowHostTimer = window.setTimeout(pollPotentialShadowHosts, POTENTIAL_SHADOW_HOST_POLL_MS);
+}
+
+function pollPotentialShadowHosts(): void {
+    potentialShadowHostTimer = undefined;
+    const now = Date.now();
+    for (const pending of potentialShadowHosts) {
+        const host = pending.ref.deref();
+        if (!host || !host.isConnected || pending.expiresAt <= now) {
+            potentialShadowHosts.delete(pending);
+            if (host) seenPotentialShadowHosts.delete(host);
+            continue;
+        }
+        if (!host.shadowRoot) continue;
+        potentialShadowHosts.delete(pending);
+        seenPotentialShadowHosts.delete(host);
+        noteShadowRoot(host.shadowRoot, 'attached');
+    }
+    schedulePotentialShadowHostPoll();
 }
 
 // The app installs one hook (observe the root with the auto-scan observer).
 // Roots discovered before the hook was installed are replayed so boot-order
 // does not matter. Passing null detaches (destroy path).
-export function setShadowRootScanHook(hook: ((root: ShadowRoot) => void) | null): void {
+export function setShadowRootScanHook(hook: ((root: ShadowRoot, cause: ShadowRootDiscoveryCause) => void) | null): void {
     shadowRootScanHook = hook;
-    if (hook) forEachScannedShadowRoot(hook);
+    if (hook) forEachScannedShadowRoot(root => hook(root, 'replay'));
 }
 
 // Enumerate live registered roots (used to re-attach after the observer is

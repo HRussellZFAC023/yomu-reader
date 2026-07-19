@@ -6,6 +6,18 @@ import {
     mutationMayContainJapaneseText,
 } from '../../src/reader/app/mutation-scan';
 import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../../src/reader/app/main-helpers';
+import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../../src/reader/dom/constants';
+
+describe('shared Japanese script gates', () => {
+    it('include half-width kana, the prolonged mark, and dakuten', () => {
+        expect(HAS_JAPANESE.test('ｶ')).toBe(true);
+        expect(HAS_JAPANESE.test('ｰ')).toBe(true);
+        expect(HAS_JAPANESE.test('ﾞ')).toBe(true);
+        expect(HAS_JAPANESE.test('ﾟ')).toBe(true);
+        expect(HAS_JAPANESE_LETTER.test('ｶ')).toBe(true);
+        expect(HAS_JAPANESE_LETTER.test('ﾞ')).toBe(false);
+    });
+});
 
 // Class E, mechanism 1: menu/sheet reveals happen via style/class flips after
 // first construction (YouTube player settings menu, m.youtube bottom sheets
@@ -77,6 +89,19 @@ describe('auto-scan observer style/class reveal detection (class E)', () => {
         insertion.innerHTML = '<span>Settings</span><span>Playback speed</span>';
 
         expect(mutationMayContainJapaneseText(childListMutation(document.body, insertion))).toBe(false);
+    });
+
+    it('treats half-width katakana text changes as Japanese', () => {
+        const text = document.createTextNode('ﾌｨｰﾄﾞ');
+
+        expect(mutationMayContainJapaneseText(characterDataMutation(text))).toBe(true);
+    });
+
+    it('finds half-width katakana inside an inserted subtree', () => {
+        const insertion = document.createElement('section');
+        insertion.innerHTML = '<span>Playback</span><span>ｶﾀｶﾅ</span>';
+
+        expect(mutationMayContainJapaneseText(childListMutation(document.body, insertion))).toBe(true);
     });
 });
 
@@ -159,6 +184,20 @@ function childListMutation(target: Node, ...addedNodes: Node[]): MutationRecord 
         attributeName: null,
         oldValue: null,
         addedNodes: addedNodes as unknown as NodeList,
+        removedNodes: emptyNodeList(),
+        previousSibling: null,
+        nextSibling: null,
+        attributeNamespace: null,
+    } as unknown as MutationRecord;
+}
+
+function characterDataMutation(target: Node): MutationRecord {
+    return {
+        type: 'characterData',
+        target,
+        attributeName: null,
+        oldValue: null,
+        addedNodes: emptyNodeList(),
         removedNodes: emptyNodeList(),
         previousSibling: null,
         nextSibling: null,

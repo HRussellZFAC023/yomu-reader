@@ -82,8 +82,7 @@ interface VisiblePageCoverageAccumulator {
 }
 
 interface VisibleScanParseSummary {
-    parsedAnyTokens: boolean;
-    unparsedTargets: number;
+    unparsedTargets: ScanTextTarget[];
 }
 
 export interface VisiblePageScannerDependencies {
@@ -124,7 +123,9 @@ export class VisiblePageScanner {
     // already-mirrored head is skipped at the next collection), but a page
     // whose head never mirrors could otherwise re-walk forever — bound it.
     private continuationScans = 0;
-    private continuationSkippedTargets = 0;
+    private continuationFailedTargetKeys = new Set<string>();
+    private continuationTargetNodeIds = new WeakMap<Node, number>();
+    private nextContinuationTargetNodeId = 1;
     private asbScanInFlight = false;
     private asbDrainTimer?: number;
     private clampSweepTimer: number | undefined;
@@ -148,8 +149,7 @@ export class VisiblePageScanner {
         this.scanGeneration++;
         this.scanPending = false;
         this.scanPendingSilent = true;
-        this.continuationScans = 0;
-        this.continuationSkippedTargets = 0;
+        this.resetContinuationState();
     }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
@@ -296,10 +296,10 @@ export class VisiblePageScanner {
         const collection = this.collectScanTargetsWithFrameBudget(targetCollectionLimit, generation, silent);
         const collected = Array.isArray(collection) ? collection : await collection;
         if (!collected || this.isStaleScan(generation)) return;
-        const targets = chunkLongScanTargets(collected, settings);
+        const chunkGroups = collected.map(source => ({ source, chunks: chunkLongScanTarget(source, settings) }));
+        const targets = chunkGroups.flatMap(group => group.chunks);
         if (!targets.length) {
-            this.continuationScans = 0;
-            this.continuationSkippedTargets = 0;
+            this.resetContinuationState();
             this.handleEmptyVisiblePageScan(silent);
             return;
         }
@@ -307,15 +307,17 @@ export class VisiblePageScanner {
         const parseSummary = await this.parseAndApplyTargets(targets, generation, settings);
         if (this.isStaleScan(generation)) return;
         const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-        const skippedFailedHead = this.continuationSkippedTargets > 0;
-        if ((targets.length >= effectiveCollectionLimit || skippedFailedHead)
+        const hadFailedHead = this.continuationFailedTargetKeys.size > 0;
+        if ((collected.length >= effectiveCollectionLimit || hadFailedHead)
             && this.canQueueContinuationScan(targets, silent)) {
-            this.continuationSkippedTargets += parseSummary.unparsedTargets;
+            const unparsed = new Set(parseSummary.unparsedTargets);
+            chunkGroups
+                .filter(group => group.chunks.length > 0 && group.chunks.every(chunk => unparsed.has(chunk)))
+                .forEach(group => this.continuationFailedTargetKeys.add(this.continuationTargetKey(group.source)));
             this.queueContinuationScan(silent);
             return;
         }
-        this.continuationScans = 0;
-        this.continuationSkippedTargets = 0;
+        this.resetContinuationState();
         this.reportVisiblePageCoverage(silent);
     }
 
@@ -346,7 +348,8 @@ export class VisiblePageScanner {
     ): ScanTextTarget[] | Promise<ScanTextTarget[] | undefined> {
         const steps = collectScanTargetsInSteps(limit, window.location.href, {
             skipMirroredHosts: silent,
-            skipLeadingTargets: this.continuationSkippedTargets,
+            skipTargetCount: this.continuationFailedTargetKeys.size,
+            skipTarget: target => this.continuationFailedTargetKeys.has(this.continuationTargetKey(target)),
         });
         let sliceStartedAt = Date.now();
         for (;;) {
@@ -387,19 +390,19 @@ export class VisiblePageScanner {
 
     private async parseAndApplyTargetsSequentially(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
         let cursor = 0;
-        let parsedAnyTokens = false;
-        let unparsedTargets = 0;
+        const unparsedTargets: ScanTextTarget[] = [];
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
         while (cursor < targets.length) {
-            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
+            if (this.isStaleScan(generation)) return { unparsedTargets };
             const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
             cursor = next.cursor;
             if (!next.batch.length) continue;
             const batch = next.batch;
             const parsed = await this.parseVisibleScanBatch(batch, generation);
-            if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
-            unparsedTargets += parsed.filter(tokens => tokens.length === 0).length;
-            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
+            parsed.forEach((tokens, index) => {
+                if (!tokens.length && batch[index]) unparsedTargets.push(batch[index]);
+            });
+            if (this.isStaleScan(generation)) return { unparsedTargets };
             // Keep semantic overrides, pitch/status enrichment, DOM apply, and
             // preload identical to the prefetch path. This used to be duplicated
             // here, which meant ordinary sequential scans skipped authored
@@ -407,13 +410,12 @@ export class VisiblePageScanner {
             await this.applyParsedBatch(batch, parsed, scanStartSettings, generation);
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return { parsedAnyTokens, unparsedTargets };
+        return { unparsedTargets };
     }
 
     private async parseAndApplyTargetsWithPrefetch(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<VisibleScanParseSummary> {
         let cursor = 0;
-        let parsedAnyTokens = false;
-        let unparsedTargets = 0;
+        const unparsedTargets: ScanTextTarget[] = [];
         const pending: VisibleScanParseWork[] = [];
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
         const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
@@ -431,18 +433,19 @@ export class VisiblePageScanner {
 
         schedule();
         while (pending.length) {
-            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
+            if (this.isStaleScan(generation)) return { unparsedTargets };
             const work = pending.shift()!;
             const result = await work.result;
             const parsed = result.parsed;
-            if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
-            unparsedTargets += parsed.filter(tokens => tokens.length === 0).length;
-            if (this.isStaleScan(generation)) return { parsedAnyTokens, unparsedTargets };
+            parsed.forEach((tokens, index) => {
+                if (!tokens.length && work.batch[index]) unparsedTargets.push(work.batch[index]);
+            });
+            if (this.isStaleScan(generation)) return { unparsedTargets };
             await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
             schedule();
             if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
         }
-        return { parsedAnyTokens, unparsedTargets };
+        return { unparsedTargets };
     }
 
     private async parseVisibleScanBatch(batch: ScanTextTarget[], generation: number): Promise<JPDBToken[][]> {
@@ -610,6 +613,34 @@ export class VisiblePageScanner {
         this.scanPendingSilent = this.scanPendingSilent && silent;
     }
 
+    private resetContinuationState(): void {
+        this.continuationScans = 0;
+        this.continuationFailedTargetKeys.clear();
+        this.continuationTargetNodeIds = new WeakMap<Node, number>();
+        this.nextContinuationTargetNodeId = 1;
+    }
+
+    private continuationTargetKey(target: ScanTextTarget): string {
+        if (!isFragmentTextTarget(target)) {
+            return `node:${this.continuationNodeId(target.node)}\u0000${target.text}`;
+        }
+        const source = target.fragments.length
+            ? target.fragments
+                .map(fragment => `${this.continuationNodeId(fragment.node)}:${fragment.start}:${fragment.end}`)
+                .join(',')
+            : `parent:${this.continuationNodeId(target.parent)}`;
+        return `${source}\u0000${target.text}\u0000${target.parserId ?? ''}`;
+    }
+
+    private continuationNodeId(node: Node): number {
+        const existing = this.continuationTargetNodeIds.get(node);
+        if (existing !== undefined) return existing;
+        const id = this.nextContinuationTargetNodeId;
+        this.nextContinuationTargetNodeId += 1;
+        this.continuationTargetNodeIds.set(node, id);
+        return id;
+    }
+
     private syncPageFuriganaMode(): void {
         if (typeof document === 'undefined') return;
         const settings = this.dependencies.getSettings();
@@ -707,10 +738,6 @@ function scanParseOptions(settings: ReaderSettings, _targets: ScanTextTarget[] =
 
 function canContinueVisibleScan(targets: ScanTextTarget[]): boolean {
     return targets.some(target => !target.singlePassScan);
-}
-
-function chunkLongScanTargets(targets: ScanTextTarget[], settings: ReaderSettings): ScanTextTarget[] {
-    return targets.flatMap(target => chunkLongScanTarget(target, settings));
 }
 
 function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): ScanTextTarget[] {
