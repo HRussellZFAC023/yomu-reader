@@ -259,6 +259,56 @@ describe('World Cafe route', () => {
         });
     });
 
+    it('persists a completed world practice in place when route-local save is available', async () => {
+        let current: HTMLElement | undefined;
+        const shell = {
+            screen: document.createElement('main'),
+            replace(view: HTMLElement) { current = view; },
+            setLanguage() {}, setNavigation() {}, setLearnerActionsVisible() {}, setClassBoardAccess() {},
+            setPresentationMode() {}, setMuted() {}, announce() {}, dispose() {},
+        } satisfies AcademyShell;
+        const save = vi.fn(async () => undefined);
+        const go = vi.fn(async () => undefined);
+        const flow = createWorldFlow({
+            evidence: {} as never,
+            pronunciation: {} as never,
+            audio: {} as never,
+        });
+
+        await flow.render('cafe', {
+            language: 'en',
+            checkpoint: {
+                schemaVersion: 2,
+                route: 'cafe',
+                routeHistory: [{ route: 'campus' }],
+                presentationMode: 'course',
+                selectedFork: 'speaking',
+                updatedAt: 1,
+            },
+            projection: projectLearnerRecord([]),
+            shell,
+            go,
+            back: vi.fn(async () => undefined),
+            save,
+        });
+
+        const mounted = current!;
+        mounted.querySelector<HTMLButtonElement>('[data-cafe-primary-action="listen"]')?.click();
+        worldChoiceButtonByLabel(
+            mounted.querySelector('[data-world-practice="cafe-coffee-price"]')!,
+            '三百円',
+        )?.click();
+
+        expect(save).toHaveBeenCalledWith({
+            seenIntroductions: ['action:world-stamp:cafe'],
+        });
+        expect(go).not.toHaveBeenCalled();
+        expect(current).toBe(mounted);
+        expect(mounted.querySelector<HTMLElement>('[data-world-practice="cafe-coffee-price"]')
+            ?.dataset.practiceComplete).toBe('true');
+        expect(mounted.textContent).toContain('You heard that the coffee costs 300 yen.');
+    });
+
     it('records Street route replay evidence with its taught-source provenance', async () => {
         let current: HTMLElement | undefined;
         const shell = {

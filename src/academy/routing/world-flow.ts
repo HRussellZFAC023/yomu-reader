@@ -240,16 +240,16 @@ class WorldFlow implements AcademyRouteFlow {
             onPracticeComplete: (_practiceId, stampId, evaluation) => {
                 this.locationAudio.succeed(place);
                 if (evaluation) void this.options.evidence.recordWorldPractice?.(evaluation);
-                // `complete()` in world-screen.ts (and the sibling world-* renderers) has
-                // just written the success confirmation into the practice's status text.
-                // Going to the route immediately re-renders the whole screen synchronously
-                // enough to out-race the browser's paint, so the learner never actually sees
-                // the written confirmation. Hold the re-render open long enough for the
-                // confirmation to be seen before swapping the screen out.
+                const update = { seenIntroductions: markSeen(stampId) };
+                if (context.save) {
+                    // Keep the completed prop and success state mounted. A route-local save
+                    // records the stamp without replacing the screen the learner just changed.
+                    void context.save(update).catch(() => context.go(context.checkpoint.route, update));
+                    return;
+                }
+                // Compatibility fallback for older embedded hosts without route-local save.
                 setTimeout(() => {
-                    void context.go(context.checkpoint.route, {
-                        seenIntroductions: markSeen(stampId),
-                    });
+                    void context.go(context.checkpoint.route, update);
                 }, 1200);
             },
             // Route-flow harnesses and older embedded hosts may not mount an audio director.
